@@ -1,3 +1,3 @@
-# Repositor for landing page
+# Repository for my landing page
 
-https://jkruppa.github.io/
+Please visit https://jkruppa.github.io/ for a full list of available software and repositories
