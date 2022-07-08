@@ -1,0 +1,202 @@
+```{r echo = FALSE}
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
+```
+
+# Der t-Test {#sec-ttest}
+
+## Genutzte R Pakete für das Kapitel
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+pacman::p_load(tidyverse, magrittr, broom)
+```
+
+Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+## Die Wichtigkeit des t-Tests
+
+$$
+\text{Teststatistik} = \cfrac{\text{Signal}}{\text{Noise}}
+$$
+
+```{r}
+#| echo: false
+#| message: false
+#| tbl-cap: test caption
+#| label: tbl-data-ttest
+
+data_tbl <- read_csv2("data/flea_dog_cat.csv") %>% 
+  mutate(animal = as_factor(animal))
+
+data_tbl %>% kable(align = "c", "pipe")
+```
+
+Beispieldaten sind in @tbl-data-ttest abgebildet.
+
+```{r}
+#| message: false
+#| echo: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: Boxplot der Sprungweiten [cm] von Hunden und Katzen.
+#| label: fig-boxplot-ttest
+
+ggplot(data_tbl, aes(x = animal, y = jump_length, 
+                     fill = animal)) +
+  geom_boxplot() +
+  labs(x = "Tierart", y = "Sprungweite [cm]") +
+  theme_bw() +
+  theme(legend.position = "none") +
+  scale_x_discrete(labels = c("Hund", "Katze"))
+
+```
+
+Das ist das Beispiel @fig-boxplot-ttest
+
+```{r}
+#| message: false
+#| echo: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: Dotplot der Sprungweiten [cm] von Hunden und Katzen.
+#| label: fig-dotplot-ttest
+
+
+ggplot(data_tbl, aes(x = animal, y = jump_length, 
+                     fill = animal)) + 
+  geom_dotplot(binaxis='y', stackdir='center') + 
+  stat_summary(fun.data = mean_sdl, fun.args = list(mult=1), 
+               geom="errorbar", color="black", width=0.1) +
+  stat_summary(fun = "mean", geom="point", color="black", size = 5) +
+  labs(x = "Tierart", y = "Sprungweite [cm]") +
+  theme_bw() +
+  theme(legend.position = "none") +
+  scale_x_discrete(labels = c("Hund", "Katze")) +
+  coord_flip()
+
+
+```
+
+Das ist das Beispiel @fig-dotplot-ttest
+
+## Student t-Test
+
+```{r}
+sum_tbl <- data_tbl %>% 
+  group_by(animal) %>% 
+  summarise(mean = round(mean(jump_length), 2), sd = round(sd(jump_length), 2)) 
+
+sd_pool <- (sum_tbl$sd[1] + sum_tbl$sd[2])/2
+t_student <- round((sum_tbl$mean[1] - sum_tbl$mean[2])/(sd_pool * sqrt(2/7)), 2)
+```
+
+$$
+T_{calc} = \cfrac{\bar{y}_1-\bar{y}_2}{s_{pooled} \cdot \sqrt{\cfrac{2}{n_{group}}}}
+$$
+
+Foo[^ttest-1]
+
+[^ttest-1]: So dann hier $$
+    s_{pooled} = \sqrt{\frac{1}{2} (s^2_{y_1} + s^2_{y_2})}
+    $$
+
+$$
+s_{pooled} = \cfrac{s_{y_1} + s_{y_2}}{2}
+$$
+
+$$
+s_{pooled} = \cfrac{`r sum_tbl$sd[1]` + `r sum_tbl$sd[2]`}{2} = `r sd_pool`
+$$
+
+$$
+T_{calc} = \cfrac{`r sum_tbl$mean[1]`- `r sum_tbl$mean[2]`}{`r sd_pool` \cdot \sqrt{\cfrac{2}{7}}} = `r t_student`
+$$
+
+```{r}
+t.test(jump_length ~ animal, 
+       data = data_tbl, var.equal = TRUE)
+```
+
+```{r}
+t.test(jump_length ~ animal, 
+       data = data_tbl, var.equal = TRUE) %>% 
+  tidy() 
+```
+
+## Welch t-Test
+
+$$
+T_{calc} = \cfrac{\bar{y_1} - \bar{y_2}}{\sqrt{\cfrac{s^2_{y_1}}{n} + \cfrac{s^2_{y_2}}{m}}}
+$$
+
+Hier muss man noch bedenken, dass die Freiheitsgrade anders berechnte werden Die Freiheitsgrade werden mit[^ttest-2]
+
+[^ttest-2]: $$df = \cfrac{\left(\cfrac{s^2_{y_1}}{n} +
+    \cfrac{s^2_{y_2}}{m}\right)^2}{\cfrac{\left(\cfrac{s^2_{y_1}}{n}\right)^2}{n-1} + \cfrac{\left(\cfrac{s^2_{y_2}}{m}\right)^2}{m-1}}$$
+
+```{r}
+t.test(jump_length ~ animal, 
+       data = data_tbl, var.equal = FALSE)
+```
+
+```{r}
+t.test(jump_length ~ animal, 
+       data = data_tbl, var.equal = FALSE) %>% 
+  tidy() 
+```
+
+## Verbundener t-Test (Paired t-Test)
+
+$$
+T_{calc} = \sqrt{n}\cfrac{\bar{d}}{s_d}
+$$
+
+```{r}
+t.test(jump_length ~ animal, 
+       data = data_tbl, paired = TRUE)
+```
+
+```{r}
+t.test(jump_length ~ animal, 
+       data = data_tbl, paired = TRUE) %>% 
+  tidy() 
+```
+
+## Rest Formeln
+
+$$
+Pr\left(\left.\cfrac{\bar{y}_1-\bar{y}_2}{s_{y_1,\,y_2} \cdot \sqrt{2/n_g}}\right| \bar{y}_1-\bar{y}_2=0\right)
+$$
+
+$$
+Pr\left(\left.\cfrac{\Delta_{y_1,\, y_2}}{s_{y_1,\,y_2} \cdot \sqrt{2/n_g}}\right| \Delta_{y_1,\,y_2}=0\right)
+$$
+
+$$
+Pr\left(\left.T_{\alpha = 5\%}\right| \Delta_{y_1,\,y_2}=0\right)
+$$
+
+$$
+T = \cfrac{\Delta \cdot n}{s}
+$$
+
+$$
+\text{Pr}(D | H_0)
+$$
+
+```{=tex}
+\begin{align*} 
+T_{calc} &= \cfrac{7.24 - 9.71}{6.45 \cdot \sqrt{\frac{2}{7.5}}} \\  
+&= \cfrac{-2.47}{6.45 \cdot 0.52} \\
+&= \cfrac{-2.47}{3.354} = -0.73
+\end{align*}
+```
+```{=tex}
+\begin{align*} 
+H_0: \bar{y}_{dog} &= \bar{y}_{cat} \\  
+H_A: \bar{y}_{dog} &\neq \bar{y}_{cat} \\   
+\end{align*}
+```
