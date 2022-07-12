@@ -9,7 +9,7 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, openxlsx)
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
-pacman::p_load(tidyverse, magrittr, janitor, readxl)
+pacman::p_load(tidyverse, magrittr, readxl, broom, multcomp, emmeans)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -37,14 +37,50 @@ carbon_tbl <- read_excel("data/carbon_data.xlsx") %>%
   mutate(c2n = c_o/n,
          c_m2c_o = c_m/c_o)
 
-library(haven)
 
 ```
 
 ## Lichtintensität
 
 ```{r}
+intensity_tbl <- read_excel("data/light_intensity_data.xlsx") %>% 
+  mutate(rack = as_factor(rack),
+         layer = as_factor(layer),
+         light_intensity = factor(light_intensity, 
+                                  labels = c("low", "mid", "high")))
+```
 
-intensity_tbl <- read_excel("data/light_intensity_data.xlsx")
+```{r}
+#| echo: false
 
+intensity_tbl %>% 
+  kable(align = "c", "pipe")
+
+```
+
+```{r}
+
+fit_1 <- lm(growth ~ light_intensity + rack + layer, data = intensity_tbl)
+
+fit_1 %>% anova %>% tidy
+
+```
+
+```{r}
+
+fit_1 %>% glht(linfct = mcp(light_intensity = "Tukey")) %>% tidy
+
+```
+
+```{r}
+
+marginal <- emmeans(fit_1, "light_intensity")
+tidy(marginal) %>% 
+  mutate_if(is.numeric, round, 2)
+
+```
+
+```{r}
+marginal %>% contrast(method = "pairwise") %>% tidy %>% 
+  mutate_if(is.numeric, round, 2)
 ```
