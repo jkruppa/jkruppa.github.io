@@ -1,0 +1,116 @@
+```{r echo = FALSE}
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, openxlsx)
+```
+
+# Beispielhafte Auswertungen
+
+## Genutzte R Pakete für das Kapitel
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+#| message: false
+pacman::p_load(tidyverse, magrittr, readxl, broom, multcomp, emmeans, conflicted)
+
+## resolve some conflicts with same function naming
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+```
+
+Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+## Auswertung von Gewichten
+
+```{r}
+
+data_tbl <- expand_grid(trt = 1:3, 
+                        block = 1:3,
+                        rep = 1:4) %>% 
+  mutate(rsp = 10 + 2 * trt + block + rnorm(n(), 0, 2),
+         trt = factor(trt, labels = c("low", "mid", "high")),
+         block = factor(block, labels = c("I", "II", "III")))
+
+```
+
+```{r}
+#| echo: false
+data_tbl %>% 
+  mutate(rsp = round(rsp, 2)) %>% 
+  kable(align = "c", "pipe")
+```
+
+### Explorative Datenanalyse (EDA)
+
+```{r}
+ggplot(data_tbl, aes(trt, rsp, color = block)) +
+  geom_boxplot()
+
+
+```
+
+```{r}
+#| message: false
+
+stat_tbl <- data_tbl %>% 
+  group_by(trt, block) %>% 
+  summarise(mean = mean(rsp),
+            sd = sd(rsp),
+            se = sd/sqrt(n()))
+
+
+ggplot(stat_tbl, aes(x = trt, y = mean, fill = block)) + 
+    geom_bar(position = position_dodge(), stat = "identity") +
+    geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd),
+                  width=.2,                    # Width of the error bars
+                  position=position_dodge(.9))
+
+
+
+```
+
+### Lineares Modell
+
+```{r}
+fit_1 <- lm(rsp ~ trt + block, data = data_tbl)
+
+```
+
+### ANOVA
+
+```{r}
+fit_1 %>% anova
+```
+
+### Gruppenvergleich mit dem `multcomp` Paket
+
+https://broom.tidymodels.org/reference/tidy.glht.html
+
+```{r}
+
+fit_1 %>% 
+  glht(linfct = mcp(trt = "Tukey")) %>% 
+  tidy %>% 
+  select(contrast, estimate, adj.p.value) %>% 
+  mutate(across(where(is.numeric), round, 4))
+
+
+
+```
+
+### Gruppenvergleich mit der `emmeans` Paket
+
+https://broom.tidymodels.org/reference/tidy.emmGrid.html
+
+```{r}
+fit_1 %>% 
+  emmeans("trt") %>% 
+  contrast(method = "pairwise") %>% 
+  tidy %>% 
+  select(contrast, estimate, adj.p.value) %>% 
+  mutate(across(where(is.numeric), round, 4))
+
+```
+
+## Auswertung von Boniturnoten
+
+## Auswertung von Infektionsstatus
