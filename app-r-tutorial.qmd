@@ -10,10 +10,14 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 pacman::p_load(tidyverse, magrittr, readxl, broom, broom.mixed, 
-               multcomp, emmeans, performance, lme4)
+               multcomp, emmeans, performance, lme4, effectsize)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+[R Package performance](https://easystats.github.io/effectsize/articles/effectsize.html)
+
+[R Package effectsize](https://easystats.github.io/performance/index.html)
 
 ## Keimung
 
@@ -115,7 +119,9 @@ In der `csv`-Datei sind die die Tage jeweils fünfmal mit einer 1 bis 9 in den S
 Schauen wir uns nun einmal die Daten an. Unser Outcome (Y) ist `height` und auf X wollen wir das `treatment`. Das wollen wir die Boxplots noch nach dem Tag einfärben und jeweils ein Subplot für die vier Blöcke bauen.
 
 ```{r}
-#| column: screen
+#| column: page
+#| fig-height: 7
+#| fig-width: 14
 #| label: fig-crop-boxplot-1
 #| fig-cap: "An 39 Hunden wurde die Anzahl an Flöhen gezählt."
 
@@ -150,21 +156,29 @@ plant_tbl %>%
   theme_bw()
 ```
 
-@fig-crop-boxplot-2 zeigt einen Auschnitt in dem wir nur nach Block I und den Tagen 6 bis 9 gefiltert haben.
+@fig-crop-boxplot-2 zeigt einen Auschnitt in dem wir nur nach Block I und den Tagen 6 bis 9 gefiltert haben. In diesem Fall könnten wir auf den vollen Datensatz weitermachen *oder* vorab über `filter()` einen kleinern Datensatz bauen, der unsere Fragestellung bgut beantworten kann. Wir gehen jetzt den steinigeren Weg und analysieren den ganzen Datensatz - das muss nicht der bessere Weg sein!
 
-#### Lineares Modell
+#### Lineares Modell mit `lm()`
+
+Wir beginnen mit einer ANOVA und müssen dafür ein lineare Modell schätzen. Dafür nutzen wir erst die Funktion `lm()` und anschließend mit dem Ergebnis des linearen Modells die Funktion `anova()` um eine Varianzanalyse durchzuführen.
 
 ```{r}
-
 fit_height <- lm(height ~ treatment + day + block + 
-                   treatment:day + treatment:block, data = plant_tbl)
+                   treatment:day + treatment:block, 
+                 data = plant_tbl)
 
-fit_height %>% anova #%>% tidy %>% 
-  #mutate(across(where(is.numeric), round, 2))
+fit_height %>% anova
+```
 
+Wir konzentrieren uns auf die Spalte `Pr(>F)` welche den p-Wert beinhaltet. Wir schauen welcher p-Wert kleiner ist als $\alpha = 5\% = 0.05$. Alle p-Werte sind signifikant. Mindestens zwei `treatment` Level unterscheiden sich, mindestens zwei `day` Level unterschieden sich und mindestens zwei `block` Level unterscheiden sich. Abschließend ist auch der Interaktionsterm zwischen den Behandlungen und den Tagen sowie den Behandlungen und den Blöcken signifikant.
 
+```{r}
+fit_height %>% anova %>% eta_squared(partial = FALSE)
+```
 
-fit_height_lme <- lmer(height ~ treatment + block + (1|day), data = plant_tbl)
+``` {r}‚
+fit_height_lme <- lmer(height ~ treatment + block + (1|day), 
+                       data = plant_tbl)
 
 fit_height_lme %>% summary
 
@@ -187,7 +201,6 @@ ggplot(conf_tbl, aes(x = contrast, y = estimate,
   labs(x = "", y = "Mittelwertsdifferenz der Weizenhöhe [cm]") +
   coord_flip() +
   theme_bw()
-
 ```
 
 ### Chlorophyllgehalt
@@ -206,7 +219,9 @@ chlorophyl_tbl <- read_csv2("data/corn_chlorophyl.csv") %>%
 ```
 
 ```{r}
-#| column: screen
+#| column: page
+#| fig-height: 7
+#| fig-width: 14
 
 ggplot(chlorophyl_tbl, aes(x = treatment, y = chlorophyl, fill = day)) +
   geom_boxplot() +
