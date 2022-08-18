@@ -28,9 +28,29 @@ $$
 Wenn nicht anders in der Klausuraufgabe angegeben dann ist $T_{\alpha = 5\%} = 1.96$ oder $\alpha = 5\%$.
 :::
 
+## Genutzte R Pakete für das Kapitel
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+pacman::p_load(tidyverse, magrittr, broom, readxl)
+```
+
+Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+## Daten für den t-Tests
+
 Der t-Test ist *der* bedeutende Test, wenn es um das Verständnis der Algorithmen und Konzepte in der Statistik geht. Wir haben den t-test schon genutzt um die Idee des statistischen Testens zu verstehen und wir werdend den t-Test auch im statistischen Modellieren wiedertreffen.
 
-Was macht also der t-Test? Der t-Test vergleicht die Mitfellwerte zweier Gruppen miteinander. Das heißt wir haben zwei Gruppen, wie Hunde und Katzen, und wollen nun wissen wie sich die Sprungweiten der Hundeflöhe im Mittel von den Katzenflöhen unterscheiden. Wichtig ist, dass wir schon jetzt die Modellschreibweise lernen.
+Was macht also der t-Test? Der t-Test vergleicht die Mitfellwerte zweier Gruppen miteinander. Das heißt wir haben zwei Gruppen, wie Hunde und Katzen, und wollen nun wissen wie sich die Sprungweiten der Hundeflöhe im Mittel von den Katzenflöhen unterscheiden.
+
+::: callout-note
+## Was macht der t-Test?
+
+Der t-test vergleicht zwei Mittelwerte gewichtet bei der Standardabweichung und der Fallzahl miteinander. Etwas statistisch genauer vergleicht der t-Test die Parameter zweier Normalverteilungen miteinander.
+:::
+
+Wichtig ist, dass wir schon jetzt die Modellschreibweise lernen. Wir werden die Modelschreibweise immer wieder sehen und diese Art eine Abhängigkeit zu beschreiben ist sehr wichtig in den folgenden Kapiteln.
 
 ![Modellschreibweise $y$ hängt ab von $x$. Das $y$ repräsentiert eine Spalte im Datensatz und das $x$ repräsentiert ebenso eine Spalte im Datensatz. Wir brauchen also zwei Variablen $y$ und $x$, die natürlich nicht so heißen müssen.](images/statistical_modeling_0.png){#fig-ttest-0 fig-align="center" width="30%"}
 
@@ -54,17 +74,11 @@ In @fig-ttest-1 sehen wir einmal den Zusammenhang zwischen den Schreibweise $y \
 
 ![Modellschreibweise bzw. `formula` Schreibweise in R von $y$ hängt ab von $x$ am Beispiel des Datensatzes `flea_dog_cat.xlsx` mit den beiden Variablen `jump_length` als $y$ und `animal` als $x$.](images/statistical_modeling_1.png){#fig-ttest-1 fig-align="center" width="80%"}
 
-::: callout-note
-## Was macht der t-Test?
-
-Der t-test vergleicht zwei Mittelwerte gewichtet bei der Standardabweichung und der Fallzahl miteinander. Etwas statistisch genauer vergleicht der t-Test die Parameter zweier Normalverteilungen miteinander.
-:::
-
 ::: column-margin
 [Zentraler Grenzwertsatz](https://de.wikipedia.org/wiki/Zentraler_Grenzwertsatz)
 :::
 
-Wir benötigen für den t-Test ein normalverteiltes $y$ und einen Faktor mit zwei Leveln als $x$. Wir nehmen daher mit `select()`die Spalte `jump_length` und `animal`.
+Wir benötigen für den t-Test ein normalverteiltes $y$ und einen Faktor mit zwei Leveln als $x$. Wir nehmen daher mit `select()`die Spalte `jump_length` und `animal` aus dem Datensatz `flea_dog_cat.xlsx`. Wichtig ist, dass wir die Spalte `animal` mit der Funktion `as_factor()` in einen Faktor umwandeln. Anschließend speichern wir die Auswahl in dem Objekt `data_tbl`.
 
 ```{r}
 data_tbl <- read_excel("data/flea_dog_cat.xlsx") %>% 
@@ -74,26 +88,14 @@ data_tbl <- read_excel("data/flea_dog_cat.xlsx") %>%
 data_tbl
 ```
 
-Beispieldaten sind in @tbl-data-ttest abgebildet.
+Wir haben jetzt die Daten richtig vorbereiten und können uns nun mit dem t-Test beschäftigen. Bevor wir den t-Test jedoch rechnen können, müssen wir uns nochmal überlegen, was der t-Test eigentlich testet und uns die Daten einmal visualisieren.
 
-## Genutzte R Pakete für das Kapitel
+## Visualiserung der Daten
 
-Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+Bevor wir einen statistischen Test rechnen, wollen wir uns erstmal die Daten, die dem Test zugrundeliegen, visualisieren. Wir schauen uns in @fig-boxplot-ttest einmal den Boxplot für die Sprungweiten getrennt nach Hund und Katze an.
 
-```{r echo = TRUE}
-pacman::p_load(tidyverse, magrittr, broom, readxl)
-```
+Wir sehen, dass sich die Boxen nicht überschneiden, ein Indiz für einen signifikanten Unterschied zwischen den beiden Gruppen. Im Weiteren liegt der Median in etwa in der Mitte der beiden Boxen. Die Whisker sind ungefähr gleich bei Hunden und Katzen. Ebenso sehen wir bei beiden Gruppen keine Ausreißer.
 
-Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
-
-## Hypothesenpaar
-
-```{=tex}
-\begin{align*} 
-H_0: \bar{y}_{dog} &= \bar{y}_{cat} \\  
-H_A: \bar{y}_{dog} &\neq \bar{y}_{cat} \\   
-\end{align*}
-```
 ```{r}
 #| message: false
 #| echo: false
@@ -108,12 +110,11 @@ ggplot(data_tbl, aes(x = animal, y = jump_length,
   geom_boxplot() +
   labs(x = "Tierart", y = "Sprungweite [cm]") +
   theme_bw() +
-  theme(legend.position = "none") +
-  scale_x_discrete(labels = c("Hund", "Katze"))
+  theme(legend.position = "none") 
 
 ```
 
-Das ist das Beispiel @fig-boxplot-ttest
+Manchaml ist es etwas verwirrend, dass wir uns in einem Boxplot mit Median und IQR die Daten für einen t-Test anschauen. Immerhin rechnet ja ein t-Test mit den Mittelwerten und der Standardabweichung. Hier vergleichen wir etwas Äpfel mit Birnen. Deshalb in der @fig-dotplot-ttest der Dotplot mit dem Mittelwert und den entsprechender Standardabweichung als Fehlerbalken.
 
 ```{r}
 #| message: false
@@ -121,15 +122,15 @@ Das ist das Beispiel @fig-boxplot-ttest
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: Dotplot der Sprungweiten [cm] von Hunden und Katzen zusammen mit dem Mittelwert und der Stanardabweichung.
+#| fig-cap: Dotplot der Sprungweiten [cm] von Hunden und Katzen zusammen mit dem Mittelwert und der Stanardabweichung als Fehlerbalken.
 #| label: fig-dotplot-ttest
 
 
 ggplot(data_tbl, aes(x = animal, y = jump_length, 
                      fill = animal)) + 
-  geom_dotplot(binaxis='y', stackdir='center') + 
+  geom_dotplot(binaxis = 'y', stackdir = 'center') + 
   stat_summary(fun.data = mean_sdl, fun.args = list(mult=1), 
-               geom="errorbar", color="black", width=0.1) +
+               geom = "errorbar", color = "black", width = 0.1) +
   stat_summary(fun = "mean", geom="point", color="black", size = 5) +
   labs(x = "Tierart", y = "Sprungweite [cm]") +
   theme_bw() +
@@ -139,8 +140,22 @@ ggplot(data_tbl, aes(x = animal, y = jump_length,
 
 ```
 
-Das ist das Beispiel @fig-dotplot-ttest
+Das ist das Beispiel
 
+## Hypothesenpaar
+
+Ohne eine Hypothese ist das Ergebnis eines statistischen Tests wie auch der t-Test nicht zu interpretieren. Wir berechenen eine Teststatistik und einen p-Wert. Beide statistischen Maßzahlen machen eine Aussage über die beobachteten Daten $D$ unter der Annahme, das die Nullhypothese $H_0$ gilt.
+
+Wie lautet nun das Hypothesenpaar des t-Tests? Der t-Test vergleicht die Mittelwerte von zwei Gruppen. Die Nullhypothese ist auch die Gleichheitshypothese. Die Alternativehypothese haben wir auch als Unterschiedshypothese bezeichnet.
+
+Daher ergibt sich für unser Beispiel mit den Sprungweiten für Hunde- und Katzenflöhen folgende Hypothesen. Die Nullhypothese sagt, dass die mittleren Sprungweite für die Hundeflöhe gleich der mittleren Sprungweite der Katzenflöhe ist.
+
+```{=tex}
+\begin{align*} 
+H_0: \bar{y}_{dog} &= \bar{y}_{cat} \\  
+H_A: \bar{y}_{dog} &\neq \bar{y}_{cat} \\   
+\end{align*}
+```
 ## Student t-Test
 
 ```{r}
