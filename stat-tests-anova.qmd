@@ -1,8 +1,16 @@
 ```{r echo = FALSE}
-pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, plyr)
 ```
 
 # Die ANOVA {#sec-anova}
+
+::: callout-tip
+## Einführung in die ANOVA per Video
+
+Du findest auf YouTube [Grundlagen in R](https://www.youtube.com/playlist?list=PLe51bCp9JvEFUnFqaJG5aRmON9i1ZbOYC) als Video Reihe. Ich werde zwar alles nochmal hier als Text aufschreiben, aber manchmal ist das Sehen und Hören dann einfacher.
+:::
+
+Text was die ANOVA macht
 
 ::: callout-note
 ## Was macht die ANOVA?
@@ -14,11 +22,21 @@ Die Parameter einer Normalverteilung sind der Mittelwert und die Standardabweich
 $\mathcal{N}(0, 1)$
 :::
 
-::: callout-tip
-## Einführung in die ANOVA per Video
+::: {.callout-caution collapse="true"}
+## Ein Wort zur Klausur
 
-Du findest auf YouTube [Grundlagen in R](https://www.youtube.com/playlist?list=PLe51bCp9JvEFUnFqaJG5aRmON9i1ZbOYC) als Video Reihe. Ich werde zwar alles nochmal hier als Text aufschreiben, aber manchmal ist das Sehen und Hören dann einfacher.
+Wir rechnen keine ANOVA in der Klausur per Hand sondern interpretieren die Ausgabe der R Fnktionen einer einfaktoriellen oder zweifaktoriellen ANOVA.
 :::
+
+## Genutzte R Pakete für das Kapitel
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+pacman::p_load(tidyverse, magrittr, broom, readxl, effectsize)
+```
+
+Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
 
 ## Einfaktorielle ANOVA
 
@@ -30,7 +48,110 @@ Du findest auf YouTube [Grundlagen in R](https://www.youtube.com/playlist?list=P
 
 fac1_tbl <- read_csv2("data/flea_dog_cat_fox.csv") 
 
+stat <- ddply(fac1_tbl, "animal", summarize,
+              mean = mean(jump_length, na.rm = TRUE),
+              sd = round(sd(jump_length, na.rm = TRUE), 2))
+grand_mean <- mean(fac1_tbl$jump_length, na.rm = TRUE)
+
 fac1_tbl %>% kable(align = "c", "pipe")
+```
+
+```{r}
+ggplot(fac1_tbl, aes(x = 1, y = jump_length)) + 
+  geom_point() +
+  theme_bw() +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        legend.position="none") +
+  ylab("") + xlab("")
+```
+
+```{r}
+ggplot(fac1_tbl, aes(x = 1, y = jump_length, color = animal)) + 
+  geom_point() +
+  ##scale_colour_manual(values = par$cbbPalette) +
+  theme(legend.position="none") +
+  theme_bw() +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        legend.position="none") +
+  ylab("") + xlab("")
+```
+
+```{r}
+ggplot(fac1_tbl, aes(x = animal, y = jump_length, color = animal)) + 
+  geom_point() +
+  ##scale_colour_manual(values = par$cbbPalette) +
+  theme(legend.position="none") +
+  theme_bw() +
+  theme(legend.position="none") +
+  ylab("") + xlab("") 
+```
+
+```{r}
+ggplot(fac1_tbl, aes(x = animal, y = jump_length, color = animal)) + 
+  geom_boxplot() +
+  ##scale_colour_manual(values = par$cbbPalette) +
+  theme(legend.position="none") +
+  theme_bw() +
+  theme(legend.position="none") +
+  ylab("") + xlab("") 
+```
+
+```{r}
+ggplot(fac1_tbl, aes(x = animal, y = jump_length, color = animal)) + 
+  geom_point() +
+  theme_bw() +
+  geom_jitter(position = position_jitter(width = 0.4))  +
+  stat_summary(fun.y=mean, aes(ymin=..y.., ymax=..y..), 
+               geom='errorbar', width = 0.65, color = "black", size = 1.25) +
+  geom_hline(yintercept = mean(fac1_tbl$jump_length)) +
+  annotate("text", x = 1:3, y = 8.5,
+           label = round(stat$mean - grand_mean, 2)) +
+  theme(legend.position="none") +
+  ##scale_colour_manual(values = par$cbbPalette) +
+  ylab("") + xlab("")
+```
+
+```{r}
+#| message: false
+#| label: fig-dens-flea-1
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Zusammenhang von Histogramm und Densityplot an der Anzahl der Flöhe auf 39 Hunden."
+#| fig-subcap: 
+#|   - "Histogramm"
+#|   - "Densityplot"
+#| layout-nrow: 1
+#| column: page
+
+no_effect_df <- setNames(stack(tibble(A = rnorm(20, 20, 1),
+                                     B = rnorm(20, 20, 1),
+                                     C = rnorm(20, 20, 1),
+                                     D = rnorm(20, 20, 1))),
+                        c("values", "trt"))
+
+ggplot(no_effect_df, aes(x = trt, y = values, fill = trt)) + geom_boxplot() +
+  theme_bw() +
+  ##scale_fill_manual(values = par$cbbPalette) +
+  theme(legend.position="none") +
+  ylab("") + xlab("")
+
+light_effect_df <- setNames(stack(tibble(A = rnorm(20, 20, 3),
+                                         B = rnorm(20, 22, 4),
+                                         C = rnorm(20, 26, 4),
+                                         D = rnorm(20, 24, 3))),
+                            c("values", "trt"))
+
+ggplot(light_effect_df, aes(x = trt, y = values, fill = trt)) + geom_boxplot() +
+  theme_bw() +
+  ##scale_fill_manual(values = par$cbbPalette) +
+  theme(legend.position="none") +
+  ylab("") + xlab("")
+
 ```
 
 Beispieldaten sind in @tbl-data-anova-1 abgebildet.
@@ -53,6 +174,15 @@ ggplot(fac1_tbl, aes(x = animal, y = jump_length,
 
 ```
 
+```{r}
+fit_1 <-  lm(jump_length ~ animal, data = fac1_tbl) %>% 
+  anova
+
+fit_1
+
+fit_1 %>% eta_squared
+```
+
 ## Zweifaktorielle ANOVA
 
 ```{r}
@@ -67,7 +197,7 @@ fac2_tbl <- read_csv2("data/flea_dog_cat_fox_site.csv") %>%
 
 ```
 
-Beispieldaten sind in @fig-data-anova-2 abgebildet.
+Beispieldaten sind in @fig-boxplot-anova-2 abgebildet.
 
 ```{r}
 #| message: false
@@ -83,4 +213,39 @@ ggplot(fac2_tbl, aes(x = animal, y = jump_length,
   geom_boxplot() +
   labs(x = "Tierart", y = "Sprungweite [cm]") +
   theme_bw() 
+```
+
+```{r}
+fit_2 <-  lm(jump_length ~ animal + site, data = fac2_tbl) %>% 
+  anova
+
+fit_2
+
+fit_2 %>% eta_squared
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: Boxplot der Sprungweiten [cm] von Hunden und Katzen.
+#| label: fig-interact-anova-1
+
+ggplot(fac2_tbl, aes(x = animal, y = jump_length,
+                     color = site, group = site)) +
+  stat_summary(fun.y = mean, geom = "point") +
+  stat_summary(fun.y = mean, geom = "line") +
+  theme_bw()
+
+```
+
+```{r}
+fit_3 <-  lm(jump_length ~ animal + site + animal:site, data = fac2_tbl) %>% 
+  anova
+
+fit_3
+
+fit_3 %>% eta_squared
 ```
