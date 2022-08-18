@@ -96,6 +96,11 @@ Bevor wir einen statistischen Test rechnen, wollen wir uns erstmal die Daten, di
 
 Wir sehen, dass sich die Boxen nicht überschneiden, ein Indiz für einen signifikanten Unterschied zwischen den beiden Gruppen. Im Weiteren liegt der Median in etwa in der Mitte der beiden Boxen. Die Whisker sind ungefähr gleich bei Hunden und Katzen. Ebenso sehen wir bei beiden Gruppen keine Ausreißer.
 
+Wir schließen daher nach der Betrachtung der Boxplots auf Folgendes:
+
+1)  Die Sprungweite ist für beide Gruppen ist annäherend bzw. approximativ normalverteilt.
+2)  Die Standardabweichungen und damit die Varianzen $s^2_{dog} = s^2_{cat}$ der beiden Gruppen sind gleich. Es liegt somit Varianzhomogenität vor.
+
 ```{r}
 #| message: false
 #| echo: false
@@ -114,7 +119,7 @@ ggplot(data_tbl, aes(x = animal, y = jump_length,
 
 ```
 
-Manchaml ist es etwas verwirrend, dass wir uns in einem Boxplot mit Median und IQR die Daten für einen t-Test anschauen. Immerhin rechnet ja ein t-Test mit den Mittelwerten und der Standardabweichung. Hier vergleichen wir etwas Äpfel mit Birnen. Deshalb in der @fig-dotplot-ttest der Dotplot mit dem Mittelwert und den entsprechender Standardabweichung als Fehlerbalken.
+Manchmal ist es etwas verwirrend, dass wir uns in einem Boxplot mit Median und IQR die Daten für einen t-Test anschauen. Immerhin rechnet ja ein t-Test mit den Mittelwerten und der Standardabweichung. Hier vergleichen wir etwas Äpfel mit Birnen. Deshalb in der @fig-dotplot-ttest der Dotplot mit dem Mittelwert und den entsprechender Standardabweichung als Fehlerbalken.
 
 ```{r}
 #| message: false
@@ -140,7 +145,7 @@ ggplot(data_tbl, aes(x = animal, y = jump_length,
 
 ```
 
-Das ist das Beispiel
+Wir nutzen aber später häufig den Boxplot zur Visualisierung der einzelnen Gruppen. Über den Boxplot können wir auch gut abschätzen, ob wir eine annährende bzw. approximative Normalverteilung vorliegen haben.
 
 ## Hypothesenpaar
 
@@ -148,7 +153,7 @@ Ohne eine Hypothese ist das Ergebnis eines statistischen Tests wie auch der t-Te
 
 Wie lautet nun das Hypothesenpaar des t-Tests? Der t-Test vergleicht die Mittelwerte von zwei Gruppen. Die Nullhypothese ist auch die Gleichheitshypothese. Die Alternativehypothese haben wir auch als Unterschiedshypothese bezeichnet.
 
-Daher ergibt sich für unser Beispiel mit den Sprungweiten für Hunde- und Katzenflöhen folgende Hypothesen. Die Nullhypothese sagt, dass die mittleren Sprungweite für die Hundeflöhe gleich der mittleren Sprungweite der Katzenflöhe ist.
+Daher ergibt sich für unser Beispiel mit den Sprungweiten für Hunde- und Katzenflöhen folgende Hypothesen. Die Nullhypothese sagt, dass die mittleren Sprungweite für die Hundeflöhe gleich der mittleren Sprungweite der Katzenflöhe ist. Die Alternativehypothese sagt aus, dass sich die mittlere Sprungweite von Hunde- und Katzenflöhen unterscheidet.
 
 ```{=tex}
 \begin{align*} 
@@ -156,23 +161,11 @@ H_0: \bar{y}_{dog} &= \bar{y}_{cat} \\
 H_A: \bar{y}_{dog} &\neq \bar{y}_{cat} \\   
 \end{align*}
 ```
+Wir testen grundsätzlich auf ein zweiseitiges $\alpha$-Niveau von 5%.
+
 ## Student t-Test
 
-```{r}
-sum_tbl <- data_tbl %>% 
-  group_by(animal) %>% 
-  summarise(mean = round(mean(jump_length), 2), 
-            sd = round(sd(jump_length), 2)) 
-
-sd_pool <- (sum_tbl$sd[1] + sum_tbl$sd[2])/2
-t_student <- round((sum_tbl$mean[1] - sum_tbl$mean[2])/(sd_pool * sqrt(2/7)), 2)
-```
-
-$$
-T_{calc} = \cfrac{\bar{y}_1-\bar{y}_2}{s_{pooled} \cdot \sqrt{\cfrac{2}{n_{group}}}}
-$$
-
-Foo
+Liegt ein normalverteiltes $y$ vor und sind die Varianzen für die beiden zu vergleichenden Gruppen homogen $s^2_{cat} = s^2_{dog}$, können wir einen Student t-Test rechnen. Wir nutzen dazu die folgendeFormel des Student t-Tests.
 
 ::: column-margin
 ![](images/angel_01.png){fig-align="center" width="50%"}
@@ -180,21 +173,52 @@ Foo
 Eigentlich wäre hier folgende Formel richtig...
 
 $$
-s_{pooled} = \sqrt{\frac{1}{2} (s^2_{y_1} + s^2_{y_2})}
+s_{p} = \sqrt{\frac{1}{2} (s^2_{dog} + s^2_{cat})}
 $$ ...aber auch hier erwischen wir einen Statistikengel um es etwas einfacher zu machen.
 :::
 
 $$
-s_{pooled} = \cfrac{s_{y_1} + s_{y_2}}{2}
+T_{calc} = \cfrac{\bar{y}_{dog}-\bar{y}_{cat}}{s_{p} \cdot \sqrt{\cfrac{2}{n_{group}}}}
 $$
+
+mit der vereinfachten Formel für die gepoolte Standardabweichung \$s_p.
+
+$$
+s_{p} = \cfrac{s_{dog} + s_{cat}}{2}
+$$
+
+Wir wollen nun die Werte für $\bar{y}_{dog}$, $\bar{y}_{cat}$ und $s_{p}$ berechnen. Wir nutzen hierfür R auf die etwas komplizierte Art und Weise. Es gibt in R auch die Funktion `t.test()`, die für uns alles auf einmal macht, aber hier nochaml zu Fuß.
+
+```{r}
+sum_tbl <- data_tbl %>% 
+  group_by(animal) %>% 
+  summarise(mean = round(mean(jump_length), 2), 
+            sd = round(sd(jump_length), 2)) 
+
+sum_tbl
+```
+
+```{r}
+#| echo: false
+sd_pool <- (sum_tbl$sd[1] + sum_tbl$sd[2])/2
+t_student <- round((sum_tbl$mean[1] - sum_tbl$mean[2])/(sd_pool * sqrt(2/7)), 2)
+```
+
+Wir erhalten durch die Funktion `group_by()` den Mittelwert und die Standardabweichung für die Sprungweite getrennt für die Hunde- und Katzenflöhe. Wir können damit die beiden obigen Formeln füllen.
+
+Wir berechnen $s_p$ wie folgt.
 
 $$
 s_{pooled} = \cfrac{`r sum_tbl$sd[1]` + `r sum_tbl$sd[2]`}{2} = `r sd_pool`
 $$
 
+Anschließend können wir jetzt $s_p$ und die Mittelwerte sowie die Gruppengröße $n_g = 7$ in die Formel für den Student t-Test einsetzen und die Teststatistik $T_{calc}$ berechnen.
+
 $$
 T_{calc} = \cfrac{`r sum_tbl$mean[1]`- `r sum_tbl$mean[2]`}{`r sd_pool` \cdot \sqrt{\cfrac{2}{7}}} = `r t_student`
 $$
+
+Wir erhalten eine Teststatistik $T_{calc} = `r t_student`$ die wir mit dem kritischen Wert $T_{\alpha = 5\%} = 2.17$ vergleichen können. Da $T_{calc} > T_{\alpha = 5\%}$ ist, können wir die Nullhypothese ablehnen. Wir haben ein signifikanten Unterschied zwischen den mittleren Sprungweiten von Hunde- und Katzenflöhen nachgewiesen.
 
 ```{r}
 t.test(jump_length ~ animal, 
