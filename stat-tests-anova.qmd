@@ -51,6 +51,8 @@ Die *zweifaktorielle* ANOVA vergleicht die Parameter mehrerer Normalverteilungen
 Wir rechnen keine ANOVA in der Klausur *per Hand* sondern interpretieren die Ausgabe der R Funktionen einer einfaktoriellen oder zweifaktoriellen ANOVA. Auch hier gilt, überprüfe was du in der Vorlesung gehört hast!
 
 Bitte schau dir unbedingt die Aufgaben in den [gesammelten Klausurfragen auf GitHub](https://github.com/jkruppa/teaching/tree/main/Klausur) an um eine Idee zu haben, welche Fragen zu der ANOVA drankommen.
+
+Wenn kein $F_{\alpha = 5\%}$ in der Klausur gegeben ist, setzen wir $F_{\alpha = 5\%} = 3.55$.
 :::
 
 ## Genutzte R Pakete für das Kapitel
@@ -111,24 +113,98 @@ Bevor wir jetzt das Modell verwenden, müssen wir uns nochmal überlegen, welche
 
 ### Hypothesen für die einfaktorielle ANOVA
 
+Die ANOVA betrachtet die Mittelwerte und nutzt die Varianzen um einen Unterschied nachzuweisen. Daher haben wir in der Nullhypothese als Gleichheitshypothese. In unserem Beispiel lautet die Nullhypothese, dass die Mittelwerte jedes Levels des Faktors `animal` gleich sind.
+
 ```{=tex}
 \begin{align*}
 H_0: &\; \bar{y}_{cat} = \bar{y}_{dog} = \bar{y}_{fox}\\
+\end{align*}
+```
+Die Alternative lautet, dass sich mindestens ein paarweiser Vergleich in den Mittelwerten unterschiedet. Hierbei ist das *mindestens ein Vergleich* wichtig. Es können sich alle Mittelwerte unterschieden oder eben nur ein paar. Wenn eine ANOVA die $H_0$ ablehnt, also ein signifikantes Ergebnis liefert, dann wissen wir nicht, welche Mittelwerte sich unterscheiden.
+
+```{=tex}
+\begin{align*}
 H_A: &\; \bar{y}_{cat} \ne \bar{y}_{dog}\\
 \phantom{H_A:} &\; \bar{y}_{cat} \ne \bar{y}_{fox}\\
 \phantom{H_A:} &\; \bar{y}_{dog} \ne \bar{y}_{fox}\\
 \phantom{H_A:} &\; \mbox{für mindestens ein Paar}
 \end{align*}
 ```
-Text
+Wir schauen uns jetzt einmal die ANOVA theoretisch an bevor wir uns mit der Anwendung der ANOVA in R beschäftigen.
 
 ### Einfaktoriellen ANOVA theoretisch
 
-Decision rule: reject $H_0$ if $F > F_{df_A = k-1,\,df_E=N-k,\,1-\alpha}$
+Kommen wir zurück zu den Daten in @tbl-data-anova-1. Wenn wir die ANOVA per Hand rechnen wollen, dann ist nicht das Long Format die beste Wahl sondern das Wide Format. Wir haben ein balanciertes Design vorliegen, dass heißt in jeder Level sind die gleiche Anzahl Beobachtungen. Wir schauen uns jeweils sieben Flöhe von jeder Tierart an. Für eine ANOVA ist aber ein balanciertes Design nicht notwendig, wir können auch mit ungleichen Gruppengrößen eine ANOVA rechnen.
 
-Wir haben ein balanciertes Design. Für eine ANOVA ist aber ein balanciertes Design nicht notwendig.
+In @tbl-fac1-wide-01 sehen wir die Daten einmal als Wide Format dargestellt.
 
-$\bar{y}_{..} = 7.34$
+|  j  | dog  | cat | fox  |
+|:---:|:----:|:---:|:----:|
+|  1  | 5.7  | 3.2 | 7.7  |
+|  2  | 8.9  | 2.2 | 8.1  |
+|  3  | 11.8 | 5.4 | 9.1  |
+|  4  | 8.2  | 4.1 | 9.7  |
+|  5  | 5.6  | 4.3 | 10.6 |
+|  6  | 9.1  | 7.9 | 8.6  |
+|  7  | 7.6  | 6.1 | 10.3 |
+
+: Test {#tbl-fac1-wide-01}
+
+Wir können jetzt für jedes de Level den Mittelwert über all $j=7$ Beobachtungen berechnen.
+
+```{=tex}
+\begin{align*}
+\bar{y}_{dog} &= 4.74 \\
+\bar{y}_{cat} &= 8.13 \\
+\bar{y}_{fox} &= 9.16 \\
+\end{align*}
+```
+Wir tuen jetzt für einen Moment so, als gebe es den Faktor `animal` nicht in den Daten.
+
+```{r}
+#| message: false
+#| echo: false
+#| label: fig-anova-exp-1
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Zusammenhang von Histogramm und Densityplot an der Anzahl der Flöhe auf 39 Hunden."
+#| fig-subcap: 
+#|   - "Die Sprungweite in [cm] ohne den Faktor `animal` betrachtet."
+#|   - "Die Sprungweite in [cm] mit den Faktor `animal` eingefärbt."
+#|   - "Die Sprungweite in [cm] mit den Faktor `animal` eingefärbt und gruppiert."
+#| layout-nrow: 1
+#| column: page
+
+ggplot(fac1_tbl, aes(x = as.factor(1), y = jump_length)) + 
+  geom_point() +
+  theme_bw() +
+  theme(axis.title.x=element_blank(),
+        #axis.text.x=element_blank(),
+        #axis.ticks.x=element_blank(),
+        legend.position="none") +
+  ylab("") + xlab("")
+
+ggplot(fac1_tbl, aes(x = as.factor(1), y = jump_length, color = animal)) + 
+  geom_point() +
+  ##scale_colour_manual(values = par$cbbPalette) +
+  theme_bw() +
+  theme(axis.title.x=element_blank(),
+        #axis.text.x=element_blank(),
+        #axis.ticks.x=element_blank(),
+        legend.position="none") +
+  ylab("") + xlab("")
+
+ggplot(fac1_tbl, aes(x = animal, y = jump_length, color = animal)) + 
+  geom_point() +
+  theme_bw() +
+  ##scale_colour_manual(values = par$cbbPalette) +
+  theme(axis.title.x=element_blank(),
+        #axis.text.x=element_blank(),
+        #axis.ticks.x=element_blank(),
+        legend.position="none") +
+  ylab("") + xlab("") 
+```
 
 |       j        |  dog   |  cat   |  fox   |
 |:--------------:|:------:|:------:|:------:|
@@ -144,7 +220,64 @@ $\bar{y}_{..} = 7.34$
 
 : Test
 
-text
+$\bar{y}_{..} = 7.34$
+
+```{r}
+#| message: false
+#| echo: false
+#| label: fig-anova-exp-5
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Zusammenhang von Histogramm und Densityplot an der Anzahl der Flöhe auf 39 Hunden."
+#| fig-subcap: 
+#|   - "Die Sprungweite in [cm] mit den Faktor `animal` gruppiert und das globale Mittel $\bar{y}_{..} = 7.34$ ergänzt."
+#|   - "Die Sprungweite in [cm] mit den Faktor `animal` gruppiert und die lokalen Mittel $\bar{y}_{i.}$ für jedes Level ergänzt."
+#|   - "Die Sprungweite in [cm] mit den Faktor `animal` gruppiert und die Abweichungen $\beta_i$ ergänzt."
+#| layout-nrow: 1
+#| column: page
+
+stat <- ddply(fac1_tbl, "animal", summarize,
+              mean = mean(jump_length, na.rm = TRUE),
+              sd = round(sd(jump_length, na.rm = TRUE), 2))
+grand_mean <- mean(fac1_tbl$jump_length, na.rm = TRUE)
+
+ggplot(fac1_tbl, aes(x = animal, y = jump_length, fill = animal)) + 
+  theme_bw() +
+  geom_dotplot(binaxis = "y", stackdir = "center") +
+  geom_hline(yintercept = mean(fac1_tbl$jump_length), size = 1.25, linetype = "dashed",
+             alpha = 0.5) +
+  theme(legend.position="none") +
+  scale_y_continuous(breaks = c(round(grand_mean, 2))) +
+  ylab("") + xlab("")
+
+
+ggplot(fac1_tbl, aes(x = animal, y = jump_length, fill = animal)) + 
+  theme_bw() +
+  geom_dotplot(binaxis = "y", stackdir = "center") +
+  stat_summary(fun = mean, aes(ymin=..y.., ymax=..y..), 
+               geom='errorbar', width = 0.5, color = "black", size = 1.25) +
+  geom_hline(yintercept = mean(fac1_tbl$jump_length), size = 1.25, linetype = "dashed",
+             alpha = 0.5) +
+  theme(legend.position="none") +
+  scale_y_continuous(breaks = c(4.75, round(grand_mean, 2), 8.13, 9.16)) +
+  ylab("") + xlab("")
+
+
+ggplot(fac1_tbl, aes(x = animal, y = jump_length, fill = animal)) + 
+  theme_bw() +
+  geom_dotplot(binaxis = "y", stackdir = "center") +
+  stat_summary(fun = mean, aes(ymin=..y.., ymax=..y..), 
+               geom='errorbar', width = 0.5, color = "black", size = 1.25) +
+  geom_hline(yintercept = mean(fac1_tbl$jump_length), size = 1.25, linetype = "dashed",
+             alpha = 0.5) +
+  annotate("text", x = 1:3, y = 6.7, size = 5,
+           label = round(stat$mean - grand_mean, 2)) +
+  theme(legend.position="none") +
+  scale_y_continuous(breaks = c(4.75, round(grand_mean, 2), 8.13, 9.16)) +
+  ylab("") + xlab("")
+
+```
 
 ::: column-page
 | Varianzquelle |  df   |                             Sum of squares                             |               Mean squares               |           F$_{\boldsymbol{calc}}$            |
@@ -166,64 +299,17 @@ text
 : Einfaktorielle Anova Beispiel
 :::
 
-$F_{\alpha = 5\%} = `r round(qf(p=.05, df1=2, df2=18, lower.tail=FALSE), 2)`$
+Der kritische F Wert $F_{\alpha = 5\%}$ lautet für die einfaktorielle ANOVA in diesem konkreten Beispiel mit $F_{\alpha = 5\%} = `r round(qf(p=.05, df1=2, df2=18, lower.tail=FALSE), 2)`$.
 
-```{r}
-#| message: false
-#| echo: false
-#| label: fig-anova-exp-1
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "Zusammenhang von Histogramm und Densityplot an der Anzahl der Flöhe auf 39 Hunden."
+Die Enstscheidungsregel nach der F Testatitik lautet, die $H_0$ abzulehnen, wenn $F_{calc} > F_{\alpha = 5\%}$.
 
-ggplot(fac1_tbl, aes(x = 1, y = jump_length)) + 
-  geom_point() +
-  theme_bw() +
-  theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank(),
-        legend.position="none") +
-  ylab("") + xlab("")
-```
+::: callout-important
+## Entscheidung mit der berechneten Teststatistik $F_{\boldsymbol{calc}}$
 
-```{r}
-#| message: false
-#| echo: false
-#| label: fig-anova-exp-2
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "Zusammenhang von Histogramm und Densityplot an der Anzahl der Flöhe auf 39 Hunden."
+Bei der Entscheidung mit der berechneten Teststatistik $F_{calc}$ gilt, wenn $F_{calc} \geq F_{\alpha = 5\%}$ wird die Nullhypothese (H$_0$) abgelehnt.
 
-ggplot(fac1_tbl, aes(x = 1, y = jump_length, color = animal)) + 
-  geom_point() +
-  ##scale_colour_manual(values = par$cbbPalette) +
-  theme(legend.position="none") +
-  theme_bw() +
-  theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank(),
-        legend.position="none") +
-  ylab("") + xlab("")
-```
-
-```{r}
-#| message: false
-#| echo: false
-#| label: fig-anova-exp-3
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "Zusammenhang von Histogramm und Densityplot an der Anzahl der Flöhe auf 39 Hunden."
-
-ggplot(fac1_tbl, aes(x = animal, y = jump_length, color = animal)) + 
-  geom_point() +
-  ##scale_colour_manual(values = par$cbbPalette) +
-  theme(legend.position="none") +
-  theme_bw() +
-  ylab("") + xlab("") 
-```
+**Achtung --** Wir nutzen die Entscheidung mit der Teststatistik *nur und ausschließlich* in der Klausur. In der praktischen Anwendung hat die Betrachtung der berechneten Teststatistik *keine* Verwendung mehr.
+:::
 
 ```{r}
 #| message: false
@@ -241,35 +327,6 @@ ggplot(fac1_tbl, aes(x = animal, y = jump_length, color = animal)) +
   theme_bw() +
   theme(legend.position="none") +
   ylab("") + xlab("") 
-```
-
-```{r}
-#| message: false
-#| echo: false
-#| label: fig-anova-exp-5
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "Zusammenhang von Histogramm und Densityplot an der Anzahl der Flöhe auf 39 Hunden."
-
-stat <- ddply(fac1_tbl, "animal", summarize,
-              mean = mean(jump_length, na.rm = TRUE),
-              sd = round(sd(jump_length, na.rm = TRUE), 2))
-grand_mean <- mean(fac1_tbl$jump_length, na.rm = TRUE)
-
-ggplot(fac1_tbl, aes(x = animal, y = jump_length, color = animal)) + 
-  geom_point() +
-  theme_bw() +
-  geom_jitter(position = position_jitter(width = 0.4))  +
-  stat_summary(fun = mean, aes(ymin=..y.., ymax=..y..), 
-               geom='errorbar', width = 0.65, color = "black", size = 1.25) +
-  geom_hline(yintercept = mean(fac1_tbl$jump_length), size = 1.25, linetype = "dashed",
-             alpha = 0.5) +
-  annotate("text", x = 1:3, y = 7,
-           label = round(stat$mean - grand_mean, 2)) +
-  theme(legend.position="none") +
-  scale_y_continuous(breaks = c(4.75, round(grand_mean, 2), 8.13, 9.16)) +
-  ylab("") + xlab("")
 ```
 
 ```{r}
