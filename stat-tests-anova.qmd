@@ -4,24 +4,15 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, plyr)
 
 # Die ANOVA {#sec-anova}
 
+[Historisch betrachtet ist die ANOVA, *das* statistische Verfahren was gut per Hand ohne Computer berechnet werden kann. Daher war die ANOVA von den 20zigern bis in die frühen 90ziger des letzten Jahrhunderts *das* statistische Verfahren der Wahl.]{.aside}
+
 ::: callout-tip
 ## Einführung in die ANOVA per Video
 
 Du findest auf YouTube [Grundlagen in R](https://www.youtube.com/playlist?list=PLe51bCp9JvEFUnFqaJG5aRmON9i1ZbOYC) als Video Reihe. Ich werde zwar alles nochmal hier als Text aufschreiben, aber manchmal ist das Sehen und Hören dann einfacher.
 :::
 
-[Historisch betrachtet ist die ANOVA, *das* statistische Verfahren was gut per Hand ohne Computer berechnet werden kann. Daher war die ANOVA von den 20zigern bis in die frühen 90ziger des letzten Jahrhunderts *das* statistische Verfahren der Wahl.]{.aside}
-
 Die ANOVA (eng. *analysis of variance*) ist wichtig. Was für ein schöner Satz um anzufangen. Wir brauchen die ANOVA aus mehreren Gründen. Die Hochzeiten der ANOVA sind eigentlich vorbei, wir haben in der Statistik für viele Fälle mittlerweile besser Werkzeuge, aber als Allrounder ist die ANOVA immer noch nutzbar.
-
-Wofür brauchen wir die ANOVA?
-
-1)  Wir brauchen die ANOVA um mehr als zwei Gruppen *gleichzeitig* miteinander zu vergleichen. Das heißt wir haben einen Faktor mit mehr als zwei Levels und wollen wissen, ob sich *mindestens* zwei Level bzw. Gruppen im mittelwert unterscheiden.
-2)  Wir brauchen die ANOVA und deren Varianzzerlegung in der Züchtung. Hier speilt die ANOVA eine gewichtige Rolle bei der Abschätzung des genetischen Effekts. Wir werden aktuell (Stand Ende 2022) hierauf noch nicht tiefer eingehen.
-3)  Wir nutzen die ANOVA in vielen Anwendunsggebieten als eine Arte Vortest um zu schauen, ob sich ein Effekt in den Daten verbirgt. Eigentlich stammt dieses Ritual aus ANOVA als Vortest und dann ein Posthoc Test noch aus der Zeit, wo wir keine moderen Rechner zu Verfügung hatten. Damals machte diese Reihenfolge noch Sinn. Wir werdend arüber aber später nochmal lesen.
-4)  Experimentelle Designs sind darauf ausgelegt mit der ANOVA ausgewertet zu werden. Insbesondere in den Agrawissenschaften hat die ANOVA daher eine historische Bedeutung. Insbesondere durch die enge Verzahnung vom Experiment auf dem Feld und der eigentlichen Auswertung mit der ANOVA.
-
-Wir sehen also, dass die ANOVA zum einen alt ist, aber auch heute noch viel verwendet wird. Daher werden wir in diesem *langem* Kapitel uns einmal mit der ANOVA ausgiebig beschäftigen.
 
 ::: column-margin
 Die tolle Webseite [Data Science for Agriculture in R](https://schmidtpaul.github.io/DSFAIR/index.html) liefert eine Vielzahl von experimentellen Designs sowie deren Auswertung. Neben anderen komplexeren Designs, auch diese einfacheren Designs, die jeder kennen sollte.
@@ -36,6 +27,15 @@ Die tolle Webseite [Data Science for Agriculture in R](https://schmidtpaul.githu
 
 Wir gehen in einem späteren Kapitel nochmal auf die experimentellen Designs ein.
 :::
+
+Wofür brauchen wir die ANOVA?
+
+1)  Wir brauchen die ANOVA um mehr als zwei Gruppen *gleichzeitig* miteinander zu vergleichen. Das heißt wir haben einen Faktor mit mehr als zwei Levels und wollen wissen, ob sich *mindestens* zwei Level bzw. Gruppen im mittelwert unterscheiden.
+2)  Wir brauchen die ANOVA und deren Varianzzerlegung in der Züchtung. Hier speilt die ANOVA eine gewichtige Rolle bei der Abschätzung des genetischen Effekts. Wir werden aktuell (Stand Ende 2022) hierauf noch nicht tiefer eingehen.
+3)  Wir nutzen die ANOVA in vielen Anwendunsggebieten als eine Arte Vortest um zu schauen, ob sich ein Effekt in den Daten verbirgt. Eigentlich stammt dieses Ritual aus ANOVA als Vortest und dann ein Posthoc Test noch aus der Zeit, wo wir keine moderen Rechner zu Verfügung hatten. Damals machte diese Reihenfolge noch Sinn. Wir werdend arüber aber später nochmal lesen.
+4)  Experimentelle Designs sind darauf ausgelegt mit der ANOVA ausgewertet zu werden. Insbesondere in den Agrawissenschaften hat die ANOVA daher eine historische Bedeutung. Insbesondere durch die enge Verzahnung vom Experiment auf dem Feld und der eigentlichen Auswertung mit der ANOVA.
+
+Wir sehen also, dass die ANOVA zum einen alt ist, aber auch heute noch viel verwendet wird. Daher werden wir in diesem *langem* Kapitel uns einmal mit der ANOVA ausgiebig beschäftigen. Fangen wir also an, dieses großartige Schwerzeitaschenmesser der Statistik besser zu verstehen.
 
 ::: callout-note
 ## Was macht die ANOVA?
@@ -66,17 +66,48 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Einfaktorielle ANOVA
 
-Hypothesen
+::: column-margin
+![](images/angel_01.png){fig-align="center" width="50%"}
+
+Die einfaktorielle ANOVA verlangt ein normalverteiltes $y$ sowie Varianzhomogenität über den Behandlungsfaktor $x$. Daher alle Level von $x$ sollen die gleiche Varianz haben.
+
+Unsere Annahme an die Daten $D$ ist, dass das dein $y$ normalverteilt ist und das die Level vom $x$ homogen in den Varianzen sind. Später mehr dazu, wenn wir beides nicht vorliegen haben...
+:::
+
+### Daten für die einfaktorielle ANOVA
+
+```{r}
+#| message: false
+
+fac1_tbl <- read_csv2("data/flea_dog_cat_fox.csv") %>%
+  select(animal, jump_length) %>% 
+  mutate(animal = as_factor(animal))
+
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: test caption
+#| label: tbl-data-anova-1
+
+fac1_tbl %>% kable(align = "c", "pipe")
+```
+
+### Hypothesen für die einfaktorielle ANOVA
 
 ```{=tex}
 \begin{align*}
-H_0&: \mu_1 = \mu_2 = \cdots = \mu_k\\
-H_A&: \mu_i \ne \mu_{i'}\; \mbox{for at least one pair of}\; i,i' \in \{1, 2, \cdots, k\}
+H_0: &\; \bar{y}_{cat} = \bar{y}_{dog} = \bar{y}_{fox}\\
+H_A: &\; \bar{y}_{cat} \ne \bar{y}_{dog}\\
+\phantom{H_A:} &\; \bar{y}_{cat} \ne \bar{y}_{fox}\\
+\phantom{H_A:} &\; \bar{y}_{dog} \ne \bar{y}_{fox}\\
+\phantom{H_A:} &\; \mbox{für mindestens ein Paar}
 \end{align*}
 ```
-$$
-F = \cfrac{\tfrac{SSA}{k-1}}{\tfrac{SSE}{N-k}} = \cfrac{MSA}{MSE}
-$$
+Text
+
+### Einfaktoriellen ANOVA theoretisch
 
 Decision rule: reject $H_0$ if $F > F_{df_A = k-1,\,df_E=N-k,\,1-\alpha}$
 
@@ -121,22 +152,6 @@ text
 :::
 
 $F_{\alpha = 5\%} = `r round(qf(p=.05, df1=2, df2=18, lower.tail=FALSE), 2)`$
-
-```{r}
-#| echo: false
-#| message: false
-#| tbl-cap: test caption
-#| label: tbl-data-anova-1
-
-fac1_tbl <- read_csv2("data/flea_dog_cat_fox.csv") 
-
-stat <- ddply(fac1_tbl, "animal", summarize,
-              mean = mean(jump_length, na.rm = TRUE),
-              sd = round(sd(jump_length, na.rm = TRUE), 2))
-grand_mean <- mean(fac1_tbl$jump_length, na.rm = TRUE)
-
-fac1_tbl %>% kable(align = "c", "pipe")
-```
 
 ```{r}
 #| message: false
@@ -222,6 +237,11 @@ ggplot(fac1_tbl, aes(x = animal, y = jump_length, color = animal)) +
 #| fig-width: 5
 #| fig-cap: "Zusammenhang von Histogramm und Densityplot an der Anzahl der Flöhe auf 39 Hunden."
 
+stat <- ddply(fac1_tbl, "animal", summarize,
+              mean = mean(jump_length, na.rm = TRUE),
+              sd = round(sd(jump_length, na.rm = TRUE), 2))
+grand_mean <- mean(fac1_tbl$jump_length, na.rm = TRUE)
+
 ggplot(fac1_tbl, aes(x = animal, y = jump_length, color = animal)) + 
   geom_point() +
   theme_bw() +
@@ -297,6 +317,8 @@ ggplot(fac1_tbl, aes(x = animal, y = jump_length,
 
 ```
 
+### Einfaktoriellen ANOVA in R
+
 ```{r}
 fit_1 <-  lm(jump_length ~ animal, data = fac1_tbl) %>% 
   anova
@@ -308,19 +330,76 @@ fit_1 %>% eta_squared
 
 ## Zweifaktorielle ANOVA
 
-### Ohne Interaktionsterm
+::: column-margin
+![](images/angel_01.png){fig-align="center" width="50%"}
+
+Die zweifaktorielle ANOVA verlangt ein normalverteiltes $y$ sowie Varianzhomogenität jeweils separat über beide Behandlungsfaktor $x_1$ und $x_2$. Daher alle Level von $x_1$ sollen die gleiche Varianz haben. Ebenso sollen alle Level von $x_2$ die gleiche Varianz haben.
+
+Unsere Annahme an die Daten $D$ ist, dass das dein $y$ normalverteilt ist und das die Level vom $x_1$ und $x_2$ jewiels für sich homogen in den Varianzen sind. Später mehr dazu, wenn wir beides nicht vorliegen haben...
+:::
+
+### Daten für die zweifaktorielle ANOVA
 
 ```{r}
-#| echo: false
 #| message: false
+
+fac2_tbl <- read_csv2("data/flea_dog_cat_fox_site.csv") %>% 
+  select(animal, site, jump_length) %>% 
+  mutate(animal = as_factor(animal),
+         site = as_factor(site))
+```
+
+```{r}
+#| message: false
+#| echo: false
 #| tbl-cap: test caption
 #| label: tbl-data-anova-2
 
-fac2_tbl <- read_csv2("data/flea_dog_cat_fox_site.csv") %>% 
-  mutate(animal = as_factor(animal),
-         site = as_factor(site))
-
+fac2_tbl %>% kable(align = "c", "pipe")
 ```
+
+### Hypothesen die zweifaktorielle ANOVA
+
+Wir haben für jeden Faktor ein Hypothesenpaar.
+
+Einmal für `animal`
+
+```{=tex}
+\begin{align*}
+H_0: &\; \bar{y}_{cat} = \bar{y}_{dog} = \bar{y}_{fox}\\
+H_A: &\; \bar{y}_{cat} \ne \bar{y}_{dog}\\
+\phantom{H_A:} &\; \bar{y}_{cat} \ne \bar{y}_{fox}\\
+\phantom{H_A:} &\; \bar{y}_{dog} \ne \bar{y}_{fox}\\
+\phantom{H_A:} &\; \mbox{für mindestens ein Paar}
+\end{align*}
+```
+Einmal für `site`
+
+```{=tex}
+\begin{align*}
+H_0: &\; \bar{y}_{city} = \bar{y}_{smalltown} = \bar{y}_{village} = \bar{y}_{field}\\
+H_A: &\; \bar{y}_{city} \ne \bar{y}_{smalltown}\\
+\phantom{H_A:} &\; \bar{y}_{city} \ne \bar{y}_{village}\\
+\phantom{H_A:} &\; \bar{y}_{city} \ne \bar{y}_{field}\\
+\phantom{H_A:} &\; \bar{y}_{smalltown} \ne \bar{y}_{village}\\
+\phantom{H_A:} &\; \bar{y}_{smalltown} \ne \bar{y}_{field}\\
+\phantom{H_A:} &\; \bar{y}_{village} \ne \bar{y}_{field}\\
+\phantom{H_A:} &\; \mbox{für mindestens ein Paar}
+\end{align*}
+```
+Einmal für die Interaktion `animal:site`
+
+```{=tex}
+\begin{align*}
+H_0: &\; \mbox{keine Interaktion}\\
+H_A: &\; \mbox{eine Interaktion zwischen animal und site}
+\end{align*}
+```
+Decision rule: reject $H_0$ if $F > F_{df_A = k-1,\,df_E=N-k,\,1-\alpha}$
+
+### Zweifaktoriellen ANOVA in R
+
+#### Ohne Interaktionsterm
 
 Beispieldaten sind in @fig-boxplot-anova-2 abgebildet.
 
@@ -373,7 +452,7 @@ fit_2 %>% eta_squared
 : Zweifaktorielle Anova ohne Interaktionseffekt
 :::
 
-### Mit Interaktionssterm
+#### Mit Interaktionssterm
 
 ```{r}
 #| message: false
