@@ -16,6 +16,25 @@ Der Kruskal-Wallis-Test vergleicht die Mediane mehrerer beliebiger Verteilungen 
 Du findest auf YouTube [Grundlagen in R](https://www.youtube.com/playlist?list=PLe51bCp9JvEFUnFqaJG5aRmON9i1ZbOYC) als Video Reihe. Ich werde zwar alles nochmal hier als Text aufschreiben, aber manchmal ist das Sehen und Hören dann einfacher.
 :::
 
+::: callout-note
+## Parametrik versus Nicht-Parametrik
+
+Wenn wir einen Zahlenvektor wie durch $y = \{5.7, 8.9, 11.8, 8.2, 5.6, 9.1, 7.6\}$ beschrieben zusammenfassen wollen, haben wir zwei Möglichkeiten.
+
+1)  Die **parametrische Variante** indem wir *mit den Zahlen* rechnen und deskriptive Maßzahlen wie Mittelwert, Varianz und Standardabweichung berechnen. Diese Maßzahlen kommen aber in den Zahlen nicht vor.
+2)  Die **nicht-parametrische** Variante indem wir die Zahlen in Ränge umwandeln, also sortieren, und *mit den Rängen* der Zahlen rechnen. Die deskriptiven Maßzahlen wären dann Median, Quantile und Quartile.
+:::
+
+::: {.callout-caution collapse="true"}
+## Ein Wort zur Klausur
+
+Wir rechnen keinen Kruskal-Wallis-Test in der Klausur *per Hand* sondern interpretieren die Ausgabe der R Funktionen eines Kruskal-Wallis-Test. Auch hier gilt, überprüfe was du in der Vorlesung gehört hast!
+
+Bitte schau dir unbedingt die Aufgaben in den [gesammelten Klausurfragen auf GitHub](https://github.com/jkruppa/teaching/tree/main/Klausur) an um eine Idee zu haben, welche Fragen zm Kruskal-Wallis-Test drankommen.
+
+Wenn kein $H_{\alpha = 5\%}$ in der Klausur gegeben ist, setzen wir $H_{\alpha = 5\%} = 5.99$.
+:::
+
 ## Genutzte R Pakete für das Kapitel
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
@@ -29,25 +48,28 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten für den Kruskal-Wallis-Test
 
-Wir wollen uns nun erstmal den einfachsten Fall anschauen mit einem simplen Datensatz. Wir nehmen ein normalverteiltes $y$ aus den Datensatz `flea_dog_cat_fox.csv` und einen Faktor mit mehr als zwei Leveln. Hätten wir nur zwei Level, dann können wir auch einen t-Test rechnen können.
+Wir wollen uns nun erstmal den einfachsten Fall anschauen mit einem simplen Datensatz. Wir nehmen ein nicht-normalverteiltes $y$ aus den Datensatz `flea_dog_cat_fox.csv` und einen Faktor mit mehr als zwei Leveln. Hätten wir nur zwei Level, dann können wir auch einen Wilcoxon-Mann-Whitney-Test rechnen können.
 
-Im Folgenden selektieren mit der Funktion `select()` die beiden Spalten `jump_length` als $y$ und die Spalte `animal` als $x$. Danach müssen wir noch die Variable `animal` in einen Faktor mit der Funktion `as_factor()` umwandeln.
+Im Folgenden selektieren mit der Funktion `select()` die beiden Spalten `jump_length` als $y$ und die Spalte `animal` als $x$. Danach müssen wir noch die Variable `animal` in einen Faktor mit der Funktion `as_factor()` umwandeln. Wir nehmen in diesem Beispiel an, dass die Bvariable `jump_length` nicht normalverteilt ist.
+
+Bindungen (eng. *ties*) müssen beachtet werden.
 
 ```{r}
 #| message: false
 
 fac1_tbl <- read_csv2("data/flea_dog_cat_fox.csv") %>%
-  select(animal, jump_length) %>% 
+  select(animal, jump_length, grade) %>% 
   mutate(animal = as_factor(animal))
+
 ```
 
-Wir erhalten das Objekt `fac1_tbl` mit dem Datensatz in @tbl-data-anova-1 nochmal dargestellt.
+Wir erhalten das Objekt `fac1_tbl` mit dem Datensatz in @tbl-data-kruskal-1 nochmal dargestellt.
 
 ```{r}
 #| message: false
 #| echo: false
-#| tbl-cap: Selektierter Datensatz für die einfaktorielle ANOVA mit einer normalverteilten Variable `jump_length` und einem Faktor `animal` mit drei Leveln.
-#| label: tbl-data-anova-1
+#| tbl-cap: Selektierter Datensatz für die einfaktorielle ANOVA mit einer nicht-normalverteilten Variable `jump_length` und einem Faktor `animal` mit drei Leveln.
+#| label: tbl-data-kruskal-1
 
 fac1_tbl %>% kable(align = "c", "pipe")
 ```
@@ -58,7 +80,7 @@ $$
 jump\_length \sim animal
 $$
 
-Bevor wir jetzt das Modell verwenden, müssen wir uns nochmal überlegen, welchen Schluß wir eigentlich über die Nullhypothese machen. Wir immer können wir nur die Nullhypothese ablehnen. Daher überlegen wir uns im Folgenden wie die Nullhypothese in der einfaktoriellen ANOVA aussieht. Dann bilden wir anhand der Nullhypothese noch die Alternativehypothese.
+Bevor wir jetzt das Modell verwenden, müssen wir uns nochmal überlegen, welchen Schluß wir eigentlich über die Nullhypothese machen. Wir immer können wir nur die Nullhypothese ablehnen. Daher überlegen wir uns im Folgenden wie die Nullhypothese in dem Kruskal-Wallis-Test aussieht. Dann bilden wir anhand der Nullhypothese noch die Alternativehypothese.
 
 ## Hypothesen für den Kruskal-Wallis-Test
 
@@ -83,10 +105,62 @@ Wir schauen uns jetzt einmal den Kruskal-Wallis-Test theoretisch an bevor wir un
 
 ## Kruskal-Wallis-Test theoretisch
 
+::: column-page
+| Rank | animal | jump_length  | Ränge "cat" | Ränge "dog" | Ränge "fox" |
+|:----:|:------:|:------------:|:-----------:|:-----------:|:-----------:|
+|  1   |  cat   |     2.2      |      1      |             |             |
+|  2   |  cat   |     3.2      |      2      |             |             |
+|  3   |  cat   |     4.1      |      3      |             |             |
+|  4   |  cat   |     4.3      |      4      |             |             |
+|  5   |  cat   |     5.4      |      5      |             |             |
+|  6   |  dog   |     5.6      |             |      6      |             |
+|  7   |  dog   |     5.7      |             |      7      |             |
+|  8   |  cat   |     6.1      |      8      |             |             |
+|  9   |  dog   |     7.6      |             |      9      |             |
+|  10  |  fox   |     7.7      |             |             |     10      |
+|  11  |  cat   |     7.9      |     11      |             |             |
+|  12  |  fox   |     8.1      |             |             |     12      |
+|  13  |  dog   |     8.2      |             |     13      |             |
+|  14  |  fox   |     8.6      |             |             |     14      |
+|  15  |  dog   |     8.9      |             |     15      |             |
+|  16  |  dog   |     9.1      |             |     16      |             |
+|  17  |  fox   |     9.1      |             |             |     17      |
+|  18  |  fox   |     9.7      |             |             |     18      |
+|  19  |  fox   |     10.3     |             |             |     19      |
+|  20  |  fox   |     10.6     |             |             |     20      |
+|  21  |  dog   |     11.8     |             |     21      |             |
+|      |        |  Rangsummen  | $R_1 = 34$  | $R_2 = 87$  | $R_3 = 110$ |
+|      |        | Gruppengröße |      7      |      7      |      7      |
+
+: der Beispieldaten `fac1_tbl` für die jeweils $j=7$ Beobachtungen für den Faktor `animal`. {#tbl-fac1-wide-01}
+:::
+
+Die Summe $1+2+3+...+21 = 231$
+
+Die Summe $R_1 + R_2 + R_3 = 231$
+
+$$
+H = \cfrac{12}{N(N+1)}\sum_{i=1}^k\cfrac{R_i^2}{n_i}-3(N+1)
+$$
+
+mit
+
+-   $R_i$ der Rangsummen für jede Gruppe mit insgesamt $k$ Gruppen
+-   $n_i$ der Fallzahl in jeder Gruppe
+-   $N$ der Gesamtzahl an Beobachtungen also die gesamte Fallzahl
+
+$$
+H_{calc} = \cfrac{12}{21(21+1)}\left(\cfrac{34^2}{7}+\cfrac{87^2}{7}+\cfrac{110^2}{7}\right)-3(21+1) = 11.27
+$$
+
+$H_{\alpha = 5\%} = 5.99$
+
+Wenn $H_{calc} \geq H_{\alpha = 5\%}$ kann die Nullhypothese abgelehnt werden.
+
 ::: callout-important
 ## Entscheidung mit der berechneten Teststatistik $F_{\boldsymbol{calc}}$
 
-Bei der Entscheidung mit der berechneten Teststatistik $F_{calc}$ gilt, wenn $F_{calc} \geq F_{\alpha = 5\%}$ wird die Nullhypothese (H$_0$) abgelehnt.
+Bei der Entscheidung mit der berechneten Teststatistik $H_{calc}$ gilt, wenn $H_{calc} \geq H_{\alpha = 5\%}$ wird die Nullhypothese (H$_0$) abgelehnt.
 
 **Achtung --** Wir nutzen die Entscheidung mit der Teststatistik *nur und ausschließlich* in der Klausur. In der praktischen Anwendung hat die Betrachtung der berechneten Teststatistik *keine* Verwendung mehr.
 :::
@@ -103,4 +177,8 @@ https://rpkgs.datanovia.com/rstatix/reference/kruskal_effsize.html
 
 ```{r}
 fac1_tbl %>% kruskal_effsize(jump_length ~ animal)
+```
+
+```{r}
+kruskal.test(grade ~ animal, data = fac1_tbl) 
 ```
