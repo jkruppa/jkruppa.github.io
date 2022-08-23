@@ -15,3 +15,92 @@ Der Kruskal-Wallis-Test vergleicht die Mediane mehrerer beliebiger Verteilungen 
 
 Du findest auf YouTube [Grundlagen in R](https://www.youtube.com/playlist?list=PLe51bCp9JvEFUnFqaJG5aRmON9i1ZbOYC) als Video Reihe. Ich werde zwar alles nochmal hier als Text aufschreiben, aber manchmal ist das Sehen und Hören dann einfacher.
 :::
+
+## Genutzte R Pakete für das Kapitel
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+pacman::p_load(tidyverse, magrittr, broom, 
+               readxl, rstatix)
+```
+
+Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+## Daten für den Kruskal-Wallis-Test
+
+Wir wollen uns nun erstmal den einfachsten Fall anschauen mit einem simplen Datensatz. Wir nehmen ein normalverteiltes $y$ aus den Datensatz `flea_dog_cat_fox.csv` und einen Faktor mit mehr als zwei Leveln. Hätten wir nur zwei Level, dann können wir auch einen t-Test rechnen können.
+
+Im Folgenden selektieren mit der Funktion `select()` die beiden Spalten `jump_length` als $y$ und die Spalte `animal` als $x$. Danach müssen wir noch die Variable `animal` in einen Faktor mit der Funktion `as_factor()` umwandeln.
+
+```{r}
+#| message: false
+
+fac1_tbl <- read_csv2("data/flea_dog_cat_fox.csv") %>%
+  select(animal, jump_length) %>% 
+  mutate(animal = as_factor(animal))
+```
+
+Wir erhalten das Objekt `fac1_tbl` mit dem Datensatz in @tbl-data-anova-1 nochmal dargestellt.
+
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: Selektierter Datensatz für die einfaktorielle ANOVA mit einer normalverteilten Variable `jump_length` und einem Faktor `animal` mit drei Leveln.
+#| label: tbl-data-anova-1
+
+fac1_tbl %>% kable(align = "c", "pipe")
+```
+
+Wir bauen daher mit den beiden Variablen mit dem Objekt `fac1_tbl` folgendes Modell für später:
+
+$$
+jump\_length \sim animal
+$$
+
+Bevor wir jetzt das Modell verwenden, müssen wir uns nochmal überlegen, welchen Schluß wir eigentlich über die Nullhypothese machen. Wir immer können wir nur die Nullhypothese ablehnen. Daher überlegen wir uns im Folgenden wie die Nullhypothese in der einfaktoriellen ANOVA aussieht. Dann bilden wir anhand der Nullhypothese noch die Alternativehypothese.
+
+## Hypothesen für den Kruskal-Wallis-Test
+
+Der Kruskal-Wallis-Test betrachtet die Mediane und Ränge um einen Unterschied nachzuweisen. Daher haben wir in der Nullhypothese als Gleichheitshypothese. In unserem Beispiel lautet die Nullhypothese, dass die Mediane jedes Levels des Faktors `animal` gleich sind.
+
+```{=tex}
+\begin{align*}
+H_0: &\; \widetilde{y}_{cat} = \widetilde{y}_{dog} = \widetilde{y}_{fox}\\
+\end{align*}
+```
+Die Alternative lautet, dass sich mindestens ein paarweiser Vergleich in den Medianen unterschiedet. Hierbei ist das *mindestens ein Vergleich* wichtig. Es können sich alle Mediane unterschieden oder eben nur ein Paar. Wenn ein Kruskal-Wallis-Test die $H_0$ ablehnt, also ein signifikantes Ergebnis liefert, dann wissen wir nicht, welche Mediane sich unterscheiden.
+
+```{=tex}
+\begin{align*}
+H_A: &\; \widetilde{y}_{cat} \ne \widetilde{y}_{dog}\\
+\phantom{H_A:} &\; \widetilde{y}_{cat} \ne \widetilde{y}_{fox}\\
+\phantom{H_A:} &\; \widetilde{y}_{dog} \ne \widetilde{y}_{fox}\\
+\phantom{H_A:} &\; \mbox{für mindestens ein Paar}
+\end{align*}
+```
+Wir schauen uns jetzt einmal den Kruskal-Wallis-Test theoretisch an bevor wir uns mit der Anwendung des Kruskal-Wallis-Test in R beschäftigen.
+
+## Kruskal-Wallis-Test theoretisch
+
+::: callout-important
+## Entscheidung mit der berechneten Teststatistik $F_{\boldsymbol{calc}}$
+
+Bei der Entscheidung mit der berechneten Teststatistik $F_{calc}$ gilt, wenn $F_{calc} \geq F_{\alpha = 5\%}$ wird die Nullhypothese (H$_0$) abgelehnt.
+
+**Achtung --** Wir nutzen die Entscheidung mit der Teststatistik *nur und ausschließlich* in der Klausur. In der praktischen Anwendung hat die Betrachtung der berechneten Teststatistik *keine* Verwendung mehr.
+:::
+
+### Kruskal-Wallis-Test in R
+
+```{r}
+kruskal.test(jump_length ~ animal, data = fac1_tbl) 
+```
+
+Für die Betrachtung der Effektgröße in einem Kruskal-Wallis-Test nutzen wir das R Paket \``rstatix` und die darin enthaltende Funktion `kruskal_effsize()`
+
+https://rpkgs.datanovia.com/rstatix/reference/kruskal_effsize.html
+
+```{r}
+fac1_tbl %>% kruskal_effsize(jump_length ~ animal)
+```
