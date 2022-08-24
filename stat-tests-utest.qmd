@@ -16,6 +16,10 @@ Der Wilcoxon-Mann-Whitney-Test vergleicht die Mediane zweier beliebiger Verteilu
 Du findest auf YouTube [Grundlagen in R](https://www.youtube.com/playlist?list=PLe51bCp9JvEFUnFqaJG5aRmON9i1ZbOYC) als Video Reihe. Ich werde zwar alles nochmal hier als Text aufschreiben, aber manchmal ist das Sehen und Hören dann einfacher.
 :::
 
+::: column-margin
+Die Entscheidung, ob ein $y$ normal verteilt ist oder nicht kann an dem Boxplot der Daten abgeschätzt werden.
+:::
+
 Wann nutzen wir den Wilcoxon-Mann-Whitney-Test? Wir nutzen den Wilcoxon-Mann-Whitney-Test wenn wir zwei Verteilungen miteinander vergleichen wollen. Das ist jetzt sehr abstrakt. Konrekt, wenn wir zwei Gruppen haben und ein nicht normalverteiltes $y$. Haben wir ein normalverteiltes $y$ rechnen wir meist einen t-Test. Wir könnten aber auch einen Wilcoxon-Mann-Whitney-Test rechnen.
 
 Was ist jetzt der Unterschied zwischen einem Wilcoxon-Mann-Whitney-Test und einem t-Test? Der t-Test vergleicht die Mittelwerte zweier Normalverteilungen, also zum Beispiel die Verteilung der Sprungweiten der Hundeflöhe gegen die Verteilung der Sprungweiten der Katzenflöhe. Dazu nutzt der t-Test die Mittelwerte und die Standardabweichung. Beides sind Parameter einer Verteilung und somit ist der t-Test ein parametrischer Test.
@@ -36,36 +40,56 @@ Wenn kein $z_{\alpha = 5\%}$ in der Klausur gegeben ist, setzen wir $z_{\alpha =
 
 ## Daten für den Wilcoxon-Mann-Whitney-Test
 
+[Bindungen (eng. *ties*) in den Daten sind ein Problem und müssen beachtet werden. Das heißt, wenn es gleiche Zahlen in den Gruppen gibt.]{.aside}
+
+Für die Veranschaulichung des Wilcoxon-Mann-Whitney-Test nehmen wir ein simples Beispiel. Wir nehmen ein nicht normalverteiltes $y$ aus den Datensatz `flea_dog_cat_fox.csv` und einen Faktor mit mehr als zwei Leveln. Wir nehmen hierbei an, dass die Sprunglänge jetzt mal nicht normalverteilt ist. Später sind es Boniturnoten, die definitiv nicht normalverteilt sind. Aber mit der Sprunglänge ist das Beispiel einfacher nachzuvollziehen. Darüber hinaus haben wir so keine Bindungen in den Daten. Bindungen (eng. *ties*) heißt, dass wir die numerisch gleichen Zahlen in beiden Gruppen haben.
+
+Im Folgenden selektieren mit der Funktion `select()` die beiden Spalten `jump_length` als $y$ und die Spalte `animal` als $x$. Danach müssen wir noch die Variable `animal` in einen Faktor mit der Funktion `as_factor()` umwandeln. Wir nehmen in diesem Beispiel an, dass die Variable `jump_length` nicht normalverteilt ist.
+
 ```{r}
-#| echo: false
 #| message: false
-#| tbl-cap: Tabelle  der Sprunglängen [cm], Anzahl an Flöhen und Boniturnote von Hunden und Katzen.
-#| label: tbl-data-ttest
 
 data_tbl <- read_excel("data/flea_dog_cat.xlsx") %>% 
   select(animal, jump_length, grade) %>% 
   mutate(animal = as_factor(animal))
+```
+
+Wir erhalten das Objekt `data_tbl` mit dem Datensatz in @tbl-data-utest-1 nochmal dargestellt.
+
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: Selektierter Datensatz für den Wilcoxon-Mann-Whitney-Test mit einer nicht-normalverteilten Variable `jump_length` und einem Faktor `animal` mit zwei Leveln.
+#| label: tbl-data-utest-1
 
 data_tbl %>% kable(align = "c", "pipe")
 ```
 
+Wir bauen daher mit den beiden Variablen mit dem Objekt `data_tbl` folgendes Modell für später:
+
+$$
+jump\_length \sim animal
+$$
+
+Bevor wir jetzt das Modell verwenden, müssen wir uns nochmal überlegen, welchen Schluß wir eigentlich über die Nullhypothese machen. Wie immer können wir nur die Nullhypothese ablehnen. Daher überlegen wir uns im Folgenden wie die Nullhypothese in dem Wilcoxon-Mann-Whitney-Test aussieht. Dann bilden wir anhand der Nullhypothese noch die Alternativehypothese.
+
 ## Hypothesen für den Wilcoxon-Mann-Whitney-Test
 
-Der Kruskal-Wallis-Test betrachtet die Mediane und Ränge um einen Unterschied nachzuweisen. Daher haben wir in der Nullhypothese als Gleichheitshypothese. In unserem Beispiel lautet die Nullhypothese, dass die Mediane jedes Levels des Faktors `animal` gleich sind.
+Der Wilcoxon-Mann-Whitney-Test betrachtet die Mediane und Ränge um einen Unterschied nachzuweisen. Daher haben wir die Nullhypothese als Gleichheitshypothese. In unserem Beispiel lautet die Nullhypothese, dass die Mediane der beiden Levels des Faktors `animal` gleich sind. Wir vergleichen im Wilcoxon-Mann-Whitney-Test nur zwei Gruppen.
 
 ```{=tex}
 \begin{align*}
 H_0: &\; \widetilde{y}_{cat} = \widetilde{y}_{dog}\\
 \end{align*}
 ```
-Die Alternative lautet, dass sich mindestens ein paarweiser Vergleich in den Medianen unterschiedet. Hierbei ist das *mindestens ein Vergleich* wichtig. Es können sich alle Mediane unterschieden oder eben nur ein Paar. Wenn ein Kruskal-Wallis-Test die $H_0$ ablehnt, also ein signifikantes Ergebnis liefert, dann wissen wir nicht, welche Mediane sich unterscheiden.
+Die Alternative lautet, dass sich die beiden Gruppen im Median unterscheiden. Wir können uns über die Boxplots oder aber die berechneten Mediane dann den Unterschied bewerten.
 
 ```{=tex}
 \begin{align*}
 H_A: &\; \widetilde{y}_{cat} \ne \widetilde{y}_{dog}\\
 \end{align*}
 ```
-Wir schauen uns jetzt einmal den Kruskal-Wallis-Test theoretisch an bevor wir uns mit der Anwendung des Kruskal-Wallis-Test in R beschäftigen.
+Wir schauen uns jetzt einmal den Wilcoxon-Mann-Whitney-Test theoretisch an bevor wir uns mit der Anwendung des Wilcoxon-Mann-Whitney-Test in R beschäftigen.
 
 ## Wilcoxon-Mann-Whitney-Test theoretisch
 
