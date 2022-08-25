@@ -21,6 +21,7 @@ pacman::p_load(tidyverse, magrittr, conflicted, broom,
                multcomp, emmeans, ggpubr)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
+conflict_prefer("mutate", "dplyr")
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -56,29 +57,31 @@ Wir werden nun den Datensatz `fac1_tbl` in den folgenden Abschnitten immer wiede
 
 ### Hypothesen für multiple Vergleiche
 
-**Work in progress**
+Als wir eine ANOVA gerechnet hatten, hatten wir nur eine Nullhypothese und eine Alternativehypothese. Wenn wir Nullhypothese abgelehnt hatten, wussten wir nur, dass sich mindestens ein paarweiser Vergleich unterschiedet. Multiple Vergleich lösen nun dieses Problem und führen ein Hypothesen*paar* für jeden paarweisen Vergleich ein. Zum einen rechnen wir damit $k$ Tests und haben damit auch $k$ Hypothesenpaare (siehe auch @sec-statistisches-testen-alpha-adjust zur Problematik des wiederholten Testens).
 
-Die ANOVA betrachtet die Mittelwerte und nutzt die Varianzen um einen Unterschied nachzuweisen. Daher haben wir in der Nullhypothese als Gleichheitshypothese. In unserem Beispiel lautet die Nullhypothese, dass die Mittelwerte jedes Levels des Faktors `animal` gleich sind.
+Wenn wir zum Beispiel alle Level des Faktors `animal` miteinander Vergleichen wollen, dann rechnen wir $k=3$ paarweise Vergleiche. Im Folgenden sind alle drei Hypothesenpaare dargestellt.
 
 ```{=tex}
 \begin{align*}
-H_0^1: &\; \bar{y}_{cat} = \bar{y}_{dog}\\
-H_A^1: &\; \bar{y}_{cat} \ne \bar{y}_{dog}\\
+H_{01}: &\; \bar{y}_{cat} = \bar{y}_{dog}\\
+H_{A1}: &\; \bar{y}_{cat} \ne \bar{y}_{dog}\\
 \end{align*}
 ```
 ```{=tex}
 \begin{align*}
-H_0^2: &\; \bar{y}_{cat} = \bar{y}_{fox}\\
-H_A^2: &\; \bar{y}_{cat} \ne \bar{y}_{fox}\\
+H_{02}: &\; \bar{y}_{cat} = \bar{y}_{fox}\\
+H_{A2}: &\; \bar{y}_{cat} \ne \bar{y}_{fox}\\
 \end{align*}
 ```
 ```{=tex}
 \begin{align*}
-H_0^3: &\; \bar{y}_{dog} = \bar{y}_{fox}\\
-H_A^3: &\; \bar{y}_{dog} \ne \bar{y}_{fox}\\
+H_{03}: &\; \bar{y}_{dog} = \bar{y}_{fox}\\
+H_{A3}: &\; \bar{y}_{dog} \ne \bar{y}_{fox}\\
 \end{align*}
 ```
-Wir schauen uns jetzt einmal die ANOVA theoretisch an bevor wir uns mit der Anwendung der ANOVA in R beschäftigen.
+Wenn wir drei Vergleiche rechnen, dann haben wir eine $\alpha$ Inflation vorliegen. Wir sagen, dass wir für das multiple Testen adjustieren müssen. In R gibt es eine Reihe von Adjustierungsverfahren. Wir nehmen meist Bonferroni oder das Verfahren, was in der jeweiligen Funktion als Standard (eng. *default*) gesetzt ist.
+
+Wir adjustieren grundsätzlich die $p$-Werte und erhalten adjustierte $p$-Werte aus den jeweiligen Funktionen in R. Die adjustierten p-Werte können wir dann mit dem Signifikanzniveau von $\alpha$ gleich 5% vergleichen.
 
 ## Gruppenvergleiche mit `pairwise.*.test()` {#sec-posthoc-pairwise}
 
@@ -202,31 +205,54 @@ p + stat_pvalue_manual(stat_test_obj, label = "p.adj", y.position = c(10, 13, 16
 
 ## Gruppenvergleich mit dem `multcomp` Paket {#sec-posthoc-multcomp}
 
-Teststatistiken sind miteinander korreliert
+Wir drehen hier einmal die Erklärung um. Wir machen erst die Anwendung in R und sollte dich dann noch mehr über die statistischen Hintergründe der Funktionen interessieren, folgt ein Abschnitt noch zur Theorie. Du wirst die Funktionen aus `multcomp` vermutlich in deiner Abschlussarbeit brauchen. Häufig werden multiple Gruppenvergleiche in Abschlussarbeiten gerechnet.
 
-### Dunnett Kontrast (many-to-one)
+### Gruppenvergleiche mit `multcomp` in R
 
-### Tukey Kontrast (all-pair)
+::: column-margin
+Die Ausgabe von `multcomp` können über die Funktion `tidy()` aufgeräumt werden. Mehr dazu unter der [Hilfeseite von `tidy`()](https://broom.tidymodels.org/reference/tidy.glht.html).
+:::
 
-https://broom.tidymodels.org/reference/tidy.glht.html
+Als erstes brauchen wir ein lineares Modell für die Verwendung von `multcomp`. Normalerweise verenden wir das gleiche Modell, was wir schon in der ANOVA verwendet haben. Wir nutzen hier ein simples lineares Modell mit nur einem Faktor. Im Prinzip kann das Modell auch größer sein. Du findest immer Beispiel im @sec-beispiel-auswertung, die dir eventuell dann nochmal zeigen, wie du deine Daten nutzen musst.
 
 ```{r}
 fit_1 <- lm(jump_length ~ animal, data = fac1_tbl)
+```
 
+Wir haben das Objeckt `fit_1` mit der Funktion `lm()` erstellt. Im Modell sind jetzt alle Mittelwerte und die entsprechenden Varianzen geschätzt worden. Mit `summary(fit_1)` kannst du dir gerne das Modell auch nochmal anschauen.
+
+::: column-margin
+Wenn wir keinen *all-pair* Vergleich rechnen wollen, dann können wir auch einen *many-to-one* Vergleich mit dem `Dunnett` Kontrast rechnen.
+:::
+
+Im Anschluß nutzen wir die Funktion `glht()` um den multiplen vergleich zu rechnen. Als erstes musst du wissen, dass wenn wir *alle* Vergleiche rechnen wollen, wir einen *all-pair* Vergleich rechnen. In der Statistik heißt dieser Typ von Vergleich `Tukey`. Wir wollen jetzt als für den Faktor `animal` einen multiplen `Tukey`-Vergleich rechnen. Nichts anders sagt `mcp(animal = "Tukey")` aus, dabei steht `mcp` für *multiple comparison procedure*. Mit dem hinteren Teil der Funktion weiß jetzt die Funktion `glht()` was gerechnet werden soll. Wir müssen jetzt der Funktion nur noch mitgeben auf was der multiple vergleich gerehcnet werden soll, mit dem Objekt `fit_1`. Wir speichern die Ausgabe der Funktion in `comp_1_obj`.
+
+```{r}
 comp_1_obj <- glht(fit_1, linfct = mcp(animal = "Tukey")) 
 ```
 
+Mit dem Objekt `comp_1_fit` können wir noch nicht soviel anfangen. Der Inhalt ist etwas durcheinander und wir wollen noch die Konfidenzintervalle haben. Daher pipen wir `comp_1_fit` erstmal in die Funktion `tidy()` und alssen mit der Option `conf.int = TRUE` die simultanen 95% Konfidenzintervalle berechnen. Dann nutzen wir die Funktion `select()` um die wichtigen Spalten zu selektieren. Abschließend mutieren wir noch alle numerischen Spalten in dem wir auf die dritte Kommastelle runden. Wir speichern alles in das Objekt `res_1_obj`.
+
 ```{r}
+#| message: false
 res_1_obj <- comp_1_obj %>% 
   tidy(conf.int = TRUE) %>% 
-  select(contrast, estimate, adj.p.value, conf.low, conf.high) %>% 
+  select(contrast, estimate, adj.p.value, 
+         conf.low, conf.high) %>% 
   mutate_if(is.numeric, round, 3)
-
-res_1_obj
-
 ```
 
-For later: https://stackoverflow.com/questions/50221298/how-to-plot-glht-confidence-intervals-with-ggplot
+Wir lassen uns dann den Inhalt von dem Objekt `res_1_obj` ausgeben.
+
+```{r}
+res_1_obj
+```
+
+Wir erhalten ein `tibble()` mit fünf Spalten. Zum einen den `contrast`, der den Vergleich widerspiegelt. Wir vergleichen im ersten Kontrast die Katzen- mit den Hundeflöhen, wobei wir `cat - dog` rechnen. Also wirklich der Mittelwert der Sprungweite der Katzenflöhe *minus* den Mittelwert der Sprungweite der Hundeflöhe rechnen. In der Spalte `estimate` sehen wir den Mittelwertsunterschied. Der Mittelwertsunterschied ist in der *Richtung* nicht ohne den Kontrast zu interpretieren. Danach erhalten wir die adjustierten $p$-Wert sowie die simultanen 95% Konfidenzintervalle.
+
+Wir können die Nullhypothese ablehnen für den Vergleiche`cat - dog` mit einem p-Wert von $0.006$ sowie für den Vergleich $fox - cat$ mit einem p-Wert von $0.001$. Beide p-Werte liegen unter dem Signifikanzniveau von $\alpha$ gleich 5%.
+
+In @fig-multcomp-1 sind die simultanen 95% Konfidenzintervalle nochmal in einem `ggplot` visualisiert. Die Kontraste und die Position hängen von dem Faktorlevel ab. Mit der Funktion `factor()` kannst du die Sortierung der Level einem Faktor ändern und somit auch Position auf den Achsen.
 
 ```{r}
 #| message: false
@@ -235,10 +261,11 @@ For later: https://stackoverflow.com/questions/50221298/how-to-plot-glht-confide
 #| fig-align: center
 #| fig-height: 3
 #| fig-width: 5
-#| fig-cap: 95% Konfidenzintervalle.
+#| fig-cap: Simultane 95% Konfidenzintervalle für den paarweisen Vergleich der Sprungweiten in [cm] der Hunde-, Katzen- und Fuchsflöhe.
 #| label: fig-multcomp-1
 
-  ggplot(res_1_obj, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high)) +
+  ggplot(res_1_obj, aes(contrast, y=estimate, 
+                        ymin=conf.low, ymax=conf.high)) +
     geom_hline(yintercept=0, linetype="11", colour="grey60") +
     geom_errorbar(width=0.1) + 
     geom_point() +
@@ -246,19 +273,49 @@ For later: https://stackoverflow.com/questions/50221298/how-to-plot-glht-confide
     theme_classic()
 ```
 
-## Gruppenvergleich mit der `emmeans` Paket {#sec-posthoc-emmeans}
+Die Entscheidung gegen die Nullhypothese anhand der simultanen 95% Konfidenzintervalle ist inhaltlich gleich, wie die Entscheidung anhand der p-Werte. Wir entscheiden gegen die Nullhypothese, wenn die 0 nicht mit im Konfindenzintervall enthalten ist. Wir wählen hier die 0 zur Entscheidung gegen die Nullhypothese, weil wir einen Mittelwertsvergleich rechnen.
 
-https://broom.tidymodels.org/reference/tidy.emmGrid.html
+Für den Vergleich `fox -dog` ist die 0 im 95% Konfidenzintervall, wir können daher die Nullhypothese nicht ablehnen. Das 95% Konfidenzintervall ist nicht signifikant. Bei dem Vergleich `fox - cat` sowie dem Vergleich `cat - dog` ist jeweils die 0 nicht im 95% Konfidenzintervall enthalten. Beide 95% Konfidenzintervalle sind signifikant, wir können die Nullhypothese ablehnen.
+
+### Gruppenvergleiche mit `multcomp` in theoretisch
+
+**work in progress**
+
+Teststatistiken sind miteinander korreliert
+
+Tukey Kontrast (all-pair)
+
+```{r}
+contrMat(n = c(7, 7, 7), type = "Tukey")
+```
+
+Dunnett Kontrast (many-to-one)
+
+```{r}
+contrMat(n = c(7, 7, 7), type = "Dunnett", base = 1)
+```
+
+## Gruppenvergleich mit der `emmeans` Paket {#sec-posthoc-emmeans}
 
 ::: column-margin
 Wir können hier nicht alles erklären und im Detail durchgehen. Hier gibt es noch ein aufwendiges Tutorium zu `emmeans`: [Getting started with emmeans](https://aosmith.rbind.io/2019/03/25/getting-started-with-emmeans/)
+:::
+
+### Gruppenvergleiche mit `emmeans` in R
+
+https://stats.stackexchange.com/questions/404168/multcomp-vs-emmeans-for-multiple-comparisons#:\~:text=As%20I%20understand%20it%20(e.g.,values%20and%20short%20confidence%20intervals.
+
+?emmeans::emm
+
+::: column-margin
+Die Ausgabe von `emmeans` können über die Funktion `tidy()` aufgeräumt werden. Mehr dazu unter der [Hilfeseite von `tidy`()](https://broom.tidymodels.org/reference/tidy.emmGrid.html).
 :::
 
 ```{r}
 fit_2 <- lm(jump_length ~ animal, data = fac1_tbl)
 
 comp_2_obj <- fit_2 %>% 
-  emmeans("animal") %>% 
+  emmeans(~ animal) %>% 
   contrast(method = "pairwise") 
 ```
 
