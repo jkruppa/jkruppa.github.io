@@ -1,3 +1,7 @@
+```{r echo = FALSE}
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
+```
+
 # $\mathcal{X}^2$-Test
 
 ::: callout-note
@@ -12,6 +16,36 @@ Ein $\mathcal{X}^2$-Test vergleicht die Anteile zweier Gruppen.
 Du findest auf YouTube [Der Chi-Quadrat-Test erklärt](https://youtu.be/B6YNtxBsK3c) als Video Reihe. Ich werde zwar alles nochmal hier als Text aufschreiben, aber manchmal ist das Sehen und Hören dann einfacher.
 :::
 
+Der $\mathcal{X}^2$-Test wird häufig verwendet, wenn wir zwei Faktoren mit jeweils zwei Leveln miteinander vergleichen wollen. Das heißt wir haben zum Beispiel unseren Faktor `animal` mit den beiden Leveln `cat` und `dog`. Wir schauen uns jetzt den Infektionsstatus mit Flöhen auf den Tieren an. Wir erhalten wiederum einen Faktor `infected` mit zwei Leveln `yes` und `no`. Wir sind bei dem $\mathcal{X}^2$-Test nicht auf nur Faktoren mit zwei Leveln eingeschränkt. Traditionell wird aber versucht ein 2x2 Setting zu erreichen.
+
+Im Bereich der Agrarwissenschaften kommt der $\mathcal{X}^2$-Test eher selten vor. Im Bereich der Humanwissenschaften und vor allem der Epidemiologie ist der $\mathcal{X}^2$-Test weit verbreitet.
+
+Das eigentlich besondere an dem $\mathcal{X}^2$-Test ist gra nicht mal der Test selber sondenr die Datenstruktur die der $\mathcal{X}^2$-Test zugrunde liegt: der Vierfeldertafel oder 2x2 Kreuztabelle. Wir werden diese Form von Tabelle noch später im maschinellen Lernen und in der Testdiagnostik wiederfinden.
+
+::: {.callout-caution collapse="true"}
+## Ein Wort zur Klausur
+
+Wir rechnen den $\mathcal{X}^2$-Test per Hand in der Klausur. Teilweise füllen wir die $2x2$ Tabelle aus, teilweise berechnen wir nur die Randsummen.
+
+Bitte schau dir die Aufgaben in den [gesammelten Klausurfragen auf GitHub](https://github.com/jkruppa/teaching/tree/main/Klausur) an um eine Idee zu haben, welche Fragen zum Wilcoxon-Mann-Whitney-Test drankommen.
+
+Wenn kein $\chi^2_{\alpha=5\%}$ in der Klausur gegeben ist, setzen wir $\chi^2_{\alpha=5\%} = 3.84$.
+:::
+
+## Genutzte R Pakete für das Kapitel
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+pacman::p_load(tidyverse, magrittr)
+```
+
+Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+## Daten für den $\mathcal{X}^2$-Test
+
+Wie eben schon benannt schauen wir uns für den $\mathcal{X}^2$-Test eine Vierfeldertafel oder aber 2x2 Kreuztabelle an. In @tbl-chi-square-obs sehen wir eine solche 2x2 Kreuztabelle. Da wir eine Mindestanzahl an Zellbelegung brauchen um überhaupt mit dem $\mathcal{X}^2$-Test rechnen zu können, mutzen wir hier gleich aggrigierte Beispieldaten. Wir brauchen mindestens fünf Beobachtungen je Zelle, dass heißt mindestens 20 Tiere. Da wir dann aber immer noch sehr wenig haben, ist die Daumenregel, dass wir etwa 30 bis 40 Beobachtungen brauchen. In unserem Beispiel schauen wir uns 65 Tiere an.
+
 |            |       |                     |                     |                     |
 |:----------:|:-----:|:-------------------:|:-------------------:|:-------------------:|
 |            |       |    **Infected**     |                     |                     |
@@ -20,9 +54,44 @@ Du findest auf YouTube [Der Chi-Quadrat-Test erklärt](https://youtu.be/B6YNtxBs
 |            | *Cat* |  $18_{\;\Large c}$  |  $14_{\;\Large d}$  | $\mathbf{c+d = 32}$ |
 |            |       | $\mathbf{a+c = 41}$ | $\mathbf{b+d = 24}$ |      $n = 65$       |
 
-: Eine 2x2 Tabelle als Beispiel für unterschiedliche Flohinfektionen bei Hunden und Katzen für die Berechnung von Effektschätzern eines Anteils. {#tbl-chi-square-obs}
+: Eine 2x2 Tabelle als Beispiel für unterschiedliche Flohinfektionen bei Hunden und Katzen. Dargestellt sind die *beobachteten* Werte. {#tbl-chi-square-obs}
 
-Text @tbl-chi-square-obs
+In der Tabelle sehen wir, dass in den zeieln die Level des Faktors `animal` angegeben sind und in den Spalten die Level des Faktors `infected`. Wir haben somit $23$ Hunde, die mit Flöhen infiziert sind, dann $10$ Hunde, die nicht mit Flöhen infirziert sind. Auf der Seite der Katzen haben wir $18$ Katzen, die infiziert sind und $14$ Katzen, die keine Flöhe haben. An den Rändern stehen die Randsummen. Wir haben $33$ Hunde und $32$ Katzen sowie $41$ infizierte Tiere und $24$ nicht infizierte Tiere. Somit haben wir dann in Summe $n = 65$ Tiere. Diese Form der Tabelle wird uns immer wieder begegnen.
+
+Bevor wir jetzt diese 2x2 Kreuztabelle verwenden, müssen wir uns nochmal überlegen, welchen Schluß wir eigentlich über die Nullhypothese machen. Wie immer können wir nur die Nullhypothese ablehnen. Daher überlegen wir uns im Folgenden wie die Nullhypothese in dem $\mathcal{X}^2$-Test aussieht. Dann bilden wir anhand der Nullhypothese noch die Alternativehypothese.
+
+## Hypothesen für den $\mathcal{X}^2$-Test
+
+Der $\mathcal{X}^2$-Test betrachtet die Zellbelegung gegeben den Randsummen um einen Unterschied nachzuweisen. Daher haben wir die Nullhypothese als Gleichheitshypothese. In unserem Beispiel lautet die Nullhypothese, dass die Zahlen in den Zellen gegeben der Randsummen gleich sind. Wir betrachten hier nur die Hypothesen in Prosa und die mathematischen Hypothesen. Es ist vollkommen ausreichend, wenn du die Nullhypothese des $\mathcal{X}^2$-Test nur in Prosa kennst.
+
+```{=tex}
+\begin{align*}
+H_0: &\; \mbox{Zellbelegung sind gleichverteilt gegeben der Randsummen}\\
+\end{align*}
+```
+Die Alternative lautet, dass sich die Zahlen in den Zellen gegeben der Randsummen unterscheiden.
+
+```{=tex}
+\begin{align*}
+H_A: &\; \mbox{Zellbelegung sind nicht gleichverteilt gegeben der Randsummen}\\
+\end{align*}
+```
+Wir schauen uns jetzt einmal den $\mathcal{X}^2$-Test theoretisch an bevor wir uns mit der Anwendung des $\mathcal{X}^2$-Test in R beschäftigen.
+
+## $\mathcal{X}^2$-Test theoretisch
+
+In @tbl-chi-square-obs von oben hatten wir die *beobachteten* Werte. Das sind die Zahlen, die wir in unserem Experiment erhoben und gemessen haben. Der $\mathcal{X}^2$-Test vergleicht nun die *beobachteten* Werte mit den anhand der Randsummen zu *erwartenden* Werte. Daher ist die Formel für den $\mathcal{X}^2$-Test wie folgt.
+
+$$
+\chi^2_{calc} = \cfrac{(O - E)^2}{E}
+$$
+
+mit
+
+-   $O$ für die beobachteten Werte
+-   $E$ für die nach den Randsummen zu erwartenden Werte
+
+In @tbl-chi-square-exp kannst du sehen wie wir anhand der Randsummen die erwartenden Zellbelegungen berechnen. Hierbei können auch krumme Zahlen rauskommen. Wir würden keinen Unterschied zwischen Hunde und Katzen gegeben deren Infektionsstatus erwarten, wenn die Abweichungen zwischen den beobachteten Werten und den zu erwartenden Werten klein wären. Wir berechnen nun die zu erwartenden Werte indem wir die Randsummen der entsprechenden Zelle multiplizieren und durch die Gesamtanzahl teilen.
 
 |            |       |                                   |                                   |               |
 |:----------:|:-----:|:---------------------------------:|:---------------------------------:|:-------------:|
@@ -32,27 +101,30 @@ Text @tbl-chi-square-obs
 |            | *Cat* | $\cfrac{41 \cdot 32}{65} = 20.18$ | $\cfrac{24 \cdot 32}{65} = 11.82$ | $\mathbf{32}$ |
 |            |       |           $\mathbf{41}$           |           $\mathbf{24}$           |   $n = 65$    |
 
-: Eine 2x2 Tabelle als Beispiel für unterschiedliche Flohinfektionen bei Hunden und Katzen für die Berechnung von Effektschätzern eines Anteils. {#tbl-chi-square-exp}
+: Eine 2x2 Tabelle als Beispiel für unterschiedliche Flohinfektionen bei Hunden und Katzen. Dargestellt sind die zu *erwartenden* Werte. {#tbl-chi-square-exp}
 
-Text @tbl-chi-square-exp
-
-$$
-\chi^2 = \cfrac{(O - E)^2}{E}
-$$
+Wir können dann die Formel für den $\mathcal{X}^2$-Test entsprechend ausfüllen. Dabei ist wichtig, dass die Abstände quadriert werden. Das ist ein Kernkonzept der Statistik, Abstände bzw. Abweichungen werden immer quadriert.
 
 ```{=tex}
 \begin{align*} 
-\chi^2 &= \cfrac{(23 - 20.82)^2}{20.82} + \cfrac{(10 - 12.18)^2}{12.18} + \\
+\chi^2_{calc} &= \cfrac{(23 - 20.82)^2}{20.82} + \cfrac{(10 - 12.18)^2}{12.18} + \\
 &\phantom{=}\;\; \cfrac{(18 - 20.18)^2}{20.18} + \cfrac{(14 - 11.82)^2}{11.82} = 1.25
 \end{align*}
 ```
-Test
+Es ergibt sich ein $\chi^2_{calc}$ von $1.25$ mit der Regel, dass wenn $\chi^2_{calc} \geq \chi^2_{\alpha=5\%}$ die Nullhypothese abgelehnt werden kann. Mit einem $\chi^2_{\alpha=5\%} = `r round(qchisq(p = 0.05, df = 1, lower.tail = FALSE), 2)`$ können wir die Nullhypothese nicht ablehnen. Es besteht kein Zusammenhang zwischen den Befall mit Flöhen und der Tierart. Oder anders herum, Hunde und Katzen werden gleich stark mit Flöhen infiziert.
+
+## $\mathcal{X}^2$-Test in R
+
+[Der $\mathcal{X}^2$-Test wird meist in anderen Funktionen in R verwendet und nicht direkt. Wenn du Fragen dazu hast, schreib mir einfach eine Mail.]{.aside}
+
+Wenn wir den $\mathcal{X}^2$-Test in R rechnen wollen nutzen wir die Funktion `chisq.test()`, die eine Matrix von Zahlen verlangt. Dies ist etwas umständlich.
 
 ```{r}
 
-mat <- matrix(c(23, 10, 18, 14), byrow = TRUE, nrow = 2)
+mat <- matrix(c(23, 10, 18, 14), 
+              byrow = TRUE, nrow = 2)
 chisq.test(mat, correct = FALSE)
 
 ```
 
-$\chi^2_{\alpha=5\%} = `r round(qchisq(p = 0.05, df = 1, lower.tail = FALSE), 2)`$
+Da der $\mathcal{X}^2$-Test nicht so häufig im Bereich der Agrawissenschaften auftritt belasse ich es *für das Erste* hierbei. Wenn du noch Fragen hast, komme gerne in R Tutorium oder schreibe mir eine Mail. Dann können wir das Problem nochmal diskutieren und sehen, ob wirklich ein $\mathcal{X}^2$-Test notwendig ist.
