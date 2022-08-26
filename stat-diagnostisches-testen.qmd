@@ -1,5 +1,6 @@
 ```{r echo = FALSE}
-pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, see,
+               openxlsx)
 ```
 
 # Der diagnostische Test
@@ -33,7 +34,7 @@ Wenn kein $\chi^2_{\alpha=5\%}$ in der Klausur gegeben ist, setzen wir $\chi^2_{
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
-pacman::p_load(tidyverse, magrittr)
+pacman::p_load(tidyverse, magrittr, pROC, readxl)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -99,3 +100,95 @@ $$
 $$
 \mbox{Negativer Vorhersagewert} = \mbox{NPV} = \cfrac{TN}{TN + FN} = \cfrac{8869}{8869 + 931} = 0.905
 $$
+
+## Reciever Operator Curve (ROC) theoretisch
+
+```{r}
+#| warning: false
+#| echo: false
+#| message: false
+#| label: fig-labels-roc1
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "Beispielhafte Abbildung der Okabe-Ito Farbpalette für Boxplots."
+
+roc_tbl <- tibble("1" = c(0.1, 0.15, 0.25, 0.3, 0.4, 0.5, 0.6),
+                  "0" = c(0.35, 0.425, 0.47, 0.55, 0.7, 0.8, 0.82)) %>% 
+  gather(infected, test_score) %>% 
+  mutate(infected = as.numeric(infected)) %>% 
+  dplyr::arrange(test_score)
+
+write.csv2(roc_tbl, "data/roc_data.csv", row.names = FALSE)
+write.xlsx(roc_tbl, "data/roc_data.xlsx", rowNames = FALSE)
+
+roc_tbl %>% 
+  mutate(infected = factor(infected, levels = c(0, 1))) %>% 
+  ggplot(aes(infected, test_score, shape = infected)) +
+  geom_point() +
+  coord_flip()
+
+```
+
+```{r}
+#| warning: false
+#| echo: false
+
+roc_res_tbl <- roc(infected ~ test_score, roc_tbl,
+                   direction = ">") 
+
+
+roc_res_tbl %>% 
+  coords(ret = "all") %>% 
+  select(threshold:fp) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  dplyr::arrange(threshold) %>% 
+  kable(align = "c", "pipe")
+
+plot_tbl <- roc_res_tbl %>% 
+  coords(ret = "all") %>% 
+  select(sensitivity, specificity)
+
+
+```
+
+## Reciever Operator Curve (ROC) in R
+
+```{r}
+#| warning: false
+#| echo: true
+#| message: false
+roc_tbl <- read_excel("data/roc_data.xlsx") 
+
+roc_obj <- roc(infected ~ test_score, roc_tbl, auc = TRUE, ci = TRUE)
+
+roc_obj
+```
+
+```{r}
+#| warning: false
+#| echo: true
+#| message: false
+roc_res_tbl <- roc_obj %>% 
+  coords(ret = "all") %>% 
+  select(specificity, sensitivity)
+```
+
+```{r}
+#| warning: false
+#| echo: true
+#| message: false
+#| label: fig-labels-roc2
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Beispielhafte Abbildung der Okabe-Ito Farbpalette für Boxplots."
+
+ggplot(roc_res_tbl, aes(1-specificity, sensitivity)) +
+  geom_path() +
+  theme_bw() +
+  labs(x = "1 - Spezifität", y = "Sensifität")
+
+```
+
+Später vergleichen wir im maschinellen Lernen verschiedene Methoden miteinander. Dazu nutzen wir dann auch die ROC Kurve und die Möglichkeit auch einen `roc.test()` zu rechnen. Mehr dazu gibt es soweit erstmal auf der Hilfeseite des R Paketes `pROC` mit vielen [Screenshots vom pROC Paket](https://web.expasy.org/pROC/screenshots.html)
