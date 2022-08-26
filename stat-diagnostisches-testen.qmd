@@ -1,32 +1,24 @@
 ```{r echo = FALSE}
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, see,
                openxlsx)
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
 # Der diagnostische Test
 
 ::: callout-note
-## Was macht der $\mathcal{X}^2$-Test?
+## Was macht der diagnostische Test?
 
-Ein $\mathcal{X}^2$-Test vergleicht die Anteile zweier Gruppen.
+Ein diagnostischer Test gibt die Güte einer Klassifizierung wieder. Wir gut wurden Kranke als krank und Gesunde als gesund erkannt? Diese und ähnliche Fragen beantwortet das diagnostische Testen.
 :::
 
-::: callout-tip
-## Einführung in den $\mathcal{X}^2$-Test per Video
-
-Du findest auf YouTube [Der Chi-Quadrat-Test erklärt](https://youtu.be/B6YNtxBsK3c) als Video Reihe. Ich werde zwar alles nochmal hier als Text aufschreiben, aber manchmal ist das Sehen und Hören dann einfacher.
-:::
-
-Der
+In diesem Kapitel wollen wir uns mit dem diagnostischen Test beschäftigen. Eigentlich würde man meinen, dass Diagnostik nun eher in die Medizin gehört. Hauptsächlich wird das diagnostische Testen auch in der Labordiagnostik oder bei der Herstellung eines neuen medizinischen Testes verwendet. Deshalb gibt es hier auch erstmal (Stand Ende 2022) nur einen Ausschnitt aus dem diagnostischen Testen. Wir brauchen aber die Fachbegriffe, wenn wir uns später einmal mit dem maschinellen Lernen oder dem Klasifizieren beschäftigen wollen. Dann brauchen wir die hier verwendeten Fachbegriffe, wie Spezifität, Sensifität, AUC und auch die ROC Abildung.
 
 ::: {.callout-caution collapse="true"}
 ## Ein Wort zur Klausur
 
-Wir rechnen den $\mathcal{X}^2$-Test per Hand in der Klausur. Teilweise füllen wir die $2x2$ Tabelle aus, teilweise berechnen wir nur die Randsummen.
-
-Bitte schau dir die Aufgaben in den [gesammelten Klausurfragen auf GitHub](https://github.com/jkruppa/teaching/tree/main/Klausur) an um eine Idee zu haben, welche Fragen zum Wilcoxon-Mann-Whitney-Test drankommen.
-
-Wenn kein $\chi^2_{\alpha=5\%}$ in der Klausur gegeben ist, setzen wir $\chi^2_{\alpha=5\%} = 3.84$.
+Bitte schau dir die Aufgaben in den [gesammelten Klausurfragen auf GitHub](https://github.com/jkruppa/teaching/tree/main/Klausur) an um eine Idee zu haben, welche Fragen zum Diagnostischen Testen drankommen.
 :::
 
 ## Genutzte R Pakete für das Kapitel
@@ -34,12 +26,17 @@ Wenn kein $\chi^2_{\alpha=5\%}$ in der Klausur gegeben ist, setzen wir $\chi^2_{
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
-pacman::p_load(tidyverse, magrittr, pROC, readxl)
+pacman::p_load(tidyverse, magrittr, 
+               pROC, readxl)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
 
-## Diagnostisches Testen
+## Die Daten für das diagnostische Testen
+
+[Es ist **unabdingbar**, dass oben links in der 2x2 Kreuztabelle immer die $T^+$ und $K^+$ Werte stehen. Sonst funktionieren alle Formeln in diesem Kapitel nicht.]{.aside}
+
+Die Datentabelle für das diagnostische Testen basiert wie der $\chi^2$-Test auf der 2x2 Kreuztabelle oder Verfeldertafel. Es ist dabei *unabdingbar*, dass oben links in der 2x2 Kreuztabelle immer die $T^+$ und $K^+$ Werte stehen. Sonst funktionieren alle Formeln in diesem Kapitel nicht. Wir schauen usn auch immer *das Schlechte an*. Daher wollen wir immer wissen, ist der Hund krank? Ist der Hund tot? Ist der Hund weggelaufen? Beide Voraussetzung sind wichtig, damit wir mit der 2x2 Kreuztabelle wie in @tbl-2x2-table-general gezeigt rechnen können.
 
 |          |           |                   |                   |                |
 |:--------:|:---------:|:-----------------:|:-----------------:|:--------------:|
@@ -51,7 +48,29 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 : Eine 2x2 Tabelle oder Vierfeldertafel {#tbl-2x2-table-general}
 
-Das ist ein Text @tbl-2x2-table-general
+Wir wollen die @tbl-2x2-table-general mit einem Beispiel von *Tollwut* an Hauskatzen in *ländlicher* Umgebung. Die Katzen haben also Auslauf und können sich auch mit Tollwut infizieren. Wir wollen einen neuen, nicht invasiven Labortesten *Tollda* darauf überprüfen, wie gut der diagnostische Test Tollwut bei Katzen im Frühstadium erkennt.
+
+Wir haben jetzt folgende Informationen erhalten:
+
+-   Der diagnostische Test *TollDa* ist positiv $T^+$, wenn Tollwut vorliegt $K^+$ , in 80% der Fälle.
+-   Der diagnostische Test *TollDa* ist positiv $T^+$, wenn *keine* Tollwut vorliegt $K^-$, in 9.5% der Fälle.
+-   Abschließend haben noch 2% der Katzen in ländlicher Umgebung Tollwut. Wir haben eine Prävalenz der Erkrankung in der betrachteten Population von 2%.
+
+Die Halterin einer Katze möchte nun wissen, wie groß ist dei Wahrscheinlichkeit bei einem positiven Testergebnis, dass meine Katze Tollwut hat. Also die bedingte Wahrscheinlichkeit $Pr(K^+|T^+)$ oder die Wahrscheinlichkeit krank zu sein gegeben eines positiven Tests.
+
+::: column-page
+![Visualisierung der Informationen zur Tollwutdiagnostik in einem Doppelbaum. Gefragt ist nach der Wahrscheinlichkeit $Pr(K^+|T^+)$ oder die Wahrscheinlichkeit krank zu sein gegeben eines positiven Tests.](images/diag_testen_doppel.png){#fig-stat-diag-01 fig-align="center" width="80%"}
+:::
+
+@fig-stat-diag-01 visualisert unsere Frage in einem Doppelbaum. Wir haben 10000 Katzen vorliegen. Ja wir waren fleißig und wir können damit besser rechnen. Du siehst aber auch, für die Diagnostik brauchen wir eine Menge Beobachtungen.
+
+Von den 10000 Katzen sind 2% also 200 wirklich mit Tollwut infiziert, also haben den Status $K^+$. Damit sind 9800 Katzen gesund oder nicht krank und haben den Status $K^-$. Wir wissen jetzt, dass 80% der $K^+$ Katzen als postitiv vom Test erkannt werden. Damit werden $200 \cdot 0.8 = 160$ Katzen $T^+$. Im Umkehrschluss sind die anderen 40 Katzen dann $T^-$. Von den 9800 gesunden Katzen werden 9.5% fälsch als krank erkannt, also $9800 \cdot 0.095 = 931$ Katzen. Wiederum im Umkehrschluss sind dann 8869 richtig als gesunde Tiere erkannt.
+
+Wir können nun den Doppelbaum nach unten ergänzen. Wir haben damit $1091 = 160 + 931$ positiv getestete Katzen $T^+$ sowie $819 = 40 + 8869$ negativ getestete Katzen $T^-$.
+
+Wie groß ist nun die Wahrscheinlichkeit $Pr(K^+|T^+)$ oder die Wahrscheinlichkeit krank zu sein gegeben eines positiven Tests? Wir können die Wahrscheinlichkeit $Pr(K^+|T^+)$ direkt im Baum ablesen. Wir haben 160 kranke und positive Tier. Insgesamt sind 1091 Tiere positiv getestet. Daher Wahrscheinlichkeit krank zu sein gegeben eines positiven Tests $\tfrac{160}{1091} = 0.147$ oder nur 14%.
+
+Sammeln wir unsere Informationen um die @tbl-2x2-table-general zu füllen. Wir haben insgesamt $n = 10000$ Katzen untersucht. In @tbl-2x2-table-example sehen wir die Ergebnisse unseres Tests auf Tollwut zusammengefasst. Wir haben $160$ Katzen die Tollwut haben und vom Test als krank erkannt wurden. Dann haben wir $931$ Katzen, die keine Tollwut hatten und vom Test als positiv erkannt wurden. Darüber hinaus haben wir $40$ Katzen, die Tollwut haben, aber ein negatives Testergebnis. Sowie $8869$ gesunde Katzen mit einem negativen Testergebnis.
 
 |          |           |                      |                       |                       |
 |:--------:|:---------:|:--------------------:|:---------------------:|:---------------------:|
@@ -61,23 +80,13 @@ Das ist ein Text @tbl-2x2-table-general
 |          | $T^-$ (0) |          40          |         8869          | $\mathbf{c+d} = 8109$ |
 |          |           | $\mathbf{a+c} = 200$ | $\mathbf{b+d} = 9800$ | $\mathbf{n} = 10000$  |
 
-: Eine 2x2 Tabelle oder Vierfeldertafel {#tbl-2x2-table-example}
+: Eine 2x2 Tabelle oder Vierfeldertafel gefüllt mit dem Beispiel aus dem Doppelbaum. {#tbl-2x2-table-example}
+
+Wie du sehen kannst ist die mittlere Reihe des Doppelbaums nichts anderes als die ausgefüllte 2x2 Kreuztabelle. In @fig-stat-diag-00 sehen wir die letzte Visualisierung des Zusammenhangs von Testscore auf der x-Achse und der Verteilung der tollwütigen Katzen $K^+$ und der gesunden Katzen $K^-$. Links und rechts von der Testenstscheidung werden Katzen falsch klassifiziert. Das heißt, die Katzen werden als krank oder gesund von dem Test erkannt, obwohl die Katzen diesen Status nicht haben. Ein idelr Test würde zwei Verteilungen der kranken und gesunden Tiere hrvorbringen, die sich perfekt separieren lassen. Es gibt anhand des Testscores keine Überlappung der beiden Verteilungen
 
 ::: column-page
-![Visualisierung der Korrelation.](images/diag_testen_dist.png){#fig-stat-diag-00 fig-align="center" width="80%"}
+![Visualisierung des Zusammenhangs zwischen Testscore und den Verteilungen der kranken und gesunden Katzen sowie der Testenstscheidung. Links und rechts von der Testenstscheidung werden Katzen falsch klassifiziert.](images/diag_testen_dist.png){#fig-stat-diag-00 fig-align="center" width="80%"}
 :::
-
-::: column-page
-![Visualisierung der Korrelation.](images/diag_testen_doppel.png){#fig-stat-diag-01 fig-align="center" width="80%"}
-:::
-
-$T^+$ mit der Erkrankung ist 80%
-
-$T^+$ ohne der Erkrankung liegt bei 95%
-
-2% Prävalenz der Erkrankung in der betrachteten Population
-
-$Pr(K^+|T^+)$ die Wahrscheinlichkeit krank zu sein gegeben eines positiven Tests
 
 ## Confusion matrix (deu. *Fehlermatrix*)
 
@@ -101,7 +110,27 @@ $$
 \mbox{Negativer Vorhersagewert} = \mbox{NPV} = \cfrac{TN}{TN + FN} = \cfrac{8869}{8869 + 931} = 0.905
 $$
 
-## Reciever Operator Curve (ROC) theoretisch
+## Reciever Operator Curve (ROC)
+
+### Daten für die Reciever Operator Curve (ROC)
+
+In @tbl-data-roc-1 sehen wir Beispieldaten von vierzehn Hunden. Von den vierzehn Hunden haben sieben eine verdeckte Flohinfektion im Anfangsstadium und sieben Hunde sind flohfrei und gesund. Daher haben wir sieben kranke Hunde ($K^+$ oder Infektionsstatus ist $1$) und sieben gesunde Hunde ($K^-$ oder Infektionsstatus ist $0$). Wir *testen* jeden der Hunde mit dem Flohindikatormittel *FleaDa*. Das Flohindikatormittel gibt einen Farbwert als `test_score` zwischen $0$ und $1$ wieder. Wir wollen nun herausfinen, ob wir mit dem `test_score` die vierzehn Hunde korrekt nach ihrem Krankheitszustand klassifizieren können.
+
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: Datensatz für vierzehn Hunde mit Flohinfektion und keiner Flohinfektion sowie dem Testscore des Flohindikatormittels *fleaDa*.
+#| label: tbl-data-roc-1
+
+roc_tbl <- tibble("1" = c(0.1, 0.15, 0.25, 0.3, 0.4, 0.5, 0.6),
+                  "0" = c(0.35, 0.425, 0.47, 0.55, 0.7, 0.8, 0.82)) %>% 
+  gather(infected, test_score) %>% 
+  mutate(infected = as.numeric(infected)) 
+
+roc_tbl %>% kable(align = "c", "pipe")
+```
+
+Wir sehen die Daten visualisiert in @fig-labels-roc1.
 
 ```{r}
 #| warning: false
@@ -111,7 +140,7 @@ $$
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 6
-#| fig-cap: "Beispielhafte Abbildung der Okabe-Ito Farbpalette für Boxplots."
+#| fig-cap: "Aufteilung der kranken und gesunden Hunde nach Infektionsstatus und dem Testscore."
 
 roc_tbl <- tibble("1" = c(0.1, 0.15, 0.25, 0.3, 0.4, 0.5, 0.6),
                   "0" = c(0.35, 0.425, 0.47, 0.55, 0.7, 0.8, 0.82)) %>% 
@@ -131,6 +160,41 @@ roc_tbl %>%
   labs(x = "Status der Infektion", y = "Testscore") +
   theme(legend.position = "none")
 
+
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: Selektierter Datensatz für den Wilcoxon-Mann-Whitney-Test mit einer nicht-normalverteilten Variable `jump_length` und einem Faktor `animal` mit zwei Leveln.
+#| label: tbl-data-roc-2
+
+roc_res_tbl <- roc(infected ~ test_score, roc_tbl,
+                   direction = ">") 
+
+kable_tbl <- roc_res_tbl %>% 
+  coords(ret = "all") %>% 
+  select(threshold:fp) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  dplyr::arrange(threshold)
+
+
+kable_tbl %>% 
+  kable(align = "c", "pipe")
+
+```
+
+```{r}
+roc_tbl %>% 
+  mutate(infected = factor(infected, levels = c(0, 1))) %>% 
+  ggplot(aes(infected, test_score, shape = infected)) +
+  geom_point(size = 3) +
+  geom_hline(yintercept = kable_tbl$threshold[-1], color = cbbPalette[2]) +
+  theme_bw() +
+  coord_flip() +
+  labs(x = "Status der Infektion", y = "Testscore") +
+  theme(legend.position = "none")
+
 ```
 
 ::: column-page
@@ -144,28 +208,6 @@ roc_tbl %>%
 ::: column-page
 ![Visualisierung der Korrelation.](images/diag-roc-03.png){#fig-stat-diag-01 fig-align="center" width="80%"}
 :::
-
-```{r}
-#| warning: false
-#| echo: false
-
-roc_res_tbl <- roc(infected ~ test_score, roc_tbl,
-                   direction = ">") 
-
-
-roc_res_tbl %>% 
-  coords(ret = "all") %>% 
-  select(threshold:fp) %>% 
-  mutate_if(is.numeric, round, 2) %>% 
-  dplyr::arrange(threshold) %>% 
-  kable(align = "c", "pipe")
-
-plot_tbl <- roc_res_tbl %>% 
-  coords(ret = "all") %>% 
-  select(sensitivity, specificity)
-
-
-```
 
 ## Reciever Operator Curve (ROC) in R
 
