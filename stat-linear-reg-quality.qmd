@@ -1,8 +1,8 @@
 ```{r echo = FALSE}
-pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
+pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 ```
 
-# Maßzahlen der Modelgüte
+# Maßzahlen der Modelgüte {#sec-lin-reg-quality}
 
 ## Genutzte R Pakete für das Kapitel
 
@@ -11,7 +11,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom,
-               multcomp, emmeans, ggpubr)
+               see)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -21,11 +21,13 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
+Nachdem wir uns im vorherigen Kapitel mit einem sehr kleinen Satensatz beschäftigt haben, nehmen wir einen großen Datensatz. Bleiben aber bei einem simplen Modell. Wir brauchen dafür den Datensatz `flea_dog_cat_length_weight.xlsx`. In einer simplen linearen Regression schauen wir uns den Zusammenhang zwischen einem $y$ und einem $x_1$ an. Daher wählen wir aus dem Datensatz die beiden Spalten `jump_length` und `weight`. Wir wollen nun feststellen, ob es einen Zusammenhang zwischen der Sprungweite in \[cm\] und dem Flohgewicht in \[mg\] gibt. In dem Datensatz finden wir 400 Flöhe von Hunden und Katzen.
+
 ```{r}
 #| message: false
 
 model_tbl <- read_csv2("data/flea_dog_cat_length_weight.csv") %>%
-  mutate(animal = as_factor(animal))
+  select(animal, jump_length, weight)
 ```
 
 In der @tbl-model-1 ist der Datensatz `model_tbl` nochmal dargestellt.
@@ -33,34 +35,87 @@ In der @tbl-model-1 ist der Datensatz `model_tbl` nochmal dargestellt.
 ```{r}
 #| message: false
 #| echo: false
-#| tbl-cap: Selektierter Datensatz mit einer normalverteilten Variable `jump_length` sowie der multinominalverteilten Variable `grade` und einem Faktor `animal` mit drei Leveln.
+#| tbl-cap: Selektierter Datensatz mit einer normalverteilten Variable `jump_length` und der normalverteilten Variable `weight`. Wir betrachten die ersten sieben Zeilen des Datensatzes.
 #| label: tbl-model-1
 
-model_tbl %>% head(15) %>% kable(align = "c", "pipe")
+model_tbl %>% head(7) %>% kable(align = "c", "pipe")
 ```
 
-## Bestimmtheitsmaß $R^2$
+Im Folgenden *ignorieren* wir, dass die Sprungweiten und die Gewichte der Flöhe auch noch von den Hunden oder Katzen sowie dem unterschiedlichen Geschlecht der Flöhe abhängen könnten. Wir schmeißen alles in einen Pott und schauen nur auf den Zusammenhang von Sprungweite und Gewicht.
 
-::: column-page
-![Visualisierung der Korrelation.](images/statistical_modeling_rsquare){#fig-rsquare fig-align="center" width="60%"}
-:::
+## Das simple lineare Modell
 
-::: {.callout-caution collapse="true"}
-## Ein Wort zur Klausur
-
-Wir nutzen folgende
-:::
-
-$$
-s^2_{dog} \neq s^2_{cat} \neq s^2_{fox}
-$$
+```{r}
+fit_1 <- lm(jump_length ~ weight, data = model_tbl)
+```
 
 ## Residualplot
 
 ```{r}
-##glance()
-
-##augment()
+resid_plot_tbl <- fit_1 %>% 
+  augment() %>% 
+  select(.fitted, .resid)
+resid_plot_tbl 
 ```
 
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-scatter-qual-01
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: "Scatterplot der Beobachtungen der Sprungweite in \\[cm\\] und dem Gewicht in \\[mg\\]. Die Gerade verläuft mittig durch die Punkte."
+
+ggplot(resid_plot_tbl, aes(.fitted, .resid)) +
+  geom_point() +
+  geom_hline(yintercept = 0, color = "red") +
+  theme_bw()
+```
+
+## Bestimmtheitsmaß $R^2$
+
+```{r}
+#| message: false
+
+fit_1 %>% 
+  glance() %>% 
+  select(r.squared, adj.r.squared)
+```
+
+::: column-page
+![Visualisierung der Korrelation.](images/statistical_modeling_rsquare){#fig-rsquare fig-align="center" width="100%"}
+:::
+
 ## QQ-Plot
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-scatter-qual-02
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: "Scatterplot der Beobachtungen der Sprungweite in \\[cm\\] und dem Gewicht in \\[mg\\]. Die Gerade verläuft mittig durch die Punkte."
+
+ggplot(model_tbl, aes(sample = jump_length)) + 
+  stat_qq() + 
+  stat_qq_line(color = "red") +
+  theme_bw()
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-scatter-qual-03
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "Scatterplot der Beobachtungen der Sprungweite in \\[cm\\] und dem Gewicht in \\[mg\\]. Die Gerade verläuft mittig durch die Punkte."
+
+ggplot(model_tbl, aes(sample = jump_length, color = animal)) + 
+  stat_qq() + 
+  stat_qq_line() +
+  scale_color_okabeito() +
+  theme_bw()
+```
