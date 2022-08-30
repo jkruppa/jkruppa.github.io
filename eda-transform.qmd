@@ -12,21 +12,31 @@ cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 Ich verweise hier auch nochmal auf das tolle Tutorial von Matus Seci auf dem [Coding Club](https://ourcodingclub.github.io/tutorials/data-scaling/)
 :::
 
+Warum müssen wir Daten transformieren? Meistens hat dies zwei Hauptgründe.
+
+1)  Wir wollen eine ANOVA oder eine Gaussian lineare Regression rechen und benötigen ein normalverteiltes Outcome $y$
+2)  Wir wollen einen Algorithmus zur Prädiktion (deu. *Vorhersage*) nutzen und haben sehr viele Einflussvariablen $x$ in sehr unterschiedlichen Einheiten.
+
+Im ersten Fall wollen wir meist unsere Daten $log$-Transformieren um aus einem *nicht*-normalverteilten Outcome $y$ ein $log$-normalverteiltes $y$ zu erschaffen. Im zweiten Fall wollen wir unsere Daten Standardisieren oder Normalisieren. Wir brauchen normalisierte Daten später beim Klassifizieren im Rahmen von maschinellen Lernverfahren.
+
+Wir wollen uns nun die Verfahren zur Transformation von Daten in den folgenden Abschnitten einmal alle anschauen.
+
 ## Genutzte R Pakete für das Kapitel
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, conflicted, caret)
+pacman::p_load(tidyverse, magrittr, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
-
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
 
 ## Daten
+
+Wir wollen uns in diesem Kapitel mit der normalverteilten Variable `jump_length` gemessen in \[cm\] und der nicht-normalverteilten Variable `hatch_time` gemessen in \[h\] aus dem Datensatz `flea_dog_cat_length_weight.csv"` beschäftigen. Wir wählen über die Funktion `select()` nur die beiden Spalten aus dem Datensatz, die wir benötigen.
 
 ```{r}
 #| message: false
@@ -35,7 +45,24 @@ data_tbl <- read_csv2("data/flea_dog_cat_length_weight.csv") %>%
   select(jump_length, hatch_time)
 ```
 
+In der @tbl-trans-1 ist der Datensatz `data_tbl` nochmal dargestellt. Wir zeigen hier nur die ersten sieben zeilen des Datensatzes.
+
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: Selektierter Datensatz mit einer normalverteilten Variable `jump_length` und der nicht-normalverteilten Variable `hatch_time`. Wir betrachten die ersten sieben Zeilen des Datensatzes.
+#| label: tbl-trans-1
+
+data_tbl %>% head(7) %>% kable(align = "c", "pipe")
+```
+
+Im Folgenden nutzen wir oft die Funktion `mutate()`. Schau dir im Zweifel nochmal im Kapitel zu Programmierung die Funktion `mutate()` an.
+
 ## $log$-Transformation
+
+Wir nutzen die $log$-Transformation, wenn wir aus einem nicht-normalverteiltem Outcome $y$ ein approxomativ normalverteiltes Outcome $y$ machen wollen. Dabei ist wichtig, dass wir natürlich auch die Einheit mit $log$-transformieren.
+
+Im Folgenden sehen wir die $log$-Transformation der Variable `hatch_time` mit der Funktion `log()`. Wir erschaffen eine neue Spalte im `tibble` damit wir die beiden Variable vor und nach der $log$-Transformation miteinander vergleichen können.
 
 ```{r}
 
@@ -44,6 +71,8 @@ log_tbl <- data_tbl %>%
 
 ```
 
+Wir können dann über ein Histogramm die beiden Verteilungen anschauen. In @fig-log-scale-1-1 sehen wir die nicht transformierte, rohe Daten. Es gibt einen klaren Peak Schlüpfzeiten am Anfang. Dann läuft die Verteilung langsam aus. Wir können nicht annehmen, dass die Schlüpfzeiten normalverteilt sind. @fig-log-scale-1-2 zeigt die $log$-transmutierten Daten. In diesem Fall sehen wir normalverteilte Daten. Wir haben also ein $log$ normalverteiltes Outcome $y$ mit dem wir jetzt weiterechnen können.
+
 ```{r}
 #| message: false
 #| echo: false
@@ -51,24 +80,28 @@ log_tbl <- data_tbl %>%
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "Darstellung von keiner Interaktion, leichter bis mittler Interaktion und starker Interaktion in einer zweifaktoriellen ANOVA mit einem Faktor mit drei Leveln A, B und C sowie einem Faktor mit zwei Leveln (rot und blau)."
+#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten."
 #| fig-subcap: 
-#|   - "Keine Interaktion"
-#|   - "Leichte bis mittlere Intraktion"
+#|   - "Nicht transformierte, rohe Daten"
+#|   - "$log$-transformierte Daten."
 #| layout-nrow: 1
 #| column: page
 
 ggplot(log_tbl, aes(hatch_time)) +
   geom_histogram(fill = cbbPalette[2], color = "black") +
-  theme_bw()
+  theme_bw() +
+  labs(x = "Zeit bis zum Schlüpfen in [h]", y = "Anzahl")
 
 ggplot(log_tbl, aes(log_hatch_time)) +
   geom_histogram(fill = cbbPalette[3], color = "black") +
-  theme_bw()
+  theme_bw() +
+  labs(x = "Zeit bis zum Schlüpfen in log(h)", y = "Anzahl")
 
 ```
 
 ## Wurzel-Transformation
+
+Die Wurze-Transformation ist eine etwas seltenere Transformation. Meist wird die Wurzel-Transformation als die schwächere $log$-Transformation bezeichnet. Wir sehen in @fig-log-scale-2-2 den Grund dafür. Aber zuerst müssen wir aber über die Funktion `sqrt()` unsere Daten transformieren.
 
 ```{r}
 
@@ -77,6 +110,8 @@ sqrt_tbl <- data_tbl %>%
 
 ```
 
+In @fig-log-scale-2-1 sehen wir die nicht transformierte, rohe Daten. Es gibt einen klaren Peak Schlüpfzeiten am Anfang. Dann läuft die Verteilung langsam nach rechts aus. Wir können nicht annehmen, dass die Schlüpfzeiten normalverteilt sind. @fig-log-scale-2-2 zeigt die Wurzel-transmutierten Daten. Unser Ziel besser normalverteilte Daten vorliegen zu haben, haben wir aber mit der Wurzel-Transformation nicht erreicht. Die Daten sind immer noch rechtsschief. Wir würden also die $log$-Transformation bevorzugen.
+
 ```{r}
 #| message: false
 #| echo: false
@@ -84,34 +119,38 @@ sqrt_tbl <- data_tbl %>%
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "Darstellung von keiner Interaktion, leichter bis mittler Interaktion und starker Interaktion in einer zweifaktoriellen ANOVA mit einem Faktor mit drei Leveln A, B und C sowie einem Faktor mit zwei Leveln (rot und blau)."
+#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten."
 #| fig-subcap: 
-#|   - "Keine Interaktion"
-#|   - "Leichte bis mittlere Intraktion"
+#|   - "Nicht transformierte, rohe Daten"
+#|   - "Wurzel-transformierte Daten."
 #| layout-nrow: 1
 #| column: page
 
 ggplot(sqrt_tbl, aes(hatch_time)) +
   geom_histogram(fill = cbbPalette[2], color = "black") +
-  theme_bw()
+  theme_bw() +
+  labs(x = "Zeit bis zum Schlüpfen in [h]", y = "Anzahl")
 
 ggplot(sqrt_tbl, aes(sqrt_hatch_time)) +
   geom_histogram(fill = cbbPalette[3], color = "black") +
-  theme_bw()
+  theme_bw() +
+  labs(x = expression("Zeit bis zum Schlüpfen in" ~ sqrt(h)), y = "Anzahl")
 ```
 
 ## Standardisierung
 
-Die Standardisierung wird auch $z$-Transformation genannt.
+Die Standardisierung wird auch $z$-Transformation genannt. In dem Fall der Standardisierung schieben wir die Daten auf den Ursprung, in dem wir von jedem Datenpunkt $y_i$ den Mittelwert $\bar{y}$ abziehen. Dann setzen wir noch die Standardabweichung auf Eins in dem wir durch die Standardabweichung $y_s$ teilen. Unser standardisiertes $y$ ist nun standard normalverteilt mit $\mathcal{N(0,1)}$. Wir nutzen für die Standardisiwerung folgende Formel.
 
 $$
 y_z = \cfrac{y_i - \bar{y}}{s_y} 
-$$
+$$ In R können wir für die Standardisierung die Funktion `scale()` verwenden. Wir müssen auch nichts weiter in den Optionen von `scale()` angeben. Die Standardwerte der Funktion sind so eingestellt, dass eine Stanardnormalverteilung berechnet wird.
 
 ```{r}
 scale_tbl <- data_tbl %>% 
   mutate(scale_jump_length = scale(jump_length))
 ```
+
+In @fig-log-scale-3-1 sehen wir nochmal die nicht transformierten, rohen Daten. Wir haben in diesem Beispiel die normalvertielte Variable `jump_length` gewählt. Der Mittelwert von `jump_length` ist `r round(mean(data_tbl$jump_length), 2)` und die Standardabweichung ist `r round(sd(data_tbl$jump_length), 2)`. Ziehen wir nun von jedem Wert von `jump_length` den Mittelwert mit 19.3 ab, so haben wir einen neuen Schwerpunkt bei Null. Teilen wir dann jede Zahl durch 3.36 so haben wir eine reduzierte Spannweite der Verteilung. Es ergibt sich die @fig-log-scale-3-2 als Standardnormalverteilung. Die Zahlen der auf der x-Achse haben jetzt aber keine Bedeutung mehr. Wie können die Sprungweite auf der $z$-Skala nicht mehr biologisch interpretieren.
 
 ```{r}
 #| message: false
@@ -120,35 +159,43 @@ scale_tbl <- data_tbl %>%
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "Darstellung von keiner Interaktion, leichter bis mittler Interaktion und starker Interaktion in einer zweifaktoriellen ANOVA mit einem Faktor mit drei Leveln A, B und C sowie einem Faktor mit zwei Leveln (rot und blau)."
+#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten."
 #| fig-subcap: 
-#|   - "Keine Interaktion"
-#|   - "Leichte bis mittlere Intraktion"
+#|   - "Nicht transformierte, rohe Daten"
+#|   - "$z$-transformierte Daten."
 #| layout-nrow: 1
 #| column: page
 
 ggplot(scale_tbl, aes(jump_length)) +
   geom_histogram(fill = cbbPalette[2], color = "black") +
-  theme_bw()
+  theme_bw() +
+  labs(x = "Sprungweite in [cm]", y = "Anzahl")
 
 ggplot(scale_tbl, aes(scale_jump_length)) +
   geom_histogram(fill = cbbPalette[3], color = "black") +
-  theme_bw()
+  theme_bw() +
+  labs(x = "Sprungweite auf der z-Skala", y = "Anzahl")
 
 ```
 
 ## Normalisierung
 
+Abschließend wollen wir uns nochmal die Normalisierung anschauen. In diesem Fall wollen wir die Daten so transformieren, dass die Daten nur noch in der Spannweite 0 bis 1 vorkommen. Egal wie die Einheiten vorher waren, alle Variablen haben jetzt nur noch eine Ausprägung von 0 bis 1. Das ist besonders wichtig wenn wir viele Variablen haben und anhand der Variablen eine Vorhersage machen wollen. Uns interessieren die Werte in den Variablen an sich nicht, sondern wir wollen ein Outcome vorhersagen. Wir brauchen die Normalisierung später für das maschinelle Lernen und die Klassifikation. Die Formel für die Normalisierung lautet wie folgt.
+
 $$
-y_z = \cfrac{y_i - \min(y)}{\max(y) - \min(y)} 
+y_n = \cfrac{y_i - \min(y)}{\max(y) - \min(y)} 
 $$
 
+In R gibt es die Normalisierungsfunktion nicht direkt. Wir könnten hier ein extra Paket laden, aber bei so einer simplen Formel können wir auch gleich die Berechnung in der Funktion `mutate()` machen. Wir müssen nur etwas mit den Klammern aufpassen.
+
+::: column-page
 ```{r}
-
 norm_tbl <- data_tbl %>% 
   mutate(norm_jump_length = (jump_length - min(jump_length))/(max(jump_length) - min(jump_length)))
-
 ```
+:::
+
+In @fig-log-scale-4-1 sehen wir nochmal die nicht transformierten, rohen Daten. In @fig-log-scale-4-2 sehen wir die normalisierten Daten. Hier fällt dann auf, dass die normalisierten Sprungweiten nur noch Werte zwischen Null und Eins annehmen. Die Zahlen der auf der x-Achse haben jetzt aber keine Bedeutung mehr. Wie können die normalisierten Sprungweiten nicht mehr biologisch interpretieren.
 
 ```{r}
 #| message: false
@@ -157,19 +204,21 @@ norm_tbl <- data_tbl %>%
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "Darstellung von keiner Interaktion, leichter bis mittler Interaktion und starker Interaktion in einer zweifaktoriellen ANOVA mit einem Faktor mit drei Leveln A, B und C sowie einem Faktor mit zwei Leveln (rot und blau)."
+#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten."
 #| fig-subcap: 
-#|   - "Keine Interaktion"
-#|   - "Leichte bis mittlere Intraktion"
+#|   - "Nicht transformierte, rohe Daten"
+#|   - "Normalisierte Daten"
 #| layout-nrow: 1
 #| column: page
 
 ggplot(norm_tbl, aes(jump_length)) +
   geom_histogram(fill = cbbPalette[2], color = "black") +
-  theme_bw()
+  theme_bw() +
+  labs(x = "Sprungweite in [cm]", y = "Anzahl")
 
 ggplot(norm_tbl, aes(norm_jump_length)) +
   geom_histogram(fill = cbbPalette[3], color = "black") +
-  theme_bw()
+  theme_bw() +
+  labs(x = "Normalisierte Sprungweite", y = "Anzahl")
 
 ```

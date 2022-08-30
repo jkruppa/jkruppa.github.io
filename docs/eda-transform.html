@@ -444,130 +444,195 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 
 <div class="no-row-height column-margin column-container"><div class="">
 <p>Ich verweise hier auch nochmal auf das tolle Tutorial von Matus Seci auf dem <a href="https://ourcodingclub.github.io/tutorials/data-scaling/">Coding Club</a></p>
-</div></div><section id="genutzte-r-pakete-für-das-kapitel" class="level2" data-number="15.1"><h2 data-number="15.1" class="anchored" data-anchor-id="genutzte-r-pakete-für-das-kapitel">
+</div></div><p>Warum müssen wir Daten transformieren? Meistens hat dies zwei Hauptgründe.</p>
+<ol type="1">
+<li>Wir wollen eine ANOVA oder eine Gaussian lineare Regression rechen und benötigen ein normalverteiltes Outcome <span class="math inline">\(y\)</span>
+</li>
+<li>Wir wollen einen Algorithmus zur Prädiktion (deu. <em>Vorhersage</em>) nutzen und haben sehr viele Einflussvariablen <span class="math inline">\(x\)</span> in sehr unterschiedlichen Einheiten.</li>
+</ol>
+<p>Im ersten Fall wollen wir meist unsere Daten <span class="math inline">\(log\)</span>-Transformieren um aus einem <em>nicht</em>-normalverteilten Outcome <span class="math inline">\(y\)</span> ein <span class="math inline">\(log\)</span>-normalverteiltes <span class="math inline">\(y\)</span> zu erschaffen. Im zweiten Fall wollen wir unsere Daten Standardisieren oder Normalisieren. Wir brauchen normalisierte Daten später beim Klassifizieren im Rahmen von maschinellen Lernverfahren.</p>
+<p>Wir wollen uns nun die Verfahren zur Transformation von Daten in den folgenden Abschnitten einmal alle anschauen.</p>
+<section id="genutzte-r-pakete-für-das-kapitel" class="level2" data-number="15.1"><h2 data-number="15.1" class="anchored" data-anchor-id="genutzte-r-pakete-für-das-kapitel">
 <span class="header-section-number">15.1</span> Genutzte R Pakete für das Kapitel</h2>
 <p>Wir wollen folgende R Pakete in diesem Kapitel nutzen.</p>
 <div class="cell">
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">pacman</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/pacman/man/p_load.html">p_load</a></span><span class="op">(</span><span class="va">tidyverse</span>, <span class="va">magrittr</span>, <span class="va">conflicted</span>, <span class="va">caret</span><span class="op">)</span></span>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">pacman</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/pacman/man/p_load.html">p_load</a></span><span class="op">(</span><span class="va">tidyverse</span>, <span class="va">magrittr</span>, <span class="va">conflicted</span><span class="op">)</span></span>
 <span><span class="fu">conflict_prefer</span><span class="op">(</span><span class="st">"select"</span>, <span class="st">"dplyr"</span><span class="op">)</span></span>
 <span><span class="fu">conflict_prefer</span><span class="op">(</span><span class="st">"filter"</span>, <span class="st">"dplyr"</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.</p>
 </section><section id="daten" class="level2" data-number="15.2"><h2 data-number="15.2" class="anchored" data-anchor-id="daten">
 <span class="header-section-number">15.2</span> Daten</h2>
+<p>Wir wollen uns in diesem Kapitel mit der normalverteilten Variable <code>jump_length</code> gemessen in [cm] und der nicht-normalverteilten Variable <code>hatch_time</code> gemessen in [h] aus dem Datensatz <code>flea_dog_cat_length_weight.csv"</code> beschäftigen. Wir wählen über die Funktion <code>select()</code> nur die beiden Spalten aus dem Datensatz, die wir benötigen.</p>
 <div class="cell">
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">data_tbl</span> <span class="op">&lt;-</span> <span class="fu">read_csv2</span><span class="op">(</span><span class="st">"data/flea_dog_cat_length_weight.csv"</span><span class="op">)</span> <span class="op">%&gt;%</span></span>
 <span>  <span class="fu">select</span><span class="op">(</span><span class="va">jump_length</span>, <span class="va">hatch_time</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>In der <a href="#tbl-trans-1">Tabelle&nbsp;<span>15.1</span></a> ist der Datensatz <code>data_tbl</code> nochmal dargestellt. Wir zeigen hier nur die ersten sieben zeilen des Datensatzes.</p>
+<div class="cell">
+<div class="cell-output-display">
+<div id="tbl-trans-1" class="anchored">
+<table class="table table-sm table-striped">
+<caption>Tabelle 15.1— Selektierter Datensatz mit einer normalverteilten Variable <code>jump_length</code> und der nicht-normalverteilten Variable <code>hatch_time</code>. Wir betrachten die ersten sieben Zeilen des Datensatzes.</caption>
+<thead><tr class="header">
+<th style="text-align: center;">jump_length</th>
+<th style="text-align: center;">hatch_time</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">16.93</td>
+<td style="text-align: center;">68.560703</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">16.22</td>
+<td style="text-align: center;">131.663962</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">18.96</td>
+<td style="text-align: center;">94.630047</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">19.83</td>
+<td style="text-align: center;">110.037621</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">17.37</td>
+<td style="text-align: center;">103.202382</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">14.45</td>
+<td style="text-align: center;">326.905572</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">15.46</td>
+<td style="text-align: center;">360.895299</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<p>Im Folgenden nutzen wir oft die Funktion <code>mutate()</code>. Schau dir im Zweifel nochmal im Kapitel zu Programmierung die Funktion <code>mutate()</code> an.</p>
 </section><section id="log-transformation" class="level2 page-columns page-full" data-number="15.3"><h2 data-number="15.3" class="anchored" data-anchor-id="log-transformation">
 <span class="header-section-number">15.3</span> <span class="math inline">\(log\)</span>-Transformation</h2>
+<p>Wir nutzen die <span class="math inline">\(log\)</span>-Transformation, wenn wir aus einem nicht-normalverteiltem Outcome <span class="math inline">\(y\)</span> ein approxomativ normalverteiltes Outcome <span class="math inline">\(y\)</span> machen wollen. Dabei ist wichtig, dass wir natürlich auch die Einheit mit <span class="math inline">\(log\)</span>-transformieren.</p>
+<p>Im Folgenden sehen wir die <span class="math inline">\(log\)</span>-Transformation der Variable <code>hatch_time</code> mit der Funktion <code><a href="https://rdrr.io/r/base/Log.html">log()</a></code>. Wir erschaffen eine neue Spalte im <code>tibble</code> damit wir die beiden Variable vor und nach der <span class="math inline">\(log\)</span>-Transformation miteinander vergleichen können.</p>
 <div class="cell">
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">log_tbl</span> <span class="op">&lt;-</span> <span class="va">data_tbl</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">mutate</span><span class="op">(</span>log_hatch_time <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html">log</a></span><span class="op">(</span><span class="va">hatch_time</span><span class="op">)</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>Wir können dann über ein Histogramm die beiden Verteilungen anschauen. In <a href="#fig-log-scale-1-1">Abbildung&nbsp;<span>15.1 (a)</span></a> sehen wir die nicht transformierte, rohe Daten. Es gibt einen klaren Peak Schlüpfzeiten am Anfang. Dann läuft die Verteilung langsam aus. Wir können nicht annehmen, dass die Schlüpfzeiten normalverteilt sind. <a href="#fig-log-scale-1-2">Abbildung&nbsp;<span>15.1 (b)</span></a> zeigt die <span class="math inline">\(log\)</span>-transmutierten Daten. In diesem Fall sehen wir normalverteilte Daten. Wir haben also ein <span class="math inline">\(log\)</span> normalverteiltes Outcome <span class="math inline">\(y\)</span> mit dem wir jetzt weiterechnen können.</p>
 <div id="fig-log-scale-1" class="cell column-page quarto-layout-panel">
 <figure class="figure"><div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 50.0%;justify-content: center;">
 <div id="fig-log-scale-1-1" class="quarto-figure quarto-figure-center anchored">
 <figure class="figure"><p><img src="eda-transform_files/figure-html/fig-log-scale-1-1.png" class="img-fluid figure-img" data-ref-parent="fig-log-scale-1" width="480"></p>
-<p></p><figcaption aria-hidden="true" class="figure-caption">(a) Keine Interaktion</figcaption><p></p>
+<p></p><figcaption aria-hidden="true" class="figure-caption">(a) Nicht transformierte, rohe Daten</figcaption><p></p>
 </figure>
 </div>
 </div>
 <div class="cell-output-display quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 50.0%;justify-content: center;">
 <div id="fig-log-scale-1-2" class="quarto-figure quarto-figure-center anchored">
 <figure class="figure"><p><img src="eda-transform_files/figure-html/fig-log-scale-1-2.png" class="img-fluid figure-img" data-ref-parent="fig-log-scale-1" width="480"></p>
-<p></p><figcaption aria-hidden="true" class="figure-caption">(b) Leichte bis mittlere Intraktion</figcaption><p></p>
+<p></p><figcaption aria-hidden="true" class="figure-caption">(b) <span class="math inline">\(log\)</span>-transformierte Daten.</figcaption><p></p>
 </figure>
 </div>
 </div>
 </div>
-<p></p><figcaption aria-hidden="true" class="figure-caption">Abbildung 15.1— Darstellung von keiner Interaktion, leichter bis mittler Interaktion und starker Interaktion in einer zweifaktoriellen ANOVA mit einem Faktor mit drei Leveln A, B und C sowie einem Faktor mit zwei Leveln (rot und blau).</figcaption><p></p>
+<p></p><figcaption aria-hidden="true" class="figure-caption">Abbildung 15.1— Histogramm der nicht transfomierten und transformierten Daten.</figcaption><p></p>
 </figure>
 </div>
 </section><section id="wurzel-transformation" class="level2 page-columns page-full" data-number="15.4"><h2 data-number="15.4" class="anchored" data-anchor-id="wurzel-transformation">
 <span class="header-section-number">15.4</span> Wurzel-Transformation</h2>
+<p>Die Wurze-Transformation ist eine etwas seltenere Transformation. Meist wird die Wurzel-Transformation als die schwächere <span class="math inline">\(log\)</span>-Transformation bezeichnet. Wir sehen in <a href="#fig-log-scale-2-2">Abbildung&nbsp;<span>15.2 (b)</span></a> den Grund dafür. Aber zuerst müssen wir aber über die Funktion <code><a href="https://rdrr.io/r/base/MathFun.html">sqrt()</a></code> unsere Daten transformieren.</p>
 <div class="cell">
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">sqrt_tbl</span> <span class="op">&lt;-</span> <span class="va">data_tbl</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">mutate</span><span class="op">(</span>sqrt_hatch_time <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html">sqrt</a></span><span class="op">(</span><span class="va">hatch_time</span><span class="op">)</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>In <a href="#fig-log-scale-2-1">Abbildung&nbsp;<span>15.2 (a)</span></a> sehen wir die nicht transformierte, rohe Daten. Es gibt einen klaren Peak Schlüpfzeiten am Anfang. Dann läuft die Verteilung langsam nach rechts aus. Wir können nicht annehmen, dass die Schlüpfzeiten normalverteilt sind. <a href="#fig-log-scale-2-2">Abbildung&nbsp;<span>15.2 (b)</span></a> zeigt die Wurzel-transmutierten Daten. Unser Ziel besser normalverteilte Daten vorliegen zu haben, haben wir aber mit der Wurzel-Transformation nicht erreicht. Die Daten sind immer noch rechtsschief. Wir würden also die <span class="math inline">\(log\)</span>-Transformation bevorzugen.</p>
 <div id="fig-log-scale-2" class="cell column-page quarto-layout-panel">
 <figure class="figure"><div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 50.0%;justify-content: center;">
 <div id="fig-log-scale-2-1" class="quarto-figure quarto-figure-center anchored">
 <figure class="figure"><p><img src="eda-transform_files/figure-html/fig-log-scale-2-1.png" class="img-fluid figure-img" data-ref-parent="fig-log-scale-2" width="480"></p>
-<p></p><figcaption aria-hidden="true" class="figure-caption">(a) Keine Interaktion</figcaption><p></p>
+<p></p><figcaption aria-hidden="true" class="figure-caption">(a) Nicht transformierte, rohe Daten</figcaption><p></p>
 </figure>
 </div>
 </div>
 <div class="cell-output-display quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 50.0%;justify-content: center;">
 <div id="fig-log-scale-2-2" class="quarto-figure quarto-figure-center anchored">
 <figure class="figure"><p><img src="eda-transform_files/figure-html/fig-log-scale-2-2.png" class="img-fluid figure-img" data-ref-parent="fig-log-scale-2" width="480"></p>
-<p></p><figcaption aria-hidden="true" class="figure-caption">(b) Leichte bis mittlere Intraktion</figcaption><p></p>
+<p></p><figcaption aria-hidden="true" class="figure-caption">(b) Wurzel-transformierte Daten.</figcaption><p></p>
 </figure>
 </div>
 </div>
 </div>
-<p></p><figcaption aria-hidden="true" class="figure-caption">Abbildung 15.2— Darstellung von keiner Interaktion, leichter bis mittler Interaktion und starker Interaktion in einer zweifaktoriellen ANOVA mit einem Faktor mit drei Leveln A, B und C sowie einem Faktor mit zwei Leveln (rot und blau).</figcaption><p></p>
+<p></p><figcaption aria-hidden="true" class="figure-caption">Abbildung 15.2— Histogramm der nicht transfomierten und transformierten Daten.</figcaption><p></p>
 </figure>
 </div>
 </section><section id="standardisierung" class="level2 page-columns page-full" data-number="15.5"><h2 data-number="15.5" class="anchored" data-anchor-id="standardisierung">
 <span class="header-section-number">15.5</span> Standardisierung</h2>
-<p>Die Standardisierung wird auch <span class="math inline">\(z\)</span>-Transformation genannt.</p>
+<p>Die Standardisierung wird auch <span class="math inline">\(z\)</span>-Transformation genannt. In dem Fall der Standardisierung schieben wir die Daten auf den Ursprung, in dem wir von jedem Datenpunkt <span class="math inline">\(y_i\)</span> den Mittelwert <span class="math inline">\(\bar{y}\)</span> abziehen. Dann setzen wir noch die Standardabweichung auf Eins in dem wir durch die Standardabweichung <span class="math inline">\(y_s\)</span> teilen. Unser standardisiertes <span class="math inline">\(y\)</span> ist nun standard normalverteilt mit <span class="math inline">\(\mathcal{N(0,1)}\)</span>. Wir nutzen für die Standardisiwerung folgende Formel.</p>
 <p><span class="math display">\[
 y_z = \cfrac{y_i - \bar{y}}{s_y}
-\]</span></p>
+\]</span> In R können wir für die Standardisierung die Funktion <code><a href="https://rdrr.io/r/base/scale.html">scale()</a></code> verwenden. Wir müssen auch nichts weiter in den Optionen von <code><a href="https://rdrr.io/r/base/scale.html">scale()</a></code> angeben. Die Standardwerte der Funktion sind so eingestellt, dass eine Stanardnormalverteilung berechnet wird.</p>
 <div class="cell">
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">scale_tbl</span> <span class="op">&lt;-</span> <span class="va">data_tbl</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">mutate</span><span class="op">(</span>scale_jump_length <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/scale.html">scale</a></span><span class="op">(</span><span class="va">jump_length</span><span class="op">)</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>In <a href="#fig-log-scale-3-1">Abbildung&nbsp;<span>15.3 (a)</span></a> sehen wir nochmal die nicht transformierten, rohen Daten. Wir haben in diesem Beispiel die normalvertielte Variable <code>jump_length</code> gewählt. Der Mittelwert von <code>jump_length</code> ist 19.3 und die Standardabweichung ist 3.26. Ziehen wir nun von jedem Wert von <code>jump_length</code> den Mittelwert mit 19.3 ab, so haben wir einen neuen Schwerpunkt bei Null. Teilen wir dann jede Zahl durch 3.36 so haben wir eine reduzierte Spannweite der Verteilung. Es ergibt sich die <a href="#fig-log-scale-3-2">Abbildung&nbsp;<span>15.3 (b)</span></a> als Standardnormalverteilung. Die Zahlen der auf der x-Achse haben jetzt aber keine Bedeutung mehr. Wie können die Sprungweite auf der <span class="math inline">\(z\)</span>-Skala nicht mehr biologisch interpretieren.</p>
 <div id="fig-log-scale-3" class="cell column-page quarto-layout-panel">
 <figure class="figure"><div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 50.0%;justify-content: center;">
 <div id="fig-log-scale-3-1" class="quarto-figure quarto-figure-center anchored">
 <figure class="figure"><p><img src="eda-transform_files/figure-html/fig-log-scale-3-1.png" class="img-fluid figure-img" data-ref-parent="fig-log-scale-3" width="480"></p>
-<p></p><figcaption aria-hidden="true" class="figure-caption">(a) Keine Interaktion</figcaption><p></p>
+<p></p><figcaption aria-hidden="true" class="figure-caption">(a) Nicht transformierte, rohe Daten</figcaption><p></p>
 </figure>
 </div>
 </div>
 <div class="cell-output-display quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 50.0%;justify-content: center;">
 <div id="fig-log-scale-3-2" class="quarto-figure quarto-figure-center anchored">
 <figure class="figure"><p><img src="eda-transform_files/figure-html/fig-log-scale-3-2.png" class="img-fluid figure-img" data-ref-parent="fig-log-scale-3" width="480"></p>
-<p></p><figcaption aria-hidden="true" class="figure-caption">(b) Leichte bis mittlere Intraktion</figcaption><p></p>
+<p></p><figcaption aria-hidden="true" class="figure-caption">(b) <span class="math inline">\(z\)</span>-transformierte Daten.</figcaption><p></p>
 </figure>
 </div>
 </div>
 </div>
-<p></p><figcaption aria-hidden="true" class="figure-caption">Abbildung 15.3— Darstellung von keiner Interaktion, leichter bis mittler Interaktion und starker Interaktion in einer zweifaktoriellen ANOVA mit einem Faktor mit drei Leveln A, B und C sowie einem Faktor mit zwei Leveln (rot und blau).</figcaption><p></p>
+<p></p><figcaption aria-hidden="true" class="figure-caption">Abbildung 15.3— Histogramm der nicht transfomierten und transformierten Daten.</figcaption><p></p>
 </figure>
 </div>
 </section><section id="normalisierung" class="level2 page-columns page-full" data-number="15.6"><h2 data-number="15.6" class="anchored" data-anchor-id="normalisierung">
 <span class="header-section-number">15.6</span> Normalisierung</h2>
+<p>Abschließend wollen wir uns nochmal die Normalisierung anschauen. In diesem Fall wollen wir die Daten so transformieren, dass die Daten nur noch in der Spannweite 0 bis 1 vorkommen. Egal wie die Einheiten vorher waren, alle Variablen haben jetzt nur noch eine Ausprägung von 0 bis 1. Das ist besonders wichtig wenn wir viele Variablen haben und anhand der Variablen eine Vorhersage machen wollen. Uns interessieren die Werte in den Variablen an sich nicht, sondern wir wollen ein Outcome vorhersagen. Wir brauchen die Normalisierung später für das maschinelle Lernen und die Klassifikation. Die Formel für die Normalisierung lautet wie folgt.</p>
 <p><span class="math display">\[
-y_z = \cfrac{y_i - \min(y)}{\max(y) - \min(y)}
+y_n = \cfrac{y_i - \min(y)}{\max(y) - \min(y)}
 \]</span></p>
+<p>In R gibt es die Normalisierungsfunktion nicht direkt. Wir könnten hier ein extra Paket laden, aber bei so einer simplen Formel können wir auch gleich die Berechnung in der Funktion <code>mutate()</code> machen. Wir müssen nur etwas mit den Klammern aufpassen.</p>
+<div class="column-page">
 <div class="cell">
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">norm_tbl</span> <span class="op">&lt;-</span> <span class="va">data_tbl</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">mutate</span><span class="op">(</span>norm_jump_length <span class="op">=</span> <span class="op">(</span><span class="va">jump_length</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">min</a></span><span class="op">(</span><span class="va">jump_length</span><span class="op">)</span><span class="op">)</span><span class="op">/</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">max</a></span><span class="op">(</span><span class="va">jump_length</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">min</a></span><span class="op">(</span><span class="va">jump_length</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+</div>
+<p>In <a href="#fig-log-scale-4-1">Abbildung&nbsp;<span>15.4 (a)</span></a> sehen wir nochmal die nicht transformierten, rohen Daten. In <a href="#fig-log-scale-4-2">Abbildung&nbsp;<span>15.4 (b)</span></a> sehen wir die normalisierten Daten. Hier fällt dann auf, dass die normalisierten Sprungweiten nur noch Werte zwischen Null und Eins annehmen. Die Zahlen der auf der x-Achse haben jetzt aber keine Bedeutung mehr. Wie können die normalisierten Sprungweiten nicht mehr biologisch interpretieren.</p>
 <div id="fig-log-scale-4" class="cell column-page quarto-layout-panel">
 <figure class="figure"><div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 50.0%;justify-content: center;">
 <div id="fig-log-scale-4-1" class="quarto-figure quarto-figure-center anchored">
 <figure class="figure"><p><img src="eda-transform_files/figure-html/fig-log-scale-4-1.png" class="img-fluid figure-img" data-ref-parent="fig-log-scale-4" width="480"></p>
-<p></p><figcaption aria-hidden="true" class="figure-caption">(a) Keine Interaktion</figcaption><p></p>
+<p></p><figcaption aria-hidden="true" class="figure-caption">(a) Nicht transformierte, rohe Daten</figcaption><p></p>
 </figure>
 </div>
 </div>
 <div class="cell-output-display quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 50.0%;justify-content: center;">
 <div id="fig-log-scale-4-2" class="quarto-figure quarto-figure-center anchored">
 <figure class="figure"><p><img src="eda-transform_files/figure-html/fig-log-scale-4-2.png" class="img-fluid figure-img" data-ref-parent="fig-log-scale-4" width="480"></p>
-<p></p><figcaption aria-hidden="true" class="figure-caption">(b) Leichte bis mittlere Intraktion</figcaption><p></p>
+<p></p><figcaption aria-hidden="true" class="figure-caption">(b) Normalisierte Daten</figcaption><p></p>
 </figure>
 </div>
 </div>
 </div>
-<p></p><figcaption aria-hidden="true" class="figure-caption">Abbildung 15.4— Darstellung von keiner Interaktion, leichter bis mittler Interaktion und starker Interaktion in einer zweifaktoriellen ANOVA mit einem Faktor mit drei Leveln A, B und C sowie einem Faktor mit zwei Leveln (rot und blau).</figcaption><p></p>
+<p></p><figcaption aria-hidden="true" class="figure-caption">Abbildung 15.4— Histogramm der nicht transfomierten und transformierten Daten.</figcaption><p></p>
 </figure>
 </div>
 
