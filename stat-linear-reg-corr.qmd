@@ -9,7 +9,7 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 ::: {.callout-caution collapse="true"}
 ## Ein Wort zur Klausur
 
-Wir nutzen folgende
+Wenn wir in der Klausur eine Korrelation berechnen wollen, dann sprechen wir immer von der Korrelation nach Pearson.
 :::
 
 ## Genutzte R Pakete für das Kapitel
@@ -18,7 +18,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, conflicted, readxl_example(),
+pacman::p_load(tidyverse, magrittr, conflicted, readxl,
                corrplot)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
@@ -63,25 +63,67 @@ ggplot(simple_tbl, aes(weight, jump_length)) +
 
 ## Korrelation theoretisch
 
+[Wenn wir zwei verteilte Variablen miteinander korrelieren möchten, dann nutzen wir die Korrelation nach Pearson. Wenn wir nicht-normalverteilte Variablen miteinander korrelieren möchten, dann nutzen wir die Korrelation nach Spearman]{.aside}
+
+Wir schauen uns hier die Korrelation nach Pearson an. Die Korrelation nach Pearson nimmt an, dass beide zu korrelierende Variablen einer Normalverteilung entstammen. Wenn wir keine Normalverteilung vorliegen haben, dann nutzen wir die Korrelation nach Spearman. Die Korrelation nach Spearman basiert auf den Rängen der Daten und ist ein nicht-parametrisches Verfahren. Die Korrelation nach Pearson ist die parametrische Variante. Wir bezeichnen die Korrelation entweder mit $r$ oder dem griechischen Buchstaben $\rho$ als *rho* gesprochen.
+
+Was macht nun die Korrelation? Die Korrelation gibt die Richtung der Geraden an. Oder noch konkreter die Steigung der Geraden normiert auf -1 bis 1. Die @fig-corr1 zeigt die Visualisierung der Korrelation für drei Ausprägungen. Eine Korrelation von $r = -1$ bedeutet eine maximale negative Korrelation. Die Gerade fällt in einem 45° Winkel. Eine Korrelation von $r = +1$ bedeutet eine maximale positive Korrelation. Die gerade steigt in einem 45° Winkel. Eine Korrelation von $r = 0$ bedeutet, dass keine Korrelation vorliegt. Die Grade verläuft parallel zur x-Achse.
+
+::: column-page
+![Visualisierung der Korrelation für drei Ausprägungen des Korrelationskoeffizient.](images/statistical_modeling_corr){#fig-corr1 fig-align="center" width="80%"}
+:::
+
+Im Folgenden sehen wir die Formel für den Korrelationskoeffizient nach Pearson.
+
 $$
 \rho = r_{x,y} = \cfrac{s_{x,y}}{s_x \cdot s_y}
 $$
+
+Wir berechnen die Korrelation immer zwischen *zwei* Variablen $x$ und $y$. Es gibt keine multiple Korrelation über mehr als zwei Variablen. Im Zähler der Formel zur Korrelation steht die Kovarianz von $x$ und $y$.
+
+Wir können mit folgender Formel die Kovarianzen zwischen den beiden Variablen $x$ und $y$ berechnen.
 
 $$
 s_{x,y} = \sum_{i=1}^n(x_i-\bar{x})(y_i-\bar{y})
 $$
 
-$$
-s_x = \sum\_{i=1}^n(x_i-^\bar{x})2
-$$
+Die folgende Formel berechnet die quadrierten Abweichung der Beobachtungen von $x$ zum Mittelwert $\bar{x}$.
 
 $$
-s_y = \sum_{i=1}^n(y_i-\bar{y})^2
+s_x = \sqrt{\sum_{i=1}^n(x_i-\bar{x})^2}
 $$
+
+Die folgende Formel berechnet die quadrierten Abweichung der Beobachtungen von $y$ zum Mittelwert $\bar{y}$.
+
+$$
+s_y = \sqrt{\sum_{i=1}^n(y_i-\bar{y})^2}
+$$
+
+In @tbl-corr-example ist der Zusammenhang nochmal Schritt für Schrit aufgeschlüsselt. Wir berechnen erst die Abweichungsquadrate von $x$ und die Abweichungsquadrate von $y$. Dann noch die Quadrate der Abstände von $x$ zu $y$. Abschließend summieren wir alles und zeihen noch die Wurzel für die Abweichungsquadrate von $x$ und $y$.
 
 ::: column-page
-![Visualisierung der Korrelation.](images/statistical_modeling_corr){#fig-corr1 fig-align="center" width="80%"}
+| jump_length $\boldsymbol{y}$ | weight $\boldsymbol{x}$ | $\boldsymbol{(y_i-\bar{y})^2}$ | $\boldsymbol{(x_i-\bar{x})^2}$ | $\boldsymbol{(x_i-\bar{x})(y_i-\bar{y})}$ |
+|:----------------------------:|:-----------------------:|:------------------------------:|:------------------------------:|:-----------------------------------------:|
+|             1.2              |           0.8           |              0.45              |              0.94              |                   0.65                    |
+|             1.8              |           1.0           |              0.01              |              0.60              |                   0.06                    |
+|             1.3              |           1.2           |              0.33              |              0.33              |                   0.33                    |
+|             1.7              |           1.9           |              0.03              |              0.02              |                   -0.02                   |
+|             2.6              |           2.0           |              0.53              |              0.05              |                   0.17                    |
+|             1.8              |           2.7           |              0.03              |              0.86              |                   -0.07                   |
+|             2.7              |           2.8           |              0.69              |              1.06              |                   0.85                    |
+|                              |         $\sum$          |              2.05              |              3.86              |                   1.97                    |
+|                              |      $\sqrt{\sum}$      |              1.43              |              1.96              |                                           |
+
+: Tabelle zur Berechnung des Korrelationskoeffizient {#tbl-corr-example}
 :::
+
+$$
+\rho = r_{x,y} = \cfrac{1.97}{1.96 \cdot 1.43} = 0.70
+$$
+
+```{r}
+cor(simple_tbl$jump_length, simple_tbl$weight)
+```
 
 ![Visualisierung der Korrelation.](images/statistical_modeling_corr_2){fig-align="center" width="80%"}
 
@@ -89,9 +131,7 @@ $$
 
 ```{r}
 #| message: false
-
 corr_jump_tbl <- read_excel("data/flea_dog_cat_length_weight.xlsx") 
-
 ```
 
 ```{r}
@@ -103,6 +143,7 @@ cor(corr_jump_tbl$jump_length, corr_jump_tbl$weight, method = "spearman")
 ```
 
 ```{r}
+#| message: false
 corr_gummi_tbl <- read_excel("data/gummibears.xlsx") %>% 
   select(count_bears:semester)
 ```
@@ -115,9 +156,25 @@ cor_mat <- corr_gummi_tbl %>%
 ```
 
 ```{r}
+#| echo: true
+#| message: false
+#| label: fig-corrplot-01
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Scatterplot der *alten* Beobachtungen der Sprungweite in \\[cm\\] und dem Gewicht in \\[mg\\]. Sowie der *neuen* vorhergesagten Beoabchtungen auf der Geraden."
+
 corrplot(cor_mat)
 ```
 
 ```{r}
+#| echo: true
+#| message: false
+#| label: fig-corrplot-mixed-01
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Scatterplot der *alten* Beobachtungen der Sprungweite in \\[cm\\] und dem Gewicht in \\[mg\\]. Sowie der *neuen* vorhergesagten Beoabchtungen auf der Geraden."
+
 corrplot.mixed(cor_mat, order = 'AOE')
 ```
