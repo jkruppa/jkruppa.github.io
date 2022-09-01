@@ -2,7 +2,7 @@
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 ```
 
-# Korrelation
+# Korrelation {#sec-lin-reg-corr}
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
@@ -18,8 +18,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, conflicted, broom,
-               multcomp, emmeans, ggpubr)
+pacman::p_load(tidyverse, magrittr, conflicted, readxl_example(),
+               corrplot)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -29,25 +29,37 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
-```{r}
-#| message: false
-
-model_tbl <- read_csv2("data/flea_dog_cat_length_weight.csv") %>%
-  mutate(animal = as_factor(animal))
-```
-
-In der @tbl-model-1 ist der Datensatz `model_tbl` nochmal dargestellt.
+Wir wollen uns erstmal mit einem einfachen Datenbeispiel beschäftigen. Wir können die lineare Regression auf sehr großen Datensätzen anwenden, wie auch auf sehr kleinen Datensätzen. Prinzipiell ist das Vorgehen gleich. Wir nutzen jetzt aber erstmal einen kleinen Datensatz mit $n=7$ Beobachtungen. In der @tbl-corr-0 ist der Datensatz `simplel_tbl` dargestellt. Wir wollen den Zusammenhang zwischen der Sprungweite in \[cm\] und dem Gewicht in \[mg\] für sieben Beobachtungen modellieren.
 
 ```{r}
 #| message: false
 #| echo: false
-#| tbl-cap: Selektierter Datensatz mit einer normalverteilten Variable `jump_length` sowie der multinominalverteilten Variable `grade` und einem Faktor `animal` mit drei Leveln.
-#| label: tbl-model-1
+#| tbl-cap: Datensatz mit einer normalverteilten Variable `jump_length` und der normalverteilten Variable `weight`. 
+#| label: tbl-corr-0
 
-model_tbl %>% head(15) %>% kable(align = "c", "pipe")
+simple_tbl <- tibble(jump_length = c(1.2, 1.8, 1.3, 1.7, 2.6, 1.8, 2.7),
+                     weight = c(0.8, 1, 1.2, 1.9, 2, 2.7, 2.8))
+
+simple_tbl %>% kable(align = "c", "pipe")
 ```
 
-![Visualisierung der Korrelation.](images/statistical_modeling_lm){#fig-corr2 fig-align="center" width="100%"}
+In @fig-scatter-corr-01 sehen wir die Visualisierung der Daten `simple_tbl` in einem Scatterplot mit einer geschätzen Gerade.
+
+```{r}
+#| echo: false
+#| message: false
+#| label: fig-scatter-corr-01
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: "Scatterplot der Beobachtungen der Sprungweite in \\[cm\\] und dem Gewicht in \\[mg\\]. Die Gerade verläuft mittig durch die Punkte."
+
+ggplot(simple_tbl, aes(weight, jump_length)) +
+  geom_point() +
+  stat_smooth(method = "lm", se = FALSE, fullrange = TRUE) +
+  theme_bw() +
+  xlim(0, 3.5) + ylim(0, 3.5)
+```
 
 ## Korrelation theoretisch
 
@@ -75,12 +87,37 @@ $$
 
 ## Korrelation in R
 
-Korrplot...
+```{r}
+#| message: false
 
-Spearman vs Pearson...
+corr_jump_tbl <- read_excel("data/flea_dog_cat_length_weight.xlsx") 
 
-## Bestimmtheitsmaß $R^2$
+```
 
-::: column-page
-![Visualisierung der Korrelation.](images/statistical_modeling_rsquare){#fig-rsquare fig-align="center" width="60%"}
-:::
+```{r}
+cor(corr_jump_tbl$jump_length, corr_jump_tbl$weight, method = "pearson")
+```
+
+```{r}
+cor(corr_jump_tbl$jump_length, corr_jump_tbl$weight, method = "spearman")
+```
+
+```{r}
+corr_gummi_tbl <- read_excel("data/gummibears.xlsx") %>% 
+  select(count_bears:semester)
+```
+
+```{r}
+cor_mat <- corr_gummi_tbl %>% 
+  select_if(is.numeric) %>% 
+  na.omit %>% 
+  cor()
+```
+
+```{r}
+corrplot(cor_mat)
+```
+
+```{r}
+corrplot.mixed(cor_mat, order = 'AOE')
+```
