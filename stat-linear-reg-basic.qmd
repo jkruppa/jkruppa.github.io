@@ -1,5 +1,5 @@
 ```{r echo = FALSE}
-pacman::p_load(tidyverse, readxl, knitr, kableExtra)
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, see)
 ```
 
 # Simple lineare Regression {#sec-modeling-simple-stat}
@@ -137,6 +137,20 @@ Nachdem wir das Modell definiert haben, setzen wir dieses Modell `jump_length ~ 
 fit_1 <- lm(jump_length ~ weight, data = simple_tbl)
 ```
 
+[An dieser Stelle kannst du schnell in das Problem der Antwort auf alles kommen: "42"]{.aside}
+
+Wir können jetzt mir dem Modell drei Dinge tun. Abhängig von der Fragestellung liefert uns natürlich jedes der drei Möglichkeiten eine andere Antwort.
+
+-   Wir rechnen mit dem Fit des Modells eine ANOVA (siehe @sec-anova)
+-   Wir rechnen ein kausales Modell, uns interessieren die Effekte (siehe @sec-simple-kausal)
+-   Wir rechnen ein prädiktives Modell, uns interessiert der Wert *neuer* Werte (siehe @sec-simple-pred)
+
+### Kausales Modell {#sec-simple-kausal}
+
+Im Folgenden rechnen wir ein kausales Modell, da wir an dem Effekt des $x$ interessiert sind. Wenn also das $x_1$ um eine Einheit ansteigt, um wie viel verändert sich dann das $y$? Der Schätzer $\beta_1$ gibt uns also den Einfluss oder den kausalen Zusammenhang zwischen $y$ und $x_1$ wieder.
+
+[Die Funktion `summary()` gibt dir das Ergebnis eines kausalen Modells wieder]{.aside}
+
 Im ersten Schritt schauen wir uns die Ausgabe der Funktion `lm()` in der Funktion `summary()` an. Daher pipen wir das Objekt `fit_1` in die Funktion `summary()`.
 
 ```{r}
@@ -191,4 +205,39 @@ Zun Abschluß noch die Funktion `glance()` ebenfalls aus dem R Paket `broom`, di
 
 ```{r}
 fit_1 %>% glance 
+```
+
+### Prädiktives Modell {#sec-simple-pred}
+
+![](images/caution.png){fig-align="center" width="50%"}
+
+```{r}
+
+simple_new_tbl <- tibble(weight = c(1.7, 1.4, 2.1, 3.0)) 
+
+predict(fit_1, newData = simple_new_tbl) %>% round(2)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| label: fig-scatter-lin-pred
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5.5
+#| fig-cap: "Scatterplot der *alten* Beobachtungen der Sprungweite in \\[cm\\] und dem Gewicht in \\[mg\\]. Sowie der *neuen* vorhergesagten Beoabchtungen auf der Geraden."
+
+pred_tbl <- bind_rows(mutate(simple_tbl, status = "beobachtet"),
+                      tibble(weight = c(1.7, 1.6, 2.1, 3.0),
+                             jump_length = predict(fit_1, newdata = tibble(weight)),
+                             status = "vorhergesagt"))
+
+ggplot(pred_tbl, aes(weight, jump_length, color = status, shape = status)) +
+  stat_smooth(method = "lm", se = FALSE, fullrange = TRUE, 
+              color = "black") +
+  labs(color = "", shape = "") +
+  geom_point(size = 4) +
+  theme_bw() +
+  scale_color_okabeito() +
+  xlim(0, 3.5) + ylim(0, 3.5)
 ```
