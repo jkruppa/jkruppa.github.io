@@ -108,11 +108,13 @@ $$
 
 Beide statistischen Maßzahlen benötigen wir im Besonderen bei der Erstellung der Reciever Operator Curve (ROC) im folgenden Abschnitt.
 
-## Reciever Operator Curve (ROC)
+## Receiver Operating Characteristic (ROC)
 
-### Daten für die Reciever Operator Curve (ROC)
+Die [Reciever Operator Curve (ROC)](https://en.wikipedia.org/wiki/Receiver_operating_characteristic) ist *die* Abbildung wenn es darum geht darzustellen wie gut eine Klassifikation funktioniert hat. Wir werden die Abbildung später im maschinellen Lernen und der Klssifikation wiedertreffen. Da die ROC Kurve aber ursprünglich zum diagnostischen Testen gehört, kommt die ROC Kurve hier auch rein.
 
-In @tbl-data-roc-1 sehen wir Beispieldaten von vierzehn Hunden. Von den vierzehn Hunden haben sieben eine verdeckte Flohinfektion im Anfangsstadium und sieben Hunde sind flohfrei und gesund. Daher haben wir sieben kranke Hunde ($K^+$ oder Infektionsstatus ist $1$) und sieben gesunde Hunde ($K^-$ oder Infektionsstatus ist $0$). Wir *testen* jeden der Hunde mit dem Flohindikatormittel *FleaDa*. Das Flohindikatormittel gibt einen Farbwert als `test_score` zwischen $0$ und $1$ wieder. Wir wollen nun herausfinen, ob wir mit dem `test_score` die vierzehn Hunde korrekt nach ihrem Krankheitszustand klassifizieren können.
+### Daten für die Receiver Operating Characteristic (ROC)
+
+Schauen wir uns erstmal ein Beispiel für die ROC Kurve an. In @tbl-data-roc-1 sehen wir Beispieldaten von vierzehn Hunden. Von den vierzehn Hunden haben sieben eine verdeckte Flohinfektion im Anfangsstadium und sieben Hunde sind flohfrei und gesund. Daher haben wir sieben kranke Hunde ($K^+$ oder Infektionsstatus ist $1$) und sieben gesunde Hunde ($K^-$ oder Infektionsstatus ist $0$). Wir *testen* jeden der Hunde mit dem Flohindikatormittel *FleaDa*. Das Flohindikatormittel gibt einen Farbwert als `test_score` zwischen $0$ und $1$ wieder. Wir wollen nun herausfinden, ob wir mit dem `test_score` die vierzehn Hunde korrekt nach ihrem Krankheitszustand klassifizieren können.
 
 ```{r}
 #| message: false
@@ -128,7 +130,7 @@ roc_tbl <- tibble("1" = c(0.1, 0.15, 0.25, 0.3, 0.4, 0.5, 0.6),
 roc_tbl %>% kable(align = "c", "pipe")
 ```
 
-Wir sehen die Daten visualisiert in @fig-labels-roc1.
+Wir sehen die Daten visualisiert in @fig-labels-roc1. Auf der $y$-Achse ist der binäre Endpunkt $infected$ und auf der $x$-Achse der Testscore des Flohindikators *FleaDa*.
 
 ```{r}
 #| warning: false
@@ -136,7 +138,7 @@ Wir sehen die Daten visualisiert in @fig-labels-roc1.
 #| message: false
 #| label: fig-labels-roc1
 #| fig-align: center
-#| fig-height: 4
+#| fig-height: 3
 #| fig-width: 6
 #| fig-cap: "Aufteilung der kranken und gesunden Hunde nach Infektionsstatus und dem Testscore."
 
@@ -156,16 +158,17 @@ roc_tbl %>%
   theme_bw() +
   coord_flip() +
   labs(x = "Status der Infektion", y = "Testscore") +
-  theme(legend.position = "none")
+  theme(legend.position = "none",
+        axis.text.x = element_text(face="bold", size=10),
+        axis.text.y = element_text(face="bold", size=10))
 
 
 ```
 
 ```{r}
-#| message: false
+#| warning: false
 #| echo: false
-#| tbl-cap: Selektierter Datensatz für den Wilcoxon-Mann-Whitney-Test mit einer nicht-normalverteilten Variable `jump_length` und einem Faktor `animal` mit zwei Leveln.
-#| label: tbl-data-roc-2
+#| message: false
 
 roc_res_tbl <- roc(infected ~ test_score, roc_tbl,
                    direction = ">") 
@@ -175,12 +178,9 @@ kable_tbl <- roc_res_tbl %>%
   select(threshold:fp) %>% 
   mutate_if(is.numeric, round, 2) %>% 
   dplyr::arrange(threshold)
-
-
-kable_tbl %>% 
-  kable(align = "c", "pipe")
-
 ```
+
+Die Idee der ROC Kurve ist nun für jeden möglichen Wert des Testscores die Spezifität und Sensitifität zu berechnen. Wir müssen das aber nicht für alle Werte des Testscores machen, sondern nur für die Wert bei denen sich der Status einer Beobachtung anhand des Testscores ändern würde. Klingt ein wenig schräg, schauen wir es uns einmal an. Zuerst brauchen wir jeweils die Grenzen an denen wir für den Testscore eine Klassifikation machen. In @fig-labels-roc3 sehen wir die Grenzen als gelbe Linie.
 
 ```{r}
 #| warning: false
@@ -188,7 +188,7 @@ kable_tbl %>%
 #| message: false
 #| label: fig-labels-roc3
 #| fig-align: center
-#| fig-height: 4
+#| fig-height: 3
 #| fig-width: 6
 #| fig-cap: "Aufteilung der kranken und gesunden Hunde nach Infektionsstatus und dem Testscore."
 
@@ -197,26 +197,59 @@ roc_tbl %>%
   ggplot(aes(infected, test_score, shape = infected)) +
   geom_point(size = 3) +
   geom_hline(yintercept = kable_tbl$threshold[-1], color = cbbPalette[2]) +
+  scale_y_continuous(breaks = kable_tbl$threshold[-1]) +
   theme_bw() +
   coord_flip() +
   labs(x = "Status der Infektion", y = "Testscore") +
-  theme(legend.position = "none")
+  theme(legend.position = "none",
+        axis.text.x = element_text(face="bold", size=10),
+        axis.text.y = element_text(face="bold", size=10))
 
 ```
 
-::: column-page
-![Visualisierung der Korrelation.](images/diag-roc-01.png){#fig-stat-diag-01 fig-align="center" width="80%"}
-:::
+Wir können jetzt für jede gelbe Linie als Threshold des Testscore die Spezifität und die Sensitifität berechen. berechnen @tbl-data-roc-2 sind die Werte von Spezifität und Sensitifität für jede gelbe Linie ausgegeben. Wenn wir als Entscheidungsgrenze einen Testscore von 0.12 nehmen würden, dann würden wir 1 Hund als krank und 13 als gesund klassifizieren. Wir hätten 7 TN, 1 TP, 6 FN und 0 FP. Aus diesen Zahlen, die eine 2x2 Kreuztabelle entsprechen, können wir dann die Spezifität und die Sensitifität berechnen. Wir berechnen dann die Spezifität und die Sensitifität für jeden Threshold.
+
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: Die Spezifität und die Sensitifität berechnet für jeden Threshold.
+#| label: tbl-data-roc-2
+
+kable_tbl[c(-1, -15),] %>% 
+  select(-accuracy) %>% 
+  kable(align = "c", "pipe")
+
+```
+
+Wir können jetzt für jeden Threshold und damit jedes verbundene Spezifität und Sensitifität Paar einen Punkt in einen Plot einzeichnen. Wir lassen damit Stück für Stück die ROC Kurve wachsen.
+
+In der @fig-roc-drawn-1 sehen wir die ROC Kurve mit dem Threshold von 0.32 vorliegen. Wir haben damit 7 TN, 4 TP, 3 FN und 0 FP klassifizierte Beobchtungen. Darauf ergibt sich eine Spezifität von 1 und eine Sensitifität von 0.57. In der ROC Kurve tragen wir auf die $x$-Achse die 1 - Spezifitätswerte auf. Damit haben wir eine schön ansteigende Kurve.
 
 ::: column-page
-![Visualisierung der Korrelation.](images/diag-roc-02.png){#fig-stat-diag-01 fig-align="center" width="80%"}
+![Visualisierung des Anwachsen der ROC Kurve mit einem Threshold von 0.32 und damit 7 TN, 4 TP, 3 FN und 0 FP.](images/diag-roc-01.png){#fig-roc-drawn-1 fig-align="center" width="80%"}
 :::
 
+In der @fig-roc-drawn-2 istr die ROC Kurve schon nach rechts gewachsen, da wir die ersten falsch positiv (FP) klassifizierten Beobachtungen bei einem Threshold von 0.48 erhalten.
+
 ::: column-page
-![Visualisierung der Korrelation.](images/diag-roc-03.png){#fig-stat-diag-01 fig-align="center" width="80%"}
+![Visualisierung des Anwachsen der ROC Kurve mit einem Threshold von 0.48 und damit 4 TN, 5 TP, 2 FN und 3 FP.](images/diag-roc-02.png){#fig-roc-drawn-2 fig-align="center" width="80%"}
 :::
+
+In @fig-roc-drawn-3 sind wir mit einem Threshold von 0.65 schon fast am rechten Rand der Verteilung des Testscores angekommen. Wir haben nur noch 3 richtig negative (TN) Beobachtungen, die jetzt mit steigenden Threshold alle zu falsch positiven (FP) klassifiziert werden.
+
+::: column-page
+![Visualisierung des Anwachsen der ROC Kurve mit einem Threshold von 0.65 und damit 3 TN, 7 TP, 0 FN und 4 FP.](images/diag-roc-03.png){#fig-roc-drawn-3 fig-align="center" width="80%"}
+:::
+
+[Ein AUC von 1 bedeutet eine perfekte Trennung der beiden Gruppen durch den Testscore. Ein AUC von 0.5 bedeutet keine Trennung der beiden Gruppen durch den Testscore.]{.aside}
+
+Die ROC Kurve endet dann oben rechts in der Abbidlung und startet immer unten links. Wir können noch die Fläche unter der ROC Kurve berechnen. Wir nennen diese Fläche unter der Kurve AUC (eng. *area under the curce*) und wir brauchen diese Maßzahl, wenn wir verschiedene Testscores und die entsprechenden ROC Kurven miteinander vergleichen wollen. Eine AUC von 0.5 bedeutet, dass unser Testscore nicht in der Lage war die kranken von den gesunden Hunden zu trennen.
 
 ## Reciever Operator Curve (ROC) in R
+
+Wir berechnen die ROC Kurve nicht per Hand. Das wäre eine sehr große Fleißarbeit für jeden Threshold zwischen den Beobachtungen die jeweilige Spezifität und Sensitifität Paare zu berechnen. Wir nutzen daher das R Paket `pROC`. Das Pakt erlaubt es uns später auch recht einfach ROC Kurven miteinander zu vergleichen und einen statistischen Test zu rechnen.
+
+Die Daten von den obigen Beispiel sind in der Datei `roc_data.xlsx` gespeichert und können dann einfach verwendet werden. Die Funktion `roc()` akzeptiert ein binäres $y$ wo bei die $1$ das Schlechte bedeutet und die $0$ die Abwesenheit von dem Schlechten. Also eben krank oder gesund wie oben beschrieben. Wir wollen dann noch die AUC und die 95% Konfidenzintervalle für das AUC wiedergegeben haben.
 
 ```{r}
 #| warning: false
@@ -229,6 +262,10 @@ roc_obj <- roc(infected ~ test_score, roc_tbl, auc = TRUE, ci = TRUE)
 roc_obj
 ```
 
+Wir sehen, dass wir eine AUC von 0.837 haben, was auf eine gute Trennschärfe des Tests hindeutet. Wäre die AUC näher an 0.5 dann würden wir sagen, dass der Test die kranken Hunde nicht von den gesunden Hunden unterscheiden kann.
+
+Im nächsten Schritt extrahieren wir noch alle wichtigen Informationen aus dem Objekt `roc_obj` damit wir die ROC Kurve in `ggplot` zeichnen können. Das Paket pROC hat auch eine eigne Plotfunktion. Es gibt eine Reihe on [Screenshots vom pROC Paket](https://web.expasy.org/pROC/screenshots.html), wo du noch andere Möglichkeiten siehst. Einfach mal ausprobieren.
+
 ```{r}
 #| warning: false
 #| echo: true
@@ -237,6 +274,8 @@ roc_res_tbl <- roc_obj %>%
   coords(ret = "all") %>% 
   select(specificity, sensitivity)
 ```
+
+Das Objekt `roc_obj` nutzen wir jetzt um die ROC Kurve einmal darzustellen. Achte drauf, dass auf der $x$-Achse die 1-Spezifität Werte stehen. Wir erhalten die ROC Kurve wie in @fig-labels-roc2 dargestellt. Wie zeichnen noch die Diagonale ein. Wenn die ROC nahe an der Diagonalen verläuft, dann ist der Testscore nicht in der Lage die Kranken von den Gesunden zu trennen. Eine perfekte ROC Kurve läuft senkrecht nach oben und dann waagerecht nach rechts und es ergebit sich eine AUC von 1.
 
 ```{r}
 #| warning: false
@@ -250,9 +289,10 @@ roc_res_tbl <- roc_obj %>%
 
 ggplot(roc_res_tbl, aes(1-specificity, sensitivity)) +
   geom_path() +
+  geom_abline(intercept = 0, slope = 1, alpha = 0.75, color = "red") +
   theme_bw() +
   labs(x = "1 - Spezifität", y = "Sensifität")
 
 ```
 
-Später vergleichen wir im maschinellen Lernen verschiedene Methoden miteinander. Dazu nutzen wir dann auch die ROC Kurve und die Möglichkeit auch einen `roc.test()` zu rechnen. Mehr dazu gibt es soweit erstmal auf der Hilfeseite des R Paketes `pROC` mit vielen [Screenshots vom pROC Paket](https://web.expasy.org/pROC/screenshots.html)
+In späteren Kapiteln zur Klassifikation werden wir auch verschiedene ROC Kurven zusammen darstellen und miteinander Vergleichen. Dazu nutzen wir dann auch die ROC Kurve und die Möglichkeit auch einen `roc.test()` zu rechnen. Mehr dazu gibt es soweit erstmal auf der Hilfeseite des R Paketes `pROC` mit vielen [Screenshots vom pROC Paket](https://web.expasy.org/pROC/screenshots.html). Für dieses Kapitel soll die Darstellung einer ROC Kurve genügen.
