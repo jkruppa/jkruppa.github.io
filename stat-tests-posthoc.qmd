@@ -300,22 +300,26 @@ contrMat(n = c(7, 7, 7), type = "Dunnett", base = 1)
 ![](images/caution.png){fig-align="center" width="50%"}
 
 ::: column-margin
-Wir können hier nicht alles erklären und im Detail durchgehen. Hier gibt es noch ein aufwendiges Tutorium zu `emmeans`: [Getting started with emmeans](https://aosmith.rbind.io/2019/03/25/getting-started-with-emmeans/)
+Wir können hier nicht alles erklären und im Detail durchgehen. Hier gibt es noch ein aufwendiges Tutorium zu `emmeans`: [Getting started with emmeans](https://aosmith.rbind.io/2019/03/25/getting-started-with-emmeans/).
+
+Daneben gibt es auch noch die [Einführung mit Theorie auf der Seite des R Paktes](https://cran.r-project.org/web/packages/emmeans/vignettes/basics.html#contents)
 :::
 
+Im Folgenden wollen wir uns mit einem anderen R Paket beschäftigen was auch multiple Vergleiche rechnen kann. In diesem Kapitel nutzen wir das R Paket `emmeans`. Im Prinzip kann `emmeans` das Gleiche wir das R Paket `multcomp`. Beide Pakete rechnen dir einen multipen Vergleich. Das Paket `emmeans` kann noch mit *nested comparisons* umgehen. Deshlb hier nochmal die Vorstellung von `emmeans`. Du kannst aber für eine simple Auswertung mit nur einem Faktor beide Pakete verwenden.
+
 ### Gruppenvergleiche mit `emmeans` in R
-
-https://stats.stackexchange.com/questions/404168/multcomp-vs-emmeans-for-multiple-comparisons#:\~:text=As%20I%20understand%20it%20(e.g.,values%20and%20short%20confidence%20intervals.
-
-?emmeans::emm
 
 ::: column-margin
 Die Ausgabe von `emmeans` können über die Funktion `tidy()` aufgeräumt werden. Mehr dazu unter der [Hilfeseite von `tidy`() zu emmeans](https://broom.tidymodels.org/reference/tidy.emmGrid.html).
 :::
 
+Um den multiplen Vergleich in `emmeans` durchführen zu können brauchen wir zuerst ein lineares Modell, was uns die notwenidgen Parameter wie Mittelwerte und Standardabweichungen liefert. Wir nutzen in unserem simplen Beispiel ein lineares Modell mit einer Einflussvariable $x$ und nehmen an, dass unser Outcome $y$ normalverteilt ist. Achtung, hier muss natürlich das $x$ ein Faktor sein. Dann können wir ganz einfach die Funktion `lm()` nutzen. Im Folgenden fitten wir das Modell `fit_2` was wir dann auch weiter nutzen werden.
+
 ```{r}
 fit_2 <- lm(jump_length ~ animal, data = fac1_tbl)
 ```
+
+Der multiple Vergleich in `emmeans` ist mehrschrittig. Wir pipen unser Modell aus `fit_2` in die Funktion `emmeans()`. Wir geben mit `~ animal` an, dass wir über die Level des Faktors `animal` einen Vergleich rechnen wollen. Wir adjustieren die $p$-Werte nach Bonferroni. Danach pipen wir weiter in die Funktion `contrast()` wo der eigentliche Vergleich festgelegt wird. In unserem Fall wollen wir einen *many-to-one* Vergleich rechnen. Alle Gruppen zu der Gruppe `fox`. Du kannst mit `ref =` auch ein anderes Level deines Faktors wählen.
 
 ```{r}
 comp_2_obj <- fit_2 %>% 
@@ -325,6 +329,8 @@ comp_2_obj <- fit_2 %>%
 comp_2_obj
 ```
 
+Wir können auch einen anderen Kontrast wählen. Wir überschreiben jetzt das Objekt `comp_2_obj` mit dem Kontrast *all-pair*, der alle möglichen Vergleiche rechnet. In `emmeans` heißt der *all-pair* Kontrast *pairwise*.
+
 ```{r}
 comp_2_obj <- fit_2 %>% 
   emmeans(~ animal, adjust = "bonferroni") %>% 
@@ -332,6 +338,8 @@ comp_2_obj <- fit_2 %>%
 
 comp_2_obj
 ```
+
+Wir können das Ergebnis auch noch mit der Funktion `tidy()` weiter aufräumen und dann die Spalten selektieren, die wir brauchen. Häufig benötigen wir nicht alle Spalten, die eine Funktion wiedergibt.
 
 ```{r}
 res_2_obj <- comp_2_obj %>% 
@@ -342,6 +350,8 @@ res_2_obj <- comp_2_obj %>%
 res_2_obj
 ```
 
+Abschließend wollen wir noch die 95% Konfidenzintervalle in @fig-emmeans-1 abbilden. Hier ist es bei `emmeans` genauso wie bei `multcomp`. Wir können das Objekt `res_2_obj` direkt in `ggplot()` weiterverwenden und uns die 95% Konfidenzintervalle einmal plotten.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -349,7 +359,7 @@ res_2_obj
 #| fig-align: center
 #| fig-height: 3
 #| fig-width: 5
-#| fig-cap: 95% Konfidenzintervalle.
+#| fig-cap: Die 95% Konfidenzintervalle für den *allpair*-Vergleich des simplen Datensatzes.
 #| label: fig-emmeans-1
 
   ggplot(res_2_obj, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high)) +
@@ -360,7 +370,7 @@ res_2_obj
     theme_classic()
 ```
 
-Wir wollen uns noch einen etwas komplizierteren Fall anschauen, indem sich `emmeans` von `multcomp` in der Anwendung unterscheidet.
+Wir wollen uns noch einen etwas komplizierteren Fall anschauen, indem sich `emmeans` von `multcomp` in der Anwendung unterscheidet. Wir laden den Datensatz `flea_dog_cat_fox_site.csv` in dem wir *zwei* Faktoren haben. Damit können wir dann ein Modell mit einem Interaktionsterm bauen.
 
 ```{r}
 #| message: false
@@ -376,7 +386,7 @@ Wir erhalten das Objekt `fac2_tbl` mit dem Datensatz in @tbl-data-emmeans-1 noch
 ```{r}
 #| message: false
 #| echo: false
-#| tbl-cap: Selektierter Datensatz für die zweifaktorielle ANOVA mit einer normalverteilten Variable `jump_length` und einem Faktor `animal` mit drei Leveln  sowie dem Faktor `site` mit vier Leveln.
+#| tbl-cap: Selektierter Datensatz mit einer normalverteilten Variable `jump_length` und einem Faktor `animal` mit drei Leveln  sowie dem Faktor `site` mit vier Leveln.
 #| label: tbl-data-emmeans-1
 
 fac2_raw_tbl <- fac2_tbl %>% 
@@ -389,13 +399,15 @@ rbind(head(fac2_raw_tbl),
 
 ```
 
+In @fig-boxplot-emmeans-1 sehen wir nochmal die Daten visualisiert. Wichtig ist hier, dass wir *zwei* Faktoren vorliegen haben. Den Faktor `animal` und den Faktor `site`. Dabei ist der Faktor `animal` in dem Faktor `site` genested. Wir messen jedes Level des Faktors `animal` jeweils in jedem Level des Faktors `site`.
+
 ```{r}
 #| message: false
 #| echo: false
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
-#| fig-cap: Boxplot der Sprungweiten [cm] von Hunden und Katzen.
+#| fig-cap: Boxplot der Sprungweiten [cm] von Hunden und Katzen gemessen an verschiedenen Orten.
 #| label: fig-boxplot-emmeans-1
 
 ggplot(fac2_tbl, aes(x = animal, y = jump_length, 
@@ -405,27 +417,33 @@ ggplot(fac2_tbl, aes(x = animal, y = jump_length,
   theme_bw() 
 ```
 
+Wir rechnen ein multiples lineares Modell mit einem Interaktionsterm. Daher packen wir beide Faktoren in das Modell sowie die Intraktion zwischen den beiden Faktoren. Wir erhalten nach dem fitten des Modells das Objekt `fit_3`.
+
 ```{r}
 fit_3 <- lm(jump_length ~ animal + site + animal:site, data = fac2_tbl)
 ```
+
+Der Unterschied zu unserem vorherigen multiplen Vergleich ist nun, dass wir auch einen multiplen Vergleich für *animal nested in site* rechnen können. Dafür müssen wir den Vergleich in der Form `animal | site` schreiben. Wir erhalten dann die Vergleiche der Level des faktors `animal` *getrennt* für die Level es Faktors `site`.
 
 ```{r}
 comp_3_obj <- fit_3 %>% 
   emmeans(~ animal | site, adjust = "bonferroni") %>% 
   contrast(method = "pairwise") 
 
+comp_3_obj
+```
+
+Wir können uns das Ergebnis auch etwas schöner ausgeben lassen. Wir nutzen hier noch die Funktion `format.pval()` um die $p$-Werte besser zu formatieren. Die $p$-Wert, die kleiner sind als 0.001 werden als `<0.001` ausgegeben und die anderen $p$-Werte auf zwei Nachstellen nach dem Komma gerundet.
+
+```{r}
 comp_3_obj %>% 
   summary %>% 
   as_tibble %>% 
   select(contrast, site, p.value) %>% 
   mutate(p.value = format.pval(p.value, eps = 0.001, digits = 2))
-
-comp_3_obj %>% confint()
-
-
-
-
 ```
+
+Wir wollen uns noch über die Funktion `confint()` die 95% Konfidenzintervalle wiedergeben lassen.
 
 ```{r}
 res_3_obj <- comp_3_obj %>% 
@@ -461,3 +479,7 @@ foo
 ### Gruppenvergleiche mit `emmeans` theoretisch
 
 ![](images/caution.png){fig-align="center" width="50%"}
+
+https://stats.stackexchange.com/questions/404168/multcomp-vs-emmeans-for-multiple-comparisons#:\~:text=As%20I%20understand%20it%20(e.g.,values%20and%20short%20confidence%20intervals.
+
+?emmeans::emm
