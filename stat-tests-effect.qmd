@@ -1,0 +1,212 @@
+```{r echo = FALSE}
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
+```
+
+# Der Effektschätzer {#sec-effect}
+
+*Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
+
+![](images/caution.png){fig-align="center" width="50%"}
+
+[Doing Meta-Analysis with R: A Hands-On Guide](https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/effects.html)
+
+[Der Effektschätzer wird auch gerne Theta $\boldsymbol{\theta}$ genannt. Da wir dann aber später noch mit anderen Konzepten in die Quere kommen, nutze ich das etwas intuitivere Delta $\boldsymbol{\Delta}$.]{.aside}
+
+Wir nutzen die Effektschätzer aus dem [R Paket effectsize](https://easystats.github.io/effectsize/index.html).
+
+::: {.callout-caution collapse="true"}
+## Ein Wort zur Klausur
+
+Wir nutzen folgende
+:::
+
+## Genutzte R Pakete für das Kapitel
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+#| message: false
+pacman::p_load(tidyverse, magrittr, conflicted, broom,
+               see, effectsize)
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("mutate", "dplyr")
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+## Unterschied zweier Mittelwerte
+
+Wir berechnen zwei Mittelwerte $\bar{y}_1$ und $\bar{y}_2$. Wenn wir wissen wollen wie groß der Effekt zwischen den beiden Mittelwerten ist, dann bilden wir die Differenz. Wir berechnen das $\Delta$ von $y_1$ und $y_2$ indem wir die Diffenz bilden.
+
+$$
+\Delta_{y_1-y_2} = \bar{y}_1 - \bar{y}_2
+$$
+
+Wenn es keinen Unterschied zwischen den beiden Mittelwerten $\bar{y}_1$ und $\bar{y}_2$ gibt, dann ist die Differenz $\Delta_{y_1-y_2} = \bar{y}_1 - \bar{y}_2$ gleich 0.
+
+$$
+H_0: \Delta_{y_1-y_2} = \bar{y}_1 - \bar{y}_2 = 0
+$$
+
+In @tbl-dog-cat-small-delta ist eine Datenbeispiel gegeben.
+
+```{r}
+#| echo: false
+#| label: tbl-dog-cat-small-delta
+#| tbl-cap: Beispiel für die Berechnung von einem Mittelwertseffekt an der Sprunglänge [cm] von Hunde und Katzenflöhen.
+data_tbl <- tibble(animal = gl(2, 4, labels = c("cat", "dog")),
+                   jump_length = c(8.0, 7.9, 8.3, 9.1, 8.0, 7.8, 9.2, 7.7)) 
+
+data_tbl %>% 
+  kable(align = "c", "pipe")
+
+mean_tbl <- data_tbl %>% 
+  group_by(animal) %>% 
+  summarise(mean_animal = round(mean(jump_length), 1))
+
+mean_cat <- mean_tbl$mean_animal[1]
+mean_dog <- mean_tbl$mean_animal[2]
+
+```
+
+Nehmen wir an, wir berechnen für die Sprungweite \[cm\] der Hundeflöhe einen Mittelwert von $\bar{y}_{dog} = `r mean_dog`$ und für die Sprungweite \[cm\] der Katzenflöhe einen Mittelwert von $\bar{y}_{cat} =`r mean_cat`$. Wie große ist nun der Effekt? Oder anders gesprochen, welchen Unterschied in der Sprungweite macht es aus ein Hund oder eine Katze zu sein? Was ist also der Effekt von `animal`? Wir rechnen $\bar{y}_{dog} - \bar{y}_{cat} = 8.2 - 8.3 = -0.1$. Zum einen wissen wir jetzt "die Richtung". Da wir ein Minus vor dem Mittelwertsunterschied haben, müssen die Katzenflöhe weiter springen als die Hundeflöhe, nämlich 0,1cm. Dennoch ist der Effekt sehr klein.
+
+### Cohen's d
+
+$$
+d = \cfrac{\bar{y}_1-\bar{y}_2}{\sqrt{(s_1^2+s_2^2) /2}}
+$$
+
+```{r}
+cohens_d(jump_length ~ animal, data = data_tbl, pooled_sd = TRUE)
+
+interpret_cohens_d(0.24, rules = "cohen1988")
+```
+
+::: column-margin
+[Interpret standardized differences](https://easystats.github.io/effectsize/reference/interpret_cohens_d.html)
+:::
+
+Cohen (1988)
+
+-   $d < 0.2$ - Very small
+-   $0.2 \leq d < 0.5$ - Small
+-   $0.5 \leq d < 0.8$ - Medium
+-   $d \geq 0.8$ - Large
+
+### Hedges' g
+
+Hedges' g bietet eine Verzerrungskorrektur für kleine Stichprobengrößen ($N < 20$).
+
+$$
+g = \cfrac{\bar{y}_1 - \bar{y}_2}{s^*}
+$$
+
+mit
+
+$$
+s^* = \sqrt{\cfrac{(n_1-1)s_1^2 + (n_2-1)s_2^2}{n_1+n_2-2}}
+$$
+
+```{r}
+hedges_g(jump_length ~ animal, data = data_tbl, pooled_sd = TRUE)
+```
+
+```{r}
+interpret_hedges_g(0.21, rules = "sawilowsky2009")
+```
+
+## Unterschied zweier Anteile
+
+Neben den Unterschied zweier Mittelwerte ist auch häufig das Interesse an dem Unterschied zwischen zwei Wahrscheinlichkeiten oder auch Anteilen. Ebenso kann die Chance berechnet werden. Hier tritt häufig Verwirrung auf, daher hier zuerst ein Beispiel.
+
+|           |             |                   |                   |
+|:---------:|:-----------:|:-----------------:|:-----------------:|
+|           |             |   **Infected**    |                   |
+|           |             |     *Yes (1)*     |     *No (0)*      |
+| **Group** | *Treatment* | $23_{\;\Large a}$ | $10_{\;\Large b}$ |
+|           |  *Control*  | $18_{\;\Large c}$ | $14_{\;\Large d}$ |
+
+: Eine 2x2 Tabelle als Beispiel für unterschiedliche Flohinfektionen bei Hunden und Katzen für die Berechnung von Effektschätzern eines Anteils. {#tbl-2x2-ratio-delta}
+
+Aus der @tbl-2x2-ratio-delta können wir entnehmen, dass 23 Hunde mit Flöhen infiziert sind und 10 Hunde keine Infektion aufweisen. Bei den Katzen haben wir 18 infizierte und 14 gesunde Tiere beobachtet. Wir können nun zwei Arten von Anteilen berechnen. Das bekanntere ist die Frequenz oder Wahrscheinlichkeit oder Risk Ratio (RR). Das andere ist das Chancenverhältnis oder Odds Ratio (OR). Beide kommen in der Statistik vor und sind unterschiedlich zu interpretieren.
+
+```{r}
+cross_mat <- matrix(c(23, 10, 18, 14),
+  nrow = 2, byrow = TRUE,
+  dimnames = list(
+    Diagnosis = c("Infected", "Health"),
+    Group = c("Treatment", "Control")
+  )
+)
+
+cross_mat
+
+oddsratio(cross_mat)
+riskratio(cross_mat)
+```
+
+### Wahrscheinlichkeitsverhältnis oder Risk Ratio (RR)
+
+$$
+Pr(\mbox{dog}|\mbox{infected}) = \cfrac{a}{a+c} = \cfrac{23}{23+10} \approx 0.67
+$$
+
+$$
+Pr(\mbox{cat}|\mbox{infected}) = \cfrac{b}{b+d} = \cfrac{18}{18+14} \approx 0.56
+$$
+
+$$
+\Delta_{y_1/y_2} = RR = \cfrac{Pr(\mbox{dog}|\mbox{infected})}{Pr(\mbox{cat}|\mbox{infected})} =  \cfrac{0.67}{0.56} \approx 1.2 
+$$
+
+### Chancenverhältnis oder Odds Ratio (OR)
+
+$$
+Odds(\mbox{dog}|\mbox{infected}) = a:b = 23:10 = \cfrac{23}{10} = 2.3
+$$
+
+$$
+Odds(\mbox{cat}|\mbox{infected}) = c:d = 18:14 = \cfrac{18}{14} \approx 1.29 
+$$
+
+$$
+\Delta_{y_1/y_2} = OR =  \cfrac{Odds(\mbox{dog}|\mbox{infected})}{Odds(\mbox{cat}|\mbox{infected})} = \cfrac{a \cdot d}{b \cdot c} = \cfrac{2.30}{1.29} \approx 1.78
+$$
+
+Wann liegt nun kein Effekt bei einem Anteil wie dem RR oder OR vor? Wenn der Anteil in der einen Gruppe genauso groß ist wie der Anteil der anderen Gruppe. Dies gilt sowohl fürdas RR als auch das OR.
+
+$$
+H_0: RR = \cfrac{Pr(\mbox{dog}|\mbox{infected})}{Pr(\mbox{cat}|\mbox{infected})} = 1
+$$
+
+$$
+H_0: OR =  \cfrac{Odds(\mbox{dog}|\mbox{infected})}{Odds(\mbox{cat}|\mbox{infected})} = 1
+$$
+
+::: callout-important
+## Stärke eines Effektes
+
+Du musst immer den Effekt, hier den Mittelwertsunterschied, im Kontext der Fragestellung bzw. des Outcomes $y$ bewerten. Der numerische Unterschied von 0,1cm kann in einem Kontext viel sein. Das Wachstum von Bakterienkolonien kann ein Unterschied von 0,1cm sehr viel sein. Oder aber sehr wenig, wenn wir uns das Wachstum von Bambus pro Tag anschauen. Hier bist du gefragt, den Effekt in den Kontext richtig einzuordnen. Ebenso stellt sich die Frage, ob ein Unterschied von 6% viel oder wenig ist...
+:::
+
+::: callout-tip
+## Effektschätzer
+
+Wenn wir uns einen Unterschied eines **Mittelwerts** anschauen, dann haben wir *keinen* Effekt vorliegen, wenn das $\Delta$ zwischen Gruppe $A$ und Gruppe $B$ gleich 0 ist. Die Nullhypothese gilt.
+
+$$
+\Delta_{A-B} = A - B = 0
+$$
+
+Wenn wir uns einen Unterschied eines **Anteils** anschauen, dann haben wir *keinen* Effekt vorliegen, wenn das $\Delta$ zwischen Gruppe $A$ und Gruppe $B$ gleich 1 ist. Die Nullhypothese gilt.
+
+$$
+\Delta_{A/B} = \cfrac{A}{B} = 1
+$$
+
+Dieses Wissen brauchen wir um die Signifikanzschwelle bei einem 95% Konfidenzintervall richtig zu setzen und interpretieren zu können.
+:::
