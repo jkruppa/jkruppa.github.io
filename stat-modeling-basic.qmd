@@ -39,7 +39,7 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 model_tbl <- read_csv2("data/flea_dog_cat_length_weight.csv") %>%
   mutate(animal = as_factor(animal),
          sex = as_factor(sex),
-         log_hatch_time = log(hatch_time))
+         log_hatch_time = round(log(hatch_time), 2))
 ```
 
 In der @tbl-model-1 ist der Datensatz `model_tbl` nochmal dargestellt.
@@ -73,6 +73,42 @@ $$
 $$
 \epsilon \sim \mathcal{N}(0, s^2_y)
 $$
+
+```{r}
+#| message: false
+#| echo: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| label: fig-stat-modeling-mult-01
+#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten."
+#| fig-subcap: 
+#|   - "jump_length ~ weight"
+#|   - "jump_length ~ weight + animal"
+#|   - "jump_length ~ weight + animal + sex"
+#| layout-nrow: 1
+#| column: page
+
+ggplot(model_tbl, aes(x = weight, y = jump_length)) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_bw() +
+  geom_point() 
+
+ggplot(model_tbl, aes(x = weight, y = jump_length, color = animal)) +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_okabeito() +
+  theme_bw() +
+  geom_point() +
+  labs(color  = "Tierart")
+
+ggplot(model_tbl, aes(x = weight, y = jump_length, color = animal, shape = sex)) +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_okabeito() +
+  theme_bw() +
+  geom_point() +
+  labs(color  = "Tierart", shape = "Geschlecht")
+
+```
 
 ## Interpretation von kontinuierlichen $x$
 
@@ -152,6 +188,8 @@ ggplot(model_tbl, aes(x = animal, y = jump_length, color = animal)) +
 
 ## Vergleich von Modellen
 
+### Welche Variable soll ins Modell?
+
 ```{r}
 fit_1 <- lm(jump_length ~ animal, data = model_tbl)
 fit_2 <- lm(jump_length ~ animal + sex, data = model_tbl)
@@ -173,3 +211,23 @@ plot(comp_res)
 ```{r}
 test_vuong(fit_1, fit_2, fit_3, fit_4, fit_5)
 ```
+
+### War die Transformation sinnvoll?
+
+```{r}
+fit_1 <- lm(hatch_time ~ animal + sex, data = model_tbl)
+fit_2 <- lm(log_hatch_time ~ animal + sex, data = model_tbl)
+```
+
+```{r}
+comp_res <- compare_performance(fit_1, fit_2, rank = TRUE)
+
+comp_res
+```
+
+## Generalisierung von `lm()` zu `glm()` und `[g]lmer()`
+
+-   Die Funktion `lm()` nutzen wir, wenn das Outcome $y$ einer Normalverteilung folgt.
+-   Die Funktion `glm()` nutzen wir, wenn das Outcome $y$ einer *andere* Verteilung folgt.
+-   Die Funktion `lmer()` nutzen wir, wenn das Outcome $y$ einer Normalverteilung folgt *und* wir noch einen Block- oder Clusterfaktor vorliegen haben.
+-   Die Funktion `glmer()` nutzen wir, wenn das Outcome $y$ einer *andere* Verteilung folgt *und* wir noch einen Block- oder Clusterfaktor vorliegen haben.
