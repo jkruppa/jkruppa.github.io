@@ -8,7 +8,31 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
-Analysis of Covariance (ANCOVA) adjustiert die Faktoren einer ANOVA um eine kontinuierliche Covariate.
+[Eine Kovariate ist eine Variable, die mit berücksichtigt wird, um mögliche verzerrende Einflüsse auf die Analyseergebnisse (Konfundierung) abzuschätzen oder zu verringern.]{.aside}
+
+Eigentlich hat sich die Analysis of Covariance (ANCOVA) etwas überlebt. Wir können mit dem statistischen Modellieren *eigentlich* alles was die ANCOVA kann plus wir erhalten auch noch Effektschätzer für die Kovariaten und die Faktoren. Dennoch hat die ANCOVA ihren Platz in der Auswertung von Daten. Wenn du ein oder zwei Faktoren hast plus eine numerische Variable, wie das Startgewicht, für die du die Analyse adjustieren möchtest, dann ist die ANCOVA für dich gemacht.
+
+Also kurz gesprochen adjustiert die Analysis of Covariance (ANCOVA) die Faktoren einer ANOVA um eine kontinuierliche Covariate. Wir werden hier auch nur über die Nutzung in R sprechen und auf die theoretische Herleitung verzichten.
+
+Wir können die *einfaktorielle* ANCOVA in folgender Form schreiben. Wir haben haben einen Faktor $x_1$ und eine Kovariate oder aber ein numerisches $x_2$. Damit sähe die ANCOVA wie folgt aus.
+
+$$
+y \sim x_1 + x_2
+$$
+
+Damit ist die ANCOVA aber sehr abstrakt beschrieben. Der *eine* Faktor kommt damit gar nicht zur Geltung. Deshalb schreiben wir die ANCOVA wie folgt mit einem $f_1$ für den Faktor und einem $c_1$ für eine numerische Kovariate. Damit haben wir einen bessere Übersicht.
+
+$$
+y \sim f_1 + c_1
+$$
+
+Somit erklärt sich die zweifaktorielle ANCOVA schon fast von alleine. Wir erweitern einfach das Modell um einen zweiten Faktor $f_2$ und haben somit eine zweifaktorielle ANCOVA.
+
+$$
+y \sim f_1 + f_2 + c_1
+$$
+
+Im Folgenden schauen wir uns einmal die Daten und die Hypothesen zu einer möglichen Fragestellung an.
 
 ## Genutzte R Pakete für das Kapitel
 
@@ -29,6 +53,8 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
+Für unser Beispiel nutzen wir die Daten der Sprungweite in \[cm\] von Flöhen auf Hunde-, Katzen- und Füchsen. Damit haben wir den ersten Faktor `animal` mit drei Leveln. Als Kovariate schauen wir uns das Geiwcht als numerische Variable an. Schlussendlich brauchen wir noch das Outcome `jump_length` als $y$. Für die zweifaktorielle ANCOVA nehmen wir noch den Faktor `sex` mit zwei Leveln hinzu.
+
 ```{r}
 #| message: false
 
@@ -37,12 +63,12 @@ ancova_tbl <- read_csv2("data/flea_dog_cat_length_weight.csv") %>%
   mutate(animal = as_factor(animal))
 ```
 
-In der @tbl-model-1 ist der Datensatz `model_tbl` nochmal dargestellt.
+In der @tbl-model-1 ist der Datensatz `ancova_tbl` nochmal dargestellt.
 
 ```{r}
 #| message: false
 #| echo: false
-#| tbl-cap: Datensatz mit mehreren Outcomes zu Flöhen auf verschiedenen Tierarten.
+#| tbl-cap: Datensatz zu der Sprunglänge in [cm] von Flöhen auf Hunde-, Katzen- und Füchsen.
 #| label: tbl-model-1
 
 ancova_raw_tbl <- ancova_tbl %>% 
@@ -69,7 +95,7 @@ H_A: &\; \bar{y}_{cat} \ne \bar{y}_{dog}\\
 \phantom{H_A:} &\; \mbox{für mindestens ein Paar}
 \end{align*}
 ```
-[Du kannst mehr über Geraden und deren Eigenschaften im @sec-modeling-simple-stat erfahren.]{.aside}
+[Du kannst mehr über Geraden sowei lineare Modelle und deren Eigenschaften im @sec-modeling-simple-stat erfahren.]{.aside}
 
 Für die Kovariate testen wir anders. Die Kovariate ist ja eine numerische Variable. Daher ist die Frage, wann gibt es keinen Effekt von `weight` auf die Sprunglänge? Wenn wir eine parallele Linie hätten. Das heißt, wenn sich der Wert von `weight` ändert, ändert sich der Wert von `jump_length` nicht. Wir schreiben, dass sich die Steigung der Geraden nicht ändert. Wir bezeichnen die Steigung einer Graden mit $\beta$. Wenn kein Effekt vorliegt und die Nullhpyothese gilt, dann ist die Steigung der Geraden $\beta_{weight} = 0$.
 
@@ -79,7 +105,7 @@ H_0: &\; \beta_{weight} = 0\\
 H_A: &\; \beta_{weight} \neq 0
 \end{align*}
 ```
-Einmal für die Interaktion `animal:site` - die eigentliche Stärke der zweifaktoriellen ANOVA. Wir können uns anschauen, ob die beiden Faktoren miteinander interagieren. Das heißt, ob eine Interaktion zwischen dem Faktor `animal´ und dem Faktor`site\` vorliegt.
+Du kannst dir überlegen, ob due die Interaktion zwischen dem Faktor und der Kovariate mit ins Modell nehmen willst. Eigentlich schauen wir uns immer nur die Interaktion zwischen den Faktoren an. Generell schreiben wir eine Interaktionshypothese immer in Prosa.
 
 ```{=latex}
 \begin{align*}
@@ -87,25 +113,13 @@ H_0: &\; \mbox{keine Interaktion}\\
 H_A: &\; \mbox{eine Interaktion zwischen animal und site}
 \end{align*}
 ```
-Wir haben also jetzt die verschiedenen Hypothesenpaare definiert und schauen uns jetzt die ANOVA in R einmal in der Anwendung an.
+Wir haben also jetzt die verschiedenen Hypothesenpaare definiert und schauen uns jetzt die ANCOVA in R einmal in der Anwendung an.
 
 ## Die einfaktorielle ANCOVA in R
 
-[Eine Kovariate ist eine Variable, die mit berücksichtigt wird, um mögliche verzerrende Einflüsse auf die Analyseergebnisse (Konfundierung) abzuschätzen oder zu verringern.]{.aside}
+[Du kannst mehr über Geraden sowie lineare Modelle und deren Eigenschaften im @sec-modeling-simple-stat erfahren.]{.aside}
 
-Wir können die *einfaktorielle* ANCOVA in folgender Form schreiben. Wir haben haben einen Faktor $x_1$ und eine Kovariate oder aber ein numerisches $x_2$. Damit sähe die ANCOVA wie folgt aus.
-
-$$
-y \sim x_1 + x_2
-$$
-
-Damit ist die ANCOVA aber sehr abstrakt beschrieben. Der *eine* Faktor kommt damit gar nicht zur Geltung. Deshalb schreiben wir die ANCOVA wie folgt mit einem $f_1$ für den Faktor und einem $c_1$ für eine numerische Kovariate. Damit haben wir einen bessere Übersicht.
-
-$$
-y \sim f_1 + c_1
-$$
-
-Wir können die ANCOVA ganz klassich mit dem linaren Modell fitten. Wir nutzen die Funktion `lm()` um die Koeffizienten des linearen Modellls zu erhalten. In unserem Beispiel sieht dann der Fit des Modells wie folgt aus.
+Wir können die ANCOVA ganz klassisch mit dem linaren Modell fitten. Wir nutzen die Funktion `lm()` um die Koeffizienten des linearen Modellls zu erhalten. Wir erinnern uns, wir haben haben einen Faktor $f_1$ und eine Kovariate bezwiehungsweise ein numerisches $c_1$. In unserem Beispiel sieht dann der Fit des Modells wie folgt aus.
 
 ```{r}
 fit_1 <- lm(jump_length ~ animal + weight + animal:weight, data = ancova_tbl)
@@ -117,7 +131,11 @@ Nachdem wir das Modell in dem Objekt `fit_1` gespeichert haben können wir dann 
 fit_1 %>% anova 
 ```
 
-In der ANCOVA erkennne wir nun, dass der Faktor `animal` signifikant ist. Der $p$-Wert ist mit $<0.001$ kleiner das das Signifikanzneiveau $\alpha$ von 5%. Ebenso ist die Kovariate `weight` signifikant. Der $p$-Wert ist ebenfalls mit $<0.001$ kleiner das das Signifikanzneiveau $\alpha$ von 5%.
+In der ANCOVA erkennne wir nun, dass der Faktor `animal` signifikant ist. Der $p$-Wert ist mit $<0.001$ kleiner das das Signifikanzniveau $\alpha$ von 5%. Ebenso ist die Kovariate `weight` signifikant. Der $p$-Wert ist ebenfalls mit $<0.001$ kleiner das das Signifikanzniveau $\alpha$ von 5%. Wir können also schlussfolgern, dass sich mindestens eine Gruppenvergleich der Level des Faktors `animal` voneinander unterscheidet. Wir wissen auch, dass mit der Zunahme des Gewichts, die Sprunglänge sich ändert.
+
+[Die ANCOVA liefert keine Informationen zu der Größe oder der Richtung des Effekts der Kovariate.]{.aside}
+
+Was wir nicht wissen, ist die Richtung. Wir wissen nicht, ob mit ansteigenden Gewicht sich die Sprunglänge erhöht oder vermindert. Ebenso wenig wissen wir etwas über den Betrag des Effekts. Wieviel weiter springen denn nun Flöhe mit 1 mg Gewicht mehr? Wir haben aber die Möglichkeit, den Sachverhalt uns einmal in einer Abbildung zu visualisieren. In @fig-stat-ancova-01 sehen wir die Daten einmal als Scatterplot dargestellt.
 
 ```{r}
 #| message: false
@@ -125,8 +143,8 @@ In der ANCOVA erkennne wir nun, dass der Faktor `animal` signifikant ist. Der $p
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
-#| fig-cap: foo
-#| label: fig-stat-modeling-basic-01
+#| fig-cap: Scatterplot der Daten zur einfaktoriellen ANCOVA.
+#| label: fig-stat-ancova-01
 
 ggplot(ancova_tbl, aes(weight, jump_length, color = animal)) +
   geom_smooth(method = "lm", se = FALSE) +
@@ -137,11 +155,31 @@ ggplot(ancova_tbl, aes(weight, jump_length, color = animal)) +
   
 ```
 
+Der @fig-stat-ancova-01 können wir jetzt die positive Steigung entnehmen sowie die Reihenfolge der Tierarten nach Sprungweiten. Die ANCOVA sollte immer visualisiert werden, da sich hier die Stärke der Methode mit der Visualiserung verbindet.
+
 ## Die zweifaktorielle ANCOVA in R
+
+Die zweifaktorielle ANCOVA erweitert die einfaktorielle ANCOVA um einen weiteren Faktor. Das ist manchmal etwas verwirrend, da wir auf einmal drei oder mehr Terme in einem Modell haben. Klassischerweise haben wir nun zwei Faktoren $f_1$ und $f_2$ in dem Modell. Weiterhin haben wir nur eine Kovariate $c_1$. Damit sehe das Modell wie folgt aus.
+
+$$
+y \sim f_1 + f_2 + c_1
+$$
+
+Wir können das Modell dann in R übertragen und ergänzen noch den Interaktionsterm für die Faktoren `animal` und `sex` in dem Modell. Das Modell wird klassisch in der Funktion `lm()` gefittet.
 
 ```{r}
 fit_2 <- lm(jump_length ~ animal + sex + weight + animal:sex, data = ancova_tbl)
 ```
+
+Nach dem Fit können wir das Modell in dem Obkjekt `fit_2` in die Funktion `anova()` pipen. Die Funktion erkennt die Struktur des Modells und gibt uns eine ANCOVA Ausgabe wieder.
+
+```{r}
+fit_2 %>% anova 
+```
+
+In der ANCOVA erkennne wir nun, dass der Faktor `animal` signifikant ist. Der $p$-Wert ist mit $<0.001$ kleiner das das Signifikanzniveau $\alpha$ von 5%. Ebenso ist der Faktor `sex` signifikant. Der $p$-Wert ist mit $<0.001$ kleiner das das Signifikanzniveau $\alpha$ von 5%. Die Kovariate `weight` ist nicht mehr signifikant. Der $p$-Wert ist mit $0.94$ größer das das Signifikanzniveau $\alpha$ von 5%. Wir können also schlussfolgern, dass sich mindestens eine Gruppenvergleich der Level des Faktors `animal` voneinander unterscheidet. Ebenso wie können wir schlussfolgern, dass sich mindestens eine Gruppenvergleich der Level des Faktors `site` voneinander unterscheidet. Da wir nur zwei Level in dem Faktor `sex` haben, wissenwir nun, dass sich die beiden Geschlechter der Flöhe in der Sprungweite unterscheiden. Wir wissen auch, dass mit der Zunahme des Gewichts, sich die Sprunglänge nicht ändert.
+
+In @fig-stat-ancova-02 sehen wir nochmal den Zusammenhang dargestellt. Wenn wir die Daten getrennt für den Faktor `sex` anschauen, dann sehen wir, dass das Gewicht keinen Einfluss mehr auf die Sprungweite hat.
 
 ```{r}
 #| message: false
@@ -149,8 +187,8 @@ fit_2 <- lm(jump_length ~ animal + sex + weight + animal:sex, data = ancova_tbl)
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
-#| fig-cap: foo
-#| label: fig-stat-modeling-basic-00
+#| fig-cap: Scatterplot der Daten zur einfaktoriellen ANCOVA aufgetelt nach dem Geschlecht der Flöhe.
+#| label: fig-stat-ancova-02
 
 ggplot(ancova_tbl, aes(weight, jump_length, color = animal)) +
   geom_smooth(method = "lm", se = FALSE) +
@@ -162,6 +200,11 @@ ggplot(ancova_tbl, aes(weight, jump_length, color = animal)) +
   
 ```
 
-```{r}
-anova(fit_2) 
-```
+## Und weiter?
+
+Nach einer berechnten ANCOVA können wir zwei Fälle vorliegen haben.
+
+[Wenn du in deinem Experiment keine *signifikanten* Ergebnisse findest, ist das nicht schlimm. Du kannst deine Daten immer noch mit der explorativen Datenanalyse auswerten wie in @sec-eda-ggplot beschrieben.]{.aside}
+
+1)  Wir habe eine nicht signifkante ANCOVA berechnet. Wir können die Nullhypothese $H_0$ nicht ablehnen und die Mittelwerte über den Faktor sind vermutlich alle gleich. Wir enden hier mit unserer statistischen Analyse.
+2)  Wir haben eine signifikante ANCOVA berechnet. Wir können die Nullhypothese $H_0$ ablehnen und mindestens ein Gruppenvergleich über mindestens einen Faktor ist vermutlich unterschiedlich. Wir können dann in @sec-posthoc eine Posthoc Analyse rechnen.
