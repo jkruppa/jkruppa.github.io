@@ -8,11 +8,31 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
-::: {.callout-caution collapse="true"}
-## Ein Wort zur Klausur
+Ein multiples lineare Modell hat mehrere $x$. Daher haben wir auf der linken Seite ein $y$ und auf der rechten Seite $p$-mal ein $x$. Wir können daher ein multiples lineares Modell daher wie folgt in R schreiben.
 
-Wir nutzen folgende
-:::
+$$
+y \sim x_1 + x_2 + ... + x_p 
+$$
+
+Oder konkreter können wir sagen, dass `jump_length` von `animal`, `sex` und `weight` abhängt und wir diesen Zusammenhang modellieren wollen.
+
+$$
+jump\_length \sim animal + sex + weight 
+$$
+
+Das hilft uns jetzt nur bedingt, denn wir wollen ja aus einer Modellierung in R die Koeffizienten der Regression wiederbekommen. Dafür müssen wir uns nochmal klar werden, was die Koeffizienten einer Regression sind. Das sind zum einen der y-Achsenabschnitt $\beta_0$ und die Steigung der einzelnen Variablen mit $\beta_1$ bis $\beta_p$. Wir erhalten auch bei einem multiplen Regressionsmodell nur einen Vektor mit den Residuen wieder.
+
+$$
+y \sim \beta_0 + \beta_1 x_1 + \beta_2 x_2 + ... + \beta_p x_p + \epsilon
+$$
+
+Dennoch sind die Residuen $\epsilon$ normalverteilt. Wir haben im Mittel einen Abstand der $\epsilon$'s zur geraden von 0 und eine Streuung von $s^2_{\epsilon}$.
+
+$$
+\epsilon \sim \mathcal{N}(0, s^2_{\epsilon})
+$$
+
+Wir zeichen im Prinzip eine Gerade durch den $p$-dimensioneln Raum.
 
 ## Genutzte R Pakete für das Kapitel
 
@@ -31,50 +51,7 @@ cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
 
-## Daten
-
-```{r}
-#| message: false
-
-model_tbl <- read_csv2("data/flea_dog_cat_length_weight.csv") %>%
-  mutate(animal = as_factor(animal),
-         sex = as_factor(sex),
-         log_hatch_time = round(log(hatch_time), 2))
-```
-
-In der @tbl-model-1 ist der Datensatz `model_tbl` nochmal dargestellt.
-
-```{r}
-#| message: false
-#| echo: false
-#| tbl-cap: Datensatz mit mehreren Outcomes zu Flöhen auf verschiedenen Tierarten.
-#| label: tbl-model-1
-
-model_raw_tbl <- model_tbl %>% 
-  mutate(animal = as.character(animal),
-         sex = as.character(sex))
-rbind(head(model_raw_tbl),
-      rep("...", times = ncol(model_raw_tbl)),
-      tail(model_raw_tbl)) %>% 
-  kable(align = "c", "pipe")
-
-```
-
-## Multiple lineare Regression
-
-$$
-y \sim x_1 + x_2 + ... + x_p
-$$
-
-$$
-y \sim \beta_0 + \beta_1 x_1 + \beta_2 x_2 + ... + \beta_p x_p + \epsilon
-$$
-
-$$
-\epsilon \sim \mathcal{N}(0, s^2_y)
-$$
-
-## Model matrix
+## Die Model matrix
 
 ```{r}
 #| message: false
@@ -95,50 +72,6 @@ In der @tbl-snakes ist der Datensatz `snake_tbl` nochmal dargestellt.
 
 snake_tbl %>% 
   kable(align = "c", "pipe")
-
-```
-
-## Adjustierung für Confounder
-
-@fig-stat-modeling-mult-01-1
-
-@fig-stat-modeling-mult-01-2
-
-@fig-stat-modeling-mult-01-3
-
-```{r}
-#| message: false
-#| echo: false
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 5
-#| label: fig-stat-modeling-mult-01
-#| fig-cap: "Darstellung des *counfounder* Effekts anhand des Zusammenhangs der Sprungweite in [cm] und dem Gewicht von Flöhen [mg]."
-#| fig-subcap: 
-#|   - "jump_length ~ weight"
-#|   - "jump_length ~ weight + animal"
-#|   - "jump_length ~ weight + animal + sex"
-#| layout-nrow: 1
-#| column: page
-
-ggplot(model_tbl, aes(x = weight, y = jump_length)) +
-  geom_smooth(method = "lm", se = FALSE) +
-  theme_bw() +
-  geom_point() 
-
-ggplot(model_tbl, aes(x = weight, y = jump_length, color = animal)) +
-  geom_smooth(method = "lm", se = FALSE) +
-  scale_color_okabeito() +
-  theme_bw() +
-  geom_point() +
-  labs(color  = "Tierart")
-
-ggplot(model_tbl, aes(x = weight, y = jump_length, color = animal, shape = sex)) +
-  geom_smooth(method = "lm", se = FALSE) +
-  scale_color_okabeito() +
-  theme_bw() +
-  geom_point() +
-  labs(color  = "Tierart", shape = "Geschlecht")
 
 ```
 
@@ -312,9 +245,95 @@ ggplot(cat_three_tbl, aes(x, y, color = x)) +
 
 ```
 
-## Vergleich von Modellen
+## Adjustierung für Confounder
 
-### Welche Variable soll ins Modell?
+```{r}
+#| message: false
+
+model_tbl <- read_csv2("data/flea_dog_cat_length_weight.csv") %>%
+  mutate(animal = as_factor(animal),
+         sex = as_factor(sex),
+         log_hatch_time = round(log(hatch_time), 2))
+```
+
+In der @tbl-model-1 ist der Datensatz `model_tbl` nochmal dargestellt.
+
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: Datensatz mit mehreren Outcomes zu Flöhen auf verschiedenen Tierarten.
+#| label: tbl-model-1
+
+model_raw_tbl <- model_tbl %>% 
+  mutate(animal = as.character(animal),
+         sex = as.character(sex))
+rbind(head(model_raw_tbl),
+      rep("...", times = ncol(model_raw_tbl)),
+      tail(model_raw_tbl)) %>% 
+  kable(align = "c", "pipe")
+
+```
+
+@fig-stat-modeling-mult-01-1
+
+@fig-stat-modeling-mult-01-2
+
+@fig-stat-modeling-mult-01-3
+
+```{r}
+#| message: false
+#| echo: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| label: fig-stat-modeling-mult-01
+#| fig-cap: "Darstellung des *counfounder* Effekts anhand des Zusammenhangs der Sprungweite in [cm] und dem Gewicht von Flöhen [mg]."
+#| fig-subcap: 
+#|   - "jump_length ~ weight"
+#|   - "jump_length ~ weight + animal"
+#|   - "jump_length ~ weight + animal + sex"
+#| layout-nrow: 1
+#| column: page
+
+ggplot(model_tbl, aes(x = weight, y = jump_length)) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_bw() +
+  geom_point() 
+
+ggplot(model_tbl, aes(x = weight, y = jump_length, color = animal)) +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_okabeito() +
+  theme_bw() +
+  geom_point() +
+  labs(color  = "Tierart")
+
+ggplot(model_tbl, aes(x = weight, y = jump_length, color = animal, shape = sex)) +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_okabeito() +
+  theme_bw() +
+  geom_point() +
+  labs(color  = "Tierart", shape = "Geschlecht")
+
+```
+
+## Variance inflation factor (VIF)
+
+VIF kann nicht für kategoriale Daten verwendet werden. Statistisch gesehen würde es keinen Sinn machen.
+
+```{r}
+library(car)
+
+model <- lm(mpg ~ disp + hp + wt + drat, data = mtcars)
+
+model <- lm(jump_length ~ sex + weight, data = model_tbl)
+
+vif(model)
+
+check_model(model, check = "vif")
+
+```
+
+## Vergleich von Modellen
 
 ```{r}
 fit_1 <- lm(jump_length ~ animal, data = model_tbl)
@@ -377,7 +396,7 @@ test_vuong(fit_1, fit_2, fit_3, fit_4, fit_5)
 
 ```
 
-### War die Transformation sinnvoll?
+War die Transformation sinnvoll?
 
 ```{r}
 fit_1 <- lm(hatch_time ~ animal + sex, data = model_tbl)
