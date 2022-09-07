@@ -119,13 +119,25 @@ ggplot(model_tbl, aes(x = weight, y = jump_length, color = animal, shape = sex))
 ## Interpretation kontinuierliches $x$
 
 ```{r}
-lm(jump_length ~ weight, data = model_tbl) %>% 
+set.seed(20137937)
+cont_tbl <- tibble(x = seq(from = 1, to = 7, by = 1),
+                   y = 5 + 1.5 * x + rnorm(length(x), 0, 1))
+cont_tbl
+```
+
+```{r}
+model.matrix(y ~ x, data = cont_tbl)
+```
+
+```{r}
+lm(y ~ x, data = cont_tbl) %>% 
   tidy() %>% 
   select(term, estimate)
 ```
 
 ```{r}
 #| message: false
+#| warning: false
 #| echo: true
 #| fig-align: center
 #| fig-height: 5
@@ -133,17 +145,34 @@ lm(jump_length ~ weight, data = model_tbl) %>%
 #| fig-cap: foo
 #| label: fig-stat-modeling-basic-00
 
-ggplot(model_tbl, aes(x = weight, y = jump_length)) +
+ggplot(cont_tbl, aes(x = x, y = y)) +
   theme_bw() +
   geom_point() +
-  geom_smooth(method = "lm", se = FALSE) 
+  geom_smooth(method = "lm", se = FALSE, fullrange = TRUE) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 8), breaks = 0:8) + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 17), breaks = 0:17) +
+  annotate("text", x = 3, y = 9, label = "y ==  4.32 + 1.71 %.% x", parse = TRUE,
+           hjust = 0)
 
 ```
 
 ## Interpretation kategorielles $x$ (2 Level)
 
 ```{r}
-lm(jump_length ~ sex, data = model_tbl) %>% 
+set.seed(20339537)
+cat_two_tbl <- tibble(A = rnorm(n = 7, mean = 10, sd = 1),
+                      B = rnorm(n = 7, mean = 15, sd = 1)) %>% 
+  gather(key = x, value = y) %>% 
+  mutate(x = as_factor(x))
+cat_two_tbl
+```
+
+```{r}
+model.matrix(y ~ x, data = cat_two_tbl)
+```
+
+```{r}
+lm(y ~ x, data = cat_two_tbl) %>% 
   tidy() %>% 
   select(term, estimate)
 ```
@@ -154,13 +183,14 @@ lm(jump_length ~ sex, data = model_tbl) %>%
 #| tbl-cap: Datensatz mit mehreren Outcomes zu Flöhen auf verschiedenen Tierarten.
 #| label: tbl-cat-2
 
-model_tbl %>% 
-  group_by(sex) %>% 
-  summarise(mean = mean(jump_length)) %>% 
+cat_two_tbl %>% 
+  group_by(x) %>% 
+  summarise(mean = mean(y)) %>% 
   mutate(diff = c(0, diff(mean)),
          sum = cumsum(diff)) %>% 
   mutate(across(where(is.numeric), round, 2)) %>% 
-  set_names(c("animal", "mean of level", "difference to male", "sum of difference")) %>% 
+  select(x, mean, sum) %>% 
+  set_names(c("Factor x", "Mean of level", "Difference to level A")) %>% 
   kable(align = "c", "pipe")
 ```
 
@@ -173,22 +203,38 @@ model_tbl %>%
 #| fig-cap: foo
 #| label: fig-stat-modeling-basic-01
 
-ggplot(model_tbl, aes(x = sex, y = jump_length, color = sex)) +
+ggplot(cat_two_tbl, aes(x, y, fill = x)) +
   theme_bw() +
-  geom_jitter(width = 0.1) +
-  geom_hline(yintercept = c(18.06, 18.06 + 4.90), 
+  geom_hline(yintercept = c(10.01, 10.01 + 5.27), 
              color = cbbPalette[c(2:3)], size = 1) +
-  scale_color_okabeito() +
+  geom_dotplot(binaxis = "y", stackdir = "center") +
+  scale_fill_okabeito() +
   theme(legend.position = "none") +
-  scale_y_continuous(breaks = c(15, 18.06, 20, 18.06 + 4.90, 25, 30)) +
-  geom_abline(intercept = 18.06-4.90, slope = 4.90)
+  scale_y_continuous(breaks = c(9, 10.01, 11, 12, 13, 14, 15.27, 16, 17)) +
+  geom_segment(aes(x = 1, y = 10.01, xend = 2, yend = 10.01+5.27)) +
+  annotate("text", x = 2.1, y = 15.7, label = "bar(y)[B] == 10.01 + 5.27", parse = TRUE,
+           hjust = 0)
 
 ```
 
 ## Interpretation kategorielles $x$ ($2>$ Level)
 
 ```{r}
-lm(jump_length ~ animal, data = model_tbl) %>% 
+set.seed(20339537)
+cat_three_tbl <- tibble(A = rnorm(n = 7, mean = 10, sd = 1),
+                        B = rnorm(n = 7, mean = 15, sd = 1),
+                        C = rnorm(n = 7, mean = 3, sd = 1)) %>% 
+  gather(key = x, value = y) %>% 
+  mutate(x = as_factor(x))
+cat_three_tbl
+```
+
+```{r}
+model.matrix(y ~ x, data = cat_three_tbl)
+```
+
+```{r}
+lm(y ~ x, data = cat_three_tbl) %>% 
   tidy() %>% 
   select(term, estimate)
 ```
@@ -199,13 +245,14 @@ lm(jump_length ~ animal, data = model_tbl) %>%
 #| tbl-cap: Datensatz mit mehreren Outcomes zu Flöhen auf verschiedenen Tierarten.
 #| label: tbl-cat-3
 
-model_tbl %>% 
-  group_by(animal) %>% 
-  summarise(mean = mean(jump_length)) %>% 
+cat_three_tbl %>% 
+  group_by(x) %>% 
+  summarise(mean = mean(y)) %>% 
   mutate(diff = c(0, diff(mean)),
          sum = cumsum(diff)) %>% 
   mutate(across(where(is.numeric), round, 2)) %>% 
-  set_names(c("animal", "mean of level", "difference to cat", "sum of difference")) %>% 
+  select(x, mean, sum) %>% 
+  set_names(c("Factor x", "Mean of level", "Difference to level A")) %>% 
   kable(align = "c", "pipe")
 ```
 
@@ -218,17 +265,22 @@ model_tbl %>%
 #| fig-cap: foo
 #| label: fig-stat-modeling-basic-02
 
-ggplot(model_tbl, aes(x = animal, y = jump_length, color = animal)) +
+ggplot(cat_three_tbl, aes(x, y, color = x)) +
   theme_bw() +
   geom_jitter(width = 0.1) +
-  geom_hline(yintercept = c(17.91, 17.91 + 2.61, 17.91 + 5.19), 
+  geom_hline(yintercept = c(10.1, 10.1 + 5.27, 10.1 - 7.41), 
              color = cbbPalette[c(2:4)], size = 1) +
   scale_color_okabeito() +
   theme(legend.position = "none") +
-  scale_y_continuous(breaks = c(15, 17.91, 17.91 + 2.61, 17.91 + 5.19, 25, 30)) +
-  geom_abline(intercept = 17.91-2.61, slope = 2.61) +
-  annotate("text", x = 1.5, y = 29, label = "jump_length == 17.91 + 2.61 %.% animal", parse = TRUE,
-           hjust = 0.5)
+  scale_y_continuous(breaks = c(0, 10.1 - 7.41, 5, 10.1, 10.1 + 5.27), 
+                     limits = c(0, NA)) +
+  geom_segment(aes(x = 1, y = 10.1, xend = 2, yend = 10.1+5.27), color = "black") +
+  geom_segment(aes(x = 1, y = 10.1, xend = 3, yend = 10.1-7.41), color = "black") +
+  annotate("text", x = 2.1, y = 14, label = "bar(y)[B] == 10.1 + 5.27", parse = TRUE,
+           hjust = 0) +
+  annotate("text", x = 2.5, y = 2, label = "bar(y)[C] == 10.1 - 7.41", parse = TRUE,
+           hjust = 0)
+
 
 ```
 
