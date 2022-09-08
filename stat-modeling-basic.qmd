@@ -77,7 +77,341 @@ snake_tbl %>%
 
 ```
 
-Wir wollen uns nun einmal anschauen, wie ein Modell in R sich zusammensetzt. Im ersten Schritt wollen wir uns einmal das volle Modell anschauen. Wir nehmen in das Modell `lm()` alle Variablen mit hinein. Die Funktion `model.matrix()` gibt uns die Modelmatrix wieder.
+Wir wollen uns nun einmal anschauen, wie ein Modell in R sich zusammensetzt.
+
+### Kontinuierliches $x$
+
+```{r}
+model.matrix(svl ~ mass, data = snake_tbl) %>% as_tibble
+```
+
+In der ersten Spalte ist der Intercept angegeben, danach folgt dann die Spalte `mass` als kontinuierliche Variable.
+
+Wir können die Modellmatrix auch mathematisch schreiben und die $y$ Spalte für das Outcome `svl` ergänzen. Eben so ergänzen wir die $\beta$-Werte als mögliche Koeefizienten aus der linearen Regression sowie die Residuen als Abweichung von der gefitteten Gerade.
+
+$$
+ \begin{pmatrix}
+  40 \\
+  45 \\
+  39 \\
+  50 \\
+  52 \\
+  57 \\
+  58 \\
+  59 \\
+ \end{pmatrix}
+ =
+  \begin{pmatrix}
+  1 & 6 \\
+  1 & 8 \\
+  1 & 5 \\
+  1 & 7 \\
+  1 & 9 \\
+  1 & 11\\
+  1 & 12\\
+  1 & 10\\
+ \end{pmatrix}
+ \times
+  \begin{pmatrix}
+  \beta_0 \\
+  \beta_{mass} 
+ \end{pmatrix} +
+  \begin{pmatrix}
+  \epsilon_1 \\
+  \epsilon_2 \\
+  \epsilon_3 \\
+  \epsilon_4 \\
+  \epsilon_5 \\
+  \epsilon_6 \\
+  \epsilon_7 \\
+  \epsilon_8 \\
+ \end{pmatrix}
+$$
+
+Jetzt brauche wir die Koeffizienten aus dem linearen Modell, welches wir wie folgt fitten. Wir nutzen dann die Funktion `coef()` um uns die Koeffizienten wiedergeben zu lassen. Die Funktion `residuals()` gibt uns die Residuen der Geraden wieder.
+
+```{r}
+fit_1 <- lm(svl ~ mass, data = snake_tbl) 
+fit_1 %>% coef %>% round(2)
+fit_1 %>% residuals() %>% round(2)
+```
+
+Wir können jetzt die Koeffizienten ergänzen mit $\beta_0 = 26.71$ für den Intercept. Weiter ergänzen wir die Koeffizienten für `mass` mit $\beta_{mass}=2.61$. Ebenfalls setzen wir Werte für die Residuen für jede der Beobachtungen in die Gleichung ein.
+
+$$
+ \begin{pmatrix}
+  40 \\
+  45 \\
+  39 \\
+  50 \\
+  52 \\
+  57 \\
+  58 \\
+  59 \\
+ \end{pmatrix}
+ =
+  \begin{pmatrix}
+  26.71 & \phantom{0}6 \cdot 2.61\\
+  26.71 & \phantom{0}8 \cdot 2.61\\
+  26.71 & \phantom{0}5 \cdot 2.61\\
+  26.71 & \phantom{0}7 \cdot 2.61\\
+  26.71 & \phantom{0}9 \cdot 2.61\\
+  26.71 & 11\cdot 2.61\\
+  26.71 & 12\cdot 2.61\\
+  26.71 & 10\cdot 2.61\\
+ \end{pmatrix}
+ \times
+  \begin{pmatrix}
+  \beta_0 \\
+  \beta_{mass} 
+ \end{pmatrix} +
+  \begin{pmatrix}
+  -2.36\\
+  -2.57\\
+  -0.75 \\
+  +6.04\\
+  +1.82\\
+  +1.61\\
+  \phantom{+}0.00\\
+  -3.79\\
+ \end{pmatrix}
+$$
+
+Wir können jetzt diese gewaltige Sammlung an Matrixen einmal auflösen. Steht denn nun wirklich rechts das Gleiche wie links von der Gleichung? Wir bauen uns die Zahlen von der rechten Seite der Gleichung einmal in R nach und schauen auf das Ergebnis.
+
+```{r}
+c(26.71 +  6*2.61 - 2.36,
+  26.71 +  8*2.61 - 2.57,
+  26.71 +  5*2.61 - 0.75,
+  26.71 +  7*2.61 + 6.04,
+  26.71 +  9*2.61 + 1.82,
+  26.71 + 11*2.61 + 1.61,
+  26.71 + 12*2.61 + 0.00,
+  26.71 + 10*2.61 - 3.79) %>% round() 
+```
+
+Die Zahlen, die wir rauskriegen, sind die gleichen Werte die unser Outcome $y$ hat.
+
+### Kategorielles $x$ mit 2 Leveln
+
+```{r}
+model.matrix(svl ~ region, data = snake_tbl) %>% as_tibble
+```
+
+In der ersten Spalte ist der Intercept angegeben, danach folgt dann die Spalte `regionnord`. In dieser Spalte steht die Dummykodierung für die Variable `region`. Die ersten drei Schlangen kommen nicht aus der Region `nord` und werden deshalb mit einen Wert von 0 versehen. Die nächsten vier Schlangen kommen aus der Region `nord` und erhalten daher eine 1 in der Spalte.
+
+Wir können die Modellmatrix auch mathematisch schreiben und die $y$ Spalte für das Outcome `svl` ergänzen. Eben so ergänzen wir die $\beta$-Werte als mögliche Koeefizienten aus der linearen Regression sowie die Residuen als Abweichung von der gefitteten Gerade.
+
+$$
+ \begin{pmatrix}
+  40 \\
+  45 \\
+  39 \\
+  50 \\
+  52 \\
+  57 \\
+  58 \\
+  59 \\
+ \end{pmatrix}
+ =
+  \begin{pmatrix}
+  1 &  0  \\
+  1 &  0 \\
+  1 &  0\\
+  1 &  1\\
+  1 &  1 \\
+  1 &  1 \\
+  1 &  1 \\
+  1 &  1 \\
+ \end{pmatrix}
+ \times
+  \begin{pmatrix}
+  \beta_0 \\
+  \beta^{region}_{nord} \\
+ \end{pmatrix} +
+  \begin{pmatrix}
+  \epsilon_1 \\
+  \epsilon_2 \\
+  \epsilon_3 \\
+  \epsilon_4 \\
+  \epsilon_5 \\
+  \epsilon_6 \\
+  \epsilon_7 \\
+  \epsilon_8 \\
+ \end{pmatrix}
+$$
+
+Jetzt brauche wir die Koeffizienten aus dem linearen Modell, welches wir wie folgt fitten. Wir nutzen dann die Funktion `coef()` um uns die Koeffizienten wiedergeben zu lassen. Die Funktion `residuals()` gibt uns die Residuen der Geraden wieder.
+
+```{r}
+fit_2 <- lm(svl ~ region, data = snake_tbl) 
+fit_2 %>% coef %>% round(2)
+fit_2 %>% residuals() %>% round(2)
+```
+
+Wir können jetzt die Koeffizienten ergänzen mit $\beta_0 = 41.33$ für den Intercept. Weiter ergänzen wir die Koeffizienten für die Region und das Level `nord` mit $\beta^{region}_{nord} = 12.07$. Ebenfalls setzen wir Werte für die Residuen für jede der Beobachtungen in die Gleichung ein.
+
+$$
+ \begin{pmatrix}
+  40 \\
+  45 \\
+  39 \\
+  50 \\
+  52 \\
+  57 \\
+  58 \\
+  59 \\
+ \end{pmatrix}
+ =
+  \begin{pmatrix}
+  41.33 & 0 \cdot 12.07  \\
+  41.33 & 0 \cdot 12.07  \\
+  41.33 & 0 \cdot 12.07  \\
+  41.33 & 1 \cdot 12.07  \\
+  41.33 & 1 \cdot 12.07  \\
+  41.33 & 1 \cdot 12.07  \\
+  41.33 & 1 \cdot 12.07  \\
+  41.33 & 1 \cdot 12.07  \\
+ \end{pmatrix} +
+  \begin{pmatrix}
+  -1.33\\
+  +3.67 \\
+  -2.33 \\
+  -2.40 \\
+  -1.40 \\
+  +3.60 \\
+  +4.60 \\
+  -4.40 \\
+ \end{pmatrix}
+$$
+
+Wir können jetzt diese gewaltige Sammlung an Matrixen einmal auflösen. Steht denn nun wirklich rechts das Gleiche wie links von der Gleichung? Wir bauen uns die Zahlen von der rechten Seite der Gleichung einmal in R nach und schauen auf das Ergebnis.
+
+```{r}
+c(41.33 + 0*12.07 - 1.33,
+  41.33 + 0*12.07 + 3.67,
+  41.33 + 0*12.07 - 2.33,
+  41.33 + 1*12.07 - 2.40,
+  41.33 + 1*12.07 - 1.40,
+  41.33 + 1*12.07 + 3.60,
+  41.33 + 1*12.07 + 4.60,
+  41.33 + 1*12.07 - 4.40) %>% round() 
+```
+
+Die Zahlen, die wir rauskriegen, sind die gleichen Werte die unser Outcome $y$ hat.
+
+### Kategorielles $x$ mit \>2 Leveln
+
+```{r}
+model.matrix(svl ~ color, data = snake_tbl) %>% as_tibble
+```
+
+In der ersten Spalte ist der Intercept angegeben, danach folgt dann die Spalten für `color`. Die Spalten `colorrot` und `colorblau` geben jeweils an, ob die Schlange das Level `rot` hat oder `blau` oder keins von beiden. Wenn die Schlange weder rot noch blau ist, dann sind beide Spalten mit einer 0 versehen. Dann ist die Schlange schwarz.
+
+Wir können die Modellmatrix auch mathematisch schreiben und die $y$ Spalte für das Outcome `svl` ergänzen. Eben so ergänzen wir die $\beta$-Werte als mögliche Koeefizienten aus der linearen Regression sowie die Residuen als Abweichung von der gefitteten Gerade.
+
+$$
+ \begin{pmatrix}
+  40 \\
+  45 \\
+  39 \\
+  50 \\
+  52 \\
+  57 \\
+  58 \\
+  59 \\
+ \end{pmatrix}
+ =
+  \begin{pmatrix}
+  1 & 0 & 0 \\
+  1 & 0 & 0\\
+  1 & 1 & 0\\
+  1 & 1 & 0\\
+  1 & 1 & 0\\
+  1 & 0 & 1\\
+  1 & 0 & 1\\
+  1 & 0 & 1\\
+ \end{pmatrix}
+ \times
+  \begin{pmatrix}
+  \beta_0 \\
+  \beta^{color}_{rot} \\
+  \beta^{color}_{blau} \\
+ \end{pmatrix} +
+  \begin{pmatrix}
+  \epsilon_1 \\
+  \epsilon_2 \\
+  \epsilon_3 \\
+  \epsilon_4 \\
+  \epsilon_5 \\
+  \epsilon_6 \\
+  \epsilon_7 \\
+  \epsilon_8 \\
+ \end{pmatrix}
+$$
+
+Jetzt brauche wir die Koeffizienten aus dem linearen Modell, welches wir wie folgt fitten. Wir nutzen dann die Funktion `coef()` um uns die Koeffizienten wiedergeben zu lassen. Die Funktion `residuals()` gibt uns die Residuen der Geraden wieder.
+
+```{r}
+fit_3 <- lm(svl ~ color, data = snake_tbl) 
+fit_3 %>% coef %>% round(2)
+fit_3 %>% residuals() %>% round(2)
+```
+
+Wir können jetzt die Koeffizienten ergänzen mit $\beta_0 = 25$ für den Intercept. Weiter ergänzen wir die Koeffizienten für die Farbe und das Level `rot` mit $\beta^{color}_{rot} = 4.83$ und für die Farbe und das Level `blau` mit $\beta^{color}_{blau} = 12.17$. Ebenfalls setzen wir Werte für die Residuen für jede der Beobachtungen in die Gleichung ein.
+
+$$
+ \begin{pmatrix}
+  40 \\
+  45 \\
+  39 \\
+  50 \\
+  52 \\
+  57 \\
+  58 \\
+  59 \\
+ \end{pmatrix}
+ =
+  \begin{pmatrix}
+  42.50 & 0 \cdot 4.83& 0 \cdot 12.17 \\
+  42.50 & 0 \cdot 4.83& 0 \cdot 12.17\\
+  42.50 & 1 \cdot 4.83& 0 \cdot 12.17\\
+  42.50 & 1 \cdot 4.83& 0 \cdot 12.17\\
+  42.50 & 1 \cdot 4.83& 0 \cdot 12.17\\
+  42.50 & 0 \cdot 4.83& 1 \cdot 12.17\\
+  42.50 & 0 \cdot 4.83& 1 \cdot 12.17\\
+  42.50 & 0 \cdot 4.83& 1 \cdot 12.17\\
+ \end{pmatrix} +
+  \begin{pmatrix}
+  -2.50 \\
+  +2.50 \\
+  -8.33 \\
+  +3.67 \\
+  +4.67 \\
+  +2.33 \\
+  +3.33 \\
+  -5.67 \\
+ \end{pmatrix}
+$$
+
+Wir können jetzt diese gewaltige Sammlung an Matrixen einmal auflösen. Steht denn nun wirklich rechts das Gleiche wie links von der Gleichung? Wir bauen uns die Zahlen von der rechten Seite der Gleichung einmal in R nach und schauen auf das Ergebnis.
+
+```{r}
+c(42.50 + 0*4.83 + 0*-12.17 - 2.50,
+  42.50 + 0*4.83 + 0*-12.17 + 2.50,
+  42.50 + 1*4.83 + 0*-12.17 - 8.33,
+  42.50 + 1*4.83 + 0*-12.17 + 3.67,
+  42.50 + 1*4.83 + 0*-12.17 + 4.67,
+  42.50 + 0*4.83 + 1*-12.17 + 2.33,
+  42.50 + 0*4.83 + 1*-12.17 + 3.33,
+  42.50 + 0*4.83 + 1*-12.17 - 5.67) %>% round()
+```
+
+Die Zahlen, die wir rauskriegen, sind die gleichen Werte die unser Outcome $y$ hat.
+
+### Das volle Modell
+
+Im letzten Schritt wollen wir uns einmal das volle Modell anschauen. Wir nehmen in das Modell `lm()` alle Variablen mit hinein. Die Funktion `model.matrix()` gibt uns die Modelmatrix wieder.
 
 ```{r}
 model.matrix(svl ~ mass + region + color, data = snake_tbl) %>% as_tibble() 
@@ -127,12 +461,14 @@ $$
   \epsilon_7 \\
   \epsilon_8 \\
  \end{pmatrix}
-$$ Jetzt brauche wir die Koeffizienten aus dem linearen Modell, welches wir wie folgt fitten. Wir nutzen dann die Funktion `coef()` um uns die Koeffizienten wiedergeben zu lassen. Die Funktion `residuals()` gibt uns die Residuen der Geraden wieder.
+$$
+
+Jetzt brauche wir die Koeffizienten aus dem linearen Modell, welches wir wie folgt fitten. Wir nutzen dann die Funktion `coef()` um uns die Koeffizienten wiedergeben zu lassen. Die Funktion `residuals()` gibt uns die Residuen der Geraden wieder.
 
 ```{r}
-fit_1 <- lm(svl ~ mass + region + color, data = snake_tbl) 
-fit_1 %>% coef %>% round(2)
-fit_1 %>% residuals() %>% round(2)
+fit_4 <- lm(svl ~ mass + region + color, data = snake_tbl) 
+fit_4 %>% coef %>% round(2)
+fit_4 %>% residuals() %>% round(2)
 ```
 
 Wir können jetzt die Koeffizienten ergänzen mit $\beta_0 = 25$ für den Intercept. Weiter ergänzen wir die Koeffizienten für `mass` mit $\beta_{mass}=2.5$, für Region und das Level `nord` mit $\beta^{region}_{nord} = 5$, für die Farbe und das Level `rot` mit $\beta^{color}_{rot} = 1.5$ und für die Farbe und das Level `blau` mit $\beta^{color}_{blau} = -2.83$. Ebenfalls setzen wir Werte für die Residuen für jede der Beobachtungen in die Gleichung ein.
@@ -181,106 +517,14 @@ c(25 +  6*2.5 + 0*5 + 0*1.5 + 0*-2.83 + 0.00,
   25 +  9*2.5 + 1*5 + 1*1.5 + 0*-2.83 - 2.00,
   25 + 11*2.5 + 1*5 + 0*1.5 + 1*-2.83 + 2.33,
   25 + 12*2.5 + 1*5 + 0*1.5 + 1*-2.83 + 0.83,
-  25 + 10*2.5 + 1*5 + 0*1.5 + 1*-2.83 - 3.17) %>% 
-matrix(ncol = 1)
+  25 + 10*2.5 + 1*5 + 0*1.5 + 1*-2.83 - 3.17) 
 ```
 
-### Modell ohne `color`
+Die Zahlen, die wir rauskriegen, sind die gleichen Werte die unser Outcome $y$ hat. Was haben wir gelernt?
 
-```{r}
-model.matrix(svl ~ mass + region, data = snake_tbl) %>% as_tibble
-```
-
-$$
- \begin{pmatrix}
-  40 \\
-  45 \\
-  39 \\
-  50 \\
-  52 \\
-  57 \\
-  58 \\
-  59 \\
- \end{pmatrix}
- =
-  \begin{pmatrix}
-  1 & 6 & 0  \\
-  1 & 8 & 0  \\
-  1 & 5 & 0 \\
-  1 & 7 & 1  \\
-  1 & 9 & 1  \\
-  1 & 11& 1  \\
-  1 & 12& 1  \\
-  1 & 10& 1  \\
- \end{pmatrix}
- \times
-  \begin{pmatrix}
-  \beta_0 \\
-  \beta_{mass} \\
-  \beta^{region}_{nord} \\
- \end{pmatrix} +
-  \begin{pmatrix}
-  \epsilon_1 \\
-  \epsilon_2 \\
-  \epsilon_3 \\
-  \epsilon_4 \\
-  \epsilon_5 \\
-  \epsilon_6 \\
-  \epsilon_7 \\
-  \epsilon_8 \\
- \end{pmatrix}
-$$
-
-```{r}
-fit_2 <- lm(svl ~ mass + region, data = snake_tbl) 
-fit_2 %>% coef %>% round(2)
-fit_2 %>% residuals() %>% round(2)
-```
-
-$$
- \begin{pmatrix}
-  40 \\
-  45 \\
-  39 \\
-  50 \\
-  52 \\
-  57 \\
-  58 \\
-  59 \\
- \end{pmatrix}
- =
-  \begin{pmatrix}
-  31.23 & \phantom{0}6 \cdot 1.6 & 0 \cdot 6.53  \\
-  31.23 & \phantom{0}8 \cdot 1.6 & 0 \cdot 6.53  \\
-  31.23 & \phantom{0}5 \cdot 1.6 & 0 \cdot 6.53  \\
-  31.23 & \phantom{0}7 \cdot 1.6 & 1 \cdot 6.53  \\
-  31.23 & \phantom{0}9 \cdot 1.6 & 1 \cdot 6.53 \\
-  31.23 & 11\cdot 1.6 & 1 \cdot 6.53 \\
-  31.23 & 12\cdot 1.6 & 1 \cdot 6.53 \\
-  31.23 & 10\cdot 1.6 & 1  \cdot 6.53 \\
- \end{pmatrix} +
-  \begin{pmatrix}
-  -0.80 \\
-  +1.01 \\
-  -0.21 \\
-  +2.07 \\
-  -0.12 \\
-  +1.68 \\
-  +1.09 \\
-  -4.72 \\
- \end{pmatrix}
-$$
-
-```{r}
-c(31.23 +  6*1.6 + 0*6.53 - 0.80,
-  31.23 +  8*1.6 + 0*6.53 + 1.01,
-  31.23 +  5*1.6 + 0*6.53 - 0.21,
-  31.23 +  7*1.6 + 1*6.53 + 2.07,
-  31.23 +  9*1.6 + 1*6.53 - 0.12,
-  31.23 + 11*1.6 + 1*6.53 + 1.68,
-  31.23 + 12*1.6 + 1*6.53 + 1.09,
-  31.23 + 10*1.6 + 1*6.53 - 4.72) %>% round() %>% matrix(ncol = 1)
-```
+-   In einem Modell gibt es immer ein Faktorlevel weniger als ein Faktor Level hat. Die Information des *alphanumerisch* ersten Levels steckt dann mit in dem Intercept.
+-   In einem Modell geht eine kontinuierliche Variable als eine Spalte mit ein.
+-   In einem Modell gibt es immer nur eine Spalte für die Residuen und damit nur eine Residue für jede Beobachtung, egal wie viele Variablen ein Modell hat.
 
 ## Interpretation von $x$ {#sec-interpret-x}
 
@@ -319,7 +563,7 @@ ggplot(cont_tbl, aes(x = x, y = y)) +
   geom_smooth(method = "lm", se = FALSE, fullrange = TRUE) +
   scale_x_continuous(expand = c(0, 0), limits = c(0, 8), breaks = 0:8) + 
   scale_y_continuous(expand = c(0, 0), limits = c(0, 17), breaks = 0:17) +
-  annotate("text", x = 3, y = 9, label = "y ==  4.32 + 1.71 %.% x", parse = TRUE,
+  annotate("text", x = 4, y = 9, label = "y ==  4.32 + 1.71 %.% x", parse = TRUE,
            hjust = 0)
 
 ```
@@ -380,7 +624,7 @@ ggplot(cat_two_tbl, aes(x, y, fill = x)) +
   theme(legend.position = "none") +
   scale_y_continuous(breaks = c(9, 10.01, 11, 12, 13, 14, 15.27, 16, 17)) +
   geom_segment(aes(x = 1, y = 10.01, xend = 2, yend = 10.01+5.27)) +
-  annotate("text", x = 2.1, y = 15.7, label = "bar(y)[B] == 10.01 + 5.27", parse = TRUE,
+  annotate("text", x = 1.5, y = 15.7, label = "bar(y)[B] == 10.01 + 5.27", parse = TRUE,
            hjust = 0)
 
 ```
