@@ -554,7 +554,13 @@ ggplot(data_tbl, aes(x = trt, y = rsp,
   theme(legend.position = "none")
 ```
 
+Wir sehen, dass sich die positive Kontrolle von dem Rest der Behandlungen unterscheidet. Danach haben wir ein Plateau mit der negativen Kontrolle und der Behanldung A und der Behandlung B. Nach diesem Plateau haben wir einen Sprung und sehen einen leicht linearen Anstieg der Mittelwerte der Behandlungen.
+
+Schauen wir uns nun die Implementierung des *compact letter display* für die verschiedenen Möglichkeiten der Multiplen Vergleiche einmal an.
+
 ### ... für das Paket `multcomp`
+
+Zuerst die Impementierung in `multcomp`. Wir nutzen die Funktion `multcompLetters()` aus dem Paket `multcompView` um uns das *compact letter display* wiedergeben zu lassen. Davor müssen wir noch einige Schritte an Sortierung und Umbenneung durchführen. Das hat den Grund, dass die Funktion `multcompLetters()` *nur* einen benannten Vektor mit $p$-Werten akzeptiert. Das heist wir müssen aus der Funktion `glht()` die adjustierten $p$-Werte extrahieren und dann einen Vektor der Vergleiche bzw. Kontraste in der Form `A-B` bauen. Also ohne Leerzeichen und in der Beschreibung der Level der Behandlung `trt`. Die Funktion `pull()` erlaubt uns einene Spalte als Vektor aus einem `tibble()` zu ziehen und dann nach der Spalte `contrast` zu benennen.
 
 ```{r}
 #| warning: false
@@ -564,9 +570,15 @@ multcomp_cld <- lm(rsp  ~ trt, data = data_tbl) %>%
   mutate(contrast = str_replace_all(contrast, "\\s", "")) %>% 
   pull(adj.p.value, contrast) %>% 
   multcompLetters() 
+```
 
+Wir erhalten dann folgendes *compact letter display* für die paarweisen Vergleiche aus `multcomp`.
+
+```{r}
 multcomp_cld 
 ```
+
+Leider sind diese Buchstaben in dieser Form schwer zu verstehen. Deshalb gibt es noch die Funktion `plot()` in dem Paket `multcompView` um uns die Buchstaben mit den Leveln der Behandlung einmal ausgeben zu lassen. Wir erhalten dann folgende Abbildung.
 
 ```{r}
 #| warning: false
@@ -575,6 +587,10 @@ multcomp_cld
 
 multcomp_cld %>% plot
 ```
+
+[In dem *compact letter display* bedeuten gleiche Buchstaben, dass die Behandlungen gleich sind. Es gilt die Nullhypothese für diesen Vergleich.]{.aside}
+
+Was sehen wir hier? Kombinieren wir einmal das *compact letter display* mit den Leveln der Behandlung und den Mittelwerten der Behandlungen in einer @tbl-mean-to-letter-multcomp. Wenn die Mittelwerte *gleich* sind, dann erhalten die Behandlungslevel den gleichen Buchstaben. Die Mittelwerte vom `neg_ctrl`, `treat_A` und `treat_B` sind nahezu gleich, also damit nicht signifikant. Deshalb erhalten diese Behandlungslevel ein `a`. Ebenso sind die MIttelwerte von `treat_C` und `treat_D` nahezu gleich, dehalb erhalten beide ein `b`. Das machen wir immer so weiter und konzentrieren uns also auf die *nicht* signifikanten Ergebnisse. Denn gleiche Buchstaben bedeuten, dass die Behandlungen gleich sind. Wir sehen hier also, bei welchen Vergleichen die Nullhypothese gilt.
 
 | Behandlung | Mittelwert |     |     |     |     |     |     |
 |:----------:|:----------:|:---:|:---:|:---:|:---:|:---:|:---:|
@@ -588,7 +604,9 @@ multcomp_cld %>% plot
 |  treat_G   |     45     |     |     |     |     |  e  |     |
 |  pos_crtl  |     10     |     |     |     |     |     |  f  |
 
-: sd {#tbl-mean-to-letter-multcomp}
+: Kombination der Level der Behandlungen und deren Mittelwerte zur Generieung sowie dem *compact letter display* generiert aus den adjustierten $p$-Werten aus `multcomp`. Gleiche Buchstaben bedeuten *kein* signifikanter Unterschied. {#tbl-mean-to-letter-multcomp}
+
+Wir können dann die Buchstaben auch in den Boxplot ergaänzen. Die y-Position kann je nach Belieben dann noch angepasst werden. zum Beispiel könnten hier auch die Mittelwerte aus einer `summarise()` Funktion ergänzt werden und so die y-Position angepasst werden.
 
 ```{r}
 #| message: false
@@ -600,7 +618,8 @@ multcomp_cld %>% plot
 #| label: fig-boxplot-cld-2
 
 letters_tbl <- multcomp_cld$Letters %>% 
-  enframe("trt", "label") 
+  enframe("trt", "label") %>% 
+  mutate(rsp = 0)
 
 ggplot(data_tbl, aes(x = trt, y = rsp, 
                      fill = trt)) +
@@ -609,11 +628,13 @@ ggplot(data_tbl, aes(x = trt, y = rsp,
   scale_fill_okabeito() +
   geom_jitter(width = 0.15, alpha = 0.5) + 
   geom_text(data = letters_tbl, 
-            aes(x = trt , y = 0, label = label)) +
+            aes(x = trt , y = rsp, label = label)) +
   theme(legend.position = "none")
 ```
 
 ### ... für das Paket `emmeans`
+
+In dem Paket `emmeans` ist das *compact letter display* ebenfalls implementiert und wir müssen nicht die Funktion `multcompLetters()` nutzen.
 
 ```{r}
 emmeans_cld <- lm(rsp  ~ trt, data = data_tbl) %>%
@@ -622,6 +643,8 @@ emmeans_cld <- lm(rsp  ~ trt, data = data_tbl) %>%
 
 emmeans_cld 
 ```
+
+Wie die Ausgabe von `cld()` richtig anmerkt, können *compact letter display* irreführend sein weil sie eben **Nicht**-Unterschiede anstatt von signifikanten Unterschieden anzeigen.
 
 | Behandlung | Mittelwert |     |     |     |     |     |     |
 |:----------:|:----------:|:---:|:---:|:---:|:---:|:---:|:---:|
@@ -635,7 +658,7 @@ emmeans_cld
 |  treat_F   |     43     |     |     |     |     |  e  |     |
 |  treat_G   |     45     |     |     |     |     |     |  f  |
 
-: sd {#tbl-mean-to-letter-emmeans}
+: Kombination der Level der Behandlungen und deren Mittelwerte zur Generieung sowie dem *compact letter display* generiert aus den adjustierten $p$-Werten aus `emmeans`. Gleiche Buchstaben bedeuten *kein* signifikanter Unterschied. {#tbl-mean-to-letter-emmeans}
 
 ```{r}
 #| message: false
@@ -648,7 +671,8 @@ emmeans_cld
 
 letters_tbl <- emmeans_cld %>% 
   tidy %>% 
-  select(trt, label = .group)
+  select(trt, label = .group) %>% 
+  mutate(rsp = 0)
 
 ggplot(data_tbl, aes(x = trt, y = rsp, 
                      fill = trt)) +
@@ -657,7 +681,7 @@ ggplot(data_tbl, aes(x = trt, y = rsp,
   scale_fill_okabeito() +
   geom_jitter(width = 0.15, alpha = 0.5) + 
   geom_text(data = letters_tbl, 
-            aes(x = trt , y = 0, label = label)) +
+            aes(x = trt , y = rsp, label = label)) +
   theme(legend.position = "none")
 ```
 
@@ -692,7 +716,7 @@ ght_cld %>% plot
 |  treat_F   |     43     |     |     |     |  d  |     |
 |  treat_G   |     45     |     |     |     |     |  e  |
 
-: sd {#tbl-mean-to-letter-ght}
+: Kombination der Level der Behandlungen und deren Mittelwerte zur Generieung sowie dem *compact letter display* generiert aus den adjustierten $p$-Werten aus dem Games-Howell-Test. Gleiche Buchstaben bedeuten *kein* signifikanter Unterschied. {#tbl-mean-to-letter-ght}
 
 ```{r}
 #| message: false
@@ -704,7 +728,8 @@ ght_cld %>% plot
 #| label: fig-boxplot-cld-4
 
 letters_tbl <- ght_cld$Letters %>% 
-  enframe("trt", "label") 
+  enframe("trt", "label") %>% 
+  mutate(rsp = 0)
 
 ggplot(data_tbl, aes(x = trt, y = rsp, 
                      fill = trt)) +
@@ -713,6 +738,6 @@ ggplot(data_tbl, aes(x = trt, y = rsp,
   scale_fill_okabeito() +
   geom_jitter(width = 0.15, alpha = 0.5) + 
   geom_text(data = letters_tbl, 
-            aes(x = trt , y = 0, label = label)) +
+            aes(x = trt , y = rsp, label = label)) +
   theme(legend.position = "none")
 ```
