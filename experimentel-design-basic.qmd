@@ -12,12 +12,82 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 [Designing experiments](https://schmidtpaul.github.io/DSFAIR/DesigningExperiments.html)
 
+## Genutzte R Pakete für das Kapitel
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+#| message: false
+pacman::p_load(tidyverse, magrittr, conflicted, broom,
+               see, desplot, emmeans, multcomp, agricolae)
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("mutate", "dplyr")
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
 ## Completely randomized design
 
 $$
 y \sim f_1
-$$ \## Randomized complete block design
+$$
+
+## Randomized complete block design
 
 $$
 y \sim f_1 + f_2
 $$
+
+$$
+y \sim f_1 + b_1 + f_1 \times b_1
+$$
+
+$$
+y \sim f_1 + f_2 + b_1 + f_1 \times f_2
+$$
+
+```{r}
+
+data_tbl <- expand_grid(trt = 1:4, block = 1:4, rep = 1:5) %>% 
+    mutate(rsp = 20 + 2.5 * trt + 1.5 * block + rnorm(n(), 0, 1),
+           trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
+           block = factor(block, labels = as.roman(1:4)),
+           rep = as_factor(rep))
+
+
+lm(rsp ~ trt + block, data_tbl) %>% 
+  emmeans(~ trt) %>% 
+  contrast(method = "pairwise")
+
+lm(rsp ~ trt, data_tbl) %>% 
+  emmeans(~ trt) %>% 
+  contrast(method = "pairwise")
+
+lm(rsp ~ trt + block, data_tbl) %>% 
+  glht(linfct = mcp(trt = "Tukey")) %>% 
+  tidy
+
+TrtSoil   <- paste0("S", 1:4) 
+n_Reps    <- 3
+n_TrtSoil <- n_distinct(TrtSoil) # 4
+
+crd_out <- design.crd(trt = TrTSoil,
+                      r = n_Reps,
+                      seed = 42)
+
+# Add Row and Col 
+crd_out$bookRowCol <- crd_out$book %>%
+  bind_cols(expand.grid(Row = 1:n_Reps,
+                        Col = 1:n_TrtSoil))
+
+# Plot field layout
+desplot(TrtSoil ~ Row + Col, flip = TRUE,
+        text = TrtSoil, cex = 1, 
+        data = crd_out$bookRowCol,
+        main = "completely randomized design", 
+        show.key = FALSE)
+
+```
