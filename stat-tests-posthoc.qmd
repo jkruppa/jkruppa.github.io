@@ -517,7 +517,7 @@ Die Entscheidungen nach den 95% Konfidenzintervallen sind die gleichen wie nach 
 
 ## Compact letter display
 
-![](images/caution.png){fig-align="center" width="50%"}
+[Das *compact letter display* zeigt an, bei welchen Vergleichen der Behandlungen die Nullhypothese gilt. Daher werden die *nicht* signifikanten Ergebnisse visualisiert.]{.aside}
 
 In der Pflanzenernährung ist es nicht unüblich sehr viele Substrate miteinander zu vergleichen. Oder andersherum, wenn wir sehr viele Gruppen haben, dann kann die Darstellung in einem *all-pair* Vergleich sehr schnell sehr unübersichltich werden. Deshalb wure das *compact letter display* entwickelt.
 
@@ -560,7 +560,7 @@ Schauen wir uns nun die Implementierung des *compact letter display* für die ve
 
 ### ... für das Paket `multcomp`
 
-Zuerst die Impementierung in `multcomp`. Wir nutzen die Funktion `multcompLetters()` aus dem Paket `multcompView` um uns das *compact letter display* wiedergeben zu lassen. Davor müssen wir noch einige Schritte an Sortierung und Umbenneung durchführen. Das hat den Grund, dass die Funktion `multcompLetters()` *nur* einen benannten Vektor mit $p$-Werten akzeptiert. Das heist wir müssen aus der Funktion `glht()` die adjustierten $p$-Werte extrahieren und dann einen Vektor der Vergleiche bzw. Kontraste in der Form `A-B` bauen. Also ohne Leerzeichen und in der Beschreibung der Level der Behandlung `trt`. Die Funktion `pull()` erlaubt uns einene Spalte als Vektor aus einem `tibble()` zu ziehen und dann nach der Spalte `contrast` zu benennen.
+Zuerst die Impementierung in `multcomp`. Wir nutzen die Funktion `multcompLetters()` aus dem Paket `multcompView` um uns das *compact letter display* wiedergeben zu lassen. Davor müssen wir noch einige Schritte an Sortierung und Umbenennung durchführen. Das hat den Grund, dass die Funktion `multcompLetters()` *nur* einen benannten Vektor mit $p$-Werten akzeptiert. Das heist wir müssen aus der Funktion `glht()` die adjustierten $p$-Werte extrahieren und dann einen Vektor der Vergleiche bzw. Kontraste in der Form `A-B` bauen. Also ohne Leerzeichen und in der Beschreibung der Level der Behandlung `trt`. Die Funktion `pull()` erlaubt uns einen Spalte als Vektor aus einem `tibble()` zu ziehen und dann nach der Spalte `contrast` zu benennen.
 
 ```{r}
 #| warning: false
@@ -634,17 +634,23 @@ ggplot(data_tbl, aes(x = trt, y = rsp,
 
 ### ... für das Paket `emmeans`
 
-In dem Paket `emmeans` ist das *compact letter display* ebenfalls implementiert und wir müssen nicht die Funktion `multcompLetters()` nutzen.
+In dem Paket `emmeans` ist das *compact letter display* ebenfalls implementiert und wir müssen nicht die Funktion `multcompLetters()` nutzen. Durch die direkte Implementierung ist es etwas einfacher sich das *compact letter display* anzeigen zu lassen. Das Problem ist dann später sich die Buchstaben zu extrahieren um die @fig-boxplot-cld-3 zu ergänzen. Wir nutzen in `emmeans` die Funktion `cld()` um das *compact letter display* zu erstellen.
 
 ```{r}
 emmeans_cld <- lm(rsp  ~ trt, data = data_tbl) %>%
   emmeans(~ trt) %>%
   cld(Letters = letters, adjust = "bonferroni")
+```
 
+Wir erhalten dann die etwas besser sortierte Ausgabe für die Behandlungen wieder.
+
+```{r}
 emmeans_cld 
 ```
 
-Wie die Ausgabe von `cld()` richtig anmerkt, können *compact letter display* irreführend sein weil sie eben **Nicht**-Unterschiede anstatt von signifikanten Unterschieden anzeigen.
+Wie die Ausgabe von `cld()` richtig anmerkt, können *compact letter display* irreführend sein weil sie eben **Nicht**-Unterschiede anstatt von signifikanten Unterschieden anzeigen. Zum Anderen sehen wir aber auch, dass wir 36 statistische Tests gerechnet haben und somit zu einem Signifikanzniveau von $\cfrac{\alpha}{k} = \cfrac{0.05}{36} \approx 0.0014$ testen. Wir brauchen also schon sehr große Unterschiede oder aber eine sehr kleine Streuung um hier signifikante Effekte nachweisen zu können.
+
+In @tbl-mean-to-letter-emmeans sehen wir das Ergebnis des *compact letter display* nochmal mit den Mittelwerten der Behandlungslevel zusammen dargestellt. Wir sehen wieder, dass sich `pos_crtl` von allen anderen Behandlungen unterscheidet, deshalb hat nur die Behandlung `pos_crtl` den Buchstaben `a`. Die Mittelwerte vom `neg_ctrl`, `treat_A` und `treat_B` sind nahezu gleich, also damit nicht signifikant. Deshalb erhalten diese Behandlungslevel ein `b`. Wir gehen so alle Vergleiche einmal durch.
 
 | Behandlung | Mittelwert |     |     |     |     |     |     |
 |:----------:|:----------:|:---:|:---:|:---:|:---:|:---:|:---:|
@@ -659,6 +665,8 @@ Wie die Ausgabe von `cld()` richtig anmerkt, können *compact letter display* ir
 |  treat_G   |     45     |     |     |     |     |     |  f  |
 
 : Kombination der Level der Behandlungen und deren Mittelwerte zur Generieung sowie dem *compact letter display* generiert aus den adjustierten $p$-Werten aus `emmeans`. Gleiche Buchstaben bedeuten *kein* signifikanter Unterschied. {#tbl-mean-to-letter-emmeans}
+
+Abschließend können wir die Buchstaben aus dem *compact letter display* noch in die @fig-boxplot-cld-3 ergänzen. Hier müssen wir etwas mehr machen um die Buchstaben aus dem Objekt `emmeans_cld` zu bekommen. Du kannst dann noch die y-Position anpassen wenn du möchtest.
 
 ```{r}
 #| message: false
@@ -687,14 +695,22 @@ ggplot(data_tbl, aes(x = trt, y = rsp,
 
 ### ... für den Games-Howell-Test
 
+Abschließend wollen wir uns die Implementierung des *compact letter display* für den Games-Howell-Test einmal anschauen. Es gilt vieles von dem in diesem Abschnitt schon gesagtes. Wir nutzen die Funktion `multcompLetters()` aus dem Paket `multcompView` um uns das *compact letter display* aus dem Games-Howell-Test wiedergeben zu lassen. Davor müssen wir noch einige Schritte an Sortierung und Umbenennung durchführen. Das hat den Grund, dass die Funktion `multcompLetters()` *nur* einen benannten Vektor mit $p$-Werten akzeptiert. Die Funktion `pull()` erlaubt uns einen Spalte als Vektor aus einem `tibble()` zu ziehen und dann nach der Spalte `contrast` zu benennen.
+
 ```{r}
 ght_cld <- games_howell_test(rsp ~ trt, data = data_tbl) %>% 
   mutate(contrast = str_c(group1, "-", group2)) %>% 
   pull(p.adj, contrast) %>% 
   multcompLetters() 
+```
 
+Das *compact letter display* kennen wir schon aus der obigen Beschreibung.
+
+```{r}
 ght_cld
 ```
+
+Wir können uns dann auch das *compact letter display* als übersichtlicheren Plot wiedergeben lassen.
 
 ```{r}
 #| warning: false
@@ -703,6 +719,8 @@ ght_cld
 
 ght_cld %>% plot
 ```
+
+Um die Zusammenhänge besser zu verstehen ist in @tbl-mean-to-letter-ght nochmal die Kombination der Level der Behandlungen und deren Mittelwerte zur Generieung sowie dem *compact letter display* dargestellt. Wir sehen wieder, dass sich `pos_crtl` von allen anderen Behandlungen unterscheidet, deshalb hat nur die Behandlung `pos_crtl` den Buchstaben `a`. Die Mittelwerte vom `neg_ctrl`, `treat_A` und `treat_B` sind nahezu gleich, also damit nicht signifikant. Deshalb erhalten diese Behandlungslevel ein `b`. In der Form können wir alle Vergleiche einmal durchgehen.
 
 | Behandlung | Mittelwert |     |     |     |     |     |
 |:----------:|:----------:|:---:|:---:|:---:|:---:|:---:|
@@ -717,6 +735,8 @@ ght_cld %>% plot
 |  treat_G   |     45     |     |     |     |     |  e  |
 
 : Kombination der Level der Behandlungen und deren Mittelwerte zur Generieung sowie dem *compact letter display* generiert aus den adjustierten $p$-Werten aus dem Games-Howell-Test. Gleiche Buchstaben bedeuten *kein* signifikanter Unterschied. {#tbl-mean-to-letter-ght}
+
+Wir können dann auch in @fig-boxplot-cld-4 sehen, wie das *compact letter display* mit den Boxplots verbunden wird.
 
 ```{r}
 #| message: false
