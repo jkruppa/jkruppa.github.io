@@ -19,35 +19,361 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom,
-               see, desplot, emmeans, multcomp, agricolae)
+               see, desplot, emmeans, multcomp, agricolae,
+               patchwork, grid)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
-cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+cbbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
 
-## Completely randomized design
+## Complete randomized design (CRD)
 
-$$
-y \sim f_1
-$$
+```{r}
+#| echo: false
 
-## Randomized complete block design
+trt_vec <- c("ctrl", "A", "B", "C")
+n_rep <- 5
+n_trt <- n_distinct(trt_vec) 
 
-$$
-y \sim f_1 + f_2
-$$
+crd_design <- design.crd(trt = trt_vec,
+                         r = n_rep,
+                         seed = 42)
 
-$$
-y \sim f_1 + b_1 + f_1 \times b_1
-$$
+# Add Row and Col 
+crd_design$bookRowCol <- crd_design$book %>%
+  bind_cols(expand.grid(row = 1:n_rep,
+                        col = 1:n_trt))
 
-$$
-y \sim f_1 + f_2 + b_1 + f_1 \times f_2
-$$
+# Plot field layout
+ggdesplot(trt_vec ~ row + col, flip = TRUE,
+        text = trt_vec, cex = 1.5, shorten = "no",
+        data = crd_design$bookRowCol,
+        main = "", 
+        show.key = FALSE,
+        col.regions = cbbPalette[-1])
+
+```
+
+## Randomized complete block design (RCBD)
+
+```{r}
+#| echo: false
+
+block_lst <- map(1:4, function(...) {
+  trt_vec <- c("ctrl", "A", "B", "C")
+  n_rep <- 1
+  n_trt <- n_distinct(trt_vec) 
+  crd_design <- design.crd(trt = trt_vec,
+                           r = n_rep)
+  crd_design$bookRowCol <- crd_design$book %>%
+    bind_cols(expand.grid(row = 1:n_rep,
+                          col = 1:n_trt))
+  return(crd_design)
+})
+
+
+# Plot field layout
+p1 <- ggdesplot(trt_vec ~ row + col, flip = TRUE,
+                text = trt_vec, cex = 1.5, shorten = "no",
+                data = pluck(block_lst, 1, "bookRowCol"),
+                main = "Block I", 
+                show.key = FALSE,
+                col.regions = cbbPalette[-1])
+
+p2 <- ggdesplot(trt_vec ~ row + col, flip = TRUE,
+                text = trt_vec, cex = 1.5, shorten = "no",
+                data = pluck(block_lst, 2, "bookRowCol"),
+                main = "Block III", 
+                show.key = FALSE,
+                col.regions = cbbPalette[-1])
+
+p3 <- ggdesplot(trt_vec ~ row + col, flip = TRUE,
+                text = trt_vec, cex = 1.5, shorten = "no",
+                data = pluck(block_lst, 3, "bookRowCol"),
+                main = "Block III", 
+                show.key = FALSE,
+                col.regions = cbbPalette[-1])
+
+p4 <- ggdesplot(trt_vec ~ row + col, flip = TRUE,
+                text = trt_vec, cex = 1.5, shorten = "no",
+                data = pluck(block_lst, 4, "bookRowCol"),
+                main = "Block IV", 
+                show.key = FALSE,
+                col.regions = cbbPalette[-1])
+
+p1 + p2 + p3 + p4
+
+```
+
+## Latin square design (LSD)
+
+```{r}
+#| echo: false
+#| warning: false
+
+trt_vec <- c("ctrl", "A", "B", "C")
+
+latsquare_design <- design.lsd(trt = trt_vec,
+                               seed = 42)
+
+# Plot field layout
+ggdesplot(trt_vec ~ row + col, flip = TRUE,
+        text = trt_vec, cex = 1.5, shorten = "no",
+        data = latsquare_design$book,
+        main = "", 
+        show.key = FALSE,
+        col.regions = cbbPalette[-1])
+
+```
+
+## Alpha design
+
+```{r}
+#| echo: false
+#| label: fig-normal-model-check
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 9
+#| fig-cap: "foo."
+
+col2names <- cbbPalette %>% 
+  set_names(LETTERS[1:8])
+
+## Rep 1
+trt_vec <- LETTERS[1:8] %>% sample()
+trt_11_vec <- trt_vec[1:4]
+trt_12_vec <- trt_vec[5:8]
+n_rep <- 1
+n_trt <- n_distinct(trt_11_vec) 
+
+crd_1_design <- design.crd(trt = trt_11_vec,
+                           r = n_rep)
+
+crd_2_design <- design.crd(trt = trt_12_vec,
+                           r = n_rep)
+
+# Add Row and Col 
+crd_1_design$bookRowCol <- crd_1_design$book %>%
+  bind_cols(expand.grid(row = 1:n_rep,
+                        col = 1:n_trt))
+
+crd_2_design$bookRowCol <- crd_2_design$book %>%
+  bind_cols(expand.grid(row = 1:n_rep,
+                        col = 1:n_trt))
+
+# Plot field layout
+p11 <- ggdesplot(trt_11_vec ~ row + col, flip = TRUE,
+        text = trt_11_vec, cex = 1.5, shorten = "no",
+        data = crd_1_design$bookRowCol,
+        main = "Incomplete Block I", 
+        show.key = FALSE,
+        col.regions = col2names[trt_11_vec])
+
+p12 <- ggdesplot(trt_12_vec ~ row + col, flip = TRUE,
+        text = trt_12_vec, cex = 1.5, shorten = "no",
+        data = crd_2_design$bookRowCol,
+        main = "Incomplete Block II", 
+        show.key = FALSE,
+        col.regions = col2names[trt_12_vec])
+
+
+## Rep 2
+trt_vec <- LETTERS[1:8] %>% sample()
+trt_21_vec <- trt_vec[1:4]
+trt_22_vec <- trt_vec[5:8]
+n_rep <- 1
+n_trt <- n_distinct(trt_21_vec) 
+
+crd_1_design <- design.crd(trt = trt_21_vec,
+                           r = n_rep)
+
+crd_2_design <- design.crd(trt = trt_22_vec,
+                           r = n_rep)
+
+# Add Row and Col 
+crd_1_design$bookRowCol <- crd_1_design$book %>%
+  bind_cols(expand.grid(row = 1:n_rep,
+                        col = 1:n_trt))
+
+crd_2_design$bookRowCol <- crd_2_design$book %>%
+  bind_cols(expand.grid(row = 1:n_rep,
+                        col = 1:n_trt))
+
+# Plot field layout
+p21 <- ggdesplot(trt_21_vec ~ row + col, flip = TRUE,
+        text = trt_21_vec, cex = 1.5, shorten = "no",
+        data = crd_1_design$bookRowCol,
+        main = "Incomplete Block III", 
+        show.key = FALSE,
+        col.regions = col2names[trt_21_vec])
+
+p22 <- ggdesplot(trt_22_vec ~ row + col, flip = TRUE,
+        text = trt_22_vec, cex = 1.5, shorten = "no",
+        data = crd_2_design$bookRowCol,
+        main = "Incomplete Block IV", 
+        show.key = FALSE,
+        col.regions = col2names[trt_22_vec])
+
+
+## Rep 3
+trt_vec <- LETTERS[1:8] %>% sample()
+trt_31_vec <- trt_vec[1:4]
+trt_32_vec <- trt_vec[5:8]
+n_rep <- 1
+n_trt <- n_distinct(trt_31_vec) 
+
+crd_1_design <- design.crd(trt = trt_31_vec,
+                           r = n_rep)
+
+crd_2_design <- design.crd(trt = trt_32_vec,
+                           r = n_rep)
+
+# Add Row and Col 
+crd_1_design$bookRowCol <- crd_1_design$book %>%
+  bind_cols(expand.grid(row = 1:n_rep,
+                        col = 1:n_trt))
+
+crd_2_design$bookRowCol <- crd_2_design$book %>%
+  bind_cols(expand.grid(row = 1:n_rep,
+                        col = 1:n_trt))
+
+# Plot field layout
+p31 <- ggdesplot(trt_31_vec ~ row + col, flip = TRUE,
+        text = trt_31_vec, cex = 1.5, shorten = "no",
+        data = crd_1_design$bookRowCol,
+        main = "Incomplete Block V", 
+        show.key = FALSE,
+        col.regions = col2names[trt_31_vec])
+
+p32 <- ggdesplot(trt_32_vec ~ row + col, flip = TRUE,
+        text = trt_32_vec, cex = 1.5, shorten = "no",
+        data = crd_2_design$bookRowCol,
+        main = "Incomplete Block VI", 
+        show.key = FALSE,
+        col.regions = col2names[trt_32_vec])
+
+p1112 <- (p11 | p12) +
+  plot_annotation(title = "Replication 1") & 
+  theme(plot.title = element_text(hjust = 0.5))
+
+p2122 <- (p21 | p22 ) +
+  plot_annotation(title = "Replication 2") & 
+  theme(plot.title = element_text(hjust = 0.5))
+
+p3132 <- (p31 | p32 ) +
+  plot_annotation(title = "Replication 3") & 
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+wrap_elements(full = rectGrob(gp = gpar(fill = 'black', alpha = 0.5)), p1112) / wrap_elements(full = rectGrob(gp = gpar(fill = 'black', alpha = 0.5)), p2122) / wrap_elements(full = rectGrob(gp = gpar(fill = 'black', alpha = 0.5)), p3132)
+
+```
+
+## Split plot design
+
+```{r}
+#| echo: false
+#| label: fig-normal-model-check-1
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 9
+#| fig-cap: "foo."
+#| column: page
+
+
+fac21_lst <- map(1:4, function(...) {
+  trt_vec <- LETTERS[1:5] %>% sample()
+  n_rep <- 1
+  n_trt <- n_distinct(trt_vec) 
+  ##
+  crd_design <- design.crd(trt = trt_vec,
+                           r = n_rep)
+  # Add Row and Col 
+  crd_design$bookRowCol <- crd_design$book %>%
+    bind_cols(expand.grid(row = 1:n_rep,
+                          col = 1:n_trt))
+  return(crd_design)
+})
+
+plot_1_lst <- map(sample(1:4), function(i){
+  ggdesplot(trt_vec ~ row + col, flip = TRUE,
+            text = trt_vec, cex = 1.5, shorten = "no",
+            data = pluck(fac21_lst, i, "bookRowCol"),
+            main = "", 
+            show.key = FALSE,
+            col.regions = cbbPalette[i])
+})
+
+fac22_lst <- map(1:4, function(...) {
+  trt_vec <- LETTERS[1:5] %>% sample()
+  n_rep <- 1
+  n_trt <- n_distinct(trt_vec) 
+  ##
+  crd_design <- design.crd(trt = trt_vec,
+                           r = n_rep)
+  # Add Row and Col 
+  crd_design$bookRowCol <- crd_design$book %>%
+    bind_cols(expand.grid(row = 1:n_rep,
+                          col = 1:n_trt))
+  return(crd_design)
+})
+
+plot_2_lst <- map(sample(1:4), function(i){
+  ggdesplot(trt_vec ~ row + col, flip = TRUE,
+            text = trt_vec, cex = 1.5, shorten = "no",
+            data = pluck(fac22_lst, i, "bookRowCol"),
+            main = "", 
+            show.key = FALSE,
+            col.regions = cbbPalette[i])
+})
+
+fac23_lst <- map(1:4, function(...) {
+  trt_vec <- LETTERS[1:5] %>% sample()
+  n_rep <- 1
+  n_trt <- n_distinct(trt_vec) 
+  ##
+  crd_design <- design.crd(trt = trt_vec,
+                           r = n_rep)
+  # Add Row and Col 
+  crd_design$bookRowCol <- crd_design$book %>%
+    bind_cols(expand.grid(row = 1:n_rep,
+                          col = 1:n_trt))
+  return(crd_design)
+})
+
+
+plot_3_lst <- map(sample(1:4), function(i){
+  ggdesplot(trt_vec ~ row + col, flip = TRUE,
+            text = trt_vec, cex = 1.5, shorten = "no",
+            data = pluck(fac23_lst, i, "bookRowCol"),
+            main = "", 
+            show.key = FALSE,
+            col.regions = cbbPalette[i])
+})
+
+
+
+p1 <- (pluck(plot_1_lst, 1) | pluck(plot_1_lst, 2) | pluck(plot_1_lst, 3) | pluck(plot_1_lst, 4)) +
+  plot_annotation(title = "Block I") & 
+  theme(plot.title = element_text(hjust = 0.5))
+
+p2 <- (pluck(plot_2_lst, 1) | pluck(plot_2_lst, 2) | pluck(plot_2_lst, 3) | pluck(plot_2_lst, 4)) +
+  plot_annotation(title = "Block II") & 
+  theme(plot.title = element_text(hjust = 0.5))
+
+p3 <- (pluck(plot_3_lst, 1) | pluck(plot_3_lst, 2) | pluck(plot_3_lst, 3) | pluck(plot_3_lst, 4)) +
+  plot_annotation(title = "Block III") & 
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+wrap_elements(full = rectGrob(gp = gpar(fill = 'black', alpha = 0.5)), p1) / wrap_elements(full = rectGrob(gp = gpar(fill = 'black', alpha = 0.5)), p2) / wrap_elements(full = rectGrob(gp = gpar(fill = 'black', alpha = 0.5)), p3)
+
+
+```
 
 ```{r}
 
@@ -70,24 +396,5 @@ lm(rsp ~ trt + block, data_tbl) %>%
   glht(linfct = mcp(trt = "Tukey")) %>% 
   tidy
 
-TrtSoil   <- paste0("S", 1:4) 
-n_Reps    <- 3
-n_TrtSoil <- n_distinct(TrtSoil) # 4
-
-crd_out <- design.crd(trt = TrTSoil,
-                      r = n_Reps,
-                      seed = 42)
-
-# Add Row and Col 
-crd_out$bookRowCol <- crd_out$book %>%
-  bind_cols(expand.grid(Row = 1:n_Reps,
-                        Col = 1:n_TrtSoil))
-
-# Plot field layout
-desplot(TrtSoil ~ Row + Col, flip = TRUE,
-        text = TrtSoil, cex = 1, 
-        data = crd_out$bookRowCol,
-        main = "completely randomized design", 
-        show.key = FALSE)
 
 ```
