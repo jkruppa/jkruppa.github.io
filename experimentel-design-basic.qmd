@@ -1,5 +1,6 @@
 ```{r echo = FALSE}
-pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc,
+               grid, agricolae, patchwork, desplot)
 ```
 
 # Grundlagen der Versuchsplanung
@@ -19,8 +20,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom,
-               see, desplot, emmeans, multcomp, agricolae,
-               patchwork, grid)
+               see, emmeans, multcomp, scales, performance,
+               effectsize, parameters)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -32,10 +33,18 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Complete randomized design (CRD)
 
+### Visualisierung
+
 ```{r}
 #| echo: false
+#| warning: false
+#| label: fig-dsplot-crd
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 9
+#| fig-cap: "foo."
 
-trt_vec <- c("ctrl", "A", "B", "C")
+trt_vec <- c("A", "B", "C", "D")
 n_rep <- 5
 n_trt <- n_distinct(trt_vec) 
 
@@ -58,13 +67,170 @@ ggdesplot(trt_vec ~ row + col, flip = TRUE,
 
 ```
 
+### Daten
+
+```{r}
+set.seed(20220916)
+crd_tbl <- tibble(A = rnorm(n = 5, mean = 10, sd = 2),
+                  B = rnorm(n = 5, mean = 12, sd = 2),
+                  C = rnorm(n = 5, mean = 16, sd = 2),
+                  D = rnorm(n = 5, mean = 20, sd = 2)) %>% 
+  gather(key = trt, value = rsp) %>% 
+  mutate(trt = as_factor(trt))
+
+crd_tbl
+```
+
+```{r}
+#| echo: true
+#| warning: false
+#| label: fig-boxplot-crd
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "foo."
+
+ggplot(crd_tbl, aes(trt, rsp, fill = trt)) +
+  theme_bw() +
+  geom_boxplot() +
+  theme(legend.position = "none") +
+  scale_fill_okabeito() 
+```
+
+### Modellierung
+
+```{r}
+fit_crd <- lm(rsp ~ trt, crd_tbl)
+
+fit_crd %>%  model_parameters()
+```
+
+```{r}
+fit_crd %>% check_homogeneity()
+```
+
+```{r}
+fit_crd %>% check_normality()
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: foo
+#| label: fig-emmeans-crd-qq
+
+check_model(fit_crd, check = c("qq", "normality"))
+```
+
+### Varianzanalyse und Mittelwertsvergleich
+
+```{r}
+res_anova <- fit_crd %>% 
+  anova() 
+
+res_anova %>% model_parameters()
+```
+
+```{r}
+res_anova %>% eta_squared
+```
+
+```{r}
+res_crd <- fit_crd %>% 
+  emmeans(~ trt) 
+```
+
+```{r}
+res_crd_cld <- res_crd %>% 
+  cld(adjust = "sidak", Letters = letters) %>% 
+  tidy() %>% 
+  select(trt, estimate, conf.low, conf.high, .group) %>% 
+  mutate(across(where(is.numeric), round, 2))
+
+res_crd_cld 
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: foo
+#| label: fig-cld-crd
+
+ggplot() +
+  theme_bw() +
+  geom_point(data = crd_tbl, aes(x = trt, y = rsp, fill = trt)) +
+  geom_text(data = res_crd_cld, 
+            aes(x = trt , y = estimate, label = .group),
+            position = position_nudge(x = 0.2), color = "red") +
+  geom_errorbar(data = res_crd_cld,
+                aes(ymin = conf.low, ymax = conf.high, x = trt),
+                color = "red", width = 0.1,
+                position = position_nudge(x = 0.1)) +
+  geom_point(data = res_crd_cld, 
+             aes(x = trt , y = estimate),
+             position = position_nudge(x = 0.1), color = "red") +
+  theme(legend.position = "none") +
+  labs(x = "Behandlung", y = "Gewicht [kg/ha]",
+       caption = "Schwarze Punkte stellen Rohdaten dar.
+       Rote Punkte und Fehlerbalken stellen bereinigte Mittelwerte mit 95% Konfidenzgrenzen pro Behandlung dar.
+       Mittelwerte, mit einem gemeinsamen Buchstaben, sind nicht signifikant unterschiedlich.")
+
+
+```
+
+```{r}
+res_crd_tbl <- res_crd %>% 
+  contrast(method = "pairwise") %>% 
+  tidy(conf.int = TRUE) %>% 
+  mutate(p.value = pvalue(adj.p.value),
+         across(where(is.numeric), round, 2)) %>% 
+  select(contrast, estimate, p.value,
+         conf.low, conf.high) 
+
+res_crd_tbl
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: foo
+#| label: fig-emmeans-crd
+
+ggplot(res_crd_tbl, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high)) +
+  geom_hline(yintercept=0, linetype="11", colour="grey60") +
+  geom_errorbar(width=0.1) + 
+  geom_point() +
+  coord_flip() +
+  theme_bw()  +
+  labs(x = "Vergleich", y = "Mittelwertsunterschied des Gewichtes [kg/ha]",
+       caption = "Schwarze Punkte stellen die bereinigten Mittelwertsunterschiede mit 95% Konfidenzgrenzen dar.
+       Enthält ein 95% Konfidenzintervalle die 0 ist es nicht signifikant unterschiedlich.")
+```
+
 ## Randomized complete block design (RCBD)
 
 ```{r}
 #| echo: false
+#| warning: false
+#| label: fig-dsplot-rcbd
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 9
+#| fig-cap: "foo."
 
 block_lst <- map(1:4, function(...) {
-  trt_vec <- c("ctrl", "A", "B", "C")
+  trt_vec <- c("A", "B", "C", "D")
   n_rep <- 1
   n_trt <- n_distinct(trt_vec) 
   crd_design <- design.crd(trt = trt_vec,
@@ -114,8 +280,14 @@ p1 + p2 + p3 + p4
 ```{r}
 #| echo: false
 #| warning: false
+#| label: fig-dsplot-latin
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 9
+#| fig-cap: "foo."
 
-trt_vec <- c("ctrl", "A", "B", "C")
+
+trt_vec <- c("A", "B", "C", "D")
 
 latsquare_design <- design.lsd(trt = trt_vec,
                                seed = 42)
@@ -134,11 +306,12 @@ ggdesplot(trt_vec ~ row + col, flip = TRUE,
 
 ```{r}
 #| echo: false
-#| label: fig-normal-model-check
+#| label: fig-dsplot-alpha
 #| fig-align: center
 #| fig-height: 6
 #| fig-width: 9
 #| fig-cap: "foo."
+#| column: page
 
 col2names <- cbbPalette %>% 
   set_names(LETTERS[1:8])
@@ -167,14 +340,14 @@ crd_2_design$bookRowCol <- crd_2_design$book %>%
 
 # Plot field layout
 p11 <- ggdesplot(trt_11_vec ~ row + col, flip = TRUE,
-        text = trt_11_vec, cex = 1.5, shorten = "no",
+        text = trt_11_vec, cex = 1, shorten = "no",
         data = crd_1_design$bookRowCol,
         main = "Incomplete Block I", 
         show.key = FALSE,
         col.regions = col2names[trt_11_vec])
 
 p12 <- ggdesplot(trt_12_vec ~ row + col, flip = TRUE,
-        text = trt_12_vec, cex = 1.5, shorten = "no",
+        text = trt_12_vec, cex = 1, shorten = "no",
         data = crd_2_design$bookRowCol,
         main = "Incomplete Block II", 
         show.key = FALSE,
@@ -205,14 +378,14 @@ crd_2_design$bookRowCol <- crd_2_design$book %>%
 
 # Plot field layout
 p21 <- ggdesplot(trt_21_vec ~ row + col, flip = TRUE,
-        text = trt_21_vec, cex = 1.5, shorten = "no",
+        text = trt_21_vec, cex = 1, shorten = "no",
         data = crd_1_design$bookRowCol,
         main = "Incomplete Block III", 
         show.key = FALSE,
         col.regions = col2names[trt_21_vec])
 
 p22 <- ggdesplot(trt_22_vec ~ row + col, flip = TRUE,
-        text = trt_22_vec, cex = 1.5, shorten = "no",
+        text = trt_22_vec, cex = 1, shorten = "no",
         data = crd_2_design$bookRowCol,
         main = "Incomplete Block IV", 
         show.key = FALSE,
@@ -243,14 +416,14 @@ crd_2_design$bookRowCol <- crd_2_design$book %>%
 
 # Plot field layout
 p31 <- ggdesplot(trt_31_vec ~ row + col, flip = TRUE,
-        text = trt_31_vec, cex = 1.5, shorten = "no",
+        text = trt_31_vec, cex = 1, shorten = "no",
         data = crd_1_design$bookRowCol,
         main = "Incomplete Block V", 
         show.key = FALSE,
         col.regions = col2names[trt_31_vec])
 
 p32 <- ggdesplot(trt_32_vec ~ row + col, flip = TRUE,
-        text = trt_32_vec, cex = 1.5, shorten = "no",
+        text = trt_32_vec, cex = 1, shorten = "no",
         data = crd_2_design$bookRowCol,
         main = "Incomplete Block VI", 
         show.key = FALSE,
@@ -277,7 +450,7 @@ wrap_elements(full = rectGrob(gp = gpar(fill = 'black', alpha = 0.5)), p1112) / 
 
 ```{r}
 #| echo: false
-#| label: fig-normal-model-check-1
+#| label: fig-dsplot-splitplot
 #| fig-align: center
 #| fig-height: 6
 #| fig-width: 9
@@ -302,7 +475,7 @@ fac21_lst <- map(1:4, function(...) {
 
 plot_1_lst <- map(sample(1:4), function(i){
   ggdesplot(trt_vec ~ row + col, flip = TRUE,
-            text = trt_vec, cex = 1.5, shorten = "no",
+            text = trt_vec, cex = 1, shorten = "no",
             data = pluck(fac21_lst, i, "bookRowCol"),
             main = fac2_vec[i], 
             show.key = FALSE,
@@ -325,7 +498,7 @@ fac22_lst <- map(1:4, function(...) {
 
 plot_2_lst <- map(sample(1:4), function(i){
   ggdesplot(trt_vec ~ row + col, flip = TRUE,
-            text = trt_vec, cex = 1.5, shorten = "no",
+            text = trt_vec, cex = 1, shorten = "no",
             data = pluck(fac22_lst, i, "bookRowCol"),
             main = fac2_vec[i], 
             show.key = FALSE,
@@ -349,7 +522,7 @@ fac23_lst <- map(1:4, function(...) {
 
 plot_3_lst <- map(sample(1:4), function(i){
   ggdesplot(trt_vec ~ row + col, flip = TRUE,
-            text = trt_vec, cex = 1.5, shorten = "no",
+            text = trt_vec, cex = 1, shorten = "no",
             data = pluck(fac23_lst, i, "bookRowCol"),
             main = fac2_vec[i], 
             show.key = FALSE,
