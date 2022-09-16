@@ -1,6 +1,6 @@
 ```{r echo = FALSE}
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc,
-               grid, agricolae, patchwork, desplot)
+               grid, agricolae, patchwork, desplot, modelr)
 ```
 
 # Grundlagen der Versuchsplanung
@@ -220,6 +220,8 @@ ggplot(res_crd_tbl, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high)) +
 
 ## Randomized complete block design (RCBD)
 
+### Visualisierung
+
 ```{r}
 #| echo: false
 #| warning: false
@@ -273,6 +275,167 @@ p3 <- ggdesplot(trt_vec ~ row + col, flip = TRUE,
 
 p1 + p2 + p3 #+ p4
 
+```
+
+### Daten
+
+```{r}
+set.seed(20220916)
+factor_tbl <- expand_grid(trt = 1:4, block = 1:3) %>% 
+  mutate(trt = factor(trt, labels = c("A", "B", "C", "D")),
+         block = factor(block, labels = as.roman(1:3))) 
+
+model_mat <- factor_tbl %>% 
+  model_matrix(~ trt + block) %>% 
+  as.matrix()
+
+rcbd_tbl <- factor_tbl %>% 
+  mutate(rsp = model_mat %*% c(20, 5, 2.5, 0, 1, 2) + rnorm(n(), 0, 1))
+
+```
+
+```{r}
+#| echo: true
+#| warning: false
+#| label: fig-boxplot-rcbd
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "foo."
+
+ggplot(rcbd_tbl, aes(trt, rsp, fill = block)) +
+  theme_bw() +
+  geom_dotplot(binaxis = "y", stackdir = "center") +
+  theme(legend.position = "none") +
+  scale_fill_okabeito() 
+```
+
+### Modellierung
+
+```{r}
+fit_rcbd <- lm(rsp ~ trt + block, rcbd_tbl)
+
+fit_rcbd %>%  model_parameters()
+```
+
+```{r}
+#| eval: false
+fit_rcbd %>% check_homogeneity()
+```
+
+`Error in bartlett.test.default(x = mf[[1L]], g = mf[[2L]]) :  there must be at least 2 observations in each group`
+
+```{r}
+lm(rsp ~ trt, rcbd_tbl) %>% check_homogeneity()
+```
+
+```{r}
+fit_rcbd %>% check_normality()
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: foo
+#| label: fig-emmeans-rcbd-qq
+
+check_model(fit_rcbd, check = c("qq", "normality"))
+```
+
+### Varianzanalyse und Mittelwertsvergleich
+
+```{r}
+res_anova <- fit_rcbd %>% 
+  anova() 
+
+res_anova %>% model_parameters()
+```
+
+```{r}
+res_anova %>% eta_squared
+```
+
+```{r}
+res_rcbd <- fit_rcbd %>% 
+  emmeans(~ trt) 
+```
+
+```{r}
+res_rcbd_cld <- res_rcbd %>% 
+  cld(adjust = "sidak", Letters = letters) %>% 
+  tidy() %>% 
+  select(trt, estimate, conf.low, conf.high, .group) %>% 
+  mutate(across(where(is.numeric), round, 2))
+
+res_rcbd_cld 
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: foo
+#| label: fig-cld-rcbd
+
+ggplot() +
+  theme_bw() +
+  geom_point(data = rcbd_tbl, aes(x = trt, y = rsp, fill = trt)) +
+  geom_text(data = res_rcbd_cld, 
+            aes(x = trt , y = estimate, label = .group),
+            position = position_nudge(x = 0.2), color = "red") +
+  geom_errorbar(data = res_rcbd_cld,
+                aes(ymin = conf.low, ymax = conf.high, x = trt),
+                color = "red", width = 0.1,
+                position = position_nudge(x = 0.1)) +
+  geom_point(data = res_rcbd_cld, 
+             aes(x = trt , y = estimate),
+             position = position_nudge(x = 0.1), color = "red") +
+  theme(legend.position = "none") +
+  labs(x = "Behandlung", y = "Gewicht [kg/ha]",
+       caption = "Schwarze Punkte stellen Rohdaten dar.
+       Rote Punkte und Fehlerbalken stellen bereinigte Mittelwerte mit 95% Konfidenzgrenzen pro Behandlung dar.
+       Mittelwerte, mit einem gemeinsamen Buchstaben, sind nicht signifikant unterschiedlich.")
+
+
+```
+
+```{r}
+res_rcbd_tbl <- res_rcbd %>% 
+  contrast(method = "pairwise") %>% 
+  tidy(conf.int = TRUE) %>% 
+  mutate(p.value = pvalue(adj.p.value),
+         across(where(is.numeric), round, 2)) %>% 
+  select(contrast, estimate, p.value,
+         conf.low, conf.high) 
+
+res_rcbd_tbl
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: foo
+#| label: fig-emmeans-rcbd
+
+ggplot(res_rcbd_tbl, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high)) +
+  geom_hline(yintercept=0, linetype="11", colour="grey60") +
+  geom_errorbar(width=0.1) + 
+  geom_point() +
+  coord_flip() +
+  theme_bw()  +
+  labs(x = "Vergleich", y = "Mittelwertsunterschied des Gewichtes [kg/ha]",
+       caption = "Schwarze Punkte stellen die bereinigten Mittelwertsunterschiede mit 95% Konfidenzgrenzen dar.
+       Enthält ein 95% Konfidenzintervalle die 0 ist es nicht signifikant unterschiedlich.")
 ```
 
 ## Latin square design (LSD)
