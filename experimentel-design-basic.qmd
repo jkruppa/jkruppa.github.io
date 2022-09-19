@@ -13,13 +13,6 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc,
 
 [Designing experiments](https://schmidtpaul.github.io/DSFAIR/DesigningExperiments.html)
 
--   *Complete randomized design* @sec-crd
--   *Randomized vomplete block design* @sec-rcbd
--   *Latin square design* @sec-lsd
--   *Alpha design* @sec-alpha
--   *Augmented design* @sec-augment
--   *Splot plot design* @sec-split
-
 ::: callout-caution
 ## Es fährt ein Zug nach nirgendwo...
 
@@ -180,7 +173,7 @@ Wir sehen, dass der Faktor Behandlung signifkant ist, da der $p$-Wert kleiner is
 Jetzt brauchen wir nur noch die Effektstärke der ANOVA, also wieviel Varianz eigentlich der Faktor Behandlung erklärt. Dfür nutzen wir die Funktion `eta_squared()` aus dem Paket `effectsize`.
 
 ```{r}
-res_anova %>% eta_squared
+res_anova %>% eta_squared(partial = FALSE)
 ```
 
 Mit einem $\eta^2$ von $0.86$ wissen wir, dass 86% der Varianz von dem Faktor Behandlung erklärt wird. Das wundert uns nicht, denn wir haben ja nur den Faktor Behandlung in unseren Daten aus denen sich unser Outcome ergibt.
@@ -354,7 +347,7 @@ In @tbl-rcbd-3 sehen wir nochmal den Zusammenhang zwischen den generierten Daten
 ```{r}
 #| message: false
 #| echo: false
-#| tbl-cap: Datensatz mit mehreren Outcomes zu Flöhen auf verschiedenen Tierarten.
+#| tbl-cap: Vergleich der Mittlwerte aus den Daten und den voreingestellten Effekten für die Generierung der Daten.
 #| label: tbl-rcbd-3
 
 rcbd_tbl %>% 
@@ -452,9 +445,11 @@ In der @fig-emmeans-rcbd-qq sehen wir den QQ-Plot und die Verteilung der Residue
 check_model(fit_rcbd, check = c("qq", "normality"))
 ```
 
-Wir können jetzt eine Varianzanalyse und dann eine Mittelwertsvergleich durchführen. Achtung, wir können uns hier auch etwas in die Ecke testen. Wenn wir nur lange genug neue Daten generieren, werden wir irgendwann auch einen Datensatz finden, der die Varianzhomogenität und die Normalverteilung ablehnt. Beosnders in dem Fall, dass wir wenige Blöcke haben. Das liegt in der Theorie des statistischen Testens sowie der kleinen Fallzahl verborgen. Deshalb können wir im Zweifel gerne einmal deine Vortests in dem R Tutorium oder in einer statistischen Beratung diskutieren.
+Wir können jetzt eine Varianzanalyse und dann eine Mittelwertsvergleich durchführen. Achtung, wir können uns hier auch etwas in die Ecke testen. Wenn wir nur lange genug neue Daten generieren, werden wir irgendwann auch einen Datensatz finden, der die Varianzhomogenität und die Normalverteilung ablehnt. Besonders in dem Fall, dass wir wenige Blöcke haben. Das liegt in der Theorie des statistischen Testens sowie der kleinen Fallzahl verborgen. Deshalb können wir im Zweifel gerne einmal deine Vortests in dem R Tutorium oder in einer statistischen Beratung diskutieren.
 
 ### Varianzanalyse und Mittelwertsvergleich
+
+Als erstes Rechnen wir eine zweifaktroielle ANOVA, da unser Modell zwei Faktoren hat. In R müssen wir dazu nur das Modell `fit_rcbd` in die Funktion `anova()` pipen. Wir erhalten dann die Ergebnisse aus der ANOVA mit der Funktion `model_parameters()` aus dem Paket `parameters` besser aufgearbeitet wieder. Die Mittelwertsunterschiede der Level der Behandlung haben wir bewusst sehr hoch angesetzt, so dass wir auf jeden Fall eine signifikante ANOVA erhalten sollen.
 
 ```{r}
 res_anova <- fit_rcbd %>% 
@@ -463,14 +458,24 @@ res_anova <- fit_rcbd %>%
 res_anova %>% model_parameters()
 ```
 
+Als Ergebnis haben wir einen signifikanten Faktor Behandlung `trt` sowie einen nicht signifikanten Faktor Block `block`. Wir können die Signifkanz an dem $p$-Wert bestimmen. Liegt der $p$-Wert unter dem Signifikanzniveau von $\alpha$ gleich 5% so können wir die Nullhypothese ablehnen. Wir haben dann mindestens einen signifikanten paarweisen Mittelwertsunterschied vorliegen.
+
+Schauen wir uns nun noch den Anteil der erklärten Varianz an. Wir nutzen dafür den Effektschätzer $\eta^2$.
+
 ```{r}
-res_anova %>% eta_squared
+res_anova %>% eta_squared(partial = FALSE)
 ```
+
+Wir sehen, dass durch den Faktor `trt` mit 92% der Varianz erklärt werden. Der Faktor Block erklärt nur ca. 2% der Varianz. Beides war so zu erwarten, denn wir haben ja auch den Datensatz in dieser Form gebaut. Die Behandlung hat einen starken Effekt und der Block hat gar keinen Effekt.
+
+Schauen wir nun auf den Mittelwertsvergleich. Wir nutzen dafür die Funktion `emmeans()` aus dem R Paket `emmeans`. Wichtig ist hier, dass wir uns jetzt die Vergleiche der Gruppen bzw. Level der Behandlung anschauen wollen.
 
 ```{r}
 res_rcbd <- fit_rcbd %>% 
   emmeans(~ trt) 
 ```
+
+Als erstes nutzen wir die Ausagbe der Funktion `emmeans` um uns das *compact letter display* wiedergeben zu lassen. Wir wollen wieder die Ausgaben runden und nutzen die Adjustierung der $p$-Werte für multiple Vergleiche nach Bonferroni. Nochmal als Erinnerung, das *compact letter display* gibt uns keine $p$-Werte wieder sondern wir Entscheiden anhand der vergebenen Buchstaben und deren Gleichheit über ein signifikantes Ergebnis oder ein nicht signifikantes Ergebnis.
 
 ```{r}
 res_rcbd_cld <- res_rcbd %>% 
@@ -482,18 +487,21 @@ res_rcbd_cld <- res_rcbd %>%
 res_rcbd_cld 
 ```
 
+An dem *compact letter display* sehen wir, dass sich alle Mittelwerte der Level der Behandlungen signifikant unterscheiden. In @fig-cld-rcbd sehen wir die Daten zusammen mit dem *compact letter display* in einer Abbildung. Wir ändern hier das `geom_point()` zu `geom_jitter()` um ein Overplotting zu vermeiden. So können wir alle Beobachtungen als Punkte erkennen.
+
 ```{r}
 #| message: false
 #| echo: true
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
-#| fig-cap: foo
+#| fig-cap: Scatterplot der Behandlungsgruppen zusammen mit den 95% Konfidenzintervall und dem *compact letter display*.
 #| label: fig-cld-rcbd
 
 ggplot() +
   theme_bw() +
-  geom_point(data = rcbd_tbl, aes(x = trt, y = rsp, fill = trt)) +
+  geom_jitter(data = rcbd_tbl, aes(x = trt, y = rsp, fill = trt),
+              width = 0.05) +
   geom_text(data = res_rcbd_cld, 
             aes(x = trt , y = estimate, label = .group),
             position = position_nudge(x = 0.2), color = "red") +
@@ -510,8 +518,9 @@ ggplot() +
        Rote Punkte und Fehlerbalken stellen bereinigte Mittelwerte mit 95% Konfidenzgrenzen pro Behandlung dar.
        Mittelwerte, mit einem gemeinsamen Buchstaben, sind nicht signifikant unterschiedlich.")
 
-
 ```
+
+Häufig wollen wir nicht nur das *compact letter display* sehen sondern auch die dazugehörigen $p$-Werte und die entsprechenden 95% Konfidenzintervalle. Wir berechnen im Folgenden alle paarweisen Vergleiche bzw. Kontraste und lassen uns die adjustierten sowie formatierten $p$-Werte ausgeben. Wir runden wieder die Ausgabe.
 
 ```{r}
 res_rcbd_tbl <- res_rcbd %>% 
@@ -525,6 +534,8 @@ res_rcbd_tbl <- res_rcbd %>%
 res_rcbd_tbl
 ```
 
+Auch hier passen die $p$-Werte zu dem *compact letter display*. Alle Vergleiche sind signifikant. Das haben wir noch dem *compact letter display* auch so erwartet. Auch sehen wir das gleiche Ergebnis in @fig-emmeans-rcbd-ci für die 95% Konfidenzintervalle. Wir betrachten Mittelwertsunterschiede und kein Konfidenzintervall beinhaltet die Null somit sind alle Konfidenzintervalle signifikant.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -532,8 +543,8 @@ res_rcbd_tbl
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 6
-#| fig-cap: foo
-#| label: fig-emmeans-rcbd
+#| fig-cap: Abbildung der 95% Konfidenzintervallefür alle paarweisen Vergleiche der Behandlungsgruppen.
+#| label: fig-emmeans-rcbd-ci
 
 ggplot(res_rcbd_tbl, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high)) +
   geom_hline(yintercept=0, linetype="11", colour="grey60") +
