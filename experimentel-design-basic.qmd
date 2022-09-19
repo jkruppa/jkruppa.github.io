@@ -394,11 +394,29 @@ Wir können die Daten aus dem Datensatz `rcbd_tbl` jetzt für die Varianzanalyse
 
 ### Modellierung
 
+Im Folgenden wollen wir die Daten modellieren. Das heist wir wollen eine Linie durch eine multidimensionale Punktewolke zeichnen. Daher auch lineares Modell oder eben durch die Funktion `lm()` in R für *linear model*. Wir nutzen das Paket `parameters` und die Funktion `model_parameters()` um uns die Parameter des Modells auszugeben. Wir könnten auch die Funktion `tidy()` nutzen, aber wir erhalten durch die Funktion `model_parameters()` etwas mehr Informationen und bessere Spaltenüberschriften.
+
+Wir bauen das Modell in folgender Form. Wir haben ein numerisches Outcome $y$ sowie einen Faktor $f_1$ sowie einem Faktor für den Block $b_1$.
+
+$$
+y \sim f_1 + b_1
+$$
+
+Nun können wir das abstrakte Modell in die Daten übersetzen und erhalten folgendes Modell.
+
+$$
+rsp \sim trt + block
+$$
+
+Das heist, unsere numerische Variable `rsp` hängt ab von unserer faktoriellen Variable `trt` und der faktoriellen Blockvariable `block`. Wir müssen immer wissen, wie die Spaltennamen in unserem Datensatz `crd_tbl` lauten sonst kann R die Spalten nicht finden.
+
 ```{r}
 fit_rcbd <- lm(rsp ~ trt + block, rcbd_tbl)
 
 fit_rcbd %>%  model_parameters()
 ```
+
+Wir sehen, dass wir die Koeffizienten, die wir vorher eingestellt haben, auch hier wiederfinden. Alle Steigungen der Behandlungslevel sind signifikant. Das hilft uns aber noch nicht so richtig weiter. Wir werden gleich das Modell in einer zweifaktoriellen ANOVA und einem Mittelwertsvergleich anschauen. Vorher wollen wir einmal statistisch Testen, ob die Varianzen homogens sind. Wir können die Varianzen aber nicht über das volle Modell testen, da wir nur *eine* Beobachtung per Behandlung/Block-Kombintation vorliegen haben.
 
 ```{r}
 #| eval: false
@@ -407,13 +425,19 @@ fit_rcbd %>% check_homogeneity()
 
 `Error in bartlett.test.default(x = mf[[1L]], g = mf[[2L]]) :  there must be at least 2 observations in each group`
 
+Daher schauen wir uns nur die Varianzen für die Behandlung an und nehmen an, dass die Varanzen über die Blöcke homogen sind. Wir können nur einen Faktor testen und deshalb nehmen wir den für uns wichtigeren Faktor die Behandlung.
+
 ```{r}
 lm(rsp ~ trt, rcbd_tbl) %>% check_homogeneity()
 ```
 
+Abschließend schauen wir nochmal auf die Normalverteilung der Residuen.
+
 ```{r}
 fit_rcbd %>% check_normality()
 ```
+
+In der @fig-emmeans-rcbd-qq sehen wir den QQ-Plot und die Verteilung der Residuen im Densityplot. Auch die Visualisierung zeigt keine Aufälligkeiten. Wir sehen, dass die Residuen einer Normalverteilung folgen.
 
 ```{r}
 #| message: false
@@ -422,11 +446,13 @@ fit_rcbd %>% check_normality()
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
-#| fig-cap: foo
+#| fig-cap: QQ-Plot und Densityplot der Residuen aus dem lineare Modell.
 #| label: fig-emmeans-rcbd-qq
 
 check_model(fit_rcbd, check = c("qq", "normality"))
 ```
+
+Wir können jetzt eine Varianzanalyse und dann eine Mittelwertsvergleich durchführen. Achtung, wir können uns hier auch etwas in die Ecke testen. Wenn wir nur lange genug neue Daten generieren, werden wir irgendwann auch einen Datensatz finden, der die Varianzhomogenität und die Normalverteilung ablehnt. Beosnders in dem Fall, dass wir wenige Blöcke haben. Das liegt in der Theorie des statistischen Testens sowie der kleinen Fallzahl verborgen. Deshalb können wir im Zweifel gerne einmal deine Vortests in dem R Tutorium oder in einer statistischen Beratung diskutieren.
 
 ### Varianzanalyse und Mittelwertsvergleich
 
