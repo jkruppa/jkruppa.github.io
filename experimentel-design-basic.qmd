@@ -100,7 +100,7 @@ Wir haben also $N = 20$ Beobachtungen vorliegen. Wir immer ist es schwer eine Da
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "foo."
+#| fig-cap: "Boxplots der Behandlungsgruppen zufällig aus einer Normalverteilung mit Varianzhomogenität generierten Daten."
 
 ggplot(crd_tbl, aes(trt, rsp, fill = trt)) +
   theme_bw() +
@@ -130,13 +130,21 @@ fit_crd <- lm(rsp ~ trt, crd_tbl)
 fit_crd %>%  model_parameters()
 ```
 
+Überlege mal, was die Spalte `Coefficient` aussagen möchte. Wir erhalten den `(Intercept)` mit $10.38$ und damit den MIttelwert der Gruppe $A$. In den folgenden Zeilen sind die Änderungen zu dem `(Intercept)` und damit zu der Gruppe $A$ dargestellt. Da wir nur eine sehr kleine Anzhl an Beoabchtungen haben, haben wir hier auch Abweichungen zu den voreingestellten Mittelwerten und Standardabweichungen. Wir schauen uns ja auch nur eine Realisierung von möglichen Daten $D$ an. Wir sehen, dass alle Koeffizienten signifikant und damit unterschiedlich von der Null sind. Der $p$-Wert ist kleiner als das Signiifkanzniveau von $\alpha$ gleich 5%.
+
+Wir können jetzt nochmal überprüfen, ob die Residuen die Annahme der Varianzhomogenität erfüllen.
+
 ```{r}
 fit_crd %>% check_homogeneity()
 ```
 
+Sowie ob die Residuen normalverteilt sind.
+
 ```{r}
 fit_crd %>% check_normality()
 ```
+
+Da wir ja hiermit nur eine Zeile Text produziert haben und darübr hinaus wir gerne uns Dinge anschauen, können wir auch die Residuen einmal visualisieren. In @fig-emmeans-crd-qq sehen wir den QQ-Plot der Residuen sowie die Verteilung unserer Residuen in einem Desnityplot. Wir sehen, dass die Residuen einer Normalverteilung folgen.
 
 ```{r}
 #| message: false
@@ -145,13 +153,17 @@ fit_crd %>% check_normality()
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
-#| fig-cap: foo
+#| fig-cap: QQ-Plot und Densityplot der Residuen aus dem lineare Modell.
 #| label: fig-emmeans-crd-qq
 
 check_model(fit_crd, check = c("qq", "normality"))
 ```
 
+Wunderbar. Wir können jetzt eine Varianzanalyse und dann eine Mittelwertsvergleich durchführen. Achtung, wir können uns hier auch etwas in die Ecke testen. Wenn wir nur lange genug neue Daten generieren, werden wir irgendwann auch einen Datensatz finden, der die Varianzhomogenität und die Normalverteilung ablehnt. Das liegt in der Theorie des statistischen Testens sowie der kleinen Fallzahl verborgen. Deshalb können wir im Zweifel gerne einmal deine Vortests in dem R Tutorium oder in einer statistischen Beratung diskutieren.
+
 ### Varianzanalyse und Mittelwertsvergleich
+
+Die einfaktorielle Varianzanalyse ist ziemlich einfach und ergibt sich fast von alleine. Wir nehmen das Objekt des Modells und pipen das Modell in die Funktion `anova()`. Wir lassen uns dann wieder die Modellparameter der ANOVA widergeben.
 
 ```{r}
 res_anova <- fit_crd %>% 
@@ -160,24 +172,40 @@ res_anova <- fit_crd %>%
 res_anova %>% model_parameters()
 ```
 
+Wir sehen, dass der Faktor Behandlung signifkant ist, da der $p$-Wert kleiner ist als das Signifkanzniveau $\alpha$ gleich 5%. Wir können damit die Nullhypothese ablehnen, wir haben zumindestens einen paarweisen Gruppenunterschied in der Behandlung. Welchen wissen wir nicht, dafür machen wir dann die paarweisen Vergleiche. Eigentlich können wir uns in diesem simplen Fall die ANOVA schhenken und gleich den Mittelwertsvergleich rechnen. Aber das es Usus ist und auch in vielen Abschlussarbeiten verlangtt wird, machen wir hier es einfach mal gleich mit.
+
+Jetzt brauchen wir nur noch die Effektstärke der ANOVA, also wieviel Varianz eigentlich der Faktor Behandlung erklärt. Dfür nutzen wir die Funktion `eta_squared()` aus dem Paket `effectsize`.
+
 ```{r}
 res_anova %>% eta_squared
 ```
+
+Mit einem $\eta^2$ von $0.86$ wissen wir, dass 86% der Varianz von dem Faktor Behandlung erklärt wird. Das wundert uns nicht, denn wir haben ja nur den Faktor Behandlung in unseren Daten aus denen sich unser Outcome ergibt.
+
+Nachdem wir kurz die ANOVA gerechnet haben, wollen wir noch den Mittelwertsvergleich rechnen. Wir nutzen dazu das Paket `emmeans`. Wir müssen der Funktion `emmeans()` ein Objekt aus einem Modell übergeben und der Funktion mitteilen, was der Faktor ist mit dem der Vergleich gerechnet werden soll. Wir haben hier den Faktor `trt` vorliegen und wollen einen parweisen Vergleich über alle Level des Faktors rechnen.
 
 ```{r}
 res_crd <- fit_crd %>% 
   emmeans(~ trt) 
 ```
 
+Wir haben die Ausgabe der Funktion `emmeans()` in dem Objekt `res_crd` gespeichert und nutzen das Objekt zuerst um einmal die Ausgabe für das *comapct letter display* zu erhalten. Als Adjustierung des $\alpha$ Fehlers nutzen wir die Adjustierung nach Bonferroni. Es sind auch andere Adjustierungen möglich, aber aus Gründen der Einfachheit nehmen wir hier mal den Klassiker der Adjustierung. Je nach Fragestellung gibt es sicherlich auch eine bessere Alternative für Bonferroni.
+
 ```{r}
 res_crd_cld <- res_crd %>% 
-  cld(adjust = "sidak", Letters = letters) %>% 
+  cld(adjust = "bonferroni", Letters = letters) %>% 
   tidy() %>% 
   select(trt, estimate, conf.low, conf.high, .group) %>% 
   mutate(across(where(is.numeric), round, 2))
+```
 
+Nachdem wir noch ein wenig gerundet haben und die Spalten passend gewählt, erhalten wir dann folgende Ausgabe.
+
+```{r}
 res_crd_cld 
 ```
+
+Wir nutzen die Ausgabe `res_crd_cld` direkt in der @fig-cld-crd um uns das *compact letter display* zusammen mit den Daten und den entsprechenden 95% konfidenzintervallen anzeigen zu lassen. Der Code ist etwas länger, da wir hier verschiedene Schichten von einem `geom` übereinander legen müssen.
 
 ```{r}
 #| message: false
@@ -185,7 +213,7 @@ res_crd_cld
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
-#| fig-cap: foo
+#| fig-cap: Scatterplot der Behandlungsgruppen zusammen mit den 95% Konfidenzintervall und dem *compact letter display*.
 #| label: fig-cld-crd
 
 ggplot() +
@@ -203,12 +231,12 @@ ggplot() +
              position = position_nudge(x = 0.1), color = "red") +
   theme(legend.position = "none") +
   labs(x = "Behandlung", y = "Gewicht [kg/ha]",
-       caption = "Schwarze Punkte stellen Rohdaten dar.
+       caption = "Schwarze Punkte stellen die Rohdaten dar.
        Rote Punkte und Fehlerbalken stellen bereinigte Mittelwerte mit 95% Konfidenzgrenzen pro Behandlung dar.
        Mittelwerte, mit einem gemeinsamen Buchstaben, sind nicht signifikant unterschiedlich.")
-
-
 ```
+
+Wi sehen an dem *compact letter display*, dass sich die Behandlung $A$ von der Behandlung $B$, $C$ und $D$ unterscheidet. Die Behandlung $B$ und $C$ sind gleich. Die Behandlung $C$ unterschdeit sich von all den anderen Behandlungen. Wir erinnern uns, wenn die Buchstaben in dem *compact letter display* gleich sind, dann können wie die Nullhypothese für diese Vergleiche nicht ablehnen. Wir haben keinen signifikanten Unterschied vorliegen.
 
 ```{r}
 res_crd_tbl <- res_crd %>% 
