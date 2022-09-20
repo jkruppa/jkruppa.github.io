@@ -7,7 +7,7 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 ![](images/caution.png){fig-align="center" width="50%"}
 
 ::: column-margin
-Dieses Kapitel basiert auf dem tollen [Tutorium von Gabriela K Hajduk](https://ourcodingclub.github.io/tutorials/mixed-models/). Die Daten wurden von mir angepasst und teilweise gekürzt.
+Dieses Kapitel basiert auf dem tollen [Tutorium von Gabriela K Hajduk](https://ourcodingclub.github.io/tutorials/mixed-models/). Die Daten und Inhalte wurden von mir angepasst und teilweise gekürzt.
 :::
 
 [R Paket parameters](https://easystats.github.io/parameters/articles/model_parameters.html)
@@ -21,36 +21,55 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom, see,
-               multcomp, emmeans, ggpubr, lme4, broom.mixed,
-               parameters)
+               multcomp, emmeans, lme4, broom.mixed,
+               parameters, ggridges, scales)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
 
-```{r}
-library(lme4)
+## Daten
 
-lmer(Sepal.Width ~ Petal.Length + (1 | Species), data = iris) %>%
-  parameters()
+```{r}
+
+dragons_tbl <- read.csv2("data/dragons.csv") %>% 
+  mutate(body_length_cat = case_when(body_length < 170 ~ "tiny",
+                                     body_length >= 170 & body_length < 180 ~ "small",
+                                     body_length >= 180 & body_length < 200 ~ "medium",
+                                     body_length >= 200 & body_length < 220 ~ "large",
+                                     body_length >= 220 ~ "gigantic"),
+         body_length_cat = as_factor(body_length_cat))
+
 ```
 
 ```{r}
-
-dragons_tbl <- read.csv2("data/dragons.csv")
-
+dragons_tbl
 ```
 
 ```{r}
 ggplot(dragons_tbl, aes(test_score)) +
   geom_histogram() +
   theme_bw() 
+
+ggplot(dragons_tbl, aes(y = body_length_cat, x = test_score, fill = body_length_cat)) +
+  theme_bw() +
+  stat_density_ridges() +
+  theme(legend.position = "none") +
+  scale_fill_okabeito() 
+
 ```
 
+## Modellierung
+
 ```{r}
+#| message: false
+#| warning: false
+
 lm_fit <- lm(test_score ~ body_length, data = dragons_tbl)
-summary(lm_fit)
+
+lm_fit %>% model_parameters()
+
 ```
 
 ```{r}
@@ -104,13 +123,19 @@ ggplot(dragons_tbl, aes(body_length, test_score, color = mountain_range)) +
 ```
 
 ```{r}
+#| message: false
+#| warning: false
+
 lm_mountain_fit <- lm(test_score ~ body_length + mountain_range, data = dragons_tbl)
-summary(lm_mountain_fit)
+lm_mountain_fit %>% model_parameters()
 ```
 
 ```{r}
+#| message: false
+#| warning: false
+
 lmer_1_fit <- lmer(test_score ~ body_length + (1 | mountain_range), data = dragons_tbl)
-summary(lmer_1_fit)
+lmer_1_fit %>% model_parameters()
 ```
 
 ```{r}
@@ -131,8 +156,11 @@ qqline(resid(lmer_1_fit))
 ```
 
 ```{r}
+#| message: false
+#| warning: false
+
 lmer_2_fit <- lmer(test_score ~ body_length + (1|mountain_range) + (1|mountain_range/site), data = dragons_tbl) 
-summary(lmer_2_fit)
+lmer_2_fit %>% model_parameters()
 ```
 
 ```{r}
@@ -144,3 +172,93 @@ ggplot(dragons_tbl, aes(x = body_length, y = test_score, colour = site)) +
   theme(legend.position = "none") +
   scale_color_okabeito() 
 ```
+
+```{r}
+lmer_3_fit <- lmer(test_score ~ body_length_cat + (1 | mountain_range), data = dragons_tbl)
+lmer_3_fit %>% model_parameters()
+```
+
+```{r}
+res_lmer <- lmer_3_fit %>% 
+  emmeans(~ body_length_cat) 
+```
+
+```{r}
+res_lmer_cld <- res_lmer %>% 
+  cld(adjust = "bonferroni", Letters = letters) %>% 
+  tidy() %>% 
+  select(body_length_cat, estimate, conf.low, conf.high, .group) %>% 
+  mutate(across(where(is.numeric), round, 2))
+
+res_lmer_cld 
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: Scatterplot der Behandlungsgruppen zusammen mit den 95% Konfidenzintervall und dem *compact letter display*.
+#| label: fig-cld-rcbd
+
+ggplot() +
+  theme_bw() +
+  geom_jitter(data = dragons_tbl, aes(x = body_length_cat, y = test_score, fill = body_length_cat),
+              width = 0.05) +
+  geom_text(data = res_lmer_cld, 
+            aes(x = body_length_cat , y = estimate, label = .group),
+            position = position_nudge(x = 0.2), color = "red") +
+  geom_errorbar(data = res_lmer_cld,
+                aes(ymin = conf.low, ymax = conf.high, x = body_length_cat),
+                color = "red", width = 0.1,
+                position = position_nudge(x = 0.1)) +
+  geom_point(data = res_lmer_cld, 
+             aes(x = body_length_cat , y = estimate),
+             position = position_nudge(x = 0.1), color = "red") +
+  theme(legend.position = "none") +
+  labs(x = "Körperlänge in Kategorien", y = "Testscore",
+       caption = "Schwarze Punkte stellen Rohdaten dar.
+       Rote Punkte und Fehlerbalken stellen bereinigte Mittelwerte mit 95% Konfidenzgrenzen pro Behandlung dar.
+       Mittelwerte, mit einem gemeinsamen Buchstaben, sind nicht signifikant unterschiedlich.")
+
+```
+
+```{r}
+res_lmer_tbl <- res_lmer %>% 
+  contrast(method = "pairwise") %>% 
+  tidy(conf.int = TRUE) %>% 
+  mutate(p.value = pvalue(adj.p.value),
+         across(where(is.numeric), round, 2)) %>% 
+  select(contrast, estimate, p.value,
+         conf.low, conf.high) 
+
+res_lmer_tbl
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: Abbildung der 95% Konfidenzintervallefür alle paarweisen Vergleiche der Behandlungsgruppen.
+#| label: fig-emmeans-rcbd-ci
+
+ggplot(res_lmer_tbl, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high)) +
+  geom_hline(yintercept=0, linetype="11", colour="grey60") +
+  geom_errorbar(width=0.1) + 
+  geom_point() +
+  coord_flip() +
+  theme_bw()  +
+  labs(x = "Vergleich", y = "Mittelwertsunterschied des Gewichtes [kg/ha]",
+       caption = "Schwarze Punkte stellen die bereinigten Mittelwertsunterschiede mit 95% Konfidenzgrenzen dar.
+       Enthält ein 95% Konfidenzintervalle die 0 ist es nicht signifikant unterschiedlich.")
+```
+
+## Nested
+
+https://stats.stackexchange.com/questions/228800/crossed-vs-nested-random-effects-how-do-they-differ-and-how-are-they-specified
+
+https://www.statology.org/nested-anova-in-r/
