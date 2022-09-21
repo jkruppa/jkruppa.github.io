@@ -1,5 +1,104 @@
 # Formeln
 
+## Data experiment
+
+https://easystats.github.io/parameters/articles/demean.html#a-visual-example
+
+```{r}
+set.seed(123)
+n <- 5
+b <- seq(1, 1.5, length.out = 5)
+x <- seq(2, 2 * n, 2)
+
+
+factor_tbl <- tibble(x = map2(1:5, 6:10, seq, 0.5) %>%  flatten_dbl(),
+       expertise = factor(rep(1:5, each = 11), labels = c("very slow", "slow", "average", "fast", "very fast"))) 
+
+model_mat <- factor_tbl %>% 
+  model_matrix(~ x + expertise) %>% 
+  as.matrix
+
+
+foo <- factor_tbl %>% 
+  mutate(rsp_eff = as.numeric(model_mat %*% c(30, -1.5, 2, 2, 2, 2)),
+         rsp = rsp_eff + rnorm(n(), 0, 2)) %>% 
+  group_by(x) %>% 
+  mutate(x = rev(15 - (x + 1.5 * as.numeric(expertise)))) %>% 
+  ungroup()
+
+ggplot(foo, aes(x, rsp, color = expertise)) +
+  geom_point()
+
+
+map2(1:2, 3:4, seq, 0.5) %>%  flatten_dbl()
+
+pmap(list(1:2, 3:4), seq, 0.5) %>%  flatten_dbl()
+
+expand_grid(expertise = 1:5, x = seq(1, 5, 0.5)) 
+
+set.seed(1)
+dd <- data.frame(id = rep(c(1,2), c(3,5)),
+                 x = rnorm(8), 
+                 d = rep(c(0.3, 0.5), c(3,5)))
+
+
+dd %>% 
+    nest(x) %>% 
+    mutate(scale_d = scale(d)) %>% 
+    unnest()
+
+```
+
+```{r}
+#| eval: false
+
+set.seed(123)
+n <- 5
+b <- seq(1, 1.5, length.out = 5)
+x <- seq(2, 2 * n, 2)
+
+d <- do.call(rbind, lapply(1:n, function(i) {
+  data.frame(
+    x = seq(1, n, by = .2),
+    y = 2 * x[i] + b[i] * seq(1, n, by = .2), #+ rnorm(21),
+    grp = as.factor(2 * i)
+  )
+}))
+
+d
+
+d <- d %>%
+  group_by(grp) %>%
+  mutate(x = rev(15 - (x + 1.5 * as.numeric(grp)))) %>%
+  ungroup()
+
+labs <- c("very slow", "slow", "average", "fast", "very fast")
+levels(d$grp) <- rev(labs)
+
+ggplot(d, aes(x,y, color = grp)) +
+  geom_point()
+
+foo <- cbind(d, datawizard::demean(d, c("x", "y"), group = "grp")) 
+
+foo %>% 
+  select(matches(c("x")), grp) %>% 
+  mutate(foo = x_between + x_within) %>% 
+  pull(x_between) %>% 
+  unique
+
+foo %>% 
+  group_by(grp) %>% 
+  dplyr::summarise(base::mean(y))
+
+d <- cbind(d, datawizard::demean(d, c("x", "y"), group = "grp"))
+
+d
+
+
+
+
+```
+
 Im Folgenden schauen wir uns noch komplexere Daten in @tbl-imp-complex-long an. Das Datenbeispiel ist im Wide Format mit einem Behandlungsfaktor `treatment` einem Clusterfaktor `block` sowie mehreren Messwiederholungen zu unterschiedichen Zeitpunkten `t_1` bis `t_6` angelegt.
 
 ```{r}
