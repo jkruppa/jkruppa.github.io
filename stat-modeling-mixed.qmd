@@ -9,10 +9,8 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, simstudy)
 ![](images/caution.png){fig-align="center" width="50%"}
 
 ::: column-margin
-Dieses Kapitel basiert auf dem tollen [Tutorium von Gabriela K Hajduk](https://ourcodingclub.github.io/tutorials/mixed-models/). Die Daten und Inhalte wurden von mir angepasst und teilweise gekürzt.
+Dieses Kapitel basiert auf dem tollen [Tutorium von Gabriela K Hajduk](https://ourcodingclub.github.io/tutorials/mixed-models/). Die Daten und Inhalte wurden von mir angepasst und teilweise gekürzt sowie inhaltlich angepasst.
 :::
-
-https://m-clark.github.io/mixed-models-with-R/introduction.html
 
 ## Genutzte R Pakete für das Kapitel
 
@@ -31,7 +29,11 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
-![Beispiel für drei der acht Berge mit *Bavarian*, *Central* und *Julian*. Auf jeden der acht Berge wurden an drei Seiten *a*, *b* und *c* die Testscores der dortigen Drachen erhoben.](images/mountain.png){#fig-mountain-site fig-align="center" width="80%"}
+In diesem fiktiven Datenbeispiel wollen wir uns die Testscores eines Intelligentest bei $N = 480$ Drachen anschauen. Wir sind dafür an acht Berge gefahren und haben die dortigen Drachen an den drei Flanken des Berges getestet. Daher hat der Faktor `mountain_range` acht Level mit Bavarian, Ligurian, Emmental, Central, Maritime, Southern, Julian, und Sarntal. Die drei Flanken des Berges bilden wir im Faktor `site` mit den Leveln north, east und south ab. In @fig-mountain-site sehen wir eine Skizze für drei Berge mit den jeweiligen Flanken, wo gemessen wurde.
+
+![Beispiel für drei der acht Berge mit *Bavarian*, *Central* und *Julian*. Auf jeden der acht Berge wurden an drei Seiten *north*, *east* und *south* die Testscores der dort lebenden Drachen erhoben.](images/mountain.png){#fig-mountain-site fig-align="center" width="90%"}
+
+Die Daten liegen in dem Datensatz `dragons.csv` ab. Wir müssen aber noch einen Faktor `body_length_cat` bilden in dem wir die `body_length` der einzelnen Drachen in Kategorien umwandeln. Wir wollen später noch Gruppenvergleiche rechnen und brauchen daher einen Faktor mit Leveln. Daher nutzen wir die Funktion `case_when()` um einen Faktor mit fünf Größenkategorien zu bilden. Danach müssen wir wie immer noch die `character` Spalten in die entsprechenden Faktoren umwandeln.
 
 ```{r}
 
@@ -44,17 +46,19 @@ dragons_tbl <- read.csv2("data/dragons.csv") %>%
                      body_length >= 220 ~ "gigantic"),
          body_length_cat = as_factor(body_length_cat),
          mountain_range = as_factor(mountain_range),
-         site = as_factor(site)) %>% 
+         site = factor(site, labels = c("north", "east", "south"))) %>% 
   select(test_score, body_length, body_length_cat, everything())
 
 ```
+
+Es ergibt sich dann der Datensatz wie in @tbl-dragon gezeigt. Wir belassen die Körperlänge der Drachen in der kontinuierlichen Form nochmal mit in den Daten.
 
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
 #| label: tbl-dragon
-#| tbl-cap: foo
+#| tbl-cap: Datensatz der Testscores für die Drachen auf verschiedenen Bergen und dort an verschiedenen Flanken der Berge.
 #| column: page
 
 dragons_raw_tbl <- dragons_tbl %>% 
@@ -68,6 +72,8 @@ rbind(head(dragons_raw_tbl, n = 4),
   kable(align = "c", "pipe")
 ```
 
+Bevor wir mit dem Modellieren beginnen, wollen wir erstmal visuell überprüfen, ob unser Outcome $y$ mit dem Testscore auch normalverteilt ist. Wir benötigen für das *klaissche* lineare gemischte Modell ein normalverteiltes Outcome $y$. In @fig-mixed-1 sehen wir das Histogramm der Verteilung des Testscores für alle $N = 480$ Drachen.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -75,7 +81,7 @@ rbind(head(dragons_raw_tbl, n = 4),
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 6
-#| fig-cap: foo
+#| fig-cap: Histogramm des Testscores über alle Datenpunkte zur Überprüfung der Annahme der Normalverteilung. Wir sehen eine approximative Normalverteilung des Testscores.
 #| label: fig-mixed-1
 
 ggplot(dragons_tbl, aes(test_score)) +
@@ -83,6 +89,8 @@ ggplot(dragons_tbl, aes(test_score)) +
   theme_bw() 
 ```
 
+Wir können in der @fig-mixed-2 auch nochmal schauen, ob die Annahme der annährenden Normalverteilung für unseren Testscore auch für jedes Level unseres Faktors der Körperlängen gegeben ist. Wir sehen auch hier, dass der Testscore einer Normalverteilung über alle Kategorien der Körperlänge folgt.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -90,7 +98,7 @@ ggplot(dragons_tbl, aes(test_score)) +
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 6
-#| fig-cap: foo
+#| fig-cap: Histogramm des Testscores aufgeteilt nach Kategorie der Körpergröße zur Überprüfung der Annahme der Normalverteilung. Wir sehen eine approximative Normalverteilung des Testscores für alle Kategorien der Körpergröße.
 #| label: fig-mixed-2
 
 ggplot(dragons_tbl, aes(y = body_length_cat, x = test_score, fill = body_length_cat)) +
@@ -99,6 +107,8 @@ ggplot(dragons_tbl, aes(y = body_length_cat, x = test_score, fill = body_length_
   theme(legend.position = "none") +
   scale_fill_okabeito() 
 ```
+
+Natürlich können wir uns hier noch weitere Abbildungen erstellen, aber hier soll es erstmal reichen. Wir sehen, dass der Testscore einer Normalverteilung folgt und dass die Varianzen vermutlich homogen sind, da die Histogramme ungefähr gleich breit sind. Ja, ein wenig unterscheiden sich die Verteilungen, aber so gravierend ist es erstmal nicht.
 
 ## Modellierung
 
