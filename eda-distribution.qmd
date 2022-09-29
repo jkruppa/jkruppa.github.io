@@ -11,7 +11,7 @@ conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
 conflict_prefer("summarise", "dplyr")
-cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+cbbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
@@ -46,14 +46,14 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten für Verteilungen
 
-Damit wir uns auch eine Verteilung anschauen können bruachen wir *viele* Beobachtungen. Wir haben das ja schon bei den Histogrammen gesehen, wenn wir ein aussagekräftiges Histogramm erstellen wollen, dann brauchen wir viele Beobachtungen. Daher nehmen wir für dieses Kapitel einmal den Gummibärchendatensatz und schauen uns dort die Variablen `gender`, `height`, `count_bears` und `count_color` einmal genauer an. Wie immer nutzen wir die Funktion `select()` um die Spalten zu selektieren. Wir müssen jetzt nochmal alle fehlenden Werte mit der Funktion `na.omit()` entfernen, dass macht uns die Sache etwas leichter. Abschließend verwandeln wir das Geschlecht `gender` noch in einen Faktor.
+Damit wir uns auch eine Verteilung anschauen können bruachen wir *viele* Beobachtungen. Wir haben das ja schon bei den Histogrammen gesehen, wenn wir ein aussagekräftiges Histogramm erstellen wollen, dann brauchen wir viele Beobachtungen. Daher nehmen wir für dieses Kapitel einmal den Gummibärchendatensatz und schauen uns dort die Variablen `gender`, `height`, `count_bears` und `count_color` einmal genauer an. Wie immer nutzen wir die Funktion `select()` um die Spalten zu selektieren. Abschließend verwandeln wir das Geschlecht `gender` und das `module` noch in einen Faktor.
 
 ```{r}
 #| message: false
 
 gummi_tbl <- read_excel("data/gummibears.xlsx")  %>%
-  select(year, module, gender, height, count_bears, count_color) %>% 
-  na.omit() %>% 
+  select(year, module, gender, height, count_bears, count_color,
+         most_liked) %>% 
   mutate(gender = as_factor(gender),
          module = as_factor(module))
 ```
@@ -67,7 +67,8 @@ Wir erhalten das Objekt `gummi_tbl` mit dem Datensatz in @tbl-data-dist-gummi no
 #| label: tbl-data-dist-gummi
 
 gummi_print_tbl <- gummi_tbl %>% 
-  mutate(gender =  as.character(gender))
+  mutate(gender = as.character(gender),
+         module = as.character(module))
 rbind(head(gummi_print_tbl),
       rep("...", times = ncol(gummi_print_tbl)),
       tail(gummi_print_tbl)) %>% 
@@ -175,14 +176,18 @@ Schauen wir uns die Normalverteilung einmal am Beispiel unserer Gummibärchendat
 #| layout-nrow: 1
 #| column: page
 
-ggplot(data = gummi_tbl, aes(x = height, fill = gender)) +
+gummi_1_tbl <- gummi_tbl %>% 
+  select(height, gender) %>% 
+  na.omit()
+
+ggplot(data = gummi_1_tbl, aes(x = height, fill = gender)) +
   theme_bw() +
   geom_histogram(position = "dodge", color = "black") +
   labs(x = "", y = "Anzahl", fill = "Geschlecht") +
   scale_x_continuous(breaks = seq(150, 210, by = 5)) +
   scale_fill_okabeito() 
 
-ggplot(data = gummi_tbl, aes(x = height, fill = gender)) +
+ggplot(data = gummi_1_tbl, aes(x = height, fill = gender)) +
   theme_bw() +
   geom_density(alpha = 0.75) +
   labs(x = "", y = "", fill = "Geschlecht") +
@@ -218,6 +223,8 @@ Wir können auch aus unseren Gummibärchendaten für die Körpergröße in \[cm\
 #| column: page
 
 stat_tbl <- gummi_tbl %>% 
+  select(gender, height) %>% 
+  na.omit() %>% 
   group_by(gender) %>% 
   summarise(mean = mean(height),
             sd = sd(height),
@@ -228,7 +235,7 @@ gummi_theo_tbl <- tibble(height = c(with(filter(stat_tbl, gender == "m"), rnorm(
                          gender = rep(c("m", "w"), c(stat_tbl$n[1], stat_tbl$n[2])))
 
 
-ggplot(data = gummi_tbl, aes(x = height, fill = gender)) +
+ggplot(data = gummi_1_tbl, aes(x = height, fill = gender)) +
   theme_bw() +
   geom_histogram(position = "dodge", color = "black") +
   labs(x = "", y = "Anzahl", fill = "Geschlecht") +
@@ -244,7 +251,7 @@ ggplot(data = gummi_theo_tbl, aes(x = height, fill = gender)) +
   scale_x_continuous(breaks = seq(150, 215, by = 5)) +
   scale_y_continuous(breaks = seq(0, 25, 5), limits = c(0, 25))
 
-ggplot(data = gummi_tbl, aes(x = height, fill = gender)) +
+ggplot(data = gummi_1_tbl, aes(x = height, fill = gender)) +
   theme_bw() +
   geom_density(alpha = 0.75) +
   labs(x = "", y = "", fill = "Geschlecht") +
@@ -332,13 +339,17 @@ Schauen wir uns nun einmal die Poissonverteilung im Beispiel an. In @fig-pois-01
 #| layout-nrow: 1
 #| column: page
 
-ggplot(data = gummi_tbl, aes(x = count_bears)) +
+gummi_2_tbl <- gummi_tbl %>% 
+  select(count_bears, count_color) %>% 
+  na.omit()
+
+ggplot(data = gummi_2_tbl, aes(x = count_bears)) +
   theme_bw() +
   geom_bar(position = "dodge", color = "black", fill = cbbPalette[2]) +
   scale_x_continuous(breaks = seq(5, 15, by = 1), limits = c(5, 15)) +
   labs(x = "", y = "Anzahl") 
 
-ggplot(data = gummi_tbl, aes(x = count_color)) +
+ggplot(data = gummi_2_tbl, aes(x = count_color)) +
   theme_bw() +
   geom_bar(position = "dodge", color = "black", fill = cbbPalette[3]) +
   #scale_x_continuous(breaks = seq(1, 6, by = 1), limits = c(1, 6)) +
@@ -373,17 +384,17 @@ Wir können nun auch aus unseren Gummibärchendaten für die Anzahl an Bärchen 
 #| column: page
 
 
-stat_color_tbl <- gummi_tbl %>% 
+stat_color_tbl <- gummi_2_tbl %>% 
   summarise(mean = mean(count_color),
             n = n())
 
-stat_bears_tbl <- gummi_tbl %>% 
+stat_bears_tbl <- gummi_2_tbl %>% 
   summarise(mean = mean(count_bears),
             n = n())
 
-height_max <- 200
+height_max <- 220
 
-ggplot(data = gummi_tbl, aes(x = count_bears)) +
+ggplot(data = gummi_2_tbl, aes(x = count_bears)) +
   theme_bw() +
   geom_bar(position = "dodge", color = "black", fill = cbbPalette[5]) +
   labs(x = "", y = "Anzahl") +
@@ -399,7 +410,7 @@ ggplot(data = tibble(count_bears = rpois(stat_bears_tbl$n, stat_bears_tbl$mean))
   scale_x_continuous(breaks = seq(1, 20, by = 1), limits = c(1, 20)) +
   scale_y_continuous(breaks = seq(0, height_max, 10), limits = c(0, height_max))
 
-ggplot(data = gummi_tbl, aes(x = count_color)) +
+ggplot(data = gummi_2_tbl, aes(x = count_color)) +
   theme_bw() +
   geom_bar(position = "dodge", color = "black", fill = cbbPalette[7]) +
   labs(x = "", y = "Anzahl") +
@@ -417,7 +428,7 @@ ggplot(data = tibble(count_color = rpois(stat_color_tbl$n, stat_color_tbl$mean))
 
 ```
 
-In @fig-gummi-years-count schauen wir uns nochmal an in wie weit sich die Füllung der Tütchen im Laufe der Jahre entwickelt hat. Die Daten werden ja schon seit 2018 erhoben. Wir schauen uns daher die Densityplot einmal aufgetrennt für die Jahre 2018 bis heute an. Das Jahr 2020 fehlt, da bedingt durch die Coronapandemie keine Präsenslehre stattfand.
+In @fig-gummi-years-count schauen wir uns nochmal an in wie weit sich die Füllung der Tütchen im Laufe der Jahre entwickelt hat. Die Daten werden ja schon seit 2018 erhoben. Wir schauen uns daher die Densityplot einmal aufgetrennt für die Jahre 2018 bis heute an. Das Jahr 2020 fehlt, da bedingt durch die Coronapandemie keine Präsenslehre stattfand. Wir sehen, dass sich die Verteilung anscheinend in dem Jahr 2022 langsam nach links zu weniger Bärchen in einer Tüte bewegt. Wir bleiben gespannt auf den weiteren Trend.
 
 ```{r}
 #| echo: false
@@ -429,7 +440,11 @@ In @fig-gummi-years-count schauen wir uns nochmal an in wie weit sich die Füllu
 #| fig-width: 5
 #| fig-cap: "Densityplot der Anzahl an Bärchen in einer Tüte aufgetrennt nach den Jahren der Erhebung. Das Jahr 2020 fehlt bedingt durch die Coronapandemie."
 
-ggplot(data = gummi_tbl, aes(x = count_bears, y = fct_rev(as_factor(year)),
+gummi_3_tbl <- gummi_tbl %>% 
+  select(count_bears, year) %>% 
+  na.omit()
+
+ggplot(data = gummi_3_tbl, aes(x = count_bears, y = fct_rev(as_factor(year)),
                              fill = fct_rev(as_factor(year)))) +
   theme_bw() +
   stat_density_ridges() +
@@ -437,6 +452,60 @@ ggplot(data = gummi_tbl, aes(x = count_bears, y = fct_rev(as_factor(year)),
   labs(x = "Anzahl an Bärchen in einer Tüte", y = "Jahr") +
   theme(legend.position = "none") +
   scale_fill_okabeito()
+
+```
+
+In @fig-gummi-mostliked betrachten wir die Verteilung der am meisten gemochten Gummibärchen aufgeteilt nach dem angegebenen Geschlecht im Vergeich zu den Gummibärchen in den Tütchen. Wir sehen, dass Haribo die Tütchen sehr gleichmäßig verteilt und auf die Geschmäcker keinerlei Rücksicht nimmt.
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-gummi-mostliked
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Histogramme der am liebsten gemochten Gummibärchchen im Vergleich zum Inhalt der Tütchen."
+#| fig-subcap: 
+#|   - "Anzahl am liebsten gemochten Gummibärchen aufgeteilt nach Geschlecht."
+#|   - "Anzahl der Gummibärchen pro Tüte nach Farbe."
+#| layout-nrow: 1
+#| column: page
+
+gummi_4_tbl <- gummi_tbl %>% 
+  select(most_liked, gender) %>% 
+  mutate(most_liked = factor(most_liked, 
+                             levels = c("darkred", "green", "white", "lightred",
+                                        "yellow", "orange", "none"))) %>% 
+  na.omit()
+
+
+ggplot(data = gummi_4_tbl, aes(x = most_liked)) +
+  theme_bw() +
+  geom_bar(aes(fill = gender), position = "dodge") +
+  #scale_x_continuous(breaks = seq(5, 15, by = 1), limits = c(5, 15)) +
+  labs(x = "Lieblingsgeschmack", y = "Anzahl", fill = "Geschlecht") +
+  #theme(legend.position = "none") +
+  scale_fill_okabeito()
+
+
+gummi_color_tbl <- read_excel("data/gummibears.xlsx") %>% 
+  select(darkred:white) %>% 
+  gather(color, count)
+
+count_bag_tbl <- rep(gummi_color_tbl$color, gummi_color_tbl$count) %>% 
+  as_tibble() %>% 
+  mutate(value = factor(value, 
+                        levels = c("darkred", "green", "white", "lightred",
+                                   "yellow", "orange", "none")))
+
+ggplot(count_bag_tbl, aes(value)) +
+  theme_bw() +
+  geom_bar(position = "dodge", color = "black", 
+           fill = c("brown3", "darkolivegreen3", "white", "coral1", "yellow", "orange")) +
+  #scale_x_continuous(breaks = seq(5, 15, by = 1), limits = c(5, 15)) +
+  labs(x = "", y = "Anzahl") 
+
 
 ```
 
