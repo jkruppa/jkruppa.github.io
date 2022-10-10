@@ -356,6 +356,8 @@ lmer_2_fit <- lmer(test_score ~ body_length_cat + (1|mountain_range/site), data 
 lmer_2_fit %>% model_parameters()
 ```
 
+Das Modell hat nun einen weiteren zufälligen Effekt. Es werden jetzt auch nochmal für jeden Berg die Flankeneffekte mit berücksichtigt. Hat das überhaupt einen Einfluss auf das Modell? Schauen wir uns einmal die Modellgüte mit der Funktion `model_performance()` an.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -364,6 +366,17 @@ lmer_2_fit %>% model_parameters()
 lmer_2_fit %>% model_performance()
 ```
 
+Wir sehen, dass sich die erklärte varianz leicht erhöht hat. Die $R^2_{random}$ liegt jetzt bei $0.623$ also fast 62%. Etwas besser als vorher, aber auch nicht unbedingt sehr viel mehr.
+
+Wie können wir nun unsere vier Modelle miteinander vergleichen? Wir haben ja folgende Modelle vorliegen:
+
+-   Das simple lineare Modell `lm_simple_fit` mit `test_score ~ body_length_cat`.
+-   Das multiple lineare Modell `lm_mountain_fit` mit `test_score ~ body_length_cat + mountain_range`.
+-   Das gemischte lineare Modell `lmer_1_fit` mit `test_score ~ body_length_cat + (1|mountin_range)`.
+-   Das genestete gemischte lineare Modell `lmer_2_fit` mit `test_score ~ body_length_cat + (1|mountain_range/site)`.
+
+Um die Modelle miteinander zu vergleichen können wir die Funktion `compare_performance()` nutzen. Wir erhalten mit der Option `rank = TRUE` auch eine Sortierung der Modelle wieder. Das beste Modell steht dann ganz oben.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -371,38 +384,25 @@ lmer_2_fit %>% model_performance()
 compare_performance(lm_simple_fit, lm_mountain_fit, lmer_1_fit, lmer_2_fit, rank = TRUE)
 ```
 
-```{r}
-#| message: false
-#| warning: false
-#| echo: true
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: foo
-#| label: fig-mixed-10
+In diesem Beispiel wäre sogar eine multiple lineare Regression das beste Modell. Wir würden also auch mit zwei festen Effekten die Variabilität der Berge richtig mdellieren. Der Effekt der Flanken auf den Testscore scheint ziemlich klein zu sein, so dass wir auch auf die Variable `site` verzichten können.
 
-ggplot(dragons_tbl, aes(x = body_length, y = test_score, colour = site)) +
-  facet_wrap(~mountain_range, nrow=3) +
-  theme_bw() +
-  geom_point() +
-  geom_line(data = cbind(dragons_tbl, pred = predict(lmer_2_fit)), aes(y = pred)) +
-  theme(legend.position = "none") +
-  scale_color_okabeito() 
-```
+Was machen wir jetzt noch zum Schluß? Wir machen noch einen paarweisen Vergleich über alle Level der Vaeiable `body_length_cat`. Ich will hier nochmal zeigen, wie du einen multiplen Vergleich mit einem gemischten Modell in R rechnen kannst. Wir nutzen hier dann das R Paket `emmeans` um das *compact letter display* nutzen zu können.
+
+Als erstes nutzen wir die Funktion `emmeans` um die multiplen Vergleich über alle Level des Faktors `body_length_cat` zurechnen.
 
 ```{r}
-#| message: false
-#| warning: false
-#| column: page
-
-lmer_3_fit <- lmer(test_score ~ body_length_cat + (1 | mountain_range/site), data = dragons_tbl)
-lmer_3_fit %>% model_parameters()
-```
-
-```{r}
-res_lmer <- lmer_3_fit %>% 
+res_lmer <- lmer_2_fit %>% 
   emmeans(~ body_length_cat) 
 ```
+
+Im Weiteren nutzen wir jetzt das Objekt `res_lmer` um die Vergleiche zu rechnen und zu asjustieren. Wir nutzen die Bonferroni Methode für die Adjustierung der $p$-Werte.
+
+```{r}
+res_lmer %>% 
+  contrast(method = "pairwise", adjust = "bonferroni") 
+```
+
+Wenn wir an dem *compact letter display* interessiert sind, dann müsen wir die Funktion `cld()` nutzen. Was wir brauchen, hängt dann immer davon ab, was wir zeigen wollen und was die Fragestellung ist.
 
 ```{r}
 res_lmer_cld <- res_lmer %>% 
@@ -414,14 +414,18 @@ res_lmer_cld <- res_lmer %>%
 res_lmer_cld 
 ```
 
+An dem *compact letter display* sehen wir schon, dass es keinen Unterschied zwischen den Gruppen bzw. Leveln des Faktors `body_length_cat` gibt. Wir sehen bei allen Leveln ein `a`. Wir haben keine signifikante Unterschiede.
+
+In @fig-cld-lmer siehst du nochmal die Daten zusammen mit dem *compact letter display* dargestellt.
+
 ```{r}
 #| message: false
 #| echo: true
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
-#| fig-cap: Scatterplot der Behandlungsgruppen zusammen mit den 95% Konfidenzintervall und dem *compact letter display*.
-#| label: fig-cld-rcbd
+#| fig-cap: Scatterplot der Körperlängen zusammen mit den 95% Konfidenzintervall und dem *compact letter display*.
+#| label: fig-cld-lmer
 
 ggplot() +
   theme_bw() +
@@ -444,6 +448,8 @@ ggplot() +
 
 ```
 
+Manchmal wollen wir auch die 95% Konfidenzintervalle anzeigen, dann müssen wir wiederum die Funktion `contrast()` nutzen. Wir lassen uns auch hier die adjustoerten $p$-Werte wiedergeben. Wir nutzen dann das Objekt `res_lmer_tbl` um die 95% Konfidenzintervalle zu plotten.
+
 ```{r}
 res_lmer_tbl <- res_lmer %>% 
   contrast(method = "pairwise") %>% 
@@ -456,6 +462,8 @@ res_lmer_tbl <- res_lmer %>%
 res_lmer_tbl
 ```
 
+In @fig-emmeans-lmer-ci sehen wir die 95% Konfidenzintervalle für alle paarweisen Vergleiche der Körperlängen.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -463,8 +471,8 @@ res_lmer_tbl
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 6
-#| fig-cap: Abbildung der 95% Konfidenzintervallefür alle paarweisen Vergleiche der Behandlungsgruppen.
-#| label: fig-emmeans-rcbd-ci
+#| fig-cap: Abbildung der 95% Konfidenzintervallefür alle paarweisen Vergleiche der Körperlängen.
+#| label: fig-emmeans-lmer-ci
 
 ggplot(res_lmer_tbl, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high)) +
   geom_hline(yintercept=0, linetype="11", colour="grey60") +
