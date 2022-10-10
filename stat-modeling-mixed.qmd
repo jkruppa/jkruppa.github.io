@@ -165,7 +165,7 @@ Bevor wir jetzt mit dem Modellieren beginnen, müssen wir noch kurz in einem QQ-
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 6
-#| fig-cap: foo
+#| fig-cap: QQ-Plot zu Überprüfung, ob der Testscore einer Normalverteilung folgt. Die Punkte liegen ungefähr auf der Geraden als Winkelhalbierende, so dass wi eine Normalverteilung des Testscores annehmen können.
 #| label: fig-mixed-6
 
 ggplot(dragons_tbl, aes(sample = test_score)) +
@@ -257,6 +257,8 @@ ggplot(dragons_tbl, aes(x = body_length_cat, y = test_score, fill = mountain_ran
   labs(fill = "Mountain")
 ```
 
+Der Zusammenhang wird vielleicht in @fig-mixed-7 nochmal klarer. Hier schauen wir uns den Zusamenhang wieder für die Körperlänge getrennt für die Berge an. Nur zeichnen wir jetzt jeden einzelnen Berg in ein Subplot. Wir sehen, dass es hier fast keinen Unterschied macht, wie lang die Drachen sind. Der Testscore ist immer gleich. Was einen Unterschied macht, sind die Berge.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -264,7 +266,7 @@ ggplot(dragons_tbl, aes(x = body_length_cat, y = test_score, fill = mountain_ran
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 6
-#| fig-cap: foo
+#| fig-cap: Boxplots der einzelnen Testscores aufgeteilt nach dem Berg der Befragung und der Körpergröße in getrennten Subplots.
 #| label: fig-mixed-7
 
 ggplot(dragons_tbl, aes(x = body_length_cat, y = test_score, fill = mountain_range)) +
@@ -276,31 +278,60 @@ ggplot(dragons_tbl, aes(x = body_length_cat, y = test_score, fill = mountain_ran
   facet_wrap(~ mountain_range) 
 ```
 
+Schauen wir uns nun einmal ein lineares gemischtes Modell an. Wir nutzen daszu das R Paket `lme4`. Wir haben auch noch andere Pakete zur Aswahl, aber wir nutzen hier erstmal das gängiste Paket. Um ein lineares gemischtes Modell in R zu schätzen nutzen wir die Funktion `lmer()`. Die Funktion `lmer()` nimmt an, dass das Outcome `test_score` normalverteilt ist. Wir haben diese Annahme ja weiter oben in dem QQ-Plot überprüft.
+
+In einem lineare gemischten Modell müssen wir die *festen* Effekte sowie die *zufälligen* Effekte definieren. Die festen Effekte werden ganz normal wie wir es gewohnt sind in das Modell eingegeben. Die zufälligen Effkete schreiben wir in eine Klammer in der Form `(1|)`.
+
+Wir schreiben `(1|moutain_range)` und definieren damit die Variable `mountain_range` als zufälligen Effekt im Modell. Wir schreiben `1|` vor `mountain_range`, da wir für jeden Berg die gleiche Steigung von Körperlänge und Testscore annehmen. Wir können dann später noch das Model komplizierter aufbauen und jedem Berg eine eigene Steigung erlauben. Bauen wir uns jetzt erstmal ein lineares gemischtes Modell mit einem festen Effekt `body_length_cat` und einem zufälligen Effekt `(1|mountain_range)`.
+
 ```{r}
 #| message: false
 #| warning: false
 
-lmer_1_fit <- lmer(test_score ~ body_length + (1 | mountain_range), data = dragons_tbl)
+lmer_1_fit <- lmer(test_score ~ body_length_cat + (1 | mountain_range), data = dragons_tbl)
 lmer_1_fit %>% model_parameters()
 ```
+
+Unser Model sieht etwas aufgeräumter aus. Als feste Effekte haben wir nur noch die Körperlänge `body_length_cat` und die dazugehörigen Koeffizienten des Modells. Unsere Variable `mountain_range` verschwindet dann in den zufälligen Effekten. Die Funktion `summary` liefert uns den gesamten Ausdruck, der etwas überwältigend ist. Vieles brauchen wir auch nicht davon.
 
 ```{r}
 #| message: false
 #| warning: false
 #| column: page
 
+lmer_1_fit %>% summary()
+```
+
+Was wir extrahieren wollen ist die Information von den zufälligen Effekten. Wir wollen wissen, wieviel Varianz durch die zufälligen Effekte erklärt wird. Wir nutzen dazu die Funktion `VarCorr()`, die uns erlaubt die Information zu en zufälligen Effekten zu extrahieren und auszugeben.
+
+```{r}
+print(VarCorr(lmer_1_fit), comp = "Variance")
+```
+
+Wieviel Varianz erklären nun die Berge? Wir können die erklärte Varianz der zufälligen Effekte einfach berechnen. Wir vergleichen die erklärte Varianz von `mountain_range` mit der gesamten Varianz. Die gesamte Varianz ist die Varianz aller zufälligen Effekte plus der residualen Vamrianz. Wir erhalten dann $R^2_{random} = 339.7/(339.7 + 223.8) \approx 0.60$. Wir sehen, dass ca. 60% der Varianz in unseren Daten von der Variable `mountain_range` verursacht wird.
+
+Wir können die Funktion `model_performance()` nutzen um mehr über den Fit des Modells zu erfahren. Das `R2 (cond.)` ist faktisch das gleiche wie wir gerade oben berechnet haben. Wir benötigen also nicht immer den Ausdruck der zufälligen Effekte. Wir können auch die Informationen aus der Funktion `model_performance()` nehmen.
+
+```{r}
 lmer_1_fit %>% model_performance()
 ```
 
+In der Abbildung @fig-mixed-8 schauen wir uns nochmal an, ob wir das Modell auch gut gefittet haben. Der Residualplot sieht gut aus, wir erkennen kein Muster. Ebenso sieht der QQ-Plot gut aus, die Beobachtungen liegen alle auf der Geraden. Wir sind mit dem Modell soweit erstmal ganz zufrieden.
+
 ```{r}
+#| echo: false
 #| message: false
 #| warning: false
-#| echo: true
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: foo
 #| label: fig-mixed-8
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Visuelle Überprüfung des Modells mit dem Residual und QQ-Plot."
+#| fig-subcap: 
+#|   - "Residualplot"
+#|   - "QQ-Plot"
+#| layout-nrow: 1
+#| column: page
 
 augment(lmer_1_fit) %>% 
   ggplot(aes(x = .fitted, y = .resid)) + 
@@ -308,17 +339,6 @@ augment(lmer_1_fit) %>%
   geom_hline(yintercept = 0, color = "red") +
   theme_bw() +
   scale_color_okabeito()
-```
-
-```{r}
-#| message: false
-#| warning: false
-#| echo: true
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: foo
-#| label: fig-mixed-9
 
 ggplot(tibble(.resid = resid(lmer_1_fit)), aes(sample = .resid)) + 
   stat_qq() + 
@@ -330,8 +350,16 @@ ggplot(tibble(.resid = resid(lmer_1_fit)), aes(sample = .resid)) +
 #| message: false
 #| warning: false
 
-lmer_2_fit <- lmer(test_score ~ body_length + (1|mountain_range/site), data = dragons_tbl) 
+lmer_2_fit <- lmer(test_score ~ body_length_cat + (1|mountain_range/site), data = dragons_tbl) 
 lmer_2_fit %>% model_parameters()
+```
+
+```{r}
+#| message: false
+#| warning: false
+
+lmer_3_fit <- lmer(test_score ~ body_length_cat + (site|mountain_range), data = dragons_tbl) 
+lmer_3_fit %>% model_parameters()
 ```
 
 ```{r}
@@ -346,7 +374,8 @@ lmer_2_fit %>% model_performance()
 #| message: false
 #| warning: false
 
-compare_performance(lm_simple_fit, lm_mountain_fit, lmer_1_fit, lmer_2_fit,rank = TRUE)
+compare_performance(lm_simple_fit, lm_mountain_fit, lmer_1_fit, lmer_2_fit,
+                    lmer_3_fit, rank = TRUE)
 ```
 
 ```{r}
