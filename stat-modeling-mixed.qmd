@@ -156,7 +156,25 @@ $$
 
 Das heißt, dass der zufällige Blockfaktor $z_2$ in den zufälligen Blockfaktor $z_1$ genested ist. Das heist, die Faktorlevel des Blockfaktors $z_2$ finden sich jeweils nur in jeweils einem der Faktorlevel des Blocks $z_1$. Das klingt jetzt etwas schräg, also einmal ein Beispiel. Wir haben eine Schule, dann sind die Schulklassen dieser Schule in der Schule genested. Es gibt diese spezifischen Klassen mit den Schülern schlichtweg nicht in anderen Schulen.
 
-Schauen wir uns nun als erstes das Modell `lm_simple_fit` einmal an. Wir bauen das Modell nur mit der Faktorvariable `body_length_cat`. Wir erhalten dann gleich die Ausgabe des Modells über die Funktion `model_parameters()` in einer ausgearbeiteten Form.
+Bevor wir jetzt mit dem Modellieren beginnen, müssen wir noch kurz in einem QQ-Plot schauen, ob unser Ourcome `testscore` auch ungefähr normalverteilt ist. @fig-mixed-6 zeigt den QQ-Plot des Testscores. Wir sehen, dass der Hauptteil der Beobachtungen auf der Geraden liegt und wir nehmen daher an, dass der Testscore zumindest approximativ normalverteilt ist. Wir können also mit einem gaussian linearen gemischten Modell weitermachen.
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: foo
+#| label: fig-mixed-6
+
+ggplot(dragons_tbl, aes(sample = test_score)) +
+  stat_qq() + stat_qq_line(color = "red") +
+  theme_bw() +
+  scale_color_okabeito()
+```
+
+Schauen wir uns nun als erstes das Modell `lm_simple_fit` einmal an. Wir bauen das Modell nur mit der Faktorvariable `body_length_cat`. Wir erhalten dann gleich die Ausgabe des Modells über die Funktion `model_parameters()` in einer aufgearbeiteten Form.
 
 ```{r}
 #| message: false
@@ -169,6 +187,8 @@ lm_simple_fit %>% model_parameters()
 
 ```
 
+Der Intercept beinhaltet den Mittelwert für die Drachen des Levels `[tiny]`. Die jeweiligen Koeffizienten dann die Abweichung von den Drachen des Levels `[tiny]`. Daher sind Drachen des Levels `[small]` ungefähr um $2.63$ Einheiten intelligenter. Wir sehen dann an dem $p$-Wert, ob sich die Koeffizienten signifikant von 0 unterscheiden. In @fig-mixed-3 sehen wir nochmal die Boxplots der einzelnen Testscores aufgeteilt nach der Körpergröße. Wir erkennen, dass die kleineren Drachen tendenziell dümmer sind als die großen Drachen. Wir sehen zwei Plateaus.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -176,7 +196,7 @@ lm_simple_fit %>% model_parameters()
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 6
-#| fig-cap: foo
+#| fig-cap: Boxplots der einzelnen Testscores aufgeteilt nach der Körpergröße.
 #| label: fig-mixed-3
 
 ggplot(dragons_tbl, aes(x = body_length_cat, y = test_score, fill = body_length_cat)) +
@@ -185,6 +205,8 @@ ggplot(dragons_tbl, aes(x = body_length_cat, y = test_score, fill = body_length_
   theme(legend.position = "none") +
   scale_fill_okabeito() 
 ```
+
+Nun haben wir aber nicht nur die Körpergrößen gemessen sondern auch auf welchem Berg wir die jeweiligen Drachen gefunden haben. Nun könnte es sein, dass der Berg einen viel größeren Einfluss auf die Inteliegenz hat als die Drachenkörpergröße. Wir könnten einen Confoundereffekt durch die Berge vorliegen haben. Ergänzen wir also das Modell um den Faktor `mountain_range` und erhalten das Modell `lm_mountain_fit`.
 
 ```{r}
 #| message: false
@@ -195,6 +217,10 @@ lm_mountain_fit <- lm(test_score ~ body_length_cat + mountain_range, data = drag
 lm_mountain_fit %>% model_parameters()
 ```
 
+Wie wir sehen, werden nun die Körpergrößen der Drachen nicht mehr als signifikant ausgegeben. Die Effekte der Körpergröße auf den Testscore sind auch viel kleiner geworden, wenn wir die `mountain_range` mit in das Modell nehmen. Anscheinend hat der Berg auf dem wir den Drachen getroffen haben einen viel größeren Einfluss auf die Intelligenz als die Körpergröße. Wir können uns den Zusammenhang zwischen dem Testscore und dem Berg auch in der @fig-mixed-4 einmal anschauen.
+
+Eigentlich würden wir erwarten, dass es keinen Effekt der Berge auf den Testscore der Drachen gibt. Es müsste eigentlich egal sein, wo wir einen Drachen befragen, wenn wir nur an der Körpergröße und dem Testscore interessiert sind. Wir sehen jedoch in der @fig-mixed-4 einen klaren Unterschied zwischen den Bergen im Bezug auf den Testscore.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -202,24 +228,8 @@ lm_mountain_fit %>% model_parameters()
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 6
-#| fig-cap: foo
+#| fig-cap: Boxplots der einzelnen Testscores aufgeteilt nach dem Berg der Befragung.
 #| label: fig-mixed-4
-
-ggplot(dragons_tbl, aes(sample = test_score)) +
-  stat_qq() + stat_qq_line(color = "red") +
-  theme_bw() +
-  scale_color_okabeito()
-```
-
-```{r}
-#| message: false
-#| warning: false
-#| echo: true
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: foo
-#| label: fig-mixed-5
 
 ggplot(dragons_tbl, aes(mountain_range, test_score, fill = mountain_range)) +
   geom_boxplot() +
@@ -228,6 +238,8 @@ ggplot(dragons_tbl, aes(mountain_range, test_score, fill = mountain_range)) +
   scale_fill_okabeito()
 ```
 
+In der @fig-mixed-5 sehen wir den Zusammenhang von Testscore und der Körpergröße sowie den Bergen auf denen das Interview stattgefunden hat. so langsam dämmert uns warum wir hier einen Effekt der Körperlänge zu dem Testscore sehen. Die kleineren Drache sind alle nur auf bestimmten Bergen zu finden! Betrachten wir die Berge mit in dem Modell, dann hat die Körpergröße keinen Einfluß mehr.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -235,8 +247,8 @@ ggplot(dragons_tbl, aes(mountain_range, test_score, fill = mountain_range)) +
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 6
-#| fig-cap: foo
-#| label: fig-mixed-6
+#| fig-cap: Boxplots der einzelnen Testscores aufgeteilt nach dem Berg der Befragung und der Körpergröße.
+#| label: fig-mixed-5
 
 ggplot(dragons_tbl, aes(x = body_length_cat, y = test_score, fill = mountain_range)) +
   geom_boxplot(position = position_dodge(preserve = "single")) +
