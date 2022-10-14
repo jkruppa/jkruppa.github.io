@@ -785,13 +785,13 @@ model_tbl <- read_csv2("data/flea_dog_cat_length_weight.csv") %>%
          sex = as_factor(sex))
 ```
 
-In der @tbl-model-1 ist der Datensatz `model_tbl` nochmal dargestellt.
+In der @tbl-model-confounder ist der Datensatz `model_tbl` nochmal dargestellt.
 
 ```{r}
 #| message: false
 #| echo: false
-#| tbl-cap: Datensatz mit mehreren Outcomes zu Flöhen auf verschiedenen Tierarten.
-#| label: tbl-model-1
+#| tbl-cap: Datensatz für die Confounder Adjustierung. Die Variable `jump_length` ist das $y$ und die Variable `weight` das $x$ von Interesse.
+#| label: tbl-model-confounder
 
 model_raw_tbl <- model_tbl %>% 
   mutate(animal = as.character(animal),
@@ -803,11 +803,13 @@ rbind(head(model_raw_tbl),
 
 ```
 
-@fig-stat-modeling-mult-01-1
+Wir können uns jetzt drei verschiedene Modelle anschauen.
 
-@fig-stat-modeling-mult-01-2
+1)  Das Modell `jump_length ~ weight`. Wir modellieren die Abhängigkeit von der Sprungweite von dem Gewicht der Flöhe *über alle* anderen Variablen hinweg.
+2)  Das Modell `jump_length ~ weight + animal`. Wir modellieren die Abhängigkeit von der Sprungweite von dem Gewicht der Flöhe und berücksichtigen die Tierart des Flohes. Ignorieren aber das Geschlecht des Flohes.
+3)  Das Modell `jump_length ~ weight + animal + sex`. Wir modellieren die Abhängigkeit von der Sprungweite von dem Gewicht der Flöhe und berücksichtigen *alle* Variablen, die wir gemessen haben.
 
-@fig-stat-modeling-mult-01-3
+Hierbei ist wichtig, dass es natürlich auch Confounder geben kann, die wir gar nicht in den Daten erhoben haben. Also, dass sich Gruppen finden lassen, die wir gar nicht als Variable mit in den Daten erfasst haben. Hier könnte eine Hauptkomponentenanalyse helfen.
 
 ```{r}
 #| message: false
@@ -844,6 +846,43 @@ ggplot(model_tbl, aes(x = weight, y = jump_length, color = animal, shape = sex))
   labs(color  = "Tierart", shape = "Geschlecht")
 
 ```
+
+In @fig-stat-modeling-mult-01-1 sehen wir die blaue Linie als die Ausgabe von dem Modell `jump_length ~ weight`. Wir sehen, dass mit dem Anstieg des Gewichtes der Flöhe auch die Sprungweite sich erhöht. Wir würden annehmen, dass wir hier einen signifikanten Unterschied vorliegen haben. Schauen wir uns die Koeffizienten des Modells aus dem `lm()` einmal an.
+
+```{r}
+#| message: false
+#| warning: false
+
+lm(jump_length ~ weight, data = model_tbl) %>% 
+  model_parameters()
+```
+
+Wir sehen, dass wir einen Effekt des Gewichts auf die Sprungweite von $1.34$ vorliegen haben. Auch ist der Effekt und damit die Steigung signifikant.
+
+Erweitern wir nun das Modell um die Tierart und erhalten die @fig-stat-modeling-mult-01-2. Zum einen sehen wir, dass der globale Effekt nicht so ganz stimmen kann. Die Tierarten haben alle einen unterschiedlichen starken Effekt von dem Gewicht auf die Sprungweite. Auch hier fitten wir einmal das lineare Modell und schauen uns die Koeffizienten an.
+
+```{r}
+#| message: false
+#| warning: false
+
+lm(jump_length ~ weight + animal, data = model_tbl) %>% 
+  model_parameters()
+```
+
+Der Effekt des Gewichtes ist hier in etwa gleich geblieben. Wir sehen aber auch, dass die Sprungweite anscheinend bei Hunden und Füchsen höher ist. Daher haben wir hier einen Effekt on der Tierart. Wir adjustieren für den Confoundereffekt durch die Tierart und erhalten einen besseren Effektschätzer für das Gewicht.
+
+In der letzten @fig-stat-modeling-mult-01-3 wollen wir nochmal das Geschlecht der Flöhe mit in das Modell nehmen. Wir sehen, dass in diesem Fall, das Gewicht gar keinen Einfluss mehr auf die Sprungweite hat. Den Effekt des Gewichtes war nur der Effekt des unterschiedlichen Gewichtes der weiblichen und männlichen Flöhe. Schauen wir auch hier nochmal in des Modell.
+
+```{r}
+#| message: false
+#| warning: false
+
+lm(jump_length ~ weight + animal + sex, data = model_tbl) %>% 
+  model_parameters() %>% 
+  mutate(Coefficient = round(Coefficient, 2))
+```
+
+Nun können wir sehen, dass von unserem ursprünglichen Effekt von dem Gewicht auf die Sprungweite nichts mehr übrigbleibt. Wir haben gar keinen Effekt von dem Gewicht auf die Sprungweite vorliegen. Was wir gesehen haben, war der Effekt des Gewichtes der unterschiedlichen Geschlechter. Wenn wir unser Modell für die Confounder `animal` und `sex` adjustieren, haben wir einen unverzerrten Schätzer für `weight`. Wichtig ist nochmal, dafür müssen wir natürlich auch alle variablen erhoben haben. Hätten wir das Geschlecht der Flöhe nicht bestimt, hätten wir hier eventuell einen falschen Schluß getroffen.
 
 ## Variance inflation factor (VIF) {#sec-vif}
 
