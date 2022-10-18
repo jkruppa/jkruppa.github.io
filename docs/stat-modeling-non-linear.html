@@ -470,7 +470,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </header><div class="cell">
 
 </div>
-<p><em>Version vom Oktober 18, 2022 um 11:15:43</em></p>
+<p><em>Version vom Oktober 18, 2022 um 14:51:25</em></p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure"><p><img src="images/caution.png" class="img-fluid figure-img" style="width:50.0%"></p>
 </figure>
@@ -505,7 +505,6 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </div>
 <div class="cell">
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span class="fu">ggplot</span><span class="op">(</span><span class="va">chicken_tbl</span>, <span class="fu">aes</span><span class="op">(</span><span class="va">age</span>, <span class="va">weight</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span>
-  <span class="co">#stat_smooth() +</span>
   <span class="fu">geom_line</span><span class="op">(</span><span class="fu">aes</span><span class="op">(</span>y <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/predict.html">predict</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span><span class="op">)</span>, size <span class="op">=</span> <span class="fl">1</span>, color <span class="op">=</span> <span class="st">"red"</span><span class="op">)</span> <span class="op">+</span>
   <span class="fu">geom_point</span><span class="op">(</span><span class="op">)</span> <span class="op">+</span>
   <span class="fu">theme_bw</span><span class="op">(</span><span class="op">)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -513,18 +512,60 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <p><img src="stat-modeling-non-linear_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
+<p>https://cran.r-project.org/web/packages/broom/vignettes/broom_and_dplyr.html</p>
 <div class="cell">
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span class="va">pred_tbl</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="op">(</span>age <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">10</span>,
-                   weight <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/predict.html">predict</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu">tibble</span><span class="op">(</span><span class="va">age</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>
-
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span class="va">nls_tbl</span> <span class="op">&lt;-</span> <span class="va">chicken_tbl</span> <span class="op">%&gt;%</span> 
+  <span class="fu">mutate</span><span class="op">(</span>grp <span class="op">=</span> <span class="fu">as_factor</span><span class="op">(</span><span class="fu">cut_number</span><span class="op">(</span><span class="va">age</span>, <span class="fl">4</span><span class="op">)</span><span class="op">)</span><span class="op">)</span> <span class="op">%&gt;%</span> 
+  <span class="fu">group_by</span><span class="op">(</span><span class="va">grp</span><span class="op">)</span> <span class="op">%&gt;%</span> 
+  <span class="fu">nest</span><span class="op">(</span><span class="op">)</span> <span class="op">%&gt;%</span> 
+  <span class="fu">mutate</span><span class="op">(</span>nls_fit <span class="op">=</span> <span class="fu">map</span><span class="op">(</span><span class="va">data</span>, <span class="op">~</span><span class="fu"><a href="https://rdrr.io/r/stats/nls.html">nls</a></span><span class="op">(</span><span class="va">weight</span> <span class="op">~</span> <span class="va">b0</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/base/AsIs.html">I</a></span><span class="op">(</span><span class="va">age</span><span class="op">^</span><span class="va">b1</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">.x</span>, 
+                                  start <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>b0 <span class="op">=</span> <span class="fl">1</span>, b1 <span class="op">=</span> <span class="fl">2</span><span class="op">)</span>, trace <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span>,
+         pred <span class="op">=</span> <span class="fu">map</span><span class="op">(</span><span class="va">nls_fit</span>, <span class="op">~</span><span class="fu"><a href="https://rdrr.io/r/stats/predict.html">predict</a></span><span class="op">(</span><span class="va">.x</span>, <span class="va">data</span><span class="op">)</span><span class="op">)</span><span class="op">)</span> <span class="op">%&gt;%</span> 
+  <span class="fu">unnest</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="va">data</span>, <span class="va">pred</span><span class="op">)</span><span class="op">)</span>
 
 <span class="fu">ggplot</span><span class="op">(</span><span class="va">chicken_tbl</span>, <span class="fu">aes</span><span class="op">(</span><span class="va">age</span>, <span class="va">weight</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span>
-  <span class="co">#stat_smooth() +</span>
-  <span class="fu">geom_line</span><span class="op">(</span>data <span class="op">=</span> <span class="va">pred_tbl</span>, <span class="fu">aes</span><span class="op">(</span><span class="va">age</span>, <span class="va">weight</span><span class="op">)</span>, size <span class="op">=</span> <span class="fl">1</span>, color <span class="op">=</span> <span class="st">"red"</span><span class="op">)</span> <span class="op">+</span>
+  <span class="fu">geom_line</span><span class="op">(</span>data <span class="op">=</span> <span class="va">nls_tbl</span>, <span class="fu">aes</span><span class="op">(</span><span class="va">age</span>, <span class="va">pred</span>, color <span class="op">=</span> <span class="va">grp</span><span class="op">)</span>, size <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">+</span>
   <span class="fu">geom_point</span><span class="op">(</span><span class="op">)</span> <span class="op">+</span>
   <span class="fu">theme_bw</span><span class="op">(</span><span class="op">)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <p><img src="stat-modeling-non-linear_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span class="fu"><a href="https://rdrr.io/r/base/Random.html">set.seed</a></span><span class="op">(</span><span class="fl">20221018</span><span class="op">)</span>
+<span class="va">exp_tbl</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="op">(</span>rev <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="fl">10</span>, <span class="fl">17906</span>, <span class="fl">17906</span><span class="op">/</span><span class="fl">4</span><span class="op">)</span>, 
+                          <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="fl">10</span>,  <span class="fl">5303</span>,  <span class="fl">5303</span><span class="op">/</span><span class="fl">4</span><span class="op">)</span>,
+                          <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="fl">10</span>,  <span class="fl">2700</span>,  <span class="fl">2700</span><span class="op">/</span><span class="fl">4</span><span class="op">)</span>,
+                          <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="fl">10</span>,  <span class="fl">1696</span>,  <span class="fl">1696</span><span class="op">/</span><span class="fl">4</span><span class="op">)</span>, 
+                          <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="fl">10</span>,   <span class="fl">947</span>,   <span class="fl">947</span><span class="op">/</span><span class="fl">4</span><span class="op">)</span>, 
+                          <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="fl">10</span>,   <span class="fl">362</span>,   <span class="fl">362</span><span class="op">/</span><span class="fl">4</span><span class="op">)</span><span class="op">)</span>, 
+                  weeks <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html">rep</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">6</span>, each <span class="op">=</span> <span class="fl">10</span><span class="op">)</span><span class="op">)</span> 
+
+<span class="fu"><a href="https://rdrr.io/r/stats/lm.html">lm</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html">log</a></span><span class="op">(</span><span class="va">rev</span><span class="op">)</span> <span class="op">~</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html">log</a></span><span class="op">(</span><span class="va">weeks</span><span class="op">)</span>, <span class="va">exp_tbl</span><span class="op">)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+lm(formula = log(rev) ~ log(weeks), data = exp_tbl)
+
+Coefficients:
+(Intercept)   log(weeks)  
+      9.961       -2.024  </code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/nls.html">nls</a></span><span class="op">(</span><span class="va">rev</span> <span class="op">~</span> <span class="va">b0</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/AsIs.html">I</a></span><span class="op">(</span><span class="va">weeks</span><span class="op">^</span><span class="va">b1</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">exp_tbl</span>, 
+           start <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>b0 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html">exp</a></span><span class="op">(</span><span class="fl">9.961</span><span class="op">)</span>, b1 <span class="op">=</span> <span class="op">-</span><span class="fl">2.024</span><span class="op">)</span>, trace <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>3.584045e+08 (7.22e-01): par = (21183.97 -2.024)
+2.362076e+08 (1.22e-02): par = (17789.77 -1.677267)
+2.361732e+08 (2.86e-04): par = (17812.64 -1.687688)
+2.361732e+08 (8.02e-06): par = (17812.11 -1.687442)</code></pre>
+</div>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span class="fu">ggplot</span><span class="op">(</span><span class="va">exp_tbl</span>, <span class="fu">aes</span><span class="op">(</span><span class="va">weeks</span>, <span class="va">rev</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span>
+  <span class="fu">geom_point</span><span class="op">(</span><span class="op">)</span> <span class="op">+</span>
+  <span class="fu">geom_line</span><span class="op">(</span><span class="fu">aes</span><span class="op">(</span>y <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/predict.html">predict</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="stat-modeling-non-linear_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 

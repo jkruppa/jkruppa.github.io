@@ -44,21 +44,53 @@ fit <- nls(weight ~ b0 + I(age^power), data = chicken_tbl,
 
 ```{r}
 ggplot(chicken_tbl, aes(age, weight)) +
-  #stat_smooth() +
   geom_line(aes(y = predict(fit)), size = 1, color = "red") +
   geom_point() +
   theme_bw()
 ```
 
+https://cran.r-project.org/web/packages/broom/vignettes/broom_and_dplyr.html
+
 ```{r}
 
-pred_tbl <- tibble(age = 1:10,
-                   weight = predict(fit, newdata = tibble(age)))
-
+nls_tbl <- chicken_tbl %>% 
+  mutate(grp = as_factor(cut_number(age, 4))) %>% 
+  group_by(grp) %>% 
+  nest() %>% 
+  mutate(nls_fit = map(data, ~nls(weight ~ b0 + I(age^b1), data = .x, 
+                                  start = list(b0 = 1, b1 = 2), trace = FALSE)),
+         pred = map(nls_fit, ~predict(.x, data))) %>% 
+  unnest(c(data, pred))
 
 ggplot(chicken_tbl, aes(age, weight)) +
-  #stat_smooth() +
-  geom_line(data = pred_tbl, aes(age, weight), size = 1, color = "red") +
+  geom_line(data = nls_tbl, aes(age, pred, color = grp), size = 1) +
   geom_point() +
   theme_bw()
+```
+
+```{r}
+set.seed(20221018)
+exp_tbl <- tibble(rev = c(rnorm(10, 17906, 17906/4), 
+                          rnorm(10,  5303,  5303/4),
+                          rnorm(10,  2700,  2700/4),
+                          rnorm(10,  1696,  1696/4), 
+                          rnorm(10,   947,   947/4), 
+                          rnorm(10,   362,   362/4)), 
+                  weeks = rep(1:6, each = 10)) 
+
+lm(log(rev) ~ log(weeks), exp_tbl)
+
+
+```
+
+```{r}
+fit <- nls(rev ~ b0 * I(weeks^b1), data = exp_tbl, 
+           start = list(b0 = exp(9.961), b1 = -2.024), trace = TRUE)
+
+ggplot(exp_tbl, aes(weeks, rev)) +
+  geom_point() +
+  geom_line(aes(y = predict(fit)))
+
+
+
 ```
