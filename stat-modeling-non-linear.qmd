@@ -54,7 +54,7 @@ rbind(head(chicken_tbl, n = 3),
   kable(align = "c", "pipe")
 ```
 
-Schauen wir uns die Daten einmal mit `ggplot()` an.
+Schauen wir uns die Daten einmal mit `ggplot()` an um besser zu verstehen wie die Zusammenhänge in dem Datensatz sind.
 
 ## Visualisierung
 
@@ -68,7 +68,7 @@ In @fig-nls-00-1 sehen wir die Visualisierung der Hühnchengewichte nach Alter i
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "Visualisierung der Hühnchengewichte nach Alter in Tagen."
+#| fig-cap: "Visualisierung der Hühnchengewichte nach Alter in Tagen. Auch mit $log$-transformierten Körpergewicht liegt immer noch kein linearer Zusammenhang zwischen dem Lebensalter und dem Körpergewicht vor. "
 #| fig-subcap: 
 #|   - "Ohne transformierten $y$."
 #|   - "Mit $log$-transformierten $y$."
@@ -84,14 +84,48 @@ ggplot(chicken_tbl, aes(age, log(weight))) +
   geom_point()
 ```
 
+Deshalb wollen wir den Zusammenhang zwischen dem Körpergewicht der Hühnchen und dem Lebensalter einmal mit einer nicht-linearen Regression modellieren. Wir sind also nicht so sehr an $p$-Werten interessiert, wir sehen ja, dass die gerade ansteigt, sondern wollen wissen wie die Koeffizienten einer möglichen exponentiellen Gleichung aussehen.
+
 ## Modellieren mit `nls`
+
+Zum nicht-linearen Modellieren nutzen wir die Funktion `nls()` (eng. *nonlinear least-squares*). Die Funktion `nls()` ist das nicht-lineare Äquivalent zu der linearen Funktion `lm()`. Nur müssen wir mit der `nls()` Funktion etwas anders umgehen. Zum einen müssen wir die `formula()` anders definieren. Wir nehmen ein exponentielles Wachstum an. Daher brauchen wir einen geschätzten Koeffizienten für den Exponenten des Alters sowie einen Intercept. Wir gehen nicht davon aus, dass die Hühnchen mit einem Gewicht von 0g auf die Welt bzw. in die Mastanlage kommen. Unsere Formel sehe dann wie folgt aus.
+
+$$
+weight \sim \beta_0 + age^{\beta_1}
+$$
+
+Da wir in R keine $\beta$'s schreiben können nutzen wir die Buchstaben `b0` für $\beta_0$ und `b1` für $\beta_1$. Im Prinzip könnten wir auch andere Buchstaben nehmen, aber so bleiben wir etwas konsistenter zu der linearen Regression. Somit sieht die Gleichung dann in R wie folgt aus.
+
+$$
+weight \sim b_0 + age^{b_1}
+$$
+
+Achtung! Wir müssen R noch mitteilen, dass wir `age` hoch `b1` rechnen wollen. Um das auch wirklich so zu erhalten, zwingen wir R mit der Funktion `I()` auch wirklich einen Exponenten zu berechnen. Wenn wir nicht das `I()` nutzen, dann kann es sein, dass wir aus versehen eine Schreibweise für eine Abkürzung in der `formula` Umgebung nutzen.
+
+Im Weiteren sucht die Funktion iterativ die besten Werte für `b0` und `b1`. Deshalb müssen wir der Funktion `nls()` Startwerte mitgeben, die in etwa passen könnten. Hier tippe ich mal auf ein `b0 = 1` und ein `b1 = 1`. Wenn wir einen Fehler wiedergegeben bekommen, dann können wir auch noch an den Werten drehen.
 
 ```{r}
 #| results: hide
 
-fit <- nls(weight ~ b0 + I(age^power), data = chicken_tbl, 
-           start = list(power = 1, b0= 0), trace = TRUE)
+fit <- nls(weight ~ b0 + I(age^b1), data = chicken_tbl, 
+           start = list(b0 = 1, b1 = 1))
 ```
+
+Wir nutzen wieder die Funktion `model_parameters()` aus dem R Paket `parameters` um uns eine aufgeräumte Ausgabe wiedergeben zu lassen.
+
+```{r}
+#| message: false
+
+fit %>% model_parameters()
+```
+
+Die $p$-Werte interssieren uns nicht weiter. Wir sehen ja, dass wir einen Effekt von dem Alter auf das Körpergewicht haben. Das überrascht auch nicht weiter. Wir wollen ja die Koeffizienten $\beta_0$ und $\beta_1$ um die Gleichung zu vervollständigen. Mit dem Ergebnis aus der Funktion `nls()` können wir jetzt wie folgt schreiben.
+
+$$
+weight \sim 92.20 + age^{2.18}
+$$
+
+Damit haben wir dann auch unsere nicht-lineare Regressionsgleichung erhalten. Passt den die Gleichung auch zu unseren Daten? Das können wir einfach überprüfen. Dafür müssen wir nur in die Funktion `predict()` unser Objekt des Fits unseres nicht-linearen Modells `fit` stecken und erhalten die vorhergesagten Werte für jedes $x$ in unserem Datensatz. Oder etwas kürzer, wir erhalten die "Gerade" der Funktion mit den Koeffizienten aus dem `nls()` Modell wieder. In @fig-nls-01 sehen wir die gefittete Gerade.
 
 ```{r}
 #| echo: false
@@ -108,11 +142,9 @@ ggplot(chicken_tbl, aes(age, weight)) +
   theme_bw()
 ```
 
-https://cran.r-project.org/web/packages/broom/vignettes/broom_and_dplyr.html
+Wie wir erkennen können sihet die Modellierung einigermaßen gut aus. Wir haben zwar einige leichte Abweichungen von den Beobachtungen zu der geschätzten Geraden, aber im Prinzip könnten wir mit der Modellierung leben. Wir hätten jetzt also eine nicht-lineare Gleichung die den Zusammenhang zwischen Körpergewicht und Lebensalter von Hühnchen beschreibt.
 
-$$
-weight \sim b_0 + age^{b_1}
-$$
+## Modellieren mit `nls` in Altersgruppen
 
 ```{r}
 #| results: hide
