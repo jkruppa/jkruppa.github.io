@@ -1,21 +1,28 @@
-```{r echo = FALSE}
+# Nicht lineare Regression {#sec-non-linear}
+
+```{r}
+#| echo: false
 pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 ```
-
-# Nicht lineare Regression {#sec-non-linear}
 
 *Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
+Was wollen wir mit der nicht-linearen Regression erreichen? Zum einen erhalten wir durch die nicht-lineare Regression die Möglichkeit auch Abhängigkeiten zu modellieren, die nicht linear sind. Zum anderen wollen wir auch nicht nur Gruppen miteinander vergleichen, sondern auch Verläufe modellieren. Häufig sind diese Verläufe über die Zeit nicht linear. Es gibt Sättigungskurven oder aber auch einen exponentiellen Verfall oder ein exponentielles Wachstum. All dies können wir mit nicht-linearen Modellen abbilden und modellieren.
+
+Wichtig hierbei ist, dass wir oft nicht statistsich Testen, sondern ein Modell haben wollen, dass die Punkte gut beschreibt. Mit Modell meinen wir hier die Gerade, die duch die Punkte läuft. Für diese Grade wollen wir die Koeffizienten schätzen. Also die Frage beantworten, wie $y$ nicht-linear von $x$ abhängt.
+
 ## Genutzte R Pakete für das Kapitel
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
-```{r echo = TRUE}
+```{r}
 #| message: false
+#| echo: true
+
 pacman::p_load(tidyverse, magrittr, conflicted, broom, see,
-               parameters, ggridges, scales, performance)
+               parameters, scales, performance)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 ```
@@ -24,27 +31,60 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
+In unserem Datenbeispiel schauen wir uns die Wachstumskurve von Hühnchen an. Wir verfolgen das Gewicht über 36 Tage. Dabei messen wir an jedem Tag eine unterschiedliche Anzahl an Kücken bzw. Hünchen. Wir wissen auch nicht, ob wir immer die gleichen Hühnchen jedes Mal messen. Dafür war die Hühnchenmastanlage zu groß. Wir wissen aber wie alt jedes Hühnchen bei der Messung war.
+
 ```{r}
 #| message: false
 
 chicken_tbl <- read_csv2("data/chicken_growth.csv")  
 ```
 
-## Visualisierung
+In @tbl-chicken sehen wir nochmal die Daten für die ersten drei und die letzten drei Zeilen. Alleine überschlagsmäßig sehen wir schon, dass wir es nicht mit einem linearen Anstieg des Gewichtes zu tun haben. Wenn wir einen linearen Anstieg hätten, dann würde ein Hühnchen, dass am Tag 1 ca. 48g wiegt, nach 36 Tagen ca. 1728g wiegen. Das ist hier eindeutig nicht der Fall. Wir haben vermutlich einen nicht-linearen Zusammenhang.
 
 ```{r}
 #| echo: false
 #| message: false
+#| warning: false
+#| label: tbl-chicken
+#| tbl-cap: Auszug aus Hühnchendatensatz.
+
+rbind(head(chicken_tbl, n = 3),
+      rep("...", times = ncol(chicken_tbl)),
+      tail(chicken_tbl, n = 3)) %>% 
+  kable(align = "c", "pipe")
+```
+
+Schauen wir uns die Daten einmal mit `ggplot()` an.
+
+## Visualisierung
+
+In @fig-nls-00-1 sehen wir die Visualisierung der Hühnchengewichte nach Alter in Tagen. Zum einen sehen wir wie das Körpergewicht exponentiell ansteigt. Zum anderen sehen wir in @fig-nls-00-2, dass auch eine $log$-transformiertes $y$ nicht zu einem linearen Zusammenhang führt. Der Zusammenhang zwischen dem Körpergewicht und der Lebensalter bleibt nicht-linear.
+
+```{r}
+#| echo: false
+#| message: false
+#| eval: true
 #| label: fig-nls-00
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
 #| fig-cap: "Visualisierung der Hühnchengewichte nach Alter in Tagen."
+#| fig-subcap: 
+#|   - "Ohne transformierten $y$."
+#|   - "Mit $log$-transformierten $y$."
+#| layout-nrow: 1
+#| column: page
 
 ggplot(chicken_tbl, aes(age, weight)) +
   theme_bw() +
   geom_point()
+
+ggplot(chicken_tbl, aes(age, log(weight))) +
+  theme_bw() +
+  geom_point()
 ```
+
+## Modellieren mit `nls`
 
 ```{r}
 #| results: hide
