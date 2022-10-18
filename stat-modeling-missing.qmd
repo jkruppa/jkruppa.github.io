@@ -12,8 +12,11 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 Wir beschränken uns hier auf zwei Arten von fehlenden Daten. Es gibt noch mehr Abstufungen, aber für den Einstieg reicht es, wenn wir nach zwei Typen von fehlenden Daten unterscheiden:
 
--   **MCAR** (eng. missing completely at random): völlig zufällig fehlende Daten. Dies ist das wünschenswerte Szenario im Falle fehlender Daten.
--   **MNAR** (eng. missing not at random): nicht zufällig fehlende Daten. Fehlende, nicht zufällige Daten sind ein schwerwiegenderes Problem, und in diesem Fall kann es ratsam sein, den Datenerhebungsprozess weiter zu überprüfen und zu versuchen zu verstehen, warum die Informationen fehlen. Wenn zum Beispiel die meisten Teilnehmer einer Umfrage eine bestimmte Frage nicht beantwortet haben, warum haben sie das getan? War die Frage unklar?
+-   **MCAR** (eng. *missing completely at random*): völlig zufällig fehlende Daten. Dies ist das wünschenswerte Szenario im Falle fehlender Daten. Fehlende Werte werden als *missing completely at random* bezeichnet, wenn die Wahrscheinlichkeit für das Fehlen eines Wertes weder von erfassten noch unerfassten Merkmalen abhängt. Daher kann man sagen, dass MCAR-Werte die Fallzahl reduzieren, aber das Studienergebnis nicht verzerren.
+-   **MAR** (eng. *missing at random*): Fehlende Werte werden als *missing at random* bezeichnet, wenn die Wahrscheinlichkeit für das Fehlen eines Wertes von einem anderen Merkmal abhängt aber nicht von der Ausprägung des fehlenden Merkmals selbst. MAR-Werte reduzieren die Fallzahl und verzerren möglicherweise das Studienergebnis.
+-   **MNAR** (eng. *missing not at random*): nicht zufällig fehlende Daten. Fehlende, nicht zufällige Daten sind ein schwerwiegenderes Problem, und in diesem Fall kann es ratsam sein, den Datenerhebungsprozess weiter zu überprüfen und zu versuchen zu verstehen, warum die Informationen fehlen. Wenn zum Beispiel die meisten Teilnehmer einer Umfrage eine bestimmte Frage nicht beantwortet haben, warum haben sie das getan? War die Frage unklar? Daher werden fehlende Werte als *missing not at random* bezeichnet, wenn die Wahrscheinlichkeit für das Fehlen eines Wertes von der Ausprägung des fehlenden Merkmals selbst abhängt. MNAR-Werte reduzieren die Fallzahl und verzerren das Studienergebnis. MNAR sind *Non-ignorable missings* und müssen auch berichtet werden.
+
+Die Struktur der fehlenden Werte lässt sich meist schwer vorhersagen. Es gibt häufig Mischformen: MCAR, MAR, MNAR sind ineinander verwoben.
 
 Unter der Annahme, dass es sich bei den Daten um MCAR handelt, können auch zu viele fehlende Daten ein Problem darstellen. In der Regel liegt die sichere Obergrenze bei großen Datensätzen bei 5 % der Gesamtmenge. Wenn die fehlenden Daten für ein bestimmtes Merkmal oder eine Stichprobe mehr als 5 % betragen, sollten Sie dieses Merkmal oder diese Stichprobe wahrscheinlich weglassen. Wir prüfen daher mit einer einfachen Funktion, ob in den Merkmalen (Spalten) und Stichproben (Zeilen) mehr als 5 % der Daten fehlen
 
@@ -39,24 +42,8 @@ gummi_tbl <- read_excel("data/gummibears.xlsx")  %>%
   select(gender, age, height, semester, count_bears, count_color,
          most_liked) %>% 
   mutate(gender = as_factor(gender),
-         most_liked = as_factor(most_liked))
-```
-
-Wir erhalten das Objekt `gummi_tbl` mit dem Datensatz in @tbl-data-dist-gummi nochmal dargestellt.
-
-```{r}
-#| message: false
-#| echo: false
-#| tbl-cap: Auszug aus den selektierten Daten zu den Gummibärchendaten.
-#| label: tbl-data-dist-gummi
-
-gummi_print_tbl <- gummi_tbl %>% 
-  mutate(gender = as.character(gender),
-         module = as.character(module))
-rbind(head(gummi_print_tbl),
-      rep("...", times = ncol(gummi_print_tbl)),
-      tail(gummi_print_tbl)) %>% 
-  kable(align = "c", "pipe")
+         most_liked = as_factor(most_liked),
+         count_color = as_factor(count_color))
 ```
 
 Wir nutzen jetzt die Daten einmal um uns die Normalverteilung und die Poissonverteilung am Beispiel näher anzuschauen.
@@ -73,7 +60,7 @@ Wir nutzen jetzt die Daten einmal um uns die Normalverteilung und die Poissonver
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "Histogramm verschiedener Poissonverteilungen."
+#| fig-cap: ""
 
 vis_miss(gummi_tbl)
 ```
@@ -86,7 +73,44 @@ vis_miss(gummi_tbl)
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "Histogramm verschiedener Poissonverteilungen."
+#| fig-cap: ""
 
 gg_miss_upset(gummi_tbl)
 ```
+
+## Imputation mit `mice`
+
+```{r}
+imp_method <- c(gender = "logreg", age = "pmm", height = "pmm", semester = "pmm", 
+                count_bears = "", count_color = "polyreg", most_liked = "polyreg")
+
+imp_gummi_tbl <- mice(data = gummi_tbl, m = 5, maxit = 5, 
+                      method = imp_method)
+```
+
+```{r}
+complete(imp_gummi_tbl) %>% vis_miss()
+```
+
+```{r}
+imp_all_gummi_tbl <- imp_gummi_tbl %>% 
+  complete("long", include = TRUE) %>% 
+  select(-.id, imp_run = .imp) 
+```
+
+```{r}
+densityplot(imp_gummi_tbl)
+```
+
+```{r}
+pooled_res <- imp_gummi_tbl %>%
+  mice::complete("all") %>%
+  map(lm, formula = height ~ age + semester + gender) %>%
+  pool()
+```
+
+## Was macht `pool`?
+
+## Sensitivitätsanalysen
+
+Vergleich verschiedener Imputationsmethoden Vergleich mit complete-case Analyse
