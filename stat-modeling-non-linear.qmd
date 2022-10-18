@@ -108,7 +108,7 @@ Im Weiteren sucht die Funktion iterativ die besten Werte für `b0` und `b1`. Des
 #| results: hide
 
 fit <- nls(weight ~ b0 + I(age^b1), data = chicken_tbl, 
-           start = list(b0 = 1, b1 = 1))
+           start = c(b0 = 1, b1 = 1))
 ```
 
 Wir nutzen wieder die Funktion `model_parameters()` aus dem R Paket `parameters` um uns eine aufgeräumte Ausgabe wiedergeben zu lassen.
@@ -144,8 +144,6 @@ ggplot(chicken_tbl, aes(age, weight)) +
 
 Wie wir erkennen können sihet die Modellierung einigermaßen gut aus. Wir haben zwar einige leichte Abweichungen von den Beobachtungen zu der geschätzten Geraden, aber im Prinzip könnten wir mit der Modellierung leben. Wir hätten jetzt also eine nicht-lineare Gleichung die den Zusammenhang zwischen Körpergewicht und Lebensalter von Hühnchen beschreibt.
 
-## Modellieren mit `nls` in Altersgruppen
-
 ```{r}
 #| results: hide
 
@@ -154,7 +152,7 @@ nls_tbl <- chicken_tbl %>%
   group_by(grp) %>% 
   nest() %>% 
   mutate(nls_fit = map(data, ~nls(weight ~ b0 + I(age^b1), data = .x, 
-                                  start = list(b0 = 1, b1 = 2), trace = FALSE)),
+                                  start = c(b0 = 1, b1 = 2))),
          pred = map(nls_fit, ~predict(.x))) 
 
 ```
@@ -211,7 +209,7 @@ lm(log(count) ~ log(weeks), exp_tbl)
 #| results: hide
 
 fit <- nls(count ~ b0 * I(weeks^b1), data = exp_tbl, 
-           start = list(b0 = exp(9.961), b1 = -2.024), trace = TRUE)
+           start = c(b0 = exp(9.961), b1 = -2.024))
 ```
 
 ```{r}
@@ -229,4 +227,78 @@ ggplot(exp_tbl, aes(weeks, count)) +
   geom_line(aes(y = predict(fit)), color = "red") +
   scale_x_continuous(breaks = 1:6)
 
+```
+
+## Modellieren von Michaelis-Menten
+
+```{r}
+#| echo: false
+#| message: false
+
+enzyme_tbl <- read_csv2(file.path("data/enzyme.csv")) %>% 
+  rename(S = concentration, v = rate)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-enzyme
+#| tbl-cap: Auszug aus Hühnchendatensatz.
+
+rbind(head(enzyme_tbl, n = 3),
+      rep("...", times = ncol(enzyme_tbl)),
+      tail(enzyme_tbl, n = 3)) %>% 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| label: fig-nls-04
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Visualisierung der Sterberate von Blattläusen nach Aufbringen eines Bio-Pestizides mit der nicht-linearen Regressionsgleichung."
+
+ggplot(enzyme_tbl, aes(x = S, y = v)) +
+  theme_bw() +
+  geom_point() +
+  labs(x = "[S] / mM", y = expression(v/"µmol " * min^-1))
+```
+
+$$
+v = \cfrac{v_{max} \cdot S}{K_M + S}
+$$
+
+```{r}
+enzyme_fit <- nls(v ~ vmax * S /( KM + S ), data  = enzyme_tbl,
+                  start = c(vmax = 9, KM = 2))
+```
+
+```{r}
+#| message: false
+
+enzyme_fit %>% 
+  model_parameters()
+```
+
+$$
+v = \cfrac{11.85 \cdot S}{4.28 + S}
+$$
+
+```{r}
+#| echo: false
+#| message: false
+#| label: fig-nls-05
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Visualisierung der Sterberate von Blattläusen nach Aufbringen eines Bio-Pestizides mit der nicht-linearen Regressionsgleichung."
+
+ggplot(enzyme_tbl, aes(x = S, y = v)) +
+  theme_bw() +
+  geom_point() +
+  geom_line(aes(y = predict(enzyme_fit)), color = "red") +
+  labs(x = "[S] / mM", y = expression(v/"µmol " * min^-1))
 ```
