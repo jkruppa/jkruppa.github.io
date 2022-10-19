@@ -144,7 +144,13 @@ ggplot(chicken_tbl, aes(age, weight)) +
   theme_bw()
 ```
 
-Wie wir erkennen können sihet die Modellierung einigermaßen gut aus. Wir haben zwar einige leichte Abweichungen von den Beobachtungen zu der geschätzten Geraden, aber im Prinzip könnten wir mit der Modellierung leben. Wir hätten jetzt also eine nicht-lineare Gleichung die den Zusammenhang zwischen Körpergewicht und Lebensalter von Hühnchen beschreibt.
+Wie wir erkennen können sieht die Modellierung einigermaßen gut aus. Wir haben zwar einige leichte Abweichungen von den Beobachtungen zu der geschätzten Geraden, aber im Prinzip könnten wir mit der Modellierung leben. Wir hätten jetzt also eine nicht-lineare Gleichung die den Zusammenhang zwischen Körpergewicht und Lebensalter von Hühnchen beschreibt.
+
+::: column-margin
+Die Verwendung von `nest()` und `map()` ist schon erweiterete Programmierung in R. Du findest hier mehr über [broom and dplyr](https://cran.r-project.org/web/packages/broom/vignettes/broom_and_dplyr.html) und die Anwendung auf mehrere Datensätze.
+:::
+
+Nun könnte man argumentieren, dass wir vielleicht unterschiedliche Abschnitte des Wachstums vorliegen haben. Also werden wir einmal das Alter in Tagen in vier gleich große Teile mit der Funktion `cut_number()` schneiden. Beachte bitte, dass in jeder Gruppe gleich viele Beobachtungen sind. Du kannst sonst händisch über `case_when()` innerhalb von `mutate()` dir eigene Gruppen bauen. Wir nutzen auch die Funktion `map()` um über alle Subgruppen des Datensatzes dann ein `nls()` laufen zu lassen.
 
 ```{r}
 #| results: hide
@@ -159,10 +165,14 @@ nls_tbl <- chicken_tbl %>%
 
 ```
 
+Um den Codeblock oben kurz zu erklären. Wir rechnen vier nicht-lineare Regressionen auf den vier Altersgruppen. Dann müssen wir uns noch die vorhergesagten Werte wiedergeben lassen damit wir die gefittete Gerade zeichnen können. Wir nutzen dazu die Funktion `unnest()` um die Daten zusammen mit den vorhergesagten Werten zu erhalten.
+
 ```{r}
 nls_pred_tbl <- nls_tbl %>% 
   unnest(c(data, pred))
 ```
+
+In @fig-nls-02 sehen wir die vier einzelnen Geraden für die vier Altersgruppen. Wir sind visuell besser als über alle Altersgruppen hinweg. Das ist doch mal ein schönes Ergebnis.
 
 ```{r}
 #| echo: false
@@ -180,17 +190,42 @@ ggplot(chicken_tbl, aes(age, weight)) +
   scale_color_okabeito()
 ```
 
+Wir können uns jetzt noch die `b0` und `b1` für jede der vier Altergruppen wiedergeben lassen. Wir räumen etwas auf und geben über `select()` nur die Spalten wieder, die wir auch brauchen und uns interessieren.
+
 ```{r}
 nls_tbl %>% 
   mutate(tidied = map(nls_fit, tidy)) %>% 
   unnest(tidied) %>% 
   select(grp, term, estimate) 
-
 ```
 
+Was sehen wir? Wir erhalten insgesamt acht Koeffizienten und können darüber dann unsere vier exponentiellen Gleichungen für unsere Altergruppen erstellen. Wir sehen, dass besonders in der ersten Gruppe des Alters von 1 bis 2 Tagen wir den Intercept überschätzen und den Exponenten unterschätzen. In den anderen Altersgruppen passt dann der Exponent wieder zu unserem ursprünglichen Modell über alle Altersgruppen.
+
 $$
-count \sim b_0 \cdot week^{b_1}
+weight_{[1-2]} \sim 44.4 + age^{4.21}
 $$
+
+$$
+weight_{(2-8]} \sim 60.1 + age^{2.42}
+$$
+
+$$
+weight_{(8-25]} \sim 128.0 + age^{2.18}
+$$
+
+$$
+weight_{(25-36]} \sim 330.0 + age^{2.14}
+$$
+
+Je nachdem wie zufrieden wir jetzt mit den Ergebnissen der Modellierung sind, könnten wir auch andere Altersgruppen noch mit einfügen. Wir belassen es bei dieser Modellierung und schauen uns nochmal die andere Richtung an. Wir betrachten einen exponentziellen Verfall einer Blattläuse Population.
+
+Wir wollen die folgende Gleichung lösen und die Werte für die Konstante $a$ und den Exponenten $\beta_1$ schätzen. Wir haben diesmal keinen Intercept vorliegen.
+
+$$
+count \sim a \cdot week^{\beta_1}
+$$
+
+Die Daten sind angelegt an ein Experiment zu Blattlauskontrolle. Wir haben ein neues Biopestizid welchen wir auf die Blattläuse auf Rosen sprühen. Wir zählen dann automatisiert über eine Kamera und Bilderkennung wie viele Blattläuse sich nach den Wochen des wiederholten Sprühens noch auf den Rosen befinden. Wir erhalten damit folgende Daten im Objekt `exp_tbl`.
 
 ```{r}
 set.seed(20221018)
@@ -201,18 +236,40 @@ exp_tbl <- tibble(count = c(rnorm(10, 17906, 17906/4),
                             rnorm(10,   947,   947/4), 
                             rnorm(10,   362,   362/4)), 
                   weeks = rep(1:6, each = 10)) 
-
-lm(log(count) ~ log(weeks), exp_tbl)
-
-
 ```
+
+Wir müssen ja wieder die Startwerte in der Funktion `nls()` angeben. Meistens raten wir diese oder schauen auf die Daten um zu sehen wo diese Werte in etwa liegen könnten. Dann kann die Funktion `nls()` diese Startwerte dann optimieren. Es gibt aber noch einen anderen Trick. Wir rechnen eine *lineare* Regression über die $log$-transformierten Daten und nehmen dann die Koeffizienten aus dem linearen Modell als Startwerte für unsere nicht-lineare Regression.
+
+```{r}
+lm(log(count) ~ log(weeks), exp_tbl)
+```
+
+Aus der linearen Regression erhalten wir einen Intercept von $9.961$ und eine Steigung von $-2.025$. Wir exponieren den Intercept und erhalten den Wert für $a$ mit $\exp(9.961)$. Für den Exponenten $b1$ tragen wir den Wert $-2.025$ als Startwert ein. Mit diesem Trick erhalten wir etwas bessere Startwerte und müssen nicht so viel rumprobieren.
 
 ```{r}
 #| results: hide
 
-fit <- nls(count ~ b0 * I(weeks^b1), data = exp_tbl, 
-           start = c(b0 = exp(9.961), b1 = -2.024))
+fit <- nls(count ~ a * I(weeks^b1), data = exp_tbl, 
+           start = c(a = exp(9.961), b1 = -2.025))
 ```
+
+Wir können uns noch die Koeffizienten wiedergeben lassen und die Geradengleichung vervollständigen. Wie du siehst sind die Werte natürlich anders als die Startwerte. Wir hätten aber ziemlich lange rumprobieren müssen bis wir nahe genug an die Startwerte gekommen wären damit die Funktion `nls()` iterativ eine Lösung für die Gleichung findet.
+
+```{r}
+#| message: false
+
+fit %>% 
+  model_parameters() %>% 
+  select(Parameter, Coefficient)
+```
+
+Abschließend können wir dann die Koeffizienten in die Geradengleichung eintragen.
+
+$$
+count \sim 17812.11 \cdot week^{-1.69}
+$$
+
+In @fig-nls-03 sehen wir die Daten zusammen mit der gefitteten Gerade aus der nicht-linearen Regression. Wir sehen, dass die Gerade ziemlich gut durch die Mitte der jeweiligen Punkte läuft.
 
 ```{r}
 #| echo: false
