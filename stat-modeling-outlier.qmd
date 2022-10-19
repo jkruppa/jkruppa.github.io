@@ -15,7 +15,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom,
-               see, performance)
+               see, performance, ggpubr)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -155,4 +155,52 @@ Das [R Paket performance](https://easystats.github.io/performance/)
 
 ```{r}
 check_normality(fit_1)
+```
+
+## Hauptkomponentenanalyse
+
+Damit wir uns auch eine Verteilung anschauen können bruachen wir *viele* Beobachtungen. Wir haben das ja schon bei den Histogrammen gesehen, wenn wir ein aussagekräftiges Histogramm erstellen wollen, dann brauchen wir viele Beobachtungen. Daher nehmen wir für dieses Kapitel einmal den Gummibärchendatensatz und schauen uns dort die Variablen `gender`, `height`, `count_bears` und `count_color` einmal genauer an. Wie immer nutzen wir die Funktion `select()` um die Spalten zu selektieren. Abschließend verwandeln wir das Geschlecht `gender` und das `module` noch in einen Faktor.
+
+```{r}
+#| message: false
+
+gummi_tbl <- read_excel("data/gummibears.xlsx")  %>%
+  select(gender, age, height, semester, most_liked) %>% 
+  mutate(gender = as_factor(gender),
+         most_liked = as_factor(most_liked)) %>% 
+  na.omit()
+```
+
+http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/122-multidimensional-scaling-essentials-algorithms-and-r-code/
+
+```{r}
+
+# Cmpute MDS
+mds <- gummi_tbl %>%
+  dist() %>%          
+  cmdscale() %>%
+  as_tibble()
+colnames(mds) <- c("Dim.1", "Dim.2")
+# Plot MDS
+ggscatter(mds, x = "Dim.1", y = "Dim.2", 
+          label = rownames(gummi_tbl),
+          size = 1,
+          repel = TRUE)
+
+
+# K-means clustering
+clust <- kmeans(mds, 5)$cluster %>%
+  as.factor()
+mds <- mds %>%
+  mutate(groups = clust)
+# Plot and color by groups
+ggscatter(mds, x = "Dim.1", y = "Dim.2", 
+          label = rownames(gummi_tbl),
+          color = "groups",
+          palette = "jco",
+          size = 1, 
+          ellipse = TRUE,
+          ellipse.type = "convex",
+          repel = TRUE)
+
 ```
