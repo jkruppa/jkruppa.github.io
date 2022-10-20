@@ -1,0 +1,113 @@
+```{r echo = FALSE}
+pacman::p_load(tidyverse, readxl, knitr, kableExtra)
+```
+
+# Poisson Regression {#sec-survival}
+
+*Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
+
+![](images/caution.png){fig-align="center" width="50%"}
+
+## Genutzte R Pakete für das Kapitel
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+#| message: false
+pacman::p_load(tidyverse, magrittr, conflicted, broom,
+               parameters, performance, gtsummary, MASS,
+               pscl)
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("mutate", "dplyr")
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+## Daten
+
+::: column-margin
+Die Daten zu den langnasigen Hechten stammt von [Salvatore S. Mangiafico - An R Companion for the Handbook of Biological Statistics](https://rcompanion.org/rcompanion/e_05.html).
+:::
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-pois-longnose
+#| tbl-cap: Auszug aus dem Daten zu den kranken Ferkeln.
+#| column: page
+
+longnose_tbl <- read_csv("data/longnose.csv") 
+
+rbind(head(longnose_tbl),
+      rep("...", times = ncol(longnose_tbl)),
+      tail(longnose_tbl)) %>% 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+
+
+poisson_fit <- glm(longnose ~ acerage + do2 + maxdepth + no3 + so4 + temp,
+                   longnose_tbl, family = poisson)
+
+normal_fit <- glm(longnose ~ acerage + do2 + maxdepth + no3 + so4 + temp,
+                  longnose_tbl, family = gaussian)
+
+poisson_fit %>% summary
+
+## ?berschlagsrechnung f?r die Dispersion
+## (aus dem glm summary): Residual deviance: 1590.04  on 61  degrees of freedom
+1590.04/61
+
+quasipoisson_fit <- glm(longnose ~ acerage + do2 + maxdepth + no3 + so4 + temp,
+                        longnose_tbl, family = quasipoisson)
+
+quasipoisson_fit %>% summary
+
+negativebinomial_fit <- glm.nb(longnose ~ acerage + do2 + maxdepth + no3 + so4 + temp,
+                           longnose_tbl)
+
+negativebinomial_fit %>% summary
+
+
+## wir machen mit den quasifit weiter
+
+quasipoisson_fit %>% tidy(conf.int = TRUE, exponentiate = TRUE)
+
+## How much is the fish?
+sample_size <- 10000
+longnose_small_tbl <- tibble(grp = rep(c(0, 1), each = sample_size),
+         resp = 15 + 10 * grp + rnorm(2 * sample_size, 0, 1)) %>%
+  mutate(resp_count = round(resp),
+         grp = factor(grp, labels = c("ctrl", "trt")))
+
+ggplot(longnose_small_tbl, aes(x = grp, y = resp, fill = grp)) +
+  geom_boxplot()
+
+glm(resp_count ~ grp, data = longnose_small_tbl, family = gaussian)
+
+glm(resp_count ~ grp, data = longnose_small_tbl, family = poisson) %>%
+  tidy(exponentiate = TRUE)
+
+quasipoisson_fit <- glm(longnose ~ temp,
+                        longnose_tbl, family = quasipoisson)
+quasipoisson_fit %>% tidy(conf.int = TRUE, exponentiate = TRUE)
+
+
+gaussian_fit <- glm(longnose ~ temp,
+                        longnose_tbl, family = gaussian)
+gaussian_fit %>% tidy(conf.int = TRUE, exponentiate = TRUE)
+
+hist(longnose_tbl$longnose)
+
+summary(longnose_tbl$longnose)
+
+```
+
+## Overdispersion
+
+## Zeroinflation
