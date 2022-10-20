@@ -128,3 +128,69 @@ Wie immer haben wir nicht so viele Informationen über die Daten vorliegen. Eini
 
 Du findest die Datei `longnose.csv` auf GitHub [jkruppa.github.io/data/](https://github.com/jkruppa/jkruppa.github.io/tree/master/data) als Excel Datei.
 :::
+
+## Von den Kichererbsen in Brandenburg
+
+Im Folgenden schauen wir uns die Daten eines Pilotprojektes zum Anbau von Kichererbsen in Brandenburg an. Wir haben an verschiedenen anonymisierten Bauernhöfen Kichererbsen angebaut und das Trockengewicht als Endpunkt bestimmt. Darüber hinaus haben wir noch andere Umweltparameter erhoben und wollen schauen, welche dieser Parameter einen Einfluss auf das Trockengewicht hat.
+
+```{r}
+#| message: false
+#| echo: false
+
+set.seed(20220929)
+## data generation
+def <- defData(varname = "temp", dist = "normal", formula = "25", variance = 5)
+def <- defData(def, varname = "rained", formula = "0.1;0.9", dist = "categorical")
+def <- defData(def, varname = "location", formula = "0.3;0.5;0.2",
+               dist = "categorical")
+def <- defData(def, varname = "no3", formula = "6", variance = 2)
+def <- defData(def, varname = "fe", formula = "3", variance = 1)
+def <- defData(def, varname = "sand", formula = "60", variance = "20")
+def <- defData(def, varname = "forest", formula = "0.7;0.3", dist = "categorical")
+def <- defData(def, varname = "dryweight", formula = "10 + 2 * temp + 1.5 * rained + 1.1 * no3 + 3 * sand - 1.2 * forest", dist = "normal", variance = 10)
+
+chickpea_tbl <- genData(rpois(1, 400), def) %>% 
+  select(-id) %>% 
+  mutate(across(where(is.numeric), round, 2),
+         dryweight = dryweight,
+         rained  = factor(rained, labels = c("high", "low")),
+         location = factor(location, labels = c("north", "northeast", "west")),
+         forest = factor(forest, labels = c(">1000m", "<1000m")))
+
+write.xlsx(chickpea_tbl, "data/chickpeas.xlsx", rowNames = FALSE)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-example-chickpea
+#| tbl-cap: Auszug aus dem Daten zu den Kichererbsen in Brandenburg.
+#| column: page
+
+
+chickpea_tbl <- read_excel("data/chickpeas.xlsx") 
+
+rbind(head(chickpea_tbl),
+      rep("...", times = ncol(chickpea_tbl)),
+      tail(chickpea_tbl)) %>% 
+  kable(align = "c", "pipe")
+
+```
+
+Es ist ja schon fast Mode, aber auch hier haben wir wenig bis gar keine Informationen zu den erhobenen Variablen. Daher machen wir das beste aus der Sachlage und überlegen uns was hier passen könnte.
+
+-   **temp**, die mittlere Temperatur über die Wachstumsperiode.
+-   **rained**, erfasste Regenmenge im Vergleich zum 10jähigen Mittel.
+-   **location**, anonymisierter Ort der Untersuchung.
+-   **no3**, die gemessene Nitratkonzentration im Boden.
+-   **so4**, die gemessene Eisenkonzentration im Boden.
+-   **sand**, der Anteil an Sand im Boden.
+-   **forest**, der Abstand zum nächsten geschlossenen Waldstück.
+-   **dryweight**, das Trockengewicht der Kichererbsen.
+
+::: callout-tip
+## Datei von den Kichererbsen in Brandenburg
+
+Du findest die Datei `chickpeas.xlsx` auf GitHub [jkruppa.github.io/data/](https://github.com/jkruppa/jkruppa.github.io/tree/master/data) als Excel Datei.
+:::
