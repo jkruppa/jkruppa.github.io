@@ -2,8 +2,12 @@
 
 *Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
 
-```{r echo = FALSE}
-pacman::p_load(tidyverse, readxl, knitr, kableExtra, broom)
+```{r}
+#| echo: false
+
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, broom,
+               conflicted)
+conflict_prefer("extract", "magrittr")
 ```
 
 [Forschung basiert auf dem Falsifikationsprinzip. Wir können **nur ablehnen** und behalten das weniger schlechte Modell bei.]{.aside}
@@ -165,6 +169,42 @@ Je größer die berechnete Teststatistik $T_{calc}$ wird, desto unwahrscheinlich
 In @fig-teststatistik-01 ist die Verteilung aller möglichen $T_{calc}$ Werte unter der Annahme, dass die Nullhypothese wahr ist, dargestellt. Wir sehen, dass die t-Verteilung am höchsten bei $T_{calc} = 0$ ist und niedrigeren Werte mit steigenden t-Werten annimmt. Wenn $T = 0$ dann sind auch die Mittelwerte gleich. Je größer unsere berechnete Teststatistik $T_{calc}$ wird, desto unwahrscheinlicher ist es, dass die Nullhypothese gilt. Die t-Verteilug ist so gebaut, dass die Fläche $A$ unter der Kurve gleich $A=1$ ist. Wir können nun den kritschen Wert $T_{\alpha = 5\%}$ berechnen an dem rechts von dem Wert eine Fläche von 0.05 oder 5% liegt. Sommit liegt dann links von dem kritischen Wert die Fläche von 0.95 oder 95%. Den kritischen Wert $T_{\alpha = 5\%}$ können wir statistischen Tabellen entnehmen. Oder wir berechnen den kritischen Wert direkt in R mit $T_{\alpha = 5\%} = `r t_k`$.
 
 Kommen wir zurück zu unserem Beispiel. Wir haben in unserem Datenbeispiel für den Vergleich von der Sprungweite in \[cm\] von Hunde- und Katzenflöhen eine Teststatistik von $T_{calc} = `r t_calc`$ berechnet. Der kritische Wert um die Nullhypothese abzulehnen liegt bei $T_{\alpha = 5\%} = `r t_k`$. Wenn $T_{calc} \geq T_{\alpha = 5\%}$ wird die Nullhypothese (H$_0$) abgelehnt. In unserem Fall ist $`r t_calc` \geq `r t_k`$. Wir können die Nullhypothese ablehnen. Es gibt einen Unterschied zwischen der mittleren Sprungweite von Hunde- und Katzenflöhen.
+
+::: {.callout-caution collapse="true"}
+## Woher kommt die Testverteilung von $T_{\alpha = 5\%}$, wenn $H_0$ gilt?
+
+In diesem Exkurs wollen wir einmal überlegen, woher die Testverteilung $T_{\alpha = 5\%}$ herkommt, wenn die $H_0$ gilt. Wir wollen die Verteilung einmal in R herleiten. Zuerst gehen wir davon aus, dass die Mittelwerte der Sprungweite der Hunde- und Katzenflöhe gleich sind $\bar{y}_{cat} = \bar{y}_{dog} = (9.18 + 7.78)/2 = 8.48$. Daher nehmen wir an, dass die Mittelwerte aus der gleichen Normalverteilung kommen. Wir ziehen daher vier Sprungweiten jeweils für die Hunde- und Katzenflöhe aus einer Normalverteilung mit $\mathcal{N}(8.48, 0.57)$. Wir nutzen dafür die Funktion `rnorm()`. Anschließend berechnen wir die Teststatistik. Diesen Schritt wiederholen wir eintausend Mal.
+
+```{r}
+set.seed(20201021)
+T_vec <- map_dbl(1:1000, function(...){
+  dog_vec <- rnorm(n = 4, mean = 8.48, sd = 0.57)
+  cat_vec <- rnorm(n = 4, mean = 8.48, sd = 0.57)
+  s_p <- (sd(cat_vec) + sd(dog_vec))/2 
+  T_calc <- (mean(cat_vec) - mean(dog_vec))/(s_p * sqrt(2/4)) 
+  return(T_calc)  
+}) %>% round(2)
+```
+
+Nachdem wir eintausend Mal die Teststatistik unter der $H_0$ berechnet haben, schauen wir uns einmal die sortierten ersten 100 Werte der Teststatistik einmal an.
+
+```{r}
+T_vec %>% magrittr::extract(1:100) %>% sort()  
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-test-basic-00
+#| fig-align: center
+#| fig-height: 8
+#| fig-width: 8
+#| fig-cap: "Histogramm der 1000 gerechneten Teststaistiken $T_{calc}$, wenn die $H_0$ war wäre und somit kein Unterschied zwischen den Mittelwerten der Sprungweiten der Hunde- und Katzenflöhe vorliegen würde."
+
+ggplot(as_tibble(T_vec), aes(x = value)) +
+  geom_histogram()
+```
+:::
 
 ::: column-margin
 ![](images/angel_01.png){fig-align="center" width="50%"}
