@@ -19,6 +19,7 @@ pacman::p_load(tidyverse, magrittr, conflicted, broom,
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
+conflict_prefer("extract", "magrittr")
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
@@ -43,6 +44,30 @@ rbind(head(pig_tbl),
   kable(align = "c", "pipe")
 ```
 
+## Theoretischer Hintergrund
+
+Modellierung der Wahrscheinlichkeit für den Eintritt des Ereignisses
+
+$$
+Y \rightarrow Pr(Y = 1)
+$$
+
+$Pr(Y = 1)$ liegt zwischen $0$ un $1$
+
+$\cfrac{Pr(y = 1)}{1 - Pr(Y = 1)}$ oder auch Chance (eng. *Odds*) für das Eintreten von $Y=1$ liegt zwischen $0$ und $+\infty$
+
+$\log\left(\cfrac{Pr(y = 1)}{1 - Pr(Y = 1)}\right)$ liegt zwischen $-\infty$ und $+\infty$
+
+$\log\left(\cfrac{Pr(y = 1)}{1 - Pr(Y = 1)}\right) = \beta_0 + \beta_1 x_1 + \epsilon$
+
+Wahrscheinlichkeit: Anteil an Allen Anteil Gewinner an allen Teilnehmern Anteil Personen mit Therapieerfolg an allen Studienteilnehmern
+
+Chance = Odds: Verhältnis Verhältnis Gewinner zu Nichtgewinner Verhältnis Personen mit Therapieerfolg zu Personen ohne Therapieerfolg
+
+2 Kombinationen gewinnen - 3 Kombinationen verlieren Wahrscheinlichkeit zu gewinnen: $2 / 5 = 0.40$ Chance zu gewinnen: $2:3 = 0.67$ Deutlicherer Unterschied zwischen Chance und Wahrscheinlichkeit
+
+## Modellierung
+
 ```{r}
 
 fit_1 <- glm(infected ~ age + sex + location + activity + crp + frailty + bloodpressure + weight + creatinin, data = pig_tbl, family = binomial)
@@ -53,5 +78,48 @@ r2(fit_1)
 
 
 pig_tbl %>% tbl_summary(by = infected) %>% add_p()
+
+
+
+```
+
+Wir können uns einmal die Ergebnisse des Modellfits die logistischen Gerade für eine simple lineare Regression mit dem Modell $infected \sim crp$ anschauen. Wie immer können wir uns den Zusammenhang nur in einem simplen Modell anschauen. Im Fall einer multiplen linearen Regresion können wir nicht so viele Dimensionen in einer Grpahik darstellen. Wir fitten also das Modell `fit_2` wie im folgenden dargestellt.
+
+```{r}
+fit_2 <- glm(infected ~ crp, data = pig_tbl, family = binomial)
+```
+
+Nun können wir uns mit der Funktion `predict()` die Wert auf der Geraden wiedergeben lassen. Wenn wir `predict()` nur so aufrufen, dann erhalten wir die Werte für $y$ auf der transformierten $link$-Scale wieder. Das hilft uns aber nicht weiter, wir haben ja nur 0 und 1 Werte für $y$ vorliegen.
+
+```{r}
+predict(fit_2, type = "link") %>% 
+  extract(1:10) %>% 
+  round(2)
+```
+
+Da wir die Werte für die Wahrscheinlichkeit das ein Ferkel infiziert ist, also die Wahrscheinlichkeit $Pr(infected = 1)$, müssen wir noch die Option `type = reponse` wählen. So erhalten wir die Wahrscheinlichkeiten wiedergegeben.
+
+```{r}
+predict(fit_2, type = "response") %>% 
+  extract(1:10) %>% 
+  round(2)
+
+```
+
+Abschließend können wir uns die Gerade auch in der @fig-log-pred visualisieren lassen. Auf der x-Achse sehen wir die `crp`-Werte und auf der y-Achse den Infektionsstatus. Auf der $reponse$-scale sehen wir eine S-Kurve. Auf der $link$-scale würden wir eine Gerade sehen.
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-log-pred
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 5
+#| fig-cap: "Visualisierung der logistischen Gerade in einer simplen logistischen Regression mit der Variable `crp`."
+
+ggplot(pig_tbl, aes(x = crp, y = infected)) +
+  theme_bw() +
+  geom_point() +
+  geom_line(aes(y = predict(fit_2, type = "response")), color = "red") 
 
 ```
