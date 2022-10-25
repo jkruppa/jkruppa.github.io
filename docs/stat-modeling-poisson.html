@@ -520,7 +520,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </header><div class="cell">
 
 </div>
-<p><em>Version vom October 25, 2022 um 14:09:54</em></p>
+<p><em>Version vom October 25, 2022 um 14:34:35</em></p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure"><p><img src="images/caution.png" class="img-fluid figure-img" style="width:50.0%"></p>
 </figure>
@@ -662,10 +662,18 @@ y \sim x_1 + x_2 + ... + x_p
 <p>Im Folgenden werden wir die Daten nur für das Fitten eines Modells verwenden. In den anderen oben genannten Kapiteln nutzen wir die Daten dann anders.</p>
 </section><section id="fit-des-modells" class="level2" data-number="40.4"><h2 data-number="40.4" class="anchored" data-anchor-id="fit-des-modells">
 <span class="header-section-number">40.4</span> Fit des Modells</h2>
+<p>In diesem Abschnitt wollen wir verschiedene Modelle für Zähldaten schätzen. Die Poissonverteilung hat keinen eignen Parameter für die Streung wie die Normalverteilung. Die Poissonverteilung ist mit <span class="math inline">\(\mathcal{Pois}(\lambda)\)</span> definiert und hat somit die Eigenschaft das die Varianz eins zu eins mit dem Mittelwert <span class="math inline">\(\lambda\)</span> der Poissonverteilung ansteigt. Es kann aber sein, dass wir in den Daten nicht diesen ein zu eins Zusammenhang von Mittelwert und Varianz vrliegen haben. Häufig ist die Varianz viel größer und steigt schneller an. Wenn die Varianz in Wirklichkeit sehr viel größer ist, dann würden wir die Varianz in unseren Modell unterschätzen.</p>
+<ul>
+<li>Ein klassisches Poissonmodell <code>glm(..., familiy = poisson)</code> mit der Annahme keiner Overdisperison.</li>
+<li>Ein Quasi-Poissonmodell <code>glm(..., family = quasipoisson)</code> mit der Möglichkeit der Berücksichtigung einer Overdispersion.</li>
+<li>Ein negative Binomialmodell <code>glm.nb(...)</code> ebenfalls mit der Berücksichtigung einer Overdispersion.</li>
+</ul>
+<p>Beginnen wollen wir aber mit einer klassischen Poissonregression ohne die Annahme von einer Overdispersion in den Daten. Wir nutzen dafür die Funktion <code><a href="https://rdrr.io/r/stats/glm.html">glm()</a></code> und spezifizieren die Verteilungsfamilie als <code>poisson</code>. Wir nehmen wieder alle Variablen in das Modell auf der rechten Seite des <code>~</code>. Auf der linken Seite des <code>~</code> kommt dann unser Outcome <code>longnose</code> was die Anzahl an Hechten erhält.</p>
 <div class="cell">
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">poisson_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/glm.html">glm</a></span><span class="op">(</span><span class="va">longnose</span> <span class="op">~</span> <span class="va">area</span> <span class="op">+</span> <span class="va">do2</span> <span class="op">+</span> <span class="va">maxdepth</span> <span class="op">+</span> <span class="va">no3</span> <span class="op">+</span> <span class="va">so4</span> <span class="op">+</span> <span class="va">temp</span>,</span>
 <span>                    <span class="va">longnose_tbl</span>, family <span class="op">=</span> <span class="va">poisson</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>Wir schauen uns die Ausgabe des Modells einmal mit der <code><a href="https://rdrr.io/r/base/summary.html">summary()</a></code> Funktion an, da wir hier einmal händisch schauen wollen, ob eine Overdispersion vorliegt. Sonst könnten wir auch die Funktion <code>model_parameters()</code> nehmen. Die nutzen wir später für die Interpretation des Modells, hier wollen wir erstmal sehen, ob alles geklappt hat.</p>
 <div class="cell">
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">poisson_fit</span> <span class="op">%&gt;%</span> <span class="va">summary</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
@@ -699,8 +707,8 @@ AIC: 1936.86
 Number of Fisher Scoring iterations: 5</code></pre>
 </div>
 </div>
-<p>Die Poissonverteilung hat keinen eignen Parameter für die Streung wie die Normalverteilung. Die Poissonverteilung ist mit <span class="math inline">\(\mathcal{Pois}(\lambda)\)</span> definiert und hat somit die Eigenschaft das die Varianz eins zu eins mit dem Mittelwert <span class="math inline">\(\lambda\)</span> der Poissonverteilung ansteigt. Es kann aber sein, dass wir in den Daten nicht diesen ein zu eins Zusammenhang von Mittelwert und Varianz vrliegen haben. Häufig ist die Varianz viel größer und steigt schneller an. Wenn die Varianz in Wirklichkeit sehr viel größer ist, dann würden wir die Varianz in unseren Modell unterschätzen. Das sagt der Ausdruck in der Summary-Ausgabe des Poissonmodells mit <code>Dispersion parameter for poisson family taken to be 1</code> aus. Wir modellieren einen eins zu eins Zusammenhang von Mittelwert und Varianz. Wenn dieser Zusammenhang nicht vorliegt, dann haben wir eine Overdispersion vorliegen.</p>
-<p>Wir können die Overdispersion mit abschätzen indem wir die <code>Residual deviance</code> durch die Freiheitsgrade der <code>Residual deviance</code> teilen. Daher erhalten wir eine Overdispersion von <span class="math inline">\(\cfrac{1590.04}{61} \approx 26.1\)</span>. Damit haben wir eine eindeutige Overdispersion vorliegen. Damit steigt die Varianz in einem Verhältnis von ca. 1 zu 26. Wir können auch die Funktion <code>check_overdispersion()</code> aus dem R Paket <code>performance</code> nutzen um die Overdispersion zu berechnen.</p>
+<p>Wir schauen in die Summary-Ausgabe des Poissonmodells und sehen, dass dort steht, dass <code>Dispersion parameter for poisson family taken to be 1</code>. Wir modellieren also einen eins zu eins Zusammenhang von Mittelwert und Varianz. Wenn dieser Zusammenhang nicht in unseren Daten existiert, dann haben wir eine Overdispersion vorliegen.</p>
+<p>Wir können die Overdispersion mit abschätzen indem wir die <code>Residual deviance</code> durch die Freiheitsgrade der <code>Residual deviance</code> teilen. Daher erhalten wir eine Overdispersion von <span class="math inline">\(\cfrac{1590.04}{61} \approx 26.1\)</span>. Damit haben wir eine eindeutige Overdispersion vorliegen. Damit steigt die Varianz in einem Verhältnis von ca. 1 zu 26. Wir können auch die Funktion <code>check_overdispersion()</code> aus dem R Paket <code>performance</code> nutzen um die Overdispersion zu berechnen. Die Funktion kann das schneller und ist auch in der Abfolge einer Analyse besser geeignet.</p>
 <div class="cell">
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">poisson_fit</span> <span class="op">%&gt;%</span> <span class="fu">check_overdispersion</span><span class="op">(</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
@@ -714,13 +722,29 @@ Number of Fisher Scoring iterations: 5</code></pre>
 <pre><code>Overdispersion detected.</code></pre>
 </div>
 </div>
-<p>Wenn wir Overdispersion vorliegen haben und damit die Varianz zu niedrig schätzen, dann erhalten wir viel mehr signifikante Ergebnisse als es in den Daten zu erwarten wäre.</p>
+<p>Wenn wir Overdispersion vorliegen haben und damit die Varianz zu niedrig schätzen, dann erhalten wir viel mehr signifikante Ergebnisse als es in den Daten zu erwarten wäre. Schauen wir uns nochmal die Parameter der Poissonverteilung und die <span class="math inline">\(p\)</span>-Werte einmal an.</p>
 <div class="cell">
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">quasipoisson_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/glm.html">glm</a></span><span class="op">(</span><span class="va">longnose</span> <span class="op">~</span> <span class="va">area</span> <span class="op">+</span> <span class="va">do2</span> <span class="op">+</span> <span class="va">maxdepth</span> <span class="op">+</span> <span class="va">no3</span> <span class="op">+</span> <span class="va">so4</span> <span class="op">+</span> <span class="va">temp</span>,</span>
-<span>                        <span class="va">longnose_tbl</span>, family <span class="op">=</span> <span class="va">quasipoisson</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">poisson_fit</span> <span class="op">%&gt;%</span> <span class="fu">model_parameters</span><span class="op">(</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Parameter   |  Log-Mean |       SE |         95% CI |     z |      p
+--------------------------------------------------------------------
+(Intercept) |     -1.56 |     0.28 | [-2.12, -1.01] | -5.55 | &lt; .001
+area        |  3.84e-05 | 2.08e-06 | [ 0.00,  0.00] | 18.48 | &lt; .001
+do2         |      0.23 |     0.02 | [ 0.18,  0.27] | 10.63 | &lt; .001
+maxdepth    |      0.01 | 6.69e-04 | [ 0.01,  0.01] | 17.27 | &lt; .001
+no3         |      0.18 |     0.01 | [ 0.16,  0.20] | 16.97 | &lt; .001
+so4         | -6.81e-03 | 3.62e-03 | [-0.01,  0.00] | -1.88 | 0.060 
+temp        |      0.08 | 6.53e-03 | [ 0.07,  0.09] | 12.03 | &lt; .001</code></pre>
+</div>
+</div>
+<p>In der Spalte <code>p</code> finden wir die <span class="math inline">\(p\)</span>-Werte für alle Variablen. Wir sehen, dass fast alle Variablen signifikant sind und das wir eine sehr niedrige Varianz in der Spalte <code>SE</code> sehen. Das heißt unser geschätzer Fehler ist sehr gering. Das ahnten wir ja schon, immerhin haben wir eine Overdisperson vorliegen. Das Modell ist somit falsch. Wir müssen uns ein neues Modell suchen, was Overdispersion berückscihtigen und modellieren kann.</p>
+<p>Die Quasi-Poisson Verteilung hat einen zusätzlichen, unabhänigen Parameter um die Varianz der Verteilung zu schätzen. Daher können wir die Overdispersion mit einer Quasi-Poisson Verteilung berückscihtigen. Wir können eine Quasi-Poisson Verteilung auch mit der Funktion <code><a href="https://rdrr.io/r/stats/glm.html">glm()</a></code> schätzen nur müssen wir als Verteilungsfamilie <code>quasipoisson</code> angeben.</p>
+<div class="cell">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">quasipoisson_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/glm.html">glm</a></span><span class="op">(</span><span class="va">longnose</span> <span class="op">~</span> <span class="va">area</span> <span class="op">+</span> <span class="va">do2</span> <span class="op">+</span> <span class="va">maxdepth</span> <span class="op">+</span> <span class="va">no3</span> <span class="op">+</span> <span class="va">so4</span> <span class="op">+</span> <span class="va">temp</span>,</span>
+<span>                        data <span class="op">=</span> <span class="va">longnose_tbl</span>, family <span class="op">=</span> <span class="va">quasipoisson</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">quasipoisson_fit</span> <span class="op">%&gt;%</span> <span class="va">summary</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">quasipoisson_fit</span> <span class="op">%&gt;%</span> <span class="va">summary</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 Call:
@@ -753,11 +777,11 @@ Number of Fisher Scoring iterations: 5</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">negativebinomial_fit</span> <span class="op">&lt;-</span> <span class="fu">glm.nb</span><span class="op">(</span><span class="va">longnose</span> <span class="op">~</span> <span class="va">area</span> <span class="op">+</span> <span class="va">do2</span> <span class="op">+</span> <span class="va">maxdepth</span> <span class="op">+</span> <span class="va">no3</span> <span class="op">+</span> <span class="va">so4</span> <span class="op">+</span> <span class="va">temp</span>,</span>
-<span>                           <span class="va">longnose_tbl</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">negativebinomial_fit</span> <span class="op">&lt;-</span> <span class="fu">glm.nb</span><span class="op">(</span><span class="va">longnose</span> <span class="op">~</span> <span class="va">area</span> <span class="op">+</span> <span class="va">do2</span> <span class="op">+</span> <span class="va">maxdepth</span> <span class="op">+</span> <span class="va">no3</span> <span class="op">+</span> <span class="va">so4</span> <span class="op">+</span> <span class="va">temp</span>,</span>
+<span>                               data <span class="op">=</span> <span class="va">longnose_tbl</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">negativebinomial_fit</span> <span class="op">%&gt;%</span> <span class="va">summary</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">negativebinomial_fit</span> <span class="op">%&gt;%</span> <span class="va">summary</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 Call:
@@ -799,7 +823,7 @@ Number of Fisher Scoring iterations: 1
 </section><section id="interpretation-des-modells" class="level2" data-number="40.6"><h2 data-number="40.6" class="anchored" data-anchor-id="interpretation-des-modells">
 <span class="header-section-number">40.6</span> Interpretation des Modells</h2>
 <div class="cell">
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">poisson_fit</span> <span class="op">%&gt;%</span> <span class="va">summary</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">poisson_fit</span> <span class="op">%&gt;%</span> <span class="va">summary</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 Call:
@@ -830,13 +854,13 @@ AIC: 1936.86
 
 Number of Fisher Scoring iterations: 5</code></pre>
 </div>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co">## ?berschlagsrechnung f?r die Dispersion</span></span>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co">## ?berschlagsrechnung f?r die Dispersion</span></span>
 <span><span class="co">## (aus dem glm summary): Residual deviance: 1590.04  on 61  degrees of freedom</span></span>
 <span><span class="fl">1590.04</span><span class="op">/</span><span class="fl">61</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 26.06623</code></pre>
 </div>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">quasipoisson_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/glm.html">glm</a></span><span class="op">(</span><span class="va">longnose</span> <span class="op">~</span> <span class="va">area</span> <span class="op">+</span> <span class="va">do2</span> <span class="op">+</span> <span class="va">maxdepth</span> <span class="op">+</span> <span class="va">no3</span> <span class="op">+</span> <span class="va">so4</span> <span class="op">+</span> <span class="va">temp</span>,</span>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">quasipoisson_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/glm.html">glm</a></span><span class="op">(</span><span class="va">longnose</span> <span class="op">~</span> <span class="va">area</span> <span class="op">+</span> <span class="va">do2</span> <span class="op">+</span> <span class="va">maxdepth</span> <span class="op">+</span> <span class="va">no3</span> <span class="op">+</span> <span class="va">so4</span> <span class="op">+</span> <span class="va">temp</span>,</span>
 <span>                        <span class="va">longnose_tbl</span>, family <span class="op">=</span> <span class="va">quasipoisson</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">quasipoisson_fit</span> <span class="op">%&gt;%</span> <span class="va">summary</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -870,7 +894,7 @@ AIC: NA
 
 Number of Fisher Scoring iterations: 5</code></pre>
 </div>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">negativebinomial_fit</span> <span class="op">&lt;-</span> <span class="fu">glm.nb</span><span class="op">(</span><span class="va">longnose</span> <span class="op">~</span> <span class="va">area</span> <span class="op">+</span> <span class="va">do2</span> <span class="op">+</span> <span class="va">maxdepth</span> <span class="op">+</span> <span class="va">no3</span> <span class="op">+</span> <span class="va">so4</span> <span class="op">+</span> <span class="va">temp</span>,</span>
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">negativebinomial_fit</span> <span class="op">&lt;-</span> <span class="fu">glm.nb</span><span class="op">(</span><span class="va">longnose</span> <span class="op">~</span> <span class="va">area</span> <span class="op">+</span> <span class="va">do2</span> <span class="op">+</span> <span class="va">maxdepth</span> <span class="op">+</span> <span class="va">no3</span> <span class="op">+</span> <span class="va">so4</span> <span class="op">+</span> <span class="va">temp</span>,</span>
 <span>                           <span class="va">longnose_tbl</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">negativebinomial_fit</span> <span class="op">%&gt;%</span> <span class="va">summary</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -909,7 +933,7 @@ Number of Fisher Scoring iterations: 1
 
  2 x log-likelihood:  -594.175 </code></pre>
 </div>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co">## wir machen mit den quasifit weiter</span></span>
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co">## wir machen mit den quasifit weiter</span></span>
 <span></span>
 <span><span class="va">quasipoisson_fit</span> <span class="op">%&gt;%</span> <span class="fu">tidy</span><span class="op">(</span>conf.int <span class="op">=</span> <span class="cn">TRUE</span>, exponentiate <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
@@ -924,7 +948,7 @@ Number of Fisher Scoring iterations: 1
 6 so4            0.993 0.0196       -0.347 0.730     0.953       1.03
 7 temp           1.08  0.0354        2.22  0.0303    1.01        1.16</code></pre>
 </div>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co">## How much is the fish?</span></span>
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co">## How much is the fish?</span></span>
 <span><span class="va">sample_size</span> <span class="op">&lt;-</span> <span class="fl">10000</span></span>
 <span><span class="va">longnose_small_tbl</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="op">(</span>grp <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>, each <span class="op">=</span> <span class="va">sample_size</span><span class="op">)</span>,</span>
 <span>         resp <span class="op">=</span> <span class="fl">15</span> <span class="op">+</span> <span class="fl">10</span> <span class="op">*</span> <span class="va">grp</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="fl">2</span> <span class="op">*</span> <span class="va">sample_size</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span> <span class="op">%&gt;%</span></span>
@@ -934,31 +958,31 @@ Number of Fisher Scoring iterations: 1
 <span><span class="fu">ggplot</span><span class="op">(</span><span class="va">longnose_small_tbl</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">grp</span>, y <span class="op">=</span> <span class="va">resp</span>, fill <span class="op">=</span> <span class="va">grp</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu">geom_boxplot</span><span class="op">(</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="stat-modeling-poisson_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid" width="672"></p>
+<p><img src="stat-modeling-poisson_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid" width="672"></p>
 </div>
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/stats/glm.html">glm</a></span><span class="op">(</span><span class="va">resp_count</span> <span class="op">~</span> <span class="va">grp</span>, data <span class="op">=</span> <span class="va">longnose_small_tbl</span>, family <span class="op">=</span> <span class="va">gaussian</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/stats/glm.html">glm</a></span><span class="op">(</span><span class="va">resp_count</span> <span class="op">~</span> <span class="va">grp</span>, data <span class="op">=</span> <span class="va">longnose_small_tbl</span>, family <span class="op">=</span> <span class="va">gaussian</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 Call:  glm(formula = resp_count ~ grp, family = gaussian, data = longnose_small_tbl)
 
 Coefficients:
 (Intercept)       grptrt  
-     14.984       10.024  
+    15.0035       9.9829  
 
 Degrees of Freedom: 19999 Total (i.e. Null);  19998 Residual
-Null Deviance:      524120 
-Residual Deviance: 21753    AIC: 58444</code></pre>
+Null Deviance:      519960 
+Residual Deviance: 21667    AIC: 58365</code></pre>
 </div>
-<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/stats/glm.html">glm</a></span><span class="op">(</span><span class="va">resp_count</span> <span class="op">~</span> <span class="va">grp</span>, data <span class="op">=</span> <span class="va">longnose_small_tbl</span>, family <span class="op">=</span> <span class="va">poisson</span><span class="op">)</span> <span class="op">%&gt;%</span></span>
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/stats/glm.html">glm</a></span><span class="op">(</span><span class="va">resp_count</span> <span class="op">~</span> <span class="va">grp</span>, data <span class="op">=</span> <span class="va">longnose_small_tbl</span>, family <span class="op">=</span> <span class="va">poisson</span><span class="op">)</span> <span class="op">%&gt;%</span></span>
 <span>  <span class="fu">tidy</span><span class="op">(</span>exponentiate <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code># A tibble: 2 × 5
   term        estimate std.error statistic p.value
   &lt;chr&gt;          &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;   &lt;dbl&gt;
-1 (Intercept)    15.0    0.00258     1048.       0
-2 grptrt          1.67   0.00327      157.       0</code></pre>
+1 (Intercept)    15.0    0.00258     1049.       0
+2 grptrt          1.67   0.00327      156.       0</code></pre>
 </div>
-<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">quasipoisson_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/glm.html">glm</a></span><span class="op">(</span><span class="va">longnose</span> <span class="op">~</span> <span class="va">temp</span>,</span>
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">quasipoisson_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/glm.html">glm</a></span><span class="op">(</span><span class="va">longnose</span> <span class="op">~</span> <span class="va">temp</span>,</span>
 <span>                        <span class="va">longnose_tbl</span>, family <span class="op">=</span> <span class="va">quasipoisson</span><span class="op">)</span></span>
 <span><span class="va">quasipoisson_fit</span> <span class="op">%&gt;%</span> <span class="fu">tidy</span><span class="op">(</span>conf.int <span class="op">=</span> <span class="cn">TRUE</span>, exponentiate <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
@@ -968,7 +992,7 @@ Residual Deviance: 21753    AIC: 58444</code></pre>
 1 (Intercept)    13.8     0.919       2.86 0.00570    2.19      80.4 
 2 temp            1.06    0.0468      1.16 0.252      0.963      1.16</code></pre>
 </div>
-<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">gaussian_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/glm.html">glm</a></span><span class="op">(</span><span class="va">longnose</span> <span class="op">~</span> <span class="va">temp</span>,</span>
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">gaussian_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/glm.html">glm</a></span><span class="op">(</span><span class="va">longnose</span> <span class="op">~</span> <span class="va">temp</span>,</span>
 <span>                        <span class="va">longnose_tbl</span>, family <span class="op">=</span> <span class="va">gaussian</span><span class="op">)</span></span>
 <span><span class="va">gaussian_fit</span> <span class="op">%&gt;%</span> <span class="fu">tidy</span><span class="op">(</span>conf.int <span class="op">=</span> <span class="cn">TRUE</span>, exponentiate <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
@@ -978,11 +1002,11 @@ Residual Deviance: 21753    AIC: 58444</code></pre>
 1 (Intercept)    0.416     35.1    -0.0250   0.980 6.05e-31   2.86e29
 2 temp           8.19       1.83    1.15     0.255 2.26e- 1   2.97e 2</code></pre>
 </div>
-<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/hist.html">hist</a></span><span class="op">(</span><span class="va">longnose_tbl</span><span class="op">$</span><span class="va">longnose</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/hist.html">hist</a></span><span class="op">(</span><span class="va">longnose_tbl</span><span class="op">$</span><span class="va">longnose</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="stat-modeling-poisson_files/figure-html/unnamed-chunk-11-2.png" class="img-fluid" width="672"></p>
+<p><img src="stat-modeling-poisson_files/figure-html/unnamed-chunk-12-2.png" class="img-fluid" width="672"></p>
 </div>
-<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html">summary</a></span><span class="op">(</span><span class="va">longnose_tbl</span><span class="op">$</span><span class="va">longnose</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html">summary</a></span><span class="op">(</span><span class="va">longnose_tbl</span><span class="op">$</span><span class="va">longnose</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
   1.000  12.000  23.000  38.809  40.500 239.000 </code></pre>

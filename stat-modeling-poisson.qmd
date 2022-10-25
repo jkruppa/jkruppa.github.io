@@ -71,28 +71,48 @@ Im Folgenden werden wir die Daten nur für das Fitten eines Modells verwenden. I
 
 ## Fit des Modells
 
+In diesem Abschnitt wollen wir verschiedene Modelle für Zähldaten schätzen. Die Poissonverteilung hat keinen eignen Parameter für die Streung wie die Normalverteilung. Die Poissonverteilung ist mit $\mathcal{Pois}(\lambda)$ definiert und hat somit die Eigenschaft das die Varianz eins zu eins mit dem Mittelwert $\lambda$ der Poissonverteilung ansteigt. Es kann aber sein, dass wir in den Daten nicht diesen ein zu eins Zusammenhang von Mittelwert und Varianz vrliegen haben. Häufig ist die Varianz viel größer und steigt schneller an. Wenn die Varianz in Wirklichkeit sehr viel größer ist, dann würden wir die Varianz in unseren Modell unterschätzen.
+
+-   Ein klassisches Poissonmodell `glm(..., familiy = poisson)` mit der Annahme keiner Overdisperison.
+-   Ein Quasi-Poissonmodell `glm(..., family = quasipoisson)` mit der Möglichkeit der Berücksichtigung einer Overdispersion.
+-   Ein negative Binomialmodell `glm.nb(...)` ebenfalls mit der Berücksichtigung einer Overdispersion.
+
+Beginnen wollen wir aber mit einer klassischen Poissonregression ohne die Annahme von einer Overdispersion in den Daten. Wir nutzen dafür die Funktion `glm()` und spezifizieren die Verteilungsfamilie als `poisson`. Wir nehmen wieder alle Variablen in das Modell auf der rechten Seite des `~`. Auf der linken Seite des `~` kommt dann unser Outcome `longnose` was die Anzahl an Hechten erhält.
+
 ```{r}
 poisson_fit <- glm(longnose ~ area + do2 + maxdepth + no3 + so4 + temp,
                     longnose_tbl, family = poisson)
 ```
 
+Wir schauen uns die Ausgabe des Modells einmal mit der `summary()` Funktion an, da wir hier einmal händisch schauen wollen, ob eine Overdispersion vorliegt. Sonst könnten wir auch die Funktion `model_parameters()` nehmen. Die nutzen wir später für die Interpretation des Modells, hier wollen wir erstmal sehen, ob alles geklappt hat.
+
 ```{r}
 poisson_fit %>% summary
 ```
 
-Die Poissonverteilung hat keinen eignen Parameter für die Streung wie die Normalverteilung. Die Poissonverteilung ist mit $\mathcal{Pois}(\lambda)$ definiert und hat somit die Eigenschaft das die Varianz eins zu eins mit dem Mittelwert $\lambda$ der Poissonverteilung ansteigt. Es kann aber sein, dass wir in den Daten nicht diesen ein zu eins Zusammenhang von Mittelwert und Varianz vrliegen haben. Häufig ist die Varianz viel größer und steigt schneller an. Wenn die Varianz in Wirklichkeit sehr viel größer ist, dann würden wir die Varianz in unseren Modell unterschätzen. Das sagt der Ausdruck in der Summary-Ausgabe des Poissonmodells mit `Dispersion parameter for poisson family taken to be 1` aus. Wir modellieren einen eins zu eins Zusammenhang von Mittelwert und Varianz. Wenn dieser Zusammenhang nicht vorliegt, dann haben wir eine Overdispersion vorliegen.
+Wir schauen in die Summary-Ausgabe des Poissonmodells und sehen, dass dort steht, dass `Dispersion parameter for poisson family taken to be 1`. Wir modellieren also einen eins zu eins Zusammenhang von Mittelwert und Varianz. Wenn dieser Zusammenhang nicht in unseren Daten existiert, dann haben wir eine Overdispersion vorliegen.
 
-Wir können die Overdispersion mit abschätzen indem wir die `Residual deviance` durch die Freiheitsgrade der `Residual deviance` teilen. Daher erhalten wir eine Overdispersion von $\cfrac{1590.04}{61} \approx 26.1$. Damit haben wir eine eindeutige Overdispersion vorliegen. Damit steigt die Varianz in einem Verhältnis von ca. 1 zu 26. Wir können auch die Funktion `check_overdispersion()` aus dem R Paket `performance` nutzen um die Overdispersion zu berechnen.
+Wir können die Overdispersion mit abschätzen indem wir die `Residual deviance` durch die Freiheitsgrade der `Residual deviance` teilen. Daher erhalten wir eine Overdispersion von $\cfrac{1590.04}{61} \approx 26.1$. Damit haben wir eine eindeutige Overdispersion vorliegen. Damit steigt die Varianz in einem Verhältnis von ca. 1 zu 26. Wir können auch die Funktion `check_overdispersion()` aus dem R Paket `performance` nutzen um die Overdispersion zu berechnen. Die Funktion kann das schneller und ist auch in der Abfolge einer Analyse besser geeignet.
 
 ```{r}
 poisson_fit %>% check_overdispersion()
 ```
 
-Wenn wir Overdispersion vorliegen haben und damit die Varianz zu niedrig schätzen, dann erhalten wir viel mehr signifikante Ergebnisse als es in den Daten zu erwarten wäre.
+Wenn wir Overdispersion vorliegen haben und damit die Varianz zu niedrig schätzen, dann erhalten wir viel mehr signifikante Ergebnisse als es in den Daten zu erwarten wäre. Schauen wir uns nochmal die Parameter der Poissonverteilung und die $p$-Werte einmal an.
+
+```{r}
+#| message: false
+
+poisson_fit %>% model_parameters()
+```
+
+In der Spalte `p` finden wir die $p$-Werte für alle Variablen. Wir sehen, dass fast alle Variablen signifikant sind und das wir eine sehr niedrige Varianz in der Spalte `SE` sehen. Das heißt unser geschätzer Fehler ist sehr gering. Das ahnten wir ja schon, immerhin haben wir eine Overdisperson vorliegen. Das Modell ist somit falsch. Wir müssen uns ein neues Modell suchen, was Overdispersion berückscihtigen und modellieren kann.
+
+Die Quasi-Poisson Verteilung hat einen zusätzlichen, unabhänigen Parameter um die Varianz der Verteilung zu schätzen. Daher können wir die Overdispersion mit einer Quasi-Poisson Verteilung berückscihtigen. Wir können eine Quasi-Poisson Verteilung auch mit der Funktion `glm()` schätzen nur müssen wir als Verteilungsfamilie `quasipoisson` angeben.
 
 ```{r}
 quasipoisson_fit <- glm(longnose ~ area + do2 + maxdepth + no3 + so4 + temp,
-                        longnose_tbl, family = quasipoisson)
+                        data = longnose_tbl, family = quasipoisson)
 ```
 
 ```{r}
@@ -101,7 +121,7 @@ quasipoisson_fit %>% summary
 
 ```{r}
 negativebinomial_fit <- glm.nb(longnose ~ area + do2 + maxdepth + no3 + so4 + temp,
-                           longnose_tbl)
+                               data = longnose_tbl)
 
 
 ```
