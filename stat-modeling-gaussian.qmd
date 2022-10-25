@@ -8,6 +8,24 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, patchwork)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
+## Annahmen an die Daten
+
+[Unser gemessenes Outcome $y$ folgt einer Normalverteilung.]{.aside}
+
+Im folgenden Kapitel zu der multiplen gaussian linearen Regression gehen wir davon aus, dass die Daten in der vorliegenden Form *ideal* sind. Das heißt wir haben weder fehlende Werte vorliegen, noch haben wir mögliche Ausreißer in den Daten. Auch wollen wir keine Variablen selektieren. Wir nehmen alles was wir haben mit ins Modell. Sollte eine oder mehre Bedingungen nicht zutreffen, dann schaue dir einfach die folgenden Kapitel an.
+
+-   Wenn du fehlende Werte in deinen Daten vorliegen hast, dann schaue bitte nochmal in das @sec-missing zu Imputation von fehlenden Werten.
+-   Wenn du denkst, dass du Ausreißer oder auffälige Werte in deinen Daten hast, dann schaue doch bitte nochmal in das @sec-outlier zu Ausreißer in den Daten.
+-   Wenn du denkst, dass du zu viele Variablen in deinem Modell hast, dann hilft dir das @sec-variable-selection bei der Variablenselektion.
+
+Daher sieht unser Modell wie folgt aus. Wir haben ein $y$ und $p$-mal $x$. Wobei $p$ für die Anzahl an Variablen auf der rechten Seite des Modells steht. Im Weiteren ist unser $y$ normalverteilt. Das ist hier sehr wichtig, denn wir wollen ja eine multiple gaussian lineare Regression rechnen.
+
+$$
+y \sim x_1 + x_2 + ... + x_p 
+$$
+
+Wir können in dem Modell auch Faktoren $f$ haben, aber es geht hier nicht um einen Gruppenvergleich. Das ist ganz wichtig. Wenn du einen Gruppenvergleich rechnen willst, dann musst du in @sec-posthoc nochmal nachlesen.
+
 ## Genutzte R Pakete für das Kapitel
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
@@ -15,8 +33,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom,
-               see, performance, emmeans, multcomp, scales,
-               parameters)
+               see, performance, scales, parameters)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -28,7 +45,7 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
-Wir wollen uns erstmal mit
+Im Folgenden schauen wir uns die Daten eines Pilotprojektes zum Anbau von Kichererbsen in Brandenburg an. Wir haben an verschiedenen anonymisierten Bauernhöfen Kichererbsen angebaut und das Trockengewicht als Endpunkt bestimmt. Darüber hinaus haben wir noch andere Umweltparameter erhoben und wollen schauen, welche dieser Parameter einen Einfluss auf das Trockengewicht hat.
 
 ```{r}
 #| message: false
@@ -37,7 +54,7 @@ chickpea_tbl <- read_excel("data/chickpeas.xlsx")
 
 ```
 
-In der @tbl-gaussian-chickpea ist der Datensatz `gaussian_tbl` nochmal dargestellt.
+In der @tbl-gaussian-chickpea ist der Datensatz `chickenpea_tbl` nochmal dargestellt. Wir sehen, dass wir verschiedene Variablen gemessen haben. Unter anderem, ob es geregent hat oder an welcher Stelle in Brandenburg die Messungen stattgefunden haben. Ebenso haben wir geschaut, ob ein Wald in der Nähe der Messung war oder nicht. Wir nehmen als Outcome $y$ das normalverteilte Trockengewicht `dryweight`.
 
 ```{r}
 #| echo: false
@@ -50,30 +67,40 @@ In der @tbl-gaussian-chickpea ist der Datensatz `gaussian_tbl` nochmal dargestel
 
 chickpea_tbl <- read_excel("data/chickpeas.xlsx") 
 
-rbind(head(chickpea_tbl),
+rbind(head(chickpea_tbl, 4),
       rep("...", times = ncol(chickpea_tbl)),
-      tail(chickpea_tbl)) %>% 
+      tail(chickpea_tbl, 4)) %>% 
   kable(align = "c", "pipe")
 
 ```
 
+Im Folgenden werden wir die Daten nur für das Fitten eines Modells verwenden. In den anderen oben genannten Kapiteln nutzen wir die Daten dann anders.
+
 ## Fit des Modells
 
+Wir rechnen jetzt den Fit für das vollständige Modell mit allen Variablen in dem Datensatz. Wir sortieren dafür einmal das $y$ mit `dryweight` auf die linke Seite und dann die anderen Variablen auf die rechte Seite des `~`. Wir haben damit unser Modell `chickenpea_fit` wie folgt vorliegen.
+
 ```{r}
-gaussian_fit <- lm(dryweight ~ temp + rained + location + no3 + fe + sand + forest, data = chickpea_tbl)
-
-gaussian_fit %>% model_parameters()
-
+chickenpea_fit <- lm(dryweight ~ temp + rained + location + no3 + fe + sand + forest, 
+                   data = chickpea_tbl)
 ```
+
+Soweit so gut. Wir können uns zwar das Modell mit der Funktion `summary()` anschauen, aber es gibt schönere Funktionen, die uns erlauben einmal die Performance des Modells abzuschätzen. Also zu klären, ob soweit alles geklappt hat und wir mit dem Modell weitermachen können.
 
 ## Performance des Modells
 
-```{r}
-r2(gaussian_fit)
-```
+Um zu überprüfen, ob das Modell funktioniert können wir uns den Anteil der erklärten Varianz anschauen. Wieviel erklären unsere $x$ von der Varianz des Outcomes $y$? Wir betrachten dafür das Bestimmtheitsmaß $R^2$. Da wir mehr als ein $x$ vorliegen haben, nutzen wir das adjustierte $R^2$. Das $R^2$ hat die Eigenschaft immer größer und damit besser zu werden je mehr Variablen in das Modell genommen werden. Wir können dagegen Adjustieren und daher das $R^2_{adj}$ nehmen.
 
 ```{r}
-check_heteroscedasticity(gaussian_fit)
+r2(chickenpea_fit)
+```
+
+Wir erhalten ein $R^2_{adj}$ von $0.87$ und damit erklärt unser Modell ca 87% der Varianz von $y$ also unserem Trockengewicht. Das ist ein sehr gutes Modell. Je nach Anwendung sind 60% bis 70% erklärte Varianz schon sehr viel.
+
+Im nächsten Schritt wollen wir nochmal überprüfen, ob die Varianzen der Residuen auch homogen sind. Das ist eine weitere Annahme an ein gutes Modell. Im Prinzip überprüfen wir hier, ob unser Ourtcome auch wirklcih normalveteilt ist bzw. der Annahme der Normalverteilung genügt. Wir nutzen dafür die Funktion `check_heteroscedasticity()` aus dem R Paket `performance`.
+
+```{r}
+check_heteroscedasticity(chickenpea_fit)
 ```
 
 ```{r}
@@ -85,14 +112,15 @@ check_heteroscedasticity(gaussian_fit)
 #| fig-width: 8
 #| fig-cap: "Ausgabe ausgewählter Modelgüteplots der Funktion `check_model()`."
 
-check_model(gaussian_fit, colors = cbbPalette[6:8], check = c("qq", "outliers", "pp_check", "homogeneity")) 
+check_model(chickenpea_fit, colors = cbbPalette[6:8], check = c("qq", "outliers", "pp_check", "homogeneity")) 
 
 ```
 
 ## Interpretation des Modells
 
 ```{r}
-gaussian_fit %>% 
-  tidy %>% 
-  mutate(p.value = pvalue(p.value))
+chickenpea_fit %>% model_parameters()
+
 ```
+
+## Wie weiter?
