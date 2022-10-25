@@ -33,7 +33,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom,
-               parameters, performance, MASS, pscl)
+               parameters, performance, MASS, pscl, see)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -67,7 +67,22 @@ rbind(head(longnose_tbl, n = 4),
   kable(align = "c", "pipe")
 ```
 
-Im Folgenden werden wir die Daten nur für das Fitten eines Modells verwenden. In den anderen oben genannten Kapiteln nutzen wir die Daten dann anders.
+Im Folgenden werden wir die Daten nur für das Fitten eines Modells verwenden. In den anderen oben genannten Kapiteln nutzen wir die Daten dann anders. In @fig-pois-model-longnose sehen wir nochmal die Verteilung der Anzahl der Hechte in den Flüssen.
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-pois-model-longnose
+#| fig-align: center
+#| fig-height: 8
+#| fig-width: 8
+#| fig-cap: "Histogramm der Verteilung der Hechte in den beobachteten Flüssen."
+
+ggplot(longnose_tbl, aes(longnose)) +
+  theme_bw() +
+  geom_histogram()
+
+```
 
 ## Fit des Modells
 
@@ -115,78 +130,137 @@ quasipoisson_fit <- glm(longnose ~ area + do2 + maxdepth + no3 + so4 + temp,
                         data = longnose_tbl, family = quasipoisson)
 ```
 
+Nach dem Modellti können wir nochmal in der `summary()` Funktion schauen, ob wir die Overdispersion richtig berücksichtigt haben.
+
 ```{r}
 quasipoisson_fit %>% summary
 ```
+
+An der Zeile `Dispersion parameter for quasipoisson family taken to be 29.403319` in der Summary-Ausgabe sehen wir, dass das Modell der Quasi-Possion Verteilung die Overdispersion korrekt berücksichtigt hat. Wir können uns nun einmal die Modellparameter anschauen. Die Interpretation machen wir am Ende des Kapitels.
+
+```{r}
+#| message: false
+
+quasipoisson_fit %>% model_parameters()
+```
+
+Jetzt sieht unser Modell und die $p$-Werte zusammen mit dem Standardfehler `SE` schon sehr viel besser aus. Wir können also diesem Modell erstmal von der Seite der Overdispersion vertrauen.
+
+Am Ende wollen wir nochmal das Modell mit der negativen Binomialverteilung rechnen. Die negativen Binomialverteilung erlaubt auch eine Unabhängigkeit von dem Mittelwert zu der Varianz. Wir können hier auch für die Overdispersion adjustieren. Wir rechnen die negativen Binomialregression mit der Funktion `glm.nb()` aus dem R Paket `MASS`. Wir müssen keine Verteilungsfamilie angeben, die Funktion `glm.nb()` kann nur die negative Binomialverteilung modellieren.
 
 ```{r}
 negativebinomial_fit <- glm.nb(longnose ~ area + do2 + maxdepth + no3 + so4 + temp,
                                data = longnose_tbl)
-
-
 ```
+
+Auch hier schauen wir mit der Funktion `summary()` einmal, ob die Overdisprsion richtig geschätzt wurde oder ob hier auch eine Unterschätzung des Zusammenhangs des Mittelwerts und der Varianz vorliegt.
 
 ```{r}
-negativebinomial_fit %>% summary
+negativebinomial_fit %>% summary()
 ```
+
+Auch hier sehen wir, dass die Overdispersion mit dem Parameter $\theta$ berücksichtigt wird. Wir können die Zahl $1.67$ nicht direkt mit der Overdispersion aus einer Poissonregression verglechen, aber wir sehen dass das Verhältnis von `Residual deviance` zu den Freiheitsgraden mit $\cfrac{73.65}{61} \approx 1.20$ fast bei 1:1 liegt. Wir könnten also auch eine negative Binomialverteilung für das Modellieren nutzen.
+
+```{r}
+#| message: false
+
+negativebinomial_fit %>% model_parameters()
+```
+
+::: column-margin
+Wie immer gibt es reichtlich Tipps & Tricks welches Modell du nun nehmen solltest. [How to deal with overdispersion in Poisson regression: quasi-likelihood, negative binomial GLM, or subject-level random effect?](https://stats.stackexchange.com/questions/201903/how-to-deal-with-overdispersion-in-poisson-regression-quasi-likelihood-negativ/332250#332250) und das Tutorial [Modeling Count Data](https://online.stat.psu.edu/stat504/lesson/9/9.2-0). Auch ich mus immer wieder schauen, was am besten konkret in der Anwendung passen könnte und würde.
+:::
+
+Welches Modell nun das beste Modell ist, ist schwer zu sagen. Wenn du Overdisperion vorliegen hast, dann ist natürlich nur das Quasi-Poissonmodell oder das negative Binomialmodell möglich. Welche der beiden dann das bessere ist, hängt wieder von der Fragestellung ab. Allgemein gesprochen ist das Quasi-Poissonmodell *besser* wenn dich die Zusammenhänge von $y$ zu $x$ am meisten interessieren. Und das ist in unserem Fall hier die Sachlage. Daher gehen wir mit den Quasi-Poissonmdell dann weiter.
 
 ## Performance des Modells
 
-## Interpretation des Modells
+```{r}
+r2(quasipoisson_fit)
+```
 
 ```{r}
+#| echo: true
+#| message: false
+#| label: fig-pois-model-check
+#| fig-align: center
+#| fig-height: 8
+#| fig-width: 8
+#| fig-cap: "Ausgabe ausgewählter Modelgüteplots der Funktion `check_model()`."
 
-poisson_fit %>% summary
-
-## ?berschlagsrechnung f?r die Dispersion
-## (aus dem glm summary): Residual deviance: 1590.04  on 61  degrees of freedom
-1590.04/61
-
-quasipoisson_fit <- glm(longnose ~ area + do2 + maxdepth + no3 + so4 + temp,
-                        longnose_tbl, family = quasipoisson)
-
-quasipoisson_fit %>% summary
-
-negativebinomial_fit <- glm.nb(longnose ~ area + do2 + maxdepth + no3 + so4 + temp,
-                           longnose_tbl)
-
-negativebinomial_fit %>% summary
-
-
-## wir machen mit den quasifit weiter
-
-quasipoisson_fit %>% tidy(conf.int = TRUE, exponentiate = TRUE)
-
-## How much is the fish?
-sample_size <- 10000
-longnose_small_tbl <- tibble(grp = rep(c(0, 1), each = sample_size),
-         resp = 15 + 10 * grp + rnorm(2 * sample_size, 0, 1)) %>%
-  mutate(resp_count = round(resp),
-         grp = factor(grp, labels = c("ctrl", "trt")))
-
-ggplot(longnose_small_tbl, aes(x = grp, y = resp, fill = grp)) +
-  geom_boxplot()
-
-glm(resp_count ~ grp, data = longnose_small_tbl, family = gaussian)
-
-glm(resp_count ~ grp, data = longnose_small_tbl, family = poisson) %>%
-  tidy(exponentiate = TRUE)
-
-quasipoisson_fit <- glm(longnose ~ temp,
-                        longnose_tbl, family = quasipoisson)
-quasipoisson_fit %>% tidy(conf.int = TRUE, exponentiate = TRUE)
-
-
-gaussian_fit <- glm(longnose ~ temp,
-                        longnose_tbl, family = gaussian)
-gaussian_fit %>% tidy(conf.int = TRUE, exponentiate = TRUE)
-
-hist(longnose_tbl$longnose)
-
-summary(longnose_tbl$longnose)
+check_model(quasipoisson_fit, colors = cbbPalette[6:8], 
+            check = c("qq", "outliers", "pp_check", "homogeneity")) 
 
 ```
 
-## Overdispersion
+## Interpretation des Modells
+
+Um die Effektschätzer einer Poissonregression oder aber einer Quasipoisson-Regression interpretieren zu können müssen wir uns einmal einen Beispieldatensatz mit bekannten Effekten zwischen den Gruppen bauen. Im Folgenden bauen wir uns einen Datensatz mit zwei Gruppen. Einmal einer Kontrollgruppe mit einer mittleren Anzahl an $15$ und einer Behandlungsgruppe mit einer um $\beta_1 = 10$ höheren Anzahl. Wir haben also in der Kontrolle im Mittel eine Anzahl von $15$ und in der Behandlungsgruppe eine mittlere Anzahl von $25$.
+
+```{r}
+sample_size <- 10000
+longnose_small_tbl <- tibble(grp = rep(c(0, 1), each = sample_size),
+                             count = 15 + 10 * grp + rnorm(2 * sample_size, 0, 1)) %>%
+  mutate(count = round(count),
+         grp = factor(grp, labels = c("ctrl", "trt")))
+```
+
+In @tbl-pois-longnose-small sehen wir nochmal die Daten als Ausschnitt dargestellt.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-pois-longnose-small
+#| tbl-cap: How much is the fish? Der Datensatz über $n = 1000$ Beobachtungen an dem wir überlegen wollen wie wir die Effektschätzer einer Poissonregression zu interpretieren haben. 
+
+longnose_small_raw_tbl <- longnose_small_tbl %>% 
+  mutate(grp = as.character(grp))
+
+rbind(head(longnose_small_raw_tbl, n = 4),
+      rep("...", times = ncol(longnose_small_raw_tbl)),
+      tail(longnose_small_raw_tbl, n = 4)) %>% 
+  kable(align = "c", "pipe")
+```
+
+Da sich die Tabelle schlecht liest hier nochmal der Boxplot in @fig-pois-model-small. Wir sehen den Grupenunterschied von $10$ sowie die unterschiedlichen mittleren Anzahlen für die Kontrolle und die Behandlung.
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-pois-model-small
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: How much is the fish? Der Boxplot über $n = 1000$ Beobachtungen an dem wir überlegen wollen wie wir die Effektschätzer einer Poissonregression zu interpretieren haben. 
+
+ggplot(longnose_small_tbl, aes(x = grp, y = count, fill = grp)) +
+  theme_bw() +
+  geom_boxplot() +
+  theme(legend.position = "none") +
+  scale_fill_okabeito() 
+
+```
+
+Jetzt fitten wir einmal das simple Poissonmodell mit der Anzahl als Outcome und der Gruppe mit den zwei Leveln als $x$. Wir pipen dann das Ergebnis des Fittes gleich in die Funktion `model_parameters()` weiter um die Ergebnisse des Modellierens zu erhalten.
+
+```{r}
+#| message: false
+#| warning: false
+glm(count ~ grp, data = longnose_small_tbl, family = poisson) %>%
+  model_parameters(exponentiate = TRUE)
+```
+
+Als erstes fällt auf, dass wir die Ausgabe des Modells exponieren müssen. Um einen linearen Zusamenhang hinzukriegen bedient sich die Poissonregression den Trick, das der Zusammenhang zwischen dem $y$ und dem $x$ *transformiert* wird. Wir rechnen unsere Regression nicht auf den echten Daten sondern auf dem $\log$-scale. Daher müssen wir die Koeffizienten der Poissonregression wieder zurücktransfomieren, wenn wir die Koeffizienten interpretieren wollen. Das können wir mit der Option `exponentiate = TRUE` durchführen.
+
+Gut soweit, aber was heißen den jetzt die Zahlen? Wir haben einen Intercept von $14.99$ das entspricht der mittleren Anzahl in der Kontrollgruppe. Und was sagt jetzt die $1.67$ vom Level `trt` des Faktors `grp`? Wenn wir $14.99 \cdot 1.67$ rechnen, dann erhalten wir als Ergebnis $25.03$, also die mittlere Anzahl in der Behandlungsgruppe.
+
+```{r}
+#| message: false
+
+quasipoisson_fit %>% model_parameters()
+```
 
 ## Zeroinflation
+
+![](images/caution.png){fig-align="center" width="50%"}
