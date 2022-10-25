@@ -33,7 +33,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom,
-               parameters, performance, MASS, pscl, see)
+               parameters, performance, MASS, pscl, see,
+               scales)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -253,13 +254,40 @@ glm(count ~ grp, data = longnose_small_tbl, family = poisson) %>%
 
 Als erstes fällt auf, dass wir die Ausgabe des Modells exponieren müssen. Um einen linearen Zusamenhang hinzukriegen bedient sich die Poissonregression den Trick, das der Zusammenhang zwischen dem $y$ und dem $x$ *transformiert* wird. Wir rechnen unsere Regression nicht auf den echten Daten sondern auf dem $\log$-scale. Daher müssen wir die Koeffizienten der Poissonregression wieder zurücktransfomieren, wenn wir die Koeffizienten interpretieren wollen. Das können wir mit der Option `exponentiate = TRUE` durchführen.
 
-Gut soweit, aber was heißen den jetzt die Zahlen? Wir haben einen Intercept von $14.99$ das entspricht der mittleren Anzahl in der Kontrollgruppe. Und was sagt jetzt die $1.67$ vom Level `trt` des Faktors `grp`? Wenn wir $14.99 \cdot 1.67$ rechnen, dann erhalten wir als Ergebnis $25.03$, also die mittlere Anzahl in der Behandlungsgruppe.
+Gut soweit, aber was heißen den jetzt die Zahlen? Wir haben einen Intercept von $14.99$ das entspricht der mittleren Anzahl in der Kontrollgruppe. Und was sagt jetzt die $1.67$ vom Level `trt` des Faktors `grp`? Wenn wir $14.99 \cdot 1.67$ rechnen, dann erhalten wir als Ergebnis $25.03$, also die mittlere Anzahl in der Behandlungsgruppe. Was sagt uns das jetzt aus? Wir erhalten aus der Poissonregression eine Wahrscheinlichkeit oder aber ein Risk Ratio. Wir können sagen, dass die Anzahl in der Behandlungsgruppe $1.67$-mal so groß ist wie in der Kontrollgruppe.
+
+Schauen wir uns nochmal das volle Modell an und interpretieren die Effekte der einzelnen Variablen.
 
 ```{r}
 #| message: false
 
-quasipoisson_fit %>% model_parameters()
+quasipoisson_fit %>% 
+  model_parameters(exponentiate = TRUE) 
 ```
+
+So schön auch die Funktion `model_parameters()` ist, so haben wir aber hier das Problem, dass wir den Effekt von `area` nicht mehr richtig sehen. Wir kriegen hier eine zu starke Rundung auf zwei Nachkommastellen. Wir nutzen jetzt mal die Funktion `tidy()` um hier Abhilfe zu leisten. Ich muss hier noch die Spalte `estimate` mit `num(..., digits = 5)` anpassen, damit du in der Ausgabe auf der Webseite auch die Nachkommastellen siehst.
+
+```{r}
+#| message: false
+
+quasipoisson_fit %>% 
+  tidy(exponentiate = TRUE, digits = 5) %>% 
+  select(term, estimate, p.value) %>% 
+  mutate(p.value = pvalue(p.value),
+         estimate = num(estimate, digits = 5))
+```
+
+Schauen wir uns die Effekte der Poissonregression einmal an und versuchen die Ergebnisse zu interpretieren. Dabei ist wichtig sich zu erinnern, dass kein Effekt eine 1 bedeutet. Wir schauen hier auf einen Faktor. Wenn wir eine Anzahl mal Faktor 1 nehmen, dann ändert sich nichts an der Anzahl.
+
+-   `(Intercept)` beschreibt den Intercept der Poissonregression. Wenn wir mehr als eine simple Regression vorliegen haben, wie in diesem Fall, dann ist der Intercept schwer zu interpretieren. Wir konzentrieren uns auf die Effekte der anderen Variablen.
+-   `area`, beschreibt den Effekt der Fläche. Steigt die Fläche um ein Quadratmeter an, so erhöht sich die *Anzahl an Fischen* um den $1.00001$. Daher würde man hier eher sagen, erhöht sich die Fläche um jeweils 1000qm so erhöht sich die *Anzahl an Fischen* um den Faktor $1.1$. Dann haben wir auch einen besser zu interpretierenden Effektschätzer. Die Signifikanz bleibt hier davon unbetroffen.
+-   `do2`, beschreibt den Partzialdruck des Sauerstoffs. Steigt dieser um eine Einheit an, so sehen wie eine Erhöhung der *Anzahl an Fischen* um den Faktor $1.25$. Der Effekt ist gerade *nicht* signifikant.
+-   `maxdepth`, beschreibt die maximale Tiefe. Je tiefer ein Fluß, desto mehr Hechte werden wir beobachten. Der Effekt von $1.01$ pro Meter Tiefe ist signifikant.
+-   `no3`, beschreibt den Anteil an Nitrat in den Flüssen. Je mehr Nitrat desto signifiant mehr Hechte werden wir beobachten. Hier steigt der Faktor auch um $1.20$.
+-   `so4`, beschreibt den Schwefelgehalt und mit steigenden Schwefelgehalt nimmt die *Anzahl an Fischen* leicht ab. Der Effekt ist aber überhauot nicht signifikant.
+-   `temp`, beschreibt die Temperatur der Flüsse. Mit steigender Tempertaur erwarten wir mehr Hechte zu beobachten. Der Effekt von $1.08$ Fischen pro Grad Erhöhung ist signifikant.
+
+Was nehmen wir aus der Poissonregression zu den langnasigen Hechten mit? Zum einen haben die Fläche, die Tiefe und der Nitratgehalt einen signifikanten Einfluss auf die Anzahl an Hechten. Auch führt eine höhere Temperatur zu mehr gefundenen Hechten. Die erhöhte Temperatur steht etwas im Widerspuch zu dem Sauerstoffpartizaldruck. Denn je höher die Temperatur desto weniger Sauerstoff wird in dem Wasser gelöst sein. Auch scheint die Oberfläche mit der Tiefe korreliert. Allgemein scheinen Hechte große Flüße zu mögen. Hier bietet sich also noch eine Variablenselektion oder eine Untersuchung auf Ausreißer an um solche Effekte nochmal gesondert zu betrachten.
 
 ## Zeroinflation
 
