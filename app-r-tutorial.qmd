@@ -16,9 +16,17 @@ In diesem Kapitel gibt es eine etwas *wilde* Sammlung an Fragen und Antworten, d
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
-```{r echo = TRUE}
+```{r }
+#| echo: true
+#| message: false
+#| warning: false
+
 pacman::p_load(tidyverse, magrittr, readxl, broom, broom.mixed, 
-               multcomp, emmeans, performance, lme4, effectsize)
+               multcomp, emmeans, performance, lme4, effectsize,
+               conflicted)
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("summarise", "dplyr")
 ```
 
 Schaue dir bitte erst den R Code zu deiner Frage an und dann kannst du die Pakete noch nachinstallieren. Es werden sich hier sicherlich eine Menge ansammeln.
@@ -114,6 +122,9 @@ ggplot(stat_tbl, aes(x = site, y = mean, group = trt, fill = trt)) +
 ## Auswertung von Pflugdaten
 
 ```{r}
+#| echo: true
+#| message: false
+#| warning: false
 
 plowing_file <- file.path("data/plowing_data.xlsx")
 
@@ -128,6 +139,74 @@ plowing_lst <- plowing_lst %>%
               block = as_factor(block),
               variant = as_factor(variant),
               day = as_factor(day))) 
+
+as_tbl <- pluck(plowing_lst, "as")
+ph_tbl <- pluck(plowing_lst, "ph")
+water_tbl <- pluck(plowing_lst, "water")
+root_tbl <- pluck(plowing_lst, "root")
+
+
+## EDA
+p_template <- ggplot() +
+  aes(x = variant, y = mean, group = day, fill = day) + 
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd),
+                width = 0.2, position = position_dodge(0.9)) +
+  theme_bw() +
+  labs(fill = "Tag") 
+
+
+as_stat_tbl <- as_tbl %>% 
+  group_by(day, variant) %>% 
+  summarise(mean = mean(as),
+            sd = sd(as))
+
+p_template %+% as_stat_tbl
+
+ph_stat_tbl <- ph_tbl %>% 
+  group_by(day, variant) %>% 
+  summarise(mean = mean(ph),
+            sd = sd(ph))
+
+p_template %+% ph_stat_tbl
+
+water_stat_tbl <- water_tbl %>% 
+  group_by(day, variant) %>% 
+  summarise(mean = mean(water),
+            sd = sd(water))
+
+p_template %+% water_stat_tbl
+
+root_stat_tbl <- root_tbl %>% 
+  group_by(day, variant) %>% 
+  summarise(mean = mean(root),
+            sd = sd(root))
+
+p_template %+% root_stat_tbl
+
+
+## ANOVA and posthoc
+
+as_fit <- lm(as ~ variant + block, data = as_tbl) 
+
+as_fit %>% anova
+
+ph_fit <- lm(ph ~ variant + block, data = ph_tbl) 
+
+ph_fit %>% anova
+
+water_fit <- lm(water ~ variant + block, data = water_tbl) 
+
+water_fit %>% anova
+
+root_fit <- lm(root ~ variant + block, data = root_tbl) 
+
+root_fit %>% anova
+
+
+pairwise.t.test(ph_tbl$ph, ph_tbl$variant,
+                p.adjust.method = "none")
+
 
 ```
 
