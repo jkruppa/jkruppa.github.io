@@ -20,6 +20,8 @@ Die Struktur der fehlenden Werte lässt sich meist schwer vorhersagen. Es gibt h
 
 Unter der Annahme, dass es sich bei den Daten um MCAR handelt, können auch zu viele fehlende Daten ein Problem darstellen. In der Regel liegt die sichere Obergrenze bei großen Datensätzen bei 5 % der Gesamtmenge. Wenn die fehlenden Daten für ein bestimmtes Merkmal oder eine Stichprobe mehr als 5 % betragen, sollten Sie dieses Merkmal oder diese Stichprobe wahrscheinlich weglassen. Wir prüfen daher mit einer einfachen Funktion, ob in den Merkmalen (Spalten) und Stichproben (Zeilen) mehr als 5 % der Daten fehlen
 
+## Univariat vs. multivariat
+
 ## Genutzte R Pakete für das Kapitel
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
@@ -116,15 +118,53 @@ plot_na_pareto(pig_miss_tbl)
 
 ```
 
-## Mean oder Median Imputation
+## Univariate Imputation
 
 ::: column-margin
 Das [R Paket `dlookr`](https://yuzar-blog.netlify.app/posts/2021-01-30-r-package-reviews-dlookr-diagnose-explore-and-transform-your-data/) hat eine große Auswahl an simplen Imputationsalgorithmen.
 :::
 
-## Most frequent Imputation
+predictor is numerical variable.
 
-## Imputation mit `mice`
+"mean" : arithmetic mean.
+
+"median" : median.
+
+"mode" : mode.
+
+predictor is categorical variable.
+
+"mode" : mode.
+
+"rpart" : Recursive Partitioning and Regression Trees.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-imp-median-mean
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 7
+#| fig-cap: "Histogramme der Anzahl an Gummibärchen und die Anzahl an Farben in einer Tüte. Es gibt nicht mehr als sechs Farben."
+#| fig-subcap: 
+#|   - "Anzahl an Bärchen"
+#|   - "Anzahl an Farben"
+#|   - "Anzahl an Bärchen"
+#| layout-nrow: 2
+#| column: page
+
+imp_age_tbl <- gummi_tbl %>% 
+  mutate(mean_age_imp = imputate_na(gummi_tbl, semester, method = "mean"),
+         median_age_imp = imputate_na(gummi_tbl, semester, method = "median"))
+
+plot(imp_age_tbl$mean_age_imp)
+plot(imp_age_tbl$median_age_imp)
+```
+
+## Multivariate Imputation
+
+### Imputation mit `mice`
 
 ```{r}
 imp_method <- c(gender = "logreg", age = "pmm", height = "pmm", semester = "pmm", 
@@ -155,9 +195,37 @@ pooled_res <- imp_gummi_tbl %>%
   pool()
 ```
 
-## Was macht `pool`?
+### Was macht `pool`?
 
-## missForest
+## Imputation mit `missForest`
+
+## Imputation mit `missRanger`
+
+```{r}
+gummi_imputet <- missRanger(
+  gummi_tbl, 
+  formula = . ~ . ,
+  num.trees = 1000, 
+  verbose = 2, 
+  seed = 111,  
+  returnOOB = TRUE)
+
+# numeric imputation
+ggplot()+
+  geom_point(data = gummi_imputet, aes(age, height), 
+             color = "red")+
+  geom_point(data = gummi_tbl, aes(age, height))+
+  theme_minimal()
+
+# caterogical imputation
+ggplot()+
+  geom_bar(data = gummi_tbl, aes(gender), width = 0.3)+
+  geom_bar(data = gummi_imputet, aes(gender), fill = "red",
+           position = position_nudge(x = 0.25), width = 0.3)+
+  
+  theme_minimal()
+
+```
 
 ## Sensitivitätsanalysen
 
