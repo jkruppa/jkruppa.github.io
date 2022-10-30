@@ -504,6 +504,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
   <ul class="collapse">
 <li><a href="#sec-mice" id="toc-sec-mice" class="nav-link" data-scroll-target="#sec-mice"> <span class="header-section-number">37.7.1</span> Imputation mit <code>mice</code></a></li>
   <li><a href="#sec-missRanger" id="toc-sec-missRanger" class="nav-link" data-scroll-target="#sec-missRanger"> <span class="header-section-number">37.7.2</span> Imputation mit <code>missRanger</code></a></li>
+  <li><a href="#sec-imp-recipes" id="toc-sec-imp-recipes" class="nav-link" data-scroll-target="#sec-imp-recipes"> <span class="header-section-number">37.7.3</span> Imputation mit <code>recipes</code></a></li>
   </ul>
 </li>
   <li><a href="#sensitivit%C3%A4tsanalysen" id="toc-sensitivitätsanalysen" class="nav-link" data-scroll-target="#sensitivit%C3%A4tsanalysen"> <span class="header-section-number">37.8</span> Sensitivitätsanalysen</a></li>
@@ -526,11 +527,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </header><div class="cell">
 
 </div>
-<p><em>Version vom October 30, 2022 um 19:29:06</em></p>
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure"><p><img src="images/caution.png" class="img-fluid figure-img" style="width:50.0%"></p>
-</figure>
-</div>
+<p><em>Version vom October 30, 2022 um 20:56:42</em></p>
 <div class="page-columns page-full"><p></p><div class="no-row-height column-margin column-container"><span class="aside">Ein fehlender Wert wird in R als <code>NA</code> (eng. <em>not availabe</em>) bezeichnet.</span></div></div>
 <p>Wann brauchen wir eigentlich die Imputation (deu. <em>Ersetzung</em>) von fehlenden Werten in unseren Daten? Zum einen brauchen wir die Imputation von fehlenden Werten, wenn wir eine multiple lineare Regression rechnen wollen. Wenn wir einen fehlenden Wert in einer Spalte haben, so fällt diese Beobachtung aus dem <em>gesamten</em> Modell heraus. Das heist, dass wir Fallzahl verlieren sobald wir fehlende Werte in den Daten haben. Tritt dies in einem geplanten Experiment auf? Das kommt darauf an. Wenn du selber die Daten erhebst, dann ist es eher unwahrscheinlich, du wirst vermutlich darauf achten möglichst alle Daten zu erheben. Meistens treten fehlende Werte bei sehr großen Datensätzen auf, die aus externen Quellen kommen. Werden diese Daten dann kombiniert, sieht die Fallzahl beeindruckend aus, aber wenn die Beobachtungen mit mindestens einem fehlenden Wert gelöscht werden, sind die Fallzahlen wieder ganz klein.</p>
 <div class="page-columns page-full"><p></p><div class="no-row-height column-margin column-container"><span class="aside">Wir imputieren nur <span class="math inline">\(x\)</span> Werte und niemals das Outcome <span class="math inline">\(y\)</span>. Im Zweifel musst du schauen, dass du dir über <code>select()</code> die einzelnen Datensätze zusammenbaust, die du imputieren willst.</span></div></div>
@@ -792,10 +789,10 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 
 Parameter   | Coefficient |   SE |           95% CI | Statistic |     df |      p
 ---------------------------------------------------------------------------------
-(Intercept) |      183.99 | 1.52 | [180.99, 186.98] |    121.03 | 207.08 | &lt; .001
-age         |   -7.74e-03 | 0.06 | [ -0.12,   0.11] |     -0.13 | 204.40 | 0.895 
-semester    |       -0.20 | 0.13 | [ -0.46,   0.07] |     -1.46 | 355.40 | 0.144 
-genderw     |      -14.74 | 0.73 | [-16.19, -13.30] |    -20.08 | 338.65 | &lt; .001</code></pre>
+(Intercept) |      183.83 | 1.51 | [180.85, 186.80] |    121.70 | 318.20 | &lt; .001
+age         |   -5.55e-03 | 0.06 | [ -0.12,   0.11] |     -0.10 | 363.65 | 0.923 
+semester    |       -0.17 | 0.15 | [ -0.46,   0.12] |     -1.17 |  84.87 | 0.244 
+genderw     |      -14.71 | 0.74 | [-16.16, -13.26] |    -19.93 | 307.72 | &lt; .001</code></pre>
 </div>
 </div>
 <p>Leider ist es so, dass wir nicht immer mit <code>pool()</code> arbeiten können, da wir für unsere Funktion, die wir nutzen wollen keine Anwendung in <code>pool()</code> finden. Salopp gesagt, wir erhalten einen Fehler, wenn wir das Modell oder die Funktion poolen wollen. In diesem Fall hilft die Funktion <code>complete()</code> mit der Option <code>action = "long"</code> und <code>include = TRUE</code> etwas weiter. Wir erhlaten damit die fünf imputierten Datensätze und den ursprünglichen Datensatz als Long-Format wiedergegeben. Damit können wir dann weiterarbeiten. Das ist aber dann das Thema für ein anderes Kapitel.</p>
@@ -855,50 +852,93 @@ genderw     |      -14.74 | 0.73 | [-16.19, -13.30] |    -20.08 | 338.65 | &lt; 
 </figure>
 </div>
 </div>
-</section><section id="sec-missRanger" class="level3" data-number="37.7.2"><h3 data-number="37.7.2" class="anchored" data-anchor-id="sec-missRanger">
+</section><section id="sec-missRanger" class="level3 page-columns page-full" data-number="37.7.2"><h3 data-number="37.7.2" class="anchored" data-anchor-id="sec-missRanger">
 <span class="header-section-number">37.7.2</span> Imputation mit <code>missRanger</code>
 </h3>
+<p>In diesem letzten Abschnitt wollen wir die Funktion <code>missRanger()</code> aus dem gleichnamigen R Paket <code>missRanger</code> nutzen um die fehlenden Werte in unseren Gummibärchendaten zu imputieren. Das Paket basiert auf sogenannten <em>Decision tree</em>, die wir im <a href="classification-randomforest.html"><span>Kapitel&nbsp;46</span></a> näher betrachten. Das tiefere Verständnis ist aber für die Anwendung nicht notwendig. Wir können die Funktionalität des R Pakets recht einfach nutzen.</p>
+<p>Als erstes brauchen wir den Datensatz und danach die Formel mit der Imputiert werden soll. Die Fomel ist ganz einfach aufgebaut. Links stehen die Variablen, die imputiert werden sollen und rechts stehen die Variablen, die zur Imputation verwendet werden sollen. Wenn wir einfach alles imputieren wollen und dafür alle Variablen nutzen wollen, dann schreiben wir einfach <code>. ~ .</code> auf. Also wir schreiben einen Punkt <code>.</code> links und rechts von der <code>~</code>. Dann weis die Funktion, dass alles unter der zu Hilfenahme von allen Variablen imputiert werden soll. Wir müssen noch angeben, wie oft die Imputation laufen soll. Wir haben wir per default <span class="math inline">\(500\)</span> Bäume oder Widerholungen angegeben. Wir wollen keine Ausgabe während der Funktion läuft und setzen deshalb <code>verbose = 0</code>.</p>
 <div class="cell">
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">gummi_imputet</span> <span class="op">&lt;-</span> <span class="fu">missRanger</span><span class="op">(</span></span>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">gummi_imputet_tbl</span> <span class="op">&lt;-</span> <span class="fu">missRanger</span><span class="op">(</span></span>
 <span>  <span class="va">gummi_tbl</span>, </span>
 <span>  formula <span class="op">=</span> <span class="va">.</span> <span class="op">~</span> <span class="va">.</span> ,</span>
-<span>  num.trees <span class="op">=</span> <span class="fl">1000</span>, </span>
-<span>  verbose <span class="op">=</span> <span class="fl">0</span>,  </span>
-<span>  returnOOB <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># numeric imputation</span></span>
-<span><span class="fu">ggplot</span><span class="op">(</span><span class="op">)</span><span class="op">+</span></span>
-<span>  <span class="fu">geom_point</span><span class="op">(</span>data <span class="op">=</span> <span class="va">gummi_imputet</span>, <span class="fu">aes</span><span class="op">(</span><span class="va">age</span>, <span class="va">height</span><span class="op">)</span>, </span>
+<span>  num.trees <span class="op">=</span> <span class="fl">500</span>, </span>
+<span>  verbose <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Wie wir sehen, ist die Funktion sehr viel einfacher zu handhaben. Am Ende erhalten wir per default nur einen Datensatz von der Funktion zurück. Die Funktion <code>missRanger()</code> poolt für uns die Daten, so dass wir dann mit dem einen Datensatz weitermachen können. Das ist natürlich besonders sinnvoll, wenn wir im Anschluss an die Imputation eben keine Regression sondern etwa maschinelle Lernverfahren nutzen wollen.</p>
+<p>In <a href="#fig-imp-missranger">Abbildung&nbsp;<span>37.7</span></a> sehen wir nochmal die Überprüfung der nicht-imputierten und imputierten Daten. Anscheinend hat die Impiutation gut geklappt. Für den kontinuierlichen Fall liegen die imputierten Beobachtungen gut gestreut in den nicht-imputierten Daten. Auch für die kategoriale Variable <code>gender</code> passen die Verhältnisse. Wir können die Überprüfung jetzt für alle kontinuierlichen und alle kategorialen Variablen fortsetzen. Das müssen wir auch tun! Nur hier ist dann auch bald mal der Platz zu Ende, so dass wir es bei den beiden Abbildungen belassen.</p>
+<div class="page-columns page-full">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">ggplot</span><span class="op">(</span><span class="op">)</span><span class="op">+</span></span>
+<span>  <span class="fu">geom_point</span><span class="op">(</span>data <span class="op">=</span> <span class="va">gummi_imputet_tbl</span>, <span class="fu">aes</span><span class="op">(</span><span class="va">age</span>, <span class="va">height</span><span class="op">)</span>, </span>
 <span>             color <span class="op">=</span> <span class="st">"red"</span><span class="op">)</span><span class="op">+</span></span>
 <span>  <span class="fu">geom_point</span><span class="op">(</span>data <span class="op">=</span> <span class="va">gummi_tbl</span>, <span class="fu">aes</span><span class="op">(</span><span class="va">age</span>, <span class="va">height</span><span class="op">)</span><span class="op">)</span><span class="op">+</span></span>
-<span>  <span class="fu">theme_minimal</span><span class="op">(</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Warning: Removed 27 rows containing missing values (geom_point).</code></pre>
-</div>
-<div class="cell-output-display">
-<p><img src="stat-modeling-missing_files/figure-html/unnamed-chunk-18-1.png" class="img-fluid" width="672"></p>
-</div>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># caterogical imputation</span></span>
+<span>  <span class="fu">theme_bw</span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_color_okabeito</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
 <span><span class="fu">ggplot</span><span class="op">(</span><span class="op">)</span><span class="op">+</span></span>
-<span>  <span class="fu">geom_bar</span><span class="op">(</span>data <span class="op">=</span> <span class="va">gummi_tbl</span>, <span class="fu">aes</span><span class="op">(</span><span class="va">gender</span><span class="op">)</span>, width <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span><span class="op">+</span></span>
-<span>  <span class="fu">geom_bar</span><span class="op">(</span>data <span class="op">=</span> <span class="va">gummi_imputet</span>, <span class="fu">aes</span><span class="op">(</span><span class="va">gender</span><span class="op">)</span>, fill <span class="op">=</span> <span class="st">"red"</span>,</span>
-<span>           position <span class="op">=</span> <span class="fu">position_nudge</span><span class="op">(</span>x <span class="op">=</span> <span class="fl">0.25</span><span class="op">)</span>, width <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span><span class="op">+</span></span>
-<span>  </span>
-<span>  <span class="fu">theme_minimal</span><span class="op">(</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output-display">
-<p><img src="stat-modeling-missing_files/figure-html/unnamed-chunk-18-2.png" class="img-fluid" width="672"></p>
+<span>  <span class="fu">geom_bar</span><span class="op">(</span>data <span class="op">=</span> <span class="va">gummi_tbl</span>, <span class="fu">aes</span><span class="op">(</span><span class="va">gender</span><span class="op">)</span>, width <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_bar</span><span class="op">(</span>data <span class="op">=</span> <span class="va">gummi_imputet_tbl</span>, <span class="fu">aes</span><span class="op">(</span><span class="va">gender</span><span class="op">)</span>, fill <span class="op">=</span> <span class="st">"red"</span>,</span>
+<span>           position <span class="op">=</span> <span class="fu">position_nudge</span><span class="op">(</span>x <span class="op">=</span> <span class="fl">0.25</span><span class="op">)</span>, width <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_bw</span><span class="op">(</span><span class="op">)</span> <span class="op">+</span> </span>
+<span>  <span class="fu">scale_color_okabeito</span><span class="op">(</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div id="fig-imp-missranger" class="cell column-page quarto-layout-panel">
+<figure class="figure"><div class="quarto-layout-row quarto-layout-valign-top">
+<div class="cell-output-display quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 50.0%;justify-content: center;">
+<div id="fig-imp-missranger-1" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure"><p><img src="stat-modeling-missing_files/figure-html/fig-imp-missranger-1.png" class="img-fluid figure-img" data-ref-parent="fig-imp-missranger" width="576"></p>
+<p></p><figcaption aria-hidden="true" class="figure-caption">(a) Überprüfung zweier kontinuierliche Variablen <code>age</code> und <code>height</code>.</figcaption><p></p>
+</figure>
 </div>
 </div>
-<p>Wir können auch nur Teile der Daten imputieren. Wenn wir nur die Spalten <code>age</code> und <code>semester</code> imputieren wollen, dann würden wir <code>age + semester ~ .</code> schreiben. Damit würden wir die beiden Spalten Alter und Semester dann durch die Informationen in all den anderen Spalten imputieren. Wir können die beiden Spalten auch nur durch spezifische andere Spalten imputieren lassen. Im folgenden Beispiel imputieren wir die Spalten <code>age</code> und <code>semester</code> durch die Informationen in den Spalten <code>height</code> und <code>gender</code>. Es dürfen natürlich auch gleiche Spalten auf beiden Seiten der Formel stehen.</p>
+<div class="cell-output-display quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 50.0%;justify-content: center;">
+<div id="fig-imp-missranger-2" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure"><p><img src="stat-modeling-missing_files/figure-html/fig-imp-missranger-2.png" class="img-fluid figure-img" data-ref-parent="fig-imp-missranger" width="576"></p>
+<p></p><figcaption aria-hidden="true" class="figure-caption">(b) Überprüfung einer kategorialen Variable <code>gender</code>.</figcaption><p></p>
+</figure>
+</div>
+</div>
+</div>
+<p></p><figcaption aria-hidden="true" class="figure-caption">Abbildung 37.7— Scatterplot und Barplot der imputierten Variablen getrennt nach nicht-imputierten und imputierten. Die roten Punkte stellen die imputierten Beobachtungen da.</figcaption><p></p>
+</figure>
+</div>
+</div>
+<p>Abschlißend können wir auch nur Teile der Daten imputieren. Wenn wir nur die Spalten <code>age</code> und <code>semester</code> imputieren wollen, dann würden wir <code>age + semester ~ .</code> schreiben. Damit würden wir die beiden Spalten Alter und Semester dann durch die Informationen in all den anderen Spalten imputieren. Wir können die beiden Spalten auch nur durch spezifische andere Spalten imputieren lassen. Im folgenden Beispiel imputieren wir die Spalten <code>age</code> und <code>semester</code> durch die Informationen in den Spalten <code>height</code> und <code>gender</code>. Es dürfen natürlich auch gleiche Spalten auf beiden Seiten der Formel stehen.</p>
 <div class="cell">
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">gummi_imputet</span> <span class="op">&lt;-</span> <span class="fu">missRanger</span><span class="op">(</span></span>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">gummi_imputet_tbl</span> <span class="op">&lt;-</span> <span class="fu">missRanger</span><span class="op">(</span></span>
 <span>  <span class="va">gummi_tbl</span>, </span>
 <span>  formula <span class="op">=</span> <span class="va">age</span> <span class="op">+</span> <span class="va">semester</span> <span class="op">~</span> <span class="va">height</span> <span class="op">+</span> <span class="va">gender</span> ,</span>
-<span>  num.trees <span class="op">=</span> <span class="fl">1000</span>, </span>
-<span>  verbose <span class="op">=</span> <span class="fl">0</span>,  </span>
-<span>  returnOOB <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span>  num.trees <span class="op">=</span> <span class="fl">500</span>,</span>
+<span>  verbose <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-</section></section><section id="sensitivitätsanalysen" class="level2" data-number="37.8"><h2 data-number="37.8" class="anchored" data-anchor-id="sensitivitätsanalysen">
+<p>Was war jetzt besser? Das ist eine gute Frage. In einer parametrischen Regressionsanalyse bietet sich der Ablauf mit dem R Paket <code>mice</code> an. Wir haben in dem Fall der Regression Zugriff auf die Funktion <code>pool()</code> und können damit die Ergebnisse der <span class="math inline">\(m\)</span> Imputationen zusammenfassen. Wenn wir das nicht können, also es keine Möglichkeit gibt unsere Methode der Wahl mit <code>pool()</code> zu nutzen, dann empfiehlt es sich das R Paket <code>missRanger</code> zu nutzen.</p>
+</section><section id="sec-imp-recipes" class="level3 page-columns page-full" data-number="37.7.3"><h3 data-number="37.7.3" class="anchored" data-anchor-id="sec-imp-recipes">
+<span class="header-section-number">37.7.3</span> Imputation mit <code>recipes</code>
+</h3>
+<p>Wenn wir später in dem <a href="classification-basic.html"><span>Kapitel&nbsp;44</span></a> zu maschinellen Lernverfahren etwas lernen, dann nutzen wir dafür <code>tidymodels</code>. Das R Paket <code>tidymodels</code> ist eine Zusammenfassung von mehreren wichtigen und sinnvollen R Paketen zur Klassifikation. Wir nutzen darüber hinaus das R Paket <code>recipes</code> um uns ein Rezept zu bauen, was wir dann nutzen. Du kannst mehr über den Aufbau von Rezepten in R dann im <a href="classification-basic.html"><span>Kapitel&nbsp;44</span></a> erfahren. Hier nur eine kurze Abhandlung dazu.</p>
+<p>Um die Rezepte in R nutzen zu können laden wir das Paket <code>tidymodels</code>. In dem Paket ist das R Paket <code>recipes</code> schon mit enthalten.</p>
+<div class="cell">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">pacman</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/pacman/man/p_load.html">p_load</a></span><span class="op">(</span><span class="va">tidymodels</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Wir definieren nun unser Rezept nachdem wir imputieren wollen. Im Gegensatz zu <code>missRanger</code> müssen wir hier ein Outcome <span class="math inline">\(y\)</span> angeben und auf der rechten Seite die Variablen, die mit in das Modell sollen. Das ist meistens auch kein Problem in der Klassifikation, da ja sehr häufig das Outcome <span class="math inline">\(y\)</span> binär und bekannt ist. Wir nutzen also einfach unseren Datensatz zu den infizierten Ferkeln und bauen uns unser Rezept. Wir wollen alle anderen Variablen außer die Variable <code>infected</code> mit ins Modell nehmen. Deshalb schreiben wir rechts von der Tilde einfach nur einen <code>.</code> hin.</p>
+<div class="cell">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">rec</span> <span class="op">&lt;-</span> <span class="fu">recipe</span><span class="op">(</span><span class="va">infected</span> <span class="op">~</span> <span class="va">.</span>, data <span class="op">=</span> <span class="va">pig_miss_tbl</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Nachdem wir unser Rezept haben, also wissen was das Outcome ist und was die Prädiktoren, können wir wir die Funktion <code>step_impute_bag()</code> nutzen um den Algorithmus für die Imputation zu spezifizieren. Es gibt noch zahlreiche andere Möglichkeiten die Variablen zu imputieren, aber wir haben ja wieder eine Mischung aus kontinuierlichen und kategorialen Variablen, so dass sich hier wieder ein <em>Decision tree</em> Algorithmus anbietet.</p>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p>Das R Paket <code>recipes</code> hat folgende <a href="https://recipes.tidymodels.org/reference/index.html#step-functions-imputation">Rezepte für die Imputation</a> implementiert.</p>
+</div></div><div class="cell">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">impute_rec</span> <span class="op">&lt;-</span> <span class="va">rec</span> <span class="op">%&gt;%</span> <span class="fu">step_impute_bag</span><span class="op">(</span><span class="fu">all_predictors</span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Wir haben jetzt unseren Imputationsalgorithmus mit dem Rezept verbunden und können nun über die Funktionen<code>prep()</code> und <code>bake()</code> die Imputation durchführen. Im ersten Schritt <code>prep()</code> bereiten wir die Imputation vor. Im nächsten Schritt <code>bake()</code> führen wir dann die Impuation auf den Daten von <code>pig_miss_tbl</code> aus. Das mag jetzt etwas von hinten durch die Brust sein, aber da wir durch <code>recipes</code> in dem <a href="classification-basic.html"><span>Kapitel&nbsp;44</span></a> zu maschinellen Lernverfahren besser verschiedene Verfahren aneinander kleben können, sein es hier nochmal so gezeigt.</p>
+<div class="cell">
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">imputed_tbl</span> <span class="op">&lt;-</span> <span class="fu">prep</span><span class="op">(</span><span class="va">impute_rec</span>, training <span class="op">=</span> <span class="va">pig_miss_tbl</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="fu">bake</span><span class="op">(</span>new_data <span class="op">=</span> <span class="va">pig_miss_tbl</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Wir finden dann in dem Objekt <code>imputed_tbl</code> einen imputierten Datensatz ohne fehlende Werte wieder. Mit diesem Datensatz können wir dann weiterarbeiten.</p>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p>Die Vingette zu <code>recipes</code> zeigt die <a href="https://recipes.tidymodels.org/articles/recipes.html">Imputation mit k-NN</a> an einem etwas komplexeren Beispiel.</p>
+</div></div></section></section><section id="sensitivitätsanalysen" class="level2" data-number="37.8"><h2 data-number="37.8" class="anchored" data-anchor-id="sensitivitätsanalysen">
 <span class="header-section-number">37.8</span> Sensitivitätsanalysen</h2>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure"><p><img src="images/caution.png" class="img-fluid figure-img" style="width:50.0%"></p>
