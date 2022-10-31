@@ -50,7 +50,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, 
                MASS, ranger, Boruta, broom,
-               scales, olsrr)
+               scales, olsrr, gtsummary)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 ```
@@ -101,7 +101,7 @@ Viele Beispiele laufen immer unter der Annahme der Normalverteilung. Deshalb als
 pig_tbl <- read_excel("data/infected_pigs.xlsx") 
 ```
 
-Das schöne an diesem Datensatz ist jetzt, dass wir mit $n = 412$ Beobachtungen sehr viele Daten vorliegen haben. Daher können wir auch alle Methoden gut verwenden udn haben nicht das Problem einer zu geringen Fallzahl.
+Das schöne an diesem Datensatz ist jetzt, dass wir mit $n = 412$ Beobachtungen sehr viele Daten vorliegen haben. Daher können wir auch alle Methoden gut verwenden und haben nicht das Problem einer zu geringen Fallzahl.
 
 ```{r}
 #| echo: false
@@ -139,9 +139,13 @@ Fazit dieses kurzen Abschnitts. Wir können auf alles Folgende einfach verzichte
 
 ### Univariate Vorselektion
 
+Und weiter geht es mit Zitaten aus @heinze2017five zu der Variablenselektion. Dazu musst du wissen, dass die univariate Vorselektion sehr beliebt war und auch noch ist. Denn die univariate Vorselektion ist einfach durchzuführen und eben auch gut darzustellen.
+
 *"Obwohl die univariable Vorfilterung nachvollziehbar und mit Standardsoftware leicht durchführbar ist, sollte man sie besser ganz vergessen, da sie für die Erstellung multivariabler Modelle weder Voraussetzung noch von Nutzen ist."* [Übersetzt nach @heinze2017five, p. 8]
 
 [Ich sage immer, auch mit einem Hammer kann man Scheiben putzen. Halt nur einmal... Deshalb auch hier die univariate Variante der Vorselektion.]{.aside}
+
+Wir sehen also, eigentlich ist die univariate Variablensleketion nicht so das gelbe vom Ei, aber vielleicht musst die Variablenselektion durchführen, so dass her die Lösung in R einmal dargestellt ist. Wir nutzen einmal die gaussian lineare Regression für den Kichererbsendatensatz. Es ist eine ganze Reihe an Code, das hat aber eher damit zu tun, dass wir die Modellausgabe noch filtern und anpassen wollen. Die eigentliche Idee ist simple. Wir nehmen unseren Datensatz und pipen den Datensatz in select und entfernen unser Outcome `drymatter`. Nun iterieren wir für *jede* Variable `.x` im Datensatz mit der Funktion `map()` und rechnen in jeder Iteration eine gaussian lineare Regression. Dann entferne wir noch den Intercept und sortieren nach den $p$-Werten.
 
 ```{r}
 
@@ -158,6 +162,37 @@ chickpea_tbl %>%
 
 ```
 
+Würden wir nur nach dem Signifikanzniveau von 5% gehen, dann hätten wir die Variablen `sand` und `location` selektiert. bei der selektion mit dem $p$-Wert wird aber eher eine Schwelle von 15.7% vorgeschlagen [@heinze2017five, p. 9]. Daher würden wir auch noch `no3` und `temp` mit Selektieren und in unser Modell nehmen.
+
+Es gibt ja immer zwei Wege nach Rom. Deshalb hier auch nochmal die Funktion `tbl_uvregression()` aus dem R Paket `gtsummary`, die es erlaubt die univariaten Regressionen über alle Variablen laufen zu lassen. Wir kriegen dann auch eine schöne @tbl-chick-gt wieder.
+
+::: column-margin
+Das R Paket `gtsummary` erlaubt es Ergebnisse der Regression in dem [Tutorial: tbl_regression](https://www.danieldsjoberg.com/gtsummary/articles/tbl_regression.html) gut darzustellen.
+:::
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: tbl-chick-gt
+#| tbl-cap: "Univariate Regression mit der Funkion `tbl_uvregression()`."
+
+chickpea_tbl %>%
+  tbl_uvregression(
+    method = glm,
+    y = dryweight,
+    method.args = list(family = gaussian),
+    pvalue_fun = ~style_pvalue(.x, digits = 2)
+  ) %>%
+  add_global_p() %>%  # add global p-value 
+  add_q() %>%         # adjusts global p-values for multiple testing
+  bold_p() %>%        # bold p-values under a given threshold (default 0.05)
+  bold_p(t = 0.10, q = TRUE) %>% # now bold q-values under the threshold of 0.10
+  bold_labels()
+```
+
+Nun führen wir die univariate Regression erneut auf den Ferkeldaten aus. Hier ändern wir nur die `family = binomial`, da wir hier jetzt eine logistische lineare Regression rechnen müssen. Unser Outcome `infected` ist ja $0/1$ codiert. Sonst ändert sich der Code nicht.
+
 ```{r}
 
 pig_tbl %>%
@@ -172,6 +207,46 @@ pig_tbl %>%
          estimate = round(estimate, 2))
 
 ```
+
+In diesem Fall reicht die Schwelle von 15.7% nur für zwei Variablen [@heinze2017five, p. 9]. Wir erhalten die Variablen `crp` und `bloodpressure` für das Modell selektiert.
+
+In der @tbl-pig-gt sehen wir dann nochmal die Anwendung der Funktion `tbl_uvregression()` auf den Ferkeldatensatz. Ich musste hier die Option `pvalue_fun = ~style_pvalue(.x, digits = 2)` entfernen, da sonst die Variable `crp` keinen $p$-Wert erhält. Du musst immer wieder überprüfen, ob die Optionen dann auch für sich und deine Analyse passen.
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: tbl-pig-gt
+#| tbl-cap: "Univariate Regression mit der Funkion `tbl_uvregression()`."
+
+pig_tbl %>%
+  tbl_uvregression(
+    method = glm,
+    y = infected,
+    method.args = list(family = binomial),
+    exponentiate = TRUE
+  ) %>%
+  add_global_p() %>%  # add global p-value 
+  add_nevent() %>%    # add number of events of the outcome
+  add_q() %>%         # adjusts global p-values for multiple testing
+  bold_p() %>%        # bold p-values under a given threshold (default 0.05)
+  bold_p(t = 0.10, q = TRUE) %>% # now bold q-values under the threshold of 0.10
+  bold_labels()
+```
+
+Neben der Berechnung von univariaten logistischen Regressionen ist auch die Darstellung der Daten in einer @tbl-pigs-table1 bei Medizinern sehr beliebt. Deshalb an dieser Stelle auch die Tabelle 1 (eng. *table 1*) für die Zusammenfasung der Daten getrennt nach dem Infektionsstatus zusammen mit dem $p$-Wert. Ich nutze hier die Funktion `tbl_summary()` aus dem R Paket `gtsummary`.
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: tbl-pigs-table1
+#| tbl-cap: Zusammenfasung der Daten getrennt nach dem Infektionsstatus zusammen mit dem $p$-Wert.
+
+pig_tbl %>% tbl_summary(by = infected) %>% add_p()
+```
+
+Tja, auch hier ist dann die Frage, wie sortiere ich Variablen. Da es sich bei dem *table 1*-Stil um eine Übersichtstabelle handelt, ist die Tabelle nach den Variablen sortiert. Auch hier finden wir dann die Variablen `crp` und `bloddpressure` wieder. Das Problem hierbei ist natürlich, dass sich die $p$-Werte unterscheiden. Das muss ja auch so sein, denn eine logitische Regression ist nun mal kein *Wilcoxon rank sum test* oder ein *Pearson's Chi-squared test*.
 
 ### Sonderfall Gaussian linear Regression
 
