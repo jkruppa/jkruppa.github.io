@@ -22,9 +22,17 @@ In diesem Kapitel prügeln wir aber einen statistischen Engel. Wir werden hier m
 Das [R Paket `olsrr`](https://olsrr.rsquaredacademy.com/articles/variable_selection.html) erlaubt eine weitreichende Variablen Selektion, wenn ein normalverteiltes Outcome $y$ vorliegt.
 :::
 
-@heinze2018variable
+Im Folgenden will ich *kurz* die fünf Mythen der Variablenselektion von @heinze2017five zusammenfassen. Wie immer ersetzt meine deutsche Zusammenfassung nicht das eigenständige Lesen der *englischen* Orgnialquelle, wenn du die Informationen in deiner Bachelorarbeit zitieren willst.
 
-@heinze2017five
+1)  Die Anzahl der Variablen in einem Modell sollte reduziert werden, bis es 10 Ereignisse pro Variable gibt.
+2)  Nur Variablen mit nachgewiesener Signifikanz des univariaten Modells sollten in ein Modell aufgenommen werden.
+3)  Nicht signifikante Effekte sollten aus einem Modell entfernt werden.
+4)  Der berichtete P-Wert quantifiziert den Typ-I-Fehler einer fälschlich ausgewählten Variablen.
+5)  Variablenauswahl vereinfacht die Analyse.
+
+"Variable selection should always be accompanied by sensitivity analyses to avoid wrong conclusions."
+
+@heinze2018variable
 
 @talbot2019descriptive
 
@@ -35,7 +43,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, 
-               MASS, ranger, Boruta)
+               MASS, ranger, Boruta, broom,
+               scales, olsrr)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 ```
@@ -48,17 +57,101 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 #| echo: false
 #| message: false
 #| warning: false
-#| label: tbl-log-pigs
+#| label: tbl-chickpea-var
+#| tbl-cap: Auszug aus dem Daten zu den Kichererbsen in Brandenburg.
+#| column: page
+
+
+chickpea_tbl <- read_excel("data/chickpeas.xlsx") 
+
+rbind(head(chickpea_tbl, 3),
+      rep("...", times = ncol(chickpea_tbl)),
+      tail(chickpea_tbl, 3)) %>% 
+  kable(align = "c", "pipe")
+
+```
+
+$$
+3 * sand + 2 * temp + 1.5 * rained - 1.2 * forest + 1.1 * no3  
+$$
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-pigs-var
 #| tbl-cap: Auszug aus dem Daten zu den kranken Ferkeln.
 #| column: page
 
 pig_tbl <- read_excel("data/infected_pigs.xlsx") 
 
-rbind(head(pig_tbl),
+rbind(head(pig_tbl, 3),
       rep("...", times = ncol(pig_tbl)),
-      tail(pig_tbl)) %>% 
+      tail(pig_tbl, 3)) %>% 
   kable(align = "c", "pipe")
 ```
+
+$$
+2 * crp + 0.5 * sex + 0.5 * frailty + 0.2 * bloodpressure + 0.05 * creatinin +  0.01 * weight
+$$
+
+## Methoden der Variablenselektion
+
+### Per Hand
+
+"Oft gibt es keinen wissenschaftlichen Grund, eine Variablenauswahl durchzuführen. Insbesondere erfordern Methoden der Variablenselektion einen viel größeren Stichprobenumfang als die Schätzung eines multiplen Modells mit einem festen Satz von Prädiktoren auf der Grundlage klinischer Erfahrung."
+
+### Univariate Vorselektion
+
+```{r}
+
+chickpea_tbl %>%
+  select(-dryweight) %>%                   
+  map(~glm(dryweight ~ .x, data = chickpea_tbl, family = gaussian)) %>%    
+  map(tidy) %>%                          
+  map(filter, term != "(Intercept)") %>%       
+  map(select, -term, -std.error, -statistic) %>%                        
+  bind_rows(.id="term") %>% 
+  arrange(p.value) %>% 
+  mutate(p.value = pvalue(p.value),
+         estimate = round(estimate, 2))
+
+```
+
+```{r}
+
+pig_tbl %>%
+  select(-infected) %>%                   
+  map(~glm(infected ~ .x, data = pig_tbl, family = binomial)) %>%    
+  map(tidy) %>%                          
+  map(filter, term != "(Intercept)") %>%       
+  map(select, -term, -std.error, -statistic) %>%                        
+  bind_rows(.id="term") %>% 
+  arrange(p.value) %>% 
+  mutate(p.value = pvalue(p.value),
+         estimate = round(estimate, 2))
+
+```
+
+### Sonderfall Gaussian linear Regression
+
+[Variable Selection Methods](https://olsrr.rsquaredacademy.com/articles/variable_selection.html)
+
+```{r}
+chickenpea_fit <- lm(dryweight ~ temp + rained + location + no3 + fe + sand + forest, 
+                   data = chickpea_tbl)
+```
+
+```{r}
+ols_step_all_possible(chickenpea_fit) %>%
+  as_tibble %>%
+  arrange(desc(adjr)) %>%
+  filter(n <= 4) %>% 
+  select(predictors, adjr, aic) 
+
+```
+
+### `step` und `setpAIC`
 
 ```{r}
 #| echo: true
@@ -80,6 +173,8 @@ fit_step
 
 Test
 
+### `ranger`
+
 ```{r}
 #| echo: true
 #| message: false
@@ -90,6 +185,8 @@ fit <- ranger(infected ~ age + sex + location + activity + crp + frailty + blood
 
 pluck(fit, "variable.importance") %>% sort(decreasing = TRUE)
 ```
+
+### `boruta`
 
 ```{r}
 boruta_output <- Boruta(infected ~ age + sex + location + activity + crp + frailty + bloodpressure + weight + creatinin,  
@@ -116,5 +213,7 @@ tent_boruta <- TentativeRoughFix(boruta_output)
 
 tent_boruta
 ```
+
+## Skalieren der Daten?
 
 ## Referenzen {.unnumbered}
