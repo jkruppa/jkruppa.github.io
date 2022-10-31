@@ -49,7 +49,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, 
-               MASS, ranger, Boruta, broom,
+               MASS, ranger, Boruta, broom, dlookr,
                scales, olsrr, gtsummary, parameters)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
@@ -301,7 +301,7 @@ In @fig-ols-diag sehen wir einmal den Verlauf der $AIC$-Wert durch die Entfernun
 plot(chick_step_aic) 
 ```
 
-Gut, und wie sieht nun unser finales Modell aus? Dafür müssen wir usn aus dem Objekt `chick_step_aic` das `model` rausziehen. Dafür nutzen wir die Funktion `pluck()`. Dann noch die Ausgabe in die Funktion `model_parameters()` gepipt und schon haben wir das finale Modell nach $AIC$-Werten in einer gaussian linearen Regression.
+Gut, und wie sieht nun unser finales Modell aus? Dafür müssen wir usn aus dem Objekt `chick_step_aic` das `model` raus ziehen. Dafür nutzen wir die Funktion `pluck()`. Dann noch die Ausgabe in die Funktion `model_parameters()` gepipt und schon haben wir das finale Modell nach $AIC$-Werten in einer gaussian linearen Regression.
 
 ```{r}
 #| message: false
@@ -315,6 +315,8 @@ Spannenderweise ist `location` nicht mehr im finalen Modell plus die Variable `l
 
 ### Schrittweise mit `stepAIC`
 
+Was das R Paket `oslrr` für die gaussian linear Regression kann, kann das R Paket `MASS` mit der Funktion `stepAIC` für den Rest der möglichen Verteilungen. Da wir mit dem Fekerldatensatz ein binominales Outcome $y$ mit `infected` vorliegen haben nutzen wir un die Funktion `stepAIC()`. Wir hätten auch den Kichererbsendatensatz mit der Funktion bearbeiten können, aber im Falle der Normalverteilung stehen uns dann eben noch andere Algorithmen zu Verfügung. Wie immer müssen wir zuerst das volle Modell mit der Funktion `glm()` fitten. Wir geben noch die Verteilungsfamilie mit `family = binomial` noch mit an und definieren so eine logistische lineare Regression.
+
 ```{r}
 #| echo: true
 #| message: false
@@ -325,34 +327,89 @@ fit <- glm(infected ~ age + sex + location + activity + crp + frailty + bloodpre
            data = pig_tbl, family = binomial)
 ```
 
+Nachdem wir das Modell gefittet haben, können wir das Modell direkt in die Funktion `stepAIC` stecken. Wir nutzen noch die Option `direction = "backward"` um eine Rückwärtsselektion durchzuführen.
+
 ```{r}
 fit_step <- stepAIC(fit, direction = "backward")
 ```
 
-Test
+Jetzt ist die Selektion durchgelaufen und wir sehen in jeden Schritt welche Variable jeweils entfernt wurde und wie sich dann der $AIC$-Wert ändert. Wir starten mit einem $AIC = 425.65$ und enden bei einem $AIC=415.01$. Schauen wir uns nochmal das finale Modell an.
 
 ```{r}
-fit_step 
+#| message: false
+#| warning: false
+
+fit_step %>% 
+  model_parameters()
 ```
 
-Test
+Hier erscheint jetzt noch die Variable `sex` mit in der Auswahl. Das hat natürlich auch weitreichende Auswirkungen! Es macht schon einen gewaltigen Unterschied, ob wir annehmen das, dass Geschelcht der Ferkel keinen Einfluss auf die Infektion hat oder eben doch. Wir sehen auch hier, dass wir Aufpassen müssen wenn wir eine Variablenselektion durchführen. Aber Achtung, das schrittweise Verfahren ist der Auswahl nach $p$-Werten auf jeden Fall vorzuziehen!
 
 ### Feature Selektion mit `ranger`
 
-@sec-class-rf
+In diesem Abschnitt wollen wir die Variablenselektion mit einem maschinellen Lernverfahren durchführen. Im Bereich des maschinellen Lernens heist die Variablenselektion dann aber *Feature Selektion*. Wir versuchen jetzt die Selektion auf den Orginaldaten durchzuführen. Eigentlich wird empfohlen die Daten vorher zu normalisieren und dann mit den maschinellen Lernverfahren zu nutzen.
+
+::: callout-caution
+## Standardisieren oder Normalisieren von Daten
+
+Eine Herausforderung für maschinelle Lernverfahren sind nicht normalisierte Daten. Das heist, dass wir Variablen haben, die kategorial oder kontinuierlich sein können oder aber sehr unterschiedlich von den Einheiten sind. Deshalb wird empfohlen die Daten vorher zu Standardisieren oder zu Normalisieren. In dem @sec-eda-transform kannst du mehr über das Transformieren von Daten nachlesen.
+:::
+
+Wir nutzen als erstes einen Random Forest Algorithmus wie er in @sec-class-rf beschrieben ist. Es bietet sich hier die Implementation im R Paket `ranger` an. Bevor wir aber einen Random Forest auf unsere Daten laufen lassen, Standardisieren wir unsere Daten nochmal. Überall wo wir einen numerischen Wert als Variableneintrag haben rechnen wir eine $z$-Transformation. Wir erhalten dann die standardisierten Daten zurück.
+
+```{r}
+pig_norm_tbl <- pig_tbl %>% 
+  mutate(across(where(is.character), as_factor),
+         across(where(is.numeric), dlookr::transform, "zscore"))
+
+pig_norm_tbl
+```
+
+Den Random Forest rechnen wir mit der Funktion `ranger()`. Dafür müssen wir wieder unser vollständiges Modell definieren und können dann die Funktion starten. Damit wir eine Variablenwichtigkeit (eng. *variable importance*) wiederbekommen, müssen wir noch die Option `importance = "permutation"` verwenden.
 
 ```{r}
 #| echo: true
 #| message: false
 #| warning: false
 
-fit <- ranger(infected ~ age + sex + location + activity + crp + frailty + bloodpressure + weight + creatinin, 
-              data = pig_tbl, importance = "permutation")
+fit_raw <- ranger(infected ~ age + sex + location + activity + crp + frailty + bloodpressure + weight + creatinin, 
+                  data = pig_tbl, ntree = 1000, importance = "permutation")
 
-pluck(fit, "variable.importance") %>% sort(decreasing = TRUE)
+pluck(fit_raw, "variable.importance") %>% 
+  sort(decreasing = TRUE) %>% 
+  round(3)
 ```
 
+Wir sehen, dass wir als wichtigste Variable wiederum `crp` zurückbekommen. Danach wird es schon etwas schwieriger, da die Werte sehr schnell kleiner werden und auch ein Art Plateau bilden. Daher würde man hier nur annehmen, dass `crp` bedeutend für das Modell ist. Es kann aber auch sein, dass hier eine kontinuierliche Variable sehr vom Algorithmus bevorzugt wurde. Daher schauen wir uns die Sachlage einmal mit den standardisierten Daten an.
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+
+fit_norm <- ranger(infected ~ age + sex + location + activity + crp + frailty + bloodpressure + weight + creatinin, 
+                  data = pig_norm_tbl, ntree = 1000, importance = "permutation")
+
+pluck(fit_norm , "variable.importance") %>% 
+  sort(decreasing = TRUE) %>% 
+  round(3)
+```
+
+Auch hier erhalten wir ein ähnliches Bild. Audf jeden Fall ist `crp` bedeutend für den Infektionsstatus. Danach werden die Werte etwas zufällig. Wir können Werte für die *variable importance* nicht unter Datensätzen vergleichen. Jeder Datensatz hat seine eigene *variable importance*, die von den Werten in dem Datensatz abhängt.
+
+Wir ziehen als Fazit, dass wir nur `crp` als bedeutenden Wert für die Klassifikation des Infektionsstatus ansehen würden. Hier stehen wir wirklich etwas wie das Schwein vor dem Uhrwerk, denn was nun richtiger ist, `stepAIC` oder `ranger` lässt sich so einfach nicht bewerten. Zum einen wollen wir ja eigentlich mit Random Forest eine Klassifikation durchführen und mit linearen Regressionsmodellen eher kausale Modelle schätzen. Am Ende musst du selber abschätzen, was in das finale Modell soll. Ich kann ja auch den Threshold für den Variablenausschluss selber wählen. Wähle ich einen Threshold von $0.008$, dann hätte ich `crp`, `weight`, `bloodpressure` und `sex` mit in dem finalen Modell.
+
 ### Feature Selektion mit `boruta`
+
+::: column-margin
+Ich empfehle noch das Tutorium [Feature Selection in R with the Boruta R Package](https://www.datacamp.com/tutorial/feature-selection-R-boruta). Wir gehen hier nicht tiefer auf die Funktionalität von Boruta ein.
+:::
+
+::: callout-caution
+## Standardisieren oder Normalisieren von Daten
+
+Eine Herausforderung für maschinelle Lernverfahren sind nicht normalisierte Daten. Das heist, dass wir Variablen haben, die kategorial oder kontinuierlich sein können oder aber sehr unterschiedlich von den Einheiten sind. Deshalb wird empfohlen die Daten vorher zu Standardisieren oder zu Normalisieren. In dem @sec-eda-transform kannst du mehr über das Transformieren von Daten nachlesen.
+:::
 
 ```{r}
 boruta_output <- Boruta(infected ~ age + sex + location + activity + crp + frailty + bloodpressure + weight + creatinin,  
@@ -379,7 +436,5 @@ tent_boruta <- TentativeRoughFix(boruta_output)
 
 tent_boruta
 ```
-
-## Skalieren der Daten?
 
 ## Referenzen {.unnumbered}
