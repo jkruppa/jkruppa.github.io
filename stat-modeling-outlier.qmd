@@ -53,7 +53,7 @@ Nachdem wir uns im vorherigen Kapitel mit einem sehr kleinen Satensatz beschäft
 ```{r}
 #| message: false
 
-model_tbl <- read_csv2("data/flea_dog_cat_length_weight.csv") %>%
+flea_tbl <- read_csv2("data/flea_dog_cat_length_weight.csv") %>%
   select(animal, jump_length, weight)
 ```
 
@@ -65,14 +65,10 @@ In der @tbl-model-1 ist der Datensatz `model_tbl` nochmal dargestellt.
 #| tbl-cap: Selektierter Datensatz mit einer normalverteilten Variable `jump_length` und der normalverteilten Variable `weight`. Wir betrachten die ersten sieben Zeilen des Datensatzes.
 #| label: tbl-model-1
 
-model_tbl %>% head(7) %>% kable(align = "c", "pipe")
+flea_tbl %>% head(7) %>% kable(align = "c", "pipe")
 ```
 
 Im Folgenden *ignorieren* wir, dass die Sprungweiten und die Gewichte der Flöhe auch noch von den Hunden oder Katzen sowie dem unterschiedlichen Geschlecht der Flöhe abhängen könnten. Wir schmeißen alles in einen Pott und schauen nur auf den Zusammenhang von Sprungweite und Gewicht.
-
-::: column-margin
-Das [R Paket `dlookr`](https://choonghyunryu.github.io/dlookr/articles/transformation.html#imputation-of-outliers) hat eine große Auswahl an simplen Algorithmen für die Anpassung von Ausreißern.
-:::
 
 ```{r}
 #| message: false
@@ -90,17 +86,7 @@ gummi_tbl <- read_excel("data/gummibears.xlsx")  %>%
   na.omit()
 ```
 
-## Das simple lineare Modell
-
-Wir fitten ein simples lineares Modell mit nur einem Einflussfaktor `weight` auf die Sprunglänge `jump_length`. Wir erhalten dann das Objekt `fit_1` was wir dann im Weiteren nutzen werden.
-
-```{r}
-fit_1 <- lm(jump_length ~ weight, data = model_tbl)
-```
-
-Wir nutzen jetzt dieses simple lineare Modell für die weiteren Gütekritierien.
-
-## Cook\`s Abstand
+## Ausreißer mit Cook\`s Abstand
 
 ::: column-margin
 Das [R Paket `olsrr`](https://olsrr.rsquaredacademy.com/articles/influence_measures.html) erlaubt eine weitreichende Diagnostik auf Ausreißer für einem normalverteilten Outcome $y$.
@@ -196,10 +182,92 @@ out_tbl <- out_tbl[-remove_weight_id,]
 out_tbl
 ```
 
-Das [R Paket performance](https://easystats.github.io/performance/)
+## Ausreißer mit `performance`
+
+::: column-margin
+Das R Paket \``performance` hat die Möglichkeit zur [Outliers detection (check for influential observations)](https://easystats.github.io/performance/reference/check_outliers.html).
+:::
 
 ```{r}
-check_normality(fit_1)
+check_outliers(flea_tbl)
+```
+
+```{r}
+check_outliers(longnose_tbl)
+```
+
+```{r}
+check_outliers(gummi_tbl)
+```
+
+## Ausreißer mit `dlookr`
+
+::: column-margin
+Das [R Paket `dlookr`](https://choonghyunryu.github.io/dlookr/articles/transformation.html#imputation-of-outliers) hat eine große Auswahl an simplen Algorithmen für die Anpassung von Ausreißern.
+:::
+
+```{r}
+diagnose_outlier(longnose_tbl) %>% 
+  filter(outliers_cnt > 0) %>% 
+  arrange(desc(outliers_cnt))
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-miss-dlookr-plot-out
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Densityplot der Verteilungen vor und nach der Imputation."
+#| fig-subcap: 
+#|   - "Imputation mit dem Mittelwert."
+#|   - "Imputation mit dem Median."
+#| layout-nrow: 1
+#| column: page
+
+longnose_tbl %>% plot_outlier(longnose)
+longnose_tbl %>% plot_outlier(area)
+```
+
+```{r}
+longnose_imp_tbl <- longnose_tbl %>% 
+  mutate(longnose_capping = imputate_outlier(., longnose, method = "capping"),
+         longnose_median = imputate_outlier(., longnose, method = "median"))
+
+```
+
+predictor is numerical variable
+
+"mean" : arithmetic mean
+
+"median" : median
+
+"mode" : mode
+
+"capping" : Impute the upper outliers with 95 percentile, and Impute the lower outliers with 5 percentile.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-miss-dlookr-plot-out-imp
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Densityplot der Verteilungen vor und nach der Imputation."
+#| fig-subcap: 
+#|   - "Imputation mit dem Mittelwert."
+#|   - "Imputation mit dem Median."
+#| layout-nrow: 1
+#| column: page
+
+pluck(longnose_imp_tbl, "longnose_capping") %>% 
+  plot
+
+pluck(longnose_imp_tbl, "longnose_median") %>% 
+  plot
 ```
 
 ## Hauptkomponentenanalyse
@@ -275,69 +343,3 @@ Look at library(factoextra)
 http://www.sthda.com/english/wiki/factoextra-r-package-easy-multivariate-data-analyses-and-elegant-visualization
 
 http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/118-principal-component-analysis-in-r-prcomp-vs-princomp/
-
-## Ausreißer mit `dlookr`
-
-```{r}
-diagnose_outlier(longnose_tbl) %>% 
-  filter(outliers_cnt > 0) %>% 
-  arrange(desc(outliers_cnt))
-```
-
-```{r}
-#| message: false
-#| echo: true
-#| warning: false
-#| label: fig-miss-dlookr-plot-out
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 6
-#| fig-cap: "Densityplot der Verteilungen vor und nach der Imputation."
-#| fig-subcap: 
-#|   - "Imputation mit dem Mittelwert."
-#|   - "Imputation mit dem Median."
-#| layout-nrow: 1
-#| column: page
-
-longnose_tbl %>% plot_outlier(longnose)
-longnose_tbl %>% plot_outlier(area)
-```
-
-```{r}
-longnose_imp_tbl <- longnose_tbl %>% 
-  mutate(longnose_capping = imputate_outlier(., longnose, method = "capping"),
-         longnose_median = imputate_outlier(., longnose, method = "median"))
-
-```
-
-predictor is numerical variable
-
-"mean" : arithmetic mean
-
-"median" : median
-
-"mode" : mode
-
-"capping" : Impute the upper outliers with 95 percentile, and Impute the lower outliers with 5 percentile.
-
-```{r}
-#| message: false
-#| echo: true
-#| warning: false
-#| label: fig-miss-dlookr-plot-out-imp
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 6
-#| fig-cap: "Densityplot der Verteilungen vor und nach der Imputation."
-#| fig-subcap: 
-#|   - "Imputation mit dem Mittelwert."
-#|   - "Imputation mit dem Median."
-#| layout-nrow: 1
-#| column: page
-
-pluck(longnose_imp_tbl, "longnose_capping") %>% 
-  plot
-
-pluck(longnose_imp_tbl, "longnose_median") %>% 
-  plot
-```
