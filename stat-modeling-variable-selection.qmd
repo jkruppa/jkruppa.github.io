@@ -50,7 +50,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, 
                MASS, ranger, Boruta, broom,
-               scales, olsrr, gtsummary)
+               scales, olsrr, gtsummary, parameters)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 ```
@@ -89,7 +89,7 @@ rbind(head(chickpea_tbl, 3),
 Was wir auch noch wissen, ist wie die Effekte in den Daten *wirklich* sind. Die Daten wurden ja künstlich erstellt, deshalb hier die Ordnung der Effektstärke für jede Variable. Im Prinzip müsste diese Reihenfolge auch bei der Variablenselektion rauskommen. Schauen wir mal, was wir erhalten.
 
 $$
-y = 3 * sand + 2 * temp + 1.5 * rained - 1.2 * forest + 1.1 * no3  
+y \sim \beta_0 + 3 * sand + 2 * temp + 1.5 * rained - 1.2 * forest + 1.1 * no3  
 $$
 
 Viele Beispiele laufen immer unter der Annahme der Normalverteilung. Deshalb als zweites Beispiel nochmal die Daten von den infizierten Ferkeln mit einem binomialverteilten Outcome $y$ mit `infected`. Auch hier können wir uns den Auszug der Daten in @tbl-pigs-var anschauen.
@@ -120,7 +120,7 @@ rbind(head(pig_tbl, 3),
 Auch in diesem Beispiel wurden die Daten von mir mit folgenden Effekten generiert. Schauen wir mal, was die Variablenselektion bei der hohen Fallzahl mit den Variablen macht bzw. welche Sortierung am Ende rauskommt.
 
 $$
-y = 2 * crp + 0.5 * sex + 0.5 * frailty + 0.2 * bloodpressure + 0.05 * creatinin +  0.01 * weight
+y \sim \beta_0 + 2 * crp + 0.5 * sex + 0.5 * frailty + 0.2 * bloodpressure + 0.05 * creatinin +  0.01 * weight
 $$
 
 Damit haben wir unsere beiden Beispiel und jetzt gehen wir mal eine Auswahl an Methoden zur Variablenselektion durch. Besonders hier, haltet den statistsichen Engel nah bei euch. Es wird leider etwas ruppig für den statistischen Engel.
@@ -162,7 +162,7 @@ chickpea_tbl %>%
 
 ```
 
-Würden wir nur nach dem Signifikanzniveau von 5% gehen, dann hätten wir die Variablen `sand` und `location` selektiert. bei der selektion mit dem $p$-Wert wird aber eher eine Schwelle von 15.7% vorgeschlagen [@heinze2017five, p. 9]. Daher würden wir auch noch `no3` und `temp` mit Selektieren und in unser Modell nehmen.
+Würden wir nur nach dem Signifikanzniveau von 5% gehen, dann hätten wir die Variablen `sand` und `location` selektiert. Bei der selektion mit dem $p$-Wert wird aber eher eine Schwelle von 15.7% vorgeschlagen [@heinze2017five, p. 9]. Daher würden wir auch noch `no3` und `temp` mit Selektieren und in unser Modell nehmen.
 
 Es gibt ja immer zwei Wege nach Rom. Deshalb hier auch nochmal die Funktion `tbl_uvregression()` aus dem R Paket `gtsummary`, die es erlaubt die univariaten Regressionen über alle Variablen laufen zu lassen. Wir kriegen dann auch eine schöne @tbl-chick-gt wieder.
 
@@ -175,7 +175,7 @@ Das R Paket `gtsummary` erlaubt es Ergebnisse der Regression in dem [Tutorial: t
 #| message: false
 #| warning: false
 #| label: tbl-chick-gt
-#| tbl-cap: "Univariate Regression mit der Funkion `tbl_uvregression()`."
+#| tbl-cap: "Univariate Regression mit der Funktion `tbl_uvregression()`."
 
 chickpea_tbl %>%
   tbl_uvregression(
@@ -210,14 +210,14 @@ pig_tbl %>%
 
 In diesem Fall reicht die Schwelle von 15.7% nur für zwei Variablen [@heinze2017five, p. 9]. Wir erhalten die Variablen `crp` und `bloodpressure` für das Modell selektiert.
 
-In der @tbl-pig-gt sehen wir dann nochmal die Anwendung der Funktion `tbl_uvregression()` auf den Ferkeldatensatz. Ich musste hier die Option `pvalue_fun = ~style_pvalue(.x, digits = 2)` entfernen, da sonst die Variable `crp` keinen $p$-Wert erhält. Du musst immer wieder überprüfen, ob die Optionen dann auch für sich und deine Analyse passen.
+In der @tbl-pig-gt sehen wir dann nochmal die Anwendung der Funktion `tbl_uvregression()` auf den Ferkeldatensatz. Ich musste hier die Option `pvalue_fun = ~style_pvalue(.x, digits = 2)` entfernen, da sonst die Variable `crp` keinen $p$-Wert erhält. Leider sehe ich den $p$-Wert mit $<0.001$ in meiner Ausgabe in R aber wie du siehst, wird die Tabelle auf der Webseite nicht korrekt angezeigt. Das Problem von automatischen Tabellen. Ein Fluch und Segen zugleich. Du musst immer wieder überprüfen, ob die Optionen dann auch für sich und deine Analyse passen.
 
 ```{r}
 #| echo: true
 #| message: false
 #| warning: false
 #| label: tbl-pig-gt
-#| tbl-cap: "Univariate Regression mit der Funkion `tbl_uvregression()`."
+#| tbl-cap: "Univariate Regression mit der Funktion `tbl_uvregression()`."
 
 pig_tbl %>%
   tbl_uvregression(
@@ -246,16 +246,32 @@ Neben der Berechnung von univariaten logistischen Regressionen ist auch die Dars
 pig_tbl %>% tbl_summary(by = infected) %>% add_p()
 ```
 
-Tja, auch hier ist dann die Frage, wie sortiere ich Variablen. Da es sich bei dem *table 1*-Stil um eine Übersichtstabelle handelt, ist die Tabelle nach den Variablen sortiert. Auch hier finden wir dann die Variablen `crp` und `bloddpressure` wieder. Das Problem hierbei ist natürlich, dass sich die $p$-Werte unterscheiden. Das muss ja auch so sein, denn eine logitische Regression ist nun mal kein *Wilcoxon rank sum test* oder ein *Pearson's Chi-squared test*.
+Tja, auch hier ist dann die Frage, wie sortiere ich Variablen. Da es sich bei dem *table 1*-Stil um eine Übersichtstabelle handelt, ist die Tabelle nach den Variablen sortiert. Auch hier finden wir dann die Variablen `crp` und `bloodpressure` wieder. Das Problem hierbei ist natürlich, dass sich die $p$-Werte unterscheiden. Das muss ja auch so sein, denn eine logitische Regression ist nun mal kein *Wilcoxon rank sum test* oder ein *Pearson's Chi-squared test*.
+
+Fassen wir als Fazit dieses Abschnitts zusammen wie unsere Modelle nach der Variablenslektion aussehen würde. In unserem Beispiel für die Kichererbsen im sandigen Brandenburg würden wir dann folgendes Modell nehmen.
+
+$$
+y \sim \beta_0 + sand + location + no3 + temp
+$$
+
+Unsere infizierten Ferkel würden dann folgendes selektiertes Modell erhalten.
+
+$$
+y \sim \beta_0 + crp + bloodpressure
+$$
+
+Schauen wir mal, was die anderen Algorithmen noch so finden.
 
 ### Sonderfall Gaussian linear Regression
 
-[Variable Selection Methods](https://olsrr.rsquaredacademy.com/articles/variable_selection.html)
+Für die gaussian lineare Regression gibt es mit dem R Paket `oslrr` eine große Auswahl an [Variable Selection Methods](https://olsrr.rsquaredacademy.com/articles/variable_selection.html). Einfach mal die Möglichkeiten anschauen, die dort angeboten werden. Wir nutzen jetzt nicht alles was din `oslrr` möglich ist, sondern nur eien Auswahl. Zuerst müssen wir wieder unser Modell fitten. Wir nehmen alle Variablen mit rein und nutzen die Funktion `lm()` für ein lineares Modell mit einem normalverteilten Outcome $y$ mit `dryweight`.
 
 ```{r}
 chickenpea_fit <- lm(dryweight ~ temp + rained + location + no3 + fe + sand + forest, 
                    data = chickpea_tbl)
 ```
+
+Nun gibt es wirklich viele Lösungen in dem R Paket `oslrr`. Ich möchte einmal die Variante mit `ols_step_all_possible` präsnetieren. In dem Fall rechnen wir alle Modelle die gehen. Und damit meine ich wirklich alle Modelle. Deshalb filtern wir noch nach dem $R^2_{adj}$ um nicht von dem Angebot erschlagen zu werden. Darüber hinaus möchte ich nur Modelle sehen, die maximal vier Variablen mit in dem Modell haben. Das ist zufällig von mir gewählt... ich will ja ein kleineres Modell haben.
 
 ```{r}
 ols_step_all_possible(chickenpea_fit) %>%
@@ -263,10 +279,41 @@ ols_step_all_possible(chickenpea_fit) %>%
   arrange(desc(adjr)) %>%
   filter(n <= 4) %>% 
   select(predictors, adjr, aic) 
-
 ```
 
-### `step` und `setpAIC`
+Eine Alternative ist die Funktion `ols_step_backward_aic()`, die es erlaubt die Selektion anhand dem $AIC$-Wert zu machen. Der $AIC$-Wert beschreibt die Güte eines Modells und je kleiner der $AIC$-Wert ist, desto besser ist das Modell im Vergleich zu anderen Modellen gleicher Art. Da der $AIC$-Wert von den Daten abhängt in denen der $AIC$-Wert geschätzt wurde, können verschiedene $AIC$-Werte nicht übergreifend vergleichen werden.
+
+```{r}
+chick_step_aic <- ols_step_backward_aic(chickenpea_fit)
+```
+
+In @fig-ols-diag sehen wir einmal den Verlauf der $AIC$-Wert durch die Entfernung der jeweiligen Variable. Wenn du auf die y-Achse schaust, ist der Effekt numerisch nicht sehr groß. Davon darf man sich aber nicht beeindrucken lassen., Wir erhalten ein besseres Modell, wenn wir Variablen entfernen. Darüber hinaus sehen wir auch eine Sättigung.
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-ols-diag
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 5
+#| fig-cap: "Visualisierung der `ols_step_backward_aic` mit der Reduktion des AIC-Wertes."
+
+plot(chick_step_aic) 
+```
+
+Gut, und wie sieht nun unser finales Modell aus? Dafür müssen wir usn aus dem Objekt `chick_step_aic` das `model` rausziehen. Dafür nutzen wir die Funktion `pluck()`. Dann noch die Ausgabe in die Funktion `model_parameters()` gepipt und schon haben wir das finale Modell nach $AIC$-Werten in einer gaussian linearen Regression.
+
+```{r}
+#| message: false
+#| warning: false
+
+pluck(chick_step_aic, "model") %>% 
+  model_parameters()
+```
+
+Spannenderweise ist `location` nicht mehr im finalen Modell plus die Variable `location` flog auch sehr früh raus. Das passt auch besser zu den Daten. Ich hatte die Daten so gebaut, dass der Ort eigentlich keinen Effekt haben sollte. Wir sehen, dass je nach Verfahren was anderes herauskommt. Aber Achtung, das schrittweise Verfahren ist der Auswahl nach $p$-Werten auf jeden Fall vorzuziehen!
+
+### Schrittweise mit `stepAIC`
 
 ```{r}
 #| echo: true
@@ -276,8 +323,10 @@ ols_step_all_possible(chickenpea_fit) %>%
 
 fit <- glm(infected ~ age + sex + location + activity + crp + frailty + bloodpressure + weight + creatinin, 
            data = pig_tbl, family = binomial)
+```
 
-fit_step <- stepAIC(fit, direction = "both")
+```{r}
+fit_step <- stepAIC(fit, direction = "backward")
 ```
 
 Test
@@ -288,7 +337,7 @@ fit_step
 
 Test
 
-### `ranger`
+### Feature Selektion mit `ranger`
 
 @sec-class-rf
 
@@ -303,7 +352,7 @@ fit <- ranger(infected ~ age + sex + location + activity + crp + frailty + blood
 pluck(fit, "variable.importance") %>% sort(decreasing = TRUE)
 ```
 
-### `boruta`
+### Feature Selektion mit `boruta`
 
 ```{r}
 boruta_output <- Boruta(infected ~ age + sex + location + activity + crp + frailty + bloodpressure + weight + creatinin,  
