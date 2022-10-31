@@ -10,6 +10,18 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 
 ## Theoretischer Hintergrund
 
+Was sind Ausreißer (eng. *Outlier*) in einem Datensatz? An scih schon eine schwierige Frage. Einige Wissenschaftler behaupten es gebe keine Ausreißer. Die Daten müssetn so ausgewertet werden wie die Daten erhoben wurden. Was es gäbe wären technische Artefakte, diese müssten entdeckt und entfernt werden. Andere Wissenschaftler meinen, dass Ausreißer schon existieren und entferent werden müssen, wenn diese Ausreißer nicht zu der Fragestellung oder den restlichen Daten passen. Es ist eine unbekannte Subpopulation, die sich mit einem oder zwei Vertretern in unsere Daten geschmugelt hat. Diese Subpopulation verzerrt nur das Ergebnis, da wir mit diesen wenigen anderen Beobachtungen sowieso keine Aussage treffen können. Am Ende geht es aber draum Ausreißer zu finden und diese aus den Daten zu entfernen. Wir setzen dann diese Werte der Ausreißer auf `NA` für fehlender Wert (eng. *not available*). Oder aber wir erstetzen die Ausreißer durch pasendere Werte aus unseren Daten. Im Prinzip ein wenig wie finde den Ausreißer und imputiere den Ausreißer mit einer anderen Zahl. Mehr zur Imputation von fehlenden Werten findest du in @sec-missing. Vermeide bitte eine Ausreißer/Imputationsschleife in der du immer wieder Ausreißer findest und diese dann wieder imputierst! Gerade dieses Thema Ausreißer kann sehr gut von biologischen Fachexperten diskutiert werden.
+
+In den folgenden Abschnitten wollen wir uns verschiedene Möglichkeiten der Detektion von Ausreißern annähern. Es geht wie immer von algorithmisch einfach zu komplexer.
+
+::: column-margin
+![](images/angel_01.png){fig-align="center" width="50%"}
+
+Bitte beiße dich nicht an der *statistischen* Auslegung eines Ausreißers fest. Du bist der Herr oder die Frau über deine Daten. Kein Algorithmus weis mehr als du. Das macht statistischen Engel natürlich traurig...
+:::
+
+Bitte beachte, dass wenn du weist, dass ein Wert nicht richtig ist, diesen dann auch entfernt. Wenn du während der Beprobung feststellst, dass du leider auf dem Feld zu wenig Erde mitgenommen hast, dann trage ein `NA` in die Tabelle ein. Unsinnige Werte einzutragen nur weil die ja so entstanden sind, macht keinen Sinn. Auch kann es sein, dass du dich mal vertippst. Das heist, du hast in die Exceltabelle eine 0 oder ein Komma falsch gesetzt. Das findest du jetzt in der explorativen Datenanalyse raus. Dann bitte korrigiere diese Werte und mache bitte nicht hier mit der Detektion von Ausreißern weiter. Wenn du selber weist, warum da so ein komischer Wert in der Tabelle steht, dann korrigiere den Wert und schreibe in deinen Bericht, was du getan hast.
+
 ::: callout-caution
 ## Sensitivitätsanalysen nach der Entfernung von Ausreißer
 
@@ -22,11 +34,12 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, conflicted, broom,
+pacman::p_load(tidyverse, magrittr, dlookr, conflicted, broom,
                see, performance, ggpubr)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
+conflict_prefer("extract", "magrittr")
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
@@ -58,8 +71,24 @@ model_tbl %>% head(7) %>% kable(align = "c", "pipe")
 Im Folgenden *ignorieren* wir, dass die Sprungweiten und die Gewichte der Flöhe auch noch von den Hunden oder Katzen sowie dem unterschiedlichen Geschlecht der Flöhe abhängen könnten. Wir schmeißen alles in einen Pott und schauen nur auf den Zusammenhang von Sprungweite und Gewicht.
 
 ::: column-margin
-Das [R Paket `dlookr`](https://yuzar-blog.netlify.app/posts/2021-01-30-r-package-reviews-dlookr-diagnose-explore-and-transform-your-data/#imputation-of-outliers) hat eine große Auswahl an simplen Algorithmen für die Anpassung von Ausreißern.
+Das [R Paket `dlookr`](https://choonghyunryu.github.io/dlookr/articles/transformation.html#imputation-of-outliers) hat eine große Auswahl an simplen Algorithmen für die Anpassung von Ausreißern.
 :::
+
+```{r}
+#| message: false
+#| warning: false
+longnose_tbl <- read_csv2("data/longnose.csv") 
+```
+
+```{r}
+#| message: false
+
+gummi_tbl <- read_excel("data/gummibears.xlsx")  %>%
+  select(gender, age, height, semester, most_liked) %>% 
+  mutate(gender = as_factor(gender),
+         most_liked = as_factor(most_liked)) %>% 
+  na.omit()
+```
 
 ## Das simple lineare Modell
 
@@ -177,16 +206,6 @@ check_normality(fit_1)
 
 Damit wir uns auch eine Verteilung anschauen können bruachen wir *viele* Beobachtungen. Wir haben das ja schon bei den Histogrammen gesehen, wenn wir ein aussagekräftiges Histogramm erstellen wollen, dann brauchen wir viele Beobachtungen. Daher nehmen wir für dieses Kapitel einmal den Gummibärchendatensatz und schauen uns dort die Variablen `gender`, `height`, `count_bears` und `count_color` einmal genauer an. Wie immer nutzen wir die Funktion `select()` um die Spalten zu selektieren. Abschließend verwandeln wir das Geschlecht `gender` und das `module` noch in einen Faktor.
 
-```{r}
-#| message: false
-
-gummi_tbl <- read_excel("data/gummibears.xlsx")  %>%
-  select(gender, age, height, semester, most_liked) %>% 
-  mutate(gender = as_factor(gender),
-         most_liked = as_factor(most_liked)) %>% 
-  na.omit()
-```
-
 http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/122-multidimensional-scaling-essentials-algorithms-and-r-code/
 
 ```{r}
@@ -222,12 +241,10 @@ ggscatter(mds, x = "Dim.1", y = "Dim.2",
 ```
 
 ```{r}
-#| message: false
-#| warning: false
-longnose_tbl <- read_csv2("data/longnose.csv") 
-```
 
-```{r}
+
+
+
 pacman::p_load(factoextra, FactoMineR)
 
 longnose_pca_df <- longnose_tbl %>%
@@ -258,3 +275,69 @@ Look at library(factoextra)
 http://www.sthda.com/english/wiki/factoextra-r-package-easy-multivariate-data-analyses-and-elegant-visualization
 
 http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/118-principal-component-analysis-in-r-prcomp-vs-princomp/
+
+## Ausreißer mit `dlookr`
+
+```{r}
+diagnose_outlier(longnose_tbl) %>% 
+  filter(outliers_cnt > 0) %>% 
+  arrange(desc(outliers_cnt))
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-miss-dlookr-plot-out
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Densityplot der Verteilungen vor und nach der Imputation."
+#| fig-subcap: 
+#|   - "Imputation mit dem Mittelwert."
+#|   - "Imputation mit dem Median."
+#| layout-nrow: 1
+#| column: page
+
+longnose_tbl %>% plot_outlier(longnose)
+longnose_tbl %>% plot_outlier(area)
+```
+
+```{r}
+longnose_imp_tbl <- longnose_tbl %>% 
+  mutate(longnose_capping = imputate_outlier(., longnose, method = "capping"),
+         longnose_median = imputate_outlier(., longnose, method = "median"))
+
+```
+
+predictor is numerical variable
+
+"mean" : arithmetic mean
+
+"median" : median
+
+"mode" : mode
+
+"capping" : Impute the upper outliers with 95 percentile, and Impute the lower outliers with 5 percentile.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-miss-dlookr-plot-out-imp
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Densityplot der Verteilungen vor und nach der Imputation."
+#| fig-subcap: 
+#|   - "Imputation mit dem Mittelwert."
+#|   - "Imputation mit dem Median."
+#| layout-nrow: 1
+#| column: page
+
+pluck(longnose_imp_tbl, "longnose_capping") %>% 
+  plot
+
+pluck(longnose_imp_tbl, "longnose_median") %>% 
+  plot
+```
