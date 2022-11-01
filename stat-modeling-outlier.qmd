@@ -150,7 +150,7 @@ ggplot(data = out_tbl, aes(x = weight, y = jump_length)) +
 
 ```
 
-Schauen wir uns jetzt den Datensatz `out_tbl` einmal genauer nach einer simplen Gaussian linearen Regression an. Wir nutzen dafür die Funktion `lm()`.
+Im Folgenden rechnen wir eine simple Gaussian lineare Regression auf den Daten und schauen einmal, was wir dann über die einzelnen Beobachtungen erfahren und ob wir die eingestellten Ausreißer wiederfinden.
 
 ```{r}
 fit_cook <- lm(jump_length ~ weight, data = out_tbl)
@@ -165,10 +165,14 @@ cook_tbl <- fit_cook %>%
 cook_tbl
 ```
 
+Zuerst sehen wir, dass die $1$-ste und die $10$-te Beobachtung sehr hohe Werte der Cook'schen Distanz haben. Das heist hier ist irgendwas nicht in Ordnung. Das haben wir ja auch so erwartet. Die beiden Beobachtungen sind ja auch unsere erschaffene Ausreißer. Nun brauchen wir noch einen Threshold um zu entscheiden ab wann wir eine Beobachtung als Ausreißer definieren. Es hat sich als "Kulturkonstante" der Wert von $4/n$ als Threshold etabliert. Berechnen wir also einmal den Threshold für unseren Datensatz indem wir $4$ durch $n = 10$ teilen.
+
 ```{r}
 cooks_border <- 4/nrow(cook_tbl)
 cooks_border
 ```
+
+Wir erhalten einen Threshold von $0.4$ gespeichert in `cooks_border`. In @fig-cook-2 haben wir den Threshold einmal eingezeichnet. Auf der x-Achse ist das `weight`, damit sich die Punkte etwas verteilen. Wir könnten auch den Index auf die x-Achse legen.
 
 ```{r}
 #| echo: true
@@ -177,7 +181,7 @@ cooks_border
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "."
+#| fig-cap: "Visualisierung der Ausreißer nach der Cook'schen Distanz. Die Grenze als rote Linie ist mit $4/n = 0.4$ berechnet worden."
 
 ggplot(cook_tbl, aes(weight, .cooksd)) +
   geom_point() +
@@ -185,27 +189,57 @@ ggplot(cook_tbl, aes(weight, .cooksd)) +
   theme_bw()
 ```
 
+Wir können jetzt mit der Funktion `which()` bestimmen welche Beobachtungen wir als Ausreißer identifizert haben. Was wir jetzt mit den Ausreißern machen, müssen wir uns überlegen. Im Prinzip haben wir zwei Möglichkeiten. Entweder entfernen wir die Beobachtungen aus unserem Datensatz oder aber wir setzen die Werte der Ausreißer auf `NA` oder eine andere *pasendere* Zahl.
+
 ```{r}
 #| message: false
 remove_weight_id <- which(cook_tbl$.cooksd > cooks_border)
+```
+
+Weil es hier am Anfang noch relativ einfach sein soll, entfernen wir einfach die beiden Ausreißer aus unseren Daten. Wir erhalten dann einen kleineren Datensatz mit $n = 8$ Beobachtungen.
+
+```{r}
+#| message: false
 out_tbl <- out_tbl[-remove_weight_id,]
 
 out_tbl
 ```
 
+Du siehst, dieser Zugang an die Detektion von Ausreißern ist sehr simple. Wir schauen einfach auf die Cook'sche Distanz und haben so einen schnellen Überblick. Ich empfehle auch gerne dieses Vorgehen um einmal einen Überblick über die Daten zu erhalten. Leider leifern nicht alle Modelle eine Cook'sche Distanz, daher müssen wir uns jetzt etwas strecken und noch andere Verfahren einmal ausprobieren.
+
 ## Ausreißer mit `performance`
 
+Nun wollen wir uns den echten Daten zuwenden und dort einmal schauen, ob wir Ausreißer finden können. Wir nutzen hierzu einmal die Funktion `check_outliers()` aus dem R Paket `performance`. Die Funktion `check_outliers()` rechnet nicht *eine* staistische Maßzahl für die Bestimmung eines Ausreißers sondern eine ganze Reihe an Maßzahlen und gewichtet diese Maßzahlen. Am Ende trifft die Funktion `check_outliers()` dann eine Entscheidung welche Beobachtungen Aureißer sind. Dabei werden alle Variablen betrachtet. Es gibt keinen Unterschied zwischen $y$ oder $x$. Wir nutzen den ganzen Datensatz.
+
 ::: column-margin
-Das R Paket \``performance` hat die Möglichkeit zur [Outliers detection (check for influential observations)](https://easystats.github.io/performance/reference/check_outliers.html).
+Das R Paket `performance` hat die Möglichkeit zur [Outliers detection (check for influential observations)](https://easystats.github.io/performance/reference/check_outliers.html).
 :::
 
 ```{r}
 check_outliers(longnose_tbl)
 ```
 
+Wir finden also sieben Aureißer in unseren Daten. Wir können diese Beobachtungen einmal mit der Funktion `extract()` rausziehen und uns anschauen. Wie immer mit so Datensätzen erkennen wir hier noch nicht so ein richtiges Muster. Da müssen wir dann nochmal andere Funktionen nutzen.
+
+```{r}
+longnose_tbl %>% 
+  extract(c(8, 17, 18, 21, 28, 43, 44), )
+```
+
+Ebenso schauen wir einmal bei dem Gummibärchendaten nach, welche der Beobachtungen ein Ausreißer sein könnten.
+
 ```{r}
 check_outliers(gummi_tbl)
 ```
+
+Wir wissen ja, dass wir recht viele Beobachtungen haben und wie wir sehen, scheint sich so ein Cluster in den hohen Zweihundertsiebzigern gebildet zu haben. Manchmal echt spanned, was man so finden kann.
+
+```{r}
+gummi_tbl %>% 
+  extract(c(1, 4, 66, 81, 95, 115, 119, 122, 138, 155, 179, 226, 248, 263, 272, 273, 274, 275), )
+```
+
+Am Ende muss man dann bei der Funktion `check_outliers()` daran glauben, dass es sich um Ausreißer handelt. Wir müssen uns dann die Daten genau anschauen und entscheiden, ob wir wirklich *so viele* Beobachtungen entfernen wollen. Darüber hinaus wisen wir jetzt gar nicht, warum wir eine Beobachtung als Ausreißer definiert haben.
 
 ## Ausreißer mit `dlookr`
 
