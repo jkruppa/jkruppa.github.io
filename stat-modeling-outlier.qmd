@@ -296,7 +296,7 @@ longnose_imp_tbl <- longnose_tbl %>%
 
 ```
 
-In @fig-miss-dlookr-plot-out-imp sehen wir die beiden Imputationsmethoden `capping` und `median` für die Ausreißer in den Daten einmal dargestellt.
+In @fig-miss-dlookr-plot-out-imp sehen wir die beiden Imputationsmethoden `capping` und `median` für die Ausreißer in den Daten einmal dargestellt. Wir sehen das in der @fig-miss-dlookr-plot-out-imp-1 durch die Quantilimputation die Ausreißer alle nach links geschoben werden. Es entsteht ein neues lokales Maximum. Ob das so sinnvoll ist, sei mal dahingestellt. Der Vorteil ist, dass sich dadurch die anderen Teile der Verteilung nicht ändern. Wenn wir die Medianimputation durchführen, dann erhöhen wir das Maximum der ursprünglichen Verteilung noch weiter. Dafür verlieren wir dann eben alle Werte über Einhundert. Hier müssen wir vermutlich wirklich mal an die Sensitivitätsanalyse ran.
 
 ```{r}
 #| message: false
@@ -320,11 +320,86 @@ pluck(longnose_imp_tbl, "longnose_median") %>%
   plot
 ```
 
+Wie du siehst ist eine Detektion von Ausreißern nicht so einfach. Zum einen brauchen wir dazu Daten, damit wir auch Ausrißer finden können. Zu irgendwas müssen wir ja die einzelnen Beobachtungen vergleichen. Zum anderen können wir durch die Imputation die Verteilung der Daten stark ändern. Es bleibt ein Drahtseilakt.
+
 ## Hauptkomponentenanalyse
 
-Damit wir uns auch eine Verteilung anschauen können bruachen wir *viele* Beobachtungen. Wir haben das ja schon bei den Histogrammen gesehen, wenn wir ein aussagekräftiges Histogramm erstellen wollen, dann brauchen wir viele Beobachtungen. Daher nehmen wir für dieses Kapitel einmal den Gummibärchendatensatz und schauen uns dort die Variablen `gender`, `height`, `count_bears` und `count_color` einmal genauer an. Wie immer nutzen wir die Funktion `select()` um die Spalten zu selektieren. Abschließend verwandeln wir das Geschlecht `gender` und das `module` noch in einen Faktor.
+[Wir kürzen die Hauptkomponentenanalyse mit PCA ab.]{.aside}
 
-http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/122-multidimensional-scaling-essentials-algorithms-and-r-code/
+Die Hauptkomponentenanalyse (eng. *Principle Component Analysis*, abk. PCA) als Abschnitt im Ausreißerkapitel ist der Hauptkomponentenanalyse nicht würdig. Wir könnten hier ein eigenes Kapitel nur über die PCA, wie ich die Hauptkomponentenanalyse ist immer abkürzen werde, schreiben und das würde nicht reichen. Das hat vor allem damit zu tun, dass die PCA in den Sozialwissenschaften sehr weitreichend genutzt wird. Ebenso ist die Auswertung von Fragebögen ein Schwerpunkt der PCA. Wir nutzen die PCA hier jetzt um zu sehen, ob wir Ausreißer in unseren Beobachtungen haben. Das ist also eine sehr spezifische Anwendung. Vielleicht wird dieses Kapitel nochmal größer, aber jetzt bleiben wir einmal bei der Anwendung.
+
+Was ist grob die Idee der PCA? Wir wollen unseren Daten, also die ganze Daten*matrix* einmal so transformieren, dass wir neue Komponeten aus den Daten extrahieren, die die Daten auf einer anderen Dimension beschreiben. Klingt etwas kryptisch, aber im Prinzip handelt es sich bei der PCA um eine Transformation der Daten. Wir nutzen dabei die Varainzstruktur und die Varianz/Covarianzmatrix. Im Prinzip also die Korrelation zwischen den einzelnen Variablen in dem Datensatz.
+
+PCA vs. MDS
+
+::: column-margin
+Wie immer gibt es eine Vielzahl an tollen Tutorien, die die PCA gut erklären. Ich habe hier einmal eine Auswahl zusammengestellt und du kannst dich da ja mal vertiefend mit beschäftigen, wenn du willst. Teile der Tutorien findest du vermutlich hier im Haupttext wieder.
+
+-   [Principal Component Analysis (PCA) For Dummies](http://www.billconnelly.net/?p=697)
+-   [Principal Component Analysis 4 Dummies: Eigenvectors, Eigenvalues and Dimension Reduction](https://georgemdallas.wordpress.com/2013/10/30/principal-component-analysis-4-dummies-eigenvectors-eigenvalues-and-dimension-reduction/)
+-   [The most gentle introduction to Principal Component Analysis](https://towardsdatascience.com/the-most-gentle-introduction-to-principal-component-analysis-9ffae371e93b)
+:::
+
+Es gibt eine große Anzahl an Quellen wie du in R eine PCA oder ein MDS durchführst. In der folgenden Box findets du eine Sammlung an Tutorien und R Code, der dir als Inspiration dienen mag.
+
+::: {.callout-caution collapse="true"}
+## Weitere R Quellen für die Principal Component Analysis
+
+-   [Principal Component Analysis in R Tutorial](https://www.datacamp.com/tutorial/pca-analysis-r)
+-   [Factoextra R Package: Easy Multivariate Data Analyses and Elegant Visualization](http://www.sthda.com/english/wiki/factoextra-r-package-easy-multivariate-data-analyses-and-elegant-visualization)
+-   [Principal Component Analysis in R: prcomp vs princomp](http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/118-principal-component-analysis-in-r-prcomp-vs-princomp/)
+-   [Multidimensional Scaling Essentials: Algorithms and R Code](http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/122-multidimensional-scaling-essentials-algorithms-and-r-code/)
+:::
+
+### Principal Component Analysis (PCA)
+
+```{r}
+pacman::p_load(factoextra, FactoMineR)
+
+longnose_pca_df <- longnose_tbl %>%
+  select(-stream) %>% 
+  as.data.frame()
+
+row.names(longnose_pca_df) <- longnose_tbl$stream
+
+res.pca <- PCA(longnose_pca_df,  graph = FALSE)
+
+fviz_screeplot(res.pca, addlabels = TRUE, ylim = c(0, 50))
+
+
+fviz_pca_var(res.pca, col.var = "black")
+
+
+fviz_pca_ind(res.pca,
+             col.ind = "cos2", # Color by the quality of representation
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE     # Avoid text overlapping
+             )
+```
+
+### Multi Dimensional Scaling (MDS)
+
+```{r}
+distance_tbl <- read_excel("data/distance.xlsx")
+
+distance_tbl[-1] %>% as.dist()
+
+mds <- distance_tbl %>%
+  select(-distance) %>% 
+  as.dist() %>%          
+  cmdscale(k = 2) %>%
+  as_tibble() %>% 
+  mutate(V1 = -V1,
+         V2 = -V2)
+colnames(mds) <- c("Dim.1", "Dim.2")
+# Plot MDS
+ggscatter(mds, x = "Dim.1", y = "Dim.2", 
+          label = names(distance_tbl)[-1],
+          size = 1,
+          repel = TRUE)
+
+
+```
 
 ```{r}
 
@@ -357,35 +432,3 @@ ggscatter(mds, x = "Dim.1", y = "Dim.2",
           repel = TRUE)
 
 ```
-
-```{r}
-pacman::p_load(factoextra, FactoMineR)
-
-longnose_pca_df <- longnose_tbl %>%
-  select(-stream) %>% 
-  as.data.frame()
-
-row.names(longnose_pca_df) <- longnose_tbl$stream
-
-res.pca <- PCA(longnose_pca_df,  graph = FALSE)
-
-fviz_screeplot(res.pca, addlabels = TRUE, ylim = c(0, 50))
-
-
-fviz_pca_var(res.pca, col.var = "black")
-
-
-fviz_pca_ind(res.pca,
-             col.ind = "cos2", # Color by the quality of representation
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
-```
-
-https://www.datacamp.com/tutorial/pca-analysis-r
-
-Look at library(factoextra)
-
-http://www.sthda.com/english/wiki/factoextra-r-package-easy-multivariate-data-analyses-and-elegant-visualization
-
-http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/118-principal-component-analysis-in-r-prcomp-vs-princomp/
