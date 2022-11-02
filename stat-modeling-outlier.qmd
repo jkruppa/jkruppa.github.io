@@ -6,8 +6,6 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 
 *Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
 
-![](images/caution.png){fig-align="center" width="50%"}
-
 ## Theoretischer Hintergrund
 
 Was sind Ausreißer (eng. *Outlier*) in einem Datensatz? An scih schon eine schwierige Frage. Einige Wissenschaftler behaupten es gebe keine Ausreißer. Die Daten müssetn so ausgewertet werden wie die Daten erhoben wurden. Was es gäbe wären technische Artefakte, diese müssten entdeckt und entfernt werden. Andere Wissenschaftler meinen, dass Ausreißer schon existieren und entferent werden müssen, wenn diese Ausreißer nicht zu der Fragestellung oder den restlichen Daten passen. Es ist eine unbekannte Subpopulation, die sich mit einem oder zwei Vertretern in unsere Daten geschmugelt hat. Diese Subpopulation verzerrt nur das Ergebnis, da wir mit diesen wenigen anderen Beobachtungen sowieso keine Aussage treffen können. Am Ende geht es aber draum Ausreißer zu finden und diese aus den Daten zu entfernen. Wir setzen dann diese Werte der Ausreißer auf `NA` für fehlender Wert (eng. *not available*). Oder aber wir erstetzen die Ausreißer durch pasendere Werte aus unseren Daten. Im Prinzip ein wenig wie finde den Ausreißer und imputiere den Ausreißer mit einer anderen Zahl. Mehr zur Imputation von fehlenden Werten findest du in @sec-missing. Vermeide bitte eine Ausreißer/Imputationsschleife in der du immer wieder Ausreißer findest und diese dann wieder imputierst! Gerade dieses Thema Ausreißer kann sehr gut von biologischen Fachexperten diskutiert werden.
@@ -429,6 +427,8 @@ Bei der Aufteilung der Beobachtungen sehen wir auch keine Auffälligkeiten. Wir 
 
 ### Multi Dimensional Scaling (MDS)
 
+Eine besondere Form der Hauptkomponentenanalyse ist das *Multidimensional Scaling* (abk. MDS). Im Prinzip sind die Mechansimen sehr ähnlich. Der Hauptunterschied ist aber, das wir für die MDS eine Distanzmatrix benötigen. Wir können dafür die Funktion `dist()` oder `as.dist()` nehmen, wenn wir schon Distanzen vorliegen haben. Nehmen wir als plakatives Beispiel einmal die Distanzen von europäischen Städten zueinander. Wir haben die Daten in der Exceldatei `distance.xlsx` vorliegen. Wir lesen die Daten einmal ein und schauen uns die ersten fünf Spalzen und die ersten fünf Zeilen des Daten*satzes* einmal an.
+
 ```{r}
 #| message: false
 #| echo: true
@@ -439,13 +439,15 @@ distance_tbl <- read_excel("data/distance.xlsx")
 distance_tbl[1:5, 1:5]
 ```
 
+Wenn wir jetzt auf diesem Datensatz jetzt ein MDS rechnen wollen, dann müssen wir zum einen alle Spalten mit einem `character` entfernen. Wir haben dann nur noch einen Datensatz bzw. Datenmatrix mit den Distanzen vorliegen. Dann kann wir das `tibble` in einen `dist`-Objekt mit der Funktion `as.dist()` umwandeln. Die eigentliche Berechnung für das *Multidimensional Scaling* findet in der Funktion `cmdscale()` statt. Mit der Option `k = 2` legen wir fest, dass wir nur zwei Hauptkomponenten bzw. Dimensionen bestimmen wollen. Wir machen also aus unserem 37x37 großen Datenmatrix durch *Multidimensional Scaling* eine Reduktion auf zwei Dimensionen bzw. Spalten.
+
 ```{r}
 #| message: false
 #| echo: true
 #| warning: false
 
 mds <- distance_tbl %>%
-  select(-distance) %>% 
+  select(-city) %>% 
   as.dist() %>%          
   cmdscale(k = 2) %>%
   as_tibble() %>% 
@@ -455,21 +457,25 @@ colnames(mds) <- c("Dim.1", "Dim.2")
 
 ```
 
+In @fig-mds-1 sehen wir das Ergebnis der Dimensionsreduktion auf zwei Dimensionen. Wir erhalten die Zusammenhänge bzw. Distanzen aus der Datenmatrix in einem Scatterplot. Ein Scatterplot ist ja nichts anders als die Darstellung von zwei Dimensionen. Wie wir sehen können nimmt die Anordnung der Orte in etwa die Positionen von den Orten auf der Landkarte in Europa ein. Natürlich stimmen die Relationen nicht perfekt, aber das Abbild ist schon recht nahe dran. Wir können also auf diese Art und Weise auch Ausreißer bestimmen.
+
 ```{r}
 #| message: false
 #| echo: true
 #| warning: false
 #| label: fig-mds-1
 #| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "."
+#| fig-height: 6
+#| fig-width: 7
+#| fig-cap: "Scatterplot der zwei Dimensionen nach dem *Multidimensional Scaling* für den Abstand europäischer Städte."
 
 ggscatter(mds, x = "Dim.1", y = "Dim.2", 
-          label = distance_tbl$distance,
+          label = distance_tbl$city,
           size = 1,
           repel = TRUE)
 ```
+
+Wenn wir keine Distanzmatrix wie im obigen Beispiel zu den Entfernungen der europäischen Städte vorliegen haben, dann können wir uns die Distanzen auch mit der Funktion `dist()` berechnen lassen. Wir nutzen jetzt mal als Echtdaten die Daten der Gummibärchen. Mal sehen, ob wir hier irgendwelche Gruppen erkennen. Die Hilfeseite der Funktion `?dist` zeigt welche mathematischen Distanzmaße wir auf die Daten anwenden können. In unseren Fall berechnen wir die euklidische Distanz zwischen den Beobachtungen. Dann rufen wir über die Funkion `cmdsscale` das *Multidimensional Scaling* auf.
 
 ```{r}
 #| message: false
@@ -477,11 +483,13 @@ ggscatter(mds, x = "Dim.1", y = "Dim.2",
 #| warning: false
 
 mds <- gummi_tbl %>%
-  dist() %>%          
-  cmdscale() %>%
+  dist(method = "euclidean") %>%          
+  cmdscale(k = 2) %>%
   as_tibble() %>% 
   set_names(c("Dim.1", "Dim.2"))
 ```
+
+Das Ergebnis des *Multidimensional Scaling* hat keine Bedeutung für uns. Wir können die Zahlen nicht interpretieren. Was wir können ist das Ergebnis in einem Scatterplot wie in @fig-mds-2 zu visualisieren.
 
 ```{r}
 #| message: false
@@ -491,7 +499,7 @@ mds <- gummi_tbl %>%
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "."
+#| fig-cap: "Scatterplot der zwei Dimensionen nach dem *Multidimensional Scaling* für den Gummibärchendatensatz."
 
 ggscatter(mds, x = "Dim.1", y = "Dim.2", 
           label = rownames(gummi_tbl),
@@ -500,20 +508,23 @@ ggscatter(mds, x = "Dim.1", y = "Dim.2",
 
 ```
 
-@sec-knn
+Na endlich, wir sehen mal eine Gruppe von Beobachtungen oder Ausreißern, die nicht in der Wolke aller Beobachtungen liegen. Beobachtungen mit einem Wert kleiner $-20$ in der 2. Dimension könnten wir dann als Ausreißer entfernen. Der Rest bildet dann eine recht homogene Gruppe. Wir können uns aber auch das $k$-NN Verfahren aus dem @sec-knn nutzen um Cluster in den Daten zu finden. Das heißt wir nutzen das maschinelle Lernverfahren $k-NN$ um uns $k$ Cluster bestimmen zu lassen. Dafür nutzen wir die Funktion `kmeans()` und ziehen uns über die Funktion `pluck()` die Cluster raus. Daher erhalten wir einen Vektor mit Zahlen, die beschreiben in welchem Cluster die jeweilige $i$-te Beobachtung ist.
 
 ```{r}
 # K-means clustering
-clust <- kmeans(mds, 5) %>%
+clust <- kmeans(mds, centers = 5) %>%
   pluck("cluster") %>% 
   as.factor()
-
 ```
+
+Wir wollen jetzt unser MDS Ergebnis von den Gummibärchen um eine Spalte für die Clusterergebnisse von $k$-NN ergänzen.
 
 ```{r}
 mds <- mds %>%
   mutate(groups = clust)
 ```
+
+Nun sehen in @fig-mds-3 die gleiche Abbildung wie oben nur ergänzt um die farbliche Hinterlegung der $k=5$ Clustern aus dem $k$-NN Algorithmus. Wir können jetzt die Ausreißer numerisch feststellen und dann aus den Daten entfernen, wenn wir dies wollen würden. Entweder machen wir das über die Clusterzuordnung vom gelben Cluster 2 über die Funktion `filter()` oder aber wir suchen uns die Beobachtungen und damit Zeilen raus, die wir nicht mehr in den Daten wollen. Die Nummern stehen ja dabei.
 
 ```{r}
 #| message: false
@@ -523,7 +534,7 @@ mds <- mds %>%
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "."
+#| fig-cap: "Scatterplot der zwei Dimensionen nach dem *Multidimensional Scaling* für den Gummibärchendatensatz mit den $k=5$ Clustern aus dem $k$-NN Algorithmus."
 
 ggscatter(mds, x = "Dim.1", y = "Dim.2", 
           label = rownames(gummi_tbl),
