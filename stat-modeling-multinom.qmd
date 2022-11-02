@@ -50,7 +50,8 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 ```{r}
 pig_tbl <- read_excel("data/infected_pigs.xlsx") %>%
   mutate(frailty_ord = ordered(frailty, levels = c("robust", "pre-frail", "frail")),
-         frailty_fac = as_factor(frailty))
+         frailty_fac = as_factor(frailty)) %>% 
+  select(-infected)
 
 ```
 
@@ -62,10 +63,13 @@ pig_tbl <- read_excel("data/infected_pigs.xlsx") %>%
 #| tbl-cap: Auszug aus dem Daten zu den kranken Ferkeln.
 #| column: page
 
+raw_pig_tbl <- pig_tbl %>% 
+  mutate(frailty_ord = as.character(frailty_ord),
+         frailty_fac = as.character(frailty_fac))
 
-rbind(head(pig_tbl),
-      rep("...", times = ncol(pig_tbl)),
-      tail(pig_tbl)) %>% 
+rbind(head(raw_pig_tbl),
+      rep("...", times = ncol(raw_pig_tbl)),
+      tail(raw_pig_tbl)) %>% 
   kable(align = "c", "pipe")
 ```
 
@@ -119,7 +123,8 @@ ologit_fit %>% tidy(conf.int = TRUE, exponentiate = TRUE)
 ```{r}
 #| message: false
 #| warning: false
-ologit_fit %>% model_parameters()
+ologit_fit %>% 
+  model_parameters() 
 ```
 
 ## Multinomiale logistische Regression {#sec-multinom}
@@ -185,16 +190,17 @@ pig_tbl$frailty %>% tabyl
 ```{r}
 #| message: false
 #| warning: false
-pig_lst <- list(logreg_robust_frail = filter(pig_tbl, frailty %in% c("robust", "frail")),
-                logreg_robust_pre = filter(pig_tbl, frailty %in% c("robust", "pre-frail")),
-                logreg_pre_frail = filter(pig_tbl, frailty %in% c("pre-frail", "frail")))
+pig_lst <- list(robust_frail = filter(pig_tbl, frailty_fac %in% c("robust", "frail")),
+                robust_prefrail = filter(pig_tbl, frailty_fac %in% c("robust", "pre-frail")),
+                prefrail_frail = filter(pig_tbl, frailty_fac %in% c("pre-frail", "frail")))
 ```
 
 ```{r}
 #| message: false
 #| warning: false
 pig_lst %>% 
-  map(~glm(infected ~ age + sex + location + activity + crp + frailty + bloodpressure + weight + creatinin, 
-             data = .x, family = binomial)) %>% 
-  map(model_parameters, exponentiate = TRUE) 
+  map(~glm(frailty_fac ~ age + sex + location + activity + crp + bloodpressure + weight + creatinin, 
+           data = .x, family = binomial)) %>% 
+  map(model_parameters, exponentiate = TRUE) %>% 
+  map(extract, -1, )
 ```
