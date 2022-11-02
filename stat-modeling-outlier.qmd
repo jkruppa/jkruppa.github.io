@@ -35,7 +35,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, dlookr, broom,
-               see, performance, ggpubr, conflicted)
+               see, performance, ggpubr, factoextra, FactoMineR,
+               conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -326,7 +327,11 @@ Wie du siehst ist eine Detektion von Ausreißern nicht so einfach. Zum einen bra
 
 [Wir kürzen die Hauptkomponentenanalyse mit PCA ab.]{.aside}
 
-Die Hauptkomponentenanalyse (eng. *Principle Component Analysis*, abk. PCA) als Abschnitt im Ausreißerkapitel ist der Hauptkomponentenanalyse nicht würdig. Wir könnten hier ein eigenes Kapitel nur über die PCA, wie ich die Hauptkomponentenanalyse ist immer abkürzen werde, schreiben und das würde nicht reichen. Das hat vor allem damit zu tun, dass die PCA in den Sozialwissenschaften sehr weitreichend genutzt wird. Ebenso ist die Auswertung von Fragebögen ein Schwerpunkt der PCA. Wir nutzen die PCA hier jetzt um zu sehen, ob wir Ausreißer in unseren Beobachtungen haben. Das ist also eine sehr spezifische Anwendung. Vielleicht wird dieses Kapitel nochmal größer, aber jetzt bleiben wir einmal bei der Anwendung.
+Die Hauptkomponentenanalyse (eng. *Principle Component Analysis*, abk. PCA) als Abschnitt im Ausreißerkapitel ist der Hauptkomponentenanalyse nicht würdig. Wir könnten hier ein eigenes Kapitel nur über die PCA, wie ich die Hauptkomponentenanalyse ab jetzt immer abkürzen werde, schreiben und das würde nicht reichen. Das hat vor allem damit zu tun, dass die PCA in den Sozialwissenschaften sehr weitreichend genutzt wird. Ebenso ist die Auswertung von Fragebögen allgemein ein Schwerpunkt der PCA. Wir nutzen die PCA hier jetzt um zu sehen, ob wir Ausreißer in unseren Beobachtungen haben. Das ist also eine sehr spezifische Anwendung. Vielleicht wird dieses Kapitel nochmal größer, aber jetzt bleiben wir einmal bei der Anwendung.
+
+Was ist grob die Idee der PCA? Wir wollen unseren Daten, also die ganze Daten*matrix* einmal so transformieren, dass wir neue Komponenten aus den Daten extrahieren, die die Daten auf einer anderen Dimension beschreiben. Klingt etwas kryptisch, aber im Prinzip handelt es sich bei der PCA um eine Transformation der Daten. Wir nutzen dabei die Varianzstruktur und die Varianz/Covarianzmatrix. Im Prinzip also die Korrelation zwischen den einzelnen Variablen in dem Datensatz.
+
+Neben der PCA existiert noch das *Multidimensional Scaling* (abk. MDS). Das MDS ist im Prinzip eine Spezialform der PCA. Im Unterschied zur PCA wird die MDS auf einer Distanzmatrix gerechnet. In einer MDS können wir nicht einfach so unsere Daten reinstecken sondern müssen zuerst die Daten in eine Distanzmatrix umrechnen. Dafür gibt es die Funktion `dist()` oder `as.dist()`, wenn wir schon Distanzen vorliegen haben. Daher ist die Anwendung einer MDS nicht besonders komplizierter.
 
 ::: column-margin
 Wie immer gibt es eine Vielzahl an tollen Tutorien, die die PCA gut erklären. Ich habe hier einmal eine Auswahl zusammengestellt und du kannst dich da ja mal vertiefend mit beschäftigen, wenn du willst. Teile der Tutorien findest du vermutlich hier im Haupttext wieder.
@@ -336,11 +341,7 @@ Wie immer gibt es eine Vielzahl an tollen Tutorien, die die PCA gut erklären. I
 -   [The most gentle introduction to Principal Component Analysis](https://towardsdatascience.com/the-most-gentle-introduction-to-principal-component-analysis-9ffae371e93b)
 :::
 
-Was ist grob die Idee der PCA? Wir wollen unseren Daten, also die ganze Daten*matrix* einmal so transformieren, dass wir neue Komponeten aus den Daten extrahieren, die die Daten auf einer anderen Dimension beschreiben. Klingt etwas kryptisch, aber im Prinzip handelt es sich bei der PCA um eine Transformation der Daten. Wir nutzen dabei die Varainzstruktur und die Varianz/Covarianzmatrix. Im Prinzip also die Korrelation zwischen den einzelnen Variablen in dem Datensatz.
-
-PCA vs. MDS
-
-Es gibt eine große Anzahl an Quellen wie du in R eine PCA oder ein MDS durchführst. In der folgenden Box findets du eine Sammlung an Tutorien und R Code, der dir als Inspiration dienen mag.
+Es gibt eine *natürlich* große Anzahl an Quellen wie du in R eine PCA oder ein MDS durchführst. In der folgenden Box findest du eine Sammlung an Tutorien und R Code, der dir als Inspiration dienen mag. Ich werde teile von den Tutorien in der Folge verwenden, kann aber natürlich nichts alles nochmal machen.
 
 ::: {.callout-caution collapse="true"}
 ## Weitere R Quellen für die Principal Component Analysis
@@ -353,34 +354,73 @@ Es gibt eine große Anzahl an Quellen wie du in R eine PCA oder ein MDS durchfü
 
 ### Principal Component Analysis (PCA)
 
+Wenn wir eine PCA in R rechnen wollen, dann haben wir zuerst die Wahl zwischen den Funktionen `prcomp()` und `princomp()`. Laut der R-Hilfe hat die Funktion `prcomp()` eine etwas bessere numerische Genauigkeit. Daher ist die Funktion `prcomp()` gegenüber `princomp()` vorzuziehen. Daher nutzen wir jetzt auch die Funktion `prcomp()`. Es gibt aber noch eine *neuere* Implementierung der Funktionalität in dem R Paket `FactoMineR` und der Funktion `PCA()`. Langer Satz kurzes Fazit, wir nutzen die Funktion `PCA()` im folgenden Abschnitt.
+
+Wir müssen uns jetzt leider etwas von dem `tibble` verabschieden. Für die PCA brauchen wir einen Datensatz, in dem nur Zahlen oder Faktoren stehen. Daher schieben wir die Namen der Beobachtungen oder die ID in die Zeilennamen. Eigentlich keine gute Idee für die Arbeit mit Daten, aber für die PCA passt es. Wir haben dann also den `data.frame()` als `longnose_pca_df` vorliegen. Mit diesem Datensatzobjekt können wir dann in die PCA starten.
+
 ```{r}
 #| message: false
 #| echo: true
 #| warning: false
 
-
-
-pacman::p_load(factoextra, FactoMineR)
-
 longnose_pca_df <- longnose_tbl %>%
   select(-stream) %>% 
-  as.data.frame()
+  as.data.frame() %>% 
+  set_rownames(longnose_tbl$stream)
+```
 
-row.names(longnose_pca_df) <- longnose_tbl$stream
+Wenn wir die Daten von jeglichen `character` Spalten gereinigt haben, dann können wir die Funktion `PCA()` nutzen. Wir wollen uns die Visualisierung gleich selber nochmal nachbauen, deshalb hier die Option mit `graph = FALSE`. Im folgenden schauen wir uns nur eine Auswahl an möglichen Abbildungen an. Davon natürlich die wichtigsten Abbildungen, aber das [Factoextra R Package: Easy Multivariate Data Analyses and Elegant Visualization](http://www.sthda.com/english/wiki/factoextra-r-package-easy-multivariate-data-analyses-and-elegant-visualization) kann natürlich noch viel mehr.
 
-res.pca <- PCA(longnose_pca_df,  graph = FALSE)
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
 
-fviz_screeplot(res.pca, addlabels = TRUE, ylim = c(0, 50))
+pca_res <- PCA(longnose_pca_df,  graph = FALSE)
+```
 
+Nachdem wir die PCA durchgeführt haben, schauen wir uns einmal an, ob es überhaupt irgendwas gebracht hat, dass wir die PCA durchgeführt haben. Wir haben ja unsere Daten transformiert und erhalten pro Variable eine neue Dimension wieder. In einem Scree Plot wie in @fig-pca-1 wird die erklärte Varianz pro Hauptkomponente gezeigt.
 
-fviz_pca_var(res.pca, col.var = "black")
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-pca-1
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Scree Plot der PCA mit der erklärten Varianz pro Hauptkomponente."
 
+fviz_screeplot(pca_res, addlabels = TRUE, ylim = c(0, 50))
+```
 
-fviz_pca_ind(res.pca,
-             col.ind = "cos2", # Color by the quality of representation
+Wir erkennen, dass unsere Hauptkomponenten teilweise viel Varianz erklären, aber wir keine Hauptkomponente gefunden haben, die sehr viel Varianz erklärt. Es gibt also in unseren erhobenen Daten keine Variable, die "alles" erklärt. Mit "alles" ist dann natürlich die Varianz gemeint. In @fig-pca-2-1 sehen wir das Diagramm der Variablen, also der Spalten in der Datenmatrix. Positiv korrelierte Variablen zeigen auf dieselbe Seite des Diagramms. Negativ korrelierte Variablen zeigen auf die gegenüberliegenden Seiten des Diagramms. In @fig-pca-2-2 ist das Diagramm der Beobachtungen, also den Zeilen in der Datenmatrix, dargsetellt. Beoanchtungen mit einem ähnlichen *Muster* über die Zeilen werden in Gruppen zusammengefasst.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-pca-2
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Diagramm der PCA für die Variablen (Saplten) und den Beobachtungen (Zeilen) der Datenmatrix."
+#| fig-subcap: 
+#|   - "Richtung der Variablen (Spalten)"
+#|   - "Verteilung der Beobachtungen (Zeilen)."
+#|   - "Komibination Variablen und Individuen."
+#| layout-nrow: 1
+#| column: page
+
+fviz_pca_var(pca_res, col.var = "black")
+
+fviz_pca_ind(pca_res,
+             col.ind = "cos2", 
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
+             repel = TRUE)
+
+fviz_pca_biplot(pca_res)
+
 ```
 
 ### Multi Dimensional Scaling (MDS)
