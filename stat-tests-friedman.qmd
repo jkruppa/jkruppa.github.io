@@ -9,12 +9,14 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 ![](images/caution.png){fig-align="center" width="50%"}
 
 ::: callout-note
-## Was macht der Kruskal-Wallis-Test?
+## Was macht der Friedman Test?
 
-Der Kruskal-Wallis-Test vergleicht die Mediane mehrerer beliebiger Verteilungen miteinander.
+Der Friedman Test vergleicht die Mediane mehrerer beliebiger Verteilungen miteinander und berücksichtigt dabei auch einen Block oder Cluster. Im Prinzip die zweifaktorielle ANOVA für nicht-normalverteilte Daten.
 :::
 
 Wann nutzen wir den Friedman Test?
+
+In unserem Fall rechnen wir den Friedman-Test nicht per Hand. Es gibt dafür keinen Grund. Wir haben ja im vorherigen Kapitel uns mit der Berechnung des Kruskal-Wallis-Test beschäftigt, der Fiedman-Test unterscheidet sich nur in Nuancen bei der Berechnung, so dass ich hier keinen Lerngewinn mehr sehe.
 
 ## Genutzte R Pakete für das Kapitel
 
@@ -22,46 +24,88 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 pacman::p_load(tidyverse, magrittr, broom, 
-               readxl, rstatix)
+               readxl, rstatix, coin,
+               effectsize)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
 
-## Daten für den Kruskal-Wallis-Test
+## Daten für den Friedman Test
 
-Wir wollen uns
+Wir wollen uns fünf Weizensorten $A$ bis $E$.
 
 ```{r}
-data_tbl <- tibble(Block = 1:4,
-                   Sorte_1 = c(2,3,4,3),
-                   Sorte_2 = c(7,9,8,9),
-                   Sorte_3 = c(6,5,4,7),
-                   Sorte_4 = c(2,4,1,2),
-                   Sorte_5 = c(4,5,3,7)) %>%
-  gather(key, value, Sorte_1:Sorte_5)
+#| message: false
+#| warning: false
+grade_tbl <- tibble(block = 1:4,
+                   A = c(2,3,4,3),
+                   B = c(7,9,8,9),
+                   C = c(6,5,4,7),
+                   D = c(2,3,1,2),
+                   E = c(4,5,3,6)) %>%
+  gather(key = variety, value = grade, A:E) %>% 
+  mutate(block =  as_factor(block))
+```
 
-friedman.test(value ~ key | Block, data = data_tbl)
+```{r}
+grade_tbl
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-log-pred
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Dotplot des Datenbeispiels für die Bonitur von fünf Weizensorten."
+
+ggplot(grade_tbl, aes(variety, grade, fill = block)) +
+  theme_bw() +
+  geom_dotplot(binaxis = "y", stackdir='center', 
+               position=position_dodge(0.8)) 
 ```
 
 ## Hypothesen für den Friedman Test
 
-Der Kruskal-Wallis-Test betrachtet die Mediane und Ränge um einen Unterschied nachzuweisen. Daher haben wir in der Nullhypothese als Gleichheitshypothese. In unserem Beispiel lautet die Nullhypothese, dass die Mediane jedes Levels des Faktors `animal` gleich sind.
+Der Friedman Test betrachtet wie auch der Kruskal-Wallis-Test die Mediane und Ränge um einen Unterschied nachzuweisen. Daher haben wir in der Nullhypothese als Gleichheitshypothese. In unserem Beispiel lautet die Nullhypothese, dass die Mediane jedes Levels des Faktors `variety` gleich sind.
 
 $$
-H_0: \; \widetilde{y}_{cat} = \widetilde{y}_{dog} = \widetilde{y}_{fox}
+H_0: \; \widetilde{y}_{A} = \widetilde{y}_{B} = \widetilde{y}_{C} = \widetilde{y}_{D} = \widetilde{y}_{E}
 $$
 
-Die Alternative lautet, dass sich mindestens ein paarweiser Vergleich in den Medianen unterschiedet. Hierbei ist das *mindestens ein Vergleich* wichtig. Es können sich alle Mediane unterschieden oder eben nur ein Paar. Wenn ein Kruskal-Wallis-Test die $H_0$ ablehnt, also ein signifikantes Ergebnis liefert, dann wissen wir nicht, welche Mediane sich unterscheiden.
+Die Alternative lautet, dass sich mindestens ein paarweiser Vergleich in den Medianen unterschiedet. Hierbei ist das *mindestens ein Vergleich* wichtig. Es können sich alle Mediane unterschieden oder eben nur ein Paar. Wenn ein Friedman Test die $H_0$ ablehnt, also ein signifikantes Ergebnis liefert, dann wissen wir nicht, welche Mediane sich unterscheiden. Bein unseren fünf Weizensorten kommt da eine ganze Menge an Vergleichen zusammen. In der Folge nur ein Ausschnitt aller Alternativehypothesen.
 
 $$
 \begin{aligned}
-H_A: &\; \widetilde{y}_{cat} \ne \widetilde{y}_{dog}\\
-\phantom{H_A:} &\; \widetilde{y}_{cat} \ne \widetilde{y}_{fox}\\
-\phantom{H_A:} &\; \widetilde{y}_{dog} \ne \widetilde{y}_{fox}\\
+H_A: &\; \widetilde{y}_{A} \ne \widetilde{y}_{B}\\
+\phantom{H_A:} &\; \widetilde{y}_{A} \ne \widetilde{y}_{C}\\
+\phantom{H_A:} &\; ...\\
+\phantom{H_A:} &\; \widetilde{y}_{D} \ne \widetilde{y}_{E}\\
 \phantom{H_A:} &\; \mbox{für mindestens ein Paar}
 \end{aligned}
 $$
 
-## Friedman Test theoretisch
-
 ### Friedman Test in R
+
+::: column-margin
+Das [Tutorial von Salvatore S. Mangiafico zum Friedman Test](https://rcompanion.org/handbook/F_10.html) liefert eine sehr ausführliche Anwendung über mehrere R Pakete hinweg.
+:::
+
+```{r}
+#| message: false
+#| warning: false
+friedman.test(grade ~ variety | block, data = grade_tbl)
+```
+
+```{r}
+#| message: false
+#| warning: false
+kendalls_w(grade ~ variety | block, data = grade_tbl)
+```
+
+```{r}
+#| message: false
+#| warning: false
+interpret_kendalls_w(0.88)
+```
