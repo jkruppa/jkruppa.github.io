@@ -16,11 +16,27 @@ Der folgende Text ist ein *Lehr*text für Studierende. Es handelt sich keinesfal
 Antragsteller:innen ist die statistische Beratung von einer entsprechenden Institution dringlichst angeraten.
 :::
 
+In diesem Kapitel wollen wir uns mit der Fallzahlplanung beschäftigen. Eigentlich stimmt das Wort Planung überhaupt nicht. Wir machen hier eine Fallzahl*abschätzung*. Es geht hier darum, anhand von Werten aus der Literatur für dein eigenen Experiment die nötige Anzahl an Beobachtungen abzuschätzen. Nun ist es so, dass die Berechnung der benötigten Fallzahl in klinischen Studien oder aber Tierversuchsvorhaben *vor* dem Beginn des Versuchs durchgeführt werden muss. Es gibt in diesem Zusammenhang das Tierversuchsvorhaben im Falle von Tieren und den Ethikantrag im einer klinischen Studie. Beide Anträge werden faktisch bei einer Behörde gestellt und haben einen regulativen Charakter. Wir machen hier aber kein Jura. Deshalb hat dieses Kapitel auch keinen beratenden Charakter.
+
+Wenn du an einer Institution arbeitest oder forscht, die einen Ethikantrag stellen oder einen Tierversuchsantrag einreichen will, wende dich an deine Vertrauensperson. Es muss jemanden bei dir geben, der für solche Anträge zuständig ist. Dieses Kapitel und ich sind es ausdrücklich nicht.
+
 ## Theoretischer Hintergrund
+
+Manchmal hat man das Gefühl, dass Fallzahlplanung nur ein wildes Gerate ist. Das ist aus der Perspektive eines biologischen Fachlaien auch der Fall. Ich kenne mich sehr wenig in der vielen biologischen Feldern aus. Daher weiß ich wenig darüber was ein großer Effekt ist oder welchen Effekt du überhaupt in deinem Kartoffelexperiment erwarten kannst. Auch ist mir unklr was typische Mittelwertsunterschiede bei Wasserlinsen sind. Du musst sowas aber wissen, es ist ja schließlich dein Experiment. Wenn du also eine Fallzahlplanung durchführen willst, dann heißt es zuerst einmal Litertaur wäzen oder mit den Fachkollegen sprechen.
 
 ::: column-margin
 Es gibt *DIE* Übersicht für die Fallzahlberechnung in R von Dr. Mark Williamson in seinem Tutorial [Sample Size Calculation with R](https://med.und.edu/daccota/_files/pdfs/berdc_resource_pdfs/sample_size_r_module.pdf).
 :::
+
+::: callout-note
+## Einseitig oder zweiseitig im Spiegel der Regulierungsbehörden
+
+In den [allgemeinen Methoden des IQWiG](https://www.iqwig.de/ueber-uns/methoden/methodenpapier/), einer Regulierungsbehörde für klinische Studien, wird grundsätzlich das zweiseitige Testen empfohlen. Wenn einseitig getestet werden sollte, so soll das $\alpha$-Niveau halbiert werden. Was wiederum das gleiche wäre wie zweiseitiges Testen - nur mit mehr Arbeit.
+
+*Zur besseren Vergleichbarkeit mit 2-seitigen statistischen Verfahren wird in einigen Guidelines für klinische Studien eine Halbierung des üblichen Signifikanzniveaus von 5 % auf 2,5 % gefordert.* -- [Allgemeine Methoden Version 6.1 vom 24.01.2022, p. 180](https://www.iqwig.de/methoden/allgemeine-methoden-v6-1.pdf)
+:::
+
+Was machen wir wenn wir mehr als zwei Gruppen haben?
 
 ## Tierversuchsantrag
 
@@ -36,14 +52,76 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, conflicted, broom,
-               parameters, performance, gtsummary)
+pacman::p_load(tidyverse, magrittr, pwr, 
+               conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
 conflict_prefer("extract", "magrittr")
-cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
-                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
 https://bookdown.org/pdr_higgins/rmrwr/sample-size-calculations-with-pwr.html
+
+## Mittelwertsvergleich für zwei Gruppen in R
+
+Cohens' d
+
+$$
+d = \cfrac{\Delta}{s_{\Delta}}
+$$ mit
+
+-   $\Delta$ als den zu erwartenden Mittelwertsunterschied zwischen den beiden Gruppen.
+-   $s_{\Delta}$ als der Standardabweichung des Mittelwertsunterschieds. Wir können hier als Vereinfachung mit der Spannweite der Daten mit $\frac{range}{4}$ als Schätzer für die Standardabweichung rechnen.
+
+```{r}
+cohen.ES(test = "r", size="medium") %>% 
+  pluck("effect.size")
+```
+
+small medium large
+
+```{r}
+res_ttest <- pwr.t.test(n = NULL,
+                        sig.level = 0.05, 
+                        type = "two.sample", 
+                        alternative = "two.sided", 
+                        power = 0.80, 
+                        d = 0.8)
+res_ttest
+```
+
+```{r}
+plot(res_ttest) +
+  theme_minimal(base_size = 14) +
+  labs(title = 'Optimizing Sample Size for my 2-Sided t test',
+       subtitle = "Always Round up for Whole Participants, N = 194")
+```
+
+## Anteilsvergleich für zwei Gruppen in R
+
+```{r}
+ES.h(p1 = 0.95, p2 = 0.80) %>% 
+  round(2)
+```
+
+```{r}
+res_prop <- pwr.p.test(h = 0.48,
+                       n = NULL,
+                       sig.level = 0.05,
+                       power = 0.80,
+                       alternative = "greater")
+res_prop
+```
+
+```{r}
+plot(res_prop) +
+  theme_minimal(base_size = 14) +
+  labs(title = 'Optimizing Sample Size for my 2-Sided t test',
+       subtitle = "Always Round up for Whole Participants, N = 194")
+```
+
+## G\*Power als Alternative
+
+Als Alternative wollen wir uns noch das Standalone Programmm [G\*Power \| Statistical Power Analyses](https://www.psychologie.hhu.de/arbeitsgruppen/allgemeine-psychologie-und-arbeitspsychologie/gpower) von der Heinrich-Heine-Universität Düsseldorf anschauen. Die Software ist nicht mehr die neusts, wird aber immer noch gewartet und an die aktuellen Versionen von Mac und Windows angepasst.
+
+Ich werde also im Folgenden ein paar Screenshots zeigen, wie du mi G\*Power dir auch die Fallzahl für Mittelwertsunterschiede und Anteilesunterschiede berechnen kannst.
