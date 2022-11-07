@@ -10,6 +10,12 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 Verallgemeinerte Schätzgleichungen (eng. *Generalized Estimating Equations*, abk. *GEE*) sind eine Methode zur Modellierung von Längsschnitt- oder Clusterdaten (eng. *longitudinal* bzw. *clustered*). Ich nutrze nur die Abkürzung GEE im weiteren Text, sonst wird mir das hier zu lang. Unter dem deutschen Begriff sind die GEE's eigentlich nicht bekannt. Jedenfalls nicht bei Anwendern. Die GEE's werden in der Regel bei nicht-normalen Daten wie binären oder Zähldaten verwendet. Damit siehst du auch schon, warum wir eigentlich nicht so oft GEE's in der Anwendung finden. Wir haben in den Agrarwissenschaften meist ein normalverteiltes Outcome $y$ und so nutzen wir dann häufig eben lineare gemischte Modelle. Damit ist das GEE auch eine Alternative für das lineare gemischte Modell. In *beiden* Modellklassen lassen sich normalverteilte, binäre und auch Zähldaten auswerten. Es ist eher eine Frage, was wir für eine Aussage über die Daten treffen wollen. Wollen wir eine beobachtungsbezogene Aussage (eng. *subject-specific*) treffen, dann nutzen wir lineare gemischte Modelle. Wollen wir eine populationsbezogene Aussage (eng. *population average*) treffen, dann nutzen wir das GEE.
 
+::: column-margin
+Das Tutorial [Getting Started with Generalized Estimating Equations](https://data.library.virginia.edu/getting-started-with-generalized-estimating-equations/) gibt nochmal einen guten Überblick über GEE's.
+
+Ebenso liefert das Tutorial [Generalized Estimating Equations (GEE)](https://rlbarter.github.io/Practical-Statistics/2017/05/10/generalized-estimating-equations-gee/) einen schnellen Überblick über das Thema.
+:::
+
 ## Annahmen an die Daten
 
 Im folgenden Kapitel zu den Generalized Estimating Equations (GEE) gehen wir davon aus, dass die Daten in der vorliegenden Form *ideal* sind. Das heißt wir haben weder fehlende Werte vorliegen, noch haben wir mögliche Ausreißer in den Daten. Auch wollen wir keine Variablen selektieren. Wir nehmen alles was wir haben mit ins Modell. Sollte eine oder mehre Bedingungen nicht zutreffen, dann schaue dir einfach die folgenden Kapitel an.
@@ -18,11 +24,7 @@ Im folgenden Kapitel zu den Generalized Estimating Equations (GEE) gehen wir dav
 -   Wenn du denkst, dass du Ausreißer oder auffälige Werte in deinen Daten hast, dann schaue doch bitte nochmal in das @sec-outlier zu Ausreißer in den Daten.
 -   Wenn du denkst, dass du zu viele Variablen in deinem Modell hast, dann hilft dir das @sec-variable-selection bei der Variablenselektion.
 
-::: column-margin
-[Getting Started with Generalized Estimating Equations](https://data.library.virginia.edu/getting-started-with-generalized-estimating-equations/)
-
-[Generalized Estimating Equations (GEE)](https://rlbarter.github.io/Practical-Statistics/2017/05/10/generalized-estimating-equations-gee/)
-:::
+Grundsätzlich ist das Thema GEE eher ein stiefmütterliches statistisches Thema. Ich selber habe gar nicht so viel zu GEE's gefunden, so dass wie immer gilt: *Augen auf im statistischen Straßenverkehr*! Besonders die Variablenselektion, die ja an die Modellklasse gebunden ist, mag nicht so funktionieren wie gewollt. Bitte bei GEE Fragestellungen keine automatisierte Selektion anwenden. Dann lieber über `compare_models()` aus dem R Paket `parameters` die Modellvergleiche direkt vergleichen.
 
 ## Genutzte R Pakete für das Kapitel
 
@@ -44,8 +46,6 @@ cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
 
 ## Daten
-
-Eventuell das Kuhbeispiel?
 
 Nach Schweine ID sortieren
 
@@ -88,7 +88,6 @@ milk_tbl <- read_csv2("data/milk_feeding.csv") %>%
 #| label: tbl-gee-milk
 #| tbl-cap: Auszug aus dem Daten zu den kranken Ferkeln.
 #| column: page
-
 
 rbind(head(milk_tbl, n = 3),
       rep("...", times = ncol(milk_tbl)),
@@ -167,7 +166,7 @@ res_gee_cld
 #| warning: false
 
 res_gee_tbl <- res_gee %>% 
-  contrast(method = "pairwise") %>% 
+  contrast(method = "pairwise", adjust = "bonferroni") %>% 
   tidy(conf.int = TRUE) %>% 
   mutate(p.value = pvalue(adj.p.value),
          across(where(is.numeric), round, 2)) %>% 
@@ -182,6 +181,17 @@ res_gee_tbl
 ::: column-margin
 [geesmv: Modified Variance Estimators for Generalized Estimating Equations](https://rdrr.io/cran/geesmv/man/geesmv.html)
 :::
+
+Das R Paket `geesmv` bietet neun Implementierungen von Schätzern für die Varianz/Covarianzstruktur der Daten an. Jetzt stellt sich die Frage, welche Implementierung denn nun? Zum einen hat natürlich die geschätzte Varianz einen nicht zu unterschätzenden Effekt auf die Signifikanz der Koeffizienten des GEE Models. Zum anderen ist aber der multiple Vergleich nach dem Schätzen des Modells und dem *getrennten* Schätzen der Varianz sehr mühselig. Leider helfen uns auch unsere Standardpakete nicht so richtig weiter. Die Funktionalität ist nicht für `geesmv` implementiert. Was wiederum dafür spricht, dass der Bedarf von Anwendern sehr eingeschränkt zu seien scheint. Nun müssen wir folgende epischen Schritte durchführen um einen multiplen Vergleich rechnen zu können.
+
+1)  Wir fitten unser `geeglm()` Modell in der *mean parametrization*, dass heist wir entfernen den Intercept aus dem Modell und lassen unser Modell somit durch den Urspung laufen. Im Prinzip setzen wir den Intercept auf 0 und erhalten so die Mittelwerte jedes Levels des Faktors `treatment`.
+2)  Wir speichern die $\beta$-Koeffizienten von dem `treatment` aus unserem GEE Modell in einem Objekt ab.
+3)  Wir rechnen mit der gleichen Angabe wie vorher das `geeglm()` Modell eine der neun Funktion. Ich habe hier zufällig die Funktion `GEE.var.lz()` gewählt. Wir speichern die Ausgabe der Varianz der Koeffizienten in einem Objekt.
+4)  Wir kombinieren die $\beta$-Koeffizienten und die Varianz in einem Objekt mit der Funktion `left_join()`.
+5)  Wir bauen uns unsere eigene Kontrastmatrix in der steht welches Level der Behandlung mit welchen anderen Level verglichen werden soll.
+6)  Wir übergeben alle Einzelteile an die Funktion `glht()` aus dem R Paket `multcomp` und rechnen unseren multiplen Vergleich.
+
+Na dann mal auf. Gehen wir die Schritte einmal nacheinander durch und schauen, was wir da so alles gemacht haben. Nochmal Achtung, hier musst du wirklich schauen, ob sich der Aufwand lohnt. Ich zeige es hier einmal, den in bestimmten Fällen kann sich eine andere Implementierung für die Schätzung der Varianz durchaus lohnen.
 
 ```{r}
 #| message: false
@@ -255,3 +265,5 @@ mult_gee %>%
   tidy(conf.int = TRUE) %>% 
   select(contrast, estimate, conf.low, conf.high, adj.p.value)
 ```
+
+## Referenzen {.unnumbered}
