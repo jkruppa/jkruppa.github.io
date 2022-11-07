@@ -1,0 +1,113 @@
+```{r echo = FALSE}
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
+```
+
+# Generalized Estimating Equations (GEE) {#sec-gee}
+
+*Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
+
+![](images/caution.png){fig-align="center" width="50%"}
+
+## Annahmen an die Daten
+
+Im folgenden Kapitel zu den Generalized Estimating Equations (GEE) gehen wir davon aus, dass die Daten in der vorliegenden Form *ideal* sind. Das heißt wir haben weder fehlende Werte vorliegen, noch haben wir mögliche Ausreißer in den Daten. Auch wollen wir keine Variablen selektieren. Wir nehmen alles was wir haben mit ins Modell. Sollte eine oder mehre Bedingungen nicht zutreffen, dann schaue dir einfach die folgenden Kapitel an.
+
+-   Wenn du fehlende Werte in deinen Daten vorliegen hast, dann schaue bitte nochmal in das @sec-missing zu Imputation von fehlenden Werten.
+-   Wenn du denkst, dass du Ausreißer oder auffälige Werte in deinen Daten hast, dann schaue doch bitte nochmal in das @sec-outlier zu Ausreißer in den Daten.
+-   Wenn du denkst, dass du zu viele Variablen in deinem Modell hast, dann hilft dir das @sec-variable-selection bei der Variablenselektion.
+
+https://data.library.virginia.edu/getting-started-with-generalized-estimating-equations/
+
+https://rlbarter.github.io/Practical-Statistics/2017/05/10/generalized-estimating-equations-gee/
+
+## Genutzte R Pakete für das Kapitel
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+#| message: false
+pacman::p_load(tidyverse, magrittr, conflicted, broom,
+               parameters, performance, geepack, gee)
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("mutate", "dplyr")
+conflict_prefer("extract", "magrittr")
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+## Daten
+
+Eventuell das Kuhbeispiel?
+
+Nach Schweine ID sortieren
+
+```{r}
+pig_gain_tbl <- read_excel("data/pig_feed_data.xlsx") %>% 
+  mutate(weight_gain = round(weight_gain, 2)) %>% 
+  arrange(pig_id)
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-gee-pigs
+#| tbl-cap: Auszug aus dem Daten zu den kranken Ferkeln.
+#| column: page
+
+
+rbind(head(pig_gain_tbl),
+      rep("...", times = ncol(pig_gain_tbl)),
+      tail(pig_gain_tbl)) %>% 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+#| message: false
+#| warning: false
+
+milk_tbl <- read_csv2("data/milk_feeding.csv") %>% 
+  rename(cow_id = id_cow) %>% 
+  arrange(cow_id)
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-gee-milk
+#| tbl-cap: Auszug aus dem Daten zu den kranken Ferkeln.
+#| column: page
+
+
+rbind(head(milk_tbl),
+      rep("...", times = ncol(milk_tbl)),
+      tail(milk_tbl)) %>% 
+  kable(align = "c", "pipe")
+```
+
+## Theoretischer Hintergrund
+
+```{r}
+with(pig_gain_tbl, tapply(weight_gain, list(treatment, time), mean)) %>% 
+  ftable() %>% 
+  round(2)
+```
+
+```{r}
+dep_gee <- gee(weight_gain ~ treatment + treatment * time,
+               data = pig_gain_tbl, 
+               id = pig_id, 
+               family = gaussian,
+               corstr = "exchangeable")
+summary(dep_gee)
+
+dep_gee %>% model_parameters()
+```
+
+text
