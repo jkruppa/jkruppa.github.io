@@ -16,9 +16,11 @@ Im folgenden Kapitel zu den Generalized Estimating Equations (GEE) gehen wir dav
 -   Wenn du denkst, dass du Ausreißer oder auffälige Werte in deinen Daten hast, dann schaue doch bitte nochmal in das @sec-outlier zu Ausreißer in den Daten.
 -   Wenn du denkst, dass du zu viele Variablen in deinem Modell hast, dann hilft dir das @sec-variable-selection bei der Variablenselektion.
 
-https://data.library.virginia.edu/getting-started-with-generalized-estimating-equations/
+::: column-margin
+[Getting Started with Generalized Estimating Equations](https://data.library.virginia.edu/getting-started-with-generalized-estimating-equations/)
 
-https://rlbarter.github.io/Practical-Statistics/2017/05/10/generalized-estimating-equations-gee/
+[Generalized Estimating Equations (GEE)](https://rlbarter.github.io/Practical-Statistics/2017/05/10/generalized-estimating-equations-gee/)
+:::
 
 ## Genutzte R Pakete für das Kapitel
 
@@ -27,7 +29,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom,
-               parameters, performance, geepack, gee)
+               parameters, performance, geepack, gee,
+               geesmv, multcomp, emmeans, scales)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -60,9 +63,9 @@ pig_gain_tbl <- read_excel("data/pig_feed_data.xlsx") %>%
 #| column: page
 
 
-rbind(head(pig_gain_tbl),
+rbind(head(pig_gain_tbl, n = 3),
       rep("...", times = ncol(pig_gain_tbl)),
-      tail(pig_gain_tbl)) %>% 
+      tail(pig_gain_tbl, n = 3)) %>% 
   kable(align = "c", "pipe")
 ```
 
@@ -85,9 +88,9 @@ milk_tbl <- read_csv2("data/milk_feeding.csv") %>%
 #| column: page
 
 
-rbind(head(milk_tbl),
+rbind(head(milk_tbl, n = 3),
       rep("...", times = ncol(milk_tbl)),
-      tail(milk_tbl)) %>% 
+      tail(milk_tbl, n = 3)) %>% 
   kable(align = "c", "pipe")
 ```
 
@@ -100,14 +103,113 @@ with(pig_gain_tbl, tapply(weight_gain, list(treatment, time), mean)) %>%
 ```
 
 ```{r}
-dep_gee <- gee(weight_gain ~ treatment + treatment * time,
+#| message: false
+#| warning: false
+
+gee_fit <- gee(weight_gain ~ treatment + treatment * time,
                data = pig_gain_tbl, 
                id = pig_id, 
                family = gaussian,
                corstr = "exchangeable")
-summary(dep_gee)
 
-dep_gee %>% model_parameters()
+pluck(gee_fit, "working.correlation")
+
+gee_fit %>% model_parameters()
 ```
 
-text
+```{r}
+#| message: false
+#| warning: false
+
+geeglm_fit <- geeglm(weight_gain ~ treatment + treatment * time,
+                     data = pig_gain_tbl, 
+                     id = pig_id, 
+                     family = gaussian,
+                     corstr = "exchangeable")
+
+geeglm_fit %>% model_parameters()
+```
+
+## Multipler Vergleich mit `emmeans`
+
+```{r}
+#| message: false
+#| warning: false
+
+res_gee <- geeglm_fit %>% 
+  emmeans(~ treatment) 
+
+res_gee_cld <- res_gee %>% 
+  cld(adjust = "bonferroni", Letters = letters) %>% 
+  tidy() %>% 
+  select(treatment, estimate, conf.low, conf.high, .group) %>% 
+  mutate(across(where(is.numeric), round, 2))
+
+res_gee_cld 
+
+```
+
+```{r}
+#| message: false
+#| warning: false
+
+res_gee_tbl <- res_gee %>% 
+  contrast(method = "pairwise") %>% 
+  tidy(conf.int = TRUE) %>% 
+  mutate(p.value = pvalue(adj.p.value),
+         across(where(is.numeric), round, 2)) %>% 
+  select(contrast, estimate, p.value,
+         conf.low, conf.high) 
+
+res_gee_tbl
+```
+
+## Multipler Vergleich mit `multcomp` und `geesmv`
+
+::: column-margin
+[geesmv: Modified Variance Estimators for Generalized Estimating Equations](https://rdrr.io/cran/geesmv/man/geesmv.html)
+:::
+
+```{r}
+#| message: false
+#| warning: false
+
+geeglm_fit <- geeglm(weight_gain ~ 0 + treatment + treatment * time,
+                     data = pig_gain_tbl, 
+                     id = pig_id, 
+                     family = gaussian,
+                     corstr = "exchangeable")
+
+beta_tbl <- coef(geeglm_fit) %>% 
+  enframe
+
+gee_lz_vcov <- GEE.var.lz(weight_gain ~ 0 + treatment + treatment * time,
+                          data = as.data.frame(pig_gain_tbl), 
+                          id = "pig_id",
+                          family=gaussian,
+                          corstr="independence")
+
+vbeta_tbl <- gee_lz_vcov$cov.beta %>% 
+  enframe
+
+
+
+coef_tbl <- left_join(beta_tbl, vbeta_tbl, by = "name") %>% 
+  filter(str_detect(name, "time", negate = TRUE)) %>% 
+  set_names(c("parameter", "beta", "vbeta"))
+
+
+contrMat_n <- setNames(rep(1, length(coef_tbl$parameter)),
+                       coef_tbl$parameter)
+ 
+mult_gee <- glht(parm(coef = coef_tbl$beta, vcov = diag(coef_tbl$vbeta)), 
+              linfct = contrMat(contrMat_n, type = "Tukey"))
+mult_gee$df <- geeglm_fit$df.residual
+ 
+mult_gee %>% 
+  tidy(conf.int = TRUE) %>% 
+  select(contrast, estimate, conf.low, conf.high, adj.p.value)
+ 
+
+
+```
