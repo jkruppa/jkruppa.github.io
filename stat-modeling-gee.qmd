@@ -96,11 +96,18 @@ rbind(head(milk_tbl, n = 3),
 
 ## Theoretischer Hintergrund
 
+-   **independence**,
+-   **exchangeable**,
+-   **ar1**,
+-   **unstructured**,
+
 ```{r}
 with(pig_gain_tbl, tapply(weight_gain, list(treatment, time), mean)) %>% 
   ftable() %>% 
   round(2)
 ```
+
+## Modellieren mit `gee()`
 
 ```{r}
 #| message: false
@@ -112,10 +119,13 @@ gee_fit <- gee(weight_gain ~ treatment + treatment * time,
                family = gaussian,
                corstr = "exchangeable")
 
-pluck(gee_fit, "working.correlation")
+pluck(gee_fit, "working.correlation") %>% 
+  round(3)
 
 gee_fit %>% model_parameters()
 ```
+
+## Modellieren mit `geeglm()`
 
 ```{r}
 #| message: false
@@ -179,37 +189,66 @@ geeglm_fit <- geeglm(weight_gain ~ 0 + treatment + treatment * time,
                      id = pig_id, 
                      family = gaussian,
                      corstr = "exchangeable")
+```
+
+```{r}
+#| message: false
+#| warning: false
 
 beta_tbl <- coef(geeglm_fit) %>% 
   enframe
+```
+
+```{r}
+#| message: false
+#| warning: false
 
 gee_lz_vcov <- GEE.var.lz(weight_gain ~ 0 + treatment + treatment * time,
                           data = as.data.frame(pig_gain_tbl), 
                           id = "pig_id",
-                          family=gaussian,
-                          corstr="independence")
+                          family = gaussian,
+                          corstr = "independence") 
 
 vbeta_tbl <- gee_lz_vcov$cov.beta %>% 
   enframe
+```
 
-
+```{r}
+#| message: false
+#| warning: false
 
 coef_tbl <- left_join(beta_tbl, vbeta_tbl, by = "name") %>% 
   filter(str_detect(name, "time", negate = TRUE)) %>% 
   set_names(c("parameter", "beta", "vbeta"))
 
+```
+
+```{r}
+#| message: false
+#| warning: false
 
 contrMat_n <- setNames(rep(1, length(coef_tbl$parameter)),
-                       coef_tbl$parameter)
- 
-mult_gee <- glht(parm(coef = coef_tbl$beta, vcov = diag(coef_tbl$vbeta)), 
-              linfct = contrMat(contrMat_n, type = "Tukey"))
+                       coef_tbl$parameter) %>% 
+  contrMat(type = "Tukey")
+
+contrMat_n 
+```
+
+```{r}
+#| message: false
+#| warning: false
+
+mult_gee <- glht(parm(coef = coef_tbl$beta, 
+                      vcov = diag(coef_tbl$vbeta)), 
+                 linfct = contrMat_n)
 mult_gee$df <- geeglm_fit$df.residual
- 
+```
+
+```{r}
+#| message: false
+#| warning: false
+
 mult_gee %>% 
   tidy(conf.int = TRUE) %>% 
   select(contrast, estimate, conf.low, conf.high, adj.p.value)
- 
-
-
 ```
