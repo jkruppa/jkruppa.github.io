@@ -6,8 +6,6 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 *Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
 
-![](images/caution.png){fig-align="center" width="50%"}
-
 Verallgemeinerte Schätzgleichungen (eng. *Generalized Estimating Equations*, abk. *GEE*) sind eine Methode zur Modellierung von Längsschnitt- oder Clusterdaten (eng. *longitudinal* bzw. *clustered*). Ich nutrze nur die Abkürzung GEE im weiteren Text, sonst wird mir das hier zu lang. Unter dem deutschen Begriff sind die GEE's eigentlich nicht bekannt. Jedenfalls nicht bei Anwendern. Die GEE's werden in der Regel bei nicht-normalen Daten wie binären oder Zähldaten verwendet. Damit siehst du auch schon, warum wir eigentlich nicht so oft GEE's in der Anwendung finden. Wir haben in den Agrarwissenschaften meist ein normalverteiltes Outcome $y$ und so nutzen wir dann häufig eben lineare gemischte Modelle. Damit ist das GEE auch eine Alternative für das lineare gemischte Modell. In *beiden* Modellklassen lassen sich normalverteilte, binäre und auch Zähldaten auswerten. Es ist eher eine Frage, was wir für eine Aussage über die Daten treffen wollen. Wollen wir eine beobachtungsbezogene Aussage (eng. *subject-specific*) treffen, dann nutzen wir lineare gemischte Modelle. Wollen wir eine populationsbezogene Aussage (eng. *population average*) treffen, dann nutzen wir das GEE.
 
 ::: column-margin
@@ -170,6 +168,8 @@ Wir sehen, dass es einen signifikanten Unterschied in der Zeit gibt, das war ja 
 
 ## Modellieren mit `geeglm()`
 
+Der eigentlcihe Unetrschied zwischen der Funktion `gee()` und `geeglm()` ist, dass sich im Hintergrund eine Menge anders abspielt, das wir nicht sehen. Für mich war `geeglm()` immer schneller und stabiler. Der einzige Grund war immer nochmal ein `gee()` laufen zu lassen, da sich die Korrelationsmatrix so einfach aus dem `gee()` Objekt ziehen lassen lässt.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -182,6 +182,17 @@ geeglm_fit <- geeglm(weight_gain ~ treatment + treatment * time,
 
 ```
 
+Wir erhalten zwar auch die geschätzte Korrelation, aber nicht in so einer schönen Matrix. Also ist es dann Geschmackssache. Du weist dann ja, das wir mit *exchangeable* überall die gleiche Korrelation angenommen haben.
+
+```{r}
+#| message: false
+#| warning: false
+
+pluck(geeglm_fit, "geese", "alpha")
+```
+
+Am Ende schauen wir uns dann nochmal den Fit aus dem `geeglm()` Modell an. Und stellen fest, dass das Modell numerisch fast identisch ist. Wir haben also nur dir Wahl in der Darstellungsform und in der Geschwindigkeit.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -189,7 +200,13 @@ geeglm_fit <- geeglm(weight_gain ~ treatment + treatment * time,
 geeglm_fit %>% model_parameters()
 ```
 
+Wir haben also dann zwei Funktionen, die wir nutzen können. Am Ende kannst du dann beide ausprobieren. Machmal hat man mit `geeglm()` etwas mehr Glück, wenn die Daten einfach mal nicht wollen.
+
 ## Multipler Vergleich mit `emmeans`
+
+Gut, soweit sind wir dann gekommen. Wir haben unser Modell gefittet und meistens wollen wir dann noch einen all-pair Vergleich bzw. den paarweisen Vergleich rechnen. Das machen wir erst einmal mit der Funktionalität aus dem R Paket `emmeans`, das uns erlaubt auch das *compact letter display* wiederzugeben. Wenn dich mehr zum Prozess des Codes für die Nutzung von `emmeans` interessiert, dann schaue doch einfach nochmal ins @sec-posthoc. In dem Kapitel zu den multiplen Vergleichen erkläre ich dir nochmal genauer den Funktionsablauf.
+
+Wichtig ist, dass wir unsere Vergleiche mit Bonferroni adjustieren. Wenn du das nicht möchtest, dann musst du `adjust = "none"` auswählen. Sonst machen wir die Ausageb nochmal `tidy()` und dann runden wir noch. Wir erhalten dann das *compact letter display* wieder.
 
 ```{r}
 #| message: false
@@ -205,8 +222,11 @@ res_gee_cld <- res_gee %>%
   mutate(across(where(is.numeric), round, 2))
 
 res_gee_cld 
-
 ```
+
+Wenn dich die Abbildungen und weiteres interessieren, dann schaue einfach nochmal ins Kapitel zu den multiplen vergleichen. Dort zeige ich dann wie wir das *compact letter display* in eine Abbildung ergänzen. Der Ablauf ist auch im @sec-mixed zu den linearen gemischten Modellen gezeigt.
+
+Wir sehen, dass sich die Gruppe `feed_10` von der Gruppe `feed_20` unterscheidet. Beide Gruppen haben nicht den gleichen Buchstaben. Die Gruppe `feed_10+10` unterscheidet sich weder von der Gruppe `feed_10` noch von der Gruppe `feed_20`. Wir können uns im folgenden Codeblock dann auch die $p$-Werte für die Vergleiche wiedergeben lassen. Die Aussagen sind die selben.
 
 ```{r}
 #| message: false
@@ -217,19 +237,23 @@ res_gee_tbl <- res_gee %>%
   tidy(conf.int = TRUE) %>% 
   mutate(p.value = pvalue(adj.p.value),
          across(where(is.numeric), round, 2)) %>% 
-  select(contrast, estimate, p.value,
-         conf.low, conf.high) 
+  select(contrast, estimate, 
+         conf.low, conf.high, p.value) 
 
 res_gee_tbl
 ```
 
+Die Funktion `emmeans()` hätten wir auch mit dem Modell aus dem `gee()` Fit nutzen können. Als letzten Abschnitt wollen wir uns jetzt noch eine Besonderheit der GEE Varianzschätzung anschauen.
+
 ## Multipler Vergleich mit `multcomp` und `geesmv`
+
+Natürlich haben wir uns nicht in den Details wie ein GEE funktioniert verloren. Es ist nun aber so, dass ein GEE auf sehr unterschiedliche Art und Weise die Korrelationsstruktur und die Varianzen dahinter schätzen kann. Je nach geschätzter Varianz kommen natürlich auch eventuell ganz andere Signifikanzen aus dem Modell. Deshalb hat sich wirklich eine Horde an *mathematischen* Statistikern an der Varianzschätzung im GEE abgearbeitet.
 
 ::: column-margin
 [geesmv: Modified Variance Estimators for Generalized Estimating Equations](https://rdrr.io/cran/geesmv/man/geesmv.html)
 :::
 
-Das R Paket `geesmv` bietet neun Implementierungen von Schätzern für die Varianz/Covarianzstruktur der Daten an. Jetzt stellt sich die Frage, welche Implementierung denn nun? Zum einen hat natürlich die geschätzte Varianz einen nicht zu unterschätzenden Effekt auf die Signifikanz der Koeffizienten des GEE Models. Zum anderen ist aber der multiple Vergleich nach dem Schätzen des Modells und dem *getrennten* Schätzen der Varianz sehr mühselig. Leider helfen uns auch unsere Standardpakete nicht so richtig weiter. Die Funktionalität ist nicht für `geesmv` implementiert. Was wiederum dafür spricht, dass der Bedarf von Anwendern sehr eingeschränkt zu seien scheint. Nun müssen wir folgende epischen Schritte durchführen um einen multiplen Vergleich rechnen zu können.
+Das R Paket `geesmv` bietet ganze neun Implementierungen von Schätzern für die Varianz/Covarianzstruktur der Daten an. Jetzt stellt sich die Frage, welche Implementierung für den Varianzschätzer denn nun nutzen? Zum einen hat natürlich die geschätzte Varianz einen nicht zu unterschätzenden Effekt auf die Signifikanz der Koeffizienten des GEE Models. Zum anderen ist aber der multiple Vergleich nach dem Schätzen des Modells und dem *getrennten* Schätzen der Varianz sehr mühselig. Leider helfen uns auch unsere Standardpakete nicht so richtig weiter. Die Funktionalität ist nicht für `geesmv` implementiert. Was wiederum dafür spricht, dass der Bedarf von Anwendern sehr eingeschränkt zu seien scheint. Nun müssen wir folgende epischen Schritte durchführen um einen multiplen Vergleich rechnen zu können.
 
 1)  Wir fitten unser `geeglm()` Modell in der *mean parametrization*, dass heist wir entfernen den Intercept aus dem Modell und lassen unser Modell somit durch den Urspung laufen. Im Prinzip setzen wir den Intercept auf 0 und erhalten so die Mittelwerte jedes Levels des Faktors `treatment`.
 2)  Wir speichern die $\beta$-Koeffizienten von dem `treatment` aus unserem GEE Modell in einem Objekt ab.
@@ -239,6 +263,8 @@ Das R Paket `geesmv` bietet neun Implementierungen von Schätzern für die Varia
 6)  Wir übergeben alle Einzelteile an die Funktion `glht()` aus dem R Paket `multcomp` und rechnen unseren multiplen Vergleich.
 
 Na dann mal auf. Gehen wir die Schritte einmal nacheinander durch und schauen, was wir da so alles gemacht haben. Nochmal Achtung, hier musst du wirklich schauen, ob sich der Aufwand lohnt. Ich zeige es hier einmal, den in bestimmten Fällen kann sich eine andere Implementierung für die Schätzung der Varianz durchaus lohnen. Denn aus Erfahrung weiß ich, dass der Standardvarianzschätzer nicht immer der beste Schätzer sein muss [@kruppa2021comparison].
+
+Im Folgenden schätzen wir einmal ein ganz normales GEE Modell mit der Funktion `geeglm()`. Wir werden aber nur die Koeffizienten brauchen. Die Varianz der Koeffizienten nutzen wir nicht. Ebenso brauchen wir die *mean* Parametrisierung, dass heißt wir setzen den Intercept auf 0.
 
 ```{r}
 #| message: false
@@ -251,6 +277,8 @@ geeglm_fit <- geeglm(weight_gain ~ 0 + treatment + treatment * time,
                      corstr = "exchangeable")
 ```
 
+Wir speichern einmal die Koeffizienten in dem Objekt `beta_tbl`. Die brauchen wir später um die paarweisen Vergleiche zu rechnen.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -258,6 +286,8 @@ geeglm_fit <- geeglm(weight_gain ~ 0 + treatment + treatment * time,
 beta_tbl <- coef(geeglm_fit) %>% 
   enframe
 ```
+
+Um die Varianz der Koeffizienten zu schätzen nutzen wir jetzt *eine* der Implementierungen in `geesmv`. Ich habe mich etwas zufällig für die Implementierung `GEE.var.lz()` entschieden. Diese Funktion liefer *nur* die Varianz der Koeffizienten. Leider aber nicht auch gleich noch die Koeffizienten dazu... deshalb der blöde doppelte Schritt. Wir speichern dann die Varianzen in dem Objekt `vbeta_tbl`.
 
 ```{r}
 #| message: false
@@ -269,9 +299,11 @@ gee_lz_vcov <- GEE.var.lz(weight_gain ~ 0 + treatment + treatment * time,
                           family = gaussian,
                           corstr = "independence") 
 
-vbeta_tbl <- gee_lz_vcov$cov.beta %>% 
+vbeta_tbl <- pluck(gee_lz_vcov, "cov.beta") %>% 
   enframe
 ```
+
+Jetzt verbinden wir noch die beiden Objekte `beta_tbl` und `vbeta_tbl` über die Funktion `left_join()`. Wir können mit der Funktion zwei Datensätze nach einer gemeinsamen Spalte zusammenführen. Dann müssen zwar die Einträge in der Spalte gleich sein, aber die Sortierung kann anders sein. Dann müssen wir noch die Zeilen rausfiltern in denen die Behandlungsmittelwerte sind. Am Ende benennen wir die Spalten noch sauber nach dem was die Spalten sind.
 
 ```{r}
 #| message: false
@@ -282,6 +314,8 @@ coef_tbl <- left_join(beta_tbl, vbeta_tbl, by = "name") %>%
   set_names(c("parameter", "beta", "vbeta"))
 
 ```
+
+Das war jetzt ein Angang. Leider geht es nicht so einfach weiter. Wir müssen uns für die Vergleiche die Kontrastmatrix selberbauen. Wir machen einen paarweisen Vergleich, also wählen wir den Tukey Kontrast aus.
 
 ```{r}
 #| message: false
@@ -294,6 +328,8 @@ contrMat_n <- setNames(rep(1, length(coef_tbl$parameter)),
 contrMat_n 
 ```
 
+Nun können wir alles zusammenbringen. Wir nutzen die Helferfunktion `parm()` aus dem R Paket `multcomp` um diei Koeffizienten richtig in `glht()` zuzuordnen. Dann noch der Kontrast mit rein in die Funktion und wir können unseren Vergleich rechnen. Leider fehlen noch die Freiheitsgrade, die wären dann in unserem Fall null, das ist aber Unsinn. Wir ergänzen die Freiheitsgrade aus unserem ursprünglichen Modell für die Koeffizienten.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -304,6 +340,8 @@ mult_gee <- glht(parm(coef = coef_tbl$beta,
 mult_gee$df <- geeglm_fit$df.residual
 ```
 
+Jetzt können wir uns die $p$-Werte und die 95% Konfidenzintervalle wiedergeben lassen. Du musst echt überlegen, ob sich der Aufwand lohnt. Wir erhalten hier jetzt kein signifikanten Unterschied mehr. Das liegt daran, dass wir in diesem Fall höhere Varianzen geschätzt haben als das `geeglm()` normalerweise tun würde. Höhere Varianzen der Koeffizienten, weniger signifikante Koeffizienten. Und dann auch weniger signifikante paarweise Unterschiede.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -312,5 +350,7 @@ mult_gee %>%
   tidy(conf.int = TRUE) %>% 
   select(contrast, estimate, conf.low, conf.high, adj.p.value)
 ```
+
+Als Fazit nehmen wir mit, dass wir noch die Möglichkeit haben auf andere Art und Weise die Varianz in einem GEE zu schätzen. Ob uns das hilft steht auf einen anderem Blatt, aber wir haben die Möglichkeit hier noch nachzuadjustieren, wenn es mit dem Varianzschätzer klemmen sollte. Großartig unterstützt wird das Paket nicht, dass sieht man ja schon daran wie Oldschool die Analyse ist.
 
 ## Referenzen {.unnumbered}
