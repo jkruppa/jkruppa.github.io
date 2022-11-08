@@ -14,10 +14,130 @@ Wir brauchen die Sensitivitätsanalyse wenn wir Beobachtungen aus unseren Daten 
 
 @sec-variable-selection @sec-missing @sec-outlier
 
-## Resampling und Kreuzvalidierung
+::: column-margin
+![](images/angel_01.png){fig-align="center" width="50%"}
 
-## R Pakete
+Das ist hier natürlich eine Sensitivitätsanalyse für Arme. Wie man es richtig umfangreich macht, findest du in einem sehr gutem und umfangreichen Tutorial zu [What Makes a Sensitivity Analysis?](https://lesslikely.com/statistics/sensitivity/)
+:::
+
+## Genutzte R Pakete für das Kapitel
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+#| message: false
+pacman::p_load(tidyverse, magrittr, dlookr, broom, modelsummary,
+               see, performance, ggpubr, factoextra, FactoMineR,
+               conflicted)
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("mutate", "dplyr")
+conflict_prefer("extract", "magrittr")
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
 
 https://cran.r-project.org/web/packages/sensemakr/vignettes/sensemakr.html
 
 https://www.r-bloggers.com/2020/12/what-makes-a-sensitivity-analysis/
+
+## Daten
+
+Im Weiteren betrachten wir noch das Beispiel der Gummibärchendaten. Auch hier haben wir echte Daten vorliegen, so dass wir eventuell Ausreißer entdecken könnten. Da wir hier fehlende Werte in den Daten haben, entfernen wir alle fehlenden Werte mit der Funktion `na.omit()`. Damit löschen wir jede Zeile in den Daten, wo mindestens ein fehlender Wert auftritt.
+
+```{r}
+#| message: false
+
+gummi_tbl <- read_excel("data/gummibears.xlsx")  %>%
+  select(gender, age, height, semester) %>% 
+  mutate(gender = as_factor(gender)) 
+```
+
+In der @tbl-gummi-1 ist der Datensatz `gummi_tbl` nochmal für die ersten sieben Zeilen dargestellt. Nun haben wir hier in dem Datensatz zu den Gummibärchen auch keine fehlenden Werte mehr.
+
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: "Auszug aus dem Datensatz `gummi_tbl`. Wir betrachten die ersten sieben Zeilen des Datensatzes."
+#| label: tbl-gummi-sens-1
+
+gummi_tbl %>% head(7) %>% kable(align = "c", "pipe")
+```
+
+## Das Modell
+
+$$
+height \sim gender + age + semester 
+$$
+
+Wir wollen jetzt als erstes das volle Modell schätzen
+
+```{r}
+fit_full <- lm(height ~ gender + age + semester, data = gummi_tbl)
+
+```
+
+## Nach der Detektion von Ausreißer
+
+Teilweise können wir eine Überprüfung auf Ausreißer nur auf einen Datensatz *ohne* fehlende Werte durchführen. Hier beißt sich dann die Katze in den Schwanz.
+
+```{r}
+diagnose_outlier(gummi_tbl) 
+```
+
+```{r}
+gummi_out_imp_tbl <- gummi_tbl %>% 
+  mutate(age = imputate_outlier(., age, method = "capping"),
+         semester = imputate_outlier(., semester, method = "capping"))
+```
+
+```{r}
+fit_outlier <- lm(height ~ gender + age + semester, data = gummi_out_imp_tbl)
+```
+
+## Nach der Imputation von fehlenden Werten
+
+```{r}
+
+gummi_imp_tbl <- gummi_tbl %>% 
+  mutate(age = imputate_na(., age, method = "mean"),
+         gender = imputate_na(., gender, method = "rpart"),
+         height = imputate_na(., height, method = "median"),
+         semester = imputate_na(., semester, method = "mode"))
+
+```
+
+```{r}
+fit_imp <- lm(height ~ gender + age + semester, data = gummi_imp_tbl)
+
+```
+
+## Nach der Variablen Selektion
+
+Nehmen wir an, wir hätten eine Variablenselektion durchgeführt und die Variable `semester` aus dem Modell entfernt.
+
+```{r}
+fit_var_select <- lm(height ~ gender + age, data = gummi_tbl)
+```
+
+## Modellvergleich
+
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: "Auszug aus dem Datensatz `gummi_tbl`. Wir betrachten die ersten sieben Zeilen des Datensatzes."
+#| label: tbl-gummi-model-sens
+
+modelsummary(lst("Volles Modell" = fit_full,
+                 "Outlier" = fit_outlier,
+                 "Imputation" = fit_imp,
+                 "Variablen Selektion" = fit_var_select),
+             estimate  = "{estimate}",
+             statistic = c("conf.int",
+                           "s.e. = {std.error}", 
+                           "t = {statistic}",
+                           "p = {p.value}"),
+             coef_omit = "Intercept")
+```
