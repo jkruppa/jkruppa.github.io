@@ -6,11 +6,11 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 *Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
 
-![](images/caution.png){fig-align="center" width="50%"}
-
 ## Theoretischer Hintergrund
 
 Wir brauchen die Sensitivitätsanalyse wenn wir Beobachtungen aus unseren Daten entfernt oder aber hinzugefügt haben. Das heißt du hast entweder eine Variablenselektion wie im @sec-variable-selection beschrieben durchgeführt. Oder aber du hast fehlende Werte wie in @sec-missing beschrieben imputiert. Es kann auch sein, dass du Ausreißer aus den Daten entfernt oder aber imputiert hast, wie es in @sec-outlier beschrieben ist. Im Prinzip kannst du auch alles drei gemacht haben, aber meistens beschränkt sich die *Veränderung* der Daten nur auf eins der drei Möglichkeiten.
+
+Wie immer brauchen wir natürlich auch Fallzahl. Eine Sensitivitätsanalyse kannst du nicht auf zwanzig bis fünfzig Beobachtungen machen. Du brauchst schon eine gute dreistellige Anzahl, damit du hier sauber Modellieren und Darstellen kannst. Wenn du weniger Beobachtungen hast, dann ist ganz natürlich das einzelne Werte einen riesigen Einfluss haben *müssen*. Im Zweifel frag einfach einmal bei mir nach, dann können wir die Sachlage diskutieren.
 
 ::: column-margin
 ![](images/angel_01.png){fig-align="center" width="50%"}
@@ -62,11 +62,13 @@ gummi_tbl %>% head(7) %>% kable(align = "c", "pipe")
 
 ## Das Modell
 
+Wir wollen jetzt als erstes das volle Modell schätzen. Das heißt wir packen alle Variablen in das Modell und rechnen dann die lineare Regression. Wir wollen herausfinden in wie weit das Alter, das Geschlecht und das Semester einen Einfluss auf die Körpergröße von Studierenden hat.
+
 $$
 height \sim gender + age + semester 
 $$
 
-Wir wollen jetzt als erstes das volle Modell schätzen
+Wir haben nichts an den Daten geändert und somit dient unser volles Modell als Benchmark für die anderen. Wenn sich einige Werte der Modellgüten im Vergleich zum vollen Modell ändern, dann wissen wir, dass etwas nicht stimmt.
 
 ```{r}
 #| message: false
@@ -75,15 +77,36 @@ fit_full <- lm(height ~ gender + age + semester, data = gummi_tbl)
 
 ```
 
+Neben dem vollen Modell rechnen wir auch noch das Nullmodel. Das Nullmodell beinhaltet nur den Intercept und sonst *keine* Einflussvariable. Wir wollen schauen, ob es überhaupt was bringt eine unserer Variablen in das Modell zu nehmen oder ob wir es auch gleich lassen können. Im Prinzip unsere Kontrolle für das Modellieren.
+
+$$
+height \sim 1
+$$
+
+In R fitten wir das Nullmodell in dem wir keine Variablen mit in das Modell nehmen sondern nur eine 1 schreiben. Wir haben dann nur den Intercept mit in dem Modell und sonst nichts. Was wir schon aus den anderen Kapiteln wissen ist, dass das Nullmodell ein schlechtes Modell sein wird.
+
+```{r}
+#| message: false
+#| warning: false
+
+fit_null <- lm(height ~ 1, data = gummi_tbl)
+```
+
+Wir schauen uns die Modelle hier nicht weiter an, da es uns nur im Vergleich zu den anderen Modellen interessiert.
+
 ## Nach der Detektion von Ausreißer
 
-Teilweise können wir eine Überprüfung auf Ausreißer nur auf einen Datensatz *ohne* fehlende Werte durchführen. Hier beißt sich dann die Katze in den Schwanz.
+Teilweise können wir eine Überprüfung auf Ausreißer nur auf einen Datensatz *ohne* fehlende Werte durchführen. Hier beißt sich dann die Katze in den Schwanz. Deshalb nutzen wir die Funktion `diagnose_outlier()`, die intern die fehlenden Werte entfernt. Das ist natürlich kein richtiges Vorgehen! Aber wir nutzen ja diesen Abschnitt nur als Beispiel.
+
+[Du findest die Detektion von Ausreißern im @sec-outlier beschrieben.]{.aside}
 
 ```{r}
 #| message: false
 #| warning: false
 diagnose_outlier(gummi_tbl) 
 ```
+
+Wir sehen, dass wir in der Variable `age` und `semester` nach der Funktion zu urteilen Ausreißer gefunden haben. Deshalb werden wir jetzt diese Ausreißer durch die Funktion `imputate_outlier()` entsprechend ersetzen. Mal schauen, ob wir damit eine substanzielle Änderung in der Modellierung erhalten.
 
 ```{r}
 #| message: false
@@ -93,13 +116,23 @@ gummi_out_imp_tbl <- gummi_tbl %>%
          semester = imputate_outlier(., semester, method = "capping"))
 ```
 
+Nun modellieren wir noch mit unseren ersetzten und angepassten Daten die Körpergröße und erhalten den Modellfit zurück. Am Ende des Kapitels werden wir dann alle Modelle gegenüberstellen und miteinander vergleichen.
+
 ```{r}
 #| message: false
 #| warning: false
 fit_outlier <- lm(height ~ gender + age + semester, data = gummi_out_imp_tbl)
 ```
 
+Wir schauen uns das Modell hier nicht weiter an, da es uns nur im Vergleich zu den anderen Modellen interessiert.
+
 ## Nach der Imputation von fehlenden Werten
+
+Nehmen wir wieder den Gummibärechendatensatz von neuen und imputieren diesmal die fehlenden Werte mit einer univariaten Imputation. Wir machen uns hier nicht die Mühe ein multivariates Verfahren zu nutzen. Das könnte man tun, aber wir wollen hier ja nur den Weg aufzeigen, wie wir den Vergleich der Modelle zur Sensitivitätsanalyse durchführen.
+
+[Du findest die Imputation von fehlenden Werten im @sec-missing beschrieben.]{.aside}
+
+In unserem Fall imputieren wir alle numerischen Variablen mit dem Mittelwert und die kategoriale Variable mit der Methode `rpart`. Damit haben wir dann keine fehlenden Werte mehr in den Daten und somit sollte das jetzt auch unserer größter Datensatz für die lineare Regression sein. Nicht vergessen, sobald wir einen fehlenden Wert bei einer Variable in einem Modell haben, fällt die ganze Beobachtung aus dem Modell heraus.
 
 ```{r}
 #| message: false
@@ -112,6 +145,8 @@ gummi_imp_tbl <- gummi_tbl %>%
 
 ```
 
+Dann rechnen wir noch schnell das Modell für die imputierten Daten. Am Ende des Kapitels werden wir dann alle Modelle gegenüberstellen und miteinander vergleichen.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -119,9 +154,15 @@ fit_imp <- lm(height ~ gender + age + semester, data = gummi_imp_tbl)
 
 ```
 
+Wir schauen uns das Modell hier nicht weiter an, da es uns nur im Vergleich zu den anderen Modellen interessiert.
+
 ## Nach der Variablen Selektion
 
-Nehmen wir an, wir hätten eine Variablenselektion durchgeführt und die Variable `semester` aus dem Modell entfernt.
+Für die Variablensleketion machen wir es uns sehr einfach. Wir müssen ja nur eine Spalte aus den Daten werfen, mehr ist ja Variablenselektion auch nicht. Wir machen dort nur eine algorithmengetriebene Auswahl. In diesem Fall entscheide ich einfach zufällig welche Variable aus dem Modell muss.
+
+[Du findest die Variablen Selektion im @sec-variable-selection beschrieben.]{.aside}
+
+Somit nehmen wir an, wir hätten eine Variablenselektion durchgeführt und die Variable `semester` aus dem Modell entfernt.
 
 ```{r}
 #| message: false
@@ -129,15 +170,21 @@ Nehmen wir an, wir hätten eine Variablenselektion durchgeführt und die Variabl
 fit_var_select <- lm(height ~ gender + age, data = gummi_tbl)
 ```
 
+Auch dieses Modell schauen wir nicht weiter an, da es uns nur im Vergleich zu den anderen Modellen interessiert.
+
 ## Modellvergleich
+
+Kommen wir zu dem eigentlichen Modellvergleich. In @tbl-model-comp-sens sehen wir den Modellvergleich aller fünf Modelle aus diesem Kapitel. Wir vergleichen die Modelle untereinander aber vor allem mit dem vollen Modell. Das volle Modell basiert ja auf den ursprünglichen nicht veränderten Daten. Den Intercept können wir erstmal ignorieren. Spannend ist, dass sich der Effekt von `gender` auf die Körpergröße durch die Imputation um eine Einheit ändert. Der Effekt des Alters verfünffacht sich durch die Outlieranpassung und verdoppelt sich durch die Imputation. Durch die Imputation wird der Effekt des Semesters abgeschwächt.
+
+Wenn wir auf das $R^2_{adj}$ schauen, dann haben wir eine Verschlechterung durch die Imputation. Sonst bleibt der Wert mehr oder minder konstant. Das ist ein gutes Zeichen, dass wir unser Modell nicht vollkommen an die Wand gefahren haben durch unsere Änderung der Daten. Das $AIC$ wird folglich für die Imputationsdaten sehr viel schlechter und nähert sich dem Nullmodell an. Das ist wirklcih kein gutes Zeichen für die Imputation. Da haben wir mehr kaputt als heile gemacht. Wir sehen keinen Efdekt bei dem Fehler $RMSE$, der noch nach dem Fit des Modell übrig bleibt. Aber das kann passieren. Nicht jede Maßzahl muss sich auch ändern. Deshalb haben wir ja mehrere Maßzahlen vorliegen.
 
 ```{r}
 #| message: false
 #| echo: false
-#| tbl-cap: "Auszug aus dem Datensatz `gummi_tbl`. Wir betrachten die ersten sieben Zeilen des Datensatzes."
-#| label: tbl-gummi-model-sens
+#| tbl-cap: "Modellvergleich mit der fünf Modelle. Wir schauen in wie weit sich die Koeffizienten und Modelgüten für die einzelnen Modelle im direkten Vergleich zum vollen Modell verändert haben."
+#| label: tbl-model-comp-sens
 
-modelsummary(lst("Null Modell" = lm(height ~ 1, data = gummi_tbl),
+modelsummary(lst("Null Modell" = fit_null,
                  "Volles Modell" = fit_full,
                  "Outlier" = fit_outlier,
                  "Imputation" = fit_imp,
@@ -149,10 +196,15 @@ modelsummary(lst("Null Modell" = lm(height ~ 1, data = gummi_tbl),
                            "p = {p.value}"))
 ```
 
+Das vergleichen von Modellen, die auf *unterschiedlichen* Daten basieren ist nicht anzuraten. Wir erhalten auch die passende Warnung von der Funktion `compare_performance()` aus dem R Paket `performance`. Dennoch hier einmal der Vergleich. Wir sehen, dass die Modelle mit der Ersetzung der Ausreißer und das volle Modell sich stark ähneln. Das selektierte Modell und das imputierte Modell fallen dagegen ab. Da wir ja hier nicht zeigen wollen, dass sich die Modelle unterscheiden, ist das Ergebnis ähnlich zu der Übersicht. Die Imputation hat so nicht funktioniert.
+
 ```{r}
 #| message: false
+#| warning: false
 #| echo: false
 
-compare_performance(fit_full, fit_outlier, fit_imp, fit_var_select,
+compare_performance(fit_null, fit_full, fit_outlier, fit_imp, fit_var_select,
                     rank = TRUE)
 ```
+
+Was ist das Fazit aus der Sensitivitätsanalyse für Arme? Nun wir konnten einmal sehen, dass wir auch mit einfachen Werkzeugen Modelle deskriptiv miteinander vergleichen können und dann einen Schluss über die Güte der Detektion von Ausreißern, der Imputation von fehlenden Werten oder aber der Variablenselektion treffen können. Denk immer dran, die Sensitivitätsanalyse findet *nach* einer sauberen Detektion, Imputation oder Selektion statt und soll nochmal sicherstellen, dass wir nicht künstliche Effekte der Algorithmen modellieren sondern die Effekte in den Daten sehen.
