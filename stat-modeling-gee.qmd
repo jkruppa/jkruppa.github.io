@@ -47,7 +47,13 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
-Nach Schweine ID sortieren
+::: callout-important
+## Du musst deine Daten nach der ID sortieren
+
+Ganz wichtig, sonst funktioniert das GEE nicht und du kriegst auch keine Warnmeldung! Du musst die Daten mit `arrange` für deine ID Spalte sortieren.
+:::
+
+Ich habe hier ienmal zwei Datenbeispiel mitgebracht. Wir werden uns aber im folgenden Abschnitt dann nur die Schweine anschauen, das Kuhbeispiel können wir dann nochmal anderweitig nutzen oder aber du rechnest nochmal selber mit den Kühen. Wichtig hierbei ist, dass wir sicher sind, dass wir die Daten nach der ID Spalte der Tiere sortiert haben. Das heist, dass alle Tier ID's Zeilen wirklich beieinander stehen. Das ist wichtig, sonst schafft GEE nur eine sehr seltsame Ausgaben zu produzieren. Leider ohne eine Warnung auszugeben. Deshalb nutzen wir die Funktion `arrange()` um nochmal nach der Spalte `pig_id` zu sortieren.
 
 ```{r}
 pig_gain_tbl <- read_excel("data/pig_feed_data.xlsx") %>% 
@@ -56,20 +62,24 @@ pig_gain_tbl <- read_excel("data/pig_feed_data.xlsx") %>%
 
 ```
 
+In @tbl-gee-pigs sehen wir nochmal einen Auszug aus den Daten. Wir haben unsere wiederholte Messung `time`. Das heißt wir haben unsere Schweine wiederholt gemessen. Jedes Schwein für jede Behandlung fünfmal. Wir brauchen die `pig_id` um zu wissen, welche Werte der Geichtszunahme dann auch immer zu einem Ferkel gehören. Im Weiteren haben wir noch die Bucht, in der die Ferkel gehalten wurden, notiert. Die Information lassen wir aber hier erstmal im späteren Modell weg.
+
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
 #| label: tbl-gee-pigs
-#| tbl-cap: Auszug aus dem Daten zu den kranken Ferkeln.
-#| column: page
+#| tbl-cap: Auszug aus dem Daten zu den kranken Ferkeln. Jedes Ferkel wurde wiederholt gemessen.
 
 
-rbind(head(pig_gain_tbl, n = 3),
+rbind(head(pig_gain_tbl, n = 4),
       rep("...", times = ncol(pig_gain_tbl)),
-      tail(pig_gain_tbl, n = 3)) %>% 
+      tail(pig_gain_tbl, n = 4)) %>% 
   kable(align = "c", "pipe")
+
 ```
+
+Das zweite Datenbeispiel dient zur Veranschaulichung eines weiteres Messwiederholungsbeispiels. Wir haben drei Kühe wiederholt an drei Zeitpunkten gemessen. JEde Kuh hat immer nur die gleiche Behandlung erhalten. Das Outcome ist einmal die Anzahl an Zellen in der Milch pro ml und einmal der Fettgehalt in %. Die Daten sind in der Form relativ übersichtlich. Wir haben leider sehr wenige Messwiederholungen, so dass hier ein GEE oder aber auch ein lineares gemischtes Modell fraglich ist. Wir wollen eigentlich mindesnten fünf Level für den Clusterfaktor. Wir gehen wieder sicher, dass die Daten auch richtig nach ID sortiert sind.
 
 ```{r}
 #| message: false
@@ -81,33 +91,42 @@ milk_tbl <- read_csv2("data/milk_feeding.csv") %>%
 
 ```
 
+In @tbl-gee-milk sehen wir nochmal den Ausschnitt aus den Milchdaten. Wir haben insgesamt auch nur vierzehn Kühe gemessen, was auch nicht so viele Tiere sind. Im Ferkelbeispiel hatten wir uns 120 Ferkel angeschaut. Deshal ist dieser Datensatz sehr klein für ein komplexes Modell wie GEE.
+
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
 #| label: tbl-gee-milk
-#| tbl-cap: Auszug aus dem Daten zu den kranken Ferkeln.
-#| column: page
+#| tbl-cap: Auszug aus Daten zu Milchkühen. Jede Kuh wurde wiederholt gemessen.
 
-rbind(head(milk_tbl, n = 3),
+rbind(head(milk_tbl, n = 4),
       rep("...", times = ncol(milk_tbl)),
-      tail(milk_tbl, n = 3)) %>% 
+      tail(milk_tbl, n = 4)) %>% 
   kable(align = "c", "pipe")
 ```
 
+Gehen wir einmal auf den theoretischen Hintergrund zu GEE ein und schauen wir mal, wie wir da unser Datenbeispiel zu passt.
+
 ## Theoretischer Hintergrund
 
-GEE schätzt die durchschnittlichen Auswirkungen auf die Population (eng. *population average*). Betrachten wir dabei die folgenden zwei Szenarien nach @allison2009fixed:
+Ganz wichtig, wir gehen jetzt nicht auf den mathematischen Hintergurnd ein. Das ist auch zu *schräg*. Das will heißen, dass der mathematische Hintergrund von GEE's wirklich vieles übersteigt. Ich kann GEE's anwenden, aber ich weis nicht, wie ein GEE mathematisch funktioniert. Das muss man ja auch nicht. Deshalb hier nur die Theorie, was ein GEE macht und in welchen Hintergründen wir das GEE anwenden. Zuerst schätzt das GEE die durchschnittlichen Auswirkungen auf die Population (eng. *population average*). Betrachten wir dabei die folgenden zwei Szenarien nach @allison2009fixed:
 
 -   *Szenario 1:* Du bist ein Arzt. Du möchtest wissen, um wie viel ein Cholesterinmedikament die Wahrscheinlichkeit eines Herzinfarkts bei deinem Patienten senkt.
 -   *Szenario 2:* Du bist ein staatlicher Gesundheitsbeamter. Du möchtest wissen, wie sich die Zahl der Menschen, die an einem Herzinfarkt sterben, verändern würde, wenn alle Menschen in der Risikogruppe das Cholesterinmedikament einnehmen würden.
 
-Im ersten Szenario wollen wir die subjektspezifischen (eng. *subject-specific*) Chancen wissen. Im zweiten Fall sind wir an der Vorhersage für die gesamte Bevölkerung interessiert. GEE kann uns Schätzungen für das zweite, aber nicht für das erste Szenario liefern.
+Im ersten Szenario wollen wir die subjektspezifischen (eng. *subject-specific*) Chancen wissen. Im zweiten Fall sind wir an der Vorhersage für die gesamte Bevölkerung interessiert. GEE kann uns Schätzungen für das zweite, aber nicht für das erste Szenario liefern. Dami sind wir schon recht weit. Wir wollen also nichts über die *einzelnen* Ferkel wissen, sondern nur über die Gesamtzahl an Ferklen mitteln. Das ist natürlich manachmal gewollt und manchmal eher nicht. In der Zucht kommt es drauf an, ob du individuelle Effekte haben möchtest, also für einen Eber oder eben die Leistung der gesamten Rasse bewerten willst. Je nachdem kannst du dan ein GEE einsetzen oder nicht. GEE's sind somit für einfaches Clustering oder wiederholte Messungen gedacht. Komplexere Designs wie verschachtelte oder gekreuzte Gruppen, z. B. verschachtelte Messwiederholungen innerhalb eines Probanden oder einer Gruppe, können nicht ohne weiteres berücksichtigt werden. Hier nutzen wir dann wieder gemischte lineare Modelle.
+
+Ein großer Vorteil der GEE ist, dass wir eine Korrelation zwischen den wiederholten Messungen, also Ferkeln, annehmen können. Das heist, wir können die Verwandtschaft oder den zeitlichen Zusammenhang zwischend den Messwiederholungen abbilden. Dafür brauchen wir dann natürlich auch Fallzahl, die schnell mal über die hundert Beobachtungen geht. Wir können dann zwischen folgenden Zusammenhängen der Korrelation entscheiden.
 
 -   **independence**, daher sind die Beobachtungen im Zeitverlauf sind unabhängig.
 -   **exchangeable**, daher haben alle Beobachtungen im Zeitverlauf die gleiche Korrelation $\rho_{const.}$.
 -   **ar1**, die Korrelation $\rho$ nimmt als Potenz der Anzahl $p$ der Zeitpunkte, die zwischen zwei Beobachtungen liegen, ab. Daher rechnen wir mit $\rho, \rho^2, \rho^3,..., \rho^p$ über die Zeitpunkte.
 -   **unstructured**, daher kann die Korrelation zwischen allen Zeitpunkten unterschiedlich sein.
+
+Leider gibt es keine automatische Auswahl. Wir müssen also überlegen, welche Korrelationmatrix am besten passen würde. Da *unstructured* sehr viel Fallzahl benötigt um valide zu sein, nehme ich meistens *exchangeable*, wenn ich ein GEE rechne. Eine unabhänige Korrealtion anzunehmen macht wenig Sinn, dann brauche ich auch kein GEE rechnen. Die Korrelation ist ja die Stärke von einem GEE.
+
+Wir haben nun zwei R Pakete, die beide das gleiche tun, nämlich ein GEE rechnen. Wir haben die Wahl zwischen dem R Paket `gee` und der Funktion `gee()` sowie der Funktion `geeglm()` aus dem R Paket `geepack`. Ich neige zu dem letzteren Paket. Das R Paket `geepack` ist etwas neueren Ursprungs und funktioniert bisher recht reibungslos.
 
 ## Modellieren mit `gee()`
 
@@ -191,7 +210,7 @@ Das R Paket `geesmv` bietet neun Implementierungen von Schätzern für die Varia
 5)  Wir bauen uns unsere eigene Kontrastmatrix in der steht welches Level der Behandlung mit welchen anderen Level verglichen werden soll.
 6)  Wir übergeben alle Einzelteile an die Funktion `glht()` aus dem R Paket `multcomp` und rechnen unseren multiplen Vergleich.
 
-Na dann mal auf. Gehen wir die Schritte einmal nacheinander durch und schauen, was wir da so alles gemacht haben. Nochmal Achtung, hier musst du wirklich schauen, ob sich der Aufwand lohnt. Ich zeige es hier einmal, den in bestimmten Fällen kann sich eine andere Implementierung für die Schätzung der Varianz durchaus lohnen.
+Na dann mal auf. Gehen wir die Schritte einmal nacheinander durch und schauen, was wir da so alles gemacht haben. Nochmal Achtung, hier musst du wirklich schauen, ob sich der Aufwand lohnt. Ich zeige es hier einmal, den in bestimmten Fällen kann sich eine andere Implementierung für die Schätzung der Varianz durchaus lohnen. Denn aus Erfahrung weiß ich, dass der Standardvarianzschätzer nicht immer der beste Schätzer sein muss [@kruppa2021comparison].
 
 ```{r}
 #| message: false
