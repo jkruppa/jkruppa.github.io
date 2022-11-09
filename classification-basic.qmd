@@ -30,7 +30,9 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 ## Daten
 
 ```{r}
-pig_tbl <- read_excel("data/infected_pigs.xlsx") 
+pig_tbl <- read_excel("data/infected_pigs.xlsx") %>% 
+  mutate(pig_id = 1:n()) %>% 
+  select(pig_id, everything())  
 ```
 
 ```{r}
@@ -70,7 +72,7 @@ Das bauen wir jetzt um. Wir nennen in dem Bereich des maschinellen Lernen jetzt 
 -   $y$ ist unser *label*, dafür gibt es kein deutsches Wort.
 -   $x$ sind unsere *features* und mehrere Features bilden den *feature space*, dafür gibt es jeweils auch kein deutsches Wort.
 
-Im folgenden Text werde ich also immer vom Label schreiben und dann damit das $y$ links von dem `~` in der Modellgleichung meinen. Wenn ich dann von den Features schreibe, meine ich alle $x$-Variablen rechts von dem `~` in der Modellgleichung. Ja, daran muss du dich dann gewöhnen. Es ist wieder ein anderer sprachlicher Akzent.
+Im folgenden Text werde ich also immer vom Label schreiben und dann damit das $y$ links von dem `~` in der Modellgleichung meinen. Wenn ich dann von den Features schreibe, meine ich alle $x$-Variablen rechts von dem `~` in der Modellgleichung. Ja, daran muss du dich dann gewöhnen. Es ist wieder ein anderer sprachlicher Akzent in einem anderen Gebiet der Statistik.
 
 [*Label* meint also das $y$ oder Outcome. *Feature* beschreibt das $x$ oder die Einflussvariablen.]{.aside}
 
@@ -83,9 +85,15 @@ Dazu steht im Kontrast der Term *regression*. In dem Kontext vom maschinellen Le
 -   *classification*, wir haben ein Label bzw. $y$ mit Kategorien. Nehmen wir einmal unser Ferkelbeispiel. In unserer Spalte `infected` sind die Ferkel infiziert $(1)$ oder nicht-infiziert daher gesund $(0)$.
 -   *regression*, wir haben ein Label bzw. $y$ mit kontinuierlichen Werten. Unsere Ferkel haben ein Gewicht in $kg$ und daher nehmen wir die Spalte `weight`.
 
+Wir brauchen die Begriffe, da wir später in den Algorithmen spezifizieren müssen, welcher Typ die Klassifikation sein soll.
+
 ## Trainingsdatensatz und Testdatensatz
 
 Um zu beginnen, teilen wir diesen einen Datensatz in zwei: einen *Trainings*satz und einen *Test*satz. Die meisten Zeilen und damit Beobachtungen des Originaldatensatzes werden im Trainingssatz sein. Wir nutzen die Trainingsdaten zum Anpassen des Modells. Wir *trainieren* das Modell auf den Daten des Trainingsdatensatzes. Wir messen dann das Modell auf den Testdatensatz. Warum machen wir das? Wenn wir auf dem Trainingsdatensatz auch die Modelgüte testen würden, dann könnten wir eine Überanpassung (eg. *overfitting*) auf die Trainingsdaten beobachten. Das Modell ist so gut an die spezifischen Trainingsdaten angepasst, dass es mit neuen Daten schwer umgehen kann.
+
+::: column-margin
+Das R Paket `resample` stellt die [Common Resampling Patterns](https://rsample.tidymodels.org/articles/Common_Patterns.html) nochmal da. Hier finden sich dann auch noch mehr Möglichkeiten.
+:::
 
 Zu diesem Zweck können wir das R Paket `rsample` verwenden. Wir nutzen dann die Funktion `initial_split()` um die Daten in einen Trainingsdatensatz und einen Testdatensatz aufzuteilen. Dann müssen wir noch den Trainingsdatensatz und den Testdatensatz einmal getrennt in einem Objekt abspeichern.
 
@@ -107,9 +115,6 @@ Nun haben wir die beiden Datensätze jeweils separat und können auf dem Trainin
 Es ist schön, wenn wir Funktionen wie `initial_split()`, die für uns die Arbeit machen. Wir haben dann aber auch sehr schnell das Gefühl mit einer Black Box zu arbeiten. Man weiß gar nicht, was da eigentlich passiert ist. Deshalb hier nochmal der Code, den ich dann auch immer zur Demonstration nutze.
 
 ```{r}
-pig_tbl <- pig_tbl %>% 
-  mutate(pig_id = 1:n())
-
 pig_train_tbl <- pig_tbl %>% sample_frac(0.75)
 pig_test_tbl <- anti_join(pig_tbl,
                           pig_train_tbl, by = 'pig_id')
@@ -136,9 +141,47 @@ val_pig_lst <- validation_split(pig_tbl, prop = 0.8)
 val_pig_lst
 ```
 
+In diesem Fall lassen wir den Validierungsdatensatz einmal so in der Liste stehen. Es ist faktisch wider ein Split der Daten, nur das wir jetzt auf diesem Datensatz unser Modell während des Tunings testen.
+
 ## Kreuzvalidierung
 
+Bei der Abstimmung von Hyperparametern und der Modellanpassung ist es oft nützlich, das Modell anhand von mehr als nur einem einzigen Validierungssatz zu bewerten, um eine stabilere Schätzung der Modellleistung zu erhalten. Wir meinen hier mit Hyperparametern die Optionen, die ein Algorithmus hat um diesen Algorithmus zu optimieren. Aus diesem Grund verwenden Modellierer häufig ein Verfahren, das als Kreuzvalidierung bekannt ist und bei dem die Daten mehrfach in Analyse- und Valisierungsdaten aufgeteilt werden.
+
+Die vielleicht häufigste Methode der Kreuzvalidierung ist die $V$-fache Kreuzvalidierung. Bei dieser auch als $k$-fold cross-validation bezeichneten Methode werden $V$ neue Stichproben bzw. Datensätze erstellt, indem die Daten in $V$ Gruppen (auch *folds* genannt) von ungefähr gleicher Größe aufgeteilt werden. Der Analysesatz jeder erneuten Stichprobe besteht aus $V-1$ Gruppen, wobei die verbleibende Gruppe als Validierungsdatensatz verwendet wird. Insgesamt führen wir dadurch dann den Algorithmus $V$-mal durch. Auf diese Weise wird jede Beobachtung in Daten in genau einem Beurteilungssatz verwendet.
+
+In R können wir dafür die Funktion `vfold_cv()` nutzen. Im Folgenden einmal Split für $V = 5$. Wir führen also eine $5$-fache Kreuzvalidierung durch.
+
+```{r}
+vfold_cv(pig_tbl, v = 3)
+```
+
+Als ein Nachteil wird oft angesehen, dass die Kreuzvalidierung eine hohe Varianz in den Daten verursacht. Dagegen hilft dann die wiederholte Kreuzvalidierung (eng. *repeated cross-validation*). Wir bauen in jede Kreuzvalidierung nochmal eine oder mehr Wiederholungen ein. In unserem Fall dann drei Wiederholungen je Kreuzvalidierung $V$.
+
+```{r}
+vfold_cv(pig_tbl, v = 3, repeats = 2)
+```
+
+Wir sehen das der Split ungefähr immer gleich groß ist. Manchmal haben wir durch die Trennung eine Beobachtung mehr in dem Analysedatensatz mit $n = 329$ oder $n = 330$ Beobachtungen. Dementsprechend hat der Validierungsdatensatz einmal $n = 82$ und einmal $n = 83$ Beobachtungen.
+
+## Monte-Carlo Kreuzvalidierung
+
+```{r}
+mc_cv(pig_tbl, prop = 0.6, times = 3)
+```
+
 ## Bootstraping
+
+```{r}
+pig_boot_tbl <- pig_tbl %>% 
+  extract(1:10, 1:5)
+
+pig_boot <- bootstraps(pig_boot_tbl, times = 3)
+```
+
+```{r}
+pluck(pig_boot, "splits", 1) %>% 
+  as_tibble 
+```
 
 ## Supervised vs unsupervised
 
