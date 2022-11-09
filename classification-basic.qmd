@@ -8,6 +8,67 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
+## Genutzte R Pakete für das Kapitel
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+#| message: false
+pacman::p_load(tidyverse, tidymodels, magrittr, conflicted)
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("mutate", "dplyr")
+conflict_prefer("extract", "magrittr")
+```
+
+Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+## Daten
+
+```{r}
+pig_tbl <- read_excel("data/infected_pigs.xlsx") 
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-ml-basic-pig
+#| tbl-cap: Auszug aus dem Daten zu den kranken Ferkeln.
+#| column: page
+
+rbind(head(pig_tbl),
+      rep("...", times = ncol(pig_tbl)),
+      tail(pig_tbl)) %>% 
+  kable(align = "c", "pipe")
+```
+
+## What he say's?
+
+In diesem Teil des Skriptes werden wir wieder mit einer Menge neuer Begriffe konfrontiert. Deshalb steht hier auch eine Menge an neuen Worten drin. Leider ist es aber auch so, dass wir *bekanntes* neu bezeichnen. Wir tauchen jetzt ab in die Community der Klassifizierer und die haben dann eben die ein oder andere Sache neu benannt.
+
+::: column-margin
+Kurze Referenz zu [What he says?](https://youtu.be/RAidDYQLIK4)
+:::
+
+Die gute nachticht zuerst, wir haben ein relativ festes Vokabular. Das heißt, wir springen nicht so sehr zwischen den Begrifflichkeiten wie wir es in den anderen Teilen des Skriptes gemacht haben. Du kennst die Modellbezeichnungen wie folgt.
+
+$$
+y \sim x
+$$
+
+mit
+
+-   $y$, als Outcome oder Endpunkt.
+-   $x$, als Covariate oder Einflussvariable.
+
+Das bauen wir jetzt um. Wir nennen in dem Bereich des maschinellen Lernen jetzt das $y$ und das $x$ wie folgt.
+
+-   $y$ ist unser *label*, dafür gibt es kein deutsches Wort.
+-   $x$ sind unsere *features* und mehrere Features bilden den *feature space*, dafür gibt es jeweils auch kein deutsches Wort.
+
+Im folgenden Text werde ich also immer vom Label schreiben und dann damit das $y$ links von dem `~` in der Modellgleichung meinen. Wenn ich dann von den Features schreibe, meine ich alle $x$-Variablen rechts von dem `~` in der Modellgleichung. Ja, daran muss du dich dann gewöhnen. Es ist wieder ein anderer sprachlicher Akzent.
+
 ## Recipes in R
 
 ## Problem der fehlenden Werte
@@ -18,7 +79,43 @@ Siehe hierzu das @sec-missing. Wir gehen hier nicht nochmal auf alle Verfahren e
 
 Siehe hierzu das @sec-eda-transform. Wir gehen hier nicht nochmal auf alle Verfahren ein, sondern konzentrieren uns auf die häufigsten Anwendungen.
 
-## Training und Testing
+## Trainingsdatensatz und Testdatensatz
+
+Um zu beginnen, teilen wir diesen einen Datensatz in zwei: einen *Trainings*satz und einen *Test*satz. Die meisten Zeilen und damit Beobachtungen des Originaldatensatzes werden im Trainingssatz sein. Wir nutzen die Trainingsdaten zum Anpassen des Modells. Wir *trainieren* das Modell auf den Daten des Trainingsdatensatzes. Wir messen dann das Modell auf den Testdatensatz. Warum machen wir das? Wenn wir auf dem Trainingsdatensatz auch die Modelgüte testen würden, dann könnten wir eine Überanpassung (eg. *overfitting*) auf die Trainingsdaten beobachten. Das Modell ist so gut an die spezifischen Trainingsdaten angepasst, dass es mit neuen Daten schwer umgehen kann.
+
+Zu diesem Zweck können wir das R Paket `rsample` verwenden. Wir nutzen dann die Funktion `initial_split()` um die Daten in einen Trainingsdatensatz und einen Testdatensatz aufzuteilen. Dann müssen wir noch den Trainingsdatensatz und den Testdatensatz einmal getrennt in einem Objekt abspeichern.
+
+```{r}
+pig_split <- initial_split(pig_tbl, prop = 3/4)
+
+pig_split
+```
+
+Wie wir sehen, sehen wir gar nichts. Das ist auch so gewollt. Da wir im maschinellen Lernen gerne mal mit Datensätzen mit mehreren tausend Zeilen arbeiten würde es wenig helfen, wenn wir gleich alles auf der R Console ausgegeben kriegen. Die Information wieviel wir in den jeweiligen Gruppen haben, hilft schön genug.
+
+```{r}
+train_pig_tbl <- training(pig_split)
+test_pig_tbl <- testing(pig_split)
+```
+
+Nun haben wir die beiden Datensätze jeweils separat und können auf dem Trainingsdatensatz die jeweiligen Algorithmen bzw. Modelle trainieren.
+
+## Validierungsdatensatz
+
+Die Modelle sollten nur *einmal* anhand ihres Testdatensatzes evaluieren werden. Das Überpfrüfen auf dem Testdatensatz geschieht nachdem die Optimierung und das Training der Modelle vollständig abgeschlossen ist. Was natürlich für uns nicht so schön ist, wir wollen ja auch zwischendurch mal schauen, ob wir auf dem richtigen Weg mit dem Training sind. Deshalb ist möglich, zusätzliche Datensätze aus dem Trainingsprozess *herauszuhalten*, die zur mehrmaligen Evaluierung von Modellen verwendet werden können. Das machen wir dann solange bis wir bereit sind anhand des endgültigen Testsatzes zu evaluieren.
+
+Diese zusätzlichen, aufgeteilten Datensätze werden oft als Validierungssätze bezeichnet und können in über die Funktion `validation_split()` erstellt werden.
+
+```{r}
+val_pig_lst <- validation_split(pig_tbl, prop = 0.8)
+val_pig_lst
+```
+
+## Kreuzvalidierung
+
+## Bootstraping
+
+## Supervised vs unsupervised
 
 ## Bagging
 
@@ -33,14 +130,6 @@ R Paket `resample`
 R Paket `tune`
 
 R Paket `yardstick`
-
-## Tensorflow
-
-Deeplearning in R
-
-https://camrongodbout.medium.com/tensorflow-in-a-nutshell-part-one-basics-3f4403709c9d
-
-https://medium.com/analytics-vidhya/neural-networks-in-a-nutshell-bb013f40197d
 
 ## Needed R packages
 
