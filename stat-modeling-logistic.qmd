@@ -33,7 +33,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom,
-               parameters, performance, gtsummary)
+               parameters, performance, gtsummary,
+               tidymodels)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -45,7 +46,8 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 ## Daten
 
 ```{r}
-pig_tbl <- read_excel("data/infected_pigs.xlsx") 
+pig_tbl <- read_excel("data/infected_pigs.xlsx") %>% 
+  mutate(infected = factor(infected, levels = c(1, 0)))
 
 ```
 
@@ -169,4 +171,53 @@ ggplot(pig_tbl, aes(x = crp, y = infected)) +
   geom_point() +
   geom_line(aes(y = predict(fit_2, type = "response")), color = "red") 
 
+```
+
+## Prädiktion
+
+Da wir später die logistische Regression auch als Vergleich in der Klassifikation nutzen werden, hier auch einmal wie wir eine Klassifikation, also eine Vorhersage, für das Outcome `infected` mit einer logistischen Regression rechnen.
+
+```{r}
+pig_rec <- recipe(infected ~ ., data = pig_tbl) %>% 
+  step_dummy(all_nominal_predictors())
+```
+
+```{r}
+logreg_mod <- logistic_reg() %>% 
+  set_engine("glm")
+```
+
+```{r}
+pig_wflow <- workflow() %>% 
+  add_model(logreg_mod) %>% 
+  add_recipe(pig_rec)
+
+pig_wflow
+```
+
+```{r}
+pig_fit <- pig_wflow %>% 
+  fit(data = pig_tbl)
+```
+
+```{r}
+predict(pig_fit, new_data = pig_tbl)
+```
+
+```{r}
+pig_aug <- augment(pig_fit, new_data = pig_tbl) %>% 
+  select(infected, matches("^\\."))
+
+pig_aug
+```
+
+```{r}
+pig_aug %>% 
+  roc_curve(truth = infected, .pred_1) %>% 
+  autoplot()
+```
+
+```{r}
+pig_aug %>% 
+  roc_auc(truth = infected, .pred_1)
 ```
