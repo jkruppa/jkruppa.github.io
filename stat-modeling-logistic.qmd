@@ -45,6 +45,8 @@ conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
 conflict_prefer("extract", "magrittr")
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -137,17 +139,49 @@ Das `glm()` muss dann noch wissen, dass es eine logistische Regression rechnen s
 ```{r}
 #| message: false
 #| warning: false
-fit_1 <- glm(infected ~ age + sex + location + activity + crp + frailty + bloodpressure + weight + creatinin, 
-             data = pig_tbl, family = binomial)
-
+log_fit <- glm(infected ~ age + sex + location + activity + crp + 
+                 frailty + bloodpressure + weight + creatinin, 
+               data = pig_tbl, family = binomial)
 ```
 
-Wir immer schauen wir uns nicht die rohe Ausgabe an, sondern lassen uns die Ausgabe mit der Funktion `model_parameters()` aus dem R Paket `parameters` wiedergeben. Wir müssen noch die Option `exponentiate = TRUE` wählen, damit unsere Koeffizienten nicht als $\log$-Odds sondern als Odds wiedergeben werden. Korrekterweise erhalten wir die Odds ratio wieder was wir auch als $OR$ angegeben.
+Das war extrem kurz und scherzlos. Also können wir dann auch ganz kurz schauen, ob das Modell einigermaßen funktioniert hat.
+
+## Performance des Modells
+
+Nachdem wir das Modell gefittet haben, wollen wir uns nochmal das $R^2$ wiedergeben lassen um zu entscheiden, ob unser Modell einigermaßen funktioniert hat. Dieser Abschnitt ist sehr kurz. Wir haben leider nur sehr wenige Möglichkeiten um ein logistischen Modell zu bewerten.
 
 ```{r}
 #| message: false
 #| warning: false
-model_parameters(fit_1, exponentiate = TRUE)
+r2(log_fit)
+```
+
+Ja, so viel Varianz erklären wir nicht, aber wenn du ein wenig im Internet suchst, dann wirst du feststellen, dass das Bestimmtheitsmaß so eine Sache in `glm()`'s ist. Wir sind aber einigermaßen zufrieden. Eventuell würde eine Variablenselektion hier helfen, aber das ist nicht Inhalt dieses Kapitels.
+
+In @fig-log-model-check schauen wir nochmal auf die Residuen und die möglichen Ausreißer. Wieder sehen beide Plots einigermaßen in Ordnung aus. Die Abbildungen sind jetzt nicht die Besten, aber ich würde hier auch anhand der Diagnoseplots nicht die Modellierung verwerfen.
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-log-model-check
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Ausgabe ausgewählter Modelgüteplots der Funktion `check_model()`."
+
+check_model(log_fit, colors = cbbPalette[6:8], 
+            check = c("qq", "outliers")) 
+
+```
+
+## Interpretation des Modells
+
+Zu Interpretation schauen wir uns wie immer nicht die rohe Ausgabe an, sondern lassen uns die Ausgabe mit der Funktion `model_parameters()` aus dem R Paket `parameters` wiedergeben. Wir müssen noch die Option `exponentiate = TRUE` wählen, damit unsere Koeffizienten nicht als $\log$-Odds sondern als Odds wiedergeben werden. Korrekterweise erhalten wir die Odds ratio wieder was wir auch als $OR$ angegeben.
+
+```{r}
+#| message: false
+#| warning: false
+model_parameters(log_fit, exponentiate = TRUE)
 ```
 
 Wie interpretieren wir nun das $OR$ einer logistischen Regression? Wenn wir darauf gechtet haben, dass wir mit $1$ das Schlechte meinen, dann können wir wir folgt mit dem $OR$ sprechen. Wenn wir ein $OR > 1$ haben, dann haben wir ein Risiko vorliegen. Die Variable mit einem $OR$ größer als $1$ wird die Chance auf den Eintritt des schlechten Ereignisses erhöhen. Wenn wir ein $OR < 1$ haben, dann sprechen wir von einem protektiven Faktor. Die Variable mit einem $OR$ kleiner $1$ wird vor dem Eintreten des schlechten Ereignisses schützen. Schauen wir uns den Zusammenhang mal im Detail für die Ferkeldaten an.
@@ -157,45 +191,60 @@ Wie interpretieren wir nun das $OR$ einer logistischen Regression? Wenn wir dara
 -   `location [northeast]`, `location [northwest]` und `location [west]` beschreibt den Unterschied zur `location [north]`. Alle Orte haben eine geringere Chance für eine Infektion zum Vergleich der Bauernhöfe im Norden. Zwar ist keiner der Effekte signifikant, aber ein interessantes Ergebnis ist es allemal.
 -   `activity` beschreibt den Effekt der Aktivität der Ferkel. Wenn sich die Ferkel mehr bewegen, dann ist die Chance für eine Infektion gemindert.
 -   `crp` beschreibt den Effekt des CRP-Wertes auf den Infektionsgrad. Pro Einheit CRP steigt die Chance einer Infektion um $2.97$ an. Das ist schon ein beachtlicher Wert.
+-   `frailty` beschreibt die Gebrechlichkeit der Ferkel. Hier müssen wir wieder schauen, zu welchem Level von `frailty` wir vergleichen. Hier vergleichen wir zu `frail`. Also dem höchsten Gebrechlichkeitgrad. Ferkel die weniger gebrechlich sind, haben eine niedrigere Chance zu erkranken.
+-   `bloodpressure`, `weight` und `creatinin` sind alles Variablen, mit einem $OR$ größer als $1$ und somit alles Riskovariablen. Hier sind zwar die $OR$ relativ klein, aber das muss erstmal nichts heißen, da die $OR$ ja hier die *Änderung* für eine Einheit von $x$ beschreiben. Deshalb musst du immer schauen, wie die Einheiten von kontinuierlichen kodiert Variablen sind.
 
-```{r}
-#| message: false
-#| warning: false
-r2(fit_1)
-```
-
-@tbl-tbl-summary-logreg
+Kommen wir nochmal zu den gänigen Tabellen für die Zusammenfassung eines Ergebnisses einer logistischen Regression. Teilweise sind diese Tabellen so generisch und häufiog verwendet, dass wir schon einen Begriff für diese Tabellen haben. In @tbl-tbl-summary-logreg siehst du die *table 1* für die Übersicht aller Risikovariablen aufgeteilt nach dem Infektionsstatus. Diese Art der Tabellendarstellung ist so grundlegend für eine medizinische Veröffentlichung, dass sich eben der Begriff *table 1* etabliert hat. Fast jede medizinische Veröffentlichung hat als erste Tabelle diese Art von Tabelle angegeben. Hierbei ist wichtig, dass die $p$-Werte alle nur aus einem einfachen statistischen Test stammen. Die $p$-Werte einer multiplen logistischen Regression werden daher immer anders sein.
 
 ```{r}
 #| message: false
 #| warning: false
 #| label: tbl-tbl-summary-logreg
-#| tbl-cap: "."
+#| tbl-cap: "Ausgabe der Daten in einer Summary Table oder auch Table 1 genannt. In medizinischen Veröffentlichungen immer die erste Tabelle für die Zusammenfassung der Patienten (hier Ferkel) für jede erhobende Risikovariable."
 
 pig_tbl %>% tbl_summary(by = infected) %>% add_p() %>% as_flex_table()
 ```
 
-@tbl-tbl-regression-logreg
+In @tbl-tbl-uni-logreg siehst du nochmal für eine Auswahl an Variablen die simplen logistischen Regressionen gerechnet. Du müsst also nicht jede simple logistische Regression selber rechnen, sondern kannst auch die Funktion `tbl_uvregression()` verwenden. Das R Paket `tbl_summary` erlaubt weitreichende Formatierungsmöglichkeiten. Am bestes schaust du einmal im Tutorial [Tutorial: tbl_regression](https://www.danieldsjoberg.com/gtsummary/articles/tbl_regression.html) selber nach was du brauchst oder anpassen willst.
+
+```{r}
+#| message: false
+#| warning: false
+#| label: tbl-tbl-uni-logreg
+#| tbl-cap: "Ausgabe der Daten in einer Summary Table oder auch Table 1 genannt. In medizinischen Veröffentlichungen immer die erste Tabelle für die Zusammenfassung der Patienten (hier Ferkel) für jede erhobende Risikovariable."
+
+pig_tbl%>%
+  select(infected, age, crp, bloodpressure) %>%
+  tbl_uvregression(
+    method = glm,
+    y = infected,
+    method.args = list(family = binomial),
+    exponentiate = TRUE,
+    pvalue_fun = ~style_pvalue(.x, digits = 2)
+  ) %>% as_flex_table()
+```
+
+nun gibt es viele Möglichkeiten sich die logistische Regression wiedergeben zu lassen In @tbl-tbl-regression-logreg siehst du nochmal die Möglichkeit, die dir das R Paket `tbl_summary()` bietet. Am Ende ist es dann eine reine Geschmacksfrage, wie wir die Daten dann aufarbeiten wollen.
 
 ```{r}
 #| message: false
 #| warning: false
 #| label: tbl-tbl-regression-logreg
-#| tbl-cap: "."
+#| tbl-cap: "Ausgabe der multiplen logistischen Regression durch die Funktion `tbl_regression()`."
 
-fit_1 %>% tbl_regression(exponentiate = TRUE) %>% as_flex_table()
+log_fit %>% tbl_regression(exponentiate = TRUE) %>% as_flex_table()
 ```
 
-Wir können uns einmal die Ergebnisse des Modellfits die logistischen Gerade für eine simple lineare Regression mit dem Modell $infected \sim crp$ anschauen. Wie immer können wir uns den Zusammenhang nur in einem simplen Modell anschauen. Im Fall einer multiplen linearen Regresion können wir nicht so viele Dimensionen in einer Grpahik darstellen. Wir fitten also das Modell `fit_2` wie im folgenden dargestellt.
+Zum Abschluss wollen wir uns einmal die Ergebnisse des Modellfits als logistischen Gerade für eine simple lineare Regression mit dem Modell $infected \sim crp$ anschauen. Wie immer können wir uns den Zusammenhang nur in einem simplen Modell anschauen. Im Fall einer multiplen linearen Regresion können wir nicht so viele Dimensionen in einer Grpahik darstellen. Wir fitten also das Modell `log_fit_crp` wie im folgenden dargestellt.
 
 ```{r}
-fit_2 <- glm(infected ~ crp, data = pig_tbl, family = binomial)
+log_fit_crp <- glm(infected ~ crp, data = pig_tbl, family = binomial)
 ```
 
 Nun können wir uns mit der Funktion `predict()` die Wert auf der Geraden wiedergeben lassen. Wenn wir `predict()` nur so aufrufen, dann erhalten wir die Werte für $y$ auf der transformierten $link$-Scale wieder. Das hilft uns aber nicht weiter, wir haben ja nur 0 und 1 Werte für $y$ vorliegen.
 
 ```{r}
-predict(fit_2, type = "link") %>% 
+predict(log_fit_crp, type = "link") %>% 
   extract(1:10) %>% 
   round(2)
 ```
@@ -203,7 +252,7 @@ predict(fit_2, type = "link") %>%
 Da wir die Werte für die Wahrscheinlichkeit das ein Ferkel infiziert ist, also die Wahrscheinlichkeit $Pr(infected = 1)$, müssen wir noch die Option `type = reponse` wählen. So erhalten wir die Wahrscheinlichkeiten wiedergegeben.
 
 ```{r}
-predict(fit_2, type = "response") %>% 
+predict(log_fit_crp, type = "response") %>% 
   extract(1:10) %>% 
   round(2)
 
@@ -223,9 +272,11 @@ Abschließend können wir uns die Gerade auch in der @fig-log-pred visualisieren
 ggplot(pig_tbl, aes(x = crp, y = infected)) +
   theme_bw() +
   geom_point() +
-  geom_line(aes(y = predict(fit_2, type = "response")), color = "red") 
+  geom_line(aes(y = predict(log_fit_crp, type = "response")), color = "red") 
 
 ```
+
+Nun haben wir das Kapitel zur logistischen Regression fast abgeschlossen. Was noch fehlt ist die Besonderheit der Prädiktion im Kontext des maschinellen Lernens. Das machen wir jetzt im folgenden Abschnitt. Wenn dich die logistische Regression nur interssiert hat um einen kausalen Zusammenhang zwischen Einflussvaraiblen und dem binären Outcome zu modellieren, dann sind wir hier fertig.
 
 ## Prädiktion
 
