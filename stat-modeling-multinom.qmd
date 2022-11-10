@@ -14,6 +14,12 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 Du findest auf YouTube [Multinomiale / Ordinale logistische Regression](https://youtu.be/CQQEXiYASUk) als Video Reihe. Ich werde zwar alles nochmal hier als Text aufschreiben, aber manchmal ist das Sehen und Hören dann einfacher.
 :::
 
+Was machen wir wenn wir ein Outcome haben mit mehr als zwei Kategorien. Wenn wir nur zwei Kategorien hätten, dann würden wir eine logistische Regression rechnen. Wenn wir mehr als zwei Kategorien haben, dann sind wir in dem Fall der multinomialen / ordinalen logistischen Regression. Wir rechnen eine multinomialen Regression, wenn wir keine Ordnung in den Kategorien in dem Outcome haben. Wenn wir eine Ordnung vorliegen haben, dann nutzen wir die ordinale Regression. Wir werden uns erstmal eine ordinale Regression anschauen mit nur drei geordenten Stufen. Dann schauen wir uns einmal wie wir eine ordinale Regression auf Boniturnoten in der Likert-Skala rechnen. Wir machen das getrennt, denn wir sind bei wenigen geordneten Kategorien meistens noch am Effekt zwischen den Kategorien interessiert. Im Gegensatz wollen wir bei einem Outcome mit Boniturnoten einen Gruppenvergleich rechnen. Dann interessiert uns der Unterschied und die Effekte zwischen den Boniturnoten nicht. Deshalb trennen wir das hier etwas auf.
+
+Im zweiten Teil wollen wir uns dann noch eine multinominale Regression auf ungeordneten Kategorien eines Outcomes anschauen. Korrelterweise tuen wir nur so, als wäre unser vorher geordnetes Outcome dann eben ungeordnet. Das macht dann aber bei deiner Anwendung dann keinen großen Unterschied. Als eine Alternative zur multinationalen Regression stelle ich dann noch die logistsiche Regression vor. Wir können nämlich einfach unsere Daten nach dem Outcome jeweils in kleinere Datensätze mit nur jeweils zwei der Kategorien aufspalten. Das ist zwar nicht schön, aber auch eine Möglichkeit mit einem Problem umzugehen.
+
+Ich gehe hier nicht auf die Theorie hinter der multinomialen / ordinalen logistischen Regression ein. Wenn dich dazu mehr interessiert findest du in den jeweiligen Abschnitten dann noch eine passende Referenz. Da kannst du dann schauen, welche Informationen du noch zusätzlich findest.
+
 ## Annahmen an die Daten
 
 [Unser gemessenes Outcome $y$ folgt einer Multinomialverteilung.]{.aside}
@@ -40,7 +46,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom,
                parameters, performance, gtsummary,
-               ordinal, janitor, MASS, nnet, flextable)
+               ordinal, janitor, MASS, nnet, flextable,
+               emmeans, multcomp, ordinal, see)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -51,7 +58,7 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
-Im Folgenden wollen wir uns die Daten von den infirzierten Ferkeln nocheinmal anschauen.
+Im Folgenden wollen wir uns die Daten von den infizierten Ferkeln noch einmal anschauen. Wir nehmen als Outcome die Spalte `frailty` und damit die Gebrechlichkeit der Ferkel. Die Spalte ordnen wir einmal nach *robust*, *pre-frail* und *frail*. Wobei *robust* ein gesundes Ferkel beschreibt und *frail* ein gebrechliches Ferkel. Wir bauen uns dann noch einen Fakotr mit ebenfalls der Spalte `frailty` in der wir so tun, als gebe es diese Ordnung nicht. Wir werden dann die ordinale Regression mit dem Outcome `frailty_ord` rechnen und die multinominale Regression dann mit dem Outcome `frailty_fac`.
 
 ```{r}
 pig_tbl <- read_excel("data/infected_pigs.xlsx") %>%
@@ -61,11 +68,13 @@ pig_tbl <- read_excel("data/infected_pigs.xlsx") %>%
 
 ```
 
+Schauen wir uns nochmal einen Ausschnitt der Daten in der @tbl-multinom-pigs an.
+
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
-#| label: tbl-log-pigs
+#| label: tbl-multinom-pigs
 #| tbl-cap: Auszug aus dem Daten zu den kranken Ferkeln.
 #| column: page
 
@@ -88,7 +97,8 @@ Ich verweise gerne hier auf das tolle Tutorium [Ordinal Logistic Regression \| R
 ```{r}
 #| message: false
 #| warning: false
-ologit_fit <- polr(frailty_ord ~ age + sex + location + activity + crp + bloodpressure + weight + creatinin, 
+ologit_fit <- polr(frailty_ord ~ age + sex + location + activity + crp + 
+                     bloodpressure + weight + creatinin, 
                    data = pig_tbl)
 ```
 
@@ -145,6 +155,75 @@ ologit_fit %>%
 ologit_fit %>% 
   tbl_regression(exponentiate = TRUE) %>% 
   as_flex_table()
+```
+
+## Cumulative Link Models (CLM) für ordinale Daten
+
+::: column-margin
+Wir finden auch ein Tutorial zu [Introduction to Cumulative Link Models (CLM) for Ordinal Data](https://rcompanion.org/handbook/G_01.html)
+:::
+
+```{r}
+#| message: false
+#| warning: false
+grade_tbl <- tibble(block = rep(c("A", "B", "C"), each = 3),
+  A = c(2,3,4,3,3,2,4,2,1),
+                    B = c(7,9,8,9,7,8,9,6,7),
+                    C = c(6,5,5,7,5,6,4,7,6),
+                    D = c(2,3,1,2,1,1,2,2,1),
+                    E = c(4,3,7,5,6,4,5,7,5)) %>%
+  gather(key = variety, value = grade, A:E) %>% 
+  mutate(grade_ord = ordered(grade))
+
+```
+
+```{r}
+grade_tbl$grade
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-clm-dot
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Dotplot des Datenbeispiels für die Bonitur von fünf Weizensorten."
+
+ggplot(grade_tbl, aes(variety, grade, fill = block)) +
+  theme_bw() +
+  geom_dotplot(binaxis = "y", stackdir='center', 
+               position=position_dodge(0.6)) +
+  scale_y_continuous(breaks = 1:9, limits = c(1,9)) +
+  scale_fill_okabeito() 
+
+```
+
+```{r}
+#| message: false
+#| warning: false
+clm_fit <- clm(grade_ord ~ variety + block, data = grade_tbl)
+```
+
+```{r}
+#| message: false
+#| warning: false
+clm_fit %>% model_parameters()
+```
+
+```{r}
+#| message: false
+#| warning: false
+anova(clm_fit)
+```
+
+```{r}
+#| message: false
+#| warning: false
+clm_fit %>% 
+  emmeans(~ variety) %>% 
+  cld(Letters = letters) %>% 
+  arrange(variety)
 ```
 
 ## Multinomiale logistische Regression {#sec-multinom}
