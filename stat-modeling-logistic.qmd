@@ -8,6 +8,12 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
+Die logistische Regression ist *die* Regression, wenn wir in die Medizin schauen. Wohl in keinem Bereich der Wissenschaften wird so viel eine logistische Regression gerechnet wie in der Humanmedizin, Epidemiologie oder Pharmazie. Wir haben in der logistischen Regression ein $0/1$ Outcome als $y$ vorliegen. Also entweder ist eine Beobachtung erkrankt oder nicht. Meistens beschränkt sich die Betrachtung auf erkrankt ($1$, ja) oder eben nicht erkrankt ($0$, nein) bzw. gesund. Wichtig hierbei ist, dass wir eigentlich immer sagen, dass das *Schlechte* mit $1$ kodiert wird. Wenn du das machst, dann wird dir die Interpretation der Effektschätzer der logistischen Regression leichter fallen.
+
+Gleich zu Beginn dann nochmal wir werden die logistische Regression in den Agrarwisenschaften eher selten sehen. Im Bereich der Pflanzenwissenschaften kommt die logistsische Regression kaum bis gar nicht vor. Im Bereich der Tierwissenschaften schon eher, aber dort dann im Bereich der Tiermedizin und eben wieder Erkrankungen.
+
+Wo wir hingegen dann wieder die logistsiche Regression brauchen, ist bei der Klassifikaton oder eben der Vorhersage von einem binären Ereignis. Dafür bietet sich dann die logistische Regression wieder an. Deshalb werden wir am Ende des Kapitels nochmal was zur Klassifikation machen, obwohl das hier eigentlich nur so halb reinpasst. Wenn du nicht Klassifizieren willst, dann lasse den letzten Abschnitt einfach weg.
+
 ## Annahmen an die Daten
 
 [Unser gemessenes Outcome $y$ folgt einer Binomialverteilung. Damit finden wir im Outcome nur $0$ oder $1$ Werte.]{.aside}
@@ -24,7 +30,7 @@ $$
 y \sim x_1 + x_2 + ... + x_p 
 $$
 
-Wir können in dem Modell auch Faktoren $f$ haben, aber es geht hier nicht um einen Gruppenvergleich. Das ist ganz wichtig. Wenn du einen Gruppenvergleich rechnen willst, dann musst du in @sec-posthoc nochmal nachlesen.
+Wir können in dem Modell auch Faktoren $f$ haben, aber es geht hier nicht um einen Gruppenvergleich. Das ist ganz wichtig. Wenn du einen Gruppenvergleich rechnen willst, dann musst du in @sec-posthoc nochmal nachlesen, wir du dann das Modell weiterverwendest.
 
 ## Genutzte R Pakete für das Kapitel
 
@@ -45,10 +51,13 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
+In diesem Kapitel nutzen wir die infizierten Ferkel als Beispieldatensatz. Wir haben in dem Datensatz über vierhundert Ferkel untersucht und festgehalten, ob die Ferkel infiziert sind ($1$, ja) oder nicht infiziert ($0$, nein). Wir haben daneben noch eine ganze Reihe von *Risiko*faktoren erhoben. Hier sieht man mal wieder wie wirr die Sprache der Statistik ist. Weil wir rausfinden wollen welche Variable das Risiko für die Infektion erhöht, nennen wir diese Variablen Risikofaktoren. Obwohl die Variablen gar keine kategorialen Spalten sin bzw. nicht alle. So ist das dann in der Statistik, ein verwirrender Begriff jagt den Nächsten.
+
 ```{r}
 pig_tbl <- read_excel("data/infected_pigs.xlsx") 
-
 ```
+
+Schauen wir uns nochmal einen Ausschnitt der Daten in der @tbl-log-pigs an.
 
 ```{r}
 #| echo: false
@@ -58,36 +67,72 @@ pig_tbl <- read_excel("data/infected_pigs.xlsx")
 #| tbl-cap: Auszug aus dem Daten zu den kranken Ferkeln.
 #| column: page
 
-
 rbind(head(pig_tbl),
       rep("...", times = ncol(pig_tbl)),
       tail(pig_tbl)) %>% 
   kable(align = "c", "pipe")
 ```
 
+In dem nächsten Abschnitt werden wir die Daten nutzen um rauszufinden welche Variablen einen Einfluss auf den Infektionsstatus der Ferkel hat.
+
 ## Theoretischer Hintergrund
 
-Modellierung der Wahrscheinlichkeit für den Eintritt des Ereignisses
+Wir schaffen wir es, durch einen $0/1$ Outcome auf der y-Achse eine gerade Linie durch die Punkte zu zeichnen und die Koeffiziente dieser Gerade zu bestimmen? Immerhin gibt es ja gar keine Werte zwischen $0$ und $1$. In @fig-log-activity sehen wir beispielhaft den Zusammenhang zwischen dem Infektionsstatus und der Aktivität der Ferkel. Wir haben zwei horizontale Linien. Wie zeichen wir jetzt da eine Gerade durch?
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-log-activity
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 5
+#| fig-cap: "Visualisierung des Zusammenhangs zwischen dem Infektionsstatus und der Aktivität der Ferkel."
+
+
+ggplot(pig_tbl, aes(x = activity, y = infected)) +
+  theme_bw() +
+  geom_point() 
+
+```
+
+Der Trick hierbei ist wieder die Transformation des *Zusammenhangs* von $y \sim x$ auf einen $\log$-scale. Das heißt wir Rechnen nicht mit den $0/1$ Werten sondern transformieren den gesamten Zusammenhang. Das ist wichtig, den es gibt einen Unterschied zwischen der Transformation von $y$ und der Transformation die hier gemeint ist. Wir halten fest, wir rechnen also nciht auf der ursprünglichen Skala der Daten sondern auf der $\log$-scale. Allgemeiner wird auch von der *link*-Funktion gesprochen, da wir ja verschiedene Möglichkeiten der Transformation des Zusammenhangs haben.
+
+[Hier gibt es nur die Kurzfassung der *link*-Funktion. @dormann2013parametrische liefert hierzu in Kapitel 7.1.3 nochmal ein Einführung in das Thema.]{.aside}
+
+Wir gehen wir also vor. Zuerst Modellieren wir die Wahrscheinlichkeit für den Eintritt des Ereignisses. Wir machen also aus unseren binären $0/1$ Daten eine Wahrscheinlichkeit für den Eintritt von 1.
 
 $$
 Y \rightarrow Pr(Y = 1)
 $$
 
-$Pr(Y = 1)$ liegt zwischen $0$ un $1$
+Damit haben wir schon was erreicht den $Pr(Y = 1)$ liegt zwischen $0$ und $1$. Damit haben wir also schon Werte *dazwischen*. Wenn wir aber normalverteilte Residuen haben wollen, dann müssen unsere Werte von $-\infty$ bis $+\infty$ laufen können. Daher rechnen wir im Weiteren die Chance.
 
-$\cfrac{Pr(y = 1)}{1 - Pr(Y = 1)}$ oder auch Chance (eng. *Odds*) für das Eintreten von $Y=1$ liegt zwischen $0$ und $+\infty$
+$$
+\cfrac{Pr(y = 1)}{1 - Pr(Y = 1)}
+$$ Die Chance (eng. *Odds*) für das Eintreten von $Y=1$ ist eben die Wahrscheinlichkeit *für* das Eintreten geteilt durch die Gegenwahrscheinlichkeit. Das ist schon besser, denn damit liegen unsere transformierten Werte für den Zusammenhang schon zwischen $0$ und $+\infty$. Wenn wir jetzt noch den $\log$ von den Chancen rechnen, dann haben wir schon fast alles was wir brauchen.
 
-$\log\left(\cfrac{Pr(y = 1)}{1 - Pr(Y = 1)}\right)$ liegt zwischen $-\infty$ und $+\infty$
+$$
+\log\left(\cfrac{Pr(y = 1)}{1 - Pr(Y = 1)}\right)
+$$
 
-$\log\left(\cfrac{Pr(y = 1)}{1 - Pr(Y = 1)}\right) = \beta_0 + \beta_1 x_1 + \epsilon$
+Der Logarithmus der Chance liegt dann zwischen $-\infty$ und $+\infty$. Deshalb spricht man auch von den $\log$-Odds einer logistischen Regression. Auch sieht man hier woher das *logistisch* kommt. Wir beschreiben im Namen auch gleich die Transformation mit. Am ende kommen wir somit dann auf folgendes Modell.
 
-Wahrscheinlichkeit: Anteil an Allen Anteil Gewinner an allen Teilnehmern Anteil Personen mit Therapieerfolg an allen Studienteilnehmern
+$$
+\log\left(\cfrac{Pr(y = 1)}{1 - Pr(Y = 1)}\right) = \beta_0 + \beta_1 x_1 + ...  + \beta_p x_p + \epsilon
+$$ Vielleicht ist dir der Begriff Wahrscheinlichkeit und der Unterschied zur Chance nicht mehr so präsent. Deshalb hier nochmal als Wiederholung oder Auffrischung.
 
-Chance = Odds: Verhältnis Verhältnis Gewinner zu Nichtgewinner Verhältnis Personen mit Therapieerfolg zu Personen ohne Therapieerfolg
+-   Eine *Wahrscheinlichkeit* beschreibt dem Anteil an Allen. Zum Beispiel den Anteil Gewinner an allen Teilnehmern. Den Anteil Personen mit Therapieerfolg an allen Studienteilnehmern.
+-   Eine *Chance* oder (eng. *Odds*) beschreibt ein Verhältnis. Somit das Verhältnis Gewinner zu Nichtgewinner. Oder das Verhältnis Personen mit Therapieerfolg zu Personen ohne Therapieerfolg
 
-2 Kombinationen gewinnen - 3 Kombinationen verlieren Wahrscheinlichkeit zu gewinnen: $2 / 5 = 0.40$ Chance zu gewinnen: $2:3 = 0.67$ Deutlicherer Unterschied zwischen Chance und Wahrscheinlichkeit
+Nochmal an einem Zahlenbeispiel. Wenn wir ein Glücksspiel haben, in dem es 2 Kombinationen gibt die gewinnen und drei 3 Kombinationen die verlieren, dann haben wir eine Wahrscheinlichkeit zu gewinnen von $2 / 5 = 0.40 = 40\%$. Wenn wir die Chance zu gewinnen ausrechnen erhalten wir $2:3 = 0.67 = 67\%$. Wir sehen es gibt einen deutlichen Unterschied zwischen Chance und Wahrscheinlichkeit. Wenn wir große Fallzahl haben bzw. kleine Wahrscheinlichkeiten, dann ist der Unterschied nicht mehr so drastisch. Aber von einer *Gleichkeit* von Wahrscheinlichkeit und Chance zu sprechen kann nicht ausgegangen werden.
+
+Was ist nun das Problem? Wir erhalten aus einer logistischen Regression $\log$-Odds wieder. Der Effektchätzer ist also eine Chance. Wir werden aber das Ergebnis wie eine Wahrscheinlichkeit interpretieren. Diese Diskrepanz ist wenigen bekannt und ein Grund, warum wir in der Medizin immer uns daran erinnern müssen, was wir eigentlich mit der logistischen Regression *aussagen können*.
 
 ## Modellierung
+
+Die Modellerierung der logistischen Regression ist sehr einfach. Wir nutzen wieder die Formelschreibweise im `glm()` um unsere Variablen zu definieren. Wenn unser Outcome nicht binär ist, dann jammert R und gibt uns einen Fehler aus. Ich kann hier nur dringlichst raten, das Outcome in $0/1$ zu kodieren mit dem Schlechten als $1$.
+
+Das `glm()` muss dann noch wissen, dass es eine logistische Regression rechnen soll. Das machen wir in dem wir als Verteilungsfamilie die Binomialverteilung auswählen. Wir geben also an `family = binomial` und schon können wir das volle Modell fitten.
 
 ```{r}
 #| message: false
@@ -97,11 +142,21 @@ fit_1 <- glm(infected ~ age + sex + location + activity + crp + frailty + bloodp
 
 ```
 
+Wir immer schauen wir uns nicht die rohe Ausgabe an, sondern lassen uns die Ausgabe mit der Funktion `model_parameters()` aus dem R Paket `parameters` wiedergeben. Wir müssen noch die Option `exponentiate = TRUE` wählen, damit unsere Koeffizienten nicht als $\log$-Odds sondern als Odds wiedergeben werden. Korrekterweise erhalten wir die Odds ratio wieder was wir auch als $OR$ angegeben.
+
 ```{r}
 #| message: false
 #| warning: false
 model_parameters(fit_1, exponentiate = TRUE)
 ```
+
+Wie interpretieren wir nun das $OR$ einer logistischen Regression? Wenn wir darauf gechtet haben, dass wir mit $1$ das Schlechte meinen, dann können wir wir folgt mit dem $OR$ sprechen. Wenn wir ein $OR > 1$ haben, dann haben wir ein Risiko vorliegen. Die Variable mit einem $OR$ größer als $1$ wird die Chance auf den Eintritt des schlechten Ereignisses erhöhen. Wenn wir ein $OR < 1$ haben, dann sprechen wir von einem protektiven Faktor. Die Variable mit einem $OR$ kleiner $1$ wird vor dem Eintreten des schlechten Ereignisses schützen. Schauen wir uns den Zusammenhang mal im Detail für die Ferkeldaten an.
+
+-   `(intercept)` beschreibt den Intercept der logistischen Regression. Wenn wir mehr als eine simple Regression vorliegen haben, wie in diesem Fall, dann ist der Intercept schwer zu interpretieren. Wir konzentrieren uns auf die Effekte der anderen Variablen.
+-   `sex` beschreibt den Effekt der männlichen Ferkel zu den weiblichen Ferkeln. Daher haben männliche Ferkel eine $2.75$ höhere Chance infiziert zu werden als weibliche Ferkel.
+-   `location [northeast]`, `location [northwest]` und `location [west]` beschreibt den Unterschied zur `location [north]`. Alle Orte haben eine geringere Chance für eine Infektion zum Vergleich der Bauernhöfe im Norden. Zwar ist keiner der Effekte signifikant, aber ein interessantes Ergebnis ist es allemal.
+-   `activity` beschreibt den Effekt der Aktivität der Ferkel. Wenn sich die Ferkel mehr bewegen, dann ist die Chance für eine Infektion gemindert.
+-   `crp` beschreibt den Effekt des CRP-Wertes auf den Infektionsgrad. Pro Einheit CRP steigt die Chance einer Infektion um $2.97$ an. Das ist schon ein beachtlicher Wert.
 
 ```{r}
 #| message: false
