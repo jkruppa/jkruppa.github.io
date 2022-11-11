@@ -289,16 +289,22 @@ Du könntest dir auch die Buchstaben des *compact letter display* aus einem Obje
 
 ## Multinomiale logistische Regression {#sec-multinom}
 
+Was machen wir in eine multinomialen logistische Regression? Im Gegensatz zu der ordinalen Regression haben wir in der multinominalen Regression keine Ordnung in unserem Outcome. Das macht die Sache dann schon eine Nummer komplizierter. Und wir lösen dieses Problem indem wir ein Level des Outcomes oder eben eine Kategorie des Outcomes als *Referenz* definieren. Dann haben wir wieder unsere Ordnung drin. Und die Definition der Referenz ist auch manchmal das schwerste Unterfangen. Wenn ich keine Ordnung in meinem Outcome habe, wie soll ich dann die Referenz bestimmen? Aber das ist dann immer eine Frage an den konkreten Datensatz. Hier basteln wir uns ja die Fragestellung so hin, dass es passt.
+
 ::: column-margin
 Ich verweise gerne hier auf das tolle Tutorium [Multinomial Logistic Regression \| R Data Analysis Examples](https://stats.oarc.ucla.edu/r/dae/multinomial-logistic-regression/). Hier erfährst du noch mehr über die Analyse der multinominale logistischen Regression.
 :::
+
+Um eine Referenz in dem Outcome zu definieren nutzen wir die Funktion `relevel()` und setzen als unsere Referenz das Level `frail` aus unserem Outcome `frailty`. Wir hätten auch jedes andere Level als Referenz nehmen können. Zu dieser Referenz werden wir jetzt unser Modell anpassen. Ich nehme immer als Referenz das *schlechteste* im Sinne von *nicht gut*. In unserem Fall ist das eben das Level `frail`.
 
 ```{r}
 #| message: false
 #| warning: false
 pig_tbl <- pig_tbl %>% 
-  mutate(frailty_fac = relevel(frailty_fac, ref = "robust"))
+  mutate(frailty_fac = relevel(frailty_fac, ref = "frail"))
 ```
+
+Nachdem wir unsere Referenz definiert haben, können wir wieder recht einfach mit der Funktion `multinom()` aus dem Paket `nnet` die multinominalen Regression rechnen. Ich mache keinen Hehl daraus. Ich mag die Funktion nicht, da die Ausgabe der Funktion sehr unsortiert ist und uns nicht gerade die Arbeit erleichtert. Auch schweigt die Funktion nicht, sondern muss immer eine Ausgabe wiedergeben. Finde ich sehr unschön.
 
 ```{r}
 #| message: false
@@ -307,17 +313,7 @@ multinom_fit <- multinom(frailty_fac ~ age + sex + location + activity + crp + b
                          data = pig_tbl)
 ```
 
-```{r}
-#| message: false
-#| warning: false
-multinom_fit %>% summary
-```
-
-```{r}
-#| message: false
-#| warning: false
-multinom_fit %>% confint %>%  exp
-```
+Die Standardausgabe von `multinom()` hat wiederum keine $p$-Werte und wir könnten uns über die Funktion `pnorm()` wiederum aus den $t$-Werten unsere $p$-Werte berechnen. Leider erspart sich `multinom()` selbst den Schritt die $t$-Werte zu berechnen, so dass wir die $t$-Werte selber berechnen müssen. Nicht das es ein Problem wäre, aber schön ist das alles nicht. Im Folgenden siehst du dann einmal die Berechnung der $p$-Werte über die Berechnung der Teststatistik.
 
 ```{r}
 #| message: false
@@ -327,30 +323,30 @@ p_n <- (1 - pnorm(abs(z_mat), 0, 1)) * 2
 p_n
 ```
 
-```{r}
-#| message: false
-#| warning: false
-multinom_fit %>% tidy(conf.int = TRUE, exponentiate = TRUE)
-```
+Jetzt müssten wir diese $pp$-Werte aus der Matrix noch mit unseren Koeffizienten verbauen und da hört es dann bei mir auf. Insbesondere da wir ja mit `model_parameters()` eine Funktion haben, die uns in diesem Fall wirklich gut helfen kann. Wir nehmen hier zwar die $t$-Verteilung an und haben damit leicht höre $p$-Werte, aber da wir eine so große Anzahl an Beobachtungen haben, fällt dieser Unterschied nicht ins Gewicht.
 
 ```{r}
 #| message: false
 #| warning: false
-multinom_fit %>% model_parameters()
+multinom_fit %>% model_parameters(exponentiate = TRUE)
 ```
 
-@tbl-tbl-regression-multinom
+Was sehen wir? Zuerst haben wir etwas Glück. Den unsere Referenzlevel macht dann doch Sinn. Wir vergleichen ja das Outcomelevel `robust` zu `frail` und das Outcomelevel `pre-frail` zu `frail`. Dann haben wir noch das Glück, dass durch unsere Ordnung dann auch `frail` das schlechtere Outcome ist, so dass wir die $OR$ als Risiko oder als protektiv interpretieren können. Nehmen wir als Beispiel einmal die Variable `crp`. Der CRP Wert höht das Risiko für `frail`. Das macht schonmal so Sinn. Und zum anderen ist der Effekt bei dem Vergleich von `pre-frail` zu `frail` mit $1.16$ nicht so große wie bei `robust` zu `frail` mit $1.26$. Das macht auch Sinn. Deshalb passt es hier einigermaßen.
+
+In @tbl-tbl-regression-multinom sehen wir nochmal die Ausgabe von einer multinominalen Regression durch die Funktion `tbl_regression()` aufgearbeitet.
 
 ```{r}
 #| message: false
 #| warning: false
 #| label: tbl-tbl-regression-multinom
-#| tbl-cap: "."
+#| tbl-cap: "Tabelle der Ergebnisse der multinominalen Regression."
 
 multinom_fit %>% 
   tbl_regression(exponentiate = TRUE) %>% 
   as_flex_table()
 ```
+
+Leider wird die Sache mit einer multinominalen Regression sehr unangenehm, wenn wir wirklich nicht sortierbare Level im Outcome haben. Dann haben wir aber noch ein Möglichkeit der multinominalen Regression zu entkommen. Wir rechnen einfach separate logistische Regressionen. Die logistischen Regressionen können wir dann ja separat gut interpretieren.
 
 ## Logistische Regression
 
