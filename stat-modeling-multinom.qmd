@@ -348,13 +348,35 @@ multinom_fit %>%
 
 Leider wird die Sache mit einer multinominalen Regression sehr unangenehm, wenn wir wirklich nicht sortierbare Level im Outcome haben. Dann haben wir aber noch ein Möglichkeit der multinominalen Regression zu entkommen. Wir rechnen einfach separate logistische Regressionen. Die logistischen Regressionen können wir dann ja separat gut interpretieren.
 
-## Logistische Regression
+## Logistische Regression als Ausweg
+
+::: callout-important
+## Bitte Beachten bei der Berechung über separate logistische Regressionen
+
+Durch die Verwendung von separaten logistischen Regressionen vermindern wir die Fallzahl je gerechneter Regression, so dass wir *größere* $p$-Werte erhalten werden als in einer multinominalen Regression. Oder andersherum, durch die verminderte Fallzahl in den separaten logistischen Regressionen haben wir eine geringere Power einen signifikanten Unterschied nachzuweisen.
+:::
+
+Es gibt den einen Ring um sich zu knechten. Und das ist die logistische Regression. Gut die logistische Regression hilft jetzt nicht, wenn es mit Boniturnoten zu tun hast, aber wenn wir wenige Level im Outcome haben. In unserem Fall haben wir ja drei Level vorliegen, da können wir dann jeweils ein Level rausschmeißen und haben dann nur noch ein binäres Outcome. Das ist auch die zentrale Idee. Wir entfernen immer alle Level bis wir nur noch zwei Level in unserem Outcome haben und rechnen für diese beiden Level dann eine logistische Regression.
+
+Schauen wir uns erstmal an, wie sich die Daten über die drei Kategorien in unserem Outcome verteilen. Wenn wir eine Kategorie im Outcome kaum vorliegen haben, könnten wir diese Daten vielleicht mit einer anderen Kategorie zusammenlegen oder aber müssen von unserer Idee hier Abstand nehmen.
 
 ```{r}
 #| message: false
 #| warning: false
-pig_tbl$frailty %>% tabyl
+pig_tbl$frailty_fac %>% tabyl
 ```
+
+Wir haben nicht so viele Beobachtungen in der Kategorie `frail`. Wir könnten also auch die beiden Faktorlevel `pre-frail` und `frail` zusammenlegen.
+
+[Das R Paket `forcats` liefert sehr viele Funktion, die dir helfen Faktoren zu kodieren und zu ändern]{.aside}
+
+```{r}
+pig_tbl$frailty_fac %>% 
+  fct_recode(frail_pre_frail = "frail", frail_pre_frail = "pre-frail") %>% 
+  tabyl
+```
+
+Das ist jetzt aber nur eine Demonstration für die Zusammenlegung. Wir wollen jetzt trotzdem unsere drei logistischen Regressionen rechnen. Warum drei? Wir haben ja drei Level in unserem Outcome und wir werden jetzt uns drei Datensätze so bauen, dass in jdem Datensatz unser Outcome immer nur zwei Level hat. Die einzelnen Datensätze speichern wir dann in einer Liste.
 
 ```{r}
 #| message: false
@@ -364,6 +386,19 @@ pig_lst <- list(robust_prefrail = filter(pig_tbl, frailty_fac %in% c("robust", "
                 prefrail_frail = filter(pig_tbl, frailty_fac %in% c("pre-frail", "frail")))
 
 ```
+
+Wir können das auch fancy. Und das demonstriere ich dann mal hier. Wenn wir die Funktion `combn()` nutzen erhalten wir eine Liste mit allen zweier Kombinationen wieder. Diese Liste können wir dann in die Funktion `map()` stecken, die dann über die Liste unserer Kombinationen iteriert. Pro Liste filtern `map()` dann den Datensatz für uns heraus. Ja, ist ein wenig *over the top*, aber ich wollte das mal für mich mit `map()` ausprobieren und es passte hier so schön.
+
+```{r}
+#| message: false
+#| warning: false
+
+pig_fancy_lst <- combn(c("robust", "pre-frail", "frail"), 2, simplify = FALSE) %>% 
+  map(~filter(pig_tbl, frailty_fac %in% .x)) 
+
+```
+
+Egal wie du auf die Liste gekommen bist, wir müssen noch die überflüssigen Level *droppen*. Keine Ahnung was das deutsche Wort ist. Vermutlich ist das deutsche Wort dann entfernen. Dann können wir für jeden der Listeneinträge die logistische Regression rechnen. Am Ende lassen wir uns noch die exponierten Modellfits ausgeben. In der letzten Zeile entferne ich noch den Intercept von der Ausgabe des Modells. Den Intercept brauchen wir nun wirklich nicht.
 
 ```{r}
 #| message: false
@@ -375,5 +410,7 @@ pig_lst %>%
   map(model_parameters, exponentiate = TRUE) %>% 
   map(extract, -1, )
 ```
+
+Eine Sache ist super wichtig zu wissen. Wie oben schon geschrieben, durch die Verwendung von separaten logistischen Regressionen vermindern wir die Fallzahl je Regression, so dass wir größere $p$-Werte erhalten werden als in einer multinominalen Regression. Das ist der Preis, den wir dann bezahlen müssen. Schauen wir einmal auf unseren Goldstandard, der Variable für den CRP-Wert. Die Variable `crp` passt von dem Effekt jedenfalls gut in den Kontext mit rein. Die Effekte sind ähnlich wie in der multinominalen Regression. Wir haben eben nur größere $p$-Werte. Jetzt müssen wir entscheiden, wir können vermutlich die getrennten logistischen Regressionen besser beschreiben und interpretieren. Das ist *besonders* der Fall, wenn wir wirklich Probleme haben eine Referenz in der multinominalen Regression festzulegen. Dann würde ich immer zu den getrennten logistischen Regressionen greifen als eine schief interpretierte multinominale Regression.
 
 ## Referenzen {.unnumbered}
