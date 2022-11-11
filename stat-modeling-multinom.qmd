@@ -191,14 +191,18 @@ Wi es im gazen Kapitel schon durchscheint, die Interpreation der $OR$ aus einer 
 
 ## Cumulative Link Models (CLM) für ordinale Daten
 
+Jetzt kommen wir nochmal zu dem Fall, dass wir Boniturdaten vorliegen habe. Das heißt, wir bauen uns flux wieder einen Datensatz mit drei Blöcken mit jeweils drei Wiederholungen. Wir haben Weizen angepflanzt und bonitieren die Weizenpflanzen nach der Likert Skala. Dabei bedeutet dann eine 1 ein schlechte Note und eine 9 die best mögliche Note. Wir hätten natürlich hier auch einen Kurskal-Wallis-Test rechnen können und dann im Anschluss einen paarweisen Wilcoxon Test. Nun modellieren wir hier aber die Boniturnoten mal mit einer ordinalen Regression und rechnen den anschließenden Gruppenvergleich dann mit dem R Paket `emmeans`.
+
 ::: column-margin
-Wir finden auch ein Tutorial zu [Introduction to Cumulative Link Models (CLM) for Ordinal Data](https://rcompanion.org/handbook/G_01.html)
+Wir finden auch ein Tutorial zu [Introduction to Cumulative Link Models (CLM) for Ordinal Data](https://rcompanion.org/handbook/G_01.html).
 :::
+
+Unser Datensatz `grade_tbl` enthält den Faktor `block` mit drei Levels sowie den Faktor `variety` mit fünf Leveln. Jedes Level repränsentiert dabei eine Weizensorte.
 
 ```{r}
 #| message: false
 #| warning: false
-grade_tbl <- tibble(block = rep(c("A", "B", "C"), each = 3),
+grade_tbl <- tibble(block = rep(c("I", "II", "III"), each = 3),
                     A = c(2,3,4,3,3,2,4,2,1),
                     B = c(7,9,8,9,7,8,9,6,7),
                     C = c(6,5,5,7,5,6,4,7,6),
@@ -209,9 +213,13 @@ grade_tbl <- tibble(block = rep(c("A", "B", "C"), each = 3),
 
 ```
 
+Wir schauen uns nochmal den Datensatz an und sehen, dass wir einmal die Spalte `grade` als numerische Spalte vorliegen haben udn einmal als geordneten Faktor. Wir brauchen die numerische Spalte um die Daten besser in `ggplot()` darstellen zu können.
+
 ```{r}
-grade_tbl$grade
+grade_tbl
 ```
+
+In @fig-clm-dot sehen wir einmal die Daten als Dotplot dargestellt. Auf der x-Achse sind die Weizensorten und auf der y-Achse die Boniturnoten. Ich habe noch die zusätzlichen Linien für jede einzelne Note mit eingezeichnet.
 
 ```{r}
 #| echo: true
@@ -231,7 +239,7 @@ ggplot(grade_tbl, aes(variety, grade, fill = block)) +
 
 ```
 
-`threshold = "symmetric"`
+Jetzt können wir schon die Funktion `clm()` aus dem R Paket `ordinal` verwenden um die ordinale Regression zu rechnen. Wir haben in dem Paket `ordinal` noch weitere Modelle zu Verfügung mit denen wir auch komplexere Designs bis hin zu linearen gemischten Modellen für eine ordinale Regresssion rechnen können. Da wir mit Boniturnoten als Outcome arbeiten setzen wir auch die Option `threshold = "symmetric"`. Damit teilen wir der Funktion `clm()` mit, dass wir es mit einer symmetrischen Notenskala zu tun haben. Wenn du das nicht hast, dass kannst du die Option auch of `"flexible"` stellen. Dann wird eine nicht symmetrische Verteilung des Outcomes angenommen.
 
 ```{r}
 #| message: false
@@ -240,17 +248,24 @@ clm_fit <- clm(grade_ord ~ variety + block, data = grade_tbl,
                threshold = "symmetric")
 ```
 
+Wir können uns dann den Fit des Modells wieder in der Funktion `model_parameters()` einmal anschauen. Wir *brauchen* aber die Ausgabe nicht weiter. Wir werden Koeffizienten des Modells jetzt verwenden um die Gruppenvergleiche zu rechnen. Ich habe hier einmal die $OR$ über die Option `exponentiate = TRUE` mir ausgeben lassen. Leider sind die $OR$ so alleine nicht zu interpretieren.
+
 ```{r}
 #| message: false
 #| warning: false
-clm_fit %>% model_parameters()
+clm_fit %>% 
+  model_parameters(exponentiate = TRUE)
 ```
+
+Es ist auch möglich auf dem Modellfit eine ANOVA zu rechnen. Wir machen das hier einmal, aber wir erwaten natürlich einen signifikanten Effekt von der Sorte. Die Signifikanz konnten wir ja schon oben im Dortplot sehen.
 
 ```{r}
 #| message: false
 #| warning: false
 anova(clm_fit)
 ```
+
+Ich hatte ja eben geschrieben, dass wir die Effektschätzer nicht nutzen. Wir können mit den $OR$ aus dem Modell nichts anfangen. Stattdessen nutzen wir die Schätzer der *link*-Funktion, also die Log Odds, um den paarweisen Gruppenvergleich zu rechnen. Wir nutzen dafür die Funktion `emmeans()` und lassen uns das *compact letter display* über die Funktion `cld()` wiedergeben. Ich habe dann noch die Ausgabe einmal nach den Sorten sortiert und nicht nach dem *compact letter display*. Dadurch lassen sich die Buchstaben besser zum Dotplot vergleichen.
 
 ```{r}
 #| message: false
