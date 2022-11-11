@@ -59,7 +59,7 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
-Im Folgenden wollen wir uns die Daten von den infizierten Ferkeln noch einmal anschauen. Wir nehmen als Outcome die Spalte `frailty` und damit die Gebrechlichkeit der Ferkel. Die Spalte ordnen wir einmal nach *robust*, *pre-frail* und *frail*. Wobei *robust* ein gesundes Ferkel beschreibt und *frail* ein gebrechliches Ferkel. Wir bauen uns dann noch einen Fakotr mit ebenfalls der Spalte `frailty` in der wir so tun, als gebe es diese Ordnung nicht. Wir werden dann die ordinale Regression mit dem Outcome `frailty_ord` rechnen und die multinominale Regression dann mit dem Outcome `frailty_fac` durchführen.
+Im Folgenden wollen wir uns die Daten von den infizierten Ferkeln noch einmal anschauen. Wir nehmen als Outcome die Spalte `frailty` und damit die Gebrechlichkeit der Ferkel. Die Spalte ordnen wir einmal nach *robust*, *pre-frail* und *frail*. Wobei *robust* ein gesundes Ferkel beschreibt und *frail* ein gebrechliches Ferkel. Damit wir später die Richtung des Effekts richtig interpretieren können, müssen wir von *gut* nach *schlecht* sortieren. Das brauchen wir nicht, wenn wir Boniturnoten haben, dazu mehr in einem eigenen Abschnitt. Wir bauen uns dann noch einen Faktor mit ebenfalls der Spalte `frailty` in der wir so tun, als gebe es diese Ordnung nicht. Wir werden dann die ordinale Regression mit dem Outcome `frailty_ord` rechnen und die multinominale Regression dann mit dem Outcome `frailty_fac` durchführen.
 
 ```{r}
 pig_tbl <- read_excel("data/infected_pigs.xlsx") %>%
@@ -140,11 +140,9 @@ coef_tbl <- summary(ologit_fit) %>%
 coef_tbl
 ```
 
-Um die Fläche rechts von dem $t$-Wert zu berechnen, können wir zwei Funktionen nutzen. Die Funktion `pnorm()` nimmt eine Normalverteilung an und die Funktion `pt()` vergleicht zu einer $t$-Verteilung. Wenn wir *rechts* von der Verteilung schauen wollen, dann müssen wir die Option `lower.tail = FALSE` wählen. Da wir auch zweiseitig testen, müssen wir den ausgrerechneten $p$-Wert mal zwei nehmen.
+Um die Fläche rechts von dem $t$-Wert zu berechnen, können wir zwei Funktionen nutzen. Die Funktion `pnorm()` nimmt eine Standradnormalverteilung an und die Funktion `pt()` vergleicht zu einer $t$-Verteilung. Wenn wir *rechts* von der Verteilung schauen wollen, dann müssen wir die Option `lower.tail = FALSE` wählen. Da wir auch zweiseitig statistisch Testen, müssen wir den ausgerechneten $p$-Wert mal zwei nehmen. Hier einmal als Beispiel für den $t$-Wert von $1.96$. Mit `pnorm(1.96, lower.tail = FALSE) * 2` erhalten wir $0.05$ als Ausgabe. Das ist unser $p$-Wert. Was uns ja nicht weiter überrascht. Denn rechts neben dem Wert von $1.96$ in einer Standardnormalverteilung ist ja $0.05$. Wenn wir einen $t$-Test rechnen würden, dann müssten wir noch die Freiheitsgrade `df` mit angeben. Mit steigendem $n$ nähert sich die $t$-Verteilung der Standardnormalverteilung an. Wir haben mehr als $n = 400$ Beobachtungen, daher können wir auch `df = 400` setzen. Da kommt es auf eine Zahl nicht an. Wir erhalten mit `pt(1.96, lower.tail = FALSE, df = 400) * 2` dann eine Ausgabe von $0.0507$. Also *fast* den gleichen $p$-Wert.
 
-`pnorm(1.96, lower.tail = FALSE) * 2`
-
-`pt(3.51, lower.tail = FALSE, df = 3) * 2`
+Im Folgenden setzte ich die Freiheitsgrade `df = 3` dammit wir was sehen. Bei so hohen Fallzahlen wir in unserem beispiel würden wir sonst keine Unterschiede sehen.
 
 ```{r}
 #| message: false
@@ -152,15 +150,21 @@ Um die Fläche rechts von dem $t$-Wert zu berechnen, können wir zwei Funktionen
 
 coef_tbl %>% 
   mutate(p_n = pnorm(t_value, lower.tail = FALSE) * 2,
-         p_n = pt(t_value, lower.tail = FALSE, df = 3) * 2) %>% 
+         p_t = pt(t_value, lower.tail = FALSE, df = 3) * 2) %>% 
   mutate(across(where(is.numeric), round, 3))
 ```
+
+Damit haben wir einmal händisch uns die $p$-Werte ausgerechnet. Jetzt könnte man sagen, dass ist ja etwas mühselig. Gibt es da nicht auch einen einfacheren Weg? Ja wir können zum einen die Funktion `tidy()` nutzen um die 95% Konfidenzintervalle und die exponierten Effektschätzer aus der ordinalen Regresssion zu erhalten. Wir erhalten aber wieder keine $p$-Werte sondern müssten uns diese $p$- Werte dann wieder selber berechnen.
 
 ```{r}
 #| message: false
 #| warning: false
-ologit_fit %>% tidy(conf.int = TRUE, exponentiate = TRUE)
+ologit_fit %>% 
+  tidy(conf.int = TRUE, exponentiate = TRUE) %>% 
+  select(-coef.type)
 ```
+
+Um all dieses Berechnen zu umgehen, können wir dann auch die Funktion `model_parameters()` nutzen. Hier berechnen wir dann die $p$-Wert mit $df = 400$ aus einer $t$-Verteilung. Damit umgehen wir das Problem, dass unser Modellfit keine $p$-Werte liefert.
 
 ```{r}
 #| message: false
@@ -170,18 +174,20 @@ ologit_fit %>%
   model_parameters() 
 ```
 
-@tbl-tbl-regression-ordinal
+In @tbl-regression-ordinal sehen wir nochmal die Ergebnisse der ordinalen Regression einmal anders aufgearbeitet. Wir aber schon bei der Funktion `tidy()` fehlen in der Tabelle die $p$-Werte. Wir können aber natürlich auch eine Entscheidung über die 95% Konfidenzintervalle treffen. Wenn die 1 mit im 95% Konfidenzintervall ist, dann können wir die Nullhypothese nicht ablehnen.
 
 ```{r}
 #| message: false
 #| warning: false
-#| label: tbl-tbl-regression-ordinal
-#| tbl-cap: "."
+#| label: tbl-regression-ordinal
+#| tbl-cap: "Tabelle der Ergebnisse der ordinalen Regression."
 
 ologit_fit %>% 
   tbl_regression(exponentiate = TRUE) %>% 
   as_flex_table()
 ```
+
+Wi es im gazen Kapitel schon durchscheint, die Interpreation der $OR$ aus einer ordinalen Regression ist nicht einfach, geschweige den intuitiv. Was wir haben ist der Trend. Wir haben unser Outcome von *robust* zu *frail* sortiert und damit von *gut* nach *schlecht*. Wir können so die Richtung der Variablen in unserem Modell interpretieren. Das heißt, dass männliche Ferkel eher von einer Gebrechlichkeit betroffen sind als weibliche Ferkel. Oder wir sagen, dass ein ansteigender CRP Wert führt zu weniger Gebrechlichkeit. Auf diesem Niveau lassen sich die $OR$ einer ordinalen Regression gut interpretieren.
 
 ## Cumulative Link Models (CLM) für ordinale Daten
 
@@ -334,12 +340,14 @@ pig_tbl$frailty %>% tabyl
 pig_lst <- list(robust_prefrail = filter(pig_tbl, frailty_fac %in% c("robust", "pre-frail")),
                 robust_frail = filter(pig_tbl, frailty_fac %in% c("robust", "frail")),
                 prefrail_frail = filter(pig_tbl, frailty_fac %in% c("pre-frail", "frail")))
+
 ```
 
 ```{r}
 #| message: false
 #| warning: false
 pig_lst %>% 
+  map(~mutate(.x, frailty_fac = fct_drop(frailty_fac))) %>% 
   map(~glm(frailty_fac ~ age + sex + location + activity + crp + bloodpressure + weight + creatinin, 
            data = .x, family = binomial)) %>% 
   map(model_parameters, exponentiate = TRUE) %>% 
