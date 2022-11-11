@@ -47,7 +47,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, conflicted, broom,
                parameters, performance, gtsummary,
                ordinal, janitor, MASS, nnet, flextable,
-               emmeans, multcomp, ordinal, see)
+               emmeans, multcomp, ordinal, see, scales,
+               janitor)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -121,23 +122,38 @@ ologit_fit %>% summary()
 Unsere Ausgabe teilt sich in zwei Teile auf. In dem oberen Teil sehen wir die Koeffizienten des Modells zusammen mit dem Fehler und der Teststatistik. Was wir nicht sehen, ist ein $p$-Wert. Die Funktion rechnet uns keinen Signifikanztest aus. Das können wir aber gleich selber machen. In dem Abschnitt `Intercepts` finden wir die Werte für die Gruppeneinteilung auf der *link*-Funktion wieder. Wir transformieren ja unsere drei Outcomekategorien in einen kontinuierliche Zahlenzusammenhang. Trotzdem müssen ja die drei Gruppen auch wieder auftauchen. In dem Abschnitt `Intercepts` finden wir die Grenzen für die drei Gruppen auf der *link*-Funktion.
 
 ::: column-margin
-[How do I interpret the coefficients in an ordinal logistic regression in R?](https://stats.oarc.ucla.edu/r/faq/ologit-coefficients/)
+Wir gibt auch ein Tutorial für [How do I interpret the coefficients in an ordinal logistic regression in R?](https://stats.oarc.ucla.edu/r/faq/ologit-coefficients/)
 :::
 
-```{r}
-#| message: false
-#| warning: false
-coef_df <- summary(ologit_fit) %>% coef
-p_n <- pnorm(abs(coef_df[, "t value"]), lower.tail = FALSE) * 2
-p_t <- pt(abs(coef_df[, "t value"]), df = 3, lower.tail = FALSE) * 2
-```
+Berechnen wir jetzt einmal die $p$-Werte per Hand. Dafür brauchen wir die absoluten Werte aus der `t value` Spalte aus der `summary` des Modellobjekts. Leider ist die Spalte nicht schön formatiert und so müssen wir uns etwas strecken um die Koeffizienten sauber aufzuarbeiten. Wir erhalten dann das Objekt `coef_tbl` wieder.
 
 ```{r}
 #| message: false
 #| warning: false
-cbind(coef_df,
-      p_n = round(p_n, 3),
-      p_t = round(p_t, 3))
+
+coef_tbl <- summary(ologit_fit) %>% 
+  coef %>% 
+  as_tibble(rownames = "term") %>% 
+  clean_names() %>% 
+  mutate(t_value = abs(t_value))
+
+coef_tbl
+```
+
+Um die Fläche rechts von dem $t$-Wert zu berechnen, können wir zwei Funktionen nutzen. Die Funktion `pnorm()` nimmt eine Normalverteilung an und die Funktion `pt()` vergleicht zu einer $t$-Verteilung. Wenn wir *rechts* von der Verteilung schauen wollen, dann müssen wir die Option `lower.tail = FALSE` wählen. Da wir auch zweiseitig testen, müssen wir den ausgrerechneten $p$-Wert mal zwei nehmen.
+
+`pnorm(1.96, lower.tail = FALSE) * 2`
+
+`pt(3.51, lower.tail = FALSE, df = 3) * 2`
+
+```{r}
+#| message: false
+#| warning: false
+
+coef_tbl %>% 
+  mutate(p_n = pnorm(t_value, lower.tail = FALSE) * 2,
+         p_n = pt(t_value, lower.tail = FALSE, df = 3) * 2) %>% 
+  mutate(across(where(is.numeric), round, 3))
 ```
 
 ```{r}
@@ -177,7 +193,7 @@ Wir finden auch ein Tutorial zu [Introduction to Cumulative Link Models (CLM) fo
 #| message: false
 #| warning: false
 grade_tbl <- tibble(block = rep(c("A", "B", "C"), each = 3),
-  A = c(2,3,4,3,3,2,4,2,1),
+                    A = c(2,3,4,3,3,2,4,2,1),
                     B = c(7,9,8,9,7,8,9,6,7),
                     C = c(6,5,5,7,5,6,4,7,6),
                     D = c(2,3,1,2,1,1,2,2,1),
@@ -203,7 +219,7 @@ grade_tbl$grade
 ggplot(grade_tbl, aes(variety, grade, fill = block)) +
   theme_bw() +
   geom_dotplot(binaxis = "y", stackdir='center', 
-               position=position_dodge(0.6)) +
+               position=position_dodge(0.6), dotsize = 0.75) +
   scale_y_continuous(breaks = 1:9, limits = c(1,9)) +
   scale_fill_okabeito() 
 
