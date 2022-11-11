@@ -58,7 +58,7 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
-Im Folgenden wollen wir uns die Daten von den infizierten Ferkeln noch einmal anschauen. Wir nehmen als Outcome die Spalte `frailty` und damit die Gebrechlichkeit der Ferkel. Die Spalte ordnen wir einmal nach *robust*, *pre-frail* und *frail*. Wobei *robust* ein gesundes Ferkel beschreibt und *frail* ein gebrechliches Ferkel. Wir bauen uns dann noch einen Fakotr mit ebenfalls der Spalte `frailty` in der wir so tun, als gebe es diese Ordnung nicht. Wir werden dann die ordinale Regression mit dem Outcome `frailty_ord` rechnen und die multinominale Regression dann mit dem Outcome `frailty_fac`.
+Im Folgenden wollen wir uns die Daten von den infizierten Ferkeln noch einmal anschauen. Wir nehmen als Outcome die Spalte `frailty` und damit die Gebrechlichkeit der Ferkel. Die Spalte ordnen wir einmal nach *robust*, *pre-frail* und *frail*. Wobei *robust* ein gesundes Ferkel beschreibt und *frail* ein gebrechliches Ferkel. Wir bauen uns dann noch einen Fakotr mit ebenfalls der Spalte `frailty` in der wir so tun, als gebe es diese Ordnung nicht. Wir werden dann die ordinale Regression mit dem Outcome `frailty_ord` rechnen und die multinominale Regression dann mit dem Outcome `frailty_fac` durchführen.
 
 ```{r}
 pig_tbl <- read_excel("data/infected_pigs.xlsx") %>%
@@ -88,11 +88,17 @@ rbind(head(raw_pig_tbl),
   kable(align = "c", "pipe")
 ```
 
+Das wären dann die Daten, die wir für unsere Modelle dann brauchen. Schauen wir mal was wir jetzt bei der ordinalen Regression herausbekommen.
+
 ## Ordinale logistische Regression {#sec-ordinal}
+
+Es gibt sicherlich einiges an Paketen in R um eine ordinale Regression durchzuführen. Ich nutze gerne die Funktion `polr` aus dem R Paket `MASS`. Daneben gibt es auch noch das R Paket `ordinal` mit der Funktion `clm()`, die wir dann noch im Anschluss besprechen werden. Ich nutze jetzt erstmal die Funktion `polr`, da wir hier noch eine externe Referenz haben, die uns noch detailliertere Informationen liefern kann.
 
 ::: column-margin
 Ich verweise gerne hier auf das tolle Tutorium [Ordinal Logistic Regression \| R Data Analysis Examples](https://stats.oarc.ucla.edu/r/dae/ordinal-logistic-regression/). Hier erfährst du noch mehr über die Analyse der ordinalen logistischen Regression.
 :::
+
+Wir schon erwähnt sparen wir usn die mathematischen Details und utzen gleich die Funktion `polr` auf unserem Outcome `frailty`. Wir müssen keine Verteilungsfamilie extra angeben, dass haben wir schon mit der Auswahl der Funktion getan. Die Funktion `polr` kann nur eine ordinale Regression rechnen und wird einen Fehler ausgeben, wenn das Outcome $y$ nicht passt.
 
 ```{r}
 #| message: false
@@ -105,13 +111,14 @@ ologit_fit <- polr(frailty_ord ~ age + sex + location + activity + crp +
 ```{r}
 #| message: false
 #| warning: false
-ologit_fit %>% summary
+ologit_fit %>% summary()
 ```
 
 ```{r}
 #| message: false
 #| warning: false
-ologit_fit %>% confint %>% exp
+ologit_fit %>% 
+  tidy(exponentiate = TRUE, conf.int = TRUE) 
 ```
 
 ```{r}
@@ -199,10 +206,13 @@ ggplot(grade_tbl, aes(variety, grade, fill = block)) +
 
 ```
 
+`threshold = "symmetric"`
+
 ```{r}
 #| message: false
 #| warning: false
-clm_fit <- clm(grade_ord ~ variety + block, data = grade_tbl)
+clm_fit <- clm(grade_ord ~ variety + block, data = grade_tbl,
+               threshold = "symmetric")
 ```
 
 ```{r}
