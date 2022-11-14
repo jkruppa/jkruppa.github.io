@@ -330,12 +330,16 @@ Was nehmen wir aus der Poissonregression zu den langnasigen Hechten mit? Zum ein
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
-So eine Poissonregression hat schon einiges an Eigenheiten. Neben dem Problem der Overdispersion gibt es aber noch eine weitere Sache, die wir beachten müssen. Wir können bei einer Poissonregression auch eine Zeroinflation vorliegen haben. Das heißt, wir beobachten viel mehr Nullen in den Daen, als wir aus der Poissonverteilung erwarten würden. Es gibt also einen biologischen oder künstlichn Prozess, der uns Nullen produziert. Häufig wissen wir nicht, ob wir den Prozess, der uns die Nullen in den Daten poruziert, auch abbilden. Das heißt, es kann sein, dass wir einfach nichts Zäheln, weil dort nichts ist oder aber es gibt dafür einen Grund. Diesen Grund müsten wir dann irgendwie in unseren Daten erfasst haben, aber meistens haben wir das nicht.
+So eine Poissonregression hat schon einiges an Eigenheiten. Neben dem Problem der Overdispersion gibt es aber noch eine weitere Sache, die wir beachten müssen. Wir können bei einer Poissonregression auch eine Zeroinflation vorliegen haben. Das heißt, wir beobachten viel mehr Nullen in den Daen, als wir aus der Poissonverteilung erwarten würden. Es gibt also einen biologischen oder künstlichn Prozess, der uns Nullen produziert. Häufig wissen wir nicht, ob wir den Prozess, der uns die Nullen in den Daten produziert, auch abbilden. Das heißt, es kann sein, dass wir einfach nichts Zählen, weil dort nichts ist oder aber es gibt dafür einen Grund. Diesen Grund müssten wir dann irgendwie in unseren Daten erfasst haben, aber meistens haben wir das nicht.
+
+Schauen wir usn dafür einmal ein Datenbeispiel von Eidechsen in der Lüneburgerheide an. Wir haben Eidechsen `lizard` in zwei verschiedenen Habitaten `grp` gezählt. Einmal, ob die Eidechsen eher im offenen Gelände oder eher im bedeckten Gelände zu finden waren. Im Weiteren haben wir geschaut, ob der Boden keinen Regen erhalten hatte, trocken war oder gar feucht. Mit trocken ist hier eine gewisse Restfeuchte gemeint. Am Ende haben wir noch bestimmt, ob wir eher nah an einer Siedlung waren oder eher weiter entfernt. Du kannst dir den Daten satz in der Datei `lizards.csv` nochmal anschauen. In @tbl-lizard-data sind die Daten nochmal dargestellt.
 
 ```{r}
 #| message: false
 #| warning: false
 #| echo: false
+#| tbl-cap: "Ausschnitt aus den Eidechsendaten für die zwei Habitate unter verschiedenen Feuchtigkeitsbedingungen und Nähe zur nächsten Siedlung."
+#| label: tbl-lizard-data
 
 set.seed(20210061)
 
@@ -347,11 +351,16 @@ lizard_zero_tbl <- expand_grid(grp = 1:2,
          lizard = ifelse(round(lizard) < 0, 0, round(lizard)),
          grp = factor(grp, labels = c("open", "cover")),
          rain = factor(rain, labels = c("no", "dry", "wet")),
-         pop = factor(pop, labels = c("near", "far")))
+         pop = factor(pop, labels = c("near", "far"))) %>% 
+  select(-rep)
 
 write_csv2(lizard_zero_tbl, "data/lizards.csv")
-lizard_zero_tbl <- read_csv2("data/lizards.csv")
+
+lizard_zero_tbl %>% head(n = 7) %>% kable(align = "c", "pipe")
+
 ```
+
+In @fig-pois-lizard-data sehen wir die Zähldaten der Eidechsen nochmal als Histogramm dargestellt. Wenn wir an einem Punkt keine Eidechsen gefunden haben, dann haben wir keine fehlenden Werte eingetragen, sondern eben, dass wir keine Eidechsen gezählt haben. Wir sehen das wir sehr viele Nullen in unseren Daten haben. Ein Indiz für eine Inflation an Nullen oder eben einer Zeroinflation.
 
 ```{r}
 #| echo: true
@@ -370,6 +379,8 @@ ggplot(lizard_zero_tbl, aes(lizard)) +
 
 ```
 
+Um zu überprüfen, ob wir eine Zeroinflation in den Daten vorliegen haben, werden wir erstmal eine ganz normale Poissonregression auf den Daten rechnen. Wir ignorieren auch eine potenzielle Overdispersion. Das schauen wir uns dann in den Daten später nochmal an.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -377,17 +388,29 @@ lizard_fit <- glm(lizard ~ grp + rain + pop, data = lizard_zero_tbl,
                   family = poisson)
 ```
 
+Wie immer nutzen wir die Funktion `model_parameters()` um uns die exponierten Koeffizienten aus dem Modell wiedergeben zu lassen. Das Modell dient uns jetzt nur als Ausgangsmodell und wir werden das Poissonmodell jetzt nicht weiter tiefer verwenden.
+
 ```{r}
 #| message: false
 #| warning: false
 lizard_fit %>% model_parameters(exponentiate = TRUE)
 ```
 
+Wir sehen, dass wir in der Variable `rain` eine starke Reduzierung der Anzahl an Eidechsen sehen. Vielleicht ist dies eine Variable, die zu viele Nullen produziert. Auch hat die Variable `pop`, die für die Nähe an einer Siedlung kodiert, einen starken positiven Effekt auf unsere Anzahl an Eidechsen. Hier wollen wir also einmal auf eine Zeroinflation überprüfen. Wir nutzen dazu die Funktion `check_zeroinflation()` aus dem R Paket `performance`. Die Funktion läuft nur auf einem Modellfit.
+
 ```{r}
-#| message: false
+#| message: true
 #| warning: false
 check_zeroinflation(lizard_fit)
 ```
+
+Die Funktion gibt uns wieder, dass wir vermutlich eine Zeroinflation vorliegen haben. Das können wir aber Modellieren. Um eine Zeroinflation *ohne Overdispersion* zu modellieren nutzen wir die Funktion `zeroinfl()` aus dem R Paket `pscl`. Der erste Teil der Funktion ist leicht erkläret. Wir bauen uns wieder unswer Model zusammen, was wir fitten wollen. Dann kommt aber ein `|` und mit diesem Symbol `|` definieren wir, ob wir wissen, woher die Nullen kommen oder aber ob wir die Nullen mit einem zufälligen Prozess modellieren wollen.
+
+Wenn wir das Modell in der Form `y ~ f1 + f2 | 1` schreiben, dann nehmen wir an, dass das Übermaß an Nullen in unseren Daten rein zufällig entstanden sind. Wir haben keine Spalte in de Daten, die uns eine Erklärung für die zusätzlichen Nullen liefern würde.
+
+Wir können auch `y ~ f1 + f2 | x3` schreiben. Dann haben wir eine Variable `x3` in den Daten von der wir glauben ein Großteil der Nullen herrührt. Wir könnten also in unseren Daten annehmen, dass wir den Überschuss an Nullen durch den Regen erhalten haben und damit über die Spalte `rain` den Exzess an Nullen modellieren.
+
+Man sollte immer mit dem einfachsten Modell anfangen, deshalb werden wir jetzt einmal ein Modell fitten, dass annimmt, dass die Nullen durch einen uns unbekannten Zufallsprozess entstanden sind.
 
 ```{r}
 #| message: false
@@ -396,6 +419,8 @@ lizard_zero_infl_intercept_fit <- zeroinfl(lizard ~ grp + pop + rain | 1,
                                            data = lizard_zero_tbl) 
 ```
 
+Wir schauen uns das Modell dann wieder einmal an und sehen eine Zweiteilung der Ausgabe. In dem oberen Teil der Ausgabe wird unsere Anzahl an Eidechsen modelliert. In dem unteren Teil wird der Anteil der Nullen in den Daten modelliert. Daher können wir über Variablen in dem `Zero-Inflation` Block keine Aussagen über die Anzahl an Eidechsen treffen. Variablen tauchen nämlich nur in einem der beiden Blöcke auf.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -403,11 +428,18 @@ lizard_zero_infl_intercept_fit %>%
   model_parameters(exponentiate = TRUE)
 ```
 
+Als erstes beobachten wir einen größeren Effekt der Variable `grp`. Das ist schon mal ein spannender Effekt. An der Signifikanz hat scih nicht viel geändert. Wir werden am Ende des Kapitels einmal alle Modell für die Modellierung der Zeroinflation vergleichen.
+
+Nun könnte es auch sein, dass der Effekt der vielen Nullen in unserer Variable `rain` verborgen liegt. Wenn es also regnet, dann werden wir viel weniger Eidechsen beoabchten. Nehmen wir also `rain` als ursächliche Variable mit in das Modell für die Zeroinflation.
+
 ```{r}
 #| message: false
 #| warning: false
-lizard_zero_infl_rain_fit <- zeroinfl(lizard ~ grp + pop | rain, data = lizard_zero_tbl)
+lizard_zero_infl_rain_fit <- zeroinfl(lizard ~ grp + pop | rain, 
+                                      data = lizard_zero_tbl)
 ```
+
+Wieder schauen wir uns einmal die Ausgabe des Modells einmal genauer an.
 
 ```{r}
 #| message: false
@@ -415,17 +447,26 @@ lizard_zero_infl_rain_fit <- zeroinfl(lizard ~ grp + pop | rain, data = lizard_z
 lizard_zero_infl_rain_fit %>% model_parameters(exponentiate = TRUE)
 ```
 
-```{r}
-#| message: false
-#| warning: false
-lizard_zero_infl_rain_pop_fit <- zeroinfl(lizard ~ grp | rain + pop, data = lizard_zero_tbl)
-```
+Es ändert sich einiges. Zum einen erfahren wir, dass der Regen anscheined doch viele Nullen in den Daten produziert. Wir haben ein extrem hohes $OR$ für die Variable `rain`. Die Signifikanz ist jedoch eher gering. Wir haben nämlich auch eine sehr hohe Streuung mit den großen $OR$ vorliegen. Au der anderen Seite verlieren wir jetzt auch die Signifikanz von unseren Habitaten und dem Standort der Population. Nur so mäßig super dieses Modell.
+
+Wir können jetzt natürlich auch noch den Standort der Population mit in den Prozess für die Entstehung der Nullen hineinnehmen. Wir schauen uns dieses Modell aber nicht mehr im Detail an, sondern dann nur im Vergleich zu den anderen Modellen.
 
 ```{r}
 #| message: false
 #| warning: false
-lizard_zero_infl_rain_pop_fit %>% model_parameters(exponentiate = TRUE)
+lizard_zero_infl_rain_pop_fit <- zeroinfl(lizard ~ grp | rain + pop, 
+                                          data = lizard_zero_tbl)
 ```
+
+Die Gefahr besteht immer, das man sich an die Wand modelliert und vor lauter Modellen die Übersicht verliert. Neben der Zeroinflation müssen wir ja auch schauen, ob wir eventuell eine Overdispersion in den Daten vorliegen haben. Wenn das der Fall ist, dann müsen wir nochmal überlegen, was wir dann machen. Wir testen nun auf Ovrdisprsion in unserem *ursprünglichen* Poissonmodell mit der Funktion `check_overdispersion()`.
+
+```{r}
+#| message: true
+#| warning: false
+check_overdispersion(lizard_fit)
+```
+
+Tja, und so erfahren wir, dass wir auch noch Overdispersion in unseren Daten vorliegen haben. Wir müsen also beides Modellieren. Einmal modellieren wir die Zeroinflation und einmal die Overdispersion. Wir können beides in einem negativen binominalen Modell fitten. Auch hier hilft die Funktion `zeroinfl()` mit der Option `dist = negbin`. Mit der Option geben wir an, dass wir eine negative binominal Verteilungsfamilie wählen. Damit können wir dann auch die Ovrdispersion in unseren Daten modellieren.
 
 ```{r}
 #| message: false
@@ -434,17 +475,15 @@ lizard_zero_nb_intercept_fit <- zeroinfl(lizard ~ grp + rain + pop | 1,
                                           dist = "negbin", data = lizard_zero_tbl)
 ```
 
-```{r}
-#| message: false
-#| warning: false
-check_overdispersion(lizard_fit)
-```
+Dann schauen wir usn einmal das Modell an. Zum einen sehen wir, dass der Effekt ähnlich groß ist, wie bei dem Intercept Modell der Funktion `zeroinfl`. Auch bleiben die Signifikanzen ähnlich.
 
 ```{r}
 #| message: false
 #| warning: false
 lizard_zero_nb_intercept_fit %>% model_parameters(exponentiate = TRUE)
 ```
+
+Nun haben wir vier Modelle geschätzt und wolen jetzt wissen, was ist das beste Modell. Dafür hilft usn dann eine Gegenüberstellung der Modelle mit der Funktion `modelsummary()`. Wir könnten die Modelle auch gegeneinander statistsich Testen, aber hier behalten wir uns einmal den beschreibenden Vergleich vor. In @tbl-model-comp-zero sehen wir einmal die vier Modelle nebeneinander gestellt.
 
 ```{r}
 #| message: false
