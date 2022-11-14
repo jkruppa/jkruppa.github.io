@@ -225,7 +225,7 @@ check_model(quasipoisson_fit, colors = cbbPalette[6:8],
 Um die Effektschätzer einer Poissonregression oder aber einer Quasipoisson-Regression interpretieren zu können müssen wir uns einmal einen Beispieldatensatz mit bekannten Effekten zwischen den Gruppen bauen. Im Folgenden bauen wir uns einen Datensatz mit zwei Gruppen. Einmal einer Kontrollgruppe mit einer mittleren Anzahl an $15$ und einer Behandlungsgruppe mit einer um $\beta_1 = 10$ höheren Anzahl. Wir haben also in der Kontrolle im Mittel eine Anzahl von $15$ und in der Behandlungsgruppe eine mittlere Anzahl von $25$.
 
 ```{r}
-sample_size <- 10000
+sample_size <- 100
 longnose_small_tbl <- tibble(grp = rep(c(0, 1), each = sample_size),
                              count = 15 + 10 * grp + rnorm(2 * sample_size, 0, 1)) %>%
   mutate(count = round(count),
@@ -260,12 +260,23 @@ Da sich die Tabelle schlecht liest hier nochmal der Boxplot in @fig-pois-model-s
 #| fig-height: 5
 #| fig-width: 5
 #| fig-cap: How much is the fish? Der Boxplot über $n = 1000$ Beobachtungen an dem wir überlegen wollen wie wir die Effektschätzer einer Poissonregression zu interpretieren haben. 
+#| fig-subcap: 
+#|   - "Verteilung der Werte als Boxplot."
+#|   - "Verteilung der Werte als Densityplot."
+#| layout-nrow: 2
 
 ggplot(longnose_small_tbl, aes(x = grp, y = count, fill = grp)) +
   theme_bw() +
   geom_boxplot() +
   theme(legend.position = "none") +
   scale_fill_okabeito() 
+
+ggplot(data = longnose_small_tbl, aes(x = count, fill = grp)) +
+  theme_bw() +
+  geom_density(alpha = 0.75) +
+  labs(x = "", y = "", fill = "Gruppe") +
+  scale_fill_okabeito() +
+  scale_x_continuous(breaks = seq(10, 30, by = 5), limits = c(10, 30)) 
 
 ```
 
@@ -318,5 +329,97 @@ Was nehmen wir aus der Poissonregression zu den langnasigen Hechten mit? Zum ein
 ## Zeroinflation
 
 ![](images/caution.png){fig-align="center" width="50%"}
+
+```{r}
+set.seed(20210061)
+
+lizard_zero_tbl <- expand_grid(grp = 1:2,
+                               rain = 1:3,
+                               pop = 1:2,
+                               rep = 1:5) %>% 
+  mutate(lizard = 0 + 1.5 * grp - 2 * rain + 1.2 * pop + rnorm(n(), 0, 2),
+         lizard = ifelse(round(lizard) < 0, 0, round(lizard)),
+         grp = factor(grp, labels = c("open", "cover")),
+         rain = factor(rain, labels = c("no", "dry", "wet")),
+         pop = factor(pop, labels = c("near", "far")))
+
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-pois-lizard-data
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Histogramm der Verteilung der Hechte in den beobachteten Flüssen."
+
+ggplot(lizard_zero_tbl, aes(lizard)) +
+  theme_bw() +
+  geom_histogram() +
+  labs(x = "Anzahl der gefundenen Eidechsen", y = "Anzahl") +
+  scale_x_continuous(breaks = 0:7)
+
+```
+
+```{r}
+lizard_fit <- glm(lizard ~ grp + rain + pop, data = lizard_zero_tbl,
+                  family = poisson)
+```
+
+```{r}
+lizard_fit %>% model_parameters(exponentiate = TRUE)
+```
+
+```{r}
+check_zeroinflation(lizard_fit)
+```
+
+```{r}
+lizard_zero_infl_intercept_fit <- zeroinfl(lizard ~ grp + pop + rain | 1, 
+                                           data = lizard_zero_tbl) 
+
+
+lizard_zero_infl_intercept_fit %>% 
+  model_parameters(exponentiate = TRUE)
+
+
+lizard_zero_infl_intercept_fit %>% summary
+```
+
+```{r}
+library(pscl)
+
+lizard_zero_infl_rain_fit <- zeroinfl(lizard ~ grp + pop | rain, data = lizard_zero_tbl)
+
+lizard_zero_infl_rain_fit %>% model_parameters(exponentiate = TRUE)
+```
+
+```{r}
+library(pscl)
+
+lizard_zero_infl_rain_pop_fit <- zeroinfl(lizard ~ grp | rain + pop, data = lizard_zero_tbl)
+
+lizard_zero_infl_rain_pop_fit %>% model_parameters(exponentiate = TRUE)
+```
+
+```{r}
+lizard_zero_nb_intercept_fit <- zeroinfl(lizard ~ grp + rain + pop | 1, 
+                                          dist = "negbin", data = lizard_zero_tbl)
+
+```
+
+```{r}
+lizard_zero_nb_intercept_fit %>% model_parameters(exponentiate = TRUE)
+```
+
+```{r}
+compare_performance(lizard_fit,
+                    lizard_zero_nb_intercept_fit,
+                    lizard_zero_infl_intercept_fit, 
+                    lizard_zero_infl_rain_fit,
+                    lizard_zero_infl_rain_pop_fit,
+                    rank = TRUE)
+```
 
 ## Referenzen {.unnumbered}
