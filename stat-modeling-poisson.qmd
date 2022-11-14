@@ -328,8 +328,6 @@ Was nehmen wir aus der Poissonregression zu den langnasigen Hechten mit? Zum ein
 
 ## Zeroinflation
 
-![](images/caution.png){fig-align="center" width="50%"}
-
 So eine Poissonregression hat schon einiges an Eigenheiten. Neben dem Problem der Overdispersion gibt es aber noch eine weitere Sache, die wir beachten müssen. Wir können bei einer Poissonregression auch eine Zeroinflation vorliegen haben. Das heißt, wir beobachten viel mehr Nullen in den Daen, als wir aus der Poissonverteilung erwarten würden. Es gibt also einen biologischen oder künstlichn Prozess, der uns Nullen produziert. Häufig wissen wir nicht, ob wir den Prozess, der uns die Nullen in den Daten produziert, auch abbilden. Das heißt, es kann sein, dass wir einfach nichts Zählen, weil dort nichts ist oder aber es gibt dafür einen Grund. Diesen Grund müssten wir dann irgendwie in unseren Daten erfasst haben, aber meistens haben wir das nicht.
 
 Schauen wir usn dafür einmal ein Datenbeispiel von Eidechsen in der Lüneburgerheide an. Wir haben Eidechsen `lizard` in zwei verschiedenen Habitaten `grp` gezählt. Einmal, ob die Eidechsen eher im offenen Gelände oder eher im bedeckten Gelände zu finden waren. Im Weiteren haben wir geschaut, ob der Boden keinen Regen erhalten hatte, trocken war oder gar feucht. Mit trocken ist hier eine gewisse Restfeuchte gemeint. Am Ende haben wir noch bestimmt, ob wir eher nah an einer Siedlung waren oder eher weiter entfernt. Du kannst dir den Daten satz in der Datei `lizards.csv` nochmal anschauen. In @tbl-lizard-data sind die Daten nochmal dargestellt.
@@ -483,7 +481,7 @@ Dann schauen wir usn einmal das Modell an. Zum einen sehen wir, dass der Effekt 
 lizard_zero_nb_intercept_fit %>% model_parameters(exponentiate = TRUE)
 ```
 
-Nun haben wir vier Modelle geschätzt und wolen jetzt wissen, was ist das beste Modell. Dafür hilft usn dann eine Gegenüberstellung der Modelle mit der Funktion `modelsummary()`. Wir könnten die Modelle auch gegeneinander statistsich Testen, aber hier behalten wir uns einmal den beschreibenden Vergleich vor. In @tbl-model-comp-zero sehen wir einmal die vier Modelle nebeneinander gestellt.
+Nun haben wir vier Modelle geschätzt und wolen jetzt wissen, was ist das beste Modell. Dafür hilft usn dann eine Gegenüberstellung der Modelle mit der Funktion `modelsummary()`. Wir könnten die Modelle auch gegeneinander statistsich Testen, aber hier behalten wir uns einmal den beschreibenden Vergleich vor. In @tbl-model-comp-zero sehen wir einmal die vier Modelle nebeneinander gestellt. Für eine bessere Übrsicht, habe ich aus allen Modellen den Intercept entfernt.
 
 ```{r}
 #| message: false
@@ -503,6 +501,12 @@ modelsummary(lst("ZeroInfl Intercept" = lizard_zero_infl_intercept_fit,
              exponentiate = TRUE)
 ```
 
+Die beiden Intercept Modelle haben die kleinsten $AIC$-Werte der vier Modelle. Darüber hinaus haben dann beide Modelle auch die höchsten $R^2_{adj}$ Werte. Beide Modelle erklären also im Verhältnis viel Varianz mit 58.5%. Auch ist der $RMSE$ Wert als Fehler bei beiden Modellen am kleinsten. Damit haben wir die Qual der Wahl, welches Modell wir nehmen. Ich würde das negative binominal Modell nehmen. Wir haben ins unseren Daten vermutlich eine Zeroinflation sowie eine Overdispersion vorliegen. Daher bietest es sich an, beides in einer negativen binominalen Regression zu berücksichtigen.
+
+Wie sehe den unser negative binominal Modell aus, wenn wir mit dem Modell einmal die zu erwartenden Eidechsen vorhersagen würden? Auch das kann helfen um abzuschätzen, ob das Modelle einigermaßen funktioniert hat. Wir haben ja hier den Vorteil, dass wir nur mit kategorialen Daten arbeiten. Wir haben keine kontiniuerlichen Variablen vorliegen und darüber hinaus auch nicht so viele Variablen insgesamt.
+
+Daher bauen wir uns mit `expand_grid()` erstmal einen Datensatz, der nur aus den Faktorkombinationen besteht. Wir haben also nur eine Beobachtung je Faktorkombination. Danach nutzen wir die Daten einmal in der Funktion `predict()` um uns die vorhergesagten Eidechsen nach dem gefitten Modell wiedergeben zu lassen.
+
 ```{r}
 newdata_tbl <- expand_grid(grp = factor(1:2, labels = c("open", "cover")),
                            rain = factor(1:3, labels = c("no", "dry", "wet")),
@@ -513,6 +517,8 @@ pred_lizards <- predict(lizard_zero_nb_intercept_fit, newdata = newdata_tbl)
 newdata_tbl <- newdata_tbl %>% 
   mutate(lizard = pred_lizards)
 ```
+
+Nachdem wir in dem Datensatz `newdata_tbl` nun die vorhergesagten Eidechsen haben, können wir uns jetzt in der @fig-pred-lizard die Zusammenhänge nochmal anschauen.
 
 ```{r}
 #| echo: true
@@ -533,5 +539,7 @@ ggplot(newdata_tbl, aes(x = rain, y = lizard, colour = grp, group = grp)) +
        color = "Gruppe") +
   scale_color_okabeito()
 ```
+
+Wir erkennen, dass mit der Erhöhung der Feuchtigkeit die Anzahl an aufgefundenen Eidechsen sinkt. Der Effekt ist nicht mehr so stark, wenn es schon einmal geregnet hat. Ebenso macht es einen Unterschied, ob wir nahe einer Siedlung sind oder nicht. Grundsätzlich finden wir immer mehr Eidechsen in geschützten Habitaten als in offenen Habitaten.
 
 ## Referenzen {.unnumbered}
