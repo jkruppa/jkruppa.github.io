@@ -38,7 +38,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom,
                parameters, performance, gtsummary,
-               tidymodels)
+               tidymodels, cutpointr)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -275,6 +275,71 @@ ggplot(pig_tbl, aes(x = crp, y = infected)) +
 ```
 
 Nun haben wir das Kapitel zur logistischen Regression fast abgeschlossen. Was noch fehlt ist die Besonderheit der Prädiktion im Kontext des maschinellen Lernens. Das machen wir jetzt im folgenden Abschnitt. Wenn dich die logistische Regression nur interessiert hat um einen kausalen Zusammenhang zwischen Einflussvariablen und dem binären Outcome zu modellieren, dann sind wir hier fertig.
+
+## Dichotomisierung
+
+Manchmal ist es so, dass wir eine logistsiche Regression rechnen wollen. Wir fragen nicht, wie ist unser $y$ verteilt und was für eine Regression können wir dann rechnen? Sondern wir wollen mit der logistischen Regression durch die Wand. Wenn wir das wollen, dann können wir unser $y$ dichotomisieren. Das heißt, wir machen aus einer Variable, die mehr als zwei Level hat einen Faktor mit zwei Leveln. Dafür stehen uns verschiedene Möglichkeiten offen.
+
+```{r}
+pig_tbl %>% 
+  mutate(frailty = recode(frailty, "robust" = "robust", 
+                          "pre-frail" = "frail_prefrail", 
+                          "frail" = "frail_prefrail")) %>% 
+  pull(frailty) %>% extract(1:20)
+```
+
+```{r}
+pig_tbl %>% 
+mutate(frailty = case_when(frailty == "robust" ~ "robust",
+                           frailty == "pre-frail" ~ "frail",
+                           frailty == "frail" ~ "frail")) %>% 
+  pull(frailty) %>% extract(1:20)
+```
+
+Häufig haben wir auch den Fall, dass wir keine kontinuierlichen $x$ in unseren Daten wollen. Alles soll sich in Faktoren verwandeln, so dass wir immer eine 2x2 Tafel haben. Wenn es sein muss, liefert hier `cutpointr()` die Lösung für dieses Problem.
+
+@fig-crp-bin
+
+```{r}
+#| message: false
+#| warning: false
+#| column: page
+
+cp_crp <- cutpointr(data = pig_tbl,
+                    x = crp,
+                    class = infected,
+                    method = maximize_metric, 
+                    metric = sum_sens_spec) 
+
+cp_crp
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-crp-bin
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 9
+#| fig-cap: "Visualisierung der logistischen Gerade in einer simplen logistischen Regression mit der Variable `crp`."
+
+plot(cp_crp)
+```
+
+```{r}
+pluck(cp_crp, "optimal_cutpoint")
+```
+
+```{r}
+pig_tbl %>% 
+mutate(crp_bin = case_when(crp >= 19.84 ~ "high",
+                           crp < 19.84 ~ "low")) %>% 
+select(crp, crp_bin)  
+```
+
+::: column-margin
+[An introduction to cutpointr](https://cran.r-project.org/web/packages/cutpointr/vignettes/cutpointr.html)
+:::
 
 ## Prädiktion
 
