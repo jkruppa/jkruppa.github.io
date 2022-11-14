@@ -44,7 +44,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom,
                parameters, performance, MASS, pscl, see,
-               scales)
+               modelsummary, scales)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -331,6 +331,10 @@ Was nehmen wir aus der Poissonregression zu den langnasigen Hechten mit? Zum ein
 ![](images/caution.png){fig-align="center" width="50%"}
 
 ```{r}
+#| message: false
+#| warning: false
+#| echo: false
+
 set.seed(20210061)
 
 lizard_zero_tbl <- expand_grid(grp = 1:2,
@@ -343,6 +347,8 @@ lizard_zero_tbl <- expand_grid(grp = 1:2,
          rain = factor(rain, labels = c("no", "dry", "wet")),
          pop = factor(pop, labels = c("near", "far")))
 
+write_csv2(lizard_zero_tbl, "data/lizards.csv")
+lizard_zero_tbl <- read_csv2("data/lizards.csv")
 ```
 
 ```{r}
@@ -363,63 +369,97 @@ ggplot(lizard_zero_tbl, aes(lizard)) +
 ```
 
 ```{r}
+#| message: false
+#| warning: false
 lizard_fit <- glm(lizard ~ grp + rain + pop, data = lizard_zero_tbl,
                   family = poisson)
 ```
 
 ```{r}
+#| message: false
+#| warning: false
 lizard_fit %>% model_parameters(exponentiate = TRUE)
 ```
 
 ```{r}
+#| message: false
+#| warning: false
 check_zeroinflation(lizard_fit)
 ```
 
 ```{r}
+#| message: false
+#| warning: false
 lizard_zero_infl_intercept_fit <- zeroinfl(lizard ~ grp + pop + rain | 1, 
                                            data = lizard_zero_tbl) 
-
-
-lizard_zero_infl_intercept_fit %>% 
-  model_parameters(exponentiate = TRUE)
-
-
-lizard_zero_infl_intercept_fit %>% summary
 ```
 
 ```{r}
-library(pscl)
+#| message: false
+#| warning: false
+lizard_zero_infl_intercept_fit %>% 
+  model_parameters(exponentiate = TRUE)
+```
 
+```{r}
+#| message: false
+#| warning: false
 lizard_zero_infl_rain_fit <- zeroinfl(lizard ~ grp + pop | rain, data = lizard_zero_tbl)
+```
 
+```{r}
+#| message: false
+#| warning: false
 lizard_zero_infl_rain_fit %>% model_parameters(exponentiate = TRUE)
 ```
 
 ```{r}
-library(pscl)
-
+#| message: false
+#| warning: false
 lizard_zero_infl_rain_pop_fit <- zeroinfl(lizard ~ grp | rain + pop, data = lizard_zero_tbl)
+```
 
+```{r}
+#| message: false
+#| warning: false
 lizard_zero_infl_rain_pop_fit %>% model_parameters(exponentiate = TRUE)
 ```
 
 ```{r}
+#| message: false
+#| warning: false
 lizard_zero_nb_intercept_fit <- zeroinfl(lizard ~ grp + rain + pop | 1, 
                                           dist = "negbin", data = lizard_zero_tbl)
-
 ```
 
 ```{r}
+#| message: false
+#| warning: false
+check_overdispersion(lizard_fit)
+```
+
+```{r}
+#| message: false
+#| warning: false
 lizard_zero_nb_intercept_fit %>% model_parameters(exponentiate = TRUE)
 ```
 
 ```{r}
-compare_performance(lizard_fit,
-                    lizard_zero_nb_intercept_fit,
-                    lizard_zero_infl_intercept_fit, 
-                    lizard_zero_infl_rain_fit,
-                    lizard_zero_infl_rain_pop_fit,
-                    rank = TRUE)
+#| message: false
+#| echo: true
+#| tbl-cap: "Modellvergleich mit den vier Modellen. Wir schauen in wie weit sich die Koeffizienten und Modelgüten für die einzelnen Modelle im direkten Vergleich zum vollen Modell verändert haben."
+#| label: tbl-model-comp-zero
+
+modelsummary(lst("ZeroInfl Intercept" = lizard_zero_infl_intercept_fit,
+                 "ZeroInfl rain" = lizard_zero_infl_rain_fit,
+                 "ZeroInfl rain+pop" = lizard_zero_infl_rain_pop_fit,
+                 "NegBinom intercept" = lizard_zero_nb_intercept_fit),
+             statistic = c("conf.int",
+                           "s.e. = {std.error}", 
+                           "t = {statistic}",
+                           "p = {p.value}"),
+             coef_omit = "Intercept", 
+             exponentiate = TRUE)
 ```
 
 ## Referenzen {.unnumbered}
