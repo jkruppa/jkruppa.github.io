@@ -280,13 +280,18 @@ Nun haben wir das Kapitel zur logistischen Regression fast abgeschlossen. Was no
 
 Manchmal ist es so, dass wir eine logistsiche Regression rechnen wollen. Wir fragen nicht, wie ist unser $y$ verteilt und was für eine Regression können wir dann rechnen? Sondern wir wollen mit der logistischen Regression durch die Wand. Wenn wir das wollen, dann können wir unser $y$ dichotomisieren. Das heißt, wir machen aus einer Variable, die mehr als zwei Level hat einen Faktor mit zwei Leveln. Dafür stehen uns verschiedene Möglichkeiten offen.
 
+In dem R Paket `dplyr` haben wir mit der Funktion `recode()` die Möglichkeit eine Variable von `alt = neu` umzukodieren. Dabei müssen wir natürlich darauf achten, dass wir die alten Level der Variable richtig schreiben und bei der neuen Level nur zwei Namen eintragen. Dann sind wir auch schon durch mit der Umbenennung.
+
 ```{r}
 pig_tbl %>% 
-  mutate(frailty = recode(frailty, "robust" = "robust", 
+  mutate(frailty = recode(frailty, 
+                          "robust" = "robust", 
                           "pre-frail" = "frail_prefrail", 
                           "frail" = "frail_prefrail")) %>% 
   pull(frailty) %>% extract(1:20)
 ```
+
+Ich finde die Funktion `case_when()` etwas übersichtlicher. Das ist aber eigentlich nur eine Geschmacksfrage. Am Ende kommt jedenfalls das Gleiche heraus.
 
 ```{r}
 pig_tbl %>% 
@@ -296,14 +301,17 @@ mutate(frailty = case_when(frailty == "robust" ~ "robust",
   pull(frailty) %>% extract(1:20)
 ```
 
-Häufig haben wir auch den Fall, dass wir keine kontinuierlichen $x$ in unseren Daten wollen. Alles soll sich in Faktoren verwandeln, so dass wir immer eine 2x2 Tafel haben. Wenn es sein muss, liefert hier `cutpointr()` die Lösung für dieses Problem.
+Häufig haben wir auch den Fall, dass wir keine kontinuierlichen $x$ in unseren Daten wollen. Alles soll sich in Faktoren verwandeln, so dass wir immer eine 2x2 Tafel haben. Wenn es sein muss, liefert hier `cutpointr()` die Lösung für dieses Problem. Wir müssen dafür zum einen unser kontinuierliches $x$ angeben und dann mit `class` unser binäres $y$. Wir erhalten dann für unser $y$ den bestmöglichen Split für unser $x$. Im Beispiel wollen wir einmal die Variable `crp` für unser Outcome `infected` in zwei Gruppen aufteilen. Wir wollen eigentlich immer zwei Gruppen, da wir dann in dem Setting eines $\mathcal{X}^2$-Test und einer einfacheren Interpretation von dem $OR$ sind.
 
-@fig-crp-bin
+Wir immer haben wir eine große Bandbreite an Optionen, wie wir den besten Split unseres $x$ kriegen wollen. Ich gehe hier mit den Default-Werten. Damit kommt man eigentlich recht weit. Ich möchte gerne die Summe der Sensivität und der Spezifität `sum_sens_spec` über alle möglichen Cutpoints maximieren `maximize_metric`. Der Cutpoint mit der maximalen Summe an Sensivität und der Spezifität wird mir dann wiedergegeben.
+
+::: column-margin
+Natürlich hat das R Paket `cutpoint` noch viel mehr Optionen. Mehr gibt es in [An introduction to cutpointr](https://cran.r-project.org/web/packages/cutpointr/vignettes/cutpointr.html).
+:::
 
 ```{r}
 #| message: false
 #| warning: false
-#| column: page
 
 cp_crp <- cutpointr(data = pig_tbl,
                     x = crp,
@@ -314,6 +322,8 @@ cp_crp <- cutpointr(data = pig_tbl,
 cp_crp
 ```
 
+In @fig-crp-bin sehe wir die Ausgabe der Funktion `cutpointr()` nochmal visualisiert. Wir sehen, dass der Split einigermaßen die `crp`-Werte im Sinne von unserem Outcome aufteilt.
+
 ```{r}
 #| echo: true
 #| message: false
@@ -321,14 +331,18 @@ cp_crp
 #| fig-align: center
 #| fig-height: 6
 #| fig-width: 9
-#| fig-cap: "Visualisierung der logistischen Gerade in einer simplen logistischen Regression mit der Variable `crp`."
+#| fig-cap: "Visualisierung des Ergebnisses der Funktion `cutpointr` für die Variable `crp`."
 
 plot(cp_crp)
 ```
 
+Wir können uns jetzt noch den optimalen Cutpoint aus der Ausgabe herausziehen, wenn wir den Punkt nicht aus der Ausgabe ablesen wollen.
+
 ```{r}
 pluck(cp_crp, "optimal_cutpoint")
 ```
+
+Am Ende können wir dann über `case_when()` uns ein binären CRP-Wert zusammenbauen. Wir müssen dann natürlich entscheiden welche Variable wir mit ins Modell nehme, aber meistens machen wir uns ja die Mühen um dann die neue Variable zu verwenden.
 
 ```{r}
 pig_tbl %>% 
@@ -337,9 +351,7 @@ mutate(crp_bin = case_when(crp >= 19.84 ~ "high",
 select(crp, crp_bin)  
 ```
 
-::: column-margin
-[An introduction to cutpointr](https://cran.r-project.org/web/packages/cutpointr/vignettes/cutpointr.html)
-:::
+Damit haben wir uns dann auch mit dem Problem der Dichotomisierung in der logististischen Regression einmal beschäftigt. Somit bleibt dann noch die Prädiktion übrig.
 
 ## Prädiktion
 
