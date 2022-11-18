@@ -274,13 +274,15 @@ Erstmal sehen wir an den Modellparameters, dass hier wieder etwas nicht stimmt. 
 fit_1 %>% anova() %>% model_parameters()
 ```
 
-Wir sehen die visuelle Interaktion auch in der ANOVA Ausgabe als hoch signifikanten Term `light_intensity:layer` mit dem $p$-Wert $<0.001$. Im Anschluss rechnen wir jetzt die paarweisen Vergleiche mit der Funktion `emmeans()`. Mit dem `|` geben wir an, dass wir die paarweisen Vergleiche für die Level von `light_intensity` getrennt für die Level vom `layer` rechnen wollen. Wenn du *keine* Adjustierung des $\alpha$-Niveaus für die multiplen Vergleiche möchtest, dann wähle einfach die Option `adjust = "none"`.
+Wir sehen die visuelle Interaktion auch in der ANOVA Ausgabe als hoch signifikanten Term `light_intensity:layer` mit dem $p$-Wert $<0.001$. Im Anschluss rechnen wir jetzt die paarweisen Vergleiche mit der Funktion `emmeans()`. Mit dem `|` geben wir an, dass wir die paarweisen Vergleiche für die Level von `light_intensity` getrennt für die Level vom `layer` rechnen wollen. Wenn du *keine* Adjustierung des $\alpha$-Niveaus für die multiplen Vergleiche möchtest, dann wähle einfach die Option `adjust = "none"`. Wir nutzen dann die Ausgabe nicht direkt sondern werden noch die Ausgabe etwas aufhübschen.
 
 ```{r}
 comp_1_obj <- fit_1 %>% 
   emmeans(specs = ~ light_intensity | layer) %>% 
   contrast(method = "pairwise", adjust = "bonferroni") 
 ```
+
+In dem Objekt `comp_1_obj` sind eine Menge Informationen enthalten. Ich kürze mir immer die Informationen und sortiere nochmal die Ergebnisse. Wir erhalten dann eine saubere Wiedergabe.
 
 ```{r}
 comp_1_obj %>% 
@@ -290,6 +292,10 @@ comp_1_obj %>%
   mutate(p.value = format.pval(p.value, eps = 0.001, digits = 2))
 ```
 
+Nach der Adjustierung für die multiplen Vergleiche haben wir nur noch einen Effekt in dem `3rd` Layer. Sonst haben die Lichtintensitäten keinen Einfluss auf die Wuchshöhe der Pflanzen. Da wir wissen, dass das `3rd` Layer auch das defekte Layer war, sehen wir hier schon, dass wir keinen wirklichen Effekt durch das Licht vorliegen haben. Alles was wir gefunden haben, ist eben ein defektes `3rd` Layer.
+
+Die 95% Konfidenzintervalle erhalten wir mit der Funktion `confint()`. Die Ergebnisse sind natürlich die gleichen. Wir sehen wieder keinen Unterschied zwischen den Lichtintensitäten außer in dem `3rd` Layer.
+
 ```{r}
 ci_obj <- comp_1_obj %>% 
   confint() %>% 
@@ -298,6 +304,8 @@ ci_obj <- comp_1_obj %>%
 
 ci_obj
 ```
+
+In der @fig-app-anova-interaction-4 sehen wir dann die berechneten 95% Konfidenzintervalle nochmal visualisiert. Wenn wir einen Effekt haben, dann im `3rd` Layer. In den restlichen 95% Konfidenzintervallen ist die Null mit enthalten, wir können also die Nullhypothese auf Gleichheit des Gruppenvergleiches nicht ablehnen.
 
 ```{r}
 #| message: false
@@ -319,6 +327,8 @@ ggplot(ci_obj, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high,
   theme_classic()
 ```
 
+Neben der Darstellung mit 95% Konfidenzintervallen ist auch die Darstellung mit dem *compact letter display* sehr beliebt. Wir nutzen dafür dann die Funktion `cld()`. Wir adjustieren uns wieder die Vergleiche nach Bonferroni. Im Weiteren trenne wir die Vergleiche auch wieder nach den Leveln für den Faktor `layer` auf.
+
 ```{r}
 cld_obj <- fit_1 %>% 
   emmeans(specs = ~ light_intensity | layer)  %>%
@@ -327,12 +337,18 @@ cld_obj <- fit_1 %>%
 cld_obj
 ```
 
+Wir sehen wieder, dass wir nur in dem `3rd` Layer Buchstabenunterschiede haben. Daher haben wir auch nur im `3rd` Layer signifikante Ergebnisse. Wichtig ist, dass wir die Buchstaben nur pro Level des Layers vergleichen können, aber auf keinen Fall über die Layer hinweg. Das geht dann leider nicht. Die Ausgabe der Funktion `emmeans()` schlägt noch andere Darstellungsformen für die Vergleiche vor, du kannst gerne einmal die Funktionen `pairs()`, `pwpp()` oder `pwpm()` ausprobieren und schauen, ob dir die Visualisierung mehr sagt. Im @sec-posthoc-emmeans gehe ich nochmal auf die verschiedene Darstellungsformen in `emmeans` ein.
+
+Wenn wir das *compact letter display* mit deinem Barplot verbinden wollen, müssen wir uns etwas strecken. Zuerst sortieren wir die Ausgabe von `cld_obj` wieder in die korrekte Reihenfolge der Faktorenlevel. Dann können wir die Spalte `.group` direkt in `ggplot()` verwenden.
+
 ```{r}
 cld_sort_obj <- cld_obj %>% 
   as_tibble() %>% 
   select(light_intensity, layer, .group) %>% 
   arrange(layer, light_intensity)
 ```
+
+In @fig-app-anova-interaction-5 sehen wir die Ausgabe des Barplots für die Daten und dann an die Balken geschrieben das *compact letter display*. Wichtig ist hier, dass die Buchstaben immer nur für *ein* Layer gelten. Wir können wegen der Interaktion nicht die Layer untereinander mit den Buchstaben vergleichen. Wir sehen wiederum, dass wir keine relevanten signifikanten Ergebnisse aus dem Experiment mitnehmen können.
 
 ```{r}
 #| message: false
