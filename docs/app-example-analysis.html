@@ -580,7 +580,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </header><div class="cell">
 
 </div>
-<p><em>Version vom November 18, 2022 um 10:16:08</em></p>
+<p><em>Version vom November 18, 2022 um 15:03:57</em></p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure"><p><img src="images/caution.png" class="img-fluid figure-img" style="width:50.0%"></p>
 </figure>
@@ -926,6 +926,7 @@ growth \sim light\_intensity + layer + rack
 </div>
 </div>
 <p>Jetzt sehen wir etwas mehr. Im <code>1st</code> Level liegen alle <code>rack</code>-Level auf einer Ebene. Ebenso liegen alle <code>rack</code>-Level auf einer Ebene im <code>2n</code> Level. Das ganze Problem der Interaktion entsteht im <code>3rd</code> Level. Hier ging etwas drunter und drüber im Pflanzenwachstum. Wir wissen jetzt, dass das dritte Layer anscheinend defekt war oder irgendwas dort mit den Racks nicht gestimmt hat.</p>
+<p>Wir könnten jetzt das dritte Layer aus der Analyse werfen. Das wäre aber nur eine Möglichkeit. Wenn wir das tuen würden, dann würde wir auch die Interaktion los werden. Das wollen wir hier aber nicht, wir ziehen jetzt die Analyse einmal mit der Interaktion durch. Dafür bauen wir uns jetzt das lineare Modell und schauen uns einmal die ANOVA an.</p>
 <div class="cell">
 <div class="sourceCode" id="cb18"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">fit_1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/lm.html">lm</a></span><span class="op">(</span><span class="va">growth</span> <span class="op">~</span> <span class="va">light_intensity</span> <span class="op">+</span> <span class="va">layer</span> <span class="op">+</span> <span class="va">light_intensity</span><span class="op">:</span><span class="va">layer</span>, </span>
 <span>            data <span class="op">=</span> <span class="va">light_tbl</span><span class="op">)</span></span>
@@ -944,13 +945,28 @@ light intensity [mid] * layer [3rd]  |       -9.60 | 5.61 | [-20.89,   1.69] | -
 light intensity [high] * layer [3rd] |      -25.90 | 5.61 | [-37.19, -14.61] | -4.62 | &lt; .001</code></pre>
 </div>
 </div>
+<p>Erstmal sehen wir an den Modellparameters, dass hier wieder etwas nicht stimmt. Wir würden erwarten, dass der Effekt des Layers immer gleich ist. Hier ist der Effekt von dem <code>2nd</code> Layer zu dem <code>3rd</code> Layer fast dreimal so stark. Und eigentlich sollten die Layer den gleichen Effekt haben. Nämlich eigentlich keinen oder einen Effekt weit unter dem von der Lichtintensität. Das Layer ist eine technische Komponente.</p>
 <div class="cell">
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">comp_1_obj</span> <span class="op">&lt;-</span> <span class="va">fit_1</span> <span class="op">%&gt;%</span> </span>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">fit_1</span> <span class="op">%&gt;%</span> <span class="fu"><a href="https://rdrr.io/r/stats/anova.html">anova</a></span><span class="op">(</span><span class="op">)</span> <span class="op">%&gt;%</span> <span class="fu">model_parameters</span><span class="op">(</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Parameter             | Sum_Squares | df | Mean_Square |    F |      p
+----------------------------------------------------------------------
+light_intensity       |      433.15 |  2 |      216.57 | 4.60 | 0.015 
+layer                 |       70.92 |  2 |       35.46 | 0.75 | 0.477 
+light_intensity:layer |     1138.80 |  4 |      284.70 | 6.04 | &lt; .001
+Residuals             |     2120.85 | 45 |       47.13 |      |       
+
+Anova Table (Type 1 tests)</code></pre>
+</div>
+</div>
+<p>Wir sehen die visuelle Interaktion auch in der ANOVA Ausgabe als hoch signifikanten Term <code>light_intensity:layer</code> mit dem <span class="math inline">\(p\)</span>-Wert <span class="math inline">\(&lt;0.001\)</span>. Im Anschluss rechnen wir jetzt die paarweisen Vergleiche mit der Funktion <code>emmeans()</code>. Mit dem <code>|</code> geben wir an, dass wir die paarweisen Vergleiche für die Level von <code>light_intensity</code> getrennt für die Level vom <code>layer</code> rechnen wollen. Wenn du <em>keine</em> Adjustierung des <span class="math inline">\(\alpha\)</span>-Niveaus für die multiplen Vergleiche möchtest, dann wähle einfach die Option <code>adjust = "none"</code>.</p>
+<div class="cell">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">comp_1_obj</span> <span class="op">&lt;-</span> <span class="va">fit_1</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">emmeans</span><span class="op">(</span>specs <span class="op">=</span> <span class="op">~</span> <span class="va">light_intensity</span> <span class="op">|</span> <span class="va">layer</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">contrast</span><span class="op">(</span>method <span class="op">=</span> <span class="st">"pairwise"</span>, adjust <span class="op">=</span> <span class="st">"bonferroni"</span><span class="op">)</span> </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">comp_1_obj</span> <span class="op">%&gt;%</span> </span>
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">comp_1_obj</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="va">summary</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="va">as_tibble</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">select</span><span class="op">(</span><span class="va">contrast</span>, <span class="va">layer</span>, <span class="va">p.value</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
@@ -971,7 +987,7 @@ light intensity [high] * layer [3rd] |      -25.90 | 5.61 | [-37.19, -14.61] | -
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">ci_obj</span> <span class="op">&lt;-</span> <span class="va">comp_1_obj</span> <span class="op">%&gt;%</span> </span>
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">ci_obj</span> <span class="op">&lt;-</span> <span class="va">comp_1_obj</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/stats/confint.html">confint</a></span><span class="op">(</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">as_tibble</span><span class="op">(</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">select</span><span class="op">(</span><span class="va">contrast</span>, <span class="va">layer</span>, <span class="va">estimate</span>, conf.low <span class="op">=</span> <span class="va">lower.CL</span>, conf.high <span class="op">=</span> <span class="va">upper.CL</span><span class="op">)</span> </span>
@@ -992,8 +1008,8 @@ light intensity [high] * layer [3rd] |      -25.90 | 5.61 | [-37.19, -14.61] | -
 9 mid - high 3rd     14.0       4.18     23.9 </code></pre>
 </div>
 </div>
-<div class="cell">
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">ggplot</span><span class="op">(</span><span class="va">ci_obj</span>, <span class="fu">aes</span><span class="op">(</span><span class="va">contrast</span>, y<span class="op">=</span><span class="va">estimate</span>, ymin<span class="op">=</span><span class="va">conf.low</span>, ymax<span class="op">=</span><span class="va">conf.high</span>,</span>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">ggplot</span><span class="op">(</span><span class="va">ci_obj</span>, <span class="fu">aes</span><span class="op">(</span><span class="va">contrast</span>, y<span class="op">=</span><span class="va">estimate</span>, ymin<span class="op">=</span><span class="va">conf.low</span>, ymax<span class="op">=</span><span class="va">conf.high</span>,</span>
 <span>                   color <span class="op">=</span> <span class="va">layer</span>, group <span class="op">=</span> <span class="va">layer</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu">geom_hline</span><span class="op">(</span>yintercept<span class="op">=</span><span class="fl">0</span>, linetype<span class="op">=</span><span class="st">"11"</span>, colour<span class="op">=</span><span class="st">"grey60"</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu">geom_errorbar</span><span class="op">(</span>width<span class="op">=</span><span class="fl">0.1</span>, position <span class="op">=</span> <span class="fu">position_dodge</span><span class="op">(</span><span class="fl">0.5</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span> </span>
@@ -1002,13 +1018,19 @@ light intensity [high] * layer [3rd] |      -25.90 | 5.61 | [-37.19, -14.61] | -
 <span>  <span class="fu">coord_flip</span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu">theme_classic</span><span class="op">(</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="app-example-analysis_files/figure-html/unnamed-chunk-20-1.png" class="img-fluid" width="672"></p>
+<div id="fig-app-anova-interaction-4" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure"><p><img src="app-example-analysis_files/figure-html/fig-app-anova-interaction-4-1.png" class="img-fluid figure-img" width="576"></p>
+<p></p><figcaption aria-hidden="true" class="figure-caption">Abbildung A.6— Die 95% Konfidenzintervalle für die paarweisen Vergleiche aufgeteilt <code>layer</code>.</figcaption><p></p>
+</figure>
+</div>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">fit_1</span> <span class="op">%&gt;%</span> </span>
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">cld_obj</span> <span class="op">&lt;-</span> <span class="va">fit_1</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">emmeans</span><span class="op">(</span>specs <span class="op">=</span> <span class="op">~</span> <span class="va">light_intensity</span> <span class="op">|</span> <span class="va">layer</span><span class="op">)</span>  <span class="op">%&gt;%</span></span>
-<span>  <span class="fu">cld</span><span class="op">(</span>Letters <span class="op">=</span> <span class="va">letters</span>, adjust <span class="op">=</span> <span class="st">"bonferroni"</span><span class="op">)</span> </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span>  <span class="fu">cld</span><span class="op">(</span>Letters <span class="op">=</span> <span class="va">letters</span>, adjust <span class="op">=</span> <span class="st">"bonferroni"</span><span class="op">)</span> </span>
+<span></span>
+<span><span class="va">cld_obj</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>layer = 1st:
  light_intensity emmean  SE df lower.CL upper.CL .group
@@ -1037,6 +1059,37 @@ NOTE: Compact letter displays can be misleading
       Consider using 'pairs()', 'pwpp()', or 'pwpm()' instead. </code></pre>
 </div>
 </div>
+<div class="cell">
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">cld_sort_obj</span> <span class="op">&lt;-</span> <span class="va">cld_obj</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="fu">as_tibble</span><span class="op">(</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="fu">select</span><span class="op">(</span><span class="va">light_intensity</span>, <span class="va">layer</span>, <span class="va">.group</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="fu">arrange</span><span class="op">(</span><span class="va">layer</span>, <span class="va">light_intensity</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">stat_tbl</span> <span class="op">&lt;-</span> <span class="va">light_tbl</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="fu">group_by</span><span class="op">(</span><span class="va">light_intensity</span>, <span class="va">layer</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="fu">summarise</span><span class="op">(</span>mean <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">growth</span><span class="op">)</span>,</span>
+<span>            sd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/sd.html">sd</a></span><span class="op">(</span><span class="va">growth</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">ggplot</span><span class="op">(</span><span class="va">stat_tbl</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">layer</span>, y <span class="op">=</span> <span class="va">mean</span>, group <span class="op">=</span> <span class="va">light_intensity</span>, </span>
+<span>                     fill <span class="op">=</span> <span class="va">light_intensity</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_bar</span><span class="op">(</span>stat <span class="op">=</span> <span class="st">"identity"</span>, position <span class="op">=</span> <span class="fu">position_dodge</span><span class="op">(</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_errorbar</span><span class="op">(</span><span class="fu">aes</span><span class="op">(</span>ymin <span class="op">=</span> <span class="va">mean</span><span class="op">-</span><span class="va">sd</span>, ymax <span class="op">=</span> <span class="va">mean</span><span class="op">+</span><span class="va">sd</span><span class="op">)</span>,</span>
+<span>                width <span class="op">=</span> <span class="fl">0.2</span>, position <span class="op">=</span> <span class="fu">position_dodge</span><span class="op">(</span><span class="fl">0.9</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">annotate</span><span class="op">(</span><span class="st">"text"</span>, </span>
+<span>           x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0.7</span>, <span class="fl">1</span>, <span class="fl">1.3</span>, <span class="fl">1.7</span>, <span class="fl">2</span>, <span class="fl">2.3</span>, <span class="fl">2.7</span>, <span class="fl">3</span>, <span class="fl">3.3</span><span class="op">)</span>, </span>
+<span>           y <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">22</span>, <span class="fl">21</span>, <span class="fl">23</span>, <span class="fl">24</span>, <span class="fl">20</span>, <span class="fl">23</span>, <span class="fl">39</span>, <span class="fl">25</span>, <span class="fl">9</span><span class="op">)</span>, </span>
+<span>           label <span class="op">=</span> <span class="fu">pluck</span><span class="op">(</span><span class="va">cld_sort_obj</span>, <span class="st">".group"</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_bw</span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span>fill <span class="op">=</span> <span class="st">"Behandlung"</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div id="fig-app-anova-interaction-5" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure"><p><img src="app-example-analysis_files/figure-html/fig-app-anova-interaction-5-1.png" class="img-fluid figure-img" width="576"></p>
+<p></p><figcaption aria-hidden="true" class="figure-caption">Abbildung A.7— Barplots für die Mittelwerte mit den entsprechenden Standardabweichungen und dem <em>compact letter display</em> für die paarweisen Vergleiche. Achtung die <em>letter</em> gelten nur in einem Level des Layers.</figcaption><p></p>
+</figure>
+</div>
+</div>
+</div>
 </section><section id="auswertung-von-gewichten" class="level2" data-number="A.5"><h2 data-number="A.5" class="anchored" data-anchor-id="auswertung-von-gewichten">
 <span class="header-section-number">A.5</span> Auswertung von Gewichten</h2>
 <div class="cell">
@@ -1056,217 +1109,217 @@ NOTE: Compact letter displays can be misleading
 <td style="text-align: center;">low</td>
 <td style="text-align: center;">I</td>
 <td style="text-align: center;">1</td>
-<td style="text-align: center;">11.57</td>
+<td style="text-align: center;">9.96</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">low</td>
 <td style="text-align: center;">I</td>
 <td style="text-align: center;">2</td>
-<td style="text-align: center;">16.46</td>
+<td style="text-align: center;">9.69</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">low</td>
 <td style="text-align: center;">I</td>
 <td style="text-align: center;">3</td>
-<td style="text-align: center;">14.40</td>
+<td style="text-align: center;">13.31</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">low</td>
 <td style="text-align: center;">I</td>
 <td style="text-align: center;">4</td>
-<td style="text-align: center;">15.03</td>
+<td style="text-align: center;">16.13</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">low</td>
 <td style="text-align: center;">II</td>
 <td style="text-align: center;">1</td>
-<td style="text-align: center;">11.39</td>
+<td style="text-align: center;">12.71</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">low</td>
 <td style="text-align: center;">II</td>
 <td style="text-align: center;">2</td>
-<td style="text-align: center;">12.94</td>
+<td style="text-align: center;">13.42</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">low</td>
 <td style="text-align: center;">II</td>
 <td style="text-align: center;">3</td>
-<td style="text-align: center;">14.99</td>
+<td style="text-align: center;">12.83</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">low</td>
 <td style="text-align: center;">II</td>
 <td style="text-align: center;">4</td>
-<td style="text-align: center;">15.15</td>
+<td style="text-align: center;">14.56</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">low</td>
 <td style="text-align: center;">III</td>
 <td style="text-align: center;">1</td>
-<td style="text-align: center;">13.71</td>
+<td style="text-align: center;">15.51</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">low</td>
 <td style="text-align: center;">III</td>
 <td style="text-align: center;">2</td>
-<td style="text-align: center;">16.54</td>
+<td style="text-align: center;">14.56</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">low</td>
 <td style="text-align: center;">III</td>
 <td style="text-align: center;">3</td>
-<td style="text-align: center;">13.13</td>
+<td style="text-align: center;">13.84</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">low</td>
 <td style="text-align: center;">III</td>
 <td style="text-align: center;">4</td>
-<td style="text-align: center;">17.77</td>
+<td style="text-align: center;">12.78</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">mid</td>
 <td style="text-align: center;">I</td>
 <td style="text-align: center;">1</td>
-<td style="text-align: center;">16.16</td>
+<td style="text-align: center;">17.01</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">mid</td>
 <td style="text-align: center;">I</td>
 <td style="text-align: center;">2</td>
-<td style="text-align: center;">17.15</td>
+<td style="text-align: center;">16.21</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">mid</td>
 <td style="text-align: center;">I</td>
 <td style="text-align: center;">3</td>
-<td style="text-align: center;">15.45</td>
+<td style="text-align: center;">13.96</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">mid</td>
 <td style="text-align: center;">I</td>
 <td style="text-align: center;">4</td>
-<td style="text-align: center;">14.74</td>
+<td style="text-align: center;">13.96</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">mid</td>
 <td style="text-align: center;">II</td>
 <td style="text-align: center;">1</td>
-<td style="text-align: center;">19.07</td>
+<td style="text-align: center;">17.36</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">mid</td>
 <td style="text-align: center;">II</td>
 <td style="text-align: center;">2</td>
-<td style="text-align: center;">15.79</td>
+<td style="text-align: center;">15.84</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">mid</td>
 <td style="text-align: center;">II</td>
 <td style="text-align: center;">3</td>
-<td style="text-align: center;">15.25</td>
+<td style="text-align: center;">19.01</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">mid</td>
 <td style="text-align: center;">II</td>
 <td style="text-align: center;">4</td>
-<td style="text-align: center;">13.05</td>
+<td style="text-align: center;">15.58</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">mid</td>
 <td style="text-align: center;">III</td>
 <td style="text-align: center;">1</td>
-<td style="text-align: center;">17.71</td>
+<td style="text-align: center;">17.70</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">mid</td>
 <td style="text-align: center;">III</td>
 <td style="text-align: center;">2</td>
-<td style="text-align: center;">18.16</td>
+<td style="text-align: center;">15.49</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">mid</td>
 <td style="text-align: center;">III</td>
 <td style="text-align: center;">3</td>
-<td style="text-align: center;">18.30</td>
+<td style="text-align: center;">20.17</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">mid</td>
 <td style="text-align: center;">III</td>
 <td style="text-align: center;">4</td>
-<td style="text-align: center;">16.68</td>
+<td style="text-align: center;">17.87</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">high</td>
 <td style="text-align: center;">I</td>
 <td style="text-align: center;">1</td>
-<td style="text-align: center;">18.26</td>
+<td style="text-align: center;">15.94</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">high</td>
 <td style="text-align: center;">I</td>
 <td style="text-align: center;">2</td>
-<td style="text-align: center;">17.79</td>
+<td style="text-align: center;">20.01</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">high</td>
 <td style="text-align: center;">I</td>
 <td style="text-align: center;">3</td>
-<td style="text-align: center;">16.40</td>
+<td style="text-align: center;">16.44</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">high</td>
 <td style="text-align: center;">I</td>
 <td style="text-align: center;">4</td>
-<td style="text-align: center;">16.42</td>
+<td style="text-align: center;">13.20</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">high</td>
 <td style="text-align: center;">II</td>
 <td style="text-align: center;">1</td>
-<td style="text-align: center;">19.80</td>
+<td style="text-align: center;">17.60</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">high</td>
 <td style="text-align: center;">II</td>
 <td style="text-align: center;">2</td>
-<td style="text-align: center;">19.66</td>
+<td style="text-align: center;">18.71</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">high</td>
 <td style="text-align: center;">II</td>
 <td style="text-align: center;">3</td>
-<td style="text-align: center;">19.34</td>
+<td style="text-align: center;">17.30</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">high</td>
 <td style="text-align: center;">II</td>
 <td style="text-align: center;">4</td>
-<td style="text-align: center;">19.12</td>
+<td style="text-align: center;">20.17</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">high</td>
 <td style="text-align: center;">III</td>
 <td style="text-align: center;">1</td>
-<td style="text-align: center;">18.70</td>
+<td style="text-align: center;">18.09</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">high</td>
 <td style="text-align: center;">III</td>
 <td style="text-align: center;">2</td>
-<td style="text-align: center;">18.37</td>
+<td style="text-align: center;">20.64</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">high</td>
 <td style="text-align: center;">III</td>
 <td style="text-align: center;">3</td>
-<td style="text-align: center;">18.70</td>
+<td style="text-align: center;">19.24</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">high</td>
 <td style="text-align: center;">III</td>
 <td style="text-align: center;">4</td>
-<td style="text-align: center;">17.05</td>
+<td style="text-align: center;">15.60</td>
 </tr>
 </tbody>
 </table>
@@ -1275,14 +1328,14 @@ NOTE: Compact letter displays can be misleading
 <section id="explorative-datenanalyse-eda" class="level3" data-number="A.5.1"><h3 data-number="A.5.1" class="anchored" data-anchor-id="explorative-datenanalyse-eda">
 <span class="header-section-number">A.5.1</span> Explorative Datenanalyse (EDA)</h3>
 <div class="cell">
-<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">ggplot</span><span class="op">(</span><span class="va">data_tbl</span>, <span class="fu">aes</span><span class="op">(</span><span class="va">trt</span>, <span class="va">rsp</span>, color <span class="op">=</span> <span class="va">block</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">ggplot</span><span class="op">(</span><span class="va">data_tbl</span>, <span class="fu">aes</span><span class="op">(</span><span class="va">trt</span>, <span class="va">rsp</span>, color <span class="op">=</span> <span class="va">block</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu">geom_boxplot</span><span class="op">(</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="app-example-analysis_files/figure-html/unnamed-chunk-24-1.png" class="img-fluid" width="672"></p>
+<p><img src="app-example-analysis_files/figure-html/unnamed-chunk-27-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">stat_tbl</span> <span class="op">&lt;-</span> <span class="va">data_tbl</span> <span class="op">%&gt;%</span> </span>
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">stat_tbl</span> <span class="op">&lt;-</span> <span class="va">data_tbl</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">group_by</span><span class="op">(</span><span class="va">trt</span>, <span class="va">block</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">summarise</span><span class="op">(</span>mean <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">rsp</span><span class="op">)</span>,</span>
 <span>            sd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/sd.html">sd</a></span><span class="op">(</span><span class="va">rsp</span><span class="op">)</span>,</span>
@@ -1294,26 +1347,26 @@ NOTE: Compact letter displays can be misleading
 <span>                  width <span class="op">=</span> <span class="fl">0.2</span>,</span>
 <span>                  position <span class="op">=</span> <span class="fu">position_dodge</span><span class="op">(</span><span class="fl">.9</span><span class="op">)</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="app-example-analysis_files/figure-html/unnamed-chunk-25-1.png" class="img-fluid" width="672"></p>
+<p><img src="app-example-analysis_files/figure-html/unnamed-chunk-28-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </section><section id="lineares-modell" class="level3" data-number="A.5.2"><h3 data-number="A.5.2" class="anchored" data-anchor-id="lineares-modell">
 <span class="header-section-number">A.5.2</span> Lineares Modell</h3>
 <div class="cell">
-<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">fit_1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/lm.html">lm</a></span><span class="op">(</span><span class="va">rsp</span> <span class="op">~</span> <span class="va">trt</span> <span class="op">+</span> <span class="va">block</span>, data <span class="op">=</span> <span class="va">data_tbl</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">fit_1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/lm.html">lm</a></span><span class="op">(</span><span class="va">rsp</span> <span class="op">~</span> <span class="va">trt</span> <span class="op">+</span> <span class="va">block</span>, data <span class="op">=</span> <span class="va">data_tbl</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section><section id="anova" class="level3" data-number="A.5.3"><h3 data-number="A.5.3" class="anchored" data-anchor-id="anova">
 <span class="header-section-number">A.5.3</span> ANOVA</h3>
 <div class="cell">
-<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">fit_1</span> <span class="op">%&gt;%</span> <span class="va">anova</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">fit_1</span> <span class="op">%&gt;%</span> <span class="va">anova</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Analysis of Variance Table
 
 Response: rsp
-          Df  Sum Sq Mean Sq F value       Pr(&gt;F)    
-trt        2 90.3950 45.1975 17.2503 0.0000092109 ***
-block      2  9.5524  4.7762  1.8229      0.17845    
-Residuals 31 81.2231  2.6201                         
+          Df   Sum Sq Mean Sq  F value       Pr(&gt;F)    
+trt        2 130.7646 65.3823 19.54324 0.0000032268 ***
+block      2  29.7248 14.8624  4.44248     0.020117 *  
+Residuals 31 103.7111  3.3455                          
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
 </div>
@@ -1322,7 +1375,7 @@ Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
 <span class="header-section-number">A.5.4</span> Gruppenvergleich mit dem <code>multcomp</code> Paket</h3>
 <p>https://broom.tidymodels.org/reference/tidy.glht.html</p>
 <div class="cell">
-<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">fit_1</span> <span class="op">%&gt;%</span> </span>
+<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">fit_1</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">glht</span><span class="op">(</span>linfct <span class="op">=</span> <span class="fu">mcp</span><span class="op">(</span>trt <span class="op">=</span> <span class="st">"Tukey"</span><span class="op">)</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="va">tidy</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">select</span><span class="op">(</span><span class="va">contrast</span>, <span class="va">estimate</span>, <span class="va">adj.p.value</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
@@ -1331,16 +1384,16 @@ Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
 <pre><code># A tibble: 3 × 3
   contrast   estimate adj.p.value
   &lt;chr&gt;         &lt;dbl&gt;       &lt;dbl&gt;
-1 mid - low      2.04      0.0116
-2 high - low     3.88      0     
-3 high - mid     1.84      0.0237</code></pre>
+1 mid - low      3.40      0.0002
+2 high - low     4.47      0     
+3 high - mid     1.06      0.341 </code></pre>
 </div>
 </div>
 </section><section id="gruppenvergleich-mit-der-emmeans-paket" class="level3" data-number="A.5.5"><h3 data-number="A.5.5" class="anchored" data-anchor-id="gruppenvergleich-mit-der-emmeans-paket">
 <span class="header-section-number">A.5.5</span> Gruppenvergleich mit der <code>emmeans</code> Paket</h3>
 <p>https://broom.tidymodels.org/reference/tidy.emmGrid.html</p>
 <div class="cell">
-<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">fit_1</span> <span class="op">%&gt;%</span> </span>
+<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">fit_1</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">emmeans</span><span class="op">(</span><span class="st">"trt"</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">contrast</span><span class="op">(</span>method <span class="op">=</span> <span class="st">"pairwise"</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="va">tidy</span> <span class="op">%&gt;%</span> </span>
@@ -1350,9 +1403,9 @@ Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
 <pre><code># A tibble: 3 × 3
   contrast   estimate adj.p.value
   &lt;chr&gt;         &lt;dbl&gt;       &lt;dbl&gt;
-1 low - mid     -2.04      0.0115
-2 low - high    -3.88      0     
-3 mid - high    -1.84      0.0238</code></pre>
+1 low - mid     -3.40      0.0002
+2 low - high    -4.47      0     
+3 mid - high    -1.06      0.341 </code></pre>
 </div>
 </div>
 </section></section><section id="auswertung-von-boniturnoten" class="level2" data-number="A.6"><h2 data-number="A.6" class="anchored" data-anchor-id="auswertung-von-boniturnoten">
@@ -1751,29 +1804,29 @@ Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
 <section id="explorative-datenanalyse-eda-1" class="level3" data-number="A.6.1"><h3 data-number="A.6.1" class="anchored" data-anchor-id="explorative-datenanalyse-eda-1">
 <span class="header-section-number">A.6.1</span> Explorative Datenanalyse (EDA)</h3>
 <div class="cell">
-<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">ggplot</span><span class="op">(</span><span class="va">data_tbl</span>, <span class="fu">aes</span><span class="op">(</span><span class="va">variety</span>, <span class="va">rating</span>, color <span class="op">=</span> <span class="va">block</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<div class="sourceCode" id="cb41"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">ggplot</span><span class="op">(</span><span class="va">data_tbl</span>, <span class="fu">aes</span><span class="op">(</span><span class="va">variety</span>, <span class="va">rating</span>, color <span class="op">=</span> <span class="va">block</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu">geom_boxplot</span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu">geom_dotplot</span><span class="op">(</span><span class="fu">aes</span><span class="op">(</span>fill <span class="op">=</span> <span class="va">block</span><span class="op">)</span>, binaxis <span class="op">=</span> <span class="st">"y"</span>, stackdir<span class="op">=</span><span class="st">'center'</span>, </span>
 <span>               position<span class="op">=</span><span class="fu">position_dodge</span><span class="op">(</span><span class="fl">0.8</span><span class="op">)</span><span class="op">)</span>  </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="app-example-analysis_files/figure-html/unnamed-chunk-32-1.png" class="img-fluid" width="672"></p>
+<p><img src="app-example-analysis_files/figure-html/unnamed-chunk-35-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode" id="cb38"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">ggplot</span><span class="op">(</span><span class="va">data_tbl</span>, <span class="fu">aes</span><span class="op">(</span><span class="va">variety</span>, <span class="va">rating</span>, fill <span class="op">=</span> <span class="va">block</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<div class="sourceCode" id="cb42"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">ggplot</span><span class="op">(</span><span class="va">data_tbl</span>, <span class="fu">aes</span><span class="op">(</span><span class="va">variety</span>, <span class="va">rating</span>, fill <span class="op">=</span> <span class="va">block</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu">geom_dotplot</span><span class="op">(</span>binaxis <span class="op">=</span> <span class="st">"y"</span>, stackdir<span class="op">=</span><span class="st">'center'</span>, </span>
 <span>               position<span class="op">=</span><span class="fu">position_dodge</span><span class="op">(</span><span class="fl">0.8</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu">stat_summary</span><span class="op">(</span>fun <span class="op">=</span> <span class="va">median</span>, fun.min <span class="op">=</span> <span class="va">median</span>, fun.max <span class="op">=</span> <span class="va">median</span>,</span>
 <span>               geom <span class="op">=</span> <span class="st">"crossbar"</span>, width <span class="op">=</span> <span class="fl">0.5</span>, </span>
 <span>               position<span class="op">=</span><span class="fu">position_dodge</span><span class="op">(</span><span class="fl">0.8</span><span class="op">)</span><span class="op">)</span> </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="app-example-analysis_files/figure-html/unnamed-chunk-33-1.png" class="img-fluid" width="672"></p>
+<p><img src="app-example-analysis_files/figure-html/unnamed-chunk-36-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </section><section id="friedman-test" class="level3" data-number="A.6.2"><h3 data-number="A.6.2" class="anchored" data-anchor-id="friedman-test">
 <span class="header-section-number">A.6.2</span> Friedman Test</h3>
 <div class="cell">
-<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co">#friedman.test(rating ~ variety | block, data = data_tbl)</span></span>
+<div class="sourceCode" id="cb43"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co">#friedman.test(rating ~ variety | block, data = data_tbl)</span></span>
 <span></span>
 <span><span class="va">data_tbl</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="op">(</span>Block <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span>,</span>
 <span>                   Sorte_1 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">2</span>,<span class="fl">3</span>,<span class="fl">4</span>,<span class="fl">3</span><span class="op">)</span>,</span>

@@ -254,6 +254,8 @@ ggplot(light_tbl, aes(light_intensity, growth, fill = rack)) +
 
 Jetzt sehen wir etwas mehr. Im `1st` Level liegen alle `rack`-Level auf einer Ebene. Ebenso liegen alle `rack`-Level auf einer Ebene im `2n` Level. Das ganze Problem der Interaktion entsteht im `3rd` Level. Hier ging etwas drunter und drüber im Pflanzenwachstum. Wir wissen jetzt, dass das dritte Layer anscheinend defekt war oder irgendwas dort mit den Racks nicht gestimmt hat.
 
+Wir könnten jetzt das dritte Layer aus der Analyse werfen. Das wäre aber nur eine Möglichkeit. Wenn wir das tuen würden, dann würde wir auch die Interaktion los werden. Das wollen wir hier aber nicht, wir ziehen jetzt die Analyse einmal mit der Interaktion durch. Dafür bauen wir uns jetzt das lineare Modell und schauen uns einmal die ANOVA an.
+
 ```{r}
 #| warning: false
 #| message: false
@@ -263,12 +265,21 @@ fit_1 <- lm(growth ~ light_intensity + layer + light_intensity:layer,
 fit_1 %>% model_parameters()
 ```
 
-```{r}
+Erstmal sehen wir an den Modellparameters, dass hier wieder etwas nicht stimmt. Wir würden erwarten, dass der Effekt des Layers immer gleich ist. Hier ist der Effekt von dem `2nd` Layer zu dem `3rd` Layer fast dreimal so stark. Und eigentlich sollten die Layer den gleichen Effekt haben. Nämlich eigentlich keinen oder einen Effekt weit unter dem von der Lichtintensität. Das Layer ist eine technische Komponente.
 
+```{r}
+#| warning: false
+#| message: false
+
+fit_1 %>% anova() %>% model_parameters()
+```
+
+Wir sehen die visuelle Interaktion auch in der ANOVA Ausgabe als hoch signifikanten Term `light_intensity:layer` mit dem $p$-Wert $<0.001$. Im Anschluss rechnen wir jetzt die paarweisen Vergleiche mit der Funktion `emmeans()`. Mit dem `|` geben wir an, dass wir die paarweisen Vergleiche für die Level von `light_intensity` getrennt für die Level vom `layer` rechnen wollen. Wenn du *keine* Adjustierung des $\alpha$-Niveaus für die multiplen Vergleiche möchtest, dann wähle einfach die Option `adjust = "none"`.
+
+```{r}
 comp_1_obj <- fit_1 %>% 
   emmeans(specs = ~ light_intensity | layer) %>% 
   contrast(method = "pairwise", adjust = "bonferroni") 
-  
 ```
 
 ```{r}
@@ -289,6 +300,15 @@ ci_obj
 ```
 
 ```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "Die 95% Konfidenzintervalle für die paarweisen Vergleiche aufgeteilt `layer`."
+#| label: fig-app-anova-interaction-4
+
 ggplot(ci_obj, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high,
                    color = layer, group = layer)) +
   geom_hline(yintercept=0, linetype="11", colour="grey60") +
@@ -300,11 +320,48 @@ ggplot(ci_obj, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high,
 ```
 
 ```{r}
-
-fit_1 %>% 
+cld_obj <- fit_1 %>% 
   emmeans(specs = ~ light_intensity | layer)  %>%
   cld(Letters = letters, adjust = "bonferroni") 
-  
+
+cld_obj
+```
+
+```{r}
+cld_sort_obj <- cld_obj %>% 
+  as_tibble() %>% 
+  select(light_intensity, layer, .group) %>% 
+  arrange(layer, light_intensity)
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "Barplots für die Mittelwerte mit den entsprechenden Standardabweichungen und dem *compact letter display* für die paarweisen Vergleiche. Achtung die *letter* gelten nur in einem Level des Layers."
+#| label: fig-app-anova-interaction-5
+
+
+stat_tbl <- light_tbl %>% 
+  group_by(light_intensity, layer) %>% 
+  summarise(mean = mean(growth),
+            sd = sd(growth))
+
+ggplot(stat_tbl, aes(x = layer, y = mean, group = light_intensity, 
+                     fill = light_intensity)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd),
+                width = 0.2, position = position_dodge(0.9)) +
+  annotate("text", 
+           x = c(0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.3), 
+           y = c(22, 21, 23, 24, 20, 23, 39, 25, 9), 
+           label = pluck(cld_sort_obj, ".group")) +
+  theme_bw() +
+  labs(fill = "Behandlung")
+
 ```
 
 ## Auswertung von Gewichten
