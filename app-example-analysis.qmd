@@ -6,6 +6,20 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, openxlsx)
 
 *Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
 
+![](images/caution.png){fig-align="center" width="50%"}
+
+::: callout-tip
+## Beispielhafte Auswertungen per Video
+
+Du findest auf YouTube in der Playlist [Spielweise in R (Level 3)](https://www.youtube.com/playlist?list=PLe51bCp9JvEFZeYClBKad6yurjUzc8jXp) als Video Reihe. Ich werde zwar alles nochmal hier als Text aufschreiben, aber manchmal ist das Sehen und Hören dann einfacher.
+:::
+
+Worum geht es in diesem Kapitel? Ich rechne hier fröhlich Dinge und präsnetiere dann die Ergebnisse. Das heißt, du findest hier beispielhafte Auswertungen, die eventuell auch deine Problemstellung betreffen.
+
+-   In @sec-app-example-iso schauen wir uns einmal die Erstellung eines Isoplethendiagramms für Münster & Osnabrück aus den frei verfügbaren Daten des Deutschen Wetterdienstes an.
+-   In @sec-app-example-number-groups rechnen wir einmal ein simples Beispiel für Zähldaten in zwei Gruppen. Wir haben hier nicht wiederholt gezählt, sondern nur jeweils einmal an einer Stelle.
+-   In @sec-app-example-anova-inter rechnen wir nochmal eine zweifaktorielle ANOVA mit Interaktionsterm durch. Wir kriegen dann unser *compact letter display* wie auch die Konfidenzintervalle wieder.
+
 ## Genutzte R Pakete für das Kapitel
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
@@ -15,8 +29,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, readxl, 
                broom, multcomp, emmeans, 
                conflicted, effectsize, report,
-               see, metR)
-
+               see, metR, parameters)
 ## resolve some conflicts with same function naming
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
@@ -24,7 +37,7 @@ conflict_prefer("filter", "dplyr")
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
 
-## Isoplethendiagramm für Münster & Osnabrück
+## Isoplethendiagramm für Münster & Osnabrück {#sec-app-example-iso}
 
 Im Folgenden zeige ich ein Beispiel für die Nutzung der [entgeltfreien Informationen auf der DWD-Website](https://www.dwd-shop.de/index.php/default/kostenfreie-informationen.html). Wir finden dort auf der Seite die [Klimadaten für Deutschland](https://www.dwd.de/DE/leistungen/klimadatendeutschland/klimadatendeutschland.html#buehneTop) und natürlich auch die Daten für Münster/Osnabrück. Ich habe mir flux die Tageswerte runtergeladen und noch ein wenig den Header der txt-Datei angepasst. Du findest die Datei [`day_values_osnabrueck.txt`](https://github.com/jkruppa/jkruppa.github.io/tree/master/data) wie immer auf meiner GitHub Seite. Du musst dir für andere Orte die Daten nur entsprechend zusammenbauen. Am Ende brauchen wir noch die [Informationen zu den Tages- und Monatswerten](https://www.dwd.de/DE/leistungen/klimadatendeutschland/beschreibung_tagesmonatswerte.html) damit wir auch verstehen, was wir uns da von der DWD runtergeladen haben. Ich nutze gleich nur einen Ausschnitt aus den Daten.
 
@@ -81,7 +94,7 @@ ggplot(weather_tbl, aes(month, day, z = grad)) +
 
 ```
 
-## Analyse von Anzahlen
+## Analyse von Anzahlen in zwei Gruppen {#sec-app-example-number-groups}
 
 In dieser sehr simplen Analyse haben wir zwei Gruppen vorliegen. Die Gruppe 1 ist hat zwei Level oder Behandlungen abgekürzt mit I und II. Die Gruppe 2 hat insgesamt vier Level oder eben Behandlungen, die wir mit A, B, C und D bezeichnen. Wir haben jetzt für die jeweiligen Kombinationen auf dem Feld etwas *gezählt*. Wir haben also für jede dieser Kombinationen nur eine Zahl. Es ergbit sich somit die folgende Matrix an Zahlen.
 
@@ -134,6 +147,91 @@ ggplot(plot_tbl, aes(x = group2, y = value, fill = group1)) +
   geom_bar(stat = "identity", position = position_dodge()) +
   labs(x = "Gruppe 2", y = "Anzahl", fill = "Gruppe 1") +
   scale_fill_okabeito() 
+```
+
+## Auswertung zweifaktorielle ANOVA mit Interaktion {#sec-app-example-anova-inter}
+
+```{r}
+light_tbl <- read_excel("data/light_intensity_data.xlsx") %>% 
+  mutate(rack = factor(rack, labels = c("left", "middle", "right")),
+         layer = factor(layer, labels = c("1st", "2nd", "3rd")),
+         light_intensity = factor(light_intensity, labels = c("low", "mid", "high")),
+         growth = as.numeric(growth))
+```
+
+```{r}
+ggplot(light_tbl, aes(light_intensity, growth, fill = rack)) +
+  theme_bw() +
+  geom_boxplot() +
+  scale_fill_okabeito()
+```
+
+```{r}
+ggplot(light_tbl, aes(light_intensity, growth, fill = layer)) +
+  theme_bw() +
+  geom_boxplot()  +
+  scale_fill_okabeito()
+```
+
+```{r}
+ggplot(light_tbl, aes(light_intensity, growth, fill = rack)) +
+  theme_bw() +
+  geom_boxplot() +
+  facet_wrap(~ layer)  +
+  scale_fill_okabeito()
+```
+
+```{r}
+#| warning: false
+#| message: false
+
+fit_1 <- lm(growth ~ light_intensity + layer + light_intensity:layer, 
+            data = light_tbl)
+fit_1 %>% model_parameters()
+```
+
+```{r}
+
+comp_1_obj <- fit_1 %>% 
+  emmeans(specs = ~ light_intensity | layer) %>% 
+  contrast(method = "pairwise", adjust = "bonferroni") 
+  
+```
+
+```{r}
+comp_1_obj %>% 
+  summary %>% 
+  as_tibble %>% 
+  select(contrast, layer, p.value) %>% 
+  mutate(p.value = format.pval(p.value, eps = 0.001, digits = 2))
+```
+
+```{r}
+ci_obj <- comp_1_obj %>% 
+  confint() %>% 
+  as_tibble() %>% 
+  select(contrast, layer, estimate, conf.low = lower.CL, conf.high = upper.CL) 
+
+ci_obj
+```
+
+```{r}
+ggplot(ci_obj, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high,
+                   color = layer, group = layer)) +
+  geom_hline(yintercept=0, linetype="11", colour="grey60") +
+  geom_errorbar(width=0.1, position = position_dodge(0.5)) + 
+  geom_point(position = position_dodge(0.5)) +
+  scale_color_okabeito() +
+  coord_flip() +
+  theme_classic()
+```
+
+```{r}
+
+fit_1 %>% 
+  emmeans(specs = ~ light_intensity | layer)  %>%
+  cld(Letters = letters, adjust = "bonferroni") 
+  
 ```
 
 ## Auswertung von Gewichten
