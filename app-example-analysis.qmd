@@ -14,11 +14,13 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, openxlsx)
 Du findest auf YouTube in der Playlist [Spielweise in R (Level 3)](https://www.youtube.com/playlist?list=PLe51bCp9JvEFZeYClBKad6yurjUzc8jXp) als Video Reihe. Ich werde zwar alles nochmal hier als Text aufschreiben, aber manchmal ist das Sehen und Hören dann einfacher.
 :::
 
-Worum geht es in diesem Kapitel? Ich rechne hier fröhlich Dinge und präsnetiere dann die Ergebnisse. Das heißt, du findest hier beispielhafte Auswertungen, die eventuell auch deine Problemstellung betreffen.
+Worum geht es in diesem Kapitel? Ich rechne hier fröhlich Dinge und präsentiere dann die Ergebnisse. Das heißt, du findest hier beispielhafte Auswertungen, die eventuell auch deine Problemstellung betreffen.
 
 -   In @sec-app-example-iso schauen wir uns einmal die Erstellung eines Isoplethendiagramms für Münster & Osnabrück aus den frei verfügbaren Daten des Deutschen Wetterdienstes an.
 -   In @sec-app-example-number-groups rechnen wir einmal ein simples Beispiel für Zähldaten in zwei Gruppen. Wir haben hier nicht wiederholt gezählt, sondern nur jeweils einmal an einer Stelle.
 -   In @sec-app-example-anova-inter rechnen wir nochmal eine zweifaktorielle ANOVA mit Interaktionsterm durch. Wir kriegen dann unser *compact letter display* wie auch die Konfidenzintervalle wieder.
+
+Je weiter du nach unten in diesem Kapitel kommst, desto wilder wird der R Code. Ich werde noch eine Zeit brauchen, bis ich alles wieder schon mit Text hier verarbeitet habe. Es wird aber immer mal wieder etwas *messy* aussehen. Hier wird eben auch gearbeitet.
 
 ## Genutzte R Pakete für das Kapitel
 
@@ -29,7 +31,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, readxl, 
                broom, multcomp, emmeans, 
                conflicted, effectsize, report,
-               see, metR, parameters)
+               see, metR, parameters,
+               modelsummary)
 ## resolve some conflicts with same function naming
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
@@ -151,6 +154,18 @@ ggplot(plot_tbl, aes(x = group2, y = value, fill = group1)) +
 
 ## Auswertung zweifaktorielle ANOVA mit Interaktion {#sec-app-example-anova-inter}
 
+Hier kommt jetzt ein schönes Beispiel für eine Auswertung von einem dreifaktoriellen Design mit einer ANOVA. Passenderweise haben wir auch einen Interaktionsterm vorliegen. Unser dreifaktoriellen Design ist auch kein echtes dreifaktorielles Design. Wir müssen uns hier entscheiden, welcher der zwei Blockfaktoren nun unsere Wiederholung sein soll. Aber schreiben wir erstmal unser Modell auf, bevor wir das Modell mit Inhalt füllen.
+
+$$
+y \sim  f_1 + b_1 + b_2
+$$
+
+In unserem Beispiel schauen wir uns das Pflanzenwachstum `growth` in einer Klimmakammer mit verschiedenen Belichtungsstufen `light_intensity` sowie der Position der Pflanze in der Lichtkammer. Die Pflanze hat eine Position im `rack` und dann im `layer`. So ergibt sich dann für uns folgendes ausgeschriebenes Modell.
+
+$$
+growth \sim light\_intensity + layer + rack
+$$ In dieser Form wird unser Modell aber leider nicht funktionieren. Wir hätten dann keine Wiederholungen mehr. Jede Pflanze würe dann exakt durch eine Faktorkombination beschrieben. Wir sehen gleich das Problem visualisiert. Vorher müssen wir uns aber einmal die Daten einlesen und eine Menge Faktoren erschaffen. Achtung, das Erschaffen der Faktoren ist hier sehr wichtig! Im Orginaldatensatz stehen nur Zahlen für die Faktoren. Wir kriegen dann ein echtes Problem.
+
 ```{r}
 light_tbl <- read_excel("data/light_intensity_data.xlsx") %>% 
   mutate(rack = factor(rack, labels = c("left", "middle", "right")),
@@ -159,7 +174,41 @@ light_tbl <- read_excel("data/light_intensity_data.xlsx") %>%
          growth = as.numeric(growth))
 ```
 
+Nachdem wir die Daten eingelesen haben, schauen wir uns den Sachverhalt einmal für die drei Faktoren über die Level der einzelnen Faktoren an. Wir nutzen dafür die Funktion `datasummary_crosstab()` aus dem R Paket `modelsummary`. Wir können uns hier die Anzahl der Beobachtungen je Faktorlevelkombination einmal anschauen.
+
 ```{r}
+datasummary_crosstab(light_intensity ~ layer * rack, data = light_tbl,
+                     statistic = NULL)
+```
+
+Wir sehen eine Menge Nullen. Das heißt, dass diese Faktorlevelkombinationen keine Beobachtungen haben. Dann können wir auch über diese Kombinationen keine Aussage treffen. Wenn wir *entweder* `rack` oder `layer` entfernen, sieht die Sache schon besser aus. Wir haben jetzt alle Faktorlevelkombinationen belegt. Wir müssen uns dann nur noch entscheiden, welchen Faktor wir ins Modell nehmen wollen.
+
+```{r}
+#| layout-ncol: 2
+
+datasummary_crosstab(light_intensity ~ layer, data = light_tbl,
+                     statistic = NULL)
+
+datasummary_crosstab(light_intensity ~ rack, data = light_tbl,
+                     statistic = NULL)
+```
+
+::: column-margin
+Das R Paket [modelsummary](https://vincentarelbundock.github.io/modelsummary/articles/datasummary.html) bietet hier eine sehr große Auswahl an tollen Funktionen an um seine Daten übersichtlich zu gestalten.
+:::
+
+Für die Entscheidung welcher der beiden Faktoren `rack` oder `layer` mit ins Modekll soll, schauen wir uns einmal die Boxplots für die jeweiligen Fakoten an. In @fig-app-anova-interaction-1 sehen wir einmal die Boxplots aufgeteilt nach `rack`.
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "Boxplots des Pflanzenwachstums aufgeteilt nach `rack`."
+#| label: fig-app-anova-interaction-1
+
 ggplot(light_tbl, aes(light_intensity, growth, fill = rack)) +
   theme_bw() +
   geom_boxplot() +
@@ -167,6 +216,15 @@ ggplot(light_tbl, aes(light_intensity, growth, fill = rack)) +
 ```
 
 ```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "Boxplots des Pflanzenwachstums aufgeteilt nach `layer`."
+#| label: fig-app-anova-interaction-2
+
 ggplot(light_tbl, aes(light_intensity, growth, fill = layer)) +
   theme_bw() +
   geom_boxplot()  +
@@ -174,6 +232,15 @@ ggplot(light_tbl, aes(light_intensity, growth, fill = layer)) +
 ```
 
 ```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "Boxplots des Pflanzenwachstums aufgeteilt nach `rack` und `layer`."
+#| label: fig-app-anova-interaction-3
+
 ggplot(light_tbl, aes(light_intensity, growth, fill = rack)) +
   theme_bw() +
   geom_boxplot() +
