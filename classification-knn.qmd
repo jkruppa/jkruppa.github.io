@@ -16,8 +16,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, tidymodels, magrittr, conflicted,
-               caret, kknn)
+pacman::p_load(tidyverse, tidymodels, magrittr, 
+               caret, kknn, MachineShop, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -80,16 +80,6 @@ In der @fig-class-knn-04 sehen wir, dass wir jetzt $k = 3$ Nachbarn betrachten. 
 
 Soweit so gut. Und wie entscheide ich jetzt was weit weg ist? Wenn wir uns mit dem $k$-NN Algorithmus näher beschäftigen würden, dann werden wir feststellen, dass es eine Vielzahl an Abstandsmaßen gibt. Wir du dir vorstellen kannst, kann man die Entfernung zwischen zwei Punkten als den absoluten Abstand messen. Oder aber als den quadratischen Abstand. Es wäre auch möglich einen gewichteten Abstand einzuführen, so dass nähere Beobachtungen einen größeren Einfluss auf die Vorhersage haben als weiter entfernte Beobachtungen. Dann würden wir auch das Problem von geraden $k$ Anzahlen lösen. Du musst dann leider in den jeweiligen R Paketen schauen, welche Optionen es dort geben mag. Wir werden uns hier auf eins der R Pakete mit `kknn` konzentrieren.m
 
-## kmeans Clustering
-
-```{r}
-kmeans(pig_tbl$age, centers = 2)
-```
-
-## Imputation von fehlenden Werten
-
-https://recipes.tidymodels.org/reference/step_impute_knn.html
-
 ## Klassifikation
 
 https://rpubs.com/Nilafhiosagam/574373
@@ -109,13 +99,22 @@ knn3_fit <- knn3(infected ~ age + sex + location + activity + crp +
 predict(knn3_fit, newdata = pig_tbl) %>% 
   as_tibble()
 
-nearest_neighbor(neighbors = 11) %>% 
+knn_mod <- nearest_neighbor(neighbors = 11) %>% 
   set_engine("kknn") %>% 
-  set_mode("classification") %>% 
-  fit(infected ~ age + sex + location + activity + crp + 
+  set_mode("classification") 
+
+pig_rec <- recipe(infected ~ age + sex + location + activity + crp + 
                    frailty + bloodpressure + weight + creatinin,
       data = pig_tbl)
 
+
+pig_wflow <- workflow() %>% 
+  add_model(knn_mod) %>% 
+  add_recipe(pig_rec)
+
+  
+pig_wflow %>% 
+  parsnip::fit(data = pig_tbl)
 
 dummies_rec <- pig_tbl %>% 
   recipe(infected ~ sex + age) %>%
@@ -127,3 +126,38 @@ dummies_rec %>%
   bake(pig_tbl)
 
 ```
+
+## kmeans Clustering
+
+Neben der Klassifikation können wir den $k$-NN Algorithmus auch nutzen um Gruppen in den Daten zu finden. Die Idee ist recht einfach. Wir geben $k$ Cluster vor und der Algorithmus versucht nun die Daten so zu ordnen, dass sich $k$ Cluster bilden. Je nach der Nähe der Beobachtungen zueinander lassen sich dann mehr oder minder klar abgegrenzte Cluster bilden. Das Problem an der Sache ist die Definition von $k$ für die Anzahl der zu bildenen Cluster. Wir müssen nämlich selber festlegen, wie viele Cluster wir erwarten würden und der Algorithmus dann finden wird. Wenn wir $k = 3$ der Funktion `kmeans` mitgeben, dann findet die Funktion drei Cluster. Auch wenn zwei mehr Sinn gemacht hätten. Daher müssen wir immer selber ausprobieren und uns die Daten visualisieren, ob das mit den Clustern so passt.
+
+```{r}
+kmeans(pig_tbl$age, centers = 2)
+
+
+rec <- recipe(rating ~ ., data = attitude)
+kmeans_rec <- rec %>%
+  step_kmeans(all_predictors(), k = 3)
+kmeans_prep <- prep(kmeans_rec, training = attitude)
+kmeans_data <- bake(kmeans_prep, attitude)
+
+pairs(kmeans_data, lower.panel = NULL)
+
+tidy(kmeans_rec, number = 1)
+tidy(kmeans_prep, number = 1)
+
+
+rec <- recipe(rating ~ ., data = attitude)
+kmeans_rec <- rec %>%
+  step_center(all_predictors()) %>%
+  step_scale(all_predictors()) %>%
+  step_kmeans(all_predictors(), num_comp = 3)
+kmeans_prep <- prep(kmeans_rec, training = attitude)
+bake(kmeans_prep, attitude[1:10, ])
+bake(kmeans_prep, attitude)[1:10, ]
+
+```
+
+## Imputation von fehlenden Werten
+
+https://recipes.tidymodels.org/reference/step_impute_knn.html
