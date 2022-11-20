@@ -17,11 +17,13 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, tidymodels, magrittr, conflicted,
-               caret)
+               caret, kknn)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
 conflict_prefer("extract", "magrittr")
+conflict_prefer("fit", "parsnip")
+conflict_prefer("contr.dummy", "kknn")
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -32,7 +34,8 @@ In dieser Einführung nehmen wir die infizierten Ferkel als Beispiel um einmal d
 
 ```{r}
 pig_tbl <- read_excel("data/infected_pigs.xlsx") %>% 
-  mutate(pig_id = 1:n()) %>% 
+  mutate(pig_id = 1:n(),
+         infected = as_factor(infected)) %>% 
   select(pig_id, infected, everything())  
 ```
 
@@ -46,9 +49,12 @@ In @tbl-ml-basic-pig siehst du nochmal einen Auschnitt aus den Daten. Wir haben 
 #| tbl-cap: Auszug aus dem Daten zu den kranken Ferkeln.
 #| column: page
 
-rbind(head(pig_tbl),
-      rep("...", times = ncol(pig_tbl)),
-      tail(pig_tbl)) %>% 
+pig_raw_tbl <- pig_tbl %>% 
+  mutate(infected = as.character(infected))
+
+rbind(head(pig_raw_tbl),
+      rep("...", times = ncol(pig_raw_tbl)),
+      tail(pig_raw_tbl)) %>% 
   kable(align = "c", "pipe")
 ```
 
@@ -72,8 +78,33 @@ https://rpubs.com/Nilafhiosagam/574373
 
 ```{r}
 
+
+
+
 kmeans(pig_tbl$age, centers = 2)
 
-## knn3(infected)
+knn3_fit <- knn3(infected ~ age + sex + location + activity + crp + 
+                   frailty + bloodpressure + weight + creatinin, 
+                 data = pig_tbl, k = 10)
+
+predict(knn3_fit, newdata = pig_tbl) %>% 
+  as_tibble()
+
+nearest_neighbor(neighbors = 11) %>% 
+  set_engine("kknn") %>% 
+  set_mode("classification") %>% 
+  fit(infected ~ age + sex + location + activity + crp + 
+                   frailty + bloodpressure + weight + creatinin,
+      data = pig_tbl)
+
+
+dummies_rec <- pig_tbl %>% 
+  recipe(infected ~ sex + age) %>%
+  step_dummy(sex,
+             one_hot = TRUE)  
+
+dummies_rec %>% 
+  prep %>% 
+  bake(pig_tbl)
 
 ```

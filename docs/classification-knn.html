@@ -560,7 +560,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </header><div class="cell">
 
 </div>
-<p><em>Version vom November 20, 2022 um 17:38:52</em></p>
+<p><em>Version vom November 20, 2022 um 19:04:21</em></p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure"><p><img src="images/caution.png" class="img-fluid figure-img" style="width:50.0%"></p>
 </figure>
@@ -571,11 +571,13 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <p>Wir wollen folgende R Pakete in diesem Kapitel nutzen.</p>
 <div class="cell">
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">pacman</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/pacman/man/p_load.html">p_load</a></span><span class="op">(</span><span class="va">tidyverse</span>, <span class="va">tidymodels</span>, <span class="va">magrittr</span>, <span class="va">conflicted</span>,</span>
-<span>               <span class="va">caret</span><span class="op">)</span></span>
+<span>               <span class="va">caret</span>, <span class="va">kknn</span><span class="op">)</span></span>
 <span><span class="fu">conflict_prefer</span><span class="op">(</span><span class="st">"select"</span>, <span class="st">"dplyr"</span><span class="op">)</span></span>
 <span><span class="fu">conflict_prefer</span><span class="op">(</span><span class="st">"filter"</span>, <span class="st">"dplyr"</span><span class="op">)</span></span>
 <span><span class="fu">conflict_prefer</span><span class="op">(</span><span class="st">"mutate"</span>, <span class="st">"dplyr"</span><span class="op">)</span></span>
-<span><span class="fu">conflict_prefer</span><span class="op">(</span><span class="st">"extract"</span>, <span class="st">"magrittr"</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span><span class="fu">conflict_prefer</span><span class="op">(</span><span class="st">"extract"</span>, <span class="st">"magrittr"</span><span class="op">)</span></span>
+<span><span class="fu">conflict_prefer</span><span class="op">(</span><span class="st">"fit"</span>, <span class="st">"parsnip"</span><span class="op">)</span></span>
+<span><span class="fu">conflict_prefer</span><span class="op">(</span><span class="st">"contr.dummy"</span>, <span class="st">"kknn"</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.</p>
 </section><section id="daten" class="level2 page-columns page-full" data-number="50.2"><h2 data-number="50.2" class="anchored" data-anchor-id="daten">
@@ -583,7 +585,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <p>In dieser Einführung nehmen wir die infizierten Ferkel als Beispiel um einmal die verschiedenen Verfahren zu demonstrieren. Ich füge hier noch die ID mit ein, die nichts anderes ist, als die Zeilennummer. Dann habe ich noch die ID an den Anfang gestellt.</p>
 <div class="cell">
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">pig_tbl</span> <span class="op">&lt;-</span> <span class="fu">read_excel</span><span class="op">(</span><span class="st">"data/infected_pigs.xlsx"</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
-<span>  <span class="fu">mutate</span><span class="op">(</span>pig_id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fu">n</span><span class="op">(</span><span class="op">)</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="fu">mutate</span><span class="op">(</span>pig_id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fu">n</span><span class="op">(</span><span class="op">)</span>,</span>
+<span>         infected <span class="op">=</span> <span class="fu">as_factor</span><span class="op">(</span><span class="va">infected</span><span class="op">)</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">select</span><span class="op">(</span><span class="va">pig_id</span>, <span class="va">infected</span>, <span class="fu">everything</span><span class="op">(</span><span class="op">)</span><span class="op">)</span>  </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>In <a href="#tbl-ml-basic-pig">Tabelle&nbsp;<span>50.1</span></a> siehst du nochmal einen Auschnitt aus den Daten. Wir haben noch die ID mit eingefügt, damit wir einzelne Beobachtungen nachvollziehen können.</p>
@@ -822,21 +825,21 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <div class="cell">
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/stats/kmeans.html">kmeans</a></span><span class="op">(</span><span class="va">pig_tbl</span><span class="op">$</span><span class="va">age</span>, centers <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>K-means clustering with 2 clusters of sizes 194, 218
+<pre><code>K-means clustering with 2 clusters of sizes 218, 194
 
 Cluster means:
        [,1]
-1 56.159794
-2 63.463303
+1 63.463303
+2 56.159794
 
 Clustering vector:
-  [1] 2 1 2 1 2 1 1 1 1 1 2 1 1 2 1 1 2 1 1 2 1 2 1 1 1 2 1 1 2 1 1 2 1 1 2 1 1
- [38] 1 2 1 2 1 1 1 1 1 2 1 2 2 2 1 2 2 1 1 1 1 1 2 1 2 1 1 1 1 1 1 2 1 2 2 2 1
- [75] 1 2 1 1 2 2 1 1 1 2 1 1 2 1 2 2 2 2 2 1 2 2 2 2 2 1
+  [1] 1 2 1 2 1 2 2 2 2 2 1 2 2 1 2 2 1 2 2 1 2 1 2 2 2 1 2 2 1 2 2 1 2 2 1 2 2
+ [38] 2 1 2 1 2 2 2 2 2 1 2 1 1 1 2 1 1 2 2 2 2 2 1 2 1 2 2 2 2 2 2 1 2 1 1 1 2
+ [75] 2 1 2 2 1 1 2 2 2 1 2 2 1 2 1 1 1 1 1 2 1 1 1 1 1 2
  [ reached getOption("max.print") -- omitted 312 entries ]
 
 Within cluster sum of squares by cluster:
-[1] 1222.0464 1720.2064
+[1] 1720.2064 1222.0464
  (between_SS / total_SS =  65.0 %)
 
 Available components:
@@ -844,7 +847,70 @@ Available components:
 [1] "cluster"      "centers"      "totss"        "withinss"     "tot.withinss"
 [6] "betweenss"    "size"         "iter"         "ifault"      </code></pre>
 </div>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co">## knn3(infected)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">knn3_fit</span> <span class="op">&lt;-</span> <span class="fu">knn3</span><span class="op">(</span><span class="va">infected</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="va">sex</span> <span class="op">+</span> <span class="va">location</span> <span class="op">+</span> <span class="va">activity</span> <span class="op">+</span> <span class="va">crp</span> <span class="op">+</span> </span>
+<span>                   <span class="va">frailty</span> <span class="op">+</span> <span class="va">bloodpressure</span> <span class="op">+</span> <span class="va">weight</span> <span class="op">+</span> <span class="va">creatinin</span>, </span>
+<span>                 data <span class="op">=</span> <span class="va">pig_tbl</span>, k <span class="op">=</span> <span class="fl">10</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/predict.html">predict</a></span><span class="op">(</span><span class="va">knn3_fit</span>, newdata <span class="op">=</span> <span class="va">pig_tbl</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="fu">as_tibble</span><span class="op">(</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 412 × 2
+     `0`   `1`
+   &lt;dbl&gt; &lt;dbl&gt;
+ 1   0.3   0.7
+ 2   0.5   0.5
+ 3   0.6   0.4
+ 4   0.5   0.5
+ 5   0.2   0.8
+ 6   0     1  
+ 7   0.6   0.4
+ 8   0.3   0.7
+ 9   0.1   0.9
+10   0.2   0.8
+# … with 402 more rows</code></pre>
+</div>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">nearest_neighbor</span><span class="op">(</span>neighbors <span class="op">=</span> <span class="fl">11</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="fu">set_engine</span><span class="op">(</span><span class="st">"kknn"</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="fu">set_mode</span><span class="op">(</span><span class="st">"classification"</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="fu">fit</span><span class="op">(</span><span class="va">infected</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="va">sex</span> <span class="op">+</span> <span class="va">location</span> <span class="op">+</span> <span class="va">activity</span> <span class="op">+</span> <span class="va">crp</span> <span class="op">+</span> </span>
+<span>                   <span class="va">frailty</span> <span class="op">+</span> <span class="va">bloodpressure</span> <span class="op">+</span> <span class="va">weight</span> <span class="op">+</span> <span class="va">creatinin</span>,</span>
+<span>      data <span class="op">=</span> <span class="va">pig_tbl</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>parsnip model object
+
+
+Call:
+kknn::train.kknn(formula = infected ~ age + sex + location +     activity + crp + frailty + bloodpressure + weight + creatinin,     data = data, ks = min_rows(11, data, 5))
+
+Type of response variable: nominal
+Minimal misclassification: 0.30582524
+Best kernel: optimal
+Best k: 11</code></pre>
+</div>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">dummies_rec</span> <span class="op">&lt;-</span> <span class="va">pig_tbl</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="fu">recipe</span><span class="op">(</span><span class="va">infected</span> <span class="op">~</span> <span class="va">sex</span> <span class="op">+</span> <span class="va">age</span><span class="op">)</span> <span class="op">%&gt;%</span></span>
+<span>  <span class="fu">step_dummy</span><span class="op">(</span><span class="va">sex</span>,</span>
+<span>             one_hot <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>  </span>
+<span></span>
+<span><span class="va">dummies_rec</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="va">prep</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="fu">bake</span><span class="op">(</span><span class="va">pig_tbl</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 412 × 4
+     age infected sex_female sex_male
+   &lt;dbl&gt; &lt;fct&gt;         &lt;dbl&gt;    &lt;dbl&gt;
+ 1    61 1                 0        1
+ 2    53 0                 0        1
+ 3    66 0                 1        0
+ 4    59 0                 1        0
+ 5    63 1                 0        1
+ 6    55 1                 0        1
+ 7    49 0                 0        1
+ 8    53 0                 0        1
+ 9    58 1                 1        0
+10    57 1                 0        1
+# … with 402 more rows</code></pre>
+</div>
 </div>
 
 
