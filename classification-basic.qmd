@@ -33,7 +33,8 @@ In dieser Einführung nehmen wir die infizierten Ferkel als Beispiel um einmal d
 
 ```{r}
 pig_tbl <- read_excel("data/infected_pigs.xlsx") %>% 
-  mutate(pig_id = 1:n()) %>% 
+  mutate(pig_id = 1:n(),
+         infected = as_factor(infected)) %>% 
   select(pig_id, infected, age:crp) %>% 
   select(pig_id, infected, everything())  
 ```
@@ -47,9 +48,12 @@ In @tbl-ml-basic-pig siehst du nochmal einen Auschnitt aus den Daten. Wir haben 
 #| label: tbl-ml-basic-pig
 #| tbl-cap: Auszug aus dem Daten zu den kranken Ferkeln.
 
-rbind(head(pig_tbl),
-      rep("...", times = ncol(pig_tbl)),
-      tail(pig_tbl)) %>% 
+pig_raw_tbl <- pig_tbl %>% 
+  mutate(infected = as.character(infected))
+
+rbind(head(pig_raw_tbl),
+      rep("...", times = ncol(pig_raw_tbl)),
+      tail(pig_raw_tbl)) %>% 
   kable(align = "c", "pipe")
 ```
 
@@ -107,7 +111,7 @@ Der Unterschied zwischen einer *suprvised* Lernmethode oder Algorithmus ist, das
 | 1   | 0.3   | 2.3   | 0.9   |
 | 1   | 0.2   | 9.1   | 1.1   |
 
-: Beispieldatensatz für *supervised learning*. Unsere Daten haben eine Spalte $y$, die wir als Label in unserem Modell nutzen können. {#tbl-class-supervised}
+: Beispieldatensatz für *supervised learning*. Unsere Daten haben eine Spalte $y$, die wir als Label in unserem Modell nutzen können. Wir haben gelabelte Daten vorliegen. {#tbl-class-supervised}
 
 In der @tbl-class-unsupervised sehen wir als Beispiel einen Datensatz ohne eine Spalte, die wir als Label nutzen können. Nazürlich haben wir in echt dann keine freie Spalte. Ich habe das einmal so gebaut, damit du den Unterschied besser erkennen kannst. Beim *unsuoervised* Lernen muss der Algorithmus sich das Label selber bauen. Wir müssen meist vorgeben, wie viele Gruppen wir im Label erwarten würden. Dann können wir den Algorithmus starten.
 
@@ -118,9 +122,9 @@ In der @tbl-class-unsupervised sehen wir als Beispiel einen Datensatz ohne eine 
 |               | 0.3   | 2.3   | 0.9   |
 |               | 0.2   | 9.1   | 1.1   |
 
-: Beispieldatensatz für *unsupervised learning*. Unsere Daten haben keine Spalte $y$, die wir als Label in unserem Modell nutzen können. {#tbl-class-unsupervised}
+: Beispieldatensatz für *unsupervised learning*. Unsere Daten haben keine Spalte $y$, die wir als Label in unserem Modell nutzen können. Wir haben ungelabelte Daten vorliegen. {#tbl-class-unsupervised}
 
-Dann gibt es ntrülich auch den Fall, dass wir ein paar Beobachtungen mit einem Eintrag haben und wiederum andere Beobachtungen ohne eine Eintragung. Dann sprechen wir von einem *semi-supervised learning*. Im Prinzip ist es ein Mischmasch aus *supervised learning* und dem *unsupervised learning*. Es gibt hier aber keine genaue Grenze wie viele gelabelete Beobachtungen zu ungelabelten Beobachtungen da sein müssen.
+Dann gibt es natürlich auch den Fall, dass wir ein paar Beobachtungen mit einem Eintrag haben und wiederum andere Beobachtungen ohne eine Eintragung. Dann sprechen wir von einem *semi-supervised learning*. Im Prinzip ist es ein Mischmasch aus *supervised learning* und dem *unsupervised learning*. Es gibt hier aber keine genaue Grenze wie viele gelabelete Beobachtungen zu ungelabelten Beobachtungen da sein müssen.
 
 Wir haben sehr oft eine *superised* Setting in unseren Daten vorliegen. Aber wie immer, du wirst vielleicht auch Cluster bilden wollen und dann ist das *unsupervised* Lernen eine Methode, die du gut nutzen kannst. Am Ende müssen jeder Beobachtung ein Label zugeordnet werden. Wer das dann macht, ist wiederum die Frage.
 
@@ -155,7 +159,7 @@ Jetzt wollen wir uns den Zusammenhang zwischen Bias und Varianz nochmal an der B
 
 ![Unser erstes Modell hat ein hohes Bias. Daher klassifiziert mich das Modell 1 als ein Meerschweinchen, obwohl ich ein Krokodil bin.](images/class-bias-03.jpg){#fig-class-bias-03 fig-align="center" width="60%"}
 
-In der @fig-class-bias-0102-1 sehen wir ein durch Model 2 korrekt klassifiziertes Meerschweinchen. Nun hat dieses Modell 2 aber eine zu hohe Varianz. Den das Meerschweinchen in der @fig-class-bias-0102-2 wird nicht als Meerschweinchen erkannt, da es keine krausen Haare und eine andere Fellfarbe hat. Wir sind also auch mit diesem Modell 2 nicht zufrieden. Nur exakt die gleichen Meerschweinchen zu klassifizieren ist uns nicht genug.
+In der @fig-class-bias-01 sehen wir ein durch Model 2 korrekt klassifiziertes Meerschweinchen. Nun hat dieses Modell 2 aber eine zu hohe Varianz. Die hohe Varianz in dem Modell 2 sehen wir in der @fig-class-bias-02. Das Meerschweinchen wird nicht als Meerschweinchen von Modell 2 erkannt, da es keine krausen Haare und eine andere Fellfarbe hat. Wir sind also auch mit diesem Modell 2 nicht zufrieden. Nur exakt die gleichen Meerschweinchen zu klassifizieren ist uns nicht genug.
 
 ::: {#fig-class-bias-0102 layout-ncol="2" layout-valign="center"}
 ![In unserem Trainingsdatensatz hat unser Modell 2 eine hohe Varianz. Das Modell 2 findet zwar das Meerschweinchen im Bild, aber hat Probleme auf dem folgenden Testdaten.](images/class-bias-01.png){#fig-class-bias-01 fig-align="center" width="80%"}
@@ -165,43 +169,18 @@ In der @fig-class-bias-0102-1 sehen wir ein durch Model 2 korrekt klassifizierte
 Unser zweites Modell hat eine hohe Varianz. Es erkennt zwar *perfekt* eine Meerschweinchenart, muss aber bei einer anderen Art passen.
 :::
 
-In der @fig-class-bias-02 sehen wir nun unser Modell 3 mit einem niedrigen Bias und einer niedrigen Varianz. Das Modell 3 kann Schafe in einer Herde als Schafe klassifizieren. Aber auch hier sehen wir gewisse Grenzen. Das Schaf welches den Kopf senkt, wird nicht von dem Modell 3 als ein Schaf erkannt. Das kann vorkommen, wenn in dem Traingsdaten so ein Schaf nicht als Bild vorlag.
+In der @fig-class-bias-02 sehen wir nun unser Modell 3 mit einem niedrigen Bias und einer niedrigen Varianz. Das Modell 3 kann Schafe in einer Herde als Schafe klassifizieren. Aber auch hier sehen wir gewisse Grenzen. Das Schaf welches den Kopf senkt, wird nicht von dem Modell 3 als ein Schaf erkannt. Das kann vorkommen, wenn in dem Traingsdaten so ein Schaf nicht als Bild vorlag. Häufig brauchen wir sehr viele gute Daten. Mit guten Daten, meine ich nicht immer die gleichen Beobachtungen oder Bilder sondern eine gute Bandbreite aller möglichen Gegebenheiten.
 
 ![Unser letztes Modell 3 hat eine niedrige Varianz und ist in der Lage die Schafe auch als Schafe zu entdecken. Ein Schaf senkt den Kopf und schon kann unser Modell 3 das Schaf nicht mehr finden.](images/class-bias-04.png){#fig-class-bias-04 fig-align="center" width="70%"}
 
 Wir sehen also, das Thema Bias und Varianz beschäftigt uns bei der Auswahl des richtigen Modells und bei der Festlegung der Modellkomplexität. Du kannst dir merken, dass ein komplexeres Modell auf den Trainingsdaten meistens bessere Ergebnisse liefert und dann auf den Testdaten schlechtere. Ein komplexes Modell ist meist überangepasst (eng. *overfitted*).
-
-## Bagging
-
-Das Wort *Bagging* steht für *bootstrap aggregating* und ist eine Methode, um Vorhersagen aus verschiedenen Modellen zu kombinieren. Dabei müssen alle Modelle mit dem gleichen Algorithmus laufen, können aber auf verschiedenen Datensätzen oder aber Variablensätzen zugreifen. Häufig haben die Modelle eine hohee Varianz in der Vorhersage und wir nutzen dann Bagging um die Modelle miteinader zu kombinieren und dadurch die Varianz zu verringern. Die Ergebnisse der Modelle werden dann im einfachsten Fall gemittelt. Das Ergebnis jeder Modellvorhersage geht mit gleichem Gewicht in die Vorhersage ein. Wir haben auch noch andere Möglichkeiten, aber du kannst dir Vorstellen wir rechnen verschiedene Modelle $k$-mal und bilden dann ein finales Modell in dem wir alle $k$-Modelle zusammenfassen. Wie wir die Zusammenfassung rechnen, ist dann immer wieder von Fall zu Fall unterschiedlich. Wir erhalten am Ende einen *Ensemble* Klassifizierer, da ja ein Ensemble von Modellen zusammengefasst wird.
-
-## Boosting
-
-![](images/caution.png){fig-align="center" width="50%"}
-
-https://medium.com/greyatom/a-quick-guide-to-boosting-in-ml-acf7c1585cb5
-
-https://towardsdatascience.com/boosting-algorithms-explained-d38f56ef3f30
-
-https://howtolearnmachinelearning.com/articles/boosting-in-machine-learning/
-
-## Recipes
-
-::: column-margin
-Du findest hier die [Introduction to recipes](https://recipes.tidymodels.org/) und dann eine Idee wie `recipes` funktionieren mit [Preprocess your data with recipes](https://www.tidymodels.org/start/recipes/).
-:::
-
-1)  Erstellen des Modells (lr_mod),
-2)  ein Vorverarbeitungsrezept (eng. *preprocessing*) erstellt (flights_rec),
-3)  das Modell und das Rezept gebündelt (flights_wflow), und
-4)  unseren Workflow mit einem einzigen Aufruf von fit() trainiert.
 
 ## Problem der fehlenden Werte
 
 ::: callout-note
 ## Mehr zu fehlenden Werten
 
-Im @sec-pre-processing erfährst du, wie du mit den fehlenden Werten im maschinellen Lernen umgehst. Im @sec-missing mehr über die Hintergründe und die Verfahren.
+In dem @sec-pre-processing erfährst du, wie du mit den fehlenden Werten im maschinellen Lernen umgehst. Wir werden dort aber nicht alle Details wiederholen. In dem @sec-missing erfährst du dann mehr über die Hintergründe und die Verfahren zum Imputieren von fehlenden Werten.
 :::
 
 Ein wichtiger Punkt ist bei der Nutzung von maschinellen Lernen, dass wir *keine* fehlenden Beobachtungen in den Daten haben dürfen. Es darf kein einzelner Wert fehlen. Dann funktionieren die Algorithmen nicht und wir erhalten eine Fehlermeldung. Deshalb ist es die erste Statistikerpflicht darauf zu achten, dass wir nicht so viele fehlenden Werte in den Daten haben. Das ist natürlich nur begrenzt möglich. Wenn wir auf die Gummibärchendaten schauen, dann wurden die Daten ja von mir mit Erhoben. Dennoch haben wir viele fehlende Daten mit drin, da natürlich Studierende immer was eingetragen haben. Wenn du wissen willst, wie du mit fehlenden Werten umgehst, dann schaue einmal dazu das @sec-missing an. Wir gehen hier nicht nochmal auf alle Verfahren ein, werden aber die Verfahren zur Imputation von fehlenden Werten dann am Beispiel der Gummibärchendaten anwenden. Müssen wir ja auch, sonst könnten wir auch die Daten nicht für maschinelle Lernverfahren nutzen.
@@ -211,7 +190,7 @@ Ein wichtiger Punkt ist bei der Nutzung von maschinellen Lernen, dass wir *keine
 ::: callout-note
 ## Mehr zur Normalisierung
 
-Im @sec-pre-processing erfährst du, wie du die Normalisierung von Daten im maschinellen Lernen anwendest. Im @sec-eda-transform mehr über die Hintergründe und die Verfahren.
+In dem @sec-pre-processing erfährst du, wie du die Normalisierung von Daten im maschinellen Lernen anwendest. In dem @sec-eda-transform kannst du dann mehr über die Hintergründe und die Verfahren zur Normalisierung nachlesen. Wir wenden in hier nur die Verfahren an, gehen aber nicht auf die Details weiter ein.
 :::
 
 Unter Normalisierung der Daten fassen wir eigentlich ein *preprocessing* der Daten zusammen. Wir haben ja unsere Daten in einer ursprünglichen Form vorliegen. Häufig ist diese Form nicht geeignet um einen maschinellen Lernalgorithmus auf diese ursprüngliche Form der Daten anzuwenden. Deshalb müssen wir die Daten vorher einmal anpassen und in eine geleiche Form über alle Variablen bringen. Was meine ich so kryptisch damit? Schauen wir uns einmal in der @tbl-class-normal ein Beispiel für zu normalisierende Daten an.
@@ -226,3 +205,70 @@ Unter Normalisierung der Daten fassen wir eigentlich ein *preprocessing* der Dat
 : Beispieldatensatz für einen Datensatz der nomiert werden muss. Die einzelenen Spalten haben sehr unterschiedliche Wertebereiche eingetragen. {#tbl-class-normal}
 
 Warum müssen diese Daten normalisiert werden? Wir haben mit $x_1$ eine Variable vorliegen, die im Iterval $[0;1]$ liegt. Die Variable $x_2$ liegt in einem zehntausendfach größeren Wertebereich. Die Werte der Variable $x_3$ ist auch im Vergleich immer noch hundertfach im Wertebereich unterschiedlich. Dieser großen Unterschiede im Wertebereich führen zu fehlern bei Modellieren. Wir können hierzu das @sec-eda-transform betrachten. Dort werden gängige Transformationen einmal erklärt. Wir gehen hier nicht nochmal auf alle Verfahren ein, sondern konzentrieren uns auf die häufigsten Anwendungen.
+
+## Das Rezept mit `recipe()`
+
+Wenn wir jetzt in den folgenden Kapiteln mit den maschinellen Lernverfahren arbeiten werden, nutzen wir das R Paket `recipes` um uns mit der Funktion `recipe()` ein Rezept der Klassifikation zu erstellen. Warum brauchen wir das? Wir werden sehen, dass wir auf verschiedene Datensätze immer wieder die gleichen Algorithmen anwenden. Auch wollen wir eine Reihe von Vorverarbeitungsschritten (eng. *preprocessing steps*) auf unsere Daten anwenden. Dann ist es einfacher, wenn wir alles an einem Ort abgelegt haben. Am Ende haben wir auch verschiedene Spalten in unseren Daten. Meistens eine Spalte mit dem Label und dann sehr viele Spalten für unsere Features oder Prediktoren. Vielleiht noch eine Spalte für die ID der Beobachtungen. Das macht alles sehr unübersichtlich. Deshalb nutzen wir `recipes` um mehr Ordnung in unsere Klassifikation zu bekommen.
+
+::: column-margin
+Du findest hier die [Introduction to recipes](https://recipes.tidymodels.org/) und dann eine Idee wie `recipes` funktionieren mit [Preprocess your data with recipes](https://www.tidymodels.org/start/recipes/).
+:::
+
+Wir gehen nun folgende vier Schritte einmal durch. Am Ende haben wir dann unsere Klassifikation durchgeführt. Vorher haben wir aber unseren Algorithmus und damit unser Modell definiert und auch festgelegt, was in den Daten noch angepasst und transformiert werden soll. Alles zusammen bringen wir dann in ein `workflow` Objekt in dem alles gespeichert ist.
+
+1)  Erstellen des Modells (`logreg_mod`),
+2)  ein Vorverarbeitungsrezept (eng. *preprocessing*) für unseren Datensatz `pig_tbl` erstellen (`pig_rec`),
+3)  das Modell und das Rezept in einem Wokflow bündeln (`pig_wflow`), und
+4)  unseren Workflow mit einem einzigen Aufruf von `fit()` trainieren.
+
+```{r}
+logreg_mod <- logistic_reg() %>% 
+  set_engine("glm")
+```
+
+```{r}
+pig_rec <- recipe(infected ~ ., data = pig_tbl) %>% 
+  update_role(pig_id, new_role = "ID")  %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_zv(all_predictors())
+
+summary(pig_rec)
+```
+
+```{r}
+pig_wflow <- workflow() %>% 
+  add_model(logreg_mod) %>% 
+  add_recipe(pig_rec)
+
+pig_wflow
+```
+
+```{r}
+pig_fit <- pig_wflow %>% 
+  fit(data = pig_tbl)
+
+pig_fit
+```
+
+```{r}
+pig_fit %>% 
+  extract_fit_parsnip() %>% 
+  tidy() %>% 
+  mutate(across(where(is.numeric), round, 2),
+         p.value = pvalue(p.value))
+
+```
+
+## Bagging
+
+Das Wort *Bagging* steht für *bootstrap aggregating* und ist eine Methode, um Vorhersagen aus verschiedenen Modellen zu kombinieren. Dabei müssen alle Modelle mit dem gleichen Algorithmus laufen, können aber auf verschiedenen Datensätzen oder aber Variablensätzen zugreifen. Häufig haben die Modelle eine hohee Varianz in der Vorhersage und wir nutzen dann Bagging um die Modelle miteinader zu kombinieren und dadurch die Varianz zu verringern. Die Ergebnisse der Modelle werden dann im einfachsten Fall gemittelt. Das Ergebnis jeder Modellvorhersage geht mit gleichem Gewicht in die Vorhersage ein. Wir haben auch noch andere Möglichkeiten, aber du kannst dir Vorstellen wir rechnen verschiedene Modelle $k$-mal und bilden dann ein finales Modell in dem wir alle $k$-Modelle zusammenfassen. Wie wir die Zusammenfassung rechnen, ist dann immer wieder von Fall zu Fall unterschiedlich. Wir erhalten am Ende einen *Ensemble* Klassifizierer, da ja ein Ensemble von Modellen zusammengefasst wird.
+
+## Boosting
+
+![](images/caution.png){fig-align="center" width="50%"}
+
+https://medium.com/greyatom/a-quick-guide-to-boosting-in-ml-acf7c1585cb5
+
+https://towardsdatascience.com/boosting-algorithms-explained-d38f56ef3f30
+
+https://howtolearnmachinelearning.com/articles/boosting-in-machine-learning/
