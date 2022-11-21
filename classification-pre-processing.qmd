@@ -8,6 +8,62 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
+## Genutzte R Pakete für das Kapitel
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+#| message: false
+pacman::p_load(tidyverse, tidymodels, magrittr, conflicted)
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("mutate", "dplyr")
+conflict_prefer("extract", "magrittr")
+```
+
+Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+## Daten
+
+In dieser Einführung nehmen wir die infizierten Ferkel als Beispiel um einmal die verschiedenen Verfahren zu demonstrieren. Ich füge hier noch die ID mit ein, die nichts anderes ist, als die Zeilennummer. Dann habe ich noch die ID an den Anfang gestellt. Wir wählen auch nur ein kleines Subset aus den Daten aus, da wir in diesem Kapitel nur Funktion demonstrieren und nicht die Ergebnisse interpretieren.
+
+```{r}
+pig_tbl <- read_excel("data/infected_pigs.xlsx") %>% 
+  mutate(pig_id = 1:n()) %>% 
+  select(pig_id, infected, age, crp, sex, frailty) %>% 
+  select(pig_id, infected, everything())  
+```
+
+In @tbl-ml-basic-pig siehst du nochmal einen Auschnitt aus den Daten. Wir haben noch die ID mit eingefügt, damit wir einzelne Beobachtungen nachvollziehen können.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-ml-basic-pig
+#| tbl-cap: Auszug aus dem Daten zu den kranken Ferkeln.
+
+rbind(head(pig_tbl),
+      rep("...", times = ncol(pig_tbl)),
+      tail(pig_tbl)) %>% 
+  kable(align = "c", "pipe")
+```
+
+Gehen wir jetzt mal die Preproessing Schritte, die wir für das maschinelle Lernen später brauchen einmal durch.
+
+## Das Rezept mit `recipe()`
+
+```{r}
+
+pig_rec <- recipe(infected ~ ., data = pig_tbl) %>% 
+  update_role(pig_id, new_role = "ID")
+
+pig_rec %>% summary()
+
+
+
+```
+
 ## Dummycodierung von $X$
 
 Wir werden immer häufiger davon sprechen, dass wir alle kategorialen Daten in *Dummies* überführen müssen. Das heißt, wir dürfen keine Faktoren mehr in unseren Daten haben. Wir wandeln daher alle Variablen, die ein Faktor sind, in Dummyspalten um. Die Idee von der Dummyspalte ist die gleiche wie bei der multiplen Regression. Da ich aber nicht davon ausgehe, dass du dir alles hier durchgelesen hast, kommt hier die kurze Einführung zur Dummycodierung.
@@ -49,3 +105,16 @@ In der @tbl-class-basic-dummy-03 betrachten wir einen kompleren Fall. Wenn wir e
 : Ergebnis der Dummycodierung für eine Spalte mit mehr als zwei Leveln. {#tbl-class-basic-dummy-03}
 
 Wenn wir einen Faktor mit $l$ Leveln haben, erhalten wir immer $l-1$ Spalten nach der Dummycodierung wieder.
+
+```{r}
+pig_dummy_rec <- pig_rec %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  prep() 
+
+pig_dummy_rec 
+```
+
+```{r}
+pig_dummy_rec %>% 
+  bake(new_data = NULL)
+```
