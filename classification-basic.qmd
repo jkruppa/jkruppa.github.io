@@ -6,8 +6,6 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 *Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
 
-![](images/caution.png){fig-align="center" width="50%"}
-
 Dieses Kapitel dient als Einführung in die *Klassifikation* mit maschinellen Lernmethoden. Leider müssen wir wieder einiges an Worten lernen, damit wir überhaupt mit den Methoden anfangen können. Vieles dreht sich um die Aufbereitung der Daten, damit wir dann auch mit den Modellen anfangen können zu *arbeiten*. Ja ich meine wirklich Arbeiten, denn wir werden eher einen Prozess durchführen. Selten rechnet man einmal ein Modell und ist zufrieden. Meistens müssen wir noch die Modelle *tunen* um mehr aus den Modellen rauszuholen. Wir wollen bessere Vorhersagen mit einem kleineren Fehler erreichen. Das ganze können wir dann aber nicht in einem Schritt machen, sondern brauchen viele Schritte nacheinander. Damit müssen wir auch mir R umgehen können sonst ist der Prozess nicht mehr abzubilden.
 
 [Mit *Tuning* bezeichnen wir den Prozess, ein Modell wiederholt zu verändern und dabei zu verbessern. Was wir verändern können, hängt vom gewählten Algorithums ab.]{.aside}
@@ -214,17 +212,25 @@ Wenn wir jetzt in den folgenden Kapiteln mit den maschinellen Lernverfahren arbe
 Du findest hier die [Introduction to recipes](https://recipes.tidymodels.org/) und dann eine Idee wie `recipes` funktionieren mit [Preprocess your data with recipes](https://www.tidymodels.org/start/recipes/).
 :::
 
-Wir gehen nun folgende vier Schritte einmal durch. Am Ende haben wir dann unsere Klassifikation durchgeführt. Vorher haben wir aber unseren Algorithmus und damit unser Modell definiert und auch festgelegt, was in den Daten noch angepasst und transformiert werden soll. Alles zusammen bringen wir dann in ein `workflow` Objekt in dem alles gespeichert ist.
+Wir gehen nun folgende vier Schritte für die Erstellung eines Modellfits mit dem R Paket `recipe` einmal durch. Am Ende haben wir dann unsere Klassifikation durchgeführt. Vorher haben wir aber unseren Algorithmus und damit unser Modell definiert und auch festgelegt, was in den Daten noch angepasst und transformiert werden soll. Alles zusammen bringen wir dann in ein `workflow` Objekt in dem alles, was wir mit den Daten machen wollen, gespeichert ist.
 
 1)  Erstellen des Modells (`logreg_mod`),
 2)  ein Vorverarbeitungsrezept (eng. *preprocessing*) für unseren Datensatz `pig_tbl` erstellen (`pig_rec`),
 3)  das Modell und das Rezept in einem Wokflow bündeln (`pig_wflow`), und
 4)  unseren Workflow mit einem einzigen Aufruf von `fit()` trainieren.
 
+Es geht los in dem wir als erstes unser Modell definieren. Wir wollen hier aus einfachen Gründen eine logistische Regression rechnen. Dafür nutzen wir die Funktion `logistic_reg()` um eben eine logistische Regression zu rechnen. Es gibt aber eine große Anzahl an möglichen Implementierungen bzw. `engine` in R. Wir wählen hier die Implementierung des `glm` mit der Funktion `set_engine("glm")`. Faktisch haben wir hier also die Funktion `glm(..., family = binomial)` definiert. Nur ohne die Daten und die Formel.
+
+::: column-margin
+Du findest auf [Fitting and predicting with parsnip](https://parsnip.tidymodels.org/articles/Examples.html) eine große Auswahl an implementierten Algorithmen.
+:::
+
 ```{r}
 logreg_mod <- logistic_reg() %>% 
   set_engine("glm")
 ```
+
+Nachdem wir den Algorithmus für unser Modell definiert haben, wollen wir natürlich noch festlegen, was jetzt gerechnet werden soll. Unser Modell definieren wir in der Funktion `recipe()`. Hier haben wir definiert, was in das Modell soll. Links steht das Outcome und rechts nur ein `.`. Damit haben wir alle anderen Spalten als Einflussvariablen ausgewählt. Das stimmt aber nur halb. Den in dem Rezept können wir auch Rollen für unsere Variablen definieren. Mit der Funktion `update_role()` definieren wir die Variable `pig_id` als `"ID"`. In der Klassifikation wird jetzt diese Variable nicht mehr berücksichtigt. Dann können wir noch Variablen transfomationen definieren. Wir wollen hier eine Dummykodierung für alle nominalen Prädiktoren, daher Faktoren, durchführen. Und wir wollen alle Variablen entfernen, in denen wir nur einen Eintrag haben oder eben eine Varianz von Null.
 
 ```{r}
 pig_rec <- recipe(infected ~ ., data = pig_tbl) %>% 
@@ -232,8 +238,18 @@ pig_rec <- recipe(infected ~ ., data = pig_tbl) %>%
   step_dummy(all_nominal_predictors()) %>% 
   step_zv(all_predictors())
 
+pig_rec
+```
+
+Wir du siehst wird hier noch nichts gerechnet. Es gilt jetzt zu definieren was wir tun wollen. Damit wir das Rezept einfahc immer wieder auf neue Daten anwenden können. Die Rollen der Variablen kannst du dir auch über die Funktion `summary()` wiedergeben lassen.
+
+```{r}
 summary(pig_rec)
 ```
+
+Du siehst, dass die Variable `pig_id` eine ID ist und die Variable `infected` das Outcome darstellt. Der Rest sind die Prädiktoren mit ihren jeweiligen Typen. Wir können über die Hilfsfunktionen `all_predictor()` oder `all_nominal_predictor()` eben nur bestimmte Spalten für eine Transformation auswählen.
+
+Im nächsten Schritt bringen wir das Modell `logreg_mod` und das Rezept `pig_rec` mit den Informationen über die Variablen und die notwendigen Transformationsschritte in einem `workflow()` zusammen. In diesem `workflow()` sind alle wichtigen Information drin und wir können den Workflow mit immer wieder neuen Subsets von unseren ursprünglichen Daten füttern.
 
 ```{r}
 pig_wflow <- workflow() %>% 
@@ -243,12 +259,16 @@ pig_wflow <- workflow() %>%
 pig_wflow
 ```
 
+Nun heißt es noch den Wirkflow mit echten Daten zu füttern. Wir nehmen hier wieder unsere ursprünglichen Daten, aber du könntest hier auch den Traingsdatensatz nehmen.
+
 ```{r}
 pig_fit <- pig_wflow %>% 
   fit(data = pig_tbl)
 
 pig_fit
 ```
+
+Wir erhalten den klassischen Fit einer logististischen Regression wieder, wenn wir die Funktion `extract_fit_parsnip()` verwenden. Dann können wir uns über die Funktion `tidy()` auch eine aufgeräumte Wiedergabe erstellen lassen.
 
 ```{r}
 pig_fit %>% 
@@ -258,6 +278,16 @@ pig_fit %>%
          p.value = pvalue(p.value))
 
 ```
+
+Und was ist jetzt mit der Prädiktion? Dafür können wir entweder die Funktion `predict()` nutzen oder aber die Funktion `augment()`. Mit persönlich gefällt die Funktion `augment()` besser, da ich hier mehr Informationen zu den vorhergesagten Werten erhalte. Ich wähle mir dann die Spalte `infected` aus und alle Spalten, die ein `.pred` beinhalten. Dann runde ich noch auf die zweite Kommastelle.
+
+```{r}
+augment(pig_fit, new_data = pig_tbl) %>% 
+  select(infected, matches(".pred")) %>% 
+  mutate(across(where(is.numeric), round, 2))
+```
+
+Damit hätten wir einmal das Prinzip des Rezeptes für die Klassifikation in R durchgeführt. Dir wird das Rezept in den nächsten Kapiteln wieder über den Weg laufen. Für die Anwendung gibt es eigentlich keine schönere Art die Klassifikation sauber durchzuführen. Wir erhalten gute Ergebnisse und wissen auch was wir getan haben.
 
 ## Bagging
 
