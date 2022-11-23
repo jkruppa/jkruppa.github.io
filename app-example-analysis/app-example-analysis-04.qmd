@@ -1,0 +1,66 @@
+In diesem Abschnitt wollen wir einen einfaktoriellen Datensatz auswerten. Das heißt, wir haben eine Spalte mit unseren Variantenfaktor mit 11 Leveln und dann aber auch neun Outcomes. Wir müssen also für alle neun Outcomes einen Test rechnen. Dementsprechend bauen wir uns Liste in R. In jedem der Listeneinträge ist nur die Spalte für die Variante und *einem* Outcome. Wir haben dann also am Ende eine Liste mit neun Listeneinträgen und pro Liste einen Datensatz mit zwei Spalten. Wir brauchen noch das R Paket `multcompView` für die Darstellung des *compact letter display* und das R Paket `rstatix` für die Anwendung der R Funktion `games_howell_test()`. Wir gehen nämlich von einem normalverteilten Outcome mit Varianzheterogenität aus. Das nehmen wir für jedes Outcome an, dann können wir immer das Gleiche auf den Daten rechnen.
+
+Also erstmal die Daten einlesen, dann die Varianten bilden und die Zahlen wieder auf eine angemessene Länge runden. Ich nehme da immer auf Zweikommastellen, aber das hat hier eher mit der Übersicht zu tun. Gerne kannst du da auch mehr Kommastellen zulassen.
+
+```{r}
+soil_tbl <- read_excel("data/soil_1fac_data.xlsx") %>% 
+  mutate(variante = str_c(variante, "_", amount),
+         variante = as_factor(variante),
+         across(where(is.numeric), round, 2)) %>% 
+  select(-amount)
+```
+
+In der @tbl-app-soil sehen wir nochmal einen Ausschnitt aus den Daten. Wir schmeißen `amount` aus den Daten, da die Spalte dann in der Variante aufgeht.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-app-soil
+#| tbl-cap: Auszug aus dem Daten zu der Lichtintensität.
+#| column: page
+
+soil_raw_tbl <- soil_tbl %>% 
+  mutate(variante = as.character(variante))
+
+rbind(head(soil_raw_tbl),
+      rep("...", times = ncol(soil_raw_tbl)),
+      tail(soil_raw_tbl)) %>% 
+  kable(align = "c", "pipe")
+```
+
+Im Folgenden werden wir immer wieder die Funktion `map()` aus dem R Paket `purrr` nutzen um auf Listen zu rechnen. Die Funktion `map()` erlaubt auf *allen* Listeneinträgen die gleiche Funktion durchzuführen. Das macht es natürlich sehr angenehm, wenn wir immer das gleiche Modell auf unsere Daten rechnen wollen.
+
+::: column-margin
+Wir immer gibt es auch Tutorien im Netz, wenn du mehr über `purrr::map()` erfahren willst. Es gibt das\
+[purrr tutorial](https://jennybc.github.io/purrr-tutorial/index.html) und die Zusammenfassung in [Apply functions with purrr::CHEAT SHEET](https://evoldyn.gitlab.io/evomics-2018/ref-sheets/R_purrr.pdf).
+:::
+
+Als erstes müssen wir aber unsere Daten in das Long-Format kriegen. Dann können wir die Daten nach dem Outcome in der Spalte `key` die Daten in neuen Listeneinträge aufspalten. Warum neun? Wir haben eben neun Outcomes. Dann haben wir auch neun Listeneinträge. In jedem Listeneintrag ist die Spalte `variante` und die Spalte `value`. Der Name des Listeneintrags enthält dann den Namen des Outcomes. Mit dem `.x` übergeben wir iterativ jeden Listeneintrag in die Funktion `select()`.
+
+```{r}
+soil_lst <- soil_tbl %>%
+  gather(key, value, fe:height) %>%
+  split(.$key) %>%
+  map(~select(.x, -key))
+```
+
+Schauen wir uns von jedem Listeneintrag einmal die ersten beiden Zeilen an. Das machen wir auch wieder mit `map()` indem wir die Funktion `head()` auf jedem Listeneintrag ausführen.
+
+```{r}
+soil_lst %>% 
+  map(~head(.x, 2))
+```
+
+Jetzt geht kannst du einmal `map()` in seiner vollen Schönheit sehen. Wir rechnen auf jeden Listeneintrag einmal den Games Howell Test. Dann steht in jedem der Listeneinträge das Ergebnis des Games Howell Test. Wir müssen dann noch die Spalte `contrast` aus der Ausgabe des Games Howell Test abändern, damit wir das *compact letter display* über die Funktion `multcompLetters()` nutzen können. Dann brauchen wir die adjustierten p-Werte und den Kontrast. Beides schieben wir dann in die Funktion `multcompLetters()` und lassen uns nur die Buchstaben des *compact letter display* wiedergeben. Am Ende kleben wir noch alle Einträge der einzelnen Listen mit der Funktion `bind_rows()` zu einem Datensatz zusammen. Vermutlich musst du die einzelnen Funktion selber mal Schritt für Schritt ausführen. Aber das hier war ja auch jetzt mal fortgeschrittene Programmierung.
+
+```{r}
+soil_lst %>% 
+  map(~games_howell_test(value ~ variante, data = .x)) %>% 
+  map(~mutate(.x, contrast = str_c(.x$group1, "-", .x$group2))) %>% 
+  map(~pull(.x, p.adj, contrast)) %>% 
+  map(~multcompLetters(.x)$Letters) %>% 
+  bind_rows(.id = "outcome") 
+```
+
+Wie du dann mit dem *compact letter display* weiterarbeitest und interpretierst, findest du dann im @sec-compact-letter über das *compact letter display* für den Games Howell Test. Hier ist erstmal Schluss, sonst wird hier alles sehr wiederholend.
