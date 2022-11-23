@@ -19,6 +19,7 @@ Worum geht es in diesem Kapitel? Ich rechne hier fröhlich Dinge und präsentier
 -   In @sec-app-example-iso schauen wir uns einmal die Erstellung eines Isoplethendiagramms für Münster & Osnabrück aus den frei verfügbaren Daten des Deutschen Wetterdienstes an.
 -   In @sec-app-example-number-groups rechnen wir einmal ein simples Beispiel für Zähldaten in zwei Gruppen. Wir haben hier nicht wiederholt gezählt, sondern nur jeweils einmal an einer Stelle.
 -   In @sec-app-example-anova-inter rechnen wir nochmal eine zweifaktorielle ANOVA mit Interaktionsterm durch. Wir kriegen dann unser *compact letter display* wie auch die Konfidenzintervalle wieder.
+-   In @sec-mult-map-ght rechnen wir einen Games Howell Test für normalverteilte Daten mit Varianzheterogenität. Hier hauen wir ein wenig auf die Pauke und rechnen alles in wenigen Zeilen mit der Funktion `mpa()`. War eine spaßige Auswerung für mich, da ich hier mal wieder programmieren üben konnte.
 
 Je weiter du nach unten in diesem Kapitel kommst, desto wilder wird der R Code. Ich werde noch eine Zeit brauchen, bis ich alles wieder schon mit Text hier verarbeitet habe. Es wird aber immer mal wieder etwas *messy* aussehen. Hier wird eben auch gearbeitet.
 
@@ -29,10 +30,10 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, readxl, 
-               broom, multcomp, emmeans, 
-               conflicted, effectsize, report,
-               see, metR, parameters,
-               modelsummary)
+               broom, multcomp, emmeans, effectsize, report,
+               see, metR, parameters, multcompView,
+               modelsummary, rstatix,
+               conflicted)
 ## resolve some conflicts with same function naming
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
@@ -160,11 +161,13 @@ $$
 y \sim  f_1 + b_1 + b_2
 $$
 
-In unserem Beispiel schauen wir uns das Pflanzenwachstum `growth` in einer Klimmakammer mit verschiedenen Belichtungsstufen `light_intensity` sowie der Position der Pflanze in der Lichtkammer. Die Pflanze hat eine Position im `rack` und dann im `layer`. So ergibt sich dann für uns folgendes ausgeschriebenes Modell.
+In unserem Beispiel schauen wir uns das Pflanzenwachstum `growth` in einer Klimakammer mit verschiedenen Belichtungsstufen `light_intensity` sowie der Position der Pflanze in der Lichtkammer. Die Pflanze hat eine Position im `rack` und dann im `layer`. So ergibt sich dann für uns folgendes ausgeschriebenes Modell.
 
 $$
 growth \sim light\_intensity + layer + rack
-$$ In dieser Form wird unser Modell aber leider nicht funktionieren. Wir hätten dann keine Wiederholungen mehr. Jede Pflanze würe dann exakt durch eine Faktorkombination beschrieben. Wir sehen gleich das Problem visualisiert. Vorher müssen wir uns aber einmal die Daten einlesen und eine Menge Faktoren erschaffen. Achtung, das Erschaffen der Faktoren ist hier sehr wichtig! Im Orginaldatensatz stehen nur Zahlen für die Faktoren. Wir kriegen dann ein echtes Problem.
+$$
+
+In dieser Form wird unser Modell aber leider nicht funktionieren. Wir hätten dann keine Wiederholungen mehr. Jede Pflanze würe dann exakt durch eine Faktorkombination beschrieben. Wir sehen gleich das Problem visualisiert. Vorher müssen wir uns aber einmal die Daten einlesen und eine Menge Faktoren erschaffen. Achtung, das Erschaffen der Faktoren ist hier sehr wichtig! Im Orginaldatensatz stehen nur Zahlen für die Faktoren. Wir kriegen dann ein echtes Problem.
 
 ```{r}
 light_tbl <- read_excel("data/light_intensity_data.xlsx") %>% 
@@ -172,6 +175,27 @@ light_tbl <- read_excel("data/light_intensity_data.xlsx") %>%
          layer = factor(layer, labels = c("1st", "2nd", "3rd")),
          light_intensity = factor(light_intensity, labels = c("low", "mid", "high")),
          growth = as.numeric(growth))
+```
+
+In der @tbl-app-light sehen wir nochmal einen Ausschnitt aus den Daten.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-app-light
+#| tbl-cap: Auszug aus dem Daten zu der Lichtintensität.
+#| column: page
+
+light_raw_tbl <- light_tbl %>% 
+  mutate(rack = as.character(rack),
+         layer = as.character(layer),
+         light_intensity = as.character(light_intensity))
+
+rbind(head(light_raw_tbl),
+      rep("...", times = ncol(light_raw_tbl)),
+      tail(light_raw_tbl)) %>% 
+  kable(align = "c", "pipe")
 ```
 
 Nachdem wir die Daten eingelesen haben, schauen wir uns den Sachverhalt einmal für die drei Faktoren über die Level der einzelnen Faktoren an. Wir nutzen dafür die Funktion `datasummary_crosstab()` aus dem R Paket `modelsummary`. Wir können uns hier die Anzahl der Beobachtungen je Faktorlevelkombination einmal anschauen.
@@ -379,6 +403,51 @@ ggplot(stat_tbl, aes(x = layer, y = mean, group = light_intensity,
   labs(fill = "Behandlung")  +
   scale_fill_okabeito()
 
+```
+
+## Multiples Testen mit Games Howell Test {#sec-mult-map-ght}
+
+multcompView, rstatix
+
+```{r}
+soil_tbl <- read_excel("data/soil_1fac_data.xlsx") %>% 
+  mutate(variante = str_c(variante, "_", amount),
+         variante = as_factor(variante),
+         across(where(is.numeric), round, 2)) %>% 
+  select(-amount)
+```
+
+In der @tbl-app-soil sehen wir nochmal einen Ausschnitt aus den Daten.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-app-soil
+#| tbl-cap: Auszug aus dem Daten zu der Lichtintensität.
+#| column: page
+
+soil_raw_tbl <- soil_tbl %>% 
+  mutate(variante = as.character(variante))
+
+rbind(head(soil_raw_tbl),
+      rep("...", times = ncol(soil_raw_tbl)),
+      tail(soil_raw_tbl)) %>% 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+soil_lst <- soil_tbl %>%
+  gather(key, value, fe:height) %>%
+  split(.$key) %>%
+  map(~select(.x, -key))
+
+soil_lst %>% 
+  map(~games_howell_test(value ~ variante, data = .x)) %>% 
+  map(~mutate(.x, contrast = str_c(.x$group1, "-", .x$group2))) %>% 
+  map(~pull(.x, p.adj, contrast)) %>% 
+  map(~multcompLetters(.x)$Letters) %>% 
+  bind_rows(.id = "outcome") 
 ```
 
 ## Auswertung von Gewichten
