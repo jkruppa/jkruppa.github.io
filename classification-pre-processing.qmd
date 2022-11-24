@@ -8,13 +8,29 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
+Die Vorverarbeitung von Daten (eng. *preprocessing*) für die Klassifikation *grundlegend*. Wir können nicht auf unseren Daten so wir wie die Daten erhoben haben eine Klassifikation rechnen. Dafür sind die Algorithmen der Klassifikation weder ausgelegt noch gedacht. Zum anderen wollen wir ja gar keine Aussagen über mögliche Effekte von den Einflussvariablen auf das Outcome treffen. Uns ist vollkommen egal, ob eine Variable *signifikant* ist. Wir wollen nur wissen, ob eine Variable wichtig für die Voerhersage von unserem Label $y$ ist.
+
+Du findest auf der [Referenzseite von recipes](https://recipes.tidymodels.org/reference/index.html#step-functions-discretization) eine *große* Auswahl an Vorverarbeitungsschritten. Ich kann dir hier nur eine Auswahl präsentieren und konzentriere mich auf die häufigst genutzen Algorithmen. Du solltest aber für deinen Anwendungsfallauf jeden Fall nochmal selber schauen, ob du was passenderes findest.
+
+-   Die Dummycodierung findest du in @sec-preprocess-dummy. Wir verwandeln dabei kategorielle Spalten in mehrere $0/1$ kodierte Spalten.
+-   Die Zero Varianz können wir in @sec-preprocess-zv überprüfen. Mit der Zero Varianz meine ich, dass wir Spalten haben mit nur einem Eintrag und daher natürlich keine Varianz. Du kannst auch schauen, ob du eine Spalte hast in der nahezu eine Varianz von Null vorliegt.
+-   Die Standardisierung von Variablen zu einer $\mathcal{N(0,1)}$ Standardnormalverteilung in @sec-preprocess-standard.
+-   Die Normalisierung von Variablen in ein Intervall von $[0;1]$ in @sec-preprocess-normal. Es gehen natürlich auch andere Intervalle, aber das \$\[0;1\]\$\$ Intervall ist wohl das häufigste Intervall was genutzt wird.
+-   Die Imputation von fehlenden Werte in dem @sec-preprocess-impute. Das ist hier aber nur eine Auswahl. Es gibt sehr viel mehr Möglichkeiten. Du musst auf jeden Fall hier nochmal auf die Referenzseite von `recipes` nachschauen.
+-   Die Erstellung von Kategorien aus einer numerischen Variable in @sec-preprocess-discrete. Dann könnten wir auch die neuen kategorialen Variablen dann auch wieder in eine Dummycodierung überführen.
+-   Die Entfernung von hoch korrelierten Variabeln in @sec-preprocess-corr. Hier wäre ich vorsichtig und würde mir den Schritt gerne einaml vorher selber anschauen und dann eventuell Variablen per Hand vor dem *preprocessing* entfernen.
+
+Einige Vorverarbeitungsschritte kannst du auch in den vorherigen Kapiteln nachlesen. Im Kapitel zur [Transformation von Daten](#sec-eda-transform) oder zur [Imputation von fehlenden Werten](#sec-missing) findest du noch tiefer greifende Informationen zu den Themen. In diesem Kapitel zeige ich nur, wie du die Verfahren anwendest und gehe nochmal eher oberflächig auf mögliche Probleme ein.
+
 ## Genutzte R Pakete für das Kapitel
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, tidymodels, magrittr, conflicted)
+pacman::p_load(tidyverse, tidymodels, magrittr, 
+               janitor,
+               conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -64,7 +80,27 @@ pig_rec %>% summary()
 
 ```
 
-## Dummycodierung von $X$
+Functions that specify the role of the variables:
+
+-   `all_predictors()` applies the step to the predictor variables only
+-   `all_outcomes()` applies the step to the outcome variable(s) only
+
+Functions that specify the type of the variables:
+
+-   `all_nominal()` applies the step to all variables that are nominal (categorical)
+-   `all_numeric()` applies the step to all variables that are numeric
+
+Und natürlich deren Kombination wie `all_nominal_predictors()`
+
+1)  Impute
+2)  Individual transformations for skewness and other issues
+3)  Discretize (if needed and if you have no other choice)
+4)  Create dummy variables
+5)  Create interactions
+6)  Normalization steps (center, scale, range, etc)
+7)  Multivariate transformation (e.g. PCA, spatial sign, etc)
+
+## Dummycodierung von $X$ {#sec-preprocess-dummy}
 
 ::: column-margin
 [Create Traditional Dummy Variables](https://recipes.tidymodels.org/reference/step_dummy.html)
@@ -122,23 +158,27 @@ Daten generieren
 ```{r}
 pig_dummy_rec %>%
   prep() %>%
-  bake(new_data = NULL)
+  juice() 
 ```
 
-## Zero Variance Spalten
+## Zero Variance Spalten {#sec-preprocess-zv}
 
 ::: column-margin
 [Zero Variance Filter](https://recipes.tidymodels.org/reference/step_zv.html)
+
+[Near-Zero Variance Filter](https://recipes.tidymodels.org/reference/step_nzv.html)
 :::
 
 ```{r}
 pig_zero_rec <- pig_rec %>% 
- step_zv(all_predictors())
+  step_zv(all_predictors()) %>% 
+  step_nzv(all_predictors())
+
 
 pig_zero_rec
 ```
 
-## Standardisieren $\mathcal{N}(0,1)$
+## Standardisieren $\mathcal{N}(0,1)$ {#sec-preprocess-standard}
 
 ::: column-margin
 [Scaling Numeric Data](https://recipes.tidymodels.org/reference/step_scale.html)
@@ -166,13 +206,13 @@ pig_scale_center_rec
 Daten generieren
 
 ```{r}
-pig_scale_center_rec  %>%
+pig_scale_center_rec %>%
   prep() %>%
-  bake(new_data = NULL) %>% 
+  juice() %>% 
   mutate(across(where(is.numeric), round, 2))
 ```
 
-## Normalisieren $[0; 1]$
+## Normalisieren $[0; 1]$ {#sec-preprocess-normal}
 
 ::: column-margin
 [Scaling Numeric Data to a Specific Range](https://recipes.tidymodels.org/reference/step_range.html)
@@ -188,10 +228,164 @@ pig_range_rec
 Daten generieren
 
 ```{r}
-pig_range_rec  %>%
+pig_range_rec %>%
   prep() %>%
-  bake(new_data = NULL) %>% 
+  juice() %>% 
   mutate(across(where(is.numeric), round, 2))
+```
+
+## Imputieren von fehlenden Werten {#sec-preprocess-impute}
+
+::: column-margin
+[Step Functions - Imputation](https://recipes.tidymodels.org/reference/index.html#step-functions-imputation)
+:::
+
+```{r}
+pig_imp_rec <- pig_rec %>% 
+  step_impute_mean(all_numeric_predictors()) %>% 
+  step_impute_mode(all_nominal_predictors())
+
+pig_imp_rec 
+```
+
+Daten generieren
+
+```{r}
+pig_imp_rec  %>%
+  prep() %>%
+  juice() %>% 
+  mutate(across(where(is.numeric), round, 2))
+```
+
+## Kategorisierung {#sec-preprocess-discrete}
+
+::: column-margin
+[Step Functions - Discretization](https://recipes.tidymodels.org/reference/index.html#step-functions-discretization)
+:::
+
+```{r}
+pig_discrete_rec <- pig_rec %>%
+  step_discretize(crp, age, min_unique = 3)
+
+pig_discrete_rec 
+```
+
+Daten generieren
+
+```{r}
+pig_discrete_tbl <- pig_discrete_rec  %>%
+  prep() %>%
+  juice() 
+
+pig_discrete_tbl %>% pull(crp) %>% tabyl()
+pig_discrete_tbl %>% pull(age) %>% tabyl()
+```
+
+## Korrelation zwischen Variablen {#sec-preprocess-corr}
+
+::: column-margin
+[High Correlation Filter](https://recipes.tidymodels.org/reference/step_corr.html)
+:::
+
+```{r}
+pig_corr_rec <- pig_rec %>% 
+  step_corr(all_numeric_predictors(), threshold = 0.5)
+
+pig_corr_rec 
+```
+
+Daten generieren
+
+```{r}
+pig_corr_tbl <- pig_corr_rec  %>%
+  prep() %>%
+  juice() %>% 
+  mutate(across(where(is.numeric), round, 2)) 
+
+```
+
+## Beispiel Gummibärchendaten
+
+```{r}
+gummi_tbl <- read_excel("data/gummibears.xlsx") %>% 
+  mutate(gender = as_factor(gender),
+         most_liked = as_factor(most_liked),
+         student_id = 1:n()) %>% 
+  select(student_id, gender, most_liked, age, semester, height)  
+
+```
+
+In @tbl-gummi-prepro
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-gummi-prepro
+#| tbl-cap: Auszug aus dem Daten zu den Gummibärchendaten.
+#| column: page
+
+gummi_raw_tbl <- gummi_tbl %>% 
+  mutate(gender = as.character(gender),
+         most_liked = as.character(most_liked))
+
+rbind(head(gummi_raw_tbl),
+      rep("...", times = ncol(gummi_raw_tbl)),
+      tail(gummi_raw_tbl)) %>% 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+gummi_rec <- recipe(gender ~ ., data = gummi_tbl) %>% 
+  update_role(student_id, new_role = "ID")
+
+gummi_rec %>% summary()
+
+```
+
+```{r}
+gummi_full_rec <- gummi_rec %>% 
+  step_filter_missing(all_outcomes()) %>% 
+  step_impute_mean(all_numeric_predictors(), -has_role("ID")) %>% 
+  step_impute_bag(all_nominal_predictors(), -has_role("ID")) %>% 
+  step_discretize(semester, num_breaks = 3, min_unique = 4) %>% 
+  step_normalize(all_numeric_predictors(), min = 0, max = 1, -has_role("ID")) %>% 
+  step_dummy(all_nominal_predictors(), -has_role("ID")) %>% 
+  step_nzv(all_predictors(), -has_role("ID"))
+
+gummi_full_rec
+```
+
+Daten generieren
+
+```{r}
+gummi_class_tbl <- gummi_full_rec %>%
+  prep() %>%
+  juice() %>% 
+  mutate(across(where(is.numeric), round, 2)) 
+
+
+
+
+```
+
+@tbl-gummi-prepro-trans
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-gummi-prepro-trans
+#| tbl-cap: Der transformierte Gummibärchendatensatz nach der Anwendung des Rezepts.
+#| column: page
+
+gummi_class_tbl <- gummi_class_tbl %>% 
+  mutate(gender = as.character(gender))
+
+rbind(head(gummi_class_tbl),
+      rep("...", times = ncol(gummi_class_tbl)),
+      tail(gummi_class_tbl)) %>% 
+  kable(align = "c", "pipe")
 ```
 
 ## R packages to consider
