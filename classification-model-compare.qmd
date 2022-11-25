@@ -10,7 +10,30 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 [In dem @sec-test-diag erfährst du mehr darüber was eine ROC Kurve ist und wie du die ROC Kurve interpretieren kannst.]{.aside}
 
-## Needed R packages
+::: callout-caution
+## Tuning und Resampling?
+
+In diesem Kapitel werde ich auf das Tuning und das Resampling verzichten. Du findest aber in jedem Anwendungskapitel nochmal den R Code für das Tuning und das Resampling. Wenn du willst, kannst und solltest du auch die beiden Schritte noch in den Code mit dazwischen schalten. Auf der Webseite [Tidymodels - A predictive modeling case study](https://www.tidymodels.org/start/case-study/) findest du nochmal Hilfe dazu.
+:::
+
+## Genutzte R Pakete für das Kapitel
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+#| message: false
+pacman::p_load(tidyverse, tidymodels, magrittr, 
+               janitor, xgboost,
+               conflicted)
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("mutate", "dplyr")
+conflict_prefer("extract", "magrittr")
+```
+
+Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+## Daten
 
 https://parsnip.tidymodels.org/ https://rsample.tidymodels.org/
 
@@ -21,6 +44,168 @@ R Paket `yardstick`
 https://rsample.tidymodels.org/articles/Applications/Recipes_and_rsample.html
 
 https://www.tmwr.org/resampling.html
+
+https://en.wikipedia.org/wiki/Confusion_matrix
+
+```{r}
+gummi_tbl <- read_excel("data/gummibears.xlsx") %>% 
+  mutate(gender = as_factor(gender),
+         most_liked = as_factor(most_liked),
+         student_id = 1:n()) %>% 
+  select(student_id, gender, most_liked, age, semester, height)  
+
+```
+
+In @tbl-gummi-prepro
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-gummi-model-compare
+#| tbl-cap: Auszug aus dem Daten zu den Gummibärchendaten.
+
+gummi_raw_tbl <- gummi_tbl %>% 
+  mutate(gender = as.character(gender),
+         most_liked = as.character(most_liked))
+
+rbind(head(gummi_raw_tbl),
+      rep("...", times = ncol(gummi_raw_tbl)),
+      tail(gummi_raw_tbl)) %>% 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+gummi_data_split <- initial_split(gummi_tbl, prop = 3/4)
+
+gummi_train_data <- training(gummi_data_split)
+gummi_test_data  <- testing(gummi_data_split)
+```
+
+```{r}
+gummi_rec <- recipe(gender ~ ., data = gummi_train_data) %>% 
+  update_role(student_id, new_role = "ID") %>% 
+  step_naomit(all_outcomes()) %>% 
+  step_impute_mean(all_numeric_predictors(), -has_role("ID")) %>% 
+  step_impute_bag(all_nominal_predictors(), -has_role("ID")) %>% 
+  step_discretize(semester, num_breaks = 3, min_unique = 4) %>% 
+  step_normalize(all_numeric_predictors(), min = 0, max = 1, -has_role("ID")) %>% 
+  step_dummy(all_nominal_predictors(), -has_role("ID")) %>% 
+  step_nzv(all_predictors(), -has_role("ID"))
+
+gummi_rec %>% summary()
+
+```
+
+## $k$-NN Algorithm
+
+```{r}
+knn_mod <- nearest_neighbor(neighbors = 11) %>% 
+  set_engine("kknn") %>% 
+  set_mode("classification") 
+```
+
+```{r}
+knn_wflow <- workflow() %>% 
+  add_model(knn_mod) %>% 
+  add_recipe(gummi_rec)
+```
+
+```{r}
+knn_fit <- knn_wflow %>% 
+  parsnip::fit(gummi_train_data)
+```
+
+```{r}
+knn_aug <- augment(knn_fit, gummi_test_data ) 
+```
+
+```{r}
+knn_auc <- knn_aug %>% 
+  roc_curve(gender, .pred_w, event_level = "second") %>% 
+  mutate(model = "k-NN")
+```
+
+## Random Forest
+
+::: {.callout-caution collapse="true"}
+## Parallele CPU Nutzung
+
+```{r}
+cores <- parallel::detectCores()
+cores
+```
+
+Und dann in `set_engine("ranger", num.threads = cores)`
+:::
+
+```{r}
+ranger_mod <- rand_forest(mtry = 5, min_n = 10, trees = 1000) %>% 
+  set_engine("ranger") %>% 
+  set_mode("classification")
+```
+
+```{r}
+ranger_wflow <- workflow() %>% 
+  add_model(ranger_mod) %>% 
+  add_recipe(gummi_rec)
+```
+
+```{r}
+ranger_fit <- ranger_wflow %>% 
+  parsnip::fit(gummi_train_data)
+```
+
+```{r}
+ranger_aug <- augment(ranger_fit, gummi_test_data ) 
+```
+
+```{r}
+ranger_auc <- ranger_aug %>% 
+  roc_curve(gender, .pred_w, event_level = "second") %>% 
+  mutate(model = "Ranger")
+```
+
+## xgboost
+
+```{r}
+xgboost_mod <- boost_tree(mtry = 5, min_n = 10, trees = 1000) %>% 
+  set_engine("xgboost") %>% 
+  set_mode("classification")
+```
+
+```{r}
+xgboost_wflow <- workflow() %>% 
+  add_model(xgboost_mod) %>% 
+  add_recipe(gummi_rec)
+```
+
+```{r}
+xgboost_fit <- xgboost_wflow %>% 
+  parsnip::fit(gummi_train_data)
+```
+
+```{r}
+xgboost_aug <- augment(xgboost_fit, gummi_test_data ) 
+```
+
+```{r}
+xgboost_auc <- xgboost_aug %>% 
+  roc_curve(gender, .pred_w, event_level = "second") %>% 
+  mutate(model = "xgboost")
+```
+
+## Vergleich der Modelle
+
+```{r}
+bind_rows(ranger_auc, knn_auc, xgboost_auc) %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+  theme_minimal() +
+  geom_path(lwd = 1.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal() + 
+  scale_color_viridis_d(option = "plasma", end = .6)
+```
 
 ## Visualisation
 
