@@ -14,7 +14,112 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 Wir werden uns hier mit der Anwendung beschäftigen. Wie immer lassen wir daher *tiefere* mathematische Überlegungen weg.
 :::
 
+## Genutzte R Pakete für das Kapitel
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+#| message: false
+pacman::p_load(tidyverse, tidymodels, magrittr, 
+               janitor, vip, rpart.plot,
+               conflicted)
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("mutate", "dplyr")
+conflict_prefer("extract", "magrittr")
+```
+
+Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+## Daten
+
+```{r}
+gummi_tbl <- read_excel("data/gummibears.xlsx") %>% 
+  mutate(gender = as_factor(gender),
+         most_liked = as_factor(most_liked),
+         student_id = 1:n()) %>% 
+  select(student_id, gender, most_liked, age, semester, height)  
+
+```
+
+In @tbl-gummi-prepro
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-gummi-model-compare
+#| tbl-cap: Auszug aus dem Daten zu den Gummibärchendaten.
+
+gummi_raw_tbl <- gummi_tbl %>% 
+  mutate(gender = as.character(gender),
+         most_liked = as.character(most_liked))
+
+rbind(head(gummi_raw_tbl),
+      rep("...", times = ncol(gummi_raw_tbl)),
+      tail(gummi_raw_tbl)) %>% 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+gummi_data_split <- initial_split(gummi_tbl, prop = 3/4)
+
+gummi_train_data <- training(gummi_data_split)
+gummi_test_data  <- testing(gummi_data_split)
+```
+
+```{r}
+gummi_rec <- recipe(gender ~ ., data = gummi_train_data) %>% 
+  update_role(student_id, new_role = "ID") %>% 
+  step_naomit(all_outcomes()) %>% 
+  step_impute_mean(all_numeric_predictors(), -has_role("ID")) %>% 
+  step_impute_bag(all_nominal_predictors(), -has_role("ID")) %>% 
+  step_normalize(all_numeric_predictors(), min = 0, max = 1, -has_role("ID")) %>% 
+  step_dummy(all_nominal_predictors(), -has_role("ID")) %>% 
+  step_nzv(all_predictors(), -has_role("ID"))
+
+gummi_rec %>% summary()
+
+```
+
 ## Rpart
+
+Mit Abbildung
+
+https://www.tidymodels.org/start/tuning/
+
+```{r}
+rpart_mod <- decision_tree(tree_depth = 5, min_n = 10, cost_complexity = 0.001) %>% 
+  set_engine("rpart") %>% 
+  set_mode("classification")
+```
+
+```{r}
+rpart_wflow <- workflow() %>% 
+  add_model(rpart_mod) %>% 
+  add_recipe(gummi_rec)
+```
+
+```{r}
+rpart_fit <- rpart_wflow %>% 
+  parsnip::fit(gummi_train_data)
+```
+
+```{r}
+rpart_aug <- augment(rpart_fit, gummi_test_data ) 
+```
+
+```{r}
+rpart_aug %>% 
+  roc_curve(gender, .pred_w, event_level = "second") %>% 
+  autoplot()
+```
+
+```{r}
+rpart_fit %>%
+  extract_fit_engine() %>%
+  rpart.plot(roundint = FALSE)
+```
 
 ## Random Forest
 
@@ -24,16 +129,92 @@ Wir werden uns hier mit der Anwendung beschäftigen. Wie immer lassen wir daher 
 
 ![Dars.](images/class-rf-03.png){#fig-class-rf-03 fig-align="center" width="100%"}
 
-![Dars.](images/class-rf-04.png){#fig-class-rf-04 fig-align="center" width="100%"} \## Bagging
+![Dars.](images/class-rf-04.png){#fig-class-rf-04 fig-align="center" width="100%"}
 
 Das Wort *Bagging* steht für *bootstrap aggregating* und ist eine Methode, um Vorhersagen aus verschiedenen Modellen zu kombinieren. Dabei müssen alle Modelle mit dem gleichen Algorithmus laufen, können aber auf verschiedenen Datensätzen oder aber Variablensätzen zugreifen. Häufig haben die Modelle eine hohee Varianz in der Vorhersage und wir nutzen dann Bagging um die Modelle miteinader zu kombinieren und dadurch die Varianz zu verringern. Die Ergebnisse der Modelle werden dann im einfachsten Fall gemittelt. Das Ergebnis jeder Modellvorhersage geht mit gleichem Gewicht in die Vorhersage ein. Wir haben auch noch andere Möglichkeiten, aber du kannst dir Vorstellen wir rechnen verschiedene Modelle $k$-mal und bilden dann ein finales Modell in dem wir alle $k$-Modelle zusammenfassen. Wie wir die Zusammenfassung rechnen, ist dann immer wieder von Fall zu Fall unterschiedlich. Wir erhalten am Ende einen *Ensemble* Klassifizierer, da ja ein Ensemble von Modellen zusammengefasst wird.
 
-## Boosting
+::: {.callout-caution collapse="true"}
+## Parallele CPU Nutzung
 
-![](images/caution.png){fig-align="center" width="50%"}
+```{r}
+cores <- parallel::detectCores()
+cores
+```
+
+Und dann in `set_engine("ranger", num.threads = cores)`
+:::
+
+```{r}
+ranger_mod <- rand_forest(mtry = 5, min_n = 10, trees = 1000) %>% 
+  set_engine("ranger", importance = "impurity") %>% 
+  set_mode("classification")
+```
+
+```{r}
+ranger_wflow <- workflow() %>% 
+  add_model(ranger_mod) %>% 
+  add_recipe(gummi_rec)
+```
+
+```{r}
+ranger_fit <- ranger_wflow %>% 
+  parsnip::fit(gummi_train_data)
+
+```
+
+```{r}
+ranger_fit %>% 
+  extract_fit_parsnip() %>% 
+  vip(num_features = 20)
+```
+
+```{r}
+ranger_aug <- augment(ranger_fit, gummi_test_data ) 
+```
+
+```{r}
+ranger_aug %>% 
+  roc_curve(gender, .pred_w, event_level = "second") %>% 
+  autoplot()
+```
+
+## Boosting mit xgboost
 
 https://medium.com/greyatom/a-quick-guide-to-boosting-in-ml-acf7c1585cb5
 
 https://towardsdatascience.com/boosting-algorithms-explained-d38f56ef3f30
 
 https://howtolearnmachinelearning.com/articles/boosting-in-machine-learning/
+
+## xgboost
+
+```{r}
+xgboost_mod <- boost_tree(mtry = 5, min_n = 10, trees = 1000) %>% 
+  set_engine("xgboost") %>% 
+  set_mode("classification")
+```
+
+```{r}
+xgboost_wflow <- workflow() %>% 
+  add_model(xgboost_mod) %>% 
+  add_recipe(gummi_rec)
+```
+
+```{r}
+xgboost_fit <- xgboost_wflow %>% 
+  parsnip::fit(gummi_train_data)
+```
+
+```{r}
+xgboost_aug <- augment(xgboost_fit, gummi_test_data ) 
+```
+
+```{r}
+xgboost_aug %>% 
+  roc_curve(gender, .pred_w, event_level = "second") %>% 
+  autoplot()
+```
+
+## Vergleich der Algorithmen
+
+https://www.tidymodels.org/start/case-study/
