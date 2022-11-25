@@ -8,12 +8,112 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
+## Genutzte R Pakete für das Kapitel
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+#| message: false
+pacman::p_load(tidyverse, tidymodels, magrittr, 
+               janitor, keras, 
+               conflicted)
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("mutate", "dplyr")
+conflict_prefer("extract", "magrittr")
+```
+
+Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+## Daten
+
+```{r}
+gummi_tbl <- read_excel("data/gummibears.xlsx") %>% 
+  mutate(gender = as_factor(gender),
+         most_liked = as_factor(most_liked),
+         student_id = 1:n()) %>% 
+  select(student_id, gender, most_liked, age, semester, height)  
+
+```
+
+In @tbl-gummi-prepro
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-gummi-model-compare
+#| tbl-cap: Auszug aus dem Daten zu den Gummibärchendaten.
+
+gummi_raw_tbl <- gummi_tbl %>% 
+  mutate(gender = as.character(gender),
+         most_liked = as.character(most_liked))
+
+rbind(head(gummi_raw_tbl),
+      rep("...", times = ncol(gummi_raw_tbl)),
+      tail(gummi_raw_tbl)) %>% 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+gummi_data_split <- initial_split(gummi_tbl, prop = 3/4)
+
+gummi_train_data <- training(gummi_data_split)
+gummi_test_data  <- testing(gummi_data_split)
+```
+
+```{r}
+gummi_rec <- recipe(gender ~ ., data = gummi_train_data) %>% 
+  update_role(student_id, new_role = "ID") %>% 
+  step_naomit(all_outcomes()) %>% 
+  step_impute_mean(all_numeric_predictors(), -has_role("ID")) %>% 
+  step_impute_bag(all_nominal_predictors(), -has_role("ID")) %>% 
+  step_normalize(all_numeric_predictors(), min = 0, max = 1, -has_role("ID")) %>% 
+  step_dummy(all_nominal_predictors(), -has_role("ID")) %>% 
+  step_nzv(all_predictors(), -has_role("ID"))
+
+gummi_rec %>% summary()
+
+```
+
 ## Keras / Tensorflow
 
 Deeplearning in R
+
+Nochmal genauer anschauen:
+
+https://colorado.rstudio.com/rsc/churn/modeling/tensorflow-w-r.nb.html
 
 https://parsnip.tidymodels.org/reference/details_linear_reg_keras.html
 
 https://camrongodbout.medium.com/tensorflow-in-a-nutshell-part-one-basics-3f4403709c9d
 
 https://medium.com/analytics-vidhya/neural-networks-in-a-nutshell-bb013f40197d
+
+```{r}
+keras_mod <- mlp() %>% 
+  set_engine("keras") %>% 
+  set_mode("classification")
+```
+
+```{r}
+keras_wflow <- workflow() %>% 
+  add_model(keras_mod) %>% 
+  add_recipe(gummi_rec)
+```
+
+```{r}
+keras_fit <- keras_wflow %>% 
+  parsnip::fit(gummi_train_data)
+
+```
+
+```{r}
+keras_aug <- augment(keras_fit, gummi_test_data ) 
+```
+
+```{r}
+keras_aug %>% 
+  roc_curve(gender, .pred_w, event_level = "second") %>% 
+  autoplot()
+```
