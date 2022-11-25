@@ -87,77 +87,188 @@ https://rpubs.com/Nilafhiosagam/574373
 https://parsnip.tidymodels.org/reference/nearest_neighbor.html
 
 ```{r}
+pig_data_split <- initial_split(pig_tbl, prop = 3/4)
 
+pig_train_data <- training(pig_data_split)
+pig_test_data  <- testing(pig_data_split)
+```
 
+```{r}
+pig_rec <- recipe(infected ~ age + sex + location + activity + crp + 
+                   frailty + bloodpressure + weight + creatinin,
+                  data = pig_train_data) %>% 
+  step_normalize(all_numeric_predictors(), min = 0, max = 1) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_nzv(all_predictors())
+```
 
-
-
-knn3_fit <- knn3(infected ~ age + sex + location + activity + crp + 
-                   frailty + bloodpressure + weight + creatinin, 
-                 data = pig_tbl, k = 10)
-
-predict(knn3_fit, newdata = pig_tbl) %>% 
-  as_tibble()
-
+```{r}
 knn_mod <- nearest_neighbor(neighbors = 11) %>% 
   set_engine("kknn") %>% 
   set_mode("classification") 
+```
 
-pig_rec <- recipe(infected ~ age + sex + location + activity + crp + 
-                   frailty + bloodpressure + weight + creatinin,
-      data = pig_tbl)
-
-
+```{r}
 pig_wflow <- workflow() %>% 
   add_model(knn_mod) %>% 
   add_recipe(pig_rec)
+```
 
-  
-pig_wflow %>% 
-  parsnip::fit(data = pig_tbl)
+```{r}
+pig_fit <- pig_wflow %>% 
+  parsnip::fit(pig_train_data)
+```
 
-dummies_rec <- pig_tbl %>% 
-  recipe(infected ~ sex + age) %>%
-  step_dummy(sex,
-             one_hot = TRUE)  
+```{r}
+pig_aug <- augment(pig_fit, pig_test_data ) %>% 
+  select(infected, matches("pred"))
+```
 
-dummies_rec %>% 
-  prep %>% 
-  bake(pig_tbl)
+```{r}
+pig_aug %>% 
+  roc_curve(truth = infected, .pred_1, event_level = "second") %>% 
+  autoplot()
+```
 
+```{r}
+pig_aug %>% 
+  yardstick::roc_auc(truth = infected, .pred_1, event_level = "second")
+```
+
+```{r}
+pig_aug %>% 
+  yardstick::accuracy(truth = infected, .pred_class)
+```
+
+## Resampling
+
+```{r}
+folds <- vfold_cv(pig_train_data, v = 10)
+folds
+```
+
+```{r}
+pig_cv_fit <- pig_wflow %>% 
+  fit_resamples(folds)
+```
+
+```{r}
+collect_metrics(pig_cv_fit)
+
+```
+
+## Tuning
+
+```{r}
+tune_spec <- nearest_neighbor(neighbors = tune(), weight_func = tune(), dist_power = tune()) %>% 
+  set_engine("kknn") %>% 
+  set_mode("classification") 
+
+tune_spec
+```
+
+Ich nutze hier `levels = 2` damit hier die Ausführung nicht so lange läuft. Das ist natürlich etwas zu wenig. Fange am besten mit `levels = 5` an und schaue, wie lange das zusammen mit der Kreuzvalidierung dann dauert.
+
+```{r}
+pig_grid <- grid_regular(neighbors(),
+                          weight_func(),
+                          dist_power(),
+                          levels = 2)
+```
+
+Eigentlich ist eine 10-fache Kreuzvalidierung mit $v=10$ besser. Das dauert mir dann aber hier im Skript viel zu lange. Deshalb habe ich hier nur $v=3$ gewählt. Wenn du das Tuning rechnest, nimmst du natürlich eine 10-fach Kreuzvalidierung.
+
+```{r}
+pig_folds <- vfold_cv(pig_train_data, v = 3)
+```
+
+```{r}
+pig_tune_wflow <- workflow() %>% 
+  add_model(tune_spec) %>% 
+  add_recipe(pig_rec)
+```
+
+Wenn du `control_grid(verbose = TRUE)` wählst, dann erhälst du eine Ausgabe wie weit das Tuning gerade ist.
+
+```{r}
+pig_tune_res <- pig_tune_wflow %>% 
+   tune_grid(resamples = pig_folds,
+             grid = pig_grid,
+             control = control_grid(verbose = FALSE))
+```
+
+```{r}
+pig_tune_res %>%
+  collect_metrics() %>%
+  mutate(weight_func = as_factor(weight_func),
+         dist_power = as_factor(dist_power)) %>%
+  ggplot(aes(neighbors, mean, color = weight_func, linetype = dist_power)) +
+  geom_line(size = 1.5, alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_wrap(~ .metric, scales = "free", nrow = 2) +
+  scale_x_log10(labels = scales::label_number()) +
+  scale_color_viridis_d(option = "plasma", begin = .9, end = 0)
+```
+
+```{r}
+pig_tune_res %>%
+  show_best("accuracy")
+```
+
+```{r}
+best_knn <- pig_tune_res %>%
+  select_best("accuracy")
+
+best_knn
+```
+
+```{r}
+final_pig_wf <- pig_tune_wflow %>% 
+  finalize_workflow(best_knn)
+
+final_pig_wf 
+```
+
+```{r}
+final_fit <- final_pig_wf %>%
+  last_fit(pig_data_split) 
+
+final_fit %>%
+  collect_metrics()
+
+final_fit %>%
+  collect_predictions() %>% 
+  roc_curve(infected, .pred_1, event_level = "second") %>% 
+  autoplot()
 ```
 
 ## kmeans Clustering
 
-Neben der Klassifikation können wir den $k$-NN Algorithmus auch nutzen um Gruppen in den Daten zu finden. Die Idee ist recht einfach. Wir geben $k$ Cluster vor und der Algorithmus versucht nun die Daten so zu ordnen, dass sich $k$ Cluster bilden. Je nach der Nähe der Beobachtungen zueinander lassen sich dann mehr oder minder klar abgegrenzte Cluster bilden. Das Problem an der Sache ist die Definition von $k$ für die Anzahl der zu bildenen Cluster. Wir müssen nämlich selber festlegen, wie viele Cluster wir erwarten würden und der Algorithmus dann finden wird. Wenn wir $k = 3$ der Funktion `kmeans` mitgeben, dann findet die Funktion drei Cluster. Auch wenn zwei mehr Sinn gemacht hätten. Daher müssen wir immer selber ausprobieren und uns die Daten visualisieren, ob das mit den Clustern so passt.
+Neben der Klassifikation können wir den $k$-NN Algorithmus auch nutzen um Gruppen in den Daten zu finden. Die Idee ist recht einfach. Wir geben $k$ Cluster vor und der Algorithmus versucht nun die Daten so zu ordnen, dass sich $k$ Cluster bilden. Je nach der Nähe der Beobachtungen zueinander lassen sich dann mehr oder minder klar abgegrenzte Cluster bilden. Das Problem an der Sache ist die Definition von $k$ für die Anzahl der zu bildenden Cluster. Wir müssen nämlich selber festlegen, wie viele Cluster wir erwarten würden und der Algorithmus dann finden wird. Wenn wir $k = 3$ der Funktion `kmeans` mitgeben, dann findet die Funktion drei Cluster. Auch wenn zwei mehr Sinn gemacht hätten. Daher müssen wir immer selber ausprobieren und uns die Daten visualisieren, ob das mit den Clustern so passt.
+
+Für Clusterbildung können wir nur numerische Variablen verwenden. Daher müssen wir hier über die Funktion `step_dummy` alle nominalen Variablen wie Faktoren in eine $0/1$-Kodierung umwandeln. Das ist eine Einschränkung des kmeans Algorithmus.
 
 ```{r}
-kmeans(pig_tbl$age, centers = 2)
-
-
-rec <- recipe(rating ~ ., data = attitude)
-kmeans_rec <- rec %>%
-  step_kmeans(all_predictors(), k = 3)
-kmeans_prep <- prep(kmeans_rec, training = attitude)
-kmeans_data <- bake(kmeans_prep, attitude)
-
-pairs(kmeans_data, lower.panel = NULL)
-
-tidy(kmeans_rec, number = 1)
-tidy(kmeans_prep, number = 1)
-
-
-rec <- recipe(rating ~ ., data = attitude)
-kmeans_rec <- rec %>%
-  step_center(all_predictors()) %>%
-  step_scale(all_predictors()) %>%
-  step_kmeans(all_predictors(), num_comp = 3)
-kmeans_prep <- prep(kmeans_rec, training = attitude)
-bake(kmeans_prep, attitude[1:10, ])
-bake(kmeans_prep, attitude)[1:10, ]
-
+pig_kmeans_rec <- recipe(infected ~ age + sex + location + activity + crp + 
+                           frailty + bloodpressure + weight + creatinin,
+                         data = pig_train_data) %>% 
+  step_dummy(all_nominal_predictors()) 
 ```
 
-## Imputation von fehlenden Werten
+```{r}
+pig_dummy_tbl <- pig_kmeans_rec %>% 
+  prep %>% 
+  juice()
+```
 
-https://recipes.tidymodels.org/reference/step_impute_knn.html
+```{r}
+kmeans_obj <- kmeans(pig_dummy_tbl, centers = 3)
+```
+
+```{r}
+pig_dummy_tbl %>% 
+  bind_cols(cluster = pluck(kmeans_obj, "cluster")) %>% 
+  select(cluster, everything())
+```
+
+Das [R Paket `embed`](https://cran.r-project.org/web/packages/embed/embed.pdf) bietet noch eine Vielzahl an weiteren Funktionen für die Erstellung von kategorialen Variablen. Bier musst du schauen, ob die Funktionen dann *univariat* sind und dhaer immer nur eine variable nutzen oder aber *multivariat* und daher mehrere Spalten simultan. Der Vorteil von `kmeans` ist ja, das der Algorithmus mehrere numerische Spalten für die Clusterbildung nutzen kann.
