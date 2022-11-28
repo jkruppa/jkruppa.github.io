@@ -52,7 +52,8 @@ gummi_tbl <- read_excel("data/gummibears.xlsx") %>%
   mutate(gender = as_factor(gender),
          most_liked = as_factor(most_liked),
          student_id = 1:n()) %>% 
-  select(student_id, gender, most_liked, age, semester, height)  
+  select(student_id, gender, most_liked, age, semester, height) %>% 
+  drop_na(gender)
 
 ```
 
@@ -85,7 +86,6 @@ gummi_test_data  <- testing(gummi_data_split)
 ```{r}
 gummi_rec <- recipe(gender ~ ., data = gummi_train_data) %>% 
   update_role(student_id, new_role = "ID") %>% 
-  step_naomit(all_outcomes()) %>% 
   step_impute_mean(all_numeric_predictors(), -has_role("ID")) %>% 
   step_impute_bag(all_nominal_predictors(), -has_role("ID")) %>% 
   step_discretize(semester, num_breaks = 3, min_unique = 4) %>% 
@@ -98,6 +98,12 @@ gummi_rec %>% summary()
 ```
 
 ## $k$-NN Algorithm
+
+::: callout-note
+## Huch, der Code ist aber sehr kurz...
+
+In diesem Teil halte ich den R Code sehr kurz, wenn du mehr über den $k$-NN Algorithmus wissen willst, schaue bitte in @sec-knn.
+:::
 
 ```{r}
 knn_mod <- nearest_neighbor(neighbors = 11) %>% 
@@ -120,19 +126,13 @@ knn_fit <- knn_wflow %>%
 knn_aug <- augment(knn_fit, gummi_test_data ) 
 ```
 
-```{r}
-knn_auc <- knn_aug %>% 
-  roc_curve(gender, .pred_w, event_level = "second") %>% 
-  mutate(model = "k-NN")
-```
-
-```{r}
-knn_pr <- knn_aug %>% 
-  pr_curve(gender, .pred_w, event_level = "second") %>% 
-  mutate(model = "k-NN")
-```
-
 ## Random Forest
+
+::: callout-note
+## Huch, der Code ist aber sehr kurz...
+
+In diesem Teil halte ich den R Code sehr kurz, wenn du mehr über den Random Forest Algorithmus wissen willst, schaue bitte in @sec-class-rf.
+:::
 
 ::: {.callout-caution collapse="true"}
 ## Parallele CPU Nutzung
@@ -166,19 +166,13 @@ ranger_fit <- ranger_wflow %>%
 ranger_aug <- augment(ranger_fit, gummi_test_data ) 
 ```
 
-```{r}
-ranger_auc <- ranger_aug %>% 
-  roc_curve(gender, .pred_w, event_level = "second") %>% 
-  mutate(model = "Ranger")
-```
-
-```{r}
-ranger_pr <- ranger_aug %>% 
-  pr_curve(gender, .pred_w, event_level = "second") %>% 
-  mutate(model = "Ranger")
-```
-
 ## xgboost
+
+::: callout-note
+## Huch, der Code ist aber sehr kurz...
+
+In diesem Teil halte ich den R Code sehr kurz, wenn du mehr über den xgboost Algorithmus wissen willst, schaue bitte in @sec-xgboost.
+:::
 
 ```{r}
 xgboost_mod <- boost_tree(mtry = 5, min_n = 10, trees = 1000) %>% 
@@ -201,19 +195,37 @@ xgboost_fit <- xgboost_wflow %>%
 xgboost_aug <- augment(xgboost_fit, gummi_test_data ) 
 ```
 
-```{r}
-xgboost_auc <- xgboost_aug %>% 
-  roc_curve(gender, .pred_w, event_level = "second") %>% 
-  mutate(model = "xgboost")
-```
-
-```{r}
-xgboost_pr <- xgboost_aug %>% 
-  pr_curve(gender, .pred_w, event_level = "second") %>% 
-  mutate(model = "xgboost")
-```
-
 ## Vergleich der Modelle
+
+```{r}
+fit_lst <- lst(knn = knn_aug,
+               rf = ranger_aug,
+               xgboost = xgboost_aug)
+```
+
+```{r}
+
+fit_lst %>% 
+  map(~conf_mat(.x, gender, .pred_class)) %>% 
+  map(summary) %>% 
+  map(~select(.x, .metric, .estimate)) %>% 
+  reduce(left_join, by = ".metric") %>% 
+  set_names(c("metric", "knn", "rf", "xboost")) %>% 
+  mutate(across(where(is.numeric), round, 3))
+
+```
+
+```{r}
+roc_tbl <- fit_lst %>% 
+  map(~roc_curve(.x, gender, .pred_w, event_level = "second")) %>% 
+  bind_rows(.id = "model")
+```
+
+```{r}
+pr_tbl <- fit_lst %>% 
+  map(~pr_curve(.x, gender, .pred_w, event_level = "second")) %>% 
+  bind_rows(.id = "model")
+```
 
 ```{r}
 #| echo: true
@@ -230,7 +242,7 @@ xgboost_pr <- xgboost_aug %>%
 #| layout-nrow: 1
 #| column: page
 
-bind_rows(ranger_auc, knn_auc, xgboost_auc) %>% 
+roc_tbl %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
   theme_minimal() +
   geom_path(lwd = 1.5, alpha = 0.8) +
@@ -238,7 +250,7 @@ bind_rows(ranger_auc, knn_auc, xgboost_auc) %>%
   coord_equal() + 
   scale_color_viridis_d(option = "plasma", end = .6)
 
-bind_rows(ranger_pr, knn_pr, xgboost_pr) %>% 
+pr_tbl %>% 
   ggplot(aes(x = recall, y = precision, col = model)) + 
   theme_minimal() +
   geom_path(lwd = 1.5, alpha = 0.8) +
