@@ -8,7 +8,7 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
-[Quick start für Tensorflow installieren](https://tensorflow.rstudio.com/install/) und dann das schöne Problem der GPU auf dem macOS mit M1 Chip. Die Lösung für die [Local GPU](https://tensorflow.rstudio.com/install/local_gpu) hat mich auf dem macOS einen Tag Nerven gekostet.
+So, das war ein ganz schönes Brett, TensorFlow oder Keras auf dem Rechner zu installieren. Es gibt zwar einen [Quick start um Tensorflow zu installieren](https://tensorflow.rstudio.com/install/) aber dann hatte ich das schöne Problem der GPU auf dem macOS mit M1 Chip. Die Lösung für die [Local GPU](https://tensorflow.rstudio.com/install/local_gpu) hat mich auf dem macOS einen Tag Nerven gekostet. Das mag dann auf einem Windows Rechner anders sein bzw. andere Probleme verursachen. Schlussendlich ist die Nutzung von *neural networks* auf keinen Laptops vieleicht auch nicht so die beste Idee. Wir würden die Algorithmen eher auf Hochleistungsrechner durchführen und dann vermutich eine Linuxdistribution verwenden. Dennoch werde ich hier einmal Tensorflow in R vorstellen. Die Packete für die Integration von dem eigenständigen Algorithmus Tensorflow gibt es und wenn es dann mal installiert ist, funktioniert auch alles super. Da Tensorflow in Phyton programmiert ist, muss auch Phyton auf dem Rechner installiert sein.
 
 ## Genutzte R Pakete für das Kapitel
 
@@ -34,7 +34,8 @@ gummi_tbl <- read_excel("data/gummibears.xlsx") %>%
   mutate(gender = as_factor(gender),
          most_liked = as_factor(most_liked),
          student_id = 1:n()) %>% 
-  select(student_id, gender, most_liked, age, semester, height)  
+  select(student_id, gender, most_liked, age, semester, height) %>% 
+  drop_na(gender)
 
 ```
 
@@ -67,7 +68,6 @@ gummi_test_data  <- testing(gummi_data_split)
 ```{r}
 gummi_rec <- recipe(gender ~ ., data = gummi_train_data) %>% 
   update_role(student_id, new_role = "ID") %>% 
-  step_naomit(all_outcomes()) %>% 
   step_impute_mean(all_numeric_predictors(), -has_role("ID")) %>% 
   step_impute_bag(all_nominal_predictors(), -has_role("ID")) %>% 
   step_range(all_numeric_predictors(), min = 0, max = 1, -has_role("ID")) %>% 
@@ -115,7 +115,140 @@ keras_aug <- augment(keras_fit, gummi_test_data )
 ```
 
 ```{r}
+keras_cm <- keras_aug %>% 
+  conf_mat(gender, .pred_class)
+
+keras_cm
+```
+
+```{r}
+keras_cm %>% summary()
+```
+
+```{r}
 keras_aug %>% 
+  roc_curve(gender, .pred_w, event_level = "second") %>% 
+  autoplot()
+```
+
+## Resampling
+
+```{r}
+#| eval: false
+folds <- vfold_cv(gummi_train_data, v = 10)
+folds
+```
+
+```{r}
+#| eval: false
+gummi_cv_fit <- keras_wflow %>% 
+  fit_resamples(folds)
+```
+
+```{r}
+#| eval: false
+collect_metrics(gummi_cv_fit)
+```
+
+## Tuning
+
+```{r}
+cores <- parallel::detectCores()
+```
+
+```{r}
+tune_spec <- mlp(hidden_units = tune(),
+                 penalty = tune(), 
+                 epochs = tune()) %>% 
+  set_engine("keras", num.threads = cores) %>% 
+  set_mode("classification") 
+
+tune_spec
+```
+
+Ich nutze hier `levels = 2` damit hier die Ausführung nicht so lange läuft. Das ist natürlich etwas zu wenig. Fange am besten mit `levels = 5` an und schaue, wie lange das zusammen mit der Kreuzvalidierung dann dauert.
+
+```{r}
+gummi_grid <- grid_regular(hidden_units(range = c(1, 100)),
+                           penalty(),
+                           epochs(range = c(10, 200)),
+                           levels = 5)
+```
+
+Eigentlich ist eine 10-fache Kreuzvalidierung mit $v=10$ besser. Das dauert mir dann aber hier im Skript viel zu lange. Deshalb habe ich hier nur $v=3$ gewählt. Wenn du das Tuning rechnest, nimmst du natürlich eine 10-fach Kreuzvalidierung.
+
+```{r}
+gummi_folds <- vfold_cv(gummi_train_data, v = 3)
+```
+
+```{r}
+gummi_tune_wflow <- workflow() %>% 
+  add_model(tune_spec) %>% 
+  add_recipe(gummi_rec)
+```
+
+```{r}
+#| eval: false
+gummi_tune_res <- gummi_tune_wflow %>% 
+   tune_grid(resamples = gummi_folds,
+             grid = gummi_grid,
+             control = control_grid(verbose = FALSE))
+```
+
+```{r}
+#| eval: false
+#| echo: false
+
+write_rds(gummi_tune_res, "data/gummi_tune_res.rds")
+```
+
+```{r}
+#| echo: false
+
+gummi_tune_res <- read_rds("data/gummi_tune_res.rds")
+```
+
+```{r}
+gummi_tune_res %>%
+  collect_metrics() %>%
+  mutate(hidden_units = as_factor(hidden_units),
+         penalty = as_factor(penalty)) %>%
+  ggplot(aes(epochs, mean, color = hidden_units, linetype = penalty)) +
+  geom_line(size = 1.5, alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_wrap(~ .metric, scales = "free", nrow = 2) +
+  scale_x_log10(labels = scales::label_number()) +
+  scale_color_viridis_d(option = "plasma", begin = .9, end = 0)
+```
+
+```{r}
+gummi_tune_res %>%
+  show_best("accuracy")
+```
+
+```{r}
+best_keras <- gummi_tune_res %>%
+  select_best("accuracy")
+
+best_keras
+```
+
+```{r}
+final_gummi_wf <- gummi_tune_wflow %>% 
+  finalize_workflow(best_keras)
+
+final_gummi_wf 
+```
+
+```{r}
+final_fit <- final_gummi_wf %>%
+  last_fit(gummi_data_split) 
+
+final_fit %>%
+  collect_metrics()
+
+final_fit %>%
+  collect_predictions() %>% 
   roc_curve(gender, .pred_w, event_level = "second") %>% 
   autoplot()
 ```
