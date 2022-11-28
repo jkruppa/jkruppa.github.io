@@ -26,6 +26,12 @@ Du findest auf der [Referenzseite von recipes](https://recipes.tidymodels.org/re
 
 Einige Vorverarbeitungsschritte kannst du auch in den vorherigen Kapiteln nachlesen. Im Kapitel zur [Transformation von Daten](#sec-eda-transform) oder zur [Imputation von fehlenden Werten](#sec-missing) findest du noch tiefer greifende Informationen zu den Themen. In diesem Kapitel zeige ich nur, wie du die Verfahren anwendest und gehe nochmal eher oberflächig auf mögliche Probleme ein.
 
+::: callout-caution
+## Preprocessing und Tuning
+
+Achtung! Du kannst das Preprocessing nicht mit dem Tuning von Algorithmen verbinden. Das heißt, du optimierst deinen Algorithmus immer auf einen Set von pre-prozessierten Daten. Wenn die Daten schlecht sind, dann wird das Tuning auch nicht mehr viel helfen. Deshalb muss man häufig drüber nachdenken, welche Variablen sollen mit in die Analyse und was soll mit den Daten gemacht werden.
+:::
+
 ## Genutzte R Pakete für das Kapitel
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
@@ -102,7 +108,7 @@ Nun ist es aber auch so, dass es bei dem Rezept auf die Reihenfolge der einzelne
 Bitte die Hinweise zur Ordnung der Schritte eines Rezeptes beachten: [Ordering of steps](https://recipes.tidymodels.org/articles/Ordering.html)
 :::
 
-0)  Entfernen von Beobachtungen mit einem fehlenen Eintrag für das Label.
+0)  Entfernen von Beobachtungen mit einem fehlenden Eintrag für das Label.
 1)  Imputation von fehlenden Werten in den Daten.
 2)  Individuelle Transformationen auf einzelnen Spalten.
 3)  Umwandeln von einzelnen numerischen Variablen in eine diskrete Variable.
@@ -127,11 +133,11 @@ Aktuell haben wir ja keine fehlenden Werte in der Spalte vorliegen, so dass wir 
 
 ## Dummycodierung von $X$ {#sec-preprocess-dummy}
 
+Wir werden immer häufiger davon sprechen, dass wir alle kategorialen Daten in *Dummies* überführen müssen. Das heißt, wir dürfen keine Faktoren mehr in unseren Daten haben. Wir wandeln daher alle Variablen, die ein Faktor sind, in Dummyspalten um. Die Idee von der Dummyspalte ist die gleiche wie bei der multiplen Regression. Da ich aber nicht davon ausgehe, dass du dir alles hier durchgelesen hast, kommt hier die kurze Einführung zur Dummycodierung.
+
 ::: column-margin
 [Create Traditional Dummy Variables](https://recipes.tidymodels.org/reference/step_dummy.html)
 :::
-
-Wir werden immer häufiger davon sprechen, dass wir alle kategorialen Daten in *Dummies* überführen müssen. Das heißt, wir dürfen keine Faktoren mehr in unseren Daten haben. Wir wandeln daher alle Variablen, die ein Faktor sind, in Dummyspalten um. Die Idee von der Dummyspalte ist die gleiche wie bei der multiplen Regression. Da ich aber nicht davon ausgehe, dass du dir alles hier durchgelesen hast, kommt hier die kurze Einführung zur Dummycodierung.
 
 Die Dummycodierung wird nur auf den Features durchgeführt. Dabei werden nur Spalten erschaffen, die $0/1$, für Level vorhanden oder Level nicht vorhanden, beinhalten. Wir werden also nur alle $x$ in Dummies umwandeln, die einem Faktor entsprechen. Dafür nutzen wir dann später eine Funktion, hier machen wir das einmal zu Veranschaulichung per Hand. In @tbl-class-basic-dummy-01 haben wir einen kleinen Ausschnitt unser Schweinedaten gegeben. Wir wollen zuerst die Spalte `sex` in eine Dummycodierung umwandeln.
 
@@ -171,6 +177,8 @@ In der @tbl-class-basic-dummy-03 betrachten wir einen komplexeren Fall. Wenn wir
 
 Wenn wir einen Faktor mit $l$ Leveln haben, erhalten wir immer $l-1$ Spalten nach der Dummycodierung wieder.
 
+Wir nutzen dann die Funktion `step_dummy()` um eine Dummaycodierung für alle nominalen Prädiktoren spezifiziert durch `all_nominal_predictors()` durchzuführen. Das tolle ist hier, dass wir durch die Helferfunktionen immer genau sagen können welche Typen von Spalten bearbeitet werden sollen.
+
 ```{r}
 pig_dummy_rec <- pig_rec %>% 
   step_dummy(all_nominal_predictors()) 
@@ -178,7 +186,7 @@ pig_dummy_rec <- pig_rec %>%
 pig_dummy_rec 
 ```
 
-Daten generieren
+Wenn wir das Rezept fertig haben, dann können wir uns die Daten einmal anschauen. Durch die Funktion `prep()` initialisieren wir das Rezept und mit der Funktion `juice()` teilen wir mit, dass wir das Rezept gleich auf die Trainingsdaten mit denen wir das Rezept gebaut haben, anweden wollen.
 
 ```{r}
 pig_dummy_rec %>%
@@ -186,7 +194,11 @@ pig_dummy_rec %>%
   juice() 
 ```
 
+Die Dummycodierung verwandelt alle nominalen Spalten in mehrere $0/1$ Spalten um. Das ermöglicht den Algorithmen auch mit nominalen Spalten eine Vorhersage zu machen.
+
 ## Zero Variance Spalten {#sec-preprocess-zv}
+
+Ein häufiges Problem ist, dass wir manchmal Spalten in unseren Daten haben in denen nur ein Eintrag steht. Das heißt wir haben überall die gleiche Zahl oder eben das gelche Wort stehen. Das tritt häufiger auf, wenn wir uns riesige Datenmengen von extern herunterladen. Manchmal haben wir so viele Spalten, dass wir die Daten gr nicht richtig überblicken. Oder aber, wir haben nach einer Transformation nur noch die gleiche Zahl. Dagegen können wir filtern.
 
 ::: column-margin
 [Zero Variance Filter](https://recipes.tidymodels.org/reference/step_zv.html)
@@ -194,16 +206,21 @@ pig_dummy_rec %>%
 [Near-Zero Variance Filter](https://recipes.tidymodels.org/reference/step_nzv.html)
 :::
 
+Wir haben die Auswahl zwischen `step_zv()`, die Funktion entfernt Spalten mit einer Vaianz von Null. Das mag seltener vorkommen, als eine sehr kleine Varianz. Hier hilft die Funktion `step_nzv()`. Wir können beide Funktionen auf alle Arten von Prädiktoren anwenden, nur eben nicht *gleichzeitig*.
+
 ```{r}
 pig_zero_rec <- pig_rec %>% 
   step_zv(all_predictors()) %>% 
   step_nzv(all_predictors())
 
-
 pig_zero_rec
 ```
 
+Da wir in unseren Schweine Daten jetzt keine Spalten mit einer sehr kleinen Varianz haben, passiert auch nichts, wenn wir die Funktion auf unsere Daten anwenden würden.
+
 ## Standardisieren $\mathcal{N}(0,1)$ {#sec-preprocess-standard}
+
+In dem Kapitel zu der [Transformation von Daten](#sec-eda-transform) haben wir ja schon von der Standardisierung gelesen und uns mit den gänigigen Funktion beschäftigt. Deshalb hier nur kurz die Schritte, die wir machen könen. Zum einen können wir nur die Daten mit der Funktion `step_scale()` skalieren, dass heißt auf eine Standardabweichung von 1 bringen. Oder aber wir nutzen die Funktion `scale_center()` um die Daten alle auf einen Mittelwert von 0 zu schieben. Das können wir dann einfach auf allen *numerischen* Prädiktoren durchführen.
 
 ::: column-margin
 [Scaling Numeric Data](https://recipes.tidymodels.org/reference/step_scale.html)
@@ -213,8 +230,6 @@ pig_zero_rec
 [Center and Scale Numeric Data](https://recipes.tidymodels.org/reference/step_normalize.html)
 :::
 
-[Transformation von Daten](#sec-eda-transform)
-
 ```{r}
 pig_scale_center_rec <- pig_rec %>% 
   step_center(all_numeric_predictors()) %>% 
@@ -223,6 +238,8 @@ pig_scale_center_rec <- pig_rec %>%
 pig_scale_center_rec 
 ```
 
+Wenn wir aber darauf keine Lust haben, gibt es auch die etwas schief benannte Funktion *step_normalize()*, die beide Schritte kombiniert und uns damit die Daten auf eine Standardnormalverteilung transformiert. Ich persönlich nutze dann meist die zweite Variante, dann hat man alles in einem Schritt zusammen.
+
 ```{r}
 pig_scale_center_rec <- pig_rec %>% 
   step_normalize(all_numeric_predictors()) 
@@ -230,7 +247,7 @@ pig_scale_center_rec <- pig_rec %>%
 pig_scale_center_rec 
 ```
 
-Daten generieren
+Jetzt können wir noch die Daten generieren und sehen, dass wir alle numerischen Spalten in eine Standardnormalverteilung transformiert haben.
 
 ```{r}
 pig_scale_center_rec %>%
@@ -241,11 +258,11 @@ pig_scale_center_rec %>%
 
 ## Normalisieren $[0; 1]$ {#sec-preprocess-normal}
 
+Auh hier möchte ich wieder auf das Kapitel zum [Transformation von Daten](#sec-eda-transform) verweisen. In dem `tidymodels` Universum heißt dann das Normalisieren, also die Daten auf eine Spannweite zwischen 0 und 1 bringen, dann eben `step_range()`. Das ist natürlich dann schön generalisiert. Wir könnten uns auch andere Spannweiten überlegen, aber hier nehmen wir natürlich immer den Klassiker. Unsere Daten liegen dann nach der Normalisierung mit der Funktion `step_range()` zwischen 0 und 1. Wir können die Normalisierung natürlich nur auf numerischen Variablen durchführen.
+
 ::: column-margin
 [Scaling Numeric Data to a Specific Range](https://recipes.tidymodels.org/reference/step_range.html)
 :::
-
-[Transformation von Daten](#sec-eda-transform)
 
 ```{r}
 pig_range_rec <- pig_rec %>% 
@@ -254,7 +271,7 @@ pig_range_rec <- pig_rec %>%
 pig_range_rec 
 ```
 
-Daten generieren
+Auch hier können wir dann die Daten generieren und uns einmal anschauen. Im Gegensatz zu der Standardisierung treten jetzt in unseren Spalten keine negativen Werte mehr auf.
 
 ```{r}
 pig_range_rec %>%
@@ -265,11 +282,13 @@ pig_range_rec %>%
 
 ## Imputieren von fehlenden Werten {#sec-preprocess-impute}
 
+In dem Kapitel zur [Imputation von fehlenden Werten](#sec-missing) haben wir uns mit verschiedenen Methoden zur Imputation von fehlenden Werten beschäftigt. Auch gibt es verschiedene Rezepte um die Imputation durchzuführen. Wir haben also wieder die Qual der Wahl welchen Algorithmus wir nutzen wollen. Da wir wieder zwischen numerischen und nominalen Variablen unterscheiden müssen, haben wir immer zwei Imputationsschritte. Ich mache es mir hier sehr leicht und wähle die `mean` Imputation für die numerischen Variablen aus und die `mode` Imputation für die nominalen Variablen. Das sind natürlich die beiden simpelsten Imputation die gehen. Ich würde dir empfehlen nochmal die Alternativen anzuschauen und *vorab* auf jeden Fall nochmal dir die fehlenden Daten zu visualisieren. Es macht auch hier keinen Sinn nicht vorhandene Spalten mit künstlichen Daten zu füllen.
+
 ::: column-margin
 [Step Functions - Imputation](https://recipes.tidymodels.org/reference/index.html#step-functions-imputation)
 :::
 
-oder zur [Imputation von fehlenden Werten](#sec-missing)
+Da wir es uns in diesem Schritt sehr einfach machen, nutzen wir die Funktionen `step_impute_mean()` auf allen numerischen Variablen und die Funktion `step_impute_mode()` auf alle nominalen Variablen.
 
 ```{r}
 pig_imp_rec <- pig_rec %>% 
@@ -279,7 +298,7 @@ pig_imp_rec <- pig_rec %>%
 pig_imp_rec 
 ```
 
-Daten generieren
+Dann können wir uns auch schon die Daten generieren. Wir sehen, dass wir keine fehlenden Werte mehr in unseren Daten vorliegen haben.
 
 ```{r}
 pig_imp_rec  %>%
