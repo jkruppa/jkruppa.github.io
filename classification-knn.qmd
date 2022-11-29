@@ -8,7 +8,7 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
-Was macht der $k$ nächste Nachbarn Algorithmus (eng. *k nearest neighbor*, abk. *k-NN*) ? Der Algorthmus ist ein sehr einfacher Algorithmus, der auf den Abständen zu den benachbarten Beobachtungen basiert. Wir wollen also für eine neue Beobachtung den Infketionstatus vorhersagen. Um diese Vorhersage zu bewerkstelligen nutzen wir die $k$-nöchsten Nachbarn zu dieser neuen Beobachtung. Wenn die Mehrzahl der $k$-nächsten Nachbarn den Infektionsstatus $1$ hat, dann vergeben wir auch der neuen Beoabchtung den Infektionsstatus $1$. Wenn dies nicht der Fall ist, dann erhält die neue Beobachtung den Infektionsstatus $0$.
+Was macht der $k$ nächste Nachbarn Algorithmus (eng. *k nearest neighbor*, abk. *k-NN*), wenn wir ihn verwenden? Der Algorithmus ist ein sehr einfacher Algorithmus, der auf den Abständen zu den benachbarten Beobachtungen basiert. Wir wollen also für eine neue Beobachtung den Infektionsstatus vorhersagen. Um diese Vorhersage zu bewerkstelligen nutzen wir die $k$-nächsten Nachbarn zu dieser neuen Beobachtung. Wenn die Mehrzahl der $k$-nächsten Nachbarn den Infektionsstatus $1$ hat, dann vergeben wir auch der neuen Beobachtung den Infektionsstatus $1$. Wenn dies nicht der Fall ist, dann erhält die neue Beobachtung den Infektionsstatus $0$.
 
 ## Genutzte R Pakete für das Kapitel
 
@@ -16,7 +16,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, tidymodels, magrittr, 
+pacman::p_load(tidyverse, tidymodels, magrittr, see,
                caret, kknn, MachineShop, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
@@ -24,6 +24,8 @@ conflict_prefer("mutate", "dplyr")
 conflict_prefer("extract", "magrittr")
 conflict_prefer("fit", "parsnip")
 conflict_prefer("contr.dummy", "kknn")
+##
+set.seed(2025429)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -78,13 +80,31 @@ In der @fig-class-knn-04 sehen wir, dass wir jetzt $k = 3$ Nachbarn betrachten. 
 
 ![Die Klassifizierung mit $k = 3$ nächsten Nachbarn. Wir erhalten hier eine , wenn auch knappe, Entscheidung für den schwarzen Status und damit krank.](images/class-knn-04.png){#fig-class-knn-04 fig-align="center" width="70%"}
 
-Soweit so gut. Und wie entscheide ich jetzt was weit weg ist? Wenn wir uns mit dem $k$-NN Algorithmus näher beschäftigen würden, dann werden wir feststellen, dass es eine Vielzahl an Abstandsmaßen gibt. Wir du dir vorstellen kannst, kann man die Entfernung zwischen zwei Punkten als den absoluten Abstand messen. Oder aber als den quadratischen Abstand. Es wäre auch möglich einen gewichteten Abstand einzuführen, so dass nähere Beobachtungen einen größeren Einfluss auf die Vorhersage haben als weiter entfernte Beobachtungen. Dann würden wir auch das Problem von geraden $k$ Anzahlen lösen. Du musst dann leider in den jeweiligen R Paketen schauen, welche Optionen es dort geben mag. Wir werden uns hier auf eins der R Pakete mit `kknn` konzentrieren.m
+Soweit so gut. Und wie entscheide ich jetzt was weit weg ist? Wenn wir uns mit dem $k$-NN Algorithmus näher beschäftigen würden, dann werden wir feststellen, dass es eine Vielzahl an Abstandsmaßen gibt. Wir du dir vorstellen kannst, kann man die Entfernung zwischen zwei Punkten als den absoluten Abstand messen. Oder aber als den quadratischen Abstand. Es wäre auch möglich einen gewichteten Abstand einzuführen, so dass nähere Beobachtungen einen größeren Einfluss auf die Vorhersage haben als weiter entfernte Beobachtungen. Dann würden wir auch das Problem von geraden $k$ Anzahlen lösen. Du musst dann leider in den jeweiligen R Paketen schauen, welche Optionen es dort geben mag. Wir werden uns hier auf eins der R Pakete mit `kknn` konzentrieren.
 
 ## Klassifikation
 
+Schauen wir uns als erstes eine simple Klassifikation mit dem $k$-NN Algorithmus an. Wir brauchen dafür erstmal einen Trainings- und Testdatensatz. Wir trainieren dann den $k$-NN Algorithmus auf den Trainingsdaten. Wenn wir dann mit dem Modell zufrieden sind, schauen wir, ob unserer Modell auch auf den Trainingsdaten funktioniert. Wir trennen daher die Daten mit $3/4$ Trainingsdaten und $1/4$ Testdaten auf. Wir nutzen dazu die Funktion `initial_split()`. Es gibt auch andere Möglichkeiten sich den Split in Trainings- und Testdatensatz zu erstellen, aber so geht es relativ einfach und schnell.
+
+::: column-margin
+Wenn wir eine ID Spalte haben, dann können wir auch über die Funktion `sample_frac()` und dem Anteil der ausgewählten Beobachtungen und der Funktion `anti_join()`, die Trainings- und Testdaten erstellen.
+
+```{r}
+train <- pig_tbl %>% 
+  sample_frac(0.70)
+test  <- anti_join(pig_tbl,
+                   train, 
+                   by = 'pig_id')
+```
+:::
+
 ```{r}
 pig_data_split <- initial_split(pig_tbl, prop = 3/4)
+```
 
+Jetzt haben wir in dem Objekt `pig_data_split` die beiden Datensätze vorliegen. Wir ziehen uns nun die Trainingsdaten und die Testdaten in zwei neue Objekten heraus. Wir werden jetzt im weiteren Verlauf nur die Trainingsdaten nutzen. Die Testdaten nur einmal ganz am Ende, wenn wir die ROC-Kurven darstellen.
+
+```{r}
 pig_train_data <- training(pig_data_split)
 pig_test_data  <- testing(pig_data_split)
 ```
@@ -148,7 +168,8 @@ pig_cm %>% summary()
 ```
 
 ```{r}
-autoplot(pig_cm, type = "mosaic")
+autoplot(pig_cm, type = "mosaic") +
+  theme_bw() 
 ```
 
 ## Resampling
@@ -179,10 +200,10 @@ tune_spec <- nearest_neighbor(neighbors = tune(),
 tune_spec
 ```
 
-Ich nutze hier `levels = 2` damit hier die Ausführung nicht so lange läuft. Das ist natürlich etwas zu wenig. Fange am besten mit `levels = 5` an und schaue, wie lange das zusammen mit der Kreuzvalidierung dann dauert.
+Ich nutze hier `levels = 5` damit hier die Ausführung nicht so lange läuft. Das ist natürlich etwas zu wenig. Fange am besten mit `levels = 5` an und schaue, wie lange das zusammen mit der Kreuzvalidierung dann dauert. Dann kannst du die Levels noch hochschrauben. Beachte aber, dass mehr Level nur mehr Zwischenschritte bedeutet. Jede Option hat eine Spanneweite `range`, die du dann anpassen musst, wenn du *höhere* Werte haben willst. In unserem Fall ist die Anzahl an `neighbors` auf 1 bis 10 gesetzt. Mehr Level würden nur mehr Zwischenschritte bedeuten. Deshalb habe ich die Spannweite auf 1 bis 20 Nachbarn gesetzt.
 
 ```{r}
-pig_grid <- grid_regular(neighbors(),
+pig_grid <- grid_regular(neighbors(range = c(1, 20)),
                          weight_func(),
                          dist_power(),
                          levels = 5)
@@ -229,11 +250,12 @@ pig_tune_res %>%
   mutate(weight_func = as_factor(weight_func),
          dist_power = as_factor(dist_power)) %>%
   ggplot(aes(neighbors, mean, color = weight_func, linetype = dist_power)) +
-  geom_line(size = 1.5, alpha = 0.6) +
-  geom_point(size = 2) +
+  theme_minimal() +
+  geom_line(alpha = 0.6) +
+  geom_point() +
   facet_wrap(~ .metric, scales = "free", nrow = 2) +
   scale_x_log10(labels = scales::label_number()) +
-  scale_color_viridis_d(option = "plasma", begin = .9, end = 0)
+  scale_color_okabeito()
 ```
 
 ```{r}
@@ -265,7 +287,8 @@ final_fit %>%
 final_fit %>%
   collect_predictions() %>% 
   roc_curve(infected, .pred_1, event_level = "second") %>% 
-  autoplot()
+  autoplot() +
+  theme_bw()
 ```
 
 ## kmeans Clustering
