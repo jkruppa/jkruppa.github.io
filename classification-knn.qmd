@@ -84,19 +84,7 @@ Soweit so gut. Und wie entscheide ich jetzt was weit weg ist? Wenn wir uns mit d
 
 ## Klassifikation
 
-Schauen wir uns als erstes eine simple Klassifikation mit dem $k$-NN Algorithmus an. Wir brauchen dafür erstmal einen Trainings- und Testdatensatz. Wir trainieren dann den $k$-NN Algorithmus auf den Trainingsdaten. Wenn wir dann mit dem Modell zufrieden sind, schauen wir, ob unserer Modell auch auf den Trainingsdaten funktioniert. Wir trennen daher die Daten mit $3/4$ Trainingsdaten und $1/4$ Testdaten auf. Wir nutzen dazu die Funktion `initial_split()`. Es gibt auch andere Möglichkeiten sich den Split in Trainings- und Testdatensatz zu erstellen, aber so geht es relativ einfach und schnell.
-
-::: column-margin
-Wenn wir eine ID Spalte haben, dann können wir auch über die Funktion `sample_frac()` und dem Anteil der ausgewählten Beobachtungen und der Funktion `anti_join()`, die Trainings- und Testdaten erstellen.
-
-```{r}
-train <- pig_tbl %>% 
-  sample_frac(0.70)
-test  <- anti_join(pig_tbl,
-                   train, 
-                   by = 'pig_id')
-```
-:::
+Schauen wir uns als erstes eine simple Klassifikation mit dem $k$-NN Algorithmus an. Wir brauchen dafür erstmal einen Trainings- und Testdatensatz. Wir trainieren dann den $k$-NN Algorithmus auf den Trainingsdaten. Wenn wir dann mit dem Modell zufrieden sind, schauen wir, ob unserer Modell auch auf den Trainingsdaten funktioniert. Wir trennen daher die Daten mit $3/4$ Trainingsdaten und $1/4$ Testdaten auf. Wir nutzen dazu die Funktion `initial_split()`. Es gibt auch andere Möglichkeiten sich den Split in Trainings- und Testdatensatz zu erstellen, aber so geht es relativ einfach und schnell. Im @sec-data-splitting kannst du dir auch noch eine Alternative anschauen.
 
 ```{r}
 pig_data_split <- initial_split(pig_tbl, prop = 3/4)
@@ -109,6 +97,10 @@ pig_train_data <- training(pig_data_split)
 pig_test_data  <- testing(pig_data_split)
 ```
 
+Wir brauchen wieder unser Rezept, in dem wir definieren, was an Schritten im Preproessing durchgeführt werden soll. Zuerst definieren wir unser Modell in der Funktion `recipe()`. Wir haben als unser Label die Variable `infected`, also ob ein Ferkel infiziert ist oder eben nicht. Wir nehmen dann die restlichen Variablen als Features mit ins Modell.
+
+Nachdem wir dann das Rezept haben, wollen wir noch alle numerischen Prädiktoren, also die Features, auf die Spannweite von $[0;1]$ bringen. Dann werden noch alle nominalen Variablen in Dummies kodiert. Abschließend entfernen wir dann noch eventuelle Variablen, die kaum noch eine Varianz vorliegen haben. Das soll es für diese Anwendung des $k$-NN Algorithmus hier erstmal reichen.
+
 ```{r}
 pig_rec <- recipe(infected ~ age + sex + location + activity + crp + 
                    frailty + bloodpressure + weight + creatinin,
@@ -118,17 +110,23 @@ pig_rec <- recipe(infected ~ age + sex + location + activity + crp +
  step_nzv(all_predictors())
 ```
 
+Jetzt kommen wir zu dem Modell. Wir wollen den $k$-NN Algorithmus rechnen und nutzen deshalb die Funktion `nearest_neighbor()`. Wir wollen dann `neighbors = 11` in dem Algorithmus nutzen. In der Funktion heißt dann das $k$ eben `neighbors`. Ist zwar nicht schön, aber das kennen wir ja schon alles von anderen Funktionen. Dann nutzen wir die `kknn` Engine und wollen eine Klassifikation rechnen. Wir rechnen eine Klassifikation, da wir als Outcome die Variable `infected` vorliegen haben und diese Variable binär ist.
+
 ```{r}
 knn_mod <- nearest_neighbor(neighbors = 11) %>% 
   set_engine("kknn") %>% 
   set_mode("classification") 
 ```
 
+Dann haben wir also unser Modell definiert. Auch haben wir dann auch das Rezept, was wir ausführen wollen. Wir kombinieren jetzt das Modell zusammen mit dem Rezept in einen Workflow durch die Funktion `workflow()`. Bis jetzt haben wir noch nichts gerechnet. Das Rechnen kommt jetzt im nächsten Schritt.
+
 ```{r}
 pig_wflow <- workflow() %>% 
   add_model(knn_mod) %>% 
   add_recipe(pig_rec)
 ```
+
+Wir wollen jetzt den Workflow ausführen. Dazu nutzen wir die Funktion `fit()`. Da es leider sehr viele R Pakete gibt, die die Funktion `fit()` implementiert haben, lege ich mit `parsnip::fit()` definitiv fest, dass wir die `fit()` Funktion aus dem R Paket `parsnip` nutzen wollen.
 
 ```{r}
 pig_fit <- pig_wflow %>% 
