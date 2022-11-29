@@ -24,11 +24,13 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 pacman::p_load(tidyverse, tidymodels, magrittr, 
                janitor, xgboost, ranger, kknn,
-               conflicted)
+               see, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
 conflict_prefer("extract", "magrittr")
+##
+set.seed(20234534)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -88,7 +90,6 @@ gummi_rec <- recipe(gender ~ ., data = gummi_train_data) %>%
   update_role(student_id, new_role = "ID") %>% 
   step_impute_mean(all_numeric_predictors(), -has_role("ID")) %>% 
   step_impute_bag(all_nominal_predictors(), -has_role("ID")) %>% 
-  step_discretize(semester, num_breaks = 3, min_unique = 4) %>% 
   step_range(all_numeric_predictors(), min = 0, max = 1, -has_role("ID")) %>% 
   step_dummy(all_nominal_predictors(), -has_role("ID")) %>% 
   step_nzv(all_predictors(), -has_role("ID"))
@@ -215,19 +216,30 @@ fit_lst %>%
 
 ```
 
--   **accuracy**
--   **kap**
--   **sens**
--   **spec**
--   **ppv**
--   **npv**
--   **mcc**
--   **j_index**
--   **bal_accuracy**
--   **detection_prevalence**
--   **precision**
--   **recall**
--   **f_meas**
+Wir können auch *ganz viele* Beurteilungskriterien für die Klassifikation in einer [Confusion matrix](https://en.wikipedia.org/wiki/Confusion_matrix) berechnen lassen.
+
+|              |                     |                      |                      |
+|:------------:|:-------------------:|:--------------------:|:--------------------:|
+|              |                     |    **Prädiktion**    |                      |
+|              |                     | $Positiv\; (PP)$ (1) | $Negativ\; (PN)$ (0) |
+| **Wahrheit** | $Positiv\; (P)$ (1) |         $TP$         |         $FN$         |
+|              | $Negativ\; (N)$ (0) |         $FP$         |         $TN$         |
+
+: Die [Confusion matrix](https://en.wikipedia.org/wiki/Confusion_matrix) als eine 2x2 Tabelle oder Vierfeldertafel {#tbl-confusion-matrix}
+
+-   **accuracy** ist der Anteil der Label, die richtig vorhergesagt werden.
+-   **kap** beschreibt Kappa und damit ein ähnliches Maß wie die *accuracy*. Dabei wird aber Kappa durch die *accuarcy* normalisiert, die allein durch Zufall zu erwarten wäre. Damit ist Kappa sehr nützlich, wenn eine oder mehrere Klassen große Häufigkeitsverteilungen haben.
+-   **sens** beschreibt die Sensitivität.
+-   **spec** beschreibt die Spezifität.
+-   **ppv** beschreibt den positiven prädiktiven Wert (eng. *positive predictive value*).
+-   **npv** beschreibt den negativen prädiktiven Wert (eng. *negative predictive value*).
+-   **mcc** beschreibt den Matthews Korrelationskoeffizienten (eng. *Matthews correlation coefficient*). Der Matthews-Korrelationskoeffizient (MCC) ist ein zuverlässiger statistischer Wert, der nur dann einen hohen Wert hat, wenn die Vorhersage in allen vier Kategorien der Konfusionsmatrix (richtig positiv, falsch negativ, richtig negativ und falsch positiv) gute Ergebnisse erzielt. Siehe dazu auch @chicco2020advantages.
+-   **j_index** beschreibt die Youden-J-Statistik und ist definiert als $J = sens + spec - 1$. Wenn wir also eine hohe Sensitivität und eine hohe Spezifität haben dann nähert sich $J$ der Eins an.
+-   **bal_accuracy** beschreibt die balancierte *accuarcy* und wird hier in der Funktion als der Durchschnitt von Sensitivität und Spezifität berechnet.
+-   **detection_prevalence** Die Entdeckungsprävalenz (eng. *detection prevalence*) ist definiert als die Anzahl der vorhergesagten positiven Ereignisse (sowohl richtig als auch falsch positiv) geteilt durch die Gesamtzahl der Vorhersagen.
+-   **precision** Bei der binären Klassifizierung ist die *precision* der positiv prädiktive Wert. Damit ist die *precision* die Anzahl der richtig positiven Ergebnisse geteilt durch die Anzahl aller positiven Ergebnisse, einschließlich derer, die nicht richtig erkannt wurden. Siehe auch [Confusion matrix](https://en.wikipedia.org/wiki/Confusion_matrix).
+-   **recall** Bei der binären Klassifizierung ist der *recall* die Sensitivität. Damit ist der *recall* die Anzahl der tatsächlich positiven Ergebnisse geteilt durch die Anzahl aller Ergebnisse, die als positiv hätten identifiziert werden müssen. Siehe auch [Confusion matrix](https://en.wikipedia.org/wiki/Confusion_matrix).
+-   **f_meas** beschreibt den F$_1$ Score und damit das harmonische Mittel aus Precision und Recall. Der höchstmögliche Wert eines F$_1$ Scores ist 1, was perfekte Präzision und Recall bedeutet, und der niedrigstmögliche Wert ist 0, wenn sowohl Präzision als auch Recall null sind. Siehe auch [Confusion matrix](https://en.wikipedia.org/wiki/Confusion_matrix).
 
 ```{r}
 roc_tbl <- fit_lst %>% 
@@ -259,17 +271,15 @@ pr_tbl <- fit_lst %>%
 roc_tbl %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
   theme_minimal() +
-  geom_path(lwd = 1.5, alpha = 0.8) +
+  geom_path() +
   geom_abline(lty = 3) + 
-  coord_equal() + 
-  scale_color_viridis_d(option = "plasma", end = .6)
+  scale_color_okabeito()
 
 pr_tbl %>% 
   ggplot(aes(x = recall, y = precision, col = model)) + 
   theme_minimal() +
-  geom_path(lwd = 1.5, alpha = 0.8) +
-  coord_equal() + 
-  scale_color_viridis_d(option = "plasma", end = .6)
+  geom_path() +
+  scale_color_okabeito()
 ```
 
 ## Visualisation
