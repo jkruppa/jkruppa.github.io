@@ -27,6 +27,8 @@ conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
 conflict_prefer("extract", "magrittr")
+##
+set.seed(2025429)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -130,7 +132,7 @@ rpart_aug %>%
 ```{r}
 rpart_fit %>%
   extract_fit_engine() %>%
-  rpart.plot(roundint = FALSE)
+  rpart.plot(roundint = FALSE, extra = 101)
 ```
 
 ## Random Forest {#sec-class-rf}
@@ -243,6 +245,109 @@ xgboost_cm %>% summary()
 
 ```{r}
 xgboost_aug %>% 
+  roc_curve(gender, .pred_w, event_level = "second") %>% 
+  autoplot()
+```
+
+## Tuning
+
+```{r}
+tune_spec <-  boost_tree(mtry = tune(), 
+                         min_n = tune(), 
+                         trees = tune()) %>% 
+  set_engine("xgboost") %>% 
+  set_mode("classification")
+
+tune_spec
+```
+
+Ich nutze hier `levels = 2` damit hier die Ausführung nicht so lange läuft. Das ist natürlich etwas zu wenig. Fange am besten mit `levels = 5` an und schaue, wie lange das zusammen mit der Kreuzvalidierung dann dauert.
+
+`mtry` kennt nicht die Spaltenzahl
+
+```{r}
+gummi_grid <- grid_regular(mtry(range = c(1, 4)),
+                           trees(),
+                           min_n(),
+                           levels = 5)
+```
+
+Eigentlich ist eine 10-fache Kreuzvalidierung mit $v=10$ besser. Das dauert mir dann aber hier im Skript viel zu lange. Deshalb habe ich hier nur $v=5$ gewählt. Wenn du das Tuning rechnest, nimmst du natürlich eine 10-fach Kreuzvalidierung.
+
+```{r}
+gummi_folds <- vfold_cv(gummi_train_data, v = 5)
+```
+
+```{r}
+gummi_tune_wflow <- workflow() %>% 
+  add_model(tune_spec) %>% 
+  add_recipe(gummi_rec)
+```
+
+Wenn du `control_grid(verbose = TRUE)` wählst, dann erhälst du eine Ausgabe wie weit das Tuning gerade ist.
+
+```{r}
+#| eval: false
+gummi_tune_res <- gummi_tune_wflow %>% 
+   tune_grid(resamples = gummi_folds,
+             grid = gummi_grid,
+             control = control_grid(verbose = FALSE))
+```
+
+```{r}
+#| eval: false
+#| echo: false
+
+## write_rds(gummi_tune_res, "data/gummi_xboost_tune_res.rds")
+```
+
+```{r}
+#| echo: false
+
+gummi_tune_res <- read_rds("data/gummi_xboost_tune_res.rds")
+```
+
+```{r}
+gummi_tune_res %>%
+  collect_metrics() %>%
+  mutate(trees = as_factor(trees),
+         min_n = as_factor(min_n)) %>%
+  ggplot(aes(mtry, mean, color = min_n, linetype = trees)) +
+  geom_line(size = 1.5, alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_wrap(~ .metric, scales = "free", nrow = 2) +
+  scale_x_log10(labels = scales::label_number()) +
+  scale_color_viridis_d(option = "plasma", begin = .9, end = 0)
+```
+
+```{r}
+gummi_tune_res %>%
+  show_best("accuracy")
+```
+
+```{r}
+best_xgboost <- gummi_tune_res %>%
+  select_best("accuracy")
+
+best_xgboost
+```
+
+```{r}
+final_gummi_wf <- gummi_tune_wflow %>% 
+  finalize_workflow(best_xgboost)
+
+final_gummi_wf 
+```
+
+```{r}
+final_fit <- final_gummi_wf %>%
+  last_fit(gummi_data_split) 
+
+final_fit %>%
+  collect_metrics()
+
+final_fit %>%
+  collect_predictions() %>% 
   roc_curve(gender, .pred_w, event_level = "second") %>% 
   autoplot()
 ```
