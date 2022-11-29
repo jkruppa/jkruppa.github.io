@@ -126,17 +126,23 @@ pig_wflow <- workflow() %>%
   add_recipe(pig_rec)
 ```
 
-Wir wollen jetzt den Workflow ausführen. Dazu nutzen wir die Funktion `fit()`. Da es leider sehr viele R Pakete gibt, die die Funktion `fit()` implementiert haben, lege ich mit `parsnip::fit()` definitiv fest, dass wir die `fit()` Funktion aus dem R Paket `parsnip` nutzen wollen.
+Wir wollen jetzt den Workflow auf den Trainingsdaten ausführen. Dazu nutzen wir die Funktion `fit()`. Da es leider sehr viele R Pakete gibt, die die Funktion `fit()` implementiert haben, lege ich mit `parsnip::fit()` definitiv fest, dass wir die `fit()` Funktion aus dem R Paket `parsnip` nutzen wollen.
 
 ```{r}
 pig_fit <- pig_wflow %>% 
   parsnip::fit(pig_train_data)
 ```
 
+Jetzt haben wir den Fit des Modells vorliegen. Mit dem Modell werden wir jetzt schauen, wie gut wir das Outcome `infected` in den Testdaten vorhersagen können. Wir nutzen dazu die Funktion `augment()`. Die Funktion verbindet den Testdatensatz mit den Information aus der Vorhersage. Wie immer brauchen wir nicht alles, was wir wiedergegeben kriegen. Daher wählen wir nur die Spalte `infected`, da stehen ja unsere wahren Werte für den Infektionsstatus drin und die Vorhersagen aus dem Modell. Die Vorhersagen des Modells haben alle ein `pred` im Namen, also können wir die Funktion `matches()` nutzen um diese Spalten auszuwählen.
+
 ```{r}
 pig_aug <- augment(pig_fit, pig_test_data ) %>% 
   select(infected, matches("pred"))
+
+pig_aug
 ```
+
+Wir erhalten also den Infektionsstatus der Testdaten, den vorhergesagte Infektionsstatus aus dem $k$-NN Algorithmus, die Wahrscheinlichkeit für einen Infektionsstatus von 0 und die die Wahrscheinlichkeit für einen Infektionsstatus von 1. Damit haben wir alles zusammen um die ROC Kurven zu zeichnen. Dafür müssen wir die `truth` Spalte angeben und nennen in welcher Spalte die Wahrscheinlichkeit für die `truth` stehen. Wir definieren auch das `event_level` als `second`. Wenn die ROC Kurve auf der *falschen Seite* der Diagonalen ist, dann liegt es an dem falschen `event_level`. Dann versuche einmal `event_level = "first"` und erstelle die ROC Kurve neu.
 
 ```{r}
 pig_aug %>% 
