@@ -8,7 +8,9 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
-[In dem @sec-test-diag erfährst du mehr darüber was eine ROC Kurve ist und wie du die ROC Kurve interpretieren kannst.]{.aside}
+In diesem Kapitel wollen wir drei ausgewählte Algorithmen miteinander vergleichen. Ich habe hier den [$k$-NN Algorithmus](#sec-knn), den [Random Forest Algorithmus](#sec-class-rf) und den [xgboost Algorithmus](#sec-xgboost) ausgewählt. Das ist eigentlich eine relativ willkürliche Auswahl. Aber dann haben wir drei Modelle, die wir mit statistischen Maßzahlen vergleichen können. Ich rechne die Algorithmen hier relativ flott durch, wenn du mehr über die Algorithmen wissen willst, schau bitte dann in die entsprechenden Kapitel. Hier fallen also viele Dinge einfach so aus dem Himmel. Mir geht es aber auch am Ende darum, einmal die drei Algorithmen zu vergleichen.
+
+Häufig stellt sich natürlich die Frage, welche der statistischen Maßzahlen soll ich denn nun nehmen? Wie immer ist die Antwort, kommt drauf an. Ich würde dir empfehlen, die ROC Kurve für die Klassifikation zu nehmen. Dann wird auch häufig die Accuarcy berichtet. Danach wird es dann schon schwammiger und es kommt dann auch darauf an an *wen* du berichtest. Schreibst du also deine Abschlussarbeit, dann musst du dich mit deinen Betreuern abstimmen. Bei einer wissenschaftlichen Veröffentlichung würde ich in den anderen Veröffentlichungen des Journals schauen, was dort im Rahmen des maschinellen Lernens für Gütekriterien veröffentlicht werden. In diesem Kapitel gehen wir jedenfalls eine Menge Maßzahlen für die Klassifikation einmal durch.
 
 ::: callout-caution
 ## Tuning und Resampling?
@@ -16,7 +18,7 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 In diesem Kapitel werde ich auf das Tuning und das Resampling verzichten. Du findest aber in jedem Anwendungskapitel nochmal den R Code für das Tuning und das Resampling. Wenn du willst, kannst und solltest du auch die beiden Schritte noch in den Code mit dazwischen schalten. Auf der Webseite [Tidymodels - A predictive modeling case study](https://www.tidymodels.org/start/case-study/) findest du nochmal Hilfe dazu.
 :::
 
-## Genutzte R Pakete für das Kapitel
+## Genutzte R Pakete
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
@@ -258,9 +260,15 @@ Wir können auch *ganz viele* Beurteilungskriterien für die Klassifikation in e
 Main Caption
 :::
 
+##### Accuarcy {.unnumbered}
+
 `accuracy` ist der Anteil der Label, die richtig vorhergesagt werden.
 
+##### Kappa {.unnumbered}
+
 `kap` beschreibt Kappa und damit ein ähnliches Maß wie die *accuracy*. Dabei wird aber Kappa durch die *accuarcy* normalisiert, die allein durch Zufall zu erwarten wäre. Damit ist Kappa sehr nützlich, wenn eine oder mehrere Klassen große Häufigkeitsverteilungen haben.
+
+##### Sensitivität {.unnumbered}
 
 `sens` beschreibt die Sensitivität oder die *true positive rate (TPR)*
 
@@ -268,11 +276,15 @@ $$
 \mbox{Sensitivität} = \mbox{sens} = \cfrac{TP}{TP + FN} = \cfrac{51}{51 + 7} = 0.879
 $$
 
+##### Spezifität {.unnumbered}
+
 `spec` beschreibt die Spezifität oder die *true negative rate (TNR)*
 
 $$
 \mbox{Spezifität} = \mbox{spec} = \cfrac{TN}{TN + FP} = \cfrac{49}{49 + 12} = 0.803
 $$
+
+##### Positiver prädiktiver Wert {.unnumbered}
 
 `ppv` beschreibt den positiven prädiktiven Wert (eng. *positive predictive value*).
 
@@ -280,13 +292,19 @@ $$
 \mbox{Positiver prädiktiver Wert} = \mbox{ppv} = \cfrac{TP}{PP} = \cfrac{51}{63} = 0.81
 $$
 
+##### Negativer prädiktiver Wert {.unnumbered}
+
 `npv` beschreibt den negativen prädiktiven Wert (eng. *negative predictive value*).
 
 $$
 \mbox{Negativer prädiktiver Wert} = \mbox{npv} = \cfrac{TN}{PN} = \cfrac{49}{56} = 0.875
 $$
 
+##### Matthews Korrelationskoeffizienten {.unnumbered}
+
 `mcc` beschreibt den Matthews Korrelationskoeffizienten (eng. *Matthews correlation coefficient*). Der Matthews-Korrelationskoeffizient (MCC) ist ein zuverlässiger statistischer Wert, der nur dann einen hohen Wert hat, wenn die Vorhersage in allen vier Kategorien der Konfusionsmatrix (richtig positiv, falsch negativ, richtig negativ und falsch positiv) gute Ergebnisse erzielt. Wir berechnen den Wert hier jetzt nicht, da die Formel insgesamt acht zusammengesetzte Terme aus der Konfusionsmatrix beinhaltet. Für die Berechnung einmal beim [Matthews correlation coefficient](https://en.wikipedia.org/wiki/Phi_coefficient) nachlesen oder aber auch @chicco2020advantages berücksichtigen.
+
+##### Youden-J-Statistik {.unnumbered}
 
 `j_index` beschreibt die Youden-J-Statistik und ist definiert als $J = sens + spec - 1$. Wenn wir also eine hohe Sensitivität und eine hohe Spezifität haben dann nähert sich $J$ der Eins an.
 
@@ -294,17 +312,23 @@ $$
 \mbox{Youden-J} = \mbox{j index} = sens + spec - 1 = 0.879 + 0.803 - 1  = 0.682
 $$
 
+##### Balancierte Accuarcy {.unnumbered}
+
 `bal_accuracy` beschreibt die balancierte *accuarcy* und wird hier in der Funktion als der Durchschnitt von Sensitivität und Spezifität berechnet.
 
 $$
 \mbox{Balanced accuracy} = \cfrac{TPR + TNR}{2} = \cfrac{0.879 + 0.803}{2} = 0.841
 $$
 
+##### Entdeckungsprävalenz {.unnumbered}
+
 `detection_prevalenc`**e** Die Entdeckungsprävalenz (eng. *detection prevalence*) ist definiert als die Anzahl der vorhergesagten positiven Ereignisse (sowohl richtig als auch falsch positiv) geteilt durch die Gesamtzahl der Vorhersagen.
 
 $$
 \mbox{Entdeckungsprävalenz} = \cfrac{TP + FP}{TP + FP + FN + TN} = \cfrac{51 + 12}{51 + 12 + 7 + 49} = 0.529
 $$
+
+##### Precision und Recall {.unnumbered}
 
 ![Darstellung .](images/class-pre-recall.png){#fig-pre-recall fig-align="center" width="100%"}
 
@@ -320,11 +344,17 @@ $$
 \mbox{Recall} = \mbox{Sensitivität} = \cfrac{TP}{TP + FN} = \cfrac{51}{51 + 7} = 0.879
 $$
 
+##### F$_1$ Score {.unnumbered}
+
 `f_meas` beschreibt den F$_1$ Score und damit das harmonische Mittel aus Precision und Recall. Der höchstmögliche Wert eines F$_1$ Scores ist 1, was perfekte Präzision und Recall bedeutet, und der niedrigstmögliche Wert ist 0, wenn sowohl Präzision als auch Recall null sind. Siehe auch [Confusion matrix](https://en.wikipedia.org/wiki/Confusion_matrix).
 
 $$
 F_1 = \cfrac{2 \cdot TP}{2 \cdot TP + FP + FN} = \cfrac{2 \cdot 51}{2 \cdot 51 + 12 + 7} = 0.843
 $$
+
+##### ROC & Precision recall Kurven {.unnumbered}
+
+[In dem @sec-test-diag erfährst du mehr darüber was eine ROC Kurve ist und wie du die ROC Kurve interpretieren kannst.]{.aside}
 
 ```{r}
 roc_tbl <- fit_lst %>% 
