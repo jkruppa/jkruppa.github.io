@@ -35,17 +35,18 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
+Bei dem vorherigen Beispielen haben wir immer unseren Datensatz zu den infizierten Ferkeln genutzt. In diesem Kapitel wolle wir uns aber mal auf einen echten Datensatz anschauen. Wir nutzen daher einmal den Gummibärchendatensatz. Als unser Label und daher als unser Outcome nehmen wir das Geschlecht. Dabei wollen wir dann die weiblichen Studierenden vorhersagen. Im Weiteren nehmen wir nur die Spalte Geschlecht sowie als Prädiktoren die Spalten `most_liked`, `age`, `semester`, und `height`.
+
 ```{r}
 gummi_tbl <- read_excel("data/gummibears.xlsx") %>% 
   mutate(gender = as_factor(gender),
-         most_liked = as_factor(most_liked),
-         student_id = 1:n()) %>% 
-  select(student_id, gender, most_liked, age, semester, height) %>% 
+         most_liked = as_factor(most_liked)) %>% 
+  select(gender, most_liked, age, semester, height) %>% 
   drop_na(gender)
 
 ```
 
-In @tbl-gummi-prepro
+Wir dürfen keine fehlenden Werte in den Daten haben. Wir können für die Prädiktoren später die fehlenden Werte impurtieren. Aber wir können keine Labels imputieren. Daher entfernen wir alle Beobachtungen, die ein `NA` in der Variable `gender` haben. Wir haben dann insgesamt $n = `r nrow(gummi_tbl)`$ Beobachtungen vorliegen. In @tbl-gummi-prepro sehen wir nochmal die Auswahl des Datensatzes in gekürzter Form.
 
 ```{r}
 #| echo: false
@@ -64,24 +65,32 @@ rbind(head(gummi_raw_tbl),
   kable(align = "c", "pipe")
 ```
 
+Unsere Fragestellung ist damit, können wir anhand unserer Prädiktoren männliche von weiblichen Studierenden unterscheiden und damit auch klassifizieren? Um die Klassifikation mit Entscheidungsbäumen rechnen zu können brauchen wir wie bei allen anderen Algorithmen auch einen Trainings- und Testdatensatz. Wir splitten dafür unsere Daten in einer 3 zu 4 Verhältnis in einen Traingsdatensatz sowie einen Testdatensatz auf. Der Traingsdatensatz ist dabei immer der größere Datensatz. Da wir aktuell nicht so viele Beobachtungen in dem Gummibärchendatensatz haben, möchte ich mindestens 100 Beobachtungen in den Testdaten. Deshalb kommt mir der 3:4 Split sehr entgegen.
+
+[Im maschinellen Lernen sind alle Datensätze, die weniger als tausend Beobachtungen vorliegen haben, klein.]{.aside}
+
 ```{r}
 gummi_data_split <- initial_split(gummi_tbl, prop = 3/4)
+```
 
+Wir speichern uns jetzt den Trainings- und Testdatensatz jeweils separat ab. Die weiteren Modellschritte laufen alle auf dem Traingsdatensatz, wie nutzen dann erst ganz zum Schluß einmal den Testdatensatz um zu schauen, wie gut unsere trainiertes Modell auf den neuen Testdaten funktioniert.
+
+```{r}
 gummi_train_data <- training(gummi_data_split)
 gummi_test_data  <- testing(gummi_data_split)
 ```
 
+Nachdem wir die Daten vorbereitet haben, müssen wir noch das Rezeot mit den Vorverabreitungsschritten definieren. Wir schreiben, dass wir das Geschlecht `gender` als unser Label haben wollen. Daneben nehmen wir alle anderen Spalten als Prädiktoren mit in unser Modell, das machen wir dann mit dem `.` Symbol. Da wir noch fehlende Werte in unseren Prädiktoren haben, imputieren wir noch die numerischen Variablen mit der Mittelwertsimputation und die nominalen fehlenden Werte mit Entscheidungsbäumen. Es gibt wie immer noch andere Imputationsmöglichkeiten, ich habe mich jetzt aus praktischen Gründen für dies beiden Verfahren entschieden. Ich überspringe hier auch die Diagnose der Imputation, also ob das jetzt eine gute und sinnvolle Imputation der fehlenden Werte war oder nicht. Die Diagnoseschritte müsstest du im Anwendungsfall nochmal im [Kapitel zur Imputation](#sec-missing) nachlesen und anwenden. Dann müssen wir noch alle numerischen Vriablen normalisieren und alle nominalen Variablen dummykodieren. Am Ende werde ich nochmal alle Variablen entfernen, sollte die Varianz in einer Variable nahe der Null sein.
+
 ```{r}
 gummi_rec <- recipe(gender ~ ., data = gummi_train_data) %>% 
-  update_role(student_id, new_role = "ID") %>% 
-  step_naomit(all_outcomes()) %>% 
-  step_impute_mean(all_numeric_predictors(), -has_role("ID")) %>% 
-  step_impute_bag(all_nominal_predictors(), -has_role("ID")) %>% 
-  step_range(all_numeric_predictors(), min = 0, max = 1, -has_role("ID")) %>% 
-  step_dummy(all_nominal_predictors(), -has_role("ID")) %>% 
-  step_nzv(all_predictors(), -has_role("ID"))
+  step_impute_mean(all_numeric_predictors()) %>% 
+  step_impute_bag(all_nominal_predictors()) %>% 
+  step_range(all_numeric_predictors(), min = 0, max = 1) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_nzv(all_predictors())
 
-gummi_rec %>% summary()
+gummi_rec
 
 ```
 
@@ -186,7 +195,8 @@ ranger_fit <- ranger_wflow %>%
 ```{r}
 ranger_fit %>% 
   extract_fit_parsnip() %>% 
-  vip(num_features = 20)
+  vip(num_features = 20) +
+  theme_minimal()
 ```
 
 ```{r}
@@ -213,7 +223,7 @@ ranger_aug %>%
 ::: callout-note
 ## Kann ich auch eine Kreuzvalidierung und Tuning für Random Forest durchführen?
 
-Ja, kannst du. Wenn du nur eine Kreuzvalidierung durchführen willst, findest du alles im @sec-knn für den $k$-NN Algorithmus. Du musst dort nur den Workflow ändern und schon kannst du alles auch auf den Random Forest Algorithmus anwenden. Wir nutzen gleich die Kreuzvalidierung in Kombination mit dem Tuning vom xgboost Algorithmus.
+Ja, kannst du. Wenn du *nur* eine Kreuzvalidierung durchführen willst, findest du alles im @sec-knn für den $k$-NN Algorithmus. Du musst dort nur den Workflow ändern und schon kannst du alles auch auf den Random Forest Algorithmus anwenden. Wir nutzen gleich die Kreuzvalidierung in Kombination mit dem Tuning vom xgboost Algorithmus.
 
 Wenn du also den Random Forest Algorithmus auch tunen willst, dann schaue einfach weiter unten nochmal bei dem Tuning des xgboost Algorithmus rein. Es ändert sich nur kaum was für die [Tuning Parameter vom Random Forest Algorithmus](https://parsnip.tidymodels.org/reference/details_rand_forest_ranger.html).
 :::
@@ -271,7 +281,7 @@ xgboost_aug %>%
 ::: callout-note
 ## Kann ich auch eine Kreuzvalidierung für xgboost durchführen?
 
-Ja, kannst du. Wenn du nur eine Kreuzvalidierung durchführen willst, findest du alles im @sec-knn für den $k$-NN Algorithmus. Du musst dort nur den Workflow ändern und schon kannst du alles auch auf den xgboost Algorithmus anwenden. Wir nutzen gleich die Kreuzvalidierung in Kombination mit dem Tuning vom xgboost Algorithmus.
+Ja, kannst du. Wenn du *nur* eine Kreuzvalidierung durchführen willst, findest du alles im @sec-knn für den $k$-NN Algorithmus. Du musst dort nur den Workflow ändern und schon kannst du alles auch auf den xgboost Algorithmus anwenden. Wir nutzen gleich die Kreuzvalidierung in Kombination mit dem Tuning vom xgboost Algorithmus.
 :::
 
 ## Tuning
