@@ -218,6 +218,16 @@ Wir sehen, dass wir eine Accuarcy von $0.718$ erreichen und eine AUC von $0.7$. 
 
 ## Tuning
 
+Was heißt Tuning? Wie bei einem Auto können wir an verschiedenen Stellschrauben bei einem mathematischen Algorithmus schrauben. Welche Schrauben und Teile das sind, hängt dann wieder vom Algorithmus ab. Im Falle des $k$-NN Algorithmus können wir an folgenden Parametern drehen und jeweils schauen, was dann mit unserer Vorhersage passiert.
+
+-   `neighbors`, eine einzelne Zahl für die Anzahl der zu berücksichtigenden Nachbarn (oft $k$ genannt). Für `kknn` wird ein Wert von 5 verwendet, wenn keine Anzahl angegeben ist.
+-   `weight_func` ein Wort für den Typ der Kernel-Funktion, die zur Gewichtung der Abstände zwischen den Beobachtungen verwendet wird.
+-   `dist_power`, eine einzelne Zahl für den Parameter, der bei der Berechnung der Minkowski-Distanz verwendet wird. Wir nutzen also die `dist_power` nicht bei jedem Tuningschritt, da nicht jede Gewichtsfunktion eine `dist_power` braucht.
+
+Nun ist es so, dass wir natürlich nicht händisch alle möglichen Kombinationen von der Anzahl der Nachbarn, der Distanzfunktion und der Gewichtung der Distanz berechnen wollen. Das sind ziemlich viele Kombinationen und wir kommen dann vermutlich schnell durcheinander. Deshalb gibt es die Funktion `tune()` aus dem R Paket `tune`, die uns einen Prozess anbietet, das Tuning automatisiert durchzuführen.
+
+Als erstes müssen wir uns ein Objekt bauen, das aussieht wie ein ganz normales Modell in der Klassifikation. Aber wir ergänzen jetzt noch hinter jeder zu tunenden Option noch die Funktion `tune()`. Das sind die Parameter des Algorithmus, die wir später tunen wollen.
+
 ```{r}
 tune_spec <- nearest_neighbor(neighbors = tune(),
                               weight_func = tune(), 
@@ -228,7 +238,15 @@ tune_spec <- nearest_neighbor(neighbors = tune(),
 tune_spec
 ```
 
-Ich nutze hier `levels = 5` damit hier die Ausführung nicht so lange läuft. Das ist natürlich etwas zu wenig. Fange am besten mit `levels = 5` an und schaue, wie lange das zusammen mit der Kreuzvalidierung dann dauert. Dann kannst du die Levels noch hochschrauben. Beachte aber, dass mehr Level nur mehr Zwischenschritte bedeutet. Jede Option hat eine Spanneweite `range`, die du dann anpassen musst, wenn du *höhere* Werte haben willst. In unserem Fall ist die Anzahl an `neighbors` auf 1 bis 10 gesetzt. Mehr Level würden nur mehr Zwischenschritte bedeuten. Deshalb habe ich die Spannweite auf 1 bis 20 Nachbarn gesetzt.
+Jetzt bauen wir uns den Workflow indem wir statt unserem Modell, die Tuninganweisung in den Workflow reinnehmen. Echt simpel und straightforward. Das Rezept bleibt ja das Gleiche.
+
+```{r}
+pig_tune_wflow <- workflow() %>% 
+  add_model(tune_spec) %>% 
+  add_recipe(pig_rec)
+```
+
+Jetzt müssen wir noch alle Kombinationen aus den drei Parametern `neighbors`, `weight_func` und `dist_power` ermitteln. Das macht die Funktion `grid_regular()`. Es gibt da noch andere Funktionen in dem R Paket `tune`, aber ich konzentriere mich hier auf die einfachste. Jetzt müssen wir noch die Anzahl an Kombinationen festlegen. Ich möchte für jeden Parameter fünf Werte tunen. Daher nutze ich hier die Option `levels = 5` auch damit hier die Ausführung nicht so lange läuft. Fange am besten mit `levels = 5` an und schaue, wie lange das zusammen mit der Kreuzvalidierung dann dauert. Dann kannst du die Levels noch hochschrauben. Beachte aber, dass mehr Level nur mehr *Zwischenschritte* bedeutet. Jede Option hat eine Spannweite `range`, die du dann anpassen musst, wenn du *höhere* Werte haben willst. In unserem Fall ist die default Anzahl an `neighbors` auf 1 bis 10 gesetzt. Mehr Level würden nur mehr Zwischenschritte bedeuten. Deshalb habe ich die Spannweite auf 1 bis 20 Nachbarn gesetzt. Jetzt wählt die Funktion fünf Zwischenschritte (`levels = 5`) zwischen ein und zwanzig aus (`range = c(1, 20)`).
 
 ```{r}
 pig_grid <- grid_regular(neighbors(range = c(1, 20)),
@@ -237,19 +255,13 @@ pig_grid <- grid_regular(neighbors(range = c(1, 20)),
                          levels = 5)
 ```
 
-Eigentlich ist eine 10-fache Kreuzvalidierung mit $v=10$ besser. Das dauert mir dann aber hier im Skript viel zu lange. Deshalb habe ich hier nur $v=5$ gewählt. Wenn du das Tuning rechnest, nimmst du natürlich eine 10-fach Kreuzvalidierung.
+Das Tuning nur auf dem Trainingsdatensatz durchzuführen ist nicht so eine gute Idee. Deshalb nutzen wir hier auch die Kreuzvalidierung. Eigentlich ist eine 10-fache Kreuzvalidierung mit $v=10$ besser. Das dauert mir dann aber hier im Skript viel zu lange. Deshalb habe ich hier nur $v=5$ gewählt. Wenn du das Tuning rechnest, nimmst du natürlich eine 10-fach Kreuzvalidierung.
 
 ```{r}
 pig_folds <- vfold_cv(pig_train_data, v = 5)
 ```
 
-```{r}
-pig_tune_wflow <- workflow() %>% 
-  add_model(tune_spec) %>% 
-  add_recipe(pig_rec)
-```
-
-Wenn du `control_grid(verbose = TRUE)` wählst, dann erhälst du eine Ausgabe wie weit das Tuning gerade ist. **Achtung!**, das Tuning dauert seine Zeit. Im Falle des $k$-NN Algorithmus dauert das Tuning zwar nicht so lange, aber immer noch ein paar Minuten. Du kannst das Ergebnis des Tunings auch in der Datei `pig_knn_tune_res.rds` finden.
+Nun bringen wir den Workflow zusammen mit dem Tuninggrid und unseren Sets der Kreuzvaidierung. Daher pipen wir den Workflow in die Funktion `tune_grid()`. Als Optionen brauchen wir die Kreuzvaldierungsdatensätze und das Tuninggrid. Wenn du `control_grid(verbose = TRUE)` wählst, dann erhälst du eine Ausgabe wie weit das Tuning gerade ist. **Achtung!**, das Tuning dauert seine Zeit. Im Falle des $k$-NN Algorithmus dauert das Tuning zwar nicht so lange, aber immer noch ein paar Minuten. Du kannst das Ergebnis des Tunings auch in der Datei `pig_knn_tune_res.rds` finden.
 
 ```{r}
 #| eval: false
