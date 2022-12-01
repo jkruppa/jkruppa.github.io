@@ -6,9 +6,7 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 *Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
 
-![](images/caution.png){fig-align="center" width="50%"}
-
-Was macht der $k$ nächste Nachbarn Algorithmus (eng. *k nearest neighbor*, abk. *k-NN*), wenn wir ihn verwenden? Der Algorithmus ist ein sehr einfacher Algorithmus, der auf den Abständen zu den benachbarten Beobachtungen basiert. Wir wollen also für eine neue Beobachtung den Infektionsstatus vorhersagen. Um diese Vorhersage zu bewerkstelligen nutzen wir die $k$-nächsten Nachbarn zu dieser neuen Beobachtung. Wenn die Mehrzahl der $k$-nächsten Nachbarn den Infektionsstatus $1$ hat, dann vergeben wir auch der neuen Beobachtung den Infektionsstatus $1$. Wenn dies nicht der Fall ist, dann erhält die neue Beobachtung den Infektionsstatus $0$.
+Was macht der $k$ nächste Nachbarn Algorithmus (eng. *k nearest neighbor*, abk. *k-NN*), wenn wir ihn verwenden? Der Algorithmus ist ein sehr einfacher Algorithmus, der auf den Abständen zu den benachbarten Beobachtungen basiert. Wir wollen also für eine neue Beobachtung den Infektionsstatus vorhersagen. Um diese Vorhersage zu bewerkstelligen nutzen wir die $k$-nächsten Nachbarn zu dieser neuen Beobachtung. Wenn die Mehrzahl der $k$-nächsten Nachbarn den Infektionsstatus $krank$ hat, dann vergeben wir auch der neuen Beobachtung den Infektionsstatus $krank$. Wenn dies nicht der Fall ist, dann erhält die neue Beobachtung den Infektionsstatus $gesund$. Wir werden uns hier wieder den Fall der binären Klassifikation anschauen. Wenn wir natürlich mehrere Klassen in einem Label haben, dann geht es ähnlich. Wir schauen uns prinzipiell die $k$ Nachbarn einer neuen Beobachtung an und entscheiden dann nach der Mehrheit der Klassen in diesen $k$ Nachbarn für den Status der neuen Beobachtung.
 
 ## Genutzte R Pakete
 
@@ -353,9 +351,9 @@ Eine guet ROC Kurve würde senkrecht nach oben gehen und dann waagrecht nach rec
 
 ## kmeans Clustering
 
-Neben der Klassifikation können wir den $k$-NN Algorithmus auch nutzen um Gruppen in den Daten zu finden. Die Idee ist recht einfach. Wir geben $k$ Cluster vor und der Algorithmus versucht nun die Daten so zu ordnen, dass sich $k$ Cluster bilden. Je nach der Nähe der Beobachtungen zueinander lassen sich dann mehr oder minder klar abgegrenzte Cluster bilden. Das Problem an der Sache ist die Definition von $k$ für die Anzahl der zu bildenden Cluster. Wir müssen nämlich selber festlegen, wie viele Cluster wir erwarten würden und der Algorithmus dann finden wird. Wenn wir $k = 3$ der Funktion `kmeans` mitgeben, dann findet die Funktion drei Cluster. Auch wenn zwei mehr Sinn gemacht hätten. Daher müssen wir immer selber ausprobieren und uns die Daten visualisieren, ob das mit den Clustern so passt.
+Neben der Klassifikation können wir den $k$-NN Algorithmus auch nutzen um Gruppen in den Daten zu finden. Die Idee ist recht einfach. Wir geben $k$ Cluster vor und der Algorithmus versucht nun die Daten nach einer gegebenen Distanzfunktion so zu ordnen, dass sich $k$ Cluster bilden. Je nach der Nähe der Beobachtungen zueinander lassen sich dann mehr oder minder klar abgegrenzte Cluster bilden. Das Problem an der Sache ist die Definition von $k$ für die Anzahl der zu bildenden Cluster. Wir müssen nämlich selber festlegen, wie viele Cluster wir erwarten würden und der Algorithmus dann finden wird. Wenn wir $k = 3$ der Funktion `kmeans` mitgeben, dann findet die Funktion drei Cluster. Auch wenn zwei mehr Sinn gemacht hätten. Daher müssen wir immer selber ausprobieren und uns die Daten visualisieren, ob das mit den Clustern so passt.
 
-Für Clusterbildung können wir nur numerische Variablen verwenden. Daher müssen wir hier über die Funktion `step_dummy` alle nominalen Variablen wie Faktoren in eine $0/1$-Kodierung umwandeln. Das ist eine Einschränkung des kmeans Algorithmus.
+Für Clusterbildung können wir nur numerische Variablen verwenden. Daher müssen wir hier über die Funktion `step_dummy` alle nominalen Variablen wie Faktoren in eine $0/1$-Kodierung umwandeln. Das ist eine Einschränkung des `kmeans` Algorithmus. Wir bauen uns also als erstes ein simples Rezept für unsere Ferkeldaten.
 
 ```{r}
 pig_kmeans_rec <- recipe(infected ~ age + sex + location + activity + crp + 
@@ -364,15 +362,21 @@ pig_kmeans_rec <- recipe(infected ~ age + sex + location + activity + crp +
   step_dummy(all_nominal_predictors()) 
 ```
 
+Dann müssen wir noch unser Rezept auf Daten anwenden. Da wir hier die gleichen Daten nutzen wollen, auf denen wir auch das Rezept definiert haben, nutzen wir die Funktion `juice()`. Sonst müssten wir in der Funktion `bake()` einen neuen Datensatz definieren.
+
 ```{r}
 pig_dummy_tbl <- pig_kmeans_rec %>% 
   prep %>% 
   juice()
 ```
 
+Nachdem wir jetzt einen Datensatz mit nur numerischen Variablen vorliegen haben, können wir die Funktion `kmeans()` ausführen. Wir wollen dabei aber drei Cluster bilden, das machen wir mit der Option `centers = 3`.
+
 ```{r}
 kmeans_obj <- kmeans(pig_dummy_tbl, centers = 3)
 ```
+
+Jetzt ziehen wir uns aus dem Objekt `kmeans_obj` noch die Cluster raus und kombinieren die Information welche Beobachtung in welchen Cluster fällt mit den ursprünglichen Daten. Damit sind wir dann hier schon fertig. Häufig wird die Funktion `kmeans` in der [Detektion von Ausreißern](#sec-outlier) zusammen mit dem Multidimensional Scaling verwendet.
 
 ```{r}
 pig_dummy_tbl %>% 
