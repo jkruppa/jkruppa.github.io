@@ -569,7 +569,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </header><div class="cell">
 
 </div>
-<p><em>Version vom December 01, 2022 um 09:24:38</em></p>
+<p><em>Version vom December 01, 2022 um 09:46:23</em></p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure"><p><img src="images/caution.png" class="img-fluid figure-img" style="width:50.0%"></p>
 </figure>
@@ -1076,6 +1076,7 @@ Computational engine: kknn </code></pre>
 <div class="cell">
 <div class="sourceCode" id="cb32"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">pig_tune_res</span> <span class="op">&lt;-</span> <span class="fu">read_rds</span><span class="op">(</span><span class="st">"data/pig_knn_tune_res.rds"</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>Nachdem das Tuning durchgelaufen ist, können wir uns über die Funktion <code>collect_metrics()</code>, die Ergebnisse des Tunings für jede Kombination der drei Parameter <code>neighbors</code>, <code>weight_func</code> und <code>dist_power</code> wiedergeben lassen. Diese Ausgabe ist super unübersichtlich. Deshalb einmal die Abbildung der mittleren Accuarcy und der mittleren AUC-Werte über alle Kreuzvalidierungen.</p>
 <div class="cell">
 <div class="sourceCode" id="cb33"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">pig_tune_res</span> <span class="op">%&gt;%</span></span>
 <span>  <span class="fu">collect_metrics</span><span class="op">(</span><span class="op">)</span> <span class="op">%&gt;%</span></span>
@@ -1092,6 +1093,7 @@ Computational engine: kknn </code></pre>
 <p><img src="classification-knn_files/figure-html/unnamed-chunk-28-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
+<p>Damit wir nicht händisch uns die beste Kombination raussuchen müssen, können wir die Funktion <code>show_best()</code> nutzen. Wir wählen hier die beste Accuarcy und erhalten dann die sortierten Ergebnisse nach der Accuarcy des Tunings.</p>
 <div class="cell">
 <div class="sourceCode" id="cb34"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">pig_tune_res</span> <span class="op">%&gt;%</span></span>
 <span>  <span class="fu">show_best</span><span class="op">(</span><span class="st">"accuracy"</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -1107,6 +1109,7 @@ Computational engine: kknn </code></pre>
 # … with abbreviated variable name ¹​.estimator</code></pre>
 </div>
 </div>
+<p>Das war die Funktion <code>show_best()</code> aber wir können uns auch die gleich die besten Parameter nach der Accuracy raus ziehen. Das Rausziehen der besten Parameter macht für uns die Funktion <code>select_best()</code>.</p>
 <div class="cell">
 <div class="sourceCode" id="cb36"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">best_knn</span> <span class="op">&lt;-</span> <span class="va">pig_tune_res</span> <span class="op">%&gt;%</span></span>
 <span>  <span class="fu">select_best</span><span class="op">(</span><span class="st">"accuracy"</span><span class="op">)</span></span>
@@ -1119,6 +1122,7 @@ Computational engine: kknn </code></pre>
 1        15 rectangular       1.25 Preprocessor1_Model059</code></pre>
 </div>
 </div>
+<p>Wir sehen, dass wir <code>neighbors = 15</code> wählen sollten. Dann müssen wir als Gewichtungsfunktion <code>rectangular</code> nutzen. Die Gewichtung der Distanz wäre dann <code>1.25</code>. Müssen wir jetzt die Zahlen wieder in ein Modell eingeben? Nein, müssen wir nicht. Mit der Funktion <code>finalize_workflow()</code> können wir dann die besten Parameter aus unserem Tuning gleich mit dem Workflow kombinieren. Dann haben wir unseren finalen, getunten Workflow. Du siehst dann auch in der Ausgabe, dass die neuen Parameter in dem <span class="math inline">\(k\)</span>-NN Algorithmus übernommen wurden</p>
 <div class="cell">
 <div class="sourceCode" id="cb38"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">final_pig_wf</span> <span class="op">&lt;-</span> <span class="va">pig_tune_wflow</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">finalize_workflow</span><span class="op">(</span><span class="va">best_knn</span><span class="op">)</span></span>
@@ -1147,10 +1151,12 @@ Main Arguments:
 Computational engine: kknn </code></pre>
 </div>
 </div>
+<p>Jetzt bleibt uns nur noch der letzte Fit übrig. Wir wollen unseren finalen, getunten Workflow auf die Testdaten anwenden. Dafür gibt es dann auch die passende Funktion. Das macht für uns die Funktion <code>last_fit()</code>, die sich dann die Informationen für die Trainings- und Testdaten aus unserem Datensplit von ganz am Anfang extrahiert.</p>
 <div class="cell">
 <div class="sourceCode" id="cb40"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">final_fit</span> <span class="op">&lt;-</span> <span class="va">final_pig_wf</span> <span class="op">%&gt;%</span></span>
 <span>  <span class="fu">last_fit</span><span class="op">(</span><span class="va">pig_data_split</span><span class="op">)</span> </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>Da wir immer noch eine Kreuzvaldierung rechnen, müssen wir dann natürlich wieder alle Informationen über alle Kreuzvaldierungsdatensätze einsammeln. Dann erhalten wir unsere beiden Gütekriterien für die Klassifikation der Infektion von Ferkeln nach dem <span class="math inline">\(k\)</span>-NN Algorithmus. So super sind die Zahlen nicht. Eine Accuracy von 73% bedeutet das wir nur knapp drei von vier Ferkeln richtig klassifizieren. Die AUC ist auch nicht berauschend, wir bringen also eine Menge LAbel durcheinander. Wir klassifizieren also gesunde Ferkeln als krank und umgekehrt.</p>
 <div class="cell">
 <div class="sourceCode" id="cb41"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">final_fit</span> <span class="op">%&gt;%</span></span>
 <span>  <span class="fu">collect_metrics</span><span class="op">(</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -1162,6 +1168,7 @@ Computational engine: kknn </code></pre>
 2 roc_auc  binary         0.662 Preprocessor1_Model1</code></pre>
 </div>
 </div>
+<p>Dann bleibt uns nur noch die ROC Kurve zu visualisieren. Da wir wieder etwas faul sind, nutzen wir die Funktion <code>autoplot()</code>. Als Alternative geht natürlich auch das <a href="https://web.expasy.org/pROC/screenshots.html">R Paket <code>pROC</code></a>, was eine Menge mehr Funktionen und Möglichkeiten bietet.</p>
 <div class="cell">
 <div class="sourceCode" id="cb43"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">final_fit</span> <span class="op">%&gt;%</span></span>
 <span>  <span class="fu">collect_predictions</span><span class="op">(</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
@@ -1172,6 +1179,7 @@ Computational engine: kknn </code></pre>
 <p><img src="classification-knn_files/figure-html/unnamed-chunk-34-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
+<p>Eine guet ROC Kurve würde senkrecht nach oben gehen und dann waagrecht nach rechts. Dann hätten wir eine AUC von 1 und eine perfekte Separation der beiden Label durch unseren Algorithmus. Unser Algorithmus würde jedes Ferkel in dem Testdatensatz korrekt dem Infektionsstatus krank und gesund zuweisen. Da wir eine ROC Kurve hier vorliegen haben, die sehr nahe an der Diagonalen ist, haben wir sehr viele falsch vorhergesagte Ferkel in unseren Testdaten. Ferkel die gesund sind, werden als krank klassifiziert uns umgekehrt.</p>
 </section><section id="kmeans-clustering" class="level2" data-number="52.7"><h2 data-number="52.7" class="anchored" data-anchor-id="kmeans-clustering">
 <span class="header-section-number">52.7</span> kmeans Clustering</h2>
 <p>Neben der Klassifikation können wir den <span class="math inline">\(k\)</span>-NN Algorithmus auch nutzen um Gruppen in den Daten zu finden. Die Idee ist recht einfach. Wir geben <span class="math inline">\(k\)</span> Cluster vor und der Algorithmus versucht nun die Daten so zu ordnen, dass sich <span class="math inline">\(k\)</span> Cluster bilden. Je nach der Nähe der Beobachtungen zueinander lassen sich dann mehr oder minder klar abgegrenzte Cluster bilden. Das Problem an der Sache ist die Definition von <span class="math inline">\(k\)</span> für die Anzahl der zu bildenden Cluster. Wir müssen nämlich selber festlegen, wie viele Cluster wir erwarten würden und der Algorithmus dann finden wird. Wenn wir <span class="math inline">\(k = 3\)</span> der Funktion <code>kmeans</code> mitgeben, dann findet die Funktion drei Cluster. Auch wenn zwei mehr Sinn gemacht hätten. Daher müssen wir immer selber ausprobieren und uns die Daten visualisieren, ob das mit den Clustern so passt.</p>
