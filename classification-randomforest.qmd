@@ -214,33 +214,41 @@ rpart_fit %>%
 
 In @fig-class-rf-02 sehen wir den finalen Entscheidungsbaum. Wir sehen, dass wir nicht weiter als fünf Splits nach unten gewandert sind. Das hatten wir ja auch mit dem Parameter `tree_depth` so eingestellt. Jetzt sehen wir aber auch, dass wir mit dem Preprocessing auch eine Grube graben können. Wir haben in unserem ersten Knoten 189 Männer und 165 Frauen. Daher hat der Knoten nach Mehrheitsentscheidung den Status `m`. Jetzt spalten wir den Knoten nach der Körpergröße von $0.48$ in zwei Gruppen. Was soll jetzt $0.48$ heißen? Keine Ahnung. Wir haben die Daten normalisiert. Wenn du hier die Werte für die Splits *interpretieren* willst, dann musst du auf den Orginaldaten rechnen. Nach dem Split sehen wir zwei Knoten, in denen zum einen die Männer domiern und zum anderen die Frauen. Wir splitten wieder nach der Körpergröße und erhalten immer reinere Knoten in den fast nur noch Männer oder Frauen sind.
 
+Schaue dir auch die anderen Arten der Visualisierung in `rpart.plot` an und entscheide, ob dir die anderen Varianten bessere Informationen liefern, die zu deiner wissenschaftlichen Fragestellung passen.
+
 An der Stelle trifft dann immer die Klassifikation auf die Interpretation. Du kannst nicht das Modell im Nachgang wieder entnormalisieren. Das geht nicht. Wenn du auf den Orginaldaten rechnest, dann wirst du ein anderes Modell erhalten. Das Modell mag besser oder schlechter sein, auf jeden Fall anders. Wie so oft hängt es von der wissenschaftlichen Fragestellung ab.
 
 ## Random Forest {#sec-rf}
 
-Wir wählen zufällig eine Anzahl an Zeilen und Spalten aus.
+Bis jetzt haben wir *einen* Entscheidungsbaum wachsen lassen. Was wäre, wenn wir statt einen Baum mehrere Bäume wachsen lassen. Wir lassen einen ganzen Wald (eng. *forest*) entstehen. Nun macht es wenig Sinn, immer den gleichen Baum auf immer den selben Daten wachsen zu lassen. Daher wählen wir zufällig eine Anzahl an Zeilen und Spalten aus bevor wir einen Baum in unserem Wald wachsen lassen. Dabei bringen wir zwei den Zufall in die Generierung eines Baums mit ein.
 
--   Zufällige Auswahl der Beobachtungen mit Zurücklegen. Wir haben also einzelne Zeilen der Daten und damit Beobachtungen mehrfach in den Daten.
--   Zufällige Auswahl eines Sets an Variablen. Wir nutzen nicht immer alle Variablen in unserem Modell sondern nur ein Set an Spalten.
+1)  Durch die zufällige Auswahl der Beobachtungen mit Zurücklegen. Wir haben also einzelne Zeilen und damit Beobachtungen mehrfach in den Daten.
+2)  Durch die zufällige Auswahl eines Sets an Variablen. Wir nutzen nicht immer alle Variablen in unserem Modell sondern nur ein Set an Spalten.
 
-Das Wort *Bagging* steht für *bootstrap aggregating* und ist eine Methode, um Vorhersagen aus verschiedenen Modellen zu kombinieren. Dabei müssen alle Modelle mit dem gleichen Algorithmus laufen, können aber auf verschiedenen Datensätzen oder aber Variablensätzen zugreifen. Häufig haben die Modelle eine hohee Varianz in der Vorhersage und wir nutzen dann Bagging um die Modelle miteinader zu kombinieren und dadurch die Varianz zu verringern. Die Ergebnisse der Modelle werden dann im einfachsten Fall gemittelt. Das Ergebnis jeder Modellvorhersage geht mit gleichem Gewicht in die Vorhersage ein. Wir haben auch noch andere Möglichkeiten, aber du kannst dir Vorstellen wir rechnen verschiedene Modelle $k$-mal und bilden dann ein finales Modell in dem wir alle $k$-Modelle zusammenfassen. Wie wir die Zusammenfassung rechnen, ist dann immer wieder von Fall zu Fall unterschiedlich. Wir erhalten am Ende einen *Ensemble* Klassifizierer, da ja ein Ensemble von Modellen zusammengefasst wird.
+Im maschinellen Lernen nennen wir diese Methode *Bagging*. Das Wort *Bagging* steht für *bootstrap aggregating* und ist eine Methode, um Vorhersagen aus verschiedenen Modellen zu kombinieren. In unserem Fall sind es die verschiedenen Entscheidungsböume. Dabei müssen alle Modelle mit dem gleichen Algorithmus laufen, können aber auf verschiedenen Datensätzen oder aber Variablensätzen zugreifen. Häufig haben die Modelle eine hohe Varianz in der Vorhersage und wir nutzen dann Bagging um die Modelle miteinander zu kombinieren und dadurch die Varianz zu verringern. Die Ergebnisse der Modelle werden dann im einfachsten Fall gemittelt. Das Ergebnis jeder Modellvorhersage geht mit gleichem Gewicht in die Vorhersage ein. Wir haben auch noch andere Möglichkeiten, aber du kannst dir Vorstellen wir rechnen verschiedene Modelle $j$-mal und bilden dann ein finales Modell in dem wir alle $j$-Modelle zusammenfassen. Wie wir die Zusammenfassung rechnen, ist dann immer wieder von Fall zu Fall unterschiedlich. Wir erhalten am Ende einen *Ensemble* Klassifizierer, da ja ein Ensemble von Modellen zusammengefasst wird. In dem Fall von den Entscheidungsbäumen ist das Ensemble ein Wald an Bäumen.
 
 ::: {.callout-caution collapse="true"}
 ## Parallele CPU Nutzung
+
+Wenn wir wirklich viele Bäume wachsen lassen wollen, dann bietet sich die parallele Berechnung an. Das können wir über das R Paket `parallel` realisieren. Wir detektieren erstmal wie viele Kerne wir auf dem Rechner zu Verfügung haben.
 
 ```{r}
 cores <- parallel::detectCores()
 cores
 ```
 
-Und dann in `set_engine("ranger", num.threads = cores)`
+Wenn wir das gemacht haben, dann können wir in `set_engine("ranger", num.threads = cores)` auswählen, dass die Berechnung parallel verlaufen soll. Besonders auf Großrechnern macht die parallele Berechnung am meisten Sinn.
 :::
 
+Auch hier ist es so, dass es verschiedene Algorithmen für den Random Forest gibt. Wir nehmen hier dann den `ranger` Algorithmus. Du kannst wie immer schauen, welche Algorithmen es noch gibt und auch wiederum verschiedene Algorithmen ausprobieren. In jedem Baum sollen drei Prädiktoren (`mtry = 3`) und einer Anzahl von mindestens zehn Beobachtungen je Knoten (`min_n = 10`) und wir wollen insgesamt eintausend Bäume wachsen lassen (`trees = 1000`). Darüber hinaus wollen wir uns auch die *Variable importance* wiedergeben lassen. Die Variable importance beschreibt, wie gut ein Prädiktor über alle Bäume des Waldes, in der Lage war Splits in möglichst reine Knoten durchzuführen. Ein Prädiktor mit einer hohen Variable importance, ist also besonders geeignet für gute Splits mit hoher Reinheit.
+
 ```{r}
-ranger_mod <- rand_forest(mtry = 5, min_n = 10, trees = 1000) %>% 
+ranger_mod <- rand_forest(mtry = 3, min_n = 10, trees = 1000) %>% 
   set_engine("ranger", importance = "impurity") %>% 
   set_mode("classification")
 ```
+
+Nun bauen wir uns wieder unseren Workflow indem wir das Modell mit dem Rezept für die Gummidatensatz verbinden. Das tolle ist jetzt, dass wir hier wieder des Rezept vom Anfang verwenden können. Wir müssen also nicht das Rezept neu definieren. Wir bauen uns also einfach nur einen neuen Workflow.
 
 ```{r}
 ranger_wflow <- workflow() %>% 
@@ -248,13 +256,26 @@ ranger_wflow <- workflow() %>%
   add_recipe(gummi_rec)
 ```
 
+Wenn wir den Workflow haben, dann können wir wieder mit der Funktion `fit()` unser Modell anpassen.
+
 ```{r}
 ranger_fit <- ranger_wflow %>% 
   parsnip::fit(gummi_train_data)
 
 ```
 
+In der @fig-class-rf-07 sehen wir dann die Variable importance sortiert für alle Prädiktoren. Ganz wichtig, die Variable importance ist nicht numerisch zu interpretieren und auch nicht über verschiedene Datensäze hinweg. Wir können nur die Variable importance von einem Datensatz anschauen und dort sehen welche Variablen den meisten Einfluss haben. Wir sehen also, dass die Körpergröße eine sehr große Wichtigkeit hat um die Männer von den Frauen in den Gummibärchendaten zu trennen. Das macht auch Sinn. Frauen und Männer sind nunmal unterschiedlich groß. Nicht mehr so wichtig ist das Alter und das Semester. Vermutlich korrelieren die beiden Prädiktoren auch leicht. Der Lieblingsgeschmack tut bei der Einteilung in Männer und Frauen nichts zur Sache.
+
 ```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-class-rf-07
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Visualisierung der *Variable importance* aus unseren `ranger` Algorithmus."
+
 ranger_fit %>% 
   extract_fit_parsnip() %>% 
   vip(num_features = 20) +
