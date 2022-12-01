@@ -43,7 +43,7 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
-Bei dem vorherigen Beispielen haben wir immer unseren Datensatz zu den infizierten Ferkeln genutzt. In diesem Kapitel wolle wir uns aber mal auf einen echten Datensatz anschauen. Wir nutzen daher einmal den Gummibärchendatensatz. Als unser Label und daher als unser Outcome nehmen wir das Geschlecht. Dabei wollen wir dann die weiblichen Studierenden vorhersagen. Im Weiteren nehmen wir nur die Spalte Geschlecht sowie als Prädiktoren die Spalten `most_liked`, `age`, `semester`, und `height`.
+Bei dem vorherigen Beispielen haben wir immer unseren Datensatz zu den infizierten Ferkeln genutzt. In diesem Kapitel wolle wir uns aber mal auf einen echten Datensatz anschauen. Wir nutzen daher einmal den Gummibärchendatensatz. Als unser Label und daher als unser Outcome nehmen wir das Geschlecht `gender`. Dabei wollen wir dann die weiblichen Studierenden vorhersagen. Im Weiteren nehmen wir nur die Spalte Geschlecht sowie als Prädiktoren die Spalten `most_liked`, `age`, `semester`, und `height`.
 
 ```{r}
 gummi_tbl <- read_excel("data/gummibears.xlsx") %>% 
@@ -54,7 +54,7 @@ gummi_tbl <- read_excel("data/gummibears.xlsx") %>%
 
 ```
 
-Wir dürfen keine fehlenden Werte in den Daten haben. Wir können für die Prädiktoren später die fehlenden Werte impurtieren. Aber wir können keine Labels imputieren. Daher entfernen wir alle Beobachtungen, die ein `NA` in der Variable `gender` haben. Wir haben dann insgesamt $n = `r nrow(gummi_tbl)`$ Beobachtungen vorliegen. In @tbl-gummi-prepro sehen wir nochmal die Auswahl des Datensatzes in gekürzter Form.
+Wir dürfen keine fehlenden Werte in den Daten haben. Wir können für die Prädiktoren später die fehlenden Werte imputieren. Aber wir können keine Labels imputieren. Daher entfernen wir alle Beobachtungen, die ein `NA` in der Variable `gender` haben. Wir haben dann insgesamt $n = `r nrow(gummi_tbl)`$ Beobachtungen vorliegen. In @tbl-gummi-prepro sehen wir nochmal die Auswahl des Datensatzes in gekürzter Form.
 
 ```{r}
 #| echo: false
@@ -105,17 +105,32 @@ Alles in allem haben wir ein sehr kleines Modell. Wir haben ja nur ein Outcome u
 
 ## Rpart {#sec-rpart}
 
-![Dars.](images/class-rf-01.png){#fig-class-rf-01 fig-align="center" width="100%"}
+Wie funktioniert nun ein Entscheidungsbaum? Ein Entscheidungsbaum besteht aus Knoten (eng. *nodes*) und Ästen (eng. *edge*). Dabei hat immer ein Knoten zwei Äste. Die Beobachtungen in einem Knoten fallen nach einer Entscheidungsregel anhand eines Prädiktors in entlang zweier Äste in zwei separate Knoten. So können wir unsere $n = `r nrow(gummi_tbl)`$ zum Beispiel anhand des Alters in zwei Gruppen aufteilen. Wir legen willkürlich die Altersgrenze bei 22 fest.
 
-![Dars.](images/class-rf-02.png){#fig-class-rf-02 fig-align="center" width="100%"}
+```{r}
+gummi_tbl %>% 
+  mutate(grp = if_else(age >= 22, 1, 0)) %>% 
+  pull(grp) %>% 
+  tabyl()
+```
 
-![Dars.](images/class-rf-03.png){#fig-class-rf-03 fig-align="center" width="100%"}
+Wir erhalten mit diesem Split zwei Gruppen mit je $n_0 = 207$ und $n_1 = 259$ Beobachtungen. Wir haben jetzt diesen Split willkürlich gewählt. In dem Algorithmus für die Entscheidungsbäume wird dieser Schritt intern optimiert, so dass wir den besten Wert für den Alterssplit finden, der uns möglichst reine Knoten im Bezug auf das Label liefert. Wir wollen ja am Ende einen Algorithmus trainieren, der uns die Geschlechter bestmöglich auftrennt, so dass wir eine neue Beobachtung bestmöglich vorhersagen können. Wenn keine Aufteilungen in einem Knoten mehr möglich sind, dann nennen wir diesen Knoten einen Terminalknoten.
 
-![Dars.](images/class-rf-04.png){#fig-class-rf-04 fig-align="center" width="100%"}
+In @fig-class-rf-01
 
-Mit Abbildung
+![Darstellung des Anwachsen des Entscheidungsbaumes. Links sind die beiden Prädiktoren $X_1$ und $X_2$ als Koordinatensysten dargestellt. Die Punkte stllen die Beobachtungen mit den jeweiligen Label weiß und schwarz dar. Rechts ist der Knoten $t_1$ dargestellt, der alle Beobachtungen beinhaltet..](images/class-rf-01.png){#fig-class-rf-01 fig-align="center" width="100%"}
 
-https://www.tidymodels.org/start/tuning/
+In @fig-class-rf-02
+
+![Darstellung des ersten Splits anhand des Prädiktors $X_1$. Wir wählen den Wert $c_1$ für den Split so, dass wir möglichst reine Knoten produzieren. Wir erhalten zwei neue Knoten $t_2$ und $t_3$. Der Knoten $t_3$ ist maximal rein und wird daher zu einem Terminalknoten.](images/class-rf-02.png){#fig-class-rf-02 fig-align="center" width="100%"}
+
+In @fig-class-rf-03
+
+![Darstellung des zweiten Splits anhand des Prädiktors $X_2$. Wir wählen wiederum den Wert $c_2$ für den Split so, dass wir möglichst reine Knoten erhalten. So erhalten wir zwei neue Knoten $t_4$ und $t_5$. Da nun $t_4$ ebenfalls ein reiner Knoten ist, wird der Knoten $t_4$ ebenfalls zu einem Terminalknoten. Wir stoppen hier das Wachstum, da mir eine mindest Anzahl von vier Beobachtungen in den Knoten erreicht haben.](images/class-rf-03.png){#fig-class-rf-03 fig-align="center" width="100%"}
+
+In @fig-class-rf-04
+
+![Darstellung der Vorhersage einer neuen Beobachtung mit Werten für die Prädiktoren $X_1$ und $X_2$. Unsere neue Beobachtung `?` fällt in den Terminalknoten $t_5$. Dort zählen wir die schwarzen Kreise. Wir stellen fest, dass die neue Beobachtung mit 25% Wahrscheinlichkeit ein Fall und damit schwarz ist. Daher ist die neue Beobachtung weiß.](images/class-rf-04.png){#fig-class-rf-04 fig-align="center" width="100%"}
 
 ```{r}
 rpart_mod <- decision_tree(tree_depth = 5, min_n = 10, cost_complexity = 0.001) %>% 
