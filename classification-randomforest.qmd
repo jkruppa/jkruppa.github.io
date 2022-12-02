@@ -30,7 +30,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 pacman::p_load(tidyverse, tidymodels, magrittr, 
                janitor, vip, rpart.plot, see,
-               conflicted)
+               xgboost, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -288,7 +288,7 @@ Nach unserem kleinen Ausflug zu der Variable importance können wir jetzt wieder
 ranger_aug <- augment(ranger_fit, gummi_test_data ) 
 ```
 
-Nun schauen wir uns an wie gut die Klassifizierung mit dem \`ranger\`\` Modell funktioniert hat. Als erstes bauen wir uns einmal die [Konfusionsmatrix](https://en.wikipedia.org/wiki/Confusion_matrix) um zu sehen wie gut die beiden Geschlechter in dem Testdatensatz vorhergesagt wurden.
+Nun schauen wir uns an wie gut die Klassifizierung mit dem `ranger` Modell funktioniert hat. Als erstes bauen wir uns einmal die [Konfusionsmatrix](https://en.wikipedia.org/wiki/Confusion_matrix) um zu sehen wie gut die beiden Geschlechter in dem Testdatensatz vorhergesagt wurden.
 
 ```{r}
 ranger_cm <- ranger_aug %>% 
@@ -305,7 +305,7 @@ ranger_cm %>% summary()
 
 Wir besprechen wie beim `rpart` Algorithmus nicht alle Kriterien, du kannst dann gerne nochmal in dem Kapitel über die Modellvergleiche nachlesen, was die ganze Gütekriterien alles bedeuten. Wenn wir uns auf die Accuarcy konzentrieren, erhalten wir einen guten Wert von 84% richtig klassifizierter Geschlechter. Das ist für echte Daten ohne Tuning und Kreuzvaldierung schon ein echt guter Wert.
 
-Nun schauen wir uns noch schnell die ROC Kurve an und sehen, dass die Kurve schon weit von der Diagonalen entfernt ist. Wir sehen eine gute ROC Kurve. Die AUC sollte auch recht groß sein. Damit sind wir mit dem Random Forest Algorithmus soweit durch und wir schauen uns jetzt einen etwas komplexeren Algorithmus an.
+Nun schauen wir uns noch schnell die ROC Kurve an und sehen, dass die Kurve schon weit von der Diagonalen entfernt ist. Wir sehen eine gute ROC Kurve. Die AUC sollte auch recht groß sein. Damit sind wir mit dem Random Forest Algorithmus soweit durch und wir schauen uns jetzt einen etwas komplexeren xgboost Algorithmus an.
 
 ```{r}
 #| echo: true
@@ -332,21 +332,25 @@ Wenn du also den Random Forest Algorithmus auch tunen willst, dann schaue einfac
 
 ## xgboost {#sec-xgboost}
 
-https://medium.com/greyatom/a-quick-guide-to-boosting-in-ml-acf7c1585cb5
+Als letztes Beispiel für Entscheidungsbäume schauen wir uns das Boosting an. Auch hier haben wir es wieder mit einem Wald an Entscheidungsbäumen zu tun, die wir auch wieder zusammenfassen wollen. Wir verlassen uns also nicht auf die Klassifikation von einem Baum, sondern nehmen die Informationen von vielen Bäumen zusammen. Was ist jetzt der Unterschied zu einem Random Forest? Bei einem Random Forest bauen wir uns im Prinzip hunderte einzelne Bäume und trainieren darauf den Algorithmus. Am Ende fassen wir dann alle Bäume für die Vorhersage zusammen. Beim Boosting nutzen wir die Information des ersten Baumes für das Wachstum des zweiten Baumes und so weiter. Das Boosting verkettet also die Informationen der einzelnen Bäume zu einem kontinuierlichen Lernen. Daher sind Bossting Algorithmen meist sehr gute Klassifizierer.
 
-https://towardsdatascience.com/boosting-algorithms-explained-d38f56ef3f30
+Wir unterscheiden beim Boosting grob in zwei Kategorien. Zum einen gibt es das adaptive Boosting und das gradient Boosting. Beim adaptiven Boosting erhalten die Beobachtungen über die verschiedenen Klassifizierungsschritte unterschiedliche Gewichte für ihre Bedeutung. In @fig-class-adaboost sehen wir ein Beispiel für den `adaboost` Algorithmus. Wir haben einen ursprünglichen Datensatz mit blauen und roten Beobachtungen. Wir wollen nun diese Beobachtungen voneinander trennen und damit einen Klassifizierer bauen. Wir fangen mit einem simplen Entscheidungsbaum an, der nur einen Split durchführt. Jetzt haben wir zwei falsch klassifizierte blaue Beobachtungen und eine falsche rote Beobachtung. Nun erhöhen wir das Gewicht dieser drei Beobachtungen. Der nächste Klassifizierer soll nun insbesondere auf diese drei Beobachtungen achten. Wir erhalten daher einen anderen Split und damit zwei blaue Beobachtungen die nicht richtig klassifiziert wurden. Wir erhöhen wieder das Gewicht der beiden falsch klassifizierten blauen Beobachtungen. Der dritte Klassifizierer schafft es jetzt die beiden blauen Beobachtungen gut von den roten Beobachtungen zu trennen. Wir stoppen jetzt hier und bringen alle Klassifiziererregeln, also wo der Split liegen soll, in einen Klassifizierer zusammen.
 
-https://howtolearnmachinelearning.com/articles/boosting-in-machine-learning/
+![Darstellung von adaptive Boosting an drei Klassifizieren, die nacheinander auf die neu gewichteten Daten angewendet werden. Am Ende werden alle drei Klassifizierer dann in einen Klassifizierer kombiniert.](images/class-xgboost.png){#fig-class-adaboost fig-align="center" width="100%"}
 
-![Darstellung von adaptive Boosting](images/class-xgboost.png){#fig-class-adaboost fig-align="center" width="100%"}
+In der @fig-class-gradientboost sehen wir die Idee des gradient Boosting einmal dargestellt. Die Idee ist recht simple. Wir wollen wieder nacheinander einen Klassifizierer auf schon klassifizierte Daten anwenden. Wir wollen also das unser zweiter Klassifizierer von dem ersten Klassifizier lernt. Wie machen wir das? Indem wir im ersten Schritt unsere Daten klassifizieren. Wir machen das mit einem Entscheidungsbaum, der mehrere Splits durchführt, die wir dann zu einer eckigen Graden zusammenfassen. Dann haben wir aber einen Fehler als Abstand zu den Splits oder eben zu der Graden. Diese Abstände übertragen wir dann in einen neuen Datensatz auf dem wir dann den nächsten Entscheidungsbaum wachsen lassen. Wir reduzieren also den Fehler des ersten Klassifizierers durch den zweiten Klassifizierer. Dann übertragen wir den Fehler des zweiten Klassifizierers in einen neuen Datensatz und lassen den dritten Klassifizierer den Fehler weiter reduzieren. Am Ende kombinieren wir alle drei Klassifizierer in ein Modell. Durch das gradient Boosting erhalten wir ziemlich gute Entscheidungsbäume, die in der Lage sind sehr schnell und effizient eine Vorhersage zu treffen.
 
-![Darstellung von adaptive Boosting](images/class-xgboost-2.png){#fig-class-gradientboost fig-align="center" width="100%"}
+![Darstellung von gradient Boosting an drei Klassifizieren, die nacheinander auf die *Fehler* des vorherigen Klassifizierers angewendet werden. Beachte die Nulllinie bei dem Klassifizierer zwei und drei.](images/class-xgboost-2.png){#fig-class-gradientboost fig-align="center" width="100%"}
+
+Nach dieser theoretischen Einführung wollen wir uns einmal mit der Implementierung beschäftigen. Wir nutzen hier einmal die bekannten Parameter aus dem Random Forest Algorithmus um unseren `xgboost` Algorithmus zu trainieren. Wie wir gleich noch im Tuning sehen werden, hatr der `xgboost` Algorithmus noch mehr Parameter an denen du schrauben kannst. In jedem Baum sollen drei Prädiktoren (`mtry = 3`) und einer Anzahl von mindestens zehn Beobachtungen je Knoten (`min_n = 10`) und wir wollen insgesamt eintausend Bäume wachsen lassen (`trees = 1000`).
 
 ```{r}
-xgboost_mod <- boost_tree(mtry = 5, min_n = 10, trees = 1000) %>% 
+xgboost_mod <- boost_tree(mtry = 3, min_n = 10, trees = 1000) %>% 
   set_engine("xgboost") %>% 
   set_mode("classification")
 ```
+
+Nun bauen wir uns wieder unseren Workflow indem wir das Modell mit dem Rezept für die Gummidatensatz verbinden. Das tolle ist jetzt, dass wir hier wieder des Rezept vom Anfang verwenden können. Wir müssen also nicht das Rezept neu definieren. Wir bauen uns also einfach nur einen neuen Workflow.
 
 ```{r}
 xgboost_wflow <- workflow() %>% 
@@ -354,9 +358,42 @@ xgboost_wflow <- workflow() %>%
   add_recipe(gummi_rec)
 ```
 
+Wenn wir den Workflow haben, dann können wir wieder mit der Funktion `fit()` unser Modell anpassen.
+
 ```{r}
 xgboost_fit <- xgboost_wflow %>% 
   parsnip::fit(gummi_train_data)
+```
+
+```{r}
+xg_imp <- xgboost_fit %>% 
+extract_fit_parsnip() %$% 
+  xgboost::xgb.importance(model = fit) %>% 
+  mutate(across(where(is.numeric), round, 2))
+
+xg_imp
+```
+
+Die Wichtigkeit der Variablen wird anhand von drei verschiedenen Wichtigkeiten für eine Variable berechnet.
+
+-   **Gain** ist der relative Beitrag der entsprechenden Variable zum entgültigen Modell. Wir addieren dafür den Beitrag der Variable für die Splits für jeden Baum auf. Eine höhere Punktzahl deutet darauf hin, dass die Variable für die Vorhersage des Baums wichtiger ist. Die Variable war in der Lage die Klassen gut voneinander zu trennen.
+-   **Cover** ist die relative Beobachtung, die mit einem Prädiktor verbunden ist. Also der Anteil der Beobachtungen, die mit dieser variable zusammenhängt. Nehmen wir an Merkmal X wird dazu verwendet, um einen Terminalknoten für 10 Beobachtungen in einem Baum zu erschaffen. Im in einem weiteren Baum ist es ein Terminalkonten mit 20 Beobachtungen. Damit haben wir 30 absolute Beobachtungen, die mit Merkmal X verbunden sind. Die relative Beobachtung ist dann 30 geteilt durch die Summe aller absoluten Beobachtungen für alle Merkmale.
+-   **Häufigkeit** bezieht sich auf die relative Häufigkeit, mit der eine Variable in den zusammengestellten Bäumen vorkommt. Nehmen wir an Merkmal X kommt in Baum A in einem Split und in Baum B in zwei Splits vor. Die absolute Häufigkeit von Merkmal X ist 3 und die relative Häufigkeit ist dann 3 durch die Summe aller absoluten Vorkommen für alle Merkmale.
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-class-rf-08
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Visualisierung der *Variable importance* aus unseren `xgboost` Algorithmus."
+
+xg_imp %>% 
+  xgb.ggplot.importance() +
+  theme_bw() +
+  scale_fill_okabeito()
 ```
 
 ```{r}
