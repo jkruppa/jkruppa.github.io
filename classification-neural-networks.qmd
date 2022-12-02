@@ -17,7 +17,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, tidymodels, magrittr, 
-               janitor, keras, tensorflow,
+               janitor, keras, tensorflow, see,
+               lime,
                conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
@@ -29,17 +30,18 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
+In diesem Kapitel wolle wir uns aber mal auf einen echten Datensatz anschauen. Wir nutzen daher einmal den Gummibärchendatensatz. Als unser Label und daher als unser Outcome nehmen wir das Geschlecht `gender`. Dabei wollen wir dann die weiblichen Studierenden vorhersagen. Im Weiteren nehmen wir nur die Spalte Geschlecht sowie als Prädiktoren die Spalten `most_liked`, `age`, `semester`, und `height`.
+
 ```{r}
 gummi_tbl <- read_excel("data/gummibears.xlsx") %>% 
   mutate(gender = as_factor(gender),
-         most_liked = as_factor(most_liked),
-         student_id = 1:n()) %>% 
-  select(student_id, gender, most_liked, age, semester, height) %>% 
+         most_liked = as_factor(most_liked)) %>% 
+  select(gender, most_liked, age, semester, height) %>% 
   drop_na(gender)
 
 ```
 
-In @tbl-gummi-prepro
+Wir dürfen keine fehlenden Werte in den Daten haben. Wir können für die Prädiktoren später die fehlenden Werte imputieren. Aber wir können keine Labels imputieren. Daher entfernen wir alle Beobachtungen, die ein `NA` in der Variable `gender` haben. Wir haben dann insgesamt $n = `r nrow(gummi_tbl)`$ Beobachtungen vorliegen. In @tbl-gummi-prepro sehen wir nochmal die Auswahl des Datensatzes in gekürzter Form.
 
 ```{r}
 #| echo: false
@@ -58,25 +60,34 @@ rbind(head(gummi_raw_tbl),
   kable(align = "c", "pipe")
 ```
 
+Unsere Fragestellung ist damit, können wir anhand unserer Prädiktoren männliche von weiblichen Studierenden unterscheiden und damit auch klassifizieren? Um die Klassifikation mit Entscheidungsbäumen rechnen zu können brauchen wir wie bei allen anderen Algorithmen auch einen Trainings- und Testdatensatz. Wir splitten dafür unsere Daten in einer 3 zu 4 Verhältnis in einen Traingsdatensatz sowie einen Testdatensatz auf. Der Traingsdatensatz ist dabei immer der größere Datensatz. Da wir aktuell nicht so viele Beobachtungen in dem Gummibärchendatensatz haben, möchte ich mindestens 100 Beobachtungen in den Testdaten. Deshalb kommt mir der 3:4 Split sehr entgegen.
+
 ```{r}
 gummi_data_split <- initial_split(gummi_tbl, prop = 3/4)
+```
 
+Wir speichern uns jetzt den Trainings- und Testdatensatz jeweils separat ab. Die weiteren Modellschritte laufen alle auf dem Traingsdatensatz, wie nutzen dann erst ganz zum Schluss einmal den Testdatensatz um zu schauen, wie gut unsere trainiertes Modell auf den neuen Testdaten funktioniert.
+
+```{r}
 gummi_train_data <- training(gummi_data_split)
 gummi_test_data  <- testing(gummi_data_split)
 ```
 
+Nachdem wir die Daten vorbereitet haben, müssen wir noch das Rezept mit den Vorverabreitungsschritten definieren. Wir schreiben, dass wir das Geschlecht `gender` als unser Label haben wollen. Daneben nehmen wir alle anderen Spalten als Prädiktoren mit in unser Modell, das machen wir dann mit dem `.` Symbol. Da wir noch fehlende Werte in unseren Prädiktoren haben, imputieren wir noch die numerischen Variablen mit der Mittelwertsimputation und die nominalen fehlenden Werte mit Entscheidungsbäumen. Dann müssen wir noch alle numerischen Variablen normalisieren und alle nominalen Variablen dummykodieren. Am Ende werde ich nochmal alle Variablen entfernen, sollte die Varianz in einer Variable nahe der Null sein.
+
 ```{r}
 gummi_rec <- recipe(gender ~ ., data = gummi_train_data) %>% 
-  update_role(student_id, new_role = "ID") %>% 
-  step_impute_mean(all_numeric_predictors(), -has_role("ID")) %>% 
-  step_impute_bag(all_nominal_predictors(), -has_role("ID")) %>% 
-  step_range(all_numeric_predictors(), min = 0, max = 1, -has_role("ID")) %>% 
-  step_dummy(all_nominal_predictors(), -has_role("ID")) %>% 
-  step_nzv(all_predictors(), -has_role("ID"))
+  step_impute_mean(all_numeric_predictors()) %>% 
+  step_impute_bag(all_nominal_predictors()) %>% 
+  step_range(all_numeric_predictors(), min = 0, max = 1) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_nzv(all_predictors())
 
 gummi_rec %>% summary()
 
 ```
+
+Alles in allem haben wir ein sehr kleines Modell. Wir haben ja nur ein Outcome und vier Prädiktoren. Trotzdem sollte dieser Datensatz reichen um zu erklären wie Keras oder Tensorflow funktionieren. Am Ende muss man sich aber auch ehrlich machen und sagen, dass ein Datensatz mit unter tausend Beobachtungen eigentlich keinen großen Sinn für ein neuronales Netz macht. Deshalb ist das hier eher eine Demonstration des Algorithmus.
 
 ## Keras / Tensorflow
 
@@ -129,29 +140,25 @@ keras_cm %>% summary()
 ```
 
 ```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-class-keras-01
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "ROC Kurve für den `keras` Algorithmus."
+
 keras_aug %>% 
   roc_curve(gender, .pred_w, event_level = "second") %>% 
   autoplot()
 ```
 
-## Resampling
+::: callout-note
+## Kann ich auch eine Kreuzvalidierung für Keras / Tensorflow durchführen?
 
-```{r}
-#| eval: false
-folds <- vfold_cv(gummi_train_data, v = 10)
-folds
-```
-
-```{r}
-#| eval: false
-gummi_cv_fit <- keras_wflow %>% 
-  fit_resamples(folds)
-```
-
-```{r}
-#| eval: false
-collect_metrics(gummi_cv_fit)
-```
+Ja, kannst du. Wenn du *nur* eine Kreuzvalidierung durchführen willst, findest du alles im @sec-knn für den $k$-NN Algorithmus. Du musst dort nur den Workflow ändern und schon kannst du alles auch auf Keras / Tensorflow Algorithmus anwenden.
+:::
 
 ## Tuning
 
@@ -212,16 +219,26 @@ gummi_tune_res <- read_rds("data/gummi_keras_tune_res.rds")
 ```
 
 ```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-class-keras-02
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Tuning Kurven für den `keras` Algorithmus."
+
 gummi_tune_res %>%
   collect_metrics() %>%
   mutate(hidden_units = as_factor(hidden_units),
          penalty = as_factor(penalty)) %>%
   ggplot(aes(epochs, mean, color = hidden_units, linetype = penalty)) +
-  geom_line(size = 1.5, alpha = 0.6) +
-  geom_point(size = 2) +
+  theme_minimal() +
+  geom_line(alpha = 0.6) +
+  geom_point() +
   facet_wrap(~ .metric, scales = "free", nrow = 2) +
   scale_x_log10(labels = scales::label_number()) +
-  scale_color_viridis_d(option = "plasma", begin = .9, end = 0)
+  scale_color_okabeito()
 ```
 
 ```{r}
@@ -255,15 +272,22 @@ final_fit <- final_gummi_wf %>%
 ```{r}
 final_fit %>%
   collect_metrics()
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-class-keras-03
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "ROC Kurve für den `keras` Algorithmus nach der Kreuvalidierung und dem Tuning."
 
 final_fit %>%
   collect_predictions() %>% 
   roc_curve(gender, .pred_w, event_level = "second") %>% 
   autoplot()
 ```
-
-## Visualisation
-
-https://datascienceplus.com/machine-learning-results-one-plot-to-rule-them-all/ https://datascienceplus.com/machine-learning-results-in-r-one-plot-to-rule-them-all-part-2-regression-models/ https://www.r-bloggers.com/2021/04/the-good-the-bad-and-the-ugly-how-to-visualize-machine-learning-data/ https://neptune.ai/blog/visualizing-machine-learning-models https://uc-r.github.io/lime https://cran.r-project.org/web/packages/mboost/vignettes/mboost_tutorial.pdf
 
 ## Referenzen {.unnumbered}
