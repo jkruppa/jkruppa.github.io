@@ -586,7 +586,7 @@ div.csl-indent {
 </header><div class="cell">
 
 </div>
-<p><em>Version vom December 02, 2022 um 15:04:02</em></p>
+<p><em>Version vom December 02, 2022 um 16:04:37</em></p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure"><p><img src="images/caution.png" class="img-fluid figure-img" style="width:50.0%"></p>
 </figure>
@@ -790,8 +790,8 @@ div.csl-indent {
 <div class="cell-output cell-output-stdout">
 <pre><code>          Truth
 Prediction  m  w
-         m 16 22
-         w 39 42</code></pre>
+         m 61 58
+         w  0  0</code></pre>
 </div>
 </div>
 <div class="cell">
@@ -800,19 +800,19 @@ Prediction  m  w
 <pre><code># A tibble: 13 × 3
    .metric              .estimator .estimate
    &lt;chr&gt;                &lt;chr&gt;          &lt;dbl&gt;
- 1 accuracy             binary        0.487 
- 2 kap                  binary       -0.0540
- 3 sens                 binary        0.291 
- 4 spec                 binary        0.656 
- 5 ppv                  binary        0.421 
- 6 npv                  binary        0.519 
- 7 mcc                  binary       -0.0565
- 8 j_index              binary       -0.0528
- 9 bal_accuracy         binary        0.474 
-10 detection_prevalence binary        0.319 
-11 precision            binary        0.421 
-12 recall               binary        0.291 
-13 f_meas               binary        0.344 </code></pre>
+ 1 accuracy             binary         0.513
+ 2 kap                  binary         0    
+ 3 sens                 binary         1    
+ 4 spec                 binary         0    
+ 5 ppv                  binary         0.513
+ 6 npv                  binary       NaN    
+ 7 mcc                  binary        NA    
+ 8 j_index              binary         0    
+ 9 bal_accuracy         binary         0.5  
+10 detection_prevalence binary         1    
+11 precision            binary         0.513
+12 recall               binary         1    
+13 f_meas               binary         0.678</code></pre>
 </div>
 </div>
 <div class="cell" data-layout-align="center">
@@ -842,9 +842,21 @@ Kann ich auch eine Kreuzvalidierung für Keras / Tensorflow durchführen?
 </div>
 </section><section id="tuning" class="level2" data-number="55.4"><h2 data-number="55.4" class="anchored" data-anchor-id="tuning">
 <span class="header-section-number">55.4</span> Tuning</h2>
+<p>Was heißt Tuning? Wie bei einem Auto können wir an verschiedenen Stellschrauben bei einem mathematischen Algorithmus schrauben. Welche Schrauben und Teile das sind, hängt dann wieder vom Algorithmus ab. Im Falle des xgboost Algorithmus können wir an folgenden Parametern drehen und jeweils schauen, was dann mit unserer Vorhersage passiert. Insgesamt hat der <a href="https://parsnip.tidymodels.org/reference/details_mlp_keras.html">keras Algorithmus fünf Tuningparameter</a>, wir wählen jetzt für uns hier drei aus. Ich nehme hier auch nur drei Parameter, da sich dann drei Parameter noch sehr gut visuell darstellen lassen. In der Anwendung wäre dann natürlich besser alle Parameter zu tunen, aber das dauert dann auch lange.</p>
+<ul>
+<li>
+<code>hidden_units</code>, Anzahl der Ebenen (eng. <em>layer</em>) in dem neuronalen Netzwerk. Wie viele Ebenen soll unser Netzwerk haben? Oder auch wie <em>deep</em> soll das Netzwerk gebaut werden?</li>
+<li>
+<code>penalty</code>, ein Wert für die Regulierung des neuronalen Netzwerk.</li>
+<li>
+<code>epochs</code>, bezieht sich auf einen Zyklus durch die Layer für den gesamten Trainingsdatensatz. Wie oft rechnen wir den Trainingsdatensatz und trainieren unser Netzwerk?</li>
+</ul>
+<p>Nun ist es so, dass wir natürlich nicht händisch alle möglichen Kombinationen von der Anzahl der ausgewählten Variablen pro Baum, der kleinsten Knotengröße und der Anzahl der Bäume berechnen wollen. Das sind ziemlich viele Kombinationen und wir kommen dann vermutlich schnell durcheinander. Deshalb gibt es die Funktion <code>tune()</code> aus dem R Paket <code>tune</code>, die uns einen Prozess anbietet, das Tuning automatisiert durchzuführen.</p>
+<p>Da ich nicht ewig warten wollte, habe ich noch das parallele Rechnern aktiviert, in dem ich mir die Anzahl an Rechenkernen minus eins wiedergeben habe lassen.</p>
 <div class="cell">
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">cores</span> <span class="op">&lt;-</span> <span class="fu">parallel</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/parallel/detectCores.html">detectCores</a></span><span class="op">(</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">cores</span> <span class="op">&lt;-</span> <span class="fu">parallel</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/parallel/detectCores.html">detectCores</a></span><span class="op">(</span><span class="op">)</span> <span class="op">-</span> <span class="fl">1</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>Als erstes müssen wir uns ein Objekt bauen, das aussieht wie ein ganz normales Modell in der Klassifikation. Aber wir ergänzen jetzt noch hinter jeder zu tunenden Option noch die Funktion <code>tune()</code>. Das sind die Parameter des Algorithmus, die wir später tunen wollen.</p>
 <div class="cell">
 <div class="sourceCode" id="cb17"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">tune_spec</span> <span class="op">&lt;-</span> <span class="fu">mlp</span><span class="op">(</span>hidden_units <span class="op">=</span> <span class="fu">tune</span><span class="op">(</span><span class="op">)</span>,</span>
 <span>                 penalty <span class="op">=</span> <span class="fu">tune</span><span class="op">(</span><span class="op">)</span>, </span>
@@ -867,22 +879,24 @@ Engine-Specific Arguments:
 Computational engine: keras </code></pre>
 </div>
 </div>
-<p>Ich nutze hier <code>levels = 2</code> damit hier die Ausführung nicht so lange läuft. Das ist natürlich etwas zu wenig. Fange am besten mit <code>levels = 5</code> an und schaue, wie lange das zusammen mit der Kreuzvalidierung dann dauert.</p>
+<p>Jetzt bauen wir uns den Workflow indem wir statt unserem Modell, die Tuninganweisung in den Workflow reinnehmen. Echt simpel und straightforward. Das Rezept bleibt ja das Gleiche.</p>
 <div class="cell">
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">gummi_grid</span> <span class="op">&lt;-</span> <span class="fu">grid_regular</span><span class="op">(</span><span class="fu">hidden_units</span><span class="op">(</span>range <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">100</span><span class="op">)</span><span class="op">)</span>,</span>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">gummi_tune_wflow</span> <span class="op">&lt;-</span> <span class="fu">workflow</span><span class="op">(</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="fu">add_model</span><span class="op">(</span><span class="va">tune_spec</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="fu">add_recipe</span><span class="op">(</span><span class="va">gummi_rec</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Jetzt müssen wir noch alle Kombinationen aus den drei Parametern <code>hidden_units</code>, <code>penalty</code> und <code>epochs</code> ermitteln. Das macht die Funktion <code>grid_regular()</code>. Es gibt da noch andere Funktionen in dem R Paket <code>tune</code>, aber ich konzentriere mich hier auf die einfachste. Jetzt müssen wir noch die Anzahl an Kombinationen festlegen. Ich möchte für jeden Parameter fünf Werte tunen. Daher nutze ich hier die Option <code>levels = 5</code> auch damit hier die Ausführung nicht so lange läuft. Fange am besten mit <code>levels = 5</code> an und schaue, wie lange das zusammen mit der Kreuzvalidierung dann dauert. Dann kannst du die Levels noch hochschrauben. Beachte aber, dass mehr Level nur mehr <em>Zwischenschritte</em> bedeutet. Jede Option hat eine Spannweite <code>range</code>, die du dann anpassen musst, wenn du <em>höhere</em> Werte haben willst. Mehr Level würden nur mehr Zwischenschritte bedeuten.</p>
+<div class="cell">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">gummi_grid</span> <span class="op">&lt;-</span> <span class="fu">grid_regular</span><span class="op">(</span><span class="fu">hidden_units</span><span class="op">(</span>range <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">100</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>                           <span class="fu">penalty</span><span class="op">(</span><span class="op">)</span>,</span>
 <span>                           <span class="fu">epochs</span><span class="op">(</span>range <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">10</span>, <span class="fl">200</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>                           levels <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>Eigentlich ist eine 10-fache Kreuzvalidierung mit <span class="math inline">\(v=10\)</span> besser. Das dauert mir dann aber hier im Skript viel zu lange. Deshalb habe ich hier nur <span class="math inline">\(v=5\)</span> gewählt. Wenn du das Tuning rechnest, nimmst du natürlich eine 10-fach Kreuzvalidierung.</p>
+<p>Das Tuning nur auf dem Trainingsdatensatz durchzuführen ist nicht so eine gute Idee. Deshalb nutzen wir hier auch die Kreuzvalidierung. Eigentlich ist eine 10-fache Kreuzvalidierung mit <span class="math inline">\(v=10\)</span> besser. Das dauert mir dann aber hier im Skript viel zu lange. Deshalb habe ich hier nur <span class="math inline">\(v=5\)</span> gewählt. Wenn du das Tuning rechnest, nimmst du natürlich eine 10-fach Kreuzvalidierung.</p>
 <div class="cell">
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">gummi_folds</span> <span class="op">&lt;-</span> <span class="fu">vfold_cv</span><span class="op">(</span><span class="va">gummi_train_data</span>, v <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">gummi_folds</span> <span class="op">&lt;-</span> <span class="fu">vfold_cv</span><span class="op">(</span><span class="va">gummi_train_data</span>, v <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell">
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">gummi_tune_wflow</span> <span class="op">&lt;-</span> <span class="fu">workflow</span><span class="op">(</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
-<span>  <span class="fu">add_model</span><span class="op">(</span><span class="va">tune_spec</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
-<span>  <span class="fu">add_recipe</span><span class="op">(</span><span class="va">gummi_rec</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
+<p>Nun bringen wir den Workflow zusammen mit dem Tuninggrid und unseren Sets der Kreuzvaidierung. Daher pipen wir den Workflow in die Funktion <code>tune_grid()</code>. Als Optionen brauchen wir die Kreuzvaldierungsdatensätze und das Tuninggrid. Wenn du <code>control_grid(verbose = TRUE)</code> wählst, dann erhälst du eine Ausgabe wie weit das Tuning gerade ist. <strong>Achtung!</strong>, das Tuning dauert seine Zeit. Im Falle des keras Algorithmus dauert das Tuning <strong>extrem lange</strong>, aber immer noch nur ein paar Stunden. Wenn du dann alle fünf Parameter des keras Algorithmustunen wollen würdest, dann würde die Berechnung Tage dauern. Deshalb ist ein Großerechner mit mehreren Kernen unabdingbar für die Nutzung von <em>deep learning</em> Du kannst das Ergebnis des simpleren Tunings auch in der Datei <code>gummi_xgboost_tune_res.rds</code> finden.</p>
 <div class="cell">
 <div class="sourceCode" id="cb22"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">gummi_tune_res</span> <span class="op">&lt;-</span> <span class="va">gummi_tune_wflow</span> <span class="op">%&gt;%</span> </span>
 <span>   <span class="fu">tune_grid</span><span class="op">(</span>resamples <span class="op">=</span> <span class="va">gummi_folds</span>,</span>
@@ -892,9 +906,11 @@ Computational engine: keras </code></pre>
 <div class="cell">
 
 </div>
+<p>Damit du nicht das Tuning durchlaufen lassen musst, habe ich das Tuning in die Datei <code>gummi_xgboost_tune_res.rds</code> abgespeichert und du kannst dann über die Funktion <code>read_rds()</code> wieder einlesen. Dann kannst du den R Code hier wieder weiter ausführen.</p>
 <div class="cell">
 
 </div>
+<p>Nachdem das Tuning durchgelaufen ist, können wir uns über die Funktion <code>collect_metrics()</code>, die Ergebnisse des Tunings für jede Kombination der drei Parameter <code>hidden_units</code>, <code>penalty</code> und <code>epochs</code> wiedergeben lassen. Diese Ausgabe ist super unübersichtlich. Ich habe mich ja am Anfange des Abschnitts auch für drei Tuningparameter entschieden, da sich dann diese drei Parameter noch gut visualisieren lassen. Deshalb einmal die Abbildung der mittleren Accuarcy und der mittleren AUC-Werte über alle Kreuzvalidierungen.</p>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode" id="cb23"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">gummi_tune_res</span> <span class="op">%&gt;%</span></span>
 <span>  <span class="fu">collect_metrics</span><span class="op">(</span><span class="op">)</span> <span class="op">%&gt;%</span></span>
@@ -915,6 +931,7 @@ Computational engine: keras </code></pre>
 </div>
 </div>
 </div>
+<p>Damit wir nicht händisch uns die beste Kombination raussuchen müssen, können wir die Funktion <code>show_best()</code> nutzen. Wir wählen hier die beste Accuarcy und erhalten dann die sortierten Ergebnisse nach der Accuarcy des Tunings.</p>
 <div class="cell">
 <div class="sourceCode" id="cb24"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">gummi_tune_res</span> <span class="op">%&gt;%</span></span>
 <span>  <span class="fu">show_best</span><span class="op">(</span><span class="st">"accuracy"</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -930,6 +947,7 @@ Computational engine: keras </code></pre>
 # … with abbreviated variable name ¹​.estimator</code></pre>
 </div>
 </div>
+<p>Das war die Funktion <code>show_best()</code> aber wir können uns auch die gleich die besten Parameter nach der Accuracy raus ziehen. Das Rausziehen der besten Parameter macht für uns die Funktion <code>select_best()</code>.</p>
 <div class="cell">
 <div class="sourceCode" id="cb26"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">best_keras</span> <span class="op">&lt;-</span> <span class="va">gummi_tune_res</span> <span class="op">%&gt;%</span></span>
 <span>  <span class="fu">select_best</span><span class="op">(</span><span class="st">"accuracy"</span><span class="op">)</span></span>
@@ -942,6 +960,7 @@ Computational engine: keras </code></pre>
 1           75 0.0000000001    200 Preprocessor1_Model104</code></pre>
 </div>
 </div>
+<p>Wir sehen, dass wir <code>hidden_units = 75</code> wählen sollten. Dann müssen wir als Penalty <code>penalty = 0.0000000001</code> nutzen. Die Anzahl an Durchläufen pro Training ist dann <code>epochs = 200</code>. Müssen wir jetzt die Zahlen wieder in ein Modell eingeben? Nein, müssen wir nicht. Mit der Funktion <code>finalize_workflow()</code> können wir dann die besten Parameter aus unserem Tuning gleich mit dem Workflow kombinieren. Dann haben wir unseren finalen, getunten Workflow. Du siehst dann auch in der Ausgabe, dass die neuen Parameter in dem keras Algorithmus übernommen wurden</p>
 <div class="cell">
 <div class="sourceCode" id="cb28"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">final_gummi_wf</span> <span class="op">&lt;-</span> <span class="va">gummi_tune_wflow</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">finalize_workflow</span><span class="op">(</span><span class="va">best_keras</span><span class="op">)</span></span>
@@ -975,10 +994,12 @@ Engine-Specific Arguments:
 Computational engine: keras </code></pre>
 </div>
 </div>
+<p>Jetzt bleibt uns nur noch der letzte Fit übrig. Wir wollen unseren finalen, getunten Workflow auf die Testdaten anwenden. Dafür gibt es dann auch die passende Funktion. Das macht für uns die Funktion <code>last_fit()</code>, die sich dann die Informationen für die Trainings- und Testdaten aus unserem Datensplit von ganz am Anfang extrahiert.</p>
 <div class="cell" data-hash="classification-neural-networks_cache/html/unnamed-chunk-27_3c4ef883ed553bfeb826f47026c1edad">
 <div class="sourceCode" id="cb30"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">final_fit</span> <span class="op">&lt;-</span> <span class="va">final_gummi_wf</span> <span class="op">%&gt;%</span></span>
 <span>  <span class="fu">last_fit</span><span class="op">(</span><span class="va">gummi_data_split</span><span class="op">)</span> </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>Da wir immer noch eine Kreuzvaldierung rechnen, müssen wir dann natürlich wieder alle Informationen über alle Kreuzvaldierungsdatensätze einsammeln. Dann erhalten wir unsere beiden Gütekriterien für die Klassifikation des Geschlechts unser Studierenden nach dem keras Algorithmus. Die Zahlen sind schon gut für echte Daten. Eine Accuracy von 81% bedeutet das wir über acht von zehn Studierenden richtig klassifizieren. Die AUC ist auch schon fast hervorragend, wir bringen kaum Label durcheinander.</p>
 <div class="cell">
 <div class="sourceCode" id="cb31"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">final_fit</span> <span class="op">%&gt;%</span></span>
 <span>  <span class="fu">collect_metrics</span><span class="op">(</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -990,6 +1011,7 @@ Computational engine: keras </code></pre>
 2 roc_auc  binary         0.905 Preprocessor1_Model1</code></pre>
 </div>
 </div>
+<p>Dann bleibt uns nur noch die ROC Kurve zu visualisieren. Da wir wieder etwas faul sind, nutzen wir die Funktion <code>autoplot()</code>. Als Alternative geht natürlich auch das <a href="https://web.expasy.org/pROC/screenshots.html">R Paket <code>pROC</code></a>, was eine Menge mehr Funktionen und Möglichkeiten bietet.</p>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode" id="cb33"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">final_fit</span> <span class="op">%&gt;%</span></span>
 <span>  <span class="fu">collect_predictions</span><span class="op">(</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
@@ -1003,6 +1025,7 @@ Computational engine: keras </code></pre>
 </div>
 </div>
 </div>
+<p>Da wir eine ROC Kurve hier vorliegen haben, die sehr weit weg von der Diagonalen ist, haben wir sehr viele richtig vorhergesagte Studierende in unseren Testdaten. Unser Modell funktioniert um das Geschlecht von Studierenden anhand unserer Gummibärchendaten vorherzusagen. Besonders bei den neuronalen Netzwerken sieht man, wenn du die ROC Kurven vor und nach dem Tuning vergleichst, wie wichtig das Tuning ist. Dabei haben wir hier nur die abgespeckte Variante genutzt, da mein Rechner nicht länger laufen sollte.</p>
 </section><section id="referenzen" class="level2 unnumbered"><h2 class="unnumbered anchored" data-anchor-id="referenzen">Referenzen</h2>
 
 
