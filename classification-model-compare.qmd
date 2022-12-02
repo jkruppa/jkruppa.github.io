@@ -12,6 +12,8 @@ In diesem Kapitel wollen wir drei ausgewählte Algorithmen miteinander vergleich
 
 Häufig stellt sich natürlich die Frage, welche der statistischen Maßzahlen soll ich denn nun nehmen? Wie immer ist die Antwort, kommt drauf an. Ich würde dir empfehlen, die ROC Kurve für die Klassifikation zu nehmen. Dann wird auch häufig die Accuarcy berichtet. Danach wird es dann schon schwammiger und es kommt dann auch darauf an an *wen* du berichtest. Schreibst du also deine Abschlussarbeit, dann musst du dich mit deinen Betreuern abstimmen. Bei einer wissenschaftlichen Veröffentlichung würde ich in den anderen Veröffentlichungen des Journals schauen, was dort im Rahmen des maschinellen Lernens für Gütekriterien veröffentlicht werden. In diesem Kapitel gehen wir jedenfalls eine Menge Maßzahlen für die Klassifikation einmal durch.
 
+Für viele der Maßzahlen gibt es auf [Wikipedia zur Konfusionamtrix](https://en.wikipedia.org/wiki/Confusion_matrix) weitreichende Erklärungen. Ich werde mich hier kurz halten und die Werte anhand eines Beispiels nochmal herleiten. Wenn du dann mehr zu den einzelnen Gütekriterien wissen willst, musst du nochmal extern nachlesen.
+
 ::: callout-caution
 ## Tuning und Resampling?
 
@@ -202,16 +204,22 @@ Das war jetzt der dritte und letzte Algorithmus. Wir brauchen auch hier nur die 
 
 ## Vergleich der Modelle {#sec-class-model-compare}
 
+In der folgenden Liste haben wir einmal alle vorhergesagten Werte der drei Algorithmen zusammengefügt. Wir können jetzt auf der Liste `aug_lst` mit der Funktion `map()` aus dem R Paket `purrr` schnell rechnen. Anstatt für jedes der Objekte in der Liste einzeln den Code anzugeben, können wir den Code über die Funktion `map()` bündeln.
+
 ```{r}
 aug_lst <- lst(knn = knn_aug,
                rf = ranger_aug,
                xgboost = xgboost_aug)
 ```
 
+Im folgenden Schritt berechnen wir für alle Algorithmen die [Konfusionsmatrix](https://en.wikipedia.org/wiki/Confusion_matrix) als eine 2x2 Tabelle. Wir schauen uns gleich einmal die Konfusionsmatrix nur für den xgboost Algorithmus an. Auf der Konfusionsmatrix können wir *viele* Gütekriterien für die Klassifikation berechnen.
+
 ```{r}
 conf_mat_lst <- aug_lst %>% 
   map(~conf_mat(.x, gender, .pred_class))
 ```
+
+Und diese große Anzahl an Gütekriterien berechnen wir dann auch gleich. Die Funktion `summary()` gibt uns die Gütekriterien für alle Algorithmen wieder. Wir müssen dann noch etwas aufräumen und die Wiedergaben dann passend zusammenfassen, so dass wir eine schöne Tabelle wiedergegeben kriegen. So das sind jetzt aber ganz schön viele Maßzahlen.
 
 ```{r}
 
@@ -224,21 +232,13 @@ conf_mat_lst %>%
 
 ```
 
-Einmal die Konfusionsmatrix für den xgboost Algorithmus aus R.
+Um jetzt zu verstehen, wie scih diese Maßzahl jetzt alle berechnen ziehen wir uns einmal die Konfusionsmatrix für den xgboost Algorithmus aus dem Objekt `conf_mat_lst` raus. Wir sehen, dass wir die meisten Männer und Frauen richtig klassifiziert haben. Neben dieser Information, brauchen wir noch die Informationen der Randsummen.
 
 ```{r}
 pluck(conf_mat_lst, "xgboost")
 ```
 
-```{r}
-xgboost_aug$.pred_class %>% tabyl 
-```
-
-```{r}
-xgboost_aug$gender %>% tabyl 
-```
-
-Wir können auch *ganz viele* Beurteilungskriterien für die Klassifikation in einer [Confusion matrix](https://en.wikipedia.org/wiki/Confusion_matrix) berechnen lassen.
+Wir können berechnen, dass wir in den Testdaten (`Truth`) dann 58 Männer vorliegen haben sowie 61 Frauen. In den vorhergesagten Daten (`Prediction`) haben wir dann 63 Männer und 56 Frauen. Die beiden Zahlen brauchen wir noch und daher ergänzen wir diese Zahlen dann auch in der @tbl-confusion-xgboost.
 
 ::: {#tbl-confusion-matrix .column-page layout-ncol="2"}
 |                |               |            |               |
@@ -251,34 +251,36 @@ Wir können auch *ganz viele* Beurteilungskriterien für die Klassifikation in e
 |                | $Negativ$ (0) |    $FN$    |     $TN$      |
 |                |   $(N)$ (0)   |            |               |
 
-: Die [Konfusionsmatrix](https://en.wikipedia.org/wiki/Confusion_matrix) als eine 2x2 Tabelle oder Vierfeldertafel {#tbl-confusion-matrix-theory}
+: Die Konfusionsmatrix als eine 2x2 Tabelle oder Vierfeldertafel {#tbl-confusion-matrix-theory}
 
 |                |                |                 |                 |
 |:--------------:|:--------------:|:---------------:|:---------------:|
 |                |                |    **Truth**    |                 |
 |                |                |  $Positiv$ (m)  |  $Negativ$ (w)  |
-|                |                | $(PP = 63)$ (m) | $(PN = 56)$ (w) |
+|                |                | $(PP = 58)$ (m) | $(PN = 61)$ (w) |
 | **Prädiktion** | $Positiv$ (m)  |      $51$       |      $12$       |
-|                | $(P = 58)$ (m) |                 |                 |
+|                | $(P = 63)$ (m) |                 |                 |
 |                | $Negativ$ (w)  |       $7$       |      $49$       |
-|                | $(N = 61)$ (w) |                 |                 |
+|                | $(N = 56)$ (w) |                 |                 |
 
-: Die Konfusionsmatrix für den xgboost Algorithmus.
+: Die Konfusionsmatrix für den xgboost Algorithmus. {#tbl-confusion-xgboost}
 
-Main Caption
+Die theoretische [Konfusionsmatrix](https://en.wikipedia.org/wiki/Confusion_matrix) sowie die ausgefüllte Konfusionmatrix nach dem xgboost Algorithmus.
 :::
+
+Wir können auch noch *ganz viel mehr* Beurteilungskriterien für die Klassifikation in einer [Konfusionmatrix](https://en.wikipedia.org/wiki/Confusion_matrix) berechnen lassen. Wir wollen jetzt aber nur die dreizehn Beurteilungskriterien, die wir von der Funktion `summary()` berechnet kriegen, einmal durchgehen. Die Frage was du jetzt von den Maßzahlen alles berichten sollst, hängt wiederum davon ab, wenn du die Maßzahlen berichten willst. Die Accuarcy und die ROC Kurven sind sicherlich die wichtigsten Maßzahlen. Der Rest geht eher in die optionale Richtung.
 
 ##### Accuarcy {.unnumbered}
 
-`accuracy` ist der Anteil der Label, die richtig vorhergesagt werden.
+Die `accuracy` ist der Anteil der Label, die richtig vorhergesagt werden.
 
 ##### Kappa {.unnumbered}
 
-`kap` beschreibt Kappa und damit ein ähnliches Maß wie die *accuracy*. Dabei wird aber Kappa durch die *accuarcy* normalisiert, die allein durch Zufall zu erwarten wäre. Damit ist Kappa sehr nützlich, wenn eine oder mehrere Klassen große Häufigkeitsverteilungen haben.
+Das `kap` beschreibt Kappa und damit ein ähnliches Maß wie die *accuracy*. Dabei wird aber Kappa durch die *accuarcy* normalisiert, die allein durch Zufall zu erwarten wäre. Damit ist Kappa sehr nützlich, wenn eine oder mehrere Klassen große Häufigkeitsverteilungen haben.
 
 ##### Sensitivität {.unnumbered}
 
-`sens` beschreibt die Sensitivität oder die *true positive rate (TPR)*. Eine Methode die erkrankte Personen sehr zuverlässig als krank (1) erkennt hat eine hohe Sensitivität. Das heißt, sie übersieht kaum erkrankte (1) Personen.
+Die `sens` beschreibt die Sensitivität oder die *true positive rate (TPR)*. Eine Methode die erkrankte Personen sehr zuverlässig als krank (1) erkennt hat eine hohe Sensitivität. Das heißt, sie übersieht kaum erkrankte (1) Personen.
 
 $$
 \mbox{Sensitivität} = \mbox{sens} = \cfrac{TP}{TP + FN} = \cfrac{51}{51 + 7} = 0.879
@@ -286,7 +288,7 @@ $$
 
 ##### Spezifität {.unnumbered}
 
-`spec` beschreibt die Spezifität oder die *true negative rate (TNR)*. Eine Methode die gesunde Personen zuverlässig als gesund (0) einstuft, hat eine hohe Spezifität. Das heißt, die Methode liefert in der Regel nur bei Erkrankten ein positives Ergebnis.
+Die `spec` beschreibt die Spezifität oder die *true negative rate (TNR)*. Eine Methode die gesunde Personen zuverlässig als gesund (0) einstuft, hat eine hohe Spezifität. Das heißt, die Methode liefert in der Regel nur bei Erkrankten ein positives Ergebnis.
 
 $$
 \mbox{Spezifität} = \mbox{spec} = \cfrac{TN}{TN + FP} = \cfrac{49}{49 + 12} = 0.803
@@ -294,7 +296,7 @@ $$
 
 ##### Positiver prädiktiver Wert {.unnumbered}
 
-`ppv` beschreibt den positiven prädiktiven Wert (eng. *positive predictive value*).
+Der `ppv` beschreibt den positiven prädiktiven Wert (eng. *positive predictive value*).
 
 $$
 \mbox{Positiver prädiktiver Wert} = \mbox{ppv} = \cfrac{TP}{PP} = \cfrac{51}{63} = 0.81
@@ -302,7 +304,7 @@ $$
 
 ##### Negativer prädiktiver Wert {.unnumbered}
 
-`npv` beschreibt den negativen prädiktiven Wert (eng. *negative predictive value*).
+Der `npv` beschreibt den negativen prädiktiven Wert (eng. *negative predictive value*).
 
 $$
 \mbox{Negativer prädiktiver Wert} = \mbox{npv} = \cfrac{TN}{PN} = \cfrac{49}{56} = 0.875
@@ -310,11 +312,11 @@ $$
 
 ##### Matthews Korrelationskoeffizienten {.unnumbered}
 
-`mcc` beschreibt den Matthews Korrelationskoeffizienten (eng. *Matthews correlation coefficient*). Der Matthews-Korrelationskoeffizient (MCC) ist ein zuverlässiger statistischer Wert, der nur dann einen hohen Wert hat, wenn die Vorhersage in allen vier Kategorien der Konfusionsmatrix (richtig positiv, falsch negativ, richtig negativ und falsch positiv) gute Ergebnisse erzielt. Wir berechnen den Wert hier jetzt nicht, da die Formel insgesamt acht zusammengesetzte Terme aus der Konfusionsmatrix beinhaltet. Für die Berechnung einmal beim [Matthews correlation coefficient](https://en.wikipedia.org/wiki/Phi_coefficient) nachlesen oder aber auch @chicco2020advantages berücksichtigen.
+Das `mcc` beschreibt den Matthews Korrelationskoeffizienten (eng. *Matthews correlation coefficient*). Der Matthews-Korrelationskoeffizient (MCC) ist ein zuverlässiger statistischer Wert, der nur dann einen hohen Wert hat, wenn die Vorhersage in allen vier Kategorien der Konfusionsmatrix (richtig positiv, falsch negativ, richtig negativ und falsch positiv) gute Ergebnisse erzielt. Wir berechnen den Wert hier jetzt nicht, da die Formel insgesamt acht zusammengesetzte Terme aus der Konfusionsmatrix beinhaltet. Für die Berechnung einmal beim [Matthews correlation coefficient](https://en.wikipedia.org/wiki/Phi_coefficient) nachlesen oder aber auch @chicco2020advantages berücksichtigen.
 
 ##### Youden-J-Statistik {.unnumbered}
 
-`j_index` beschreibt die Youden-J-Statistik und ist definiert als $J = sens + spec - 1$. Wenn wir also eine hohe Sensitivität und eine hohe Spezifität haben dann nähert sich $J$ der Eins an.
+Der `j_index` beschreibt die Youden-J-Statistik und ist definiert als $J = sens + spec - 1$. Wenn wir also eine hohe Sensitivität und eine hohe Spezifität haben dann nähert sich $J$ der Eins an.
 
 $$
 \mbox{Youden-J} = \mbox{j index} = sens + spec - 1 = 0.879 + 0.803 - 1  = 0.682
@@ -322,7 +324,7 @@ $$
 
 ##### Balancierte Accuarcy {.unnumbered}
 
-`bal_accuracy` beschreibt die balancierte *accuarcy* und wird hier in der Funktion als der Durchschnitt von Sensitivität und Spezifität berechnet.
+Die `bal_accuracy` beschreibt die balancierte *accuarcy* und wird hier in der Funktion als der Durchschnitt von Sensitivität und Spezifität berechnet.
 
 $$
 \mbox{Balanced accuracy} = \cfrac{TPR + TNR}{2} = \cfrac{0.879 + 0.803}{2} = 0.841
@@ -330,7 +332,7 @@ $$
 
 ##### Entdeckungsprävalenz {.unnumbered}
 
-`detection_prevalence` Die Entdeckungsprävalenz (eng. *detection prevalence*) ist definiert als die Anzahl der vorhergesagten positiven Ereignisse (sowohl richtig als auch falsch positiv) geteilt durch die Gesamtzahl der Vorhersagen.
+Die `detection_prevalence` Die Entdeckungsprävalenz (eng. *detection prevalence*) ist definiert als die Anzahl der vorhergesagten positiven Ereignisse (sowohl richtig als auch falsch positiv) geteilt durch die Gesamtzahl der Vorhersagen.
 
 $$
 \mbox{Entdeckungsprävalenz} = \cfrac{TP + FP}{TP + FP + FN + TN} = \cfrac{51 + 12}{51 + 12 + 7 + 49} = 0.529
@@ -338,15 +340,15 @@ $$
 
 ##### Precision und Recall {.unnumbered}
 
-![Darstellung .](images/class-pre-recall.png){#fig-pre-recall fig-align="center" width="100%"}
+![Visualisierung der Berechung der Precision und des Recalls anhand von einem Venndiagramm.](images/class-pre-recall.png){#fig-pre-recall fig-align="center" width="100%"}
 
-`precision` Bei der binären Klassifizierung ist die *precision* der positiv prädiktive Wert. Damit ist die *precision* die Anzahl der richtig positiven Ergebnisse geteilt durch die Anzahl aller positiven Ergebnisse, einschließlich derer, die nicht richtig erkannt wurden. Siehe auch [Confusion matrix](https://en.wikipedia.org/wiki/Confusion_matrix).
+Die `precision` Bei der binären Klassifizierung ist die *precision* der positiv prädiktive Wert. Damit ist die *precision* die Anzahl der richtig positiven Ergebnisse geteilt durch die Anzahl aller positiven Ergebnisse, einschließlich derer, die nicht richtig erkannt wurden.
 
 $$
 \mbox{Precision} = \mbox{Positiver prädiktiver Wert}  = \cfrac{TP}{PP} = \cfrac{51}{63} = 0.81
 $$
 
-`recall` Bei der binären Klassifizierung ist der *recall* die Sensitivität. Damit ist der *recall* die Anzahl der tatsächlich positiven Ergebnisse geteilt durch die Anzahl aller Ergebnisse, die als positiv hätten identifiziert werden müssen. Siehe auch [Confusion matrix](https://en.wikipedia.org/wiki/Confusion_matrix).
+Der `recall` Bei der binären Klassifizierung ist der *recall* die Sensitivität. Damit ist der *recall* die Anzahl der tatsächlich positiven Ergebnisse geteilt durch die Anzahl aller Ergebnisse, die als positiv hätten identifiziert werden müssen.
 
 $$
 \mbox{Recall} = \mbox{Sensitivität} = \cfrac{TP}{TP + FN} = \cfrac{51}{51 + 7} = 0.879
@@ -354,13 +356,15 @@ $$
 
 ##### F$_1$ Score {.unnumbered}
 
-`f_meas` beschreibt den F$_1$ Score und damit das harmonische Mittel aus Precision und Recall. Der höchstmögliche Wert eines F$_1$ Scores ist 1, was perfekte Präzision und Recall bedeutet, und der niedrigstmögliche Wert ist 0, wenn sowohl Präzision als auch Recall null sind. Siehe auch [Confusion matrix](https://en.wikipedia.org/wiki/Confusion_matrix).
+Die `f_meas` beschreibt den F$_1$ Score und damit das harmonische Mittel aus Precision und Recall. Der höchstmögliche Wert eines F$_1$ Scores ist 1, was perfekte Präzision und Recall bedeutet, und der niedrigstmögliche Wert ist 0, wenn sowohl Präzision als auch Recall null sind.
 
 $$
 F_1 = \cfrac{2 \cdot TP}{2 \cdot TP + FP + FN} = \cfrac{2 \cdot 51}{2 \cdot 51 + 12 + 7} = 0.843
 $$
 
 ##### ROC & Precision recall Kurven {.unnumbered}
+
+Wenn wir von der Visualisierung von Klassifikationsergebnissen sprechen, dann kommen wir an der ROC Kurve und der PR Kurve nicht vorbei. Beide Kurven lassen sich ziemlich zügig erstellen. Wir kennen ja schon die Funktion `roc_curve()` für die ROC Kurve.
 
 [In dem @sec-test-diag erfährst du mehr darüber was eine ROC Kurve ist und wie du die ROC Kurve interpretieren kannst.]{.aside}
 
@@ -370,11 +374,15 @@ roc_tbl <- aug_lst %>%
   bind_rows(.id = "model")
 ```
 
+Die PR Kurve, für die Darstellung der Precision und des Recalls können wir dann die Funktion `pr_curve()` nutzen. Im Gegesatz zu der ROC Kurve wollen wir das die PR Kurve erstmal waagerecht verlauft und am Ende senkrecht nach unten fällt. Die Spitzen und Zacken in der Kurve sind normal und hat mit der Berechnung der beiden Werte zu tun. Wir wollen aber auch hier eine möglichst große Fläche unter der Kurve haben.
+
 ```{r}
 pr_tbl <- aug_lst %>% 
   map(~pr_curve(.x, gender, .pred_w, event_level = "second")) %>% 
   bind_rows(.id = "model")
 ```
+
+In der @fig-roc-pr-compare sind die ROC Kurven und die PR Kurven für die drei Algorithmen nochmal dargestellt. Zum einen sehen wir, dass wir nicht das beste Modell haben. Alle Modelle laufen übereinander und sind sich recht ähnlich. Das Bild wiederholt sich dann auch bei der PR Kurve wie bei der ROC Kurve. Dennoch sind die Algorithmen einigermaßen gut, denn wir haben ja weder eine Kreuzvalidierung noch ein Tuning durchgeführt. Wir bewerten die Modelle als gut, da die Flächen unter der Kurve relativ groß sind. Wenn es ein Modell gibt, was im Verhältnis zu den anderen Modellen abfällt, dann ist es das $k$-NN Modell. Das $k$-NN Modell hat einen starken Abfall zu Beginn der PR-Kurve.
 
 ```{r}
 #| echo: true
