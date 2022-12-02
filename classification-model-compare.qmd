@@ -39,6 +39,8 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
+In diesem Kapitel wolle wir uns aber mal auf einen echten Datensatz anschauen und sehen wie sich drei Algorithmen auf diesem Daten so schlagen. Welcher Algorithmus ist am besten für die Klassifikation geeignet? Wir nutzen daher hier einmal als echten Datensatz den Gummibärchendatensatz. Als unser Label nehmen wir das Geschlecht `gender`. Dabei wollen wir dann die weiblichen Studierenden vorhersagen. Im Weiteren nehmen wir als Prädiktoren die Spalten `most_liked`, `age`, `semester`, und `height` mit in unsere Analysedaten.
+
 ```{r}
 gummi_tbl <- read_excel("data/gummibears.xlsx") %>% 
   mutate(gender = as_factor(gender),
@@ -48,7 +50,7 @@ gummi_tbl <- read_excel("data/gummibears.xlsx") %>%
 
 ```
 
-In @tbl-gummi-prepro
+Wir dürfen keine fehlenden Werte in den Daten haben. Wir können für die Prädiktoren später die fehlenden Werte imputieren. Aber wir können keine Labels imputieren. Daher entfernen wir alle Beobachtungen, die ein `NA` in der Variable `gender` haben. Wir haben dann insgesamt $n = `r nrow(gummi_tbl)`$ Beobachtungen vorliegen. In @tbl-gummi-model-compare sehen wir nochmal die Auswahl des Datensatzes in gekürzter Form.
 
 ```{r}
 #| echo: false
@@ -67,12 +69,20 @@ rbind(head(gummi_raw_tbl),
   kable(align = "c", "pipe")
 ```
 
+Unsere Fragestellung ist damit, können wir anhand unserer Prädiktoren männliche von weiblichen Studierenden unterscheiden und damit auch klassifizieren? Wir splitten dafür unsere Daten in einer 3 zu 4 Verhältnis in einen Traingsdatensatz sowie einen Testdatensatz auf. Da wir aktuell nicht so viele Beobachtungen in dem Gummibärchendatensatz haben, möchte ich mindestens 100 Beobachtungen in den Testdaten. Deshalb kommt mir der 3:4 Split sehr entgegen.
+
 ```{r}
 gummi_data_split <- initial_split(gummi_tbl, prop = 3/4)
+```
 
+Wir speichern uns jetzt den Trainings- und Testdatensatz jeweils separat ab. Die weiteren Modellschritte laufen alle auf dem Traingsdatensatz, wie nutzen dann erst ganz zum Schluß einmal den Testdatensatz um zu schauen, wie gut unsere trainiertes Modell auf den neuen Testdaten funktioniert.
+
+```{r}
 gummi_train_data <- training(gummi_data_split)
 gummi_test_data  <- testing(gummi_data_split)
 ```
+
+Nachdem wir die Daten vorbereitet haben, müssen wir noch das Rezept mit den Vorverabreitungsschritten definieren. Wir schreiben, dass wir das Geschlecht `gender` als unser Label haben wollen. Daneben nehmen wir alle anderen Spalten als Prädiktoren mit in unser Modell, das machen wir dann mit dem `.` Symbol. Da wir noch fehlende Werte in unseren Prädiktoren haben, imputieren wir noch die numerischen Variablen mit der Mittelwertsimputation und die nominalen fehlenden Werte mit Entscheidungsbäumen. Dann müssen wir noch alle numerischen Variablen normalisieren und alle nominalen Variablen dummykodieren. Am Ende werde ich nochmal alle Variablen entfernen, sollte die Varianz in einer Variable nahe der Null sein.
 
 ```{r}
 gummi_rec <- recipe(gender ~ ., data = gummi_train_data) %>% 
@@ -85,6 +95,8 @@ gummi_rec <- recipe(gender ~ ., data = gummi_train_data) %>%
 gummi_rec %>% summary()
 
 ```
+
+Alles in allem haben wir ein sehr kleines Modell. Wir haben ja nur ein Outcome und vier Prädiktoren. Trotzdem sollte dieser Datensatz reichen um zu erklären wie Entscheidungsbäume funktionieren.
 
 ## $k$-NN Algorithm
 
@@ -120,7 +132,7 @@ knn_aug <- augment(knn_fit, gummi_test_data )
 ::: callout-note
 ## Huch, der Code ist aber sehr kurz...
 
-In diesem Teil halte ich den R Code sehr kurz, wenn du mehr über den Random Forest Algorithmus wissen willst, schaue bitte in @sec-class-rf.
+In diesem Teil halte ich den R Code sehr kurz, wenn du mehr über den Random Forest Algorithmus wissen willst, schaue bitte in @sec-rf.
 :::
 
 ::: {.callout-caution collapse="true"}
@@ -262,7 +274,7 @@ Main Caption
 
 ##### Sensitivität {.unnumbered}
 
-`sens` beschreibt die Sensitivität oder die *true positive rate (TPR)*
+`sens` beschreibt die Sensitivität oder die *true positive rate (TPR)*. Eine Methode die erkrankte Personen sehr zuverlässig als krank (1) erkennt hat eine hohe Sensitivität. Das heißt, sie übersieht kaum erkrankte (1) Personen.
 
 $$
 \mbox{Sensitivität} = \mbox{sens} = \cfrac{TP}{TP + FN} = \cfrac{51}{51 + 7} = 0.879
@@ -270,7 +282,7 @@ $$
 
 ##### Spezifität {.unnumbered}
 
-`spec` beschreibt die Spezifität oder die *true negative rate (TNR)*
+`spec` beschreibt die Spezifität oder die *true negative rate (TNR)*. Eine Methode die gesunde Personen zuverlässig als gesund (0) einstuft, hat eine hohe Spezifität. Das heißt, die Methode liefert in der Regel nur bei Erkrankten ein positives Ergebnis.
 
 $$
 \mbox{Spezifität} = \mbox{spec} = \cfrac{TN}{TN + FP} = \cfrac{49}{49 + 12} = 0.803
@@ -388,9 +400,5 @@ pr_tbl %>%
   geom_path() +
   scale_color_okabeito()
 ```
-
-## Visualisation
-
-https://datascienceplus.com/machine-learning-results-one-plot-to-rule-them-all/ https://datascienceplus.com/machine-learning-results-in-r-one-plot-to-rule-them-all-part-2-regression-models/ https://www.r-bloggers.com/2021/04/the-good-the-bad-and-the-ugly-how-to-visualize-machine-learning-data/ https://neptune.ai/blog/visualizing-machine-learning-models https://uc-r.github.io/lime https://cran.r-project.org/web/packages/mboost/vignettes/mboost_tutorial.pdf
 
 ## Referenzen {.unnumbered}
