@@ -106,38 +106,70 @@ neuralnetwork <- neuralnet(renn_weg + schrei + ruf_holzfaeller + plaudere +
 plotnet(neuralnetwork, bias = FALSE, pad_x = 0.6)
 ```
 
-@kubat2017introduction
+Das folgende etwas mathematische Beispiel ist von @kubat2017introduction, pp. 65-73, entnommen. Ich habe das Beispiel dann für R adaptiert, so dass wir hier auch R Code zum ausprobieren haben.
+
+Wir haben ein simples Datenbeispiel von vier Beobachtungen mit jeweils einem $x_1$ und einem $x_2$ Wert als Prädiktor. Der Wert den $x_1$ oder $x_2$ annehmen können sind binär. Wir haben also für unsere beiden Prädiktoren nur $0/1$ Werte vorliegen. Unser Label $y$ ist ebenfalls binär. Entweder ist die betreffende Beobachtung erkrankt oder eben nicht. In unserem Beispiel sind die ersten beiden Beobachtungen nicht erkrankt und die letzten beiden Beobachtungen sind erkrankt. Schauen wir uns den Datensatz einmal an.
+
+```{r}
+data_tbl <- tibble(y = c(0, 0, 1, 1),
+                   x_1 = c(0, 1, 0, 1),
+                   x_2 = c(0, 0, 1, 1))
+data_tbl
+```
+
+Faktisch wollen wir jetzt eine Grae durch die Punkte legen, so dass wir die gesunden von den kranken Beobachtungen trennen können. Praktisch machen wir das mit einer linearen Funktion $h(x)$, die uns anhand von $x_1$ und $x_2$ eine Aussagen über den Status von $y$ ermöglicht. Wir erhalten zuerst einen *numerischen* Wert, den wir dann noch mit einer Regel in eine $0/1$ Entscheidung umwandeln müssen.
+
+$$
+h(x) \sim w_0 + w_1 \cdot x_1 + w_2 \cdot x_2
+$$
+
+Nun können wir die Formel nochmal kompakter schreiben.
+
+$$
+h(x) \sim \sum_{i = 0}^{n=2} w_i x_i
+$$
+
+Wir drücken im Folgenden damit aus, das wir auch die Gewichte $w_i$ mit den einzelnen $x_i$ multiplizieren und anschließend aufsummieren. Anhand der aufsummierten Zahl aus $h(x)$ können wir dann eine Entscheidung für $0/1$ treffen. In unserem Beispiel entscheiden wir uns dazu, das wir $y=0$ annehmen wenn $h(x) < 0$ ist oder aber $y=1$ annehmen, wenn $h(x) \geq 0$ ist. Wir können das einmal formal aufschreiben.
+
+$$
+h(x)= 
+\begin{cases}
+    1,& \text{wenn } h(x)\geq 0\\
+    0,              & \text{ansonsten}
+\end{cases}
+$$ Nichts anders ist dann auch unser Neuron, was die Entscheidungen trifft. Wir haben vier verschiedene $x_1$ und $x_2$ Kombinationen und gewichten diese beiden $x$ dann noch einem Gewichtsvektor. Wenn wir dann als aufsummiertes Ergebnis eine Zahl größer als $0$ erhalten, dann gibt unser Neuron als Klassifikationsergebnis ein $1$ wieder.
+
+```{r}
+neuron <- function(input, weights) {if_else(input %*% weights > 0, 1, 0)}
+```
+
+Wir brauchen alos zum einen nochmal die Inputmatrxi. Die bauen wir uns einmal mit der Funktion `model.matrix()`. Dann haben wir drei Spalten für jedes Gewicht $w$. Dann brauchen wir noch die drei Gewichte $w_0$, $w_1$ und $w_2$. Nichts anders als der Intercept und die Steigung in einem linearen Modell.
+
+```{r}
+input <- data_tbl %$%
+  model.matrix(~ x_1 + x_2)
+input
+```
+
+```{r}
+weights <- c(0.1, 0.3, 0.4)
+```
 
 ```{r}
 
-input <- matrix(c(0, 0,
-                  1, 0,
-                  0, 1,
-                  1, 1), ncol = 2)
 
-data_tbl <- tibble(x_1 = c(0, 1, 0, 1),
-                    x_2 = c(0, 0, 1, 1),
-                    y = c(0, 0, 1, 1))
-
-input_mat <- data_tbl %$%
-  model.matrix(~ x_1 + x_2)
-
-weights <- c(0.1, 0.3, 0.4)
-
-neuron <- function(weights, input) {if_else(input %*% weights > 0, 1, 0)}
-
-neuron(weights, input_mat[1,])
+neuron(weights, input[1,])
 
 eta <- 0.2
 
 for(i in 1:4){
-weights <- weights + eta * (data_tbl$y[i] - neuron(weights, input_mat[i,])) * input_mat[i,]
+weights <- weights + eta * (data_tbl$y[i] - neuron(weights, input[i,])) * input[i,]
 print(weights)
 }
 
-input_mat %*% c(-0.3, 0.1, 0.9)
+input %*% c(-0.3, 0.1, 0.4)
 
-neuron(input_mat, weights = c(-0.3, 0.1, 0.9))
+neuron(input, weights = c(-0.3, 0.1, 0.4))
 
 
 ```
