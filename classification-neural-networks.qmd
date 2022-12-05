@@ -23,6 +23,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, tidymodels, magrittr, 
                janitor, keras, tensorflow, see,
                lime, neuralnet, NeuralNetTools,
+               OneR,
                conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
@@ -245,6 +246,45 @@ gummi_rec %>% summary()
 ```
 
 Alles in allem haben wir ein sehr kleines Modell. Wir haben ja nur ein Outcome und vier Prädiktoren. Trotzdem sollte dieser Datensatz reichen um zu erklären wie Keras oder Tensorflow funktionieren. Am Ende muss man sich aber auch ehrlich machen und sagen, dass ein Datensatz mit unter tausend Beobachtungen eigentlich keinen großen Sinn für ein neuronales Netz macht. Deshalb ist das hier eher eine Demonstration des Algorithmus.
+
+## Neuronale Netze mit `neuralnet`
+
+```{r}
+gummi_train_tbl <- gummi_rec %>% 
+  prep %>% 
+  juice()
+```
+
+```{r}
+gummi_test_tbl <- gummi_rec %>% 
+  prep %>% 
+  bake(gummi_test_data) %>% 
+  mutate(gender = ifelse(gender == "m", 0, 1))
+```
+
+```{r}
+neuralnet_fit <- neuralnet(gender ~., data = gummi_train_tbl, rep = 5, threshold = 0.2,
+                           hidden = c(5, 5), lifesign = "minimal")
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-class-nn-02
+#| fig-align: center
+#| fig-height: 7
+#| fig-width: 8
+#| fig-cap: "."
+
+
+plot(neuralnet_fit, rep = "best")
+```
+
+```{r}
+prediction <- round(neuralnet::compute(neuralnet_fit, gummi_test_tbl)$net.result)
+eval_model(prediction[,2], pull(gummi_test_tbl, gender))
+```
 
 ## Neuronale Netze mit Keras / Tensorflow
 
