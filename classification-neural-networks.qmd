@@ -10,6 +10,8 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 So, das war ein ganz schönes Brett, TensorFlow oder Keras auf dem Rechner zu installieren. Es gibt zwar einen [Quick start um Tensorflow zu installieren](https://tensorflow.rstudio.com/install/) aber dann hatte ich das schöne Problem der GPU auf dem macOS mit M1 Chip. Die Lösung für die [Local GPU](https://tensorflow.rstudio.com/install/local_gpu) hat mich auf dem macOS einen Tag Nerven gekostet. Das mag dann auf einem Windows Rechner anders sein bzw. andere Probleme verursachen. Schlussendlich ist die Nutzung von *neural networks* auf keinen Laptops vieleicht auch nicht so die beste Idee. Wir würden die Algorithmen eher auf Hochleistungsrechner durchführen und dann vermutich eine Linuxdistribution verwenden. Dennoch werde ich hier einmal Tensorflow in R vorstellen. Die Pakete für die Integration von dem eigenständigen Algorithmus Tensorflow gibt es und wenn es dann mal installiert ist, funktioniert auch alles super. Da Tensorflow in Phyton programmiert ist, muss auch Phyton auf dem Rechner installiert sein. Du siehst also, es ist einiges einzurichten, damit wir Deep learning betreiben können. Hier möchte ich dann auch gerne auf @mueller2019deep verweisen, der zu dem Thema Deep learning einen guten Einstieg liefert. Denn wir machen hier eigentlich kein Deep learning, denn unsere neuronalen Netzwerke werden nicht viele Schichten haben, dass würde hier mein kleiner Rechner auch gar nicht schaffen.
 
+Neben TensorFlow / Keras zeige ich auch nochmal die Anwendung der etwas veralteten R Pakete `neuralnet` und `nnet`. Wie immer musst du selber entscheiden, was du brauchst. Der 
+
 ::: column-margin
 Wir immer basirt dieser Text zum Teilen auch auf guten Tutorien im Netz. Zum einen ist es das Tutorium [Understanding the Magic of Neural Networks](https://blog.ephorie.de/understanding-the-magic-of-neural-networks) und das Tutorium [A Beginner's Guide to Neural Networks and Deep Learning](https://wiki.pathmind.com/neural-network). Beide Tutorien sind in Englsich und Teile beider Tutorien hat auch diesen Text hier insperiert. Nicht zu vergessen das Tutorial [A Quick Introduction to Neural Networks](https://ujjwalkarn.me/2016/08/09/quick-intro-neural-networks/).
 :::
@@ -22,7 +24,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 pacman::p_load(tidyverse, tidymodels, magrittr, 
                janitor, keras, tensorflow, see,
-               lime, neuralnet, NeuralNetTools,
+               neuralnet, NeuralNetTools,
                OneR,
                conflicted)
 conflict_prefer("select", "dplyr")
@@ -247,15 +249,19 @@ gummi_rec %>% summary()
 
 Alles in allem haben wir ein sehr kleines Modell. Wir haben ja nur ein Outcome und vier Prädiktoren. Trotzdem sollte dieser Datensatz reichen um zu erklären wie Keras oder Tensorflow funktionieren. Am Ende muss man sich aber auch ehrlich machen und sagen, dass ein Datensatz mit unter tausend Beobachtungen eigentlich keinen großen Sinn für ein neuronales Netz macht. Deshalb ist das hier eher eine Demonstration des Algorithmus.
 
-## Neuronale Netze mit `neuralnet`
+## Neuronale Netze mit `neuralnet` oder `nnet`
 
-Neuronale Netze mit den R Paketen `neuralnet` und dem R Paket `nnet` sind mehr oder minder veraltet (eng. *outdated*).
+Neuronale Netze mit den R Paketen `neuralnet` und dem R Paket `nnet` sind mehr oder minder veraltet (eng. *outdated*). Wir können das Paket `neuralnet` nicht über die `parsnip` Umgebung nutzen. Deshalb hier einmal zu Fuß mit all den Komplikationen, die das so mit sich bringt. Auf der anderen Seite liefert das Paket `neuralnet` auch gute Ergebnisse mit wenig rechenlaufzeit. Da musst du dann einmal abwägen, was du in deiner Arbei so brauchst.
+
+Das die Funktion `neuralnet()` nicht mit den Workflow kann, müssen wir uns erstmal wieder den Traingsdatendatz und den Testdatensatz aus unserem Rezept extrahieren. Den Traingsdatensatz können wir uns über die Funktion `juice()` einmal aus dem Rezept ziehen. 
 
 ```{r}
 gummi_train_tbl <- gummi_rec %>% 
   prep %>% 
   juice()
 ```
+
+Den Testdatensatz müssen wir mit dem Rezept einmal backen. Dann müssen wir noch die Spalte `gender` in eine numerische Spalte umwandeln. Sonst klappt das später nicht mit der Prädiktion und der Konfusionsmatrix.
 
 ```{r}
 gummi_test_tbl <- gummi_rec %>% 
@@ -264,10 +270,13 @@ gummi_test_tbl <- gummi_rec %>%
   mutate(gender = ifelse(gender == "m", 0, 1))
 ```
 
+Dann können wir auch schon die Funktion `neuralnet` auf unsere Daten anwenden. Wir wollen fünfmal über die Traingsdaten iterieren (`rep = 5`). Später heißt dieses Iterieren dann auch `epoch`. Dann müssen wir noch den Threshold für den Fehler festlegen, der gerade noch so akzeptabel ist und wo das Wachstum endet. Je kleiner, desto länger dauer der Prozess. Mit einem `threshold = 0.2` sind wir aber schon sehr weit oben, sonst ist der Wert bei $0.01$. Hier musst ein wenig selber mit den Parametern spielen. Eine Tuningmöglichkeit oder eine Kreuzvalidierung musst du dir dann selber programmieren. Wir nehmen dann fünf Hiddenlayers mit jeweils fünf Knoten pro Hiddenlayer. 
+
 ```{r}
 neuralnet_fit <- neuralnet(gender ~., data = gummi_train_tbl, rep = 5, threshold = 0.2,
                            hidden = c(5, 5), lifesign = "minimal")
 ```
+Wenn wir das Modell haben, dann können wir uns hier ganz einfach mal das beste neuronale Netzwerk anschauen. Also die Wiederholung mit dem kleinsten Fehler. In Abbildung @fig-class-nn-02 sehen wir das Netzwerk einmal dargestellt. Die blauen Knoten stellen die Biasknoten dar. Die Zahlen an den Kanten stellen dann die Gewichte dar, die von dem jeweiligen Knoten weitergegeben werden. Die Interpretation des Netzwerks ist so schwer, es ist eben nur eine visuelle Darstellung. 
 
 ```{r}
 #| echo: true
@@ -277,23 +286,89 @@ neuralnet_fit <- neuralnet(gender ~., data = gummi_train_tbl, rep = 5, threshold
 #| fig-align: center
 #| fig-height: 7
 #| fig-width: 8
-#| fig-cap: "."
-
+#| fig-cap: "Abbildung des neuronalen Netzwerks mit dem kleinsten Fehler."
+#| fig-subcap: 
+#|   - "Neuronales Netzwerk mit den Gewichten und dem Bias als numerische Representation."
+#|   - "Neurales Interpretationsdiagramm für ein neurales Netzwerk."
+#| layout-nrow: 1
+#| column: page
 
 plot(neuralnet_fit, rep = "best")
+
+plotnet(neuralnet_fit, rep = "best", bias = FALSE, pad_x = 0.59)
 ```
 
 ```{r}
 neuralnet_pred <- round(neuralnet::compute(neuralnet_fit, gummi_test_tbl)$net.result)
+```
 
+
+```{r}
 neuralnet_cm <- conf_mat(data = data.frame(.pred_class = as.factor(neuralnet_pred [,2]),
                                            gender = as.factor(pull(gummi_test_tbl, gender))), 
                          gender, .pred_class)
+```
 
+
+```{r}
 neuralnet_cm %>% 
   summary %>% 
   mutate_if(is.numeric, round, 2)
 ```
+
+Wir können aber das R Paket `nnet` mit unserer bekannten Rezotumgebung nutzen und uns damit das Leben einfacher machen. 
+
+```{r}
+nnet_mod <- mlp(penalty = 0, epochs = 100) %>% 
+  set_engine("nnet") %>% 
+  set_mode("classification")
+```
+
+```{r}
+nnet_wflow <- workflow() %>% 
+  add_model(nnet_mod) %>% 
+  add_recipe(gummi_rec)
+```
+
+```{r}
+#| message: false
+#| warning: false
+
+nnet_fit <- nnet_wflow %>% 
+  parsnip::fit(gummi_train_data)
+
+```
+
+```{r}
+nnet_aug <- augment(nnet_fit, gummi_test_data ) 
+```
+
+```{r}
+nnet_cm <- nnet_aug %>% 
+  conf_mat(gender, .pred_class)
+
+nnet_cm
+```
+
+```{r}
+nnet_cm %>% summary()
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-class-keras-01
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "ROC Kurve für den `keras` Algorithmus."
+
+nnet_aug %>% 
+  roc_curve(gender, .pred_w, event_level = "second") %>% 
+  autoplot()
+```
+
 
 ## Neuronale Netze mit Keras / Tensorflow
 
