@@ -276,7 +276,7 @@ Dann können wir auch schon die Funktion `neuralnet` auf unsere Daten anwenden. 
 neuralnet_fit <- neuralnet(gender ~., data = gummi_train_tbl, rep = 5, threshold = 0.2,
                            hidden = c(5, 5), lifesign = "minimal")
 ```
-Wenn wir das Modell haben, dann können wir uns hier ganz einfach mal das beste neuronale Netzwerk anschauen. Also die Wiederholung mit dem kleinsten Fehler. In Abbildung @fig-class-nn-02 sehen wir das Netzwerk einmal dargestellt. Die blauen Knoten stellen die Biasknoten dar. Die Zahlen an den Kanten stellen dann die Gewichte dar, die von dem jeweiligen Knoten weitergegeben werden. Die Interpretation des Netzwerks ist so schwer, es ist eben nur eine visuelle Darstellung. 
+Wenn wir das Modell haben, dann können wir uns hier ganz einfach mal das beste neuronale Netzwerk anschauen. Also die Wiederholung mit dem kleinsten Fehler. In Abbildung @fig-class-nn-02 sehen wir das Netzwerk einmal dargestellt. Die blauen Knoten stellen die Biasknoten dar. Die Zahlen an den Kanten stellen dann die Gewichte dar, die von dem jeweiligen Knoten weitergegeben werden. Die Interpretation des Netzwerks ist so schwer, es ist eben nur eine visuelle Darstellung. Da so eine Abbildung etwas schwer zu interpretieren ist, erlaubt ein neurales Interpretationsdiagramm mehr Einblicke. Die schwarzen Kanten haben einen höheren Einfluss als die grauen Kanten. Die exakte Interpretation der Knoten und der Kanten ist aber dennoch schwierig. 
 
 ```{r}
 #| echo: true
@@ -298,10 +298,20 @@ plot(neuralnet_fit, rep = "best")
 plotnet(neuralnet_fit, rep = "best", bias = FALSE, pad_x = 0.59)
 ```
 
+Am Ende machen wir das Ganze ja nicht um etwas *interpretieren* zu können, sondern um eine Vorhersage zu treffen. Das machen wir mit der Funktion `predict()`. Jetzt wird es wieder nervig. Wir müssen usn merken, dass unser Faktor zwei Level hat mit `0` und `1` wobei die `m = 0` und `w = 1` ist. Als wäre das nicht schon nervig genug, haben wir dann in der Ausgabe von `predict()` nur eine MAtrix mit zwei Spalten. Wir brauchen die zweite Spalte, da wir das Geschlecht `w` vorhersagen wollen. 
+
 ```{r}
-neuralnet_pred <- round(neuralnet::compute(neuralnet_fit, gummi_test_tbl)$net.result)
+neuralnet_pred <- predict(neuralnet_fit, gummi_test_tbl) %>% 
+  round(2)
 ```
 
+Kurzer Check, ob wir auch alles richtig gemacht haben.
+
+```{r}
+range(neuralnet_pred[,1])
+range(neuralnet_pred[,2])
+```
+Und wir stellen fest, dass hier irgendwas mit unserer Wahrscheinlichkeit für die Klassenzugehörigkeit nicht stimmt. Wir haben negative Werte und Werte über Eins. Das macht für eine Wahrscheinlichkeit keinen Sinn. **STOPP**, müsstest du hier machen! Ich zeige aber noch wie du dir die Konfusionsmatrix berechnest. Da musst du dich wieder strecken um alles in die Funktion `conf_mat()` richtig rein zu kriegen.
 
 ```{r}
 neuralnet_cm <- conf_mat(data = data.frame(.pred_class = as.factor(neuralnet_pred [,2]),
@@ -309,6 +319,7 @@ neuralnet_cm <- conf_mat(data = data.frame(.pred_class = as.factor(neuralnet_pre
                          gender, .pred_class)
 ```
 
+Dann können wir uns die Konfusionsmatrix auch einmal wiedergeben lassen. Ich wäre hier sehr vorsichtig, was die Werte angeht. Wir haben gerade komische Wahrscheinlichkeiten wiedergegeben bekommen. Daher würde ich der Sache hier nicht trauen und nochmal an der Funktion `neuralnet()` mit anderen Parametern herumprobieren. Man sieht, es hat auch einen Grund warum manche Funktionen nicht in der `parsnip` Umgebung implementiert sind.
 
 ```{r}
 neuralnet_cm %>% 
@@ -316,19 +327,25 @@ neuralnet_cm %>%
   mutate_if(is.numeric, round, 2)
 ```
 
-Wir können aber das R Paket `nnet` mit unserer bekannten Rezotumgebung nutzen und uns damit das Leben einfacher machen. 
+Wir können aber das R Paket `nnet` mit unserer bekannten Rezeptumgebung nutzen und uns damit das Leben einfacher machen. Das macht auch in diesem Fall sehr viel mehr Sinn, da wir ja nur komische Wahrscheinlichkeiten der Klassenzugehörigkeit aus der Funktion `neuralnet()` wiederbekommen. Also das ganze einmal ohne wildes Installieren von Tensorflow / Keras. Ein simples neurales Netzwerk in R mit der Engine aus `nnet`. 
+
+In unserem Beispiel lassen wir einhundert Replikationen laufen (`epoch = 100`) und wählen auch hier mal fünf Hidden Layers (`hidden_units = 5`). Dann wollen wir natürlich eine Klassifikation rechnen.
 
 ```{r}
-nnet_mod <- mlp(penalty = 0, epochs = 100) %>% 
+nnet_mod <- mlp(epochs = 100, hidden_units = 5) %>% 
   set_engine("nnet") %>% 
   set_mode("classification")
 ```
+
+Wir bringen wieder unser Modell mit dem Rezept des Gummibärchendatensatzes zusammen und können dann den Workflow abspeicherb.
 
 ```{r}
 nnet_wflow <- workflow() %>% 
   add_model(nnet_mod) %>% 
   add_recipe(gummi_rec)
 ```
+
+Wie immer starten wir dann den Workflow mit der Funktion `fit()` und erhalten das `nnet` Modell zurück.
 
 ```{r}
 #| message: false
@@ -339,9 +356,18 @@ nnet_fit <- nnet_wflow %>%
 
 ```
 
+Jetzt müssen wir nur noch mit der Funktion `augment` uns die Vorhersagen mit dem Testdatensatz wiedergeben lassen. 
+
 ```{r}
 nnet_aug <- augment(nnet_fit, gummi_test_data ) 
 ```
+
+Da wir hier etwas vorsichtig geworden sind, nochmal schnell schauen, ob unsere Wahrscheinlichkeiten der Klassenzugehörigkeit auch wirklich eine Wahrscheinlichkeit ist. 
+
+```{r}
+pluck(nnet_aug, ".pred_w") %>% range()
+```
+Ja, das passt soweit und wir können uns dann die Konfusionsmatrix berechnen lassen. Die Ergebnisse sind jetzt nicht so berauschend, aber auf der anderen Seite richtiger als in der Funktion `neuralnet()`.
 
 ```{r}
 nnet_cm <- nnet_aug %>% 
@@ -349,6 +375,7 @@ nnet_cm <- nnet_aug %>%
 
 nnet_cm
 ```
+Dann schauen wir uns nochmal die ganzen anderen Gütekriterien aus der KOnfusionsmatrix einmal an
 
 ```{r}
 nnet_cm %>% summary()
