@@ -31,7 +31,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, readxl, 
+pacman::p_load(tidyverse, magrittr, readxl, janitor,
                broom, multcomp, emmeans, effectsize, report,
                see, metR, parameters, multcompView,
                modelsummary, rstatix,
@@ -39,6 +39,7 @@ pacman::p_load(tidyverse, magrittr, readxl,
 ## resolve some conflicts with same function naming
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
+conflict_prefer("chisq.test", "stats")
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -150,6 +151,42 @@ root_fit %>% anova
 
 pairwise.t.test(ph_tbl$ph, ph_tbl$variant,
                 p.adjust.method = "none")
+
+
+```
+
+```{r}
+cutting_raw_tbl <- read_excel("data/cutting_data.xlsx") %>% 
+  clean_names()
+
+cutting_tbl <- map(c("trieblange", "blutenzahl", "blattanzahl", "fruchtanzahl"),
+    function(x) {
+      print(x)
+      cutting_raw_tbl %>% 
+        select(trt, block, matches(x)) %>% 
+        gather(key, value, -trt, -block) %>% 
+        mutate(week = as.numeric(str_match(key, "\\d+")),
+               week = as.numeric(as.factor(week)),
+               key = x,
+               block = as_factor(block)) %>% 
+        select(trt, block, week, key, value)
+      }) %>% 
+  bind_rows()
+
+cutting_tbl %<>% 
+  mutate(key = recode(key, trieblange = "Trieblänge", 
+                      blutenzahl = "Blütenanzahl", 
+                      blattanzahl = "Blätteranzahl", 
+                      fruchtanzahl = "Fruchtanzahl"))
+
+cutting_tbl %>% 
+  ggplot(aes(week, value, color = trt, linetype = block)) +
+  theme_minimal() +
+  facet_wrap(~key, scales = "free_y") +
+  geom_point() +
+  stat_smooth(se = FALSE) +
+  scale_color_okabeito()
+
 
 
 ```
