@@ -8,6 +8,8 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
+Wenn wir von Support Vector Machines (deu. *Stützvektormethode*, abk. SVM) schreiben, dann schreiben wir auch von einem heutzutage eher seltneren genutzen Algorithmus. Das hat weniger mit den Fähigkeiten des Algorithmus zu tun, als mit der Entscheidung, welche Art von SVM Algorithmus wir nutzen wollen. Daher gibt es wie immer sehr viel theoretische Literatur, aber sehr wenig praktische Anwendung. Der SVM Algorithmus lifert zwar eine Vorhersage, kann aber nicht mit einer Variablen Importance aufwarten. Auch kann der SVM nicht einen Cluster bilden. Am Ende ist der SVM Algorithmus also nur eine Möglichkeit eine gute Vorhersage zu machen. Eigentlich das was wir wollen, aber andere Algorithmen können dann immer noch einen Tick mehr.
+
 ## Genutzte R Pakete
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
@@ -15,8 +17,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, tidymodels, magrittr, 
-               janitor, vip, rpart.plot, see,
-               xgboost, conflicted)
+               janitor, see, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -29,7 +30,7 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
-Bei dem vorherigen Beispielen haben wir immer unseren Datensatz zu den infizierten Ferkeln genutzt. In diesem Kapitel wolle wir uns aber mal auf einen echten Datensatz anschauen. Wir nutzen daher einmal den Gummibärchendatensatz. Als unser Label und daher als unser Outcome nehmen wir das Geschlecht `gender`. Dabei wollen wir dann die weiblichen Studierenden vorhersagen. Im Weiteren nehmen wir nur die Spalte Geschlecht sowie als Prädiktoren die Spalten `most_liked`, `age`, `semester`, und `height`.
+In diesem Kapitel wollen wir uns auch auf einen echten Datensatz konzentrieren. Wir nutzen daher einmal den Gummibärchendatensatz. Als unser Label und daher als unser Outcome nehmen wir das Geschlecht `gender`. Dabei wollen wir dann die weiblichen Studierenden vorhersagen. Im Weiteren nehmen wir nur die Spalte Geschlecht sowie als Prädiktoren die Spalten `most_liked`, `age`, `semester`, und `height`.
 
 ```{r}
 gummi_tbl <- read_excel("data/gummibears.xlsx") %>% 
@@ -59,7 +60,7 @@ rbind(head(gummi_raw_tbl),
   kable(align = "c", "pipe")
 ```
 
-Unsere Fragestellung ist damit, können wir anhand unserer Prädiktoren männliche von weiblichen Studierenden unterscheiden und damit auch klassifizieren? Um die Klassifikation mit Entscheidungsbäumen rechnen zu können brauchen wir wie bei allen anderen Algorithmen auch einen Trainings- und Testdatensatz. Wir splitten dafür unsere Daten in einer 3 zu 4 Verhältnis in einen Traingsdatensatz sowie einen Testdatensatz auf. Der Traingsdatensatz ist dabei immer der größere Datensatz. Da wir aktuell nicht so viele Beobachtungen in dem Gummibärchendatensatz haben, möchte ich mindestens 100 Beobachtungen in den Testdaten. Deshalb kommt mir der 3:4 Split sehr entgegen.
+Unsere Fragestellung ist damit, können wir anhand unserer Prädiktoren männliche von weiblichen Studierenden unterscheiden und damit auch klassifizieren? Um die Klassifikation mit Entscheidungsbäumen rechnen zu können brauchen wir wie bei allen anderen Algorithmen auch einen Trainings- und Testdatensatz. Wir splitten dafür unsere Daten in einer 3 zu 4 Verhältnis in einen Traingsdatensatz sowie einen Testdatensatz auf.
 
 [Im maschinellen Lernen sind alle Datensätze, die weniger als tausend Beobachtungen vorliegen haben, klein.]{.aside}
 
@@ -74,7 +75,7 @@ gummi_train_data <- training(gummi_data_split)
 gummi_test_data  <- testing(gummi_data_split)
 ```
 
-Nachdem wir die Daten vorbereitet haben, müssen wir noch das Rezept mit den Vorverabreitungsschritten definieren. Wir schreiben, dass wir das Geschlecht `gender` als unser Label haben wollen. Daneben nehmen wir alle anderen Spalten als Prädiktoren mit in unser Modell, das machen wir dann mit dem `.` Symbol. Da wir noch fehlende Werte in unseren Prädiktoren haben, imputieren wir noch die numerischen Variablen mit der Mittelwertsimputation und die nominalen fehlenden Werte mit Entscheidungsbäumen. Es gibt wie immer noch andere Imputationsmöglichkeiten, ich habe mich jetzt aus praktischen Gründen für dies beiden Verfahren entschieden. Ich überspringe hier auch die Diagnose der Imputation, also ob das jetzt eine gute und sinnvolle Imputation der fehlenden Werte war oder nicht. Die Diagnoseschritte müsstest du im Anwendungsfall nochmal im [Kapitel zur Imputation](#sec-missing) nachlesen und anwenden. Dann müssen wir noch alle numerischen Variablen normalisieren und alle nominalen Variablen dummykodieren. Am Ende werde ich nochmal alle Variablen entfernen, sollte die Varianz in einer Variable nahe der Null sein.
+Nachdem wir die Daten vorbereitet haben, müssen wir noch das Rezept mit den Vorverabreitungsschritten definieren. Wir schreiben, dass wir das Geschlecht `gender` als unser Label haben wollen. Daneben nehmen wir alle anderen Spalten als Prädiktoren mit in unser Modell, das machen wir dann mit dem `.` Symbol. Da wir noch fehlende Werte in unseren Prädiktoren haben, imputieren wir noch die numerischen Variablen mit der Mittelwertsimputation und die nominalen fehlenden Werte mit Entscheidungsbäumen. Dann müssen wir noch alle numerischen Variablen normalisieren und alle nominalen Variablen dummykodieren. Am Ende werde ich nochmal alle Variablen entfernen, sollte die Varianz in einer Variable nahe der Null sein.
 
 ```{r}
 gummi_rec <- recipe(gender ~ ., data = gummi_train_data) %>% 
@@ -87,47 +88,61 @@ gummi_rec <- recipe(gender ~ ., data = gummi_train_data) %>%
 gummi_rec
 ```
 
-Alles in allem haben wir ein sehr kleines Modell. Wir haben ja nur ein Outcome und vier Prädiktoren. Trotzdem sollte dieser Datensatz reichen um zu erklären wie Entscheidungsbäume funktionieren.
+Alles in allem haben wir ein sehr kleines Modell. Wir haben ja nur ein Outcome und vier Prädiktoren.
 
 ## Theoretischer Hintergrund
 
+Der theoretische Hintergrund zu dem SVM Algorithmus ist sehr mathematisch. So mathematisch, dass wir hier daraus keinen tieferen Nutzen mehr ziehen. Hier geht es ja um die Anwendung des SVM Algorithmus und nicht um das tiefere mathematische Verständnis. Wie immer gibt es sehr viele Möglichkeiten sich tiefer mit der Mathematik hinter dem SVM Algorithmus zu beschäftigen. Hier wollen wir das nicht.
+
 ::: column-margin
-[Support vector machines](https://www.jeremyjordan.me/support-vector-machines/)
+Es gibt wir immer ein schönes (mathematisches) Tutorial zu den [Support vector machines](https://www.jeremyjordan.me/support-vector-machines/). Von dort ist auch das Beispiel mit den farbigen Kugeln entnommen.
 :::
 
-Wir haben 2 Farben von Bällen auf dem Tisch, die wir trennen wollen.
+Daher wollen wir mal den SVM Algorithmus etwas anders verstehen. Wir nutzen wieder die Idee, dass wir farbige Punkte oder Bälle voneinander trennen wollen. Im Prinzip kannst du dir die Bälle in der @fig-class-svm-01 genau so vorstellen. Wir haben dort sieben gesunde Personen als blaue Kugeln und vier kranke Personen als rote Kugeln, die wir trennen wollen.
 
-![Darstellung von 11 Beobachtungen aus dem Traingsdatensatz. Die blauen Kugeln stellen kranke Personen und die rote die gesunde Personen dar.](images/svm/svm1.png){#fig-class-knn-01 fig-align="center" width="70%"}
+![Darstellung von 11 Beobachtungen aus dem Traingsdatensatz. Die blauen Kugeln stellen die Personen und die rote die kranken Personen dar.](images/svm/svm1.png){#fig-class-svm-01 fig-align="center" width="70%"}
 
-Wir nehmen einen Stock und legen ihn auf den Tisch, das funktioniert doch ganz gut, oder?
+In @ig-class-svm-02 zeichnen wir eine Gerade, die die Patienten gut voneinander trennt. Auf der einen Seite der Geraden sind die sieben gesunden Patienten und auf der anderen Seite der Geraden die vier kranken Personen.
 
-![Darstellung von 11 Beobachtungen aus dem Traingsdatensatz. Die blauen Kugeln stellen kranke Personen und die rote die gesunde Personen dar.](images/svm/svm2.png){#fig-class-knn-01 fig-align="center" width="70%"}
+![Darstellung von 11 Beobachtungen aus dem Traingsdatensatz. Wir trennen die gesunden Patienten von den kranken Patienten mit einer Geraden.](images/svm/svm2.png){#fig-class-svm-02 fig-align="center" width="70%"}
 
-Ein Bösewicht kommt und legt weitere Kugeln auf den Tisch, es funktioniert irgendwie, aber eine der Kugeln ist auf der falschen Seite und es gibt wahrscheinlich einen besseren Platz, um den Stock jetzt zu platzieren.
+Nun kommt zu unserem Trainingsdatensatz ein Schwall neuer Patienten hinzu und wir ergänzen die Beobachtungen in der @fig-class-svm-03. Wir haben immer noch unsere ursprüngliche Gerade, aber diese Gerade trennt die neuen Beobachtungen nicht mehr gut auf. Ein kranker Patient ist auf der falschen Seite der Geraden. Es gibt wahrscheinlich einen besseren Platz, um die Gerade jetzt zu platzieren.
 
-![Darstellung von 11 Beobachtungen aus dem Traingsdatensatz. Die blauen Kugeln stellen kranke Personen und die rote die gesunde Personen dar.](images/svm/svm3.png){#fig-class-knn-01 fig-align="center" width="70%"}
+![Darstellung von elf gesunden Beobachtungen und acht kranken Beobachtungen aus dem neuen, angewachsenen Traingsdatensatz. Die Gerade trennt die Beobachtugen nur noch ungünstig.](images/svm/svm3.png){#fig-class-svm-03 fig-align="center" width="70%"}
 
-SVMs versuchen, den Knüppel an der bestmöglichen Stelle zu platzieren, indem sie auf beiden Seiten des Knüppels einen möglichst großen Abstand einhalten.
+In der @fig-class-svm-04 sehen wir die Vorgegehensweise des SVM Algorithmus. Der SVM Algorithmus versucht die Gerade an der bestmöglichen Stelle zu platzieren, indem der Algorithmus auf beiden Seiten der Geraden einen möglichst großen Abstand einhalten.
 
-![Darstellung von 11 Beobachtungen aus dem Traingsdatensatz. Die blauen Kugeln stellen kranke Personen und die rote die gesunde Personen dar.](images/svm/svm4.png){#fig-class-knn-01 fig-align="center" width="70%"}
+![Visualisierung des SVM Algorithmus an den ursprünglichen elf Beobachtungen.](images/svm/svm4.png){#fig-class-svm-04 fig-align="center" width="70%"}
 
-Wenn der Bösewicht nun zurückkehrt, ist der Stock immer noch in einer ziemlich guten Position.
+Wenn wir jetzt in der @fig-class-svm-05 wieder zu unserem angewachsenen Trainingsdaten zurückkehren, sehen wir, dass unsere Klassifikation der gesunden und kranken Beobachtungen gut funktioniert. Der SVM Algorithmus hat durch den optimierten Abstand der Geraden einen optimalen Klassifikator gefunden.
 
-![Darstellung von 11 Beobachtungen aus dem Traingsdatensatz. Die blauen Kugeln stellen kranke Personen und die rote die gesunde Personen dar.](images/svm/svm5.png){#fig-class-knn-01 fig-align="center" width="70%"}
+![Darstellung von elf gesunden Beobachtungen und acht kranken Beobachtungen aus dem neuen, angewachsenen Traingsdatensatz mit der SVM optimierten Geraden.](images/svm/svm5.png){#fig-class-svm-05 fig-align="center" width="70%"}
 
-Es gibt einen weiteren Trick im SVM-Werkzeugkasten, der noch wichtiger ist. Nehmen wir an, der Bösewicht hat gesehen, wie gut du mit einem Stock umgehen kannst, und stellt dich vor eine neue Herausforderung.
+Nun gibt es aber neben der Geraden noch einen anderen Trick, den wir mit dem SVM Algorithmus durchführen können. Schauen wir uns dazu einmal die @fig-class-svm-06 an. Wir sehen in dem neuen Trainingsdatensatz fünf gesunde und fünf kranke Beobachtungen. nur sind diese Beobachtungen nicht mehr so verteilt, dass wir die Beobachtungen mit einer Geraden trennen könnten. Hier kommt jetzt der Kerneltrick des SVM Algorithmus zu tragen.
 
-![Darstellung von 11 Beobachtungen aus dem Traingsdatensatz. Die blauen Kugeln stellen kranke Personen und die rote die gesunde Personen dar.](images/svm/svm6.png){#fig-class-knn-01 fig-align="center" width="70%"}
+![Darstellung von zehn Beobachtungen aus einem weiteren Traingsdatensatz. Die blauen Kugeln stellen die fünf gesunden Personen und die rote die fünf kranken Personen dar.](images/svm/svm6.png){#fig-class-svm-06 fig-align="center" width="70%"}
 
-Es gibt keinen Stock auf der Welt, mit dem man die Kugeln gut spalten kann, also was tun Sie? Du drehst den Tisch natürlich um! Du wirfst die Bälle in die Luft. Dann schnappst du dir mit deinen Profi-Ninja-Fähigkeiten ein Blatt Papier und schiebst es zwischen die Bälle.
+Wir können mit keiner Geraden der Welt die Punkte voneinander trennen. Jetzt nutzen wir den Kerneltrick in @ig-class-svm-07 um unsere 2-D Abbildung in eine 3-D Abbildung umzuwandeln. Jetzt können wir mit einer Ebene die Patienten voneinander trennen. Wir bringen also unsere Beobachtungen durch eine Transformation in eine andere Dimension und können in dieser Dimension die Beobachtungen mit einer Ebene trennen.
 
-![Darstellung von 11 Beobachtungen aus dem Traingsdatensatz. Die blauen Kugeln stellen kranke Personen und die rote die gesunde Personen dar.](images/svm/svm7.png){#fig-class-knn-01 fig-align="center" width="70%"}
+![Umwandlung des Input Space in einen beliebigen Feature Space durch den Kernel $\Phi$.](images/svm/svm7.png){#fig-class-svm-07 fig-align="center" width="70%"}
 
-Wenn man die Bälle von der Position des Bösewichts aus betrachtet, sehen sie so aus, als wären sie durch eine kurvige Linie geteilt.
+Wenn wir dann die Ebene wieder zurücktransfomieren erhalten wir eine kurvige Linie, die unsere Beobachtungen in @fig-svm-svm-08 voneinander trennt.
 
-![Darstellung von 11 Beobachtungen aus dem Traingsdatensatz. Die blauen Kugeln stellen kranke Personen und die rote die gesunde Personen dar.](images/svm/svm8.png){#fig-class-knn-01 fig-align="center" width="70%"}
+![Rücktransformation der Ebene aus dem Feature Space in den Input Space. Wir haben dann eine Schlangenlinie, die die Beobachtungen voneinander trennt.](images/svm/svm8.png){#fig-svm-svm-08 fig-align="center" width="70%"}
+
+Das war jetzt eine sehr bildliche Darstellung des SVM Algorithmus. Aber im Prinzip ist das die Idee. Wir machen den Kernel Trick nur matematisch komplizierter und auch die Rücktransformation ist nicht simpel. Das müssen wir aber auch nicht selber für uns machen, denn dafür haben wir ja einen Computer. Das eigentliche Problem ist die Wahl des korrekten Kernels. Und das ist eigentlich auch die Qual der Wahl. Wir müssen vorab festlegen, welcher Kernel es sein soll. Und da geht dann das Tuning los.
 
 ## SVM Algorithm
+
+Leider ist es nicht so, dass wir eine SVM Funktion haben. Wir haben insgesamt drei Funktionen. Jede dieser Funktionen entspricht einem Kernel und muss getrennt voneinander einem Tuning unterzogen werden. Wir haben folgende Funktionen mit den entsprechenden Kernels zu Verfügung.
+
+-   `svm_linear` heißt, wir nehmen einen linearen Zusammenhang an. Wir können die Beobachtungen mit einer einfachen Gerade voneinander trennen.
+-   `svm_poly` heißt, wir nehmen ein Polynom eines bestimmten Gerades und glauben, dass wir mit diesem Kernel die Beobachtungen voneinander trennen können.
+-   `svm_rbf_mod` heißt, wir haben einen radialen Kernel und hoffen, dass wir mit einer radialen Funktion die Beobachtungen trennen können.
+
+Und damit geht das Leid eigentlich schon los. Wir können gar nicht wissen, welcher der drei SVM Algorithmen am besten auf unsere Daten passt. Also müssen wir alle drei einemal anwenden. Dann müssten wir eigentlich auch alle drei Algorithmen einem Tuning unterziehen. Du siehst, es wird viel Arbeit. Wir lassen hier das Tuning weg und ich zeige dir, wie du mit der Funktion `map()` dir etwas Arbeit ersparen kannst.
+
+Als erstes wollen wir den linearen Kernel einmal definieren. Wir haben hier zwei Parameter die wir einem Tuning unterziehen könnten.
 
 ```{r}
 #| message: false
@@ -138,7 +153,7 @@ svm_lin_mod <- svm_linear(cost = 1, margin = 0.1) %>%
   set_mode("classification") 
 ```
 
-degree: The polynomial degree.
+Als zweites schauen wir uns den polynomilane Kernel an und setzen einmal den Grade des Polynomes auf vier. Einfach mal so aus dem Bauch raus um zu zeigen, was dann so passieren kann.
 
 ```{r}
 #| message: false
@@ -149,6 +164,8 @@ svm_poly_mod <- svm_poly(cost = 1, margin = 0.1, degree = 4) %>%
   set_mode("classification") 
 ```
 
+Als letztes schauen wir uns noch den radialen Kernel einmal an. Auch hier haben wir nur zwei Tuningparameter zu Verfügung.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -157,6 +174,8 @@ svm_rbf_mod <- svm_rbf(cost = 1, margin = 0.1) %>%
   set_engine("kernlab") %>% 
   set_mode("classification") 
 ```
+
+Jetzt machen wir alles in einem Schritt. Was wir vorher in mehreren Schritten gemaht haben, machen wir jetzt auf einer Liste `lst()` in der die Modelle der drei Kernel definiert sind. Wir nutzen die Funktion `map()` um auf dieser Liste die Workflows mit dem Rezept der Gummibärchen zu initialisieren. Dann Pipen wir die Workflows weiter in die `fit()` Funktion und wollen dann danach auch gleich die Vorhersage auf dem Testdatensatz rechnen. Danach wählen wir dann auf allen Listen noch die Vorhersagen und die `pred`-Spalten aus.
 
 ```{r}
 #| message: false
@@ -170,6 +189,7 @@ svm_aug_lst <- lst(svm_lin_mod,
   map(~augment(.x, gummi_test_data)) %>% 
   map(~select(.x, gender, matches("pred")))
 
+svm_aug_lst
 ```
 
 ::: callout-note
