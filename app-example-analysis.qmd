@@ -22,6 +22,7 @@ Worum geht es in diesem Kapitel? Ich rechne hier fröhlich Dinge und präsentier
 -   In @sec-mult-map-ght rechnen wir einen Games Howell Test für normalverteilte Daten mit Varianzheterogenität. Hier hauen wir ein wenig auf die Pauke und rechnen alles in wenigen Zeilen mit der Funktion `map()`. War eine spaßige Auswerung für mich, da ich hier mal wieder programmieren üben konnte.
 -   In @sec-root-quality schauen wir uns ein größeres Beispiel für die Analyse von Wurzelbonituren an. Im Prinzip geht das natürlich auch alles für jede andere Bonitur. Wenn du eine andere Bonitur hast, kannst du natürlich auch den Weg der Analyse gehen.
 -   In @sec-plowing-data haben wir nochmal ein schönes Beispiel für eine Analyse mit mehreren Faktoren und verschiedenen Outcomes. Wir haben also einen Blumenstrauß an Daten, die wir sortieren und auswerten müssen. Da ich selber keine Ahnung vom Pflügen habe, gehen wir die Sache distanziert durch.
+-   In @sec-cutting haben wir ein etwas komplexeres Beispiel für vier Outcomes, die an acht Terminen gemessen wurden. Wir sehen hier einmal, wie die Daten eingelesen werden und ein Korrelationsplot über die vier Outcomes erstellt wird.
 
 Je weiter du nach unten in diesem Kapitel kommst, desto wilder wird der R Code. Ich werde noch eine Zeit brauchen, bis ich alles wieder schon mit Text hier verarbeitet habe. Es wird aber immer mal wieder etwas *messy* aussehen. Hier wird eben auch gearbeitet.
 
@@ -64,6 +65,10 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 ## Wurzelqualität in einem zweifaktoriellen Design {#sec-root-quality}
 
 {{< include app-example-analysis/app-example-analysis-05.qmd >}}
+
+## Wachstum nach Rückschnitt mit Messwiederholung {#sec-cutting}
+
+{{< include app-example-analysis/app-example-analysis-06.qmd >}}
 
 ## Auswertung von Pflugdaten {#sec-plowing-data}
 
@@ -154,195 +159,6 @@ pairwise.t.test(ph_tbl$ph, ph_tbl$variant,
                 p.adjust.method = "none")
 
 
-```
-
-## Wachstum nach Rückschnitt
-
-```{r}
-#| echo: true
-#| message: false
-#| warning: false
-
-cutting_raw_tbl <- read_excel("data/cutting_data.xlsx") %>% 
-  clean_names()
-```
-
-```{r}
-#| echo: true
-#| message: false
-#| warning: false
-
-
-cutting_tbl <- cutting_raw_tbl %>% 
-  pivot_longer(cols = shoot_1:fruit_8, names_to = c("outcome", "week"), names_sep = "_",
-               values_to = "rsp") %>% 
-  arrange(outcome, week, trt, block, rsp) %>% 
-  mutate(block = as_factor(block),
-         trt = as_factor(trt),
-         outcome = as_factor(outcome),
-         week = as.numeric(week))
-
-
-
-
-```
-
-```{r}
-#| echo: true
-#| message: false
-#| warning: false
-
-cutting_plot_tbl <- cutting_tbl %>% 
-  mutate(outcome = recode(outcome, 
-                          shoot = "Trieblänge", 
-                          flower = "Blütenanzahl", 
-                          leaf = "Blätteranzahl", 
-                          fruit = "Fruchtanzahl"))
-
-cutting_plot_tbl %>% 
-  ggplot(aes(week, rsp, color = trt, linetype = block)) +
-  theme_minimal() +
-  facet_wrap(~ outcome, scales = "free_y") +
-  geom_point() +
-  stat_smooth(se = FALSE) +
-  scale_color_okabeito()
-```
-
-[Correlation plot in R](https://r-coder.com/correlation-plot-r/)
-
-```{r}
-#| echo: true
-#| message: false
-#| warning: false
-
-cutting_cor_tbl <- cutting_tbl %>% 
-  filter(week %in% c(6, 7, 8)) %>% 
-  pivot_wider(names_from = outcome, values_from = rsp) %>% 
-  unnest()
-
-
-cutting_cor_tbl %>% 
-  select(flower:shoot) %>% 
-  pairs.panels(smooth = TRUE, density = TRUE, method = "kendall", lm = FALSE, 
-               cor = TRUE, ellipses = FALSE, stars = TRUE)    
-
-
-```
-
-### Trieblänge
-
-```{r}
-shoot_length_tbl <- cutting_tbl %>% 
-  filter(outcome == "shoot" & week == 8)
-```
-
-```{r}
-shoot_length_fit <- lm(rsp ~ trt + block, data = shoot_length_tbl)
-```
-
-```{r}
-shoot_length_fit %>% 
-  anova() %>% 
-  model_parameters()
-```
-
-```{r}
-shoot_length_fit %>% 
-  emmeans(specs = ~ trt) %>% 
-  contrast(method = "pairwise", adjust = "bonferroni")
-```
-
-```{r}
-shoot_length_fit %>% 
-  emmeans(specs = ~ trt)  %>%
-  cld(Letters = letters, adjust = "bonferroni") 
-```
-
-### Blütenanzahl
-
-```{r}
-flowers_tbl <- cutting_tbl %>% 
-  filter(outcome == "flower" & week == 8)
-```
-
-```{r}
-flowers_fit <- glm(rsp ~ trt + block, data = flowers_tbl, family = quasipoisson())
-
-```
-
-```{r}
-flowers_fit %>% 
-  car::Anova() %>% 
-  model_parameters()
-```
-
-```{r}
-flowers_fit %>% 
-  emmeans(specs = ~ trt) %>% 
-  contrast(method = "pairwise", adjust = "bonferroni") 
-
-```
-
-```{r}
-flowers_fit %>% 
-  emmeans(specs = ~ trt)  %>%
-  cld(Letters = letters, adjust = "bonferroni") 
-```
-
-### Blätteranzahl
-
-```{r}
-leaf_tbl <- cutting_tbl %>% 
-  filter(outcome == "leaf" & week == 8)
-```
-
-```{r}
-leaf_fit <- lm(rsp ~ trt + block, data = leaf_tbl)
-```
-
-```{r}
-leaf_fit %>% anova()
-```
-
-```{r}
-leaf_fit %>% 
-  emmeans(specs = ~ trt) %>% 
-  contrast(method = "pairwise", adjust = "bonferroni") 
-```
-
-```{r}
-leaf_fit %>% 
-  emmeans(specs = ~ trt)  %>%
-  cld(Letters = letters, adjust = "bonferroni") 
-```
-
-### Fruchtanzahl
-
-```{r}
-fruit_tbl <- cutting_tbl %>% 
-  filter(outcome == "fruit" & week == 8)
-```
-
-```{r}
-fruit_fit <- glm(rsp ~ trt + block, data = fruit_tbl, family = quasipoisson())
-```
-
-```{r}
-fruit_fit %>% 
-  car::Anova() %>% 
-  model_parameters()
-```
-
-```{r}
-fruit_fit %>% 
-  emmeans(specs = ~ trt) %>% 
-  contrast(method = "pairwise", adjust = "bonferroni") 
-```
-
-```{r}
-fruit_fit %>% 
-  emmeans(specs = ~ trt)  %>%
-  cld(Letters = letters, adjust = "bonferroni") 
 ```
 
 ## Auswertung von Gewichten
