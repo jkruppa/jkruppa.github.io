@@ -34,12 +34,13 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, readxl, janitor,
                broom, multcomp, emmeans, effectsize, report,
                see, metR, parameters, multcompView,
-               modelsummary, rstatix,
+               modelsummary, rstatix, corrplot, psych,
                conflicted, ordinal)
 ## resolve some conflicts with same function naming
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("chisq.test", "stats")
+conflict_prefer("%+%", "ggplot2")
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -155,40 +156,193 @@ pairwise.t.test(ph_tbl$ph, ph_tbl$variant,
 
 ```
 
+## Wachstum nach Rückschnitt
+
 ```{r}
+#| echo: true
+#| message: false
+#| warning: false
+
 cutting_raw_tbl <- read_excel("data/cutting_data.xlsx") %>% 
   clean_names()
+```
 
-cutting_tbl <- map(c("trieblange", "blutenzahl", "blattanzahl", "fruchtanzahl"),
-    function(x) {
-      print(x)
-      cutting_raw_tbl %>% 
-        select(trt, block, matches(x)) %>% 
-        gather(key, value, -trt, -block) %>% 
-        mutate(week = as.numeric(str_match(key, "\\d+")),
-               week = as.numeric(as.factor(week)),
-               key = x,
-               block = as_factor(block)) %>% 
-        select(trt, block, week, key, value)
-      }) %>% 
-  bind_rows()
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
 
-cutting_tbl %<>% 
-  mutate(key = recode(key, trieblange = "Trieblänge", 
-                      blutenzahl = "Blütenanzahl", 
-                      blattanzahl = "Blätteranzahl", 
-                      fruchtanzahl = "Fruchtanzahl"))
 
-cutting_tbl %>% 
-  ggplot(aes(week, value, color = trt, linetype = block)) +
+cutting_tbl <- cutting_raw_tbl %>% 
+  pivot_longer(cols = shoot_1:fruit_8, names_to = c("outcome", "week"), names_sep = "_",
+               values_to = "rsp") %>% 
+  arrange(outcome, week, trt, block, rsp) %>% 
+  mutate(block = as_factor(block),
+         trt = as_factor(trt),
+         outcome = as_factor(outcome),
+         week = as.numeric(week))
+
+
+
+
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+
+cutting_plot_tbl <- cutting_tbl %>% 
+  mutate(outcome = recode(outcome, 
+                          shoot = "Trieblänge", 
+                          flower = "Blütenanzahl", 
+                          leaf = "Blätteranzahl", 
+                          fruit = "Fruchtanzahl"))
+
+cutting_plot_tbl %>% 
+  ggplot(aes(week, rsp, color = trt, linetype = block)) +
   theme_minimal() +
-  facet_wrap(~key, scales = "free_y") +
+  facet_wrap(~ outcome, scales = "free_y") +
   geom_point() +
   stat_smooth(se = FALSE) +
   scale_color_okabeito()
+```
+
+[Correlation plot in R](https://r-coder.com/correlation-plot-r/)
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+
+cutting_cor_tbl <- cutting_tbl %>% 
+  filter(week %in% c(6, 7, 8)) %>% 
+  pivot_wider(names_from = outcome, values_from = rsp) %>% 
+  unnest()
 
 
+cutting_cor_tbl %>% 
+  select(flower:shoot) %>% 
+  pairs.panels(smooth = TRUE, density = TRUE, method = "kendall", lm = FALSE, 
+               cor = TRUE, ellipses = FALSE, stars = TRUE)    
 
+
+```
+
+### Trieblänge
+
+```{r}
+shoot_length_tbl <- cutting_tbl %>% 
+  filter(outcome == "shoot" & week == 8)
+```
+
+```{r}
+shoot_length_fit <- lm(rsp ~ trt + block, data = shoot_length_tbl)
+```
+
+```{r}
+shoot_length_fit %>% 
+  anova() %>% 
+  model_parameters()
+```
+
+```{r}
+shoot_length_fit %>% 
+  emmeans(specs = ~ trt) %>% 
+  contrast(method = "pairwise", adjust = "bonferroni")
+```
+
+```{r}
+shoot_length_fit %>% 
+  emmeans(specs = ~ trt)  %>%
+  cld(Letters = letters, adjust = "bonferroni") 
+```
+
+### Blütenanzahl
+
+```{r}
+flowers_tbl <- cutting_tbl %>% 
+  filter(outcome == "flower" & week == 8)
+```
+
+```{r}
+flowers_fit <- glm(rsp ~ trt + block, data = flowers_tbl, family = quasipoisson())
+
+```
+
+```{r}
+flowers_fit %>% 
+  car::Anova() %>% 
+  model_parameters()
+```
+
+```{r}
+flowers_fit %>% 
+  emmeans(specs = ~ trt) %>% 
+  contrast(method = "pairwise", adjust = "bonferroni") 
+
+```
+
+```{r}
+flowers_fit %>% 
+  emmeans(specs = ~ trt)  %>%
+  cld(Letters = letters, adjust = "bonferroni") 
+```
+
+### Blätteranzahl
+
+```{r}
+leaf_tbl <- cutting_tbl %>% 
+  filter(outcome == "leaf" & week == 8)
+```
+
+```{r}
+leaf_fit <- lm(rsp ~ trt + block, data = leaf_tbl)
+```
+
+```{r}
+leaf_fit %>% anova()
+```
+
+```{r}
+leaf_fit %>% 
+  emmeans(specs = ~ trt) %>% 
+  contrast(method = "pairwise", adjust = "bonferroni") 
+```
+
+```{r}
+leaf_fit %>% 
+  emmeans(specs = ~ trt)  %>%
+  cld(Letters = letters, adjust = "bonferroni") 
+```
+
+### Fruchtanzahl
+
+```{r}
+fruit_tbl <- cutting_tbl %>% 
+  filter(outcome == "fruit" & week == 8)
+```
+
+```{r}
+fruit_fit <- glm(rsp ~ trt + block, data = fruit_tbl, family = quasipoisson())
+```
+
+```{r}
+fruit_fit %>% 
+  car::Anova() %>% 
+  model_parameters()
+```
+
+```{r}
+fruit_fit %>% 
+  emmeans(specs = ~ trt) %>% 
+  contrast(method = "pairwise", adjust = "bonferroni") 
+```
+
+```{r}
+fruit_fit %>% 
+  emmeans(specs = ~ trt)  %>%
+  cld(Letters = letters, adjust = "bonferroni") 
 ```
 
 ## Auswertung von Gewichten
