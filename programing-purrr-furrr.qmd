@@ -18,9 +18,10 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, 
+pacman::p_load(tidyverse, magrittr, rstatix, 
                janitor, purrr, furrr, see,
-               readxl, tictoc, conflicted)
+               readxl, tictoc, multcompView, 
+               conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -29,6 +30,16 @@ conflict_prefer("extract", "magrittr")
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+## Die Daten
+
+```{r}
+soil_tbl <- read_excel("data/soil_1fac_data.xlsx") %>% 
+  mutate(variante = str_c(variante, "_", amount),
+         variante = as_factor(variante),
+         across(where(is.numeric), round, 2)) %>% 
+  select(-amount)
+```
 
 ## Mit `purrr` über Listen {#sec-purrr}
 
@@ -41,9 +52,40 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 -   `imap()` können wir nutzen, wenn wir den Index $i$ wiederhaben wollen. Das heißt, wir wollen über einen Vektor laufen und brauchen dafür den Index. Hier hilft die `imap()` Familie.
 -   `modify()`können wir anwenden, wenn wir nur Spalten modifizieren oder mutieren wollen. Wir haben einen Datensatz und wollen alle `character` Spalten in einen Faktor umwandeln. Siehe hierzu auch [Modify elements selectively](https://purrr.tidyverse.org/reference/modify.html).
 
+### Die Funktion `map()`
+
+```{r}
+soil_lst <- soil_tbl %>%
+  extract(1:8, 1:4) %>% 
+  pivot_longer(cols = fe:no3, 
+               names_to = "outcome",
+               values_to = "rsp") %>%
+  split(.$outcome) 
+```
+
+```{r}
+soil_lst %>%
+  map(select, -outcome) %>% 
+  map(head, 1)
+```
+
+```{r}
+soil_lst %>%
+  map(~head(.x, 1))
+```
+
+```{r}
+soil_lst %>% 
+  map(~games_howell_test(rsp ~ variante, data = .x)) %>% 
+  map(~mutate(.x, contrast = str_c(.x$group1, "-", .x$group2))) %>% 
+  map(pull, p.adj, contrast) %>% 
+  map(~multcompLetters(.x)$Letters) %>% 
+  bind_rows(.id = "outcome") 
+```
+
 ## Mit `furrr` parallel über Listen {#sec-furrr}
 
-Warum geht es den jetzt hier? Wenn du `purrr` und die Funktionen `map()` verstanden hast, ann geht natürlich alles auch in Parallel. Die parallele Berechnung ist in dem [R Paket furrr](https://furrr.tidyverse.org/) implementiert. Das heißt wir müssen nur die Funktionsnamen änern und schon rechnet sich alles in Parallel. Wir nutzen also nicht nur einen Kern von unseren Rechnern sondern eben alles was wir haben.
+Warum geht es den jetzt hier? Wenn du `purrr` und die Funktionen `map()` verstanden hast, dann geht natürlich alles auch in Parallel. Die parallele Berechnung ist in dem [R Paket furrr](https://furrr.tidyverse.org/) implementiert. Das heißt wir müssen nur die Funktionsnamen änern und schon rechnet sich alles in Parallel. Wir nutzen also nicht nur einen Kern von unseren Rechnern sondern eben alles was wir haben.
 
 ```{r}
 no_cores <- availableCores() - 1
