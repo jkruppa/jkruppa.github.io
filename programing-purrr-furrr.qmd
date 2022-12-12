@@ -7,8 +7,10 @@
 ::: callout-caution
 ## Was soll das hier? Ziemlich wild alles...
 
-Dieses Kapitel dient dazu *fortgeschrittene* Programmierung in R zu präsentieren. Teilweise nutze ich komplexeren Code bei der Auswertung von den Beispielen in @sec-beispiel-auswertung. Wenn dich also Programmieren interessiert, dann kannst du dir hier noch was anschauen.
+Dieses Kapitel dient dazu *fortgeschrittene* Programmierung in R zu präsentieren. Teilweise nutze ich komplexeren Code bei der [Auswertung von den Beispielen](#sec-beispiel-auswertung). Wenn dich also Programmieren interessiert, dann kannst du dir hier noch was anschauen.
 :::
+
+In diesem Kapitel geht es hauptsählich um [Iterationen](https://r4ds.had.co.nz/iteration.html#iteration). Das heißt wir wollen immer das Gleiche auf verschiedene unterschiedliche Dinge anwenden. In unserem Fall ist das Gleiche eine `function(...){}` in R und das Unterschiedliche sind Einträge in einer Liste `lst()` oder einem Datensatz `tibble()`. Wir wolln also zum Beispiel auf vrschiedenen Datensätzen mit fünf unterschiedlichen Outcomes immer wieder eine multiple lineare Regression rechnen. Anstatt also per Copy&Paste fünfmal den Code zu kopieren, wollen wir alle Datensätze in einer Liste speichern und die Liste dann in einem Schwung auswerten.
 
 ## Genutzte R Pakete
 
@@ -16,7 +18,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, tidymodels, magrittr, 
+pacman::p_load(tidyverse, magrittr, 
                janitor, purrr, furrr, see,
                readxl, tictoc, conflicted)
 conflict_prefer("select", "dplyr")
@@ -30,20 +32,18 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Mit `purrr` über Listen {#sec-purrr}
 
-[Iteration](https://r4ds.had.co.nz/iteration.html#iteration)
-
 [R Paket purrr](https://purrr.tidyverse.org/)
 
--   `map()`
--   `map2()`
--   `pmap()`
--   `walk()`
--   `imap()`
--   `modify()`
+-   `map()` erlaubt über eine Liste von Datensätzen ein Funktion anzuwenden. Dabei können wir dann die einzelnen Listeneinträge über `.x` an die Funktionen weitergeben. Siehe hierzu auch [Basic map functions](https://dcl-prog.stanford.edu/purrr-basics.html).
+-   `map2()` erlaubt es über zwei gleichlange Vektoren zu laufen. Wir können hier zwei Optionen in der Form `.x`, `.y` an die Funktion weitergeben. Siehe hierzu auch [Map with multiple inputs](https://dcl-prog.stanford.edu/purrr-parallel.html).
+-   `pmap()` kann nun über eine Liste an Vektoren laufen und somit mehrere Inputoptionen verarbeiten. Damit ist `pmap()` die Generalisierung der `map()` Funktion. Siehe hierzu auch [Map with multiple inputs](https://dcl-prog.stanford.edu/purrr-parallel.html).
+-   `walk()` ist ein *silent* `map()`. Damit können wir Daten in eine Datei schreiben, ohne ein Output wiederzubekommen.
+-   `imap()` können wir nutzen, wenn wir den Index $i$ wiederhaben wollen. Das heißt, wir wollen über einen Vektor laufen und brauchen dafür den Index. Hier hilft die `imap()` Familie.
+-   `modify()`können wir anwenden, wenn wir nur Spalten modifizieren oder mutieren wollen. Wir haben einen Datensatz und wollen alle `character` Spalten in einen Faktor umwandeln. Siehe hierzu auch [Modify elements selectively](https://purrr.tidyverse.org/reference/modify.html).
 
 ## Mit `furrr` parallel über Listen {#sec-furrr}
 
-[R Paket furrr](https://furrr.tidyverse.org/)
+Warum geht es den jetzt hier? Wenn du `purrr` und die Funktionen `map()` verstanden hast, ann geht natürlich alles auch in Parallel. Die parallele Berechnung ist in dem [R Paket furrr](https://furrr.tidyverse.org/) implementiert. Das heißt wir müssen nur die Funktionsnamen änern und schon rechnet sich alles in Parallel. Wir nutzen also nicht nur einen Kern von unseren Rechnern sondern eben alles was wir haben.
 
 ```{r}
 no_cores <- availableCores() - 1
@@ -61,16 +61,14 @@ toc()
 Der folgende Code sollte ca. 2 Sekunden dauern, wenn der Code parallel läuft. Wir haben einen kleinen Overhead in `future_map()` durch das Senden von Daten an die einzelnen Kerne. Es gibt auch einmalige Zeitkosten für `plan(multisession)`, um die Kerne einzurichten.
 
 ```{r parallel-session}
+#| cache: true
+
 plan(multisession, workers = 3)
 
 tic()
 nothingness <- future_map(c(2, 2, 2), ~Sys.sleep(.x))
 toc()
 ```
-
-## Mit `modify()` modifizieren
-
-[Modify elements selectively](https://purrr.tidyverse.org/reference/modify.html)
 
 ## progressr: An Introduction
 
