@@ -214,7 +214,7 @@ shoot_stat_tbl <- shoot_length_tbl %>%
             sd = sd(rsp))
 ```
 
-Abschließend können wir dann die Barplots mit den Fehlerbalken und dem *Compact letter display* darstellen. Ich habe hier mal eine rote Farbe für die Buchstaben gewählt, aber du kannst da gerne eine andere Farbe nutzen. so sieht man aber die Buchstaben auf den ersten Blick.
+Abschließend können wir dann die Barplots mit den Fehlerbalken und dem *Compact letter display* darstellen. Ich habe hier mal eine rote Farbe für die Buchstaben gewählt, aber du kannst da gerne eine andere Farbe nutzen. so sieht man aber die Buchstaben auf den ersten Blick. Die Position der Buchstaben auf der y-Achse habe ich mit Try&Error dann selber rausgefunden. Geht sicherlich noch schöner, aber so ist es dann auch gut.
 
 ```{r}
 #| echo: true
@@ -223,7 +223,7 @@ Abschließend können wir dann die Barplots mit den Fehlerbalken und dem *Compac
 #| label: fig-app-exp-cutting-04
 #| fig-align: center
 #| fig-height: 5
-#| fig-width: 5
+#| fig-width: 6
 #| fig-cap: "Barplots der vier Behandlungen gemittelt über die Blöcke zusammen mit dem *Compact letter display*."
 
 ggplot(shoot_stat_tbl, aes(x = trt, y = mean, fill = trt)) + 
@@ -240,12 +240,16 @@ ggplot(shoot_stat_tbl, aes(x = trt, y = mean, fill = trt)) +
 
 ### Blütenanzahl
 
-Im folgenden schaue ich mir nur die Blütenanzahl `flowers` als Outcome an. Die anderen Outcomes sind dann einfach nur Copy&Paste von dieser Analyse der Blütenanzahl.
+Im Folgenden schaue ich mir nur die Blütenanzahl `flowers` als Outcome an. Die anderen Outcomes sind dann einfach nur Copy&Paste von dieser Analyse der Blütenanzahl. Wenn wir eine Analyse für eine Poissonregression rechnen können, dann können wir das auch ohne weiteres für die anderen beiden Outcomes.
+
+Als erstes filtern wir wieder die Daten. Wir wollen nur die Blüten und die achte Woche in unseren Analysedatensatz. Dann sind wir sicher, dass wir nicht ausversehen eine andere Analyse rechnen.
 
 ```{r}
 flowers_tbl <- cutting_tbl %>% 
   filter(outcome == "flower" & week == 8)
 ```
+
+Jetzt kommt der größte Unterschied. Wir rechnen kein `lm()` mit der implizieten Annahme eines normalverteilten Outcomes sondern ein `glm()` in dem wir dann die Verteilunsgfamilie des Outcomes definieren können. In unserem Fall dann für die Zähldaten die Quasipoissonverteilung. Sonst ist das Modell gleich wie ebi unserer Trieblänge.
 
 ```{r}
 flowers_fit <- glm(rsp ~ trt + block + trt:block, 
@@ -254,30 +258,43 @@ flowers_fit <- glm(rsp ~ trt + block + trt:block,
 
 ```
 
+Schauen wir uns einmal die ANOVA an. Da wir ein GLM rechnen, können wir nicht die Funktion `anova()` nutzen sondern müssen die Funktion `Anova()` aus dem R Paket `car` anwenden. Dann erhalten wir auch die $p$-Werte die wir wollen.
+
 ```{r}
 flowers_fit %>% 
   car::Anova() %>% 
   model_parameters()
 ```
 
+Im Prinzip das gleiche Ergebnis wie schon bei der Trieblänge. Wir haben einen signifikanten Effekt der Behandlung auf die Blütenanzahl und keine signifkante Interaktion. Wir rechnen also mit dem Modell jetzt weiter. Wiederum nutzen wir das R Paket `emmeans`. Wichtig ist hier, dass wir als Typ dann die `response` angeben. Sonst erhalten wir alle Effektschätzer auf der Link-Scale und die Link-Scale können wir dann nicht interpretieren.
+
 ```{r}
+#| message: false
+#| warning: false
 flowers_emm_obj <- flowers_fit %>% 
-  emmeans(specs = ~ trt) 
+  emmeans(specs = ~ trt, type = "response") 
 ```
+
+Wir machen auch hier wieder so weiter wie schon bei der Treiblänge. Einmal die paarweisen Vergleiche mit Bonferroni adjustierten $p$-Werten.
 
 ```{r}
 flowers_emm_obj %>% 
   contrast(method = "pairwise", adjust = "bonferroni") 
-
 ```
+
+Dann lassen wir uns noch das *Compact letter display* für die Blütennzahl wiedergeben.
 
 ```{r}
 flowers_emm_obj %>%
   cld(Letters = letters, adjust = "bonferroni") 
 ```
 
+Auch hier könnten wir nur zu der Kontrolle vergleichen, wenn wir das wollen würden. Hier ist aber das Rüchschneiden nicht so signifikant wie bei der Trieblänge. Hier sehen wir dann auch die Rate der Blüten. Wir haben also im Verhätnis zur Kontrolle nur knapp die Häfte an Blüten bei der Behandlung `nodium_3rd` und fast nur ein Drittel der Anzahl an Blüten bei der Behandlung `strong`.
+
 ```{r}
 flowers_emm_obj %>% 
   contrast(method = "trt.vs.ctrlk", ref = 1, 
            adjust = "bonferroni")
 ```
+
+Jetzt kanst du den R Code im Prinzip auch nochmal für die zwei anderen Outcomes durchführen.
