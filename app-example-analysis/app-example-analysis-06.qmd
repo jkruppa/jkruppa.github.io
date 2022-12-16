@@ -97,9 +97,13 @@ ggplot(stat_tbl, aes(x = week, y = mean, group = trt, fill = trt)) +
   scale_fill_okabeito()
 ```
 
+Eine Frage, die sich im Rahmen der Analyse noch gestellt hat, war ob die Outcomes untereinander stark korrelieren. Daher wurde nochmal entschieden sich die Korrelation der vier Outcomes anzuschauen. Wir machen das jetzt erstmal über die Woche sechs bis Woche acht. In den früheren Wochen haben die Pflanzen noch keine Früchte und dann sehen die Abbildungen sehr seltsam verzerrt aus.
+
 ::: column-margin
-Es giubt eine große Auswahl an R Paketen und damit auch Plots für die Korrelation. In dem Tutorial [Correlation plot in R](https://r-coder.com/correlation-plot-r/) werden dir eine große Auwahl präsentiert.
+Es gibt eine große Auswahl an R Paketen und damit auch Plots für die Korrelation. In dem Tutorial [Correlation plot in R](https://r-coder.com/correlation-plot-r/) werden dir eine große Auwahl präsentiert.
 :::
+
+Wir filtern uns also die Wochen sechs bis acht und nutzen dann die Funktion `pivot_wider()` um die Outcomes wieder nebeneinander in vier Spalten anzuordnen. Da `pivot_wider()` die wiederholenden Zeilen von Behandlung und Block zusammenfasst, müssen wir die Spalten nochmal wieder ausklappen. Dieses Ausklappen machen wir mit der Funktion `unnest()`.
 
 ```{r}
 #| message: false
@@ -111,7 +115,7 @@ cutting_cor_tbl <- cutting_tbl %>%
   unnest(cols = c(flower, fruit, leaf, shoot))
 ```
 
-In @fig-app-exp-cutting-02
+In @fig-app-exp-cutting-02 sehen wir jetzt ein Beispiel für ein Korrelationsplot. Es gibt wirklich sehr viele Möglichkeiten in R sich die Korrelation von *numerischen* Spalten anzeigen zu lassen. Wir wählen hier nur den Korrelationskoeffizient nach Kendall, da wir hier nicht nur normalverteilte Outcomes vorliegen haben. In dem Histogramm auf der Diagonalen kannst du auch sehr gut die Poissonverteilungen von der Normalverteilung unterscheiden. Die Trieblänge ist normalverteilt und die anderen Outcomes mit den Anzahlen folgen einer Poissonverteilung.
 
 ```{r}
 #| echo: true
@@ -129,16 +133,25 @@ cutting_cor_tbl %>%
                cor = TRUE, ellipses = FALSE, stars = TRUE)    
 ```
 
+Wunderbar, jetzt können wir mit der Analyse der Outcomes anfangen. Wir rechnen als erstes die Trieblänge als eine multiple lineare Gaussian Regression. Danach dann die Anzahlen mit einer multiplen linearen Poisson Regression. Dann wollen wir noch das *Compact letter display* für die multiplen Vergleiche wiedergegeben haben.
+
 ### Trieblänge
+
+Beginnen wir damit, dass wir uns zuerst den Datensatz filtern. Wir wollen nur die Trieblänge und die achte Woche in unseren Analysedatensatz. Dann sind wir sicher, dass wir nicht ausversehen eine andere Analyse rechnen.
 
 ```{r}
 shoot_length_tbl <- cutting_tbl %>% 
   filter(outcome == "shoot" & week == 8)
 ```
 
+Wir bauen uns unser lineares Modell mit der Annahme einers normalverteilten Outcomes mit der Funktion `lm()`. Wir nehmen noch den Interaktionsterm für die Behandlung und Blöcke mit in das Modell.
+
 ```{r}
-shoot_length_fit <- lm(rsp ~ trt + block, data = shoot_length_tbl)
+shoot_length_fit <- lm(rsp ~ trt + block + trt:block, 
+                       data = shoot_length_tbl)
 ```
+
+Ein kurzer Blick in eine zweifaktorielle ANOVA um zu schauen ob wir überhaupt einen Behandlunsgeffekt haben und eventuell auch eine signifikante Interaktion.
 
 ```{r}
 shoot_length_fit %>% 
@@ -146,22 +159,88 @@ shoot_length_fit %>%
   model_parameters()
 ```
 
+Wir haben einen signifikanten Behandlungseffekt vorliegen und keine signifikante Interaktion zwischen der Behandlung und den Blöcken. Das ist wie wir es wollten und dann können wir noch kurz schauen, wie gut unser Experiment funktioniert hat. Wieviel Varianz können wir mit dem Behandlungen erklären? Wir berechnen dazu $\eta^2$.
+
+```{r}
+shoot_length_fit %>% 
+  eta_squared()
+```
+
+Mit einem $\eta^2$ von $0.78$ können wir 78% der Varianz in unserem Experiment mit der Behandlung erklären. Das ist mehr als gut. Das spricht für ein gut geplantes und durchgeführtes Experiment.
+
+Nachdem wir also sicher sind, dass wir etwas in den Daten haben, nutzen wir wieder das Paket `emmeans` um die paarweisen Vergleiche zu rechnen. Dafür legen wir erstmal wieder ein `emmeans` Objekt an. Wir müssen uns hier nicht um die Blöcke scheren, wir haben ja keine signifikante Interaktion vorliegen.
+
 ```{r}
 shoot_emm_obj <- shoot_length_fit %>% 
   emmeans(specs = ~ trt) 
 ```
+
+Als nächstes rechnen wir dann schon die paarweisen Vergleiche und erhalten die Bonferroni adjustierten $p$-Werte zurück. Wenn du nicht adjustieren $p$-Werte willst, dann nehme einfach die Option `adjust = "none"`.
 
 ```{r}
 shoot_emm_obj %>% 
   contrast(method = "pairwise", adjust = "bonferroni")
 ```
 
+Wir können uns dann auch das *compact letter display* wiedergeben lassen.
+
 ```{r}
 shoot_emm_obj %>%
   cld(Letters = letters, adjust = "bonferroni") 
 ```
 
+Insbesondere in diesme Beispiel macht es auch Sinn sich nicht alle paarweisen Vergleiche anzuschauen sondern eben nur die Vergleiche *zu der Kontrolle*. Dafür nutzen wir dann die Methode `trt.vs.ctrlk` und wählen mit der Option `ref = 1` unser Referenzlevel des Behandlungsfaktors. Da unsere Kontrolle schon das erste Level ist, schreiben wir also `ref = 1` und erhalten die Vergleiche zu der Kontrolle.
+
+```{r}
+shoot_emm_obj %>% 
+  contrast(method = "trt.vs.ctrlk", ref = 1, 
+           adjust = "bonferroni")
+```
+
+Wie wir sehen rechnen wir nur noch die Vergleiche zu der Kontrolle. Alle Vergleiche sind auch signifikant und die Kontrolle ist immer größer als die anderen Behandlungen. Wenn du das Minus gedreht haben möchtest, dann nutze `reverse = TRUE` als Option. Dann rechnest du Kontrolle minus den anderen Behandlungen.
+
+Zum Abschluss können wir uns für die achte Woche noch die Barplots in der @fig-app-exp-cutting-04 für die vier Behandlungen anschauen. Wir mitteln dabei über die beiden Blöcke. Wir wollen jetzt das *Compact letter display* noch ergänzen. Dafür bauen wir uns einen `letter_vec` in dem wir die richtig sortierten Buchstaben dann eintragen.
+
+```{r}
+letter_vec <- c("c", "ab", "b", "a")
+```
+
+Dann bauen wir uns noch ein Objekt mit den Mittelwerten und der Stndardabweichung für die vier Behandlungen.
+
+```{r}
+shoot_stat_tbl <- shoot_length_tbl %>% 
+  group_by(trt) %>% 
+  summarise(mean = mean(rsp),
+            sd = sd(rsp))
+```
+
+Abschließend können wir dann die Barplots mit den Fehlerbalken und dem *Compact letter display* darstellen. Ich habe hier mal eine rote Farbe für die Buchstaben gewählt, aber du kannst da gerne eine andere Farbe nutzen. so sieht man aber die Buchstaben auf den ersten Blick.
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-app-exp-cutting-04
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Barplots der vier Behandlungen gemittelt über die Blöcke zusammen mit dem *Compact letter display*."
+
+ggplot(shoot_stat_tbl, aes(x = trt, y = mean, fill = trt)) + 
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd),
+                width = 0.2, position = position_dodge(0.9)) +
+  theme_bw() +
+  labs(y = "Mittlere Anzahl an Blüten",
+       x = "", fill = "") +
+  scale_fill_okabeito() +
+  annotate("text", x = c(1, 2, 3, 4), c(70, 48, 55, 45),
+           label = letter_vec, size = 5, color = "red")
+```
+
 ### Blütenanzahl
+
+Im folgenden schaue ich mir nur die Blütenanzahl `flowers` als Outcome an. Die anderen Outcomes sind dann einfach nur Copy&Paste von dieser Analyse der Blütenanzahl.
 
 ```{r}
 flowers_tbl <- cutting_tbl %>% 
@@ -169,7 +248,9 @@ flowers_tbl <- cutting_tbl %>%
 ```
 
 ```{r}
-flowers_fit <- glm(rsp ~ trt + block, data = flowers_tbl, family = quasipoisson())
+flowers_fit <- glm(rsp ~ trt + block + trt:block, 
+                   data = flowers_tbl, 
+                   family = quasipoisson())
 
 ```
 
@@ -195,64 +276,8 @@ flowers_emm_obj %>%
   cld(Letters = letters, adjust = "bonferroni") 
 ```
 
-### Blätteranzahl
-
 ```{r}
-leaf_tbl <- cutting_tbl %>% 
-  filter(outcome == "leaf" & week == 8)
-```
-
-```{r}
-leaf_fit <- lm(rsp ~ trt + block, data = leaf_tbl)
-```
-
-```{r}
-leaf_fit %>% anova()
-```
-
-```{r}
-leaf_emm_obj <- leaf_fit %>% 
-  emmeans(specs = ~ trt)
-```
-
-```{r}
-leaf_emm_obj %>% 
-  contrast(method = "pairwise", adjust = "bonferroni") 
-```
-
-```{r}
-leaf_emm_obj %>%
-  cld(Letters = letters, adjust = "bonferroni") 
-```
-
-### Fruchtanzahl
-
-```{r}
-fruit_tbl <- cutting_tbl %>% 
-  filter(outcome == "fruit" & week == 8)
-```
-
-```{r}
-fruit_fit <- glm(rsp ~ trt + block, data = fruit_tbl, family = quasipoisson())
-```
-
-```{r}
-fruit_fit %>% 
-  car::Anova() %>% 
-  model_parameters()
-```
-
-```{r}
-fruit_emm_obj <- fruit_fit %>% 
-  emmeans(specs = ~ trt) 
-```
-
-```{r}
-fruit_emm_obj %>%  
-  contrast(method = "pairwise", adjust = "bonferroni") 
-```
-
-```{r}
-fruit_emm_obj %>%  
-  cld(Letters = letters, adjust = "bonferroni") 
+flowers_emm_obj %>% 
+  contrast(method = "trt.vs.ctrlk", ref = 1, 
+           adjust = "bonferroni")
 ```
