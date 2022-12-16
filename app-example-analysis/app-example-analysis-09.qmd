@@ -1,0 +1,117 @@
+In diesem Abschnitt wollen wir ein multiples lineares Gaussion gemischtes Modell rechnen. Das heißt, wir wollen die Messwiederholungen über die Wochen mit in unser Modell als einen zufälligen Effekt aufnehmen. Dafür brauchen wir wieder unsere Daten zu dem Rückschnitt. Wir nehmen aber hier nur die Trieblänge als normalverteiltes Outcome. Dann wollen wir herausfinden, ob die drei Arten des Rückschnitts und die Kontrolle einen Einfluss auf die Trieblänge haben.
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+
+cutting_raw_tbl <- read_excel("data/cutting_data.xlsx") %>% 
+  clean_names()
+```
+
+Wir in @sec-cutting müssen wir die Daten wieder von dem Wide-Format in das Long-Format umwandeln. Wir wollen aber vorher nur die Spalten wähen die `shoot` in dem Spaltennamen haben. Diese Auswahl können wir über die Funktion `matches()` erreichen. Dann können wir die Funktion `pivot_longer()` nutzen um unseren Datensatz in dem Long_Format zu bauen.
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+
+cutting_tbl <- cutting_raw_tbl %>% 
+  select(trt, block, matches("shoot")) %>% 
+  pivot_longer(cols = shoot_1:last_col(), 
+               names_to = c("outcome", "week"), 
+               names_sep = "_",
+               values_to = "rsp") %>% 
+  arrange(outcome, week, trt, block, rsp) %>% 
+  mutate(block = as_factor(block),
+         trt = as_factor(trt),
+         outcome = as_factor(outcome),
+         week = as.numeric(week))
+```
+
+Schauen wir uns in der @fig-app-exp-lmer-01 nochmal die Daten an. Wir haben einen Effekt zwischen den Behandlungen an jedem Messtermin. Die Pflanzen an den jeweiligen Messterminen sind aber nicht unabhängig voneinander. Wir messen ja immer wieder die gleiche Pflanze. So sind die Messtermine untereinander korreliert. Um diese Korrelation oder Abhängigkeit der Mestermine zu modellieren, nutzen wir lineare gemischte Modelle.
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-app-exp-lmer-01
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Abbildung der vier Outcomes über die acht Messtermine mit den vier Behandlungen und den zwei Blöcken."
+
+cutting_tbl %>% 
+  ggplot(aes(week, rsp, color = trt, linetype = block)) +
+  theme_minimal() +
+  geom_point() +
+  stat_smooth(se = FALSE) +
+  scale_color_okabeito()
+```
+
+In R nutzen wir das Paket `lme4` mit der Funktion `lmer()` um ein lineares gemisches Modell mit Normalverteilungsannahme zu fitten. Der vordere Teil des Modells ist gleich wie in einem normalen linearen Modell. Was sich hier ändert ist der zufällige Effekt, den wir durch `(1|week)` beschreiben. Unsere Wochen sind untereinander korreliert und deshalb wandert der Faktor Woche in den zufälligen Term.
+
+```{r}
+lmer_fit <- lmer(rsp ~ trt + block + trt:block + (1|week), 
+                 data = cutting_tbl)
+
+```
+
+Schauen wir einmal an, wie gut unser Modell funktioniert hat. Wieviel der Varianz kann denn unser Modell erklären? Wir nutzen dazu die Funktion `r2()` aus dem R Paket `performance`.
+
+```{r}
+lmer_fit %>% r2
+```
+
+Das $R^2_{conditional}$ ist der erklärte Anteil der Varianz von den festen und zufälligen Effekten zusammen. Da wir hier ein $R^2$ von fast 95% haben, können wir mit unserem Modell fast die gesamte Variabilität in unserem Experiment erklären. Das ist selten zu beobachten, aber sehr schön. Das $R^2_{marginal}$ ist der erklärte Anteil der Varianz von den festen Effekten alleine. Hier haben wir dann gut 50% erklärte Varianz. Damit wissen wir immerhin, dass gut die Hälfte der Variabilität in unseren Daten von unserer behandlung kommt, unabhängig von dem zufälligen Effekt.
+
+[Das $R^2_{conditional}$ ist der erklärte Anteil der Varianz von den festen und zufälligen Effekten zusammen. Das $R^2_{marginal}$ ist der erklärte Anteil der Varianz von den festen Effekten alleine.]{.aside}
+
+Wir können dann noch den Intraclass Correlation Coefficient (abk. *ICC*) berechnen. Der *ICC* beschreibt den Anteil der Varianz, der durch die Gruppierungsstruktur in der Stichprobe erklärt wird. Wir können den Wert direkt aus der Summary des `lmer` Objektes berechnen.
+
+```{r}
+lmer_fit %>% summary()
+```
+
+Dafür nehmen wir die Varianz der Gruppe `week` und teilen die Varianz durch die gesamte Varianz bestehend aus den Residuen plus der Varianz der Gruppe. Damit erfahren wir dann, dass in der zufälligen Effekten unsere Gruppe `week` fast 90% der Varianz erklärt. Was wiederum ein wirklich guter Wert ist.
+
+$$
+icc = 109.134/(109.134 + 13.818) = 0.888
+$$
+
+Natürlich können wir das ICC auch direkt in R mit einer Funktion berechnen lassen. Wir nutzen nur den adjustierten ICC und ignorieren in diesem Fall den anderen Wert.
+
+```{r}
+lmer_fit %>% icc
+```
+
+Jetzt können wir noch flott die paarweisen Vergleiche rechnen, denn praktischerweose ändert sich hier nichts mehr. Wir können die den Fit aus unserem linearen gemischten Modell einfach in die Funktionalität von `emmeans` pipen und dann geht alles seinen normalen Gang.
+
+```{r}
+#| message: false
+#| warning: false
+emm_obj <- lmer_fit %>% 
+  emmeans(specs = ~ trt) 
+```
+
+Wir machen auch hier wieder so weiter wie wir es schon gewöhnt sind. Einmal rechnen wir die paarweisen Vergleiche mit Bonferroni adjustierten $p$-Werten. Spannend ist jetzt, dass wir hier *über alle Messzeitpunkte hinweg* einen Unterschied zwischen allen Behandlungen sehen.
+
+```{r}
+emm_obj %>% 
+  contrast(method = "pairwise", adjust = "bonferroni") 
+```
+
+Dann lassen wir uns noch das *Compact letter display* für die Trieblänge wiedergeben. Auch hier sehen wir, dass sich alle Behandlungen voneinander über alle Zeitpunkte hinweg voneinander unterscheiden. Das stimmt dann auch mit unserer Abbildung überein, die Geraden der Behandlungen laufen ja alle nebeneinander mit Abstand.
+
+```{r}
+emm_obj %>%
+  cld(Letters = letters, adjust = "bonferroni") 
+```
+
+Und dann nochmal der Vergleich zu der Kontrolle, falls das mehr gewünscht sein sollte. Auch hier sehen wir, dass alle Vergleiche zu der Kontrolle signifikant sind. Über alle Messzeitpunkte hinweg ist die Kontrolle immer Größer als die Pflanzen mit den Rückschnittbehandlungen.
+
+```{r}
+emm_obj %>% 
+  contrast(method = "trt.vs.ctrlk", ref = 1, 
+           adjust = "bonferroni")
+```
