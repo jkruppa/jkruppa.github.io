@@ -15,7 +15,7 @@ Wir brauchen nicht viele R Pakete in diesem Kapitel, aber ein paar sind es schon
 #| echo: true
 
 pacman::p_load(tidyverse, readxl, magrittr,
-               janitor,
+               janitor, lubridate,
                conflicted)
 conflict_prefer("extract", "magrittr")
 ```
@@ -93,7 +93,7 @@ Wir können wieder das R Paket `stringr` nutzen um die regulären Ausdrück in R
 
 -   `str_detect()` gibt `TRUE/FALSE` wieder, wenn das Wort eine Zeichenkette enthält.
 -   `str_subset()` gibt die Werte wieder in denen die Zeichenkette erkannt wird.
--   `str_replace` ersetzt das erste Auftreten der Zeichenkette durch eine andere Zeichenkette.
+-   `str_replace()` ersetzt das erste Auftreten der Zeichenkette durch eine andere Zeichenkette. Die Funktion `str_replace_all()` ersetzt dann jedes Auftreten der Zeichenkette.
 
 Fangen wir simple an, wir wollen Wörter finden, die eine Zeichenkette enthalten. Dafür nutzen wir die Funktion `str_detect()`.
 
@@ -148,25 +148,51 @@ Es gibt noch eine Menge anderer [Tools zum Nutzen von Regulären Ausdrücken](ht
 
 ## Zeit und Datum {#sec-time-date}
 
-![](images/caution.png){fig-align="center" width="50%"}
-
 Die Arbeit mit Datumsdaten in R kann frustrierend sein. Die R Befehle für Datumszeiten sind im Allgemeinen nicht intuitiv und ändern sich je nach Art des verwendeten Datumsobjekts. Hier gibt es aber eine Lösung mit dem R Paket `lubridate`, die uns die Arbeit etwas erleichtert.
+
+Der beste Tipp ist eigentlich immer, das Datum in *ein* Format zu bringen und dann dieses Format weiterzuverarbeiten.
+
+1)  Wandle immer deine Datumsspalte in eine `character` Spalte mit `as.character()` um. Ein Datum besteht *immer* aus dem Tag, dem Monat und dem Jahr. Dabei ist wichtig, dass der Monat und der Tag immer zweistellig sind. Manchmal muss man dann über `str_split()` und `str_pad()` erstmal echt sich einen Wolf splitten und kleben, bis dann das Format so passt. Dann geht es meistens wie folgt weiter.
+2)  Versuche dann mit der Funktion `as_date()` eine Datumspalte zu erschaffen. Häufig erkennt die Funktion die Spalte richtig und schneidet das Datum korrekt in Jahr/Monat/Tag. Manchmal klappt das aber auch nicht. Dann müssen wir uns weiter strecken.
+3)  Wenn die Umwandlung mit `as_date()` nicht klappt, musst du nochmal über `parse_date_time()` gehen und angeben, wie dein Datum formatiert ist.
+
+::: column-margin
+Auf der Hilfeseite der Funktion `parse_date_time()` erfährst du dann mehr über [User friendly date-time parsing functions](https://lubridate.tidyverse.org/reference/parse_date_time.html)
+:::
+
+Schauen wir uns einmal ein Beispiel für Daten an. Ich habe hier die Daten von Deutschen Wetterdienst runtergeladen und möchte die Spalte `jjjjmmdd` in ein Datum in R umwandeln.
 
 ```{r}
 #| message: false
 #| warning: false
 
-time_vec <- read_table("data/day_values_osnabrueck.txt") %>% 
+time_tbl <- read_table("data/day_values_osnabrueck.txt") %>% 
   clean_names() %>% 
-  pull(jjjjmmdd)
+  select(jjjjmmdd) %>% 
+  print(n = 3)
 ```
 
+Wir nehmen die Datumsspalte, die eine Zahl ist und transformieren die Spalte in einen `character`. Danach können wir dann die Funktion `as_date()` nutzen um uns ein Datum wiedergeben zu lassen.
+
 ```{r}
-time_vec %>% 
-  as.character() %>% 
-  as.Date("%Y%m%d") %>% 
-  head(5)
+time_tbl %>% 
+  mutate(jjjjmmdd = as.character(jjjjmmdd),
+         jjjjmmdd = as_date(jjjjmmdd)) %>% 
+  print(n = 3)
 ```
+
+Wie wir sehen passt die Umwandlung in diesem Fall hervorragend. Die Funktion `as_date()` erkennt das Jahr, den Monat und den Tag und baut uns dann die Datumsspalte zusammen. Meistens passt es auch, dann können wir hier enden.
+
+Als eine Alternative haben wir auch die Möglichkeit die Funktion `as.Date()` zu nutzen. Hier können wir das Datumformat in einer etwas kryptischen Form angeben. Schauen wir uns erst die Funktion in Arbeit an und dann was wir hier gemacht haben.
+
+```{r}
+time_tbl %>% 
+  mutate(jjjjmmdd = as.character(jjjjmmdd),
+         jjjjmmdd = as.Date(jjjjmmdd, "%Y%m%d")) %>% 
+  print(n = 3)
+```
+
+Wir können der Funktion das Datumsformat mitgeben. Im Folgenden einmal eine Auswahl an Möglichkeiten. Die jeweiligen Prozent/Buchstaben-Kombinationen stehen dann immer für ein Jahr oder eben ein Monat.
 
 -   `%Y`: 4-Zeichen Jahr (1982)
 -   `%y`: 2-Zeichen Jahr (82)
@@ -177,6 +203,8 @@ time_vec %>%
 -   `%B`: Monat (January)
 -   `%b`: Abgekürzter Monat (Jan)
 
+Nehmen wir einmal an, wir haben das Datum in folgender Form `2012-11-02` vorliegen. Dann können wir dafür als Format `%Y-%m-%d` schreiben und das Datum wird erkennt. Hier ist es besonders hilfreich, dass wir die Trennzeichen mit angeben können. Sonst müssen wir die Trennzeichen dann über `str_replace_all()` entfernen und könten dann schauen, ob es über die Funktion `as_date()` geht.
+
 ::: column-margin
-Hier hilft das [R Paket lubridate - Make Dealing with Dates a Little Easier](https://lubridate.tidyverse.org/) und natürlich das Tutorial [Dates and times](https://r4ds.had.co.nz/dates-and-times.html).
+Im Weiteren hilft das Tutorial zum [R Paket lubridate - Make Dealing with Dates a Little Easier](https://lubridate.tidyverse.org/) und natürlich das weitere Tutorial [Dates and times](https://r4ds.had.co.nz/dates-and-times.html).
 :::

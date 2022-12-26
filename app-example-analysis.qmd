@@ -23,6 +23,7 @@ Worum geht es in diesem Kapitel? Ich rechne hier fröhlich Dinge und präsentier
 -   In @sec-tukeyHSD schauen wir uns den Tukey Test für paaweise Vergleiche einmal an. Wir nutzen hier die schnelle Variante mit der Funktion `aov()`. Für das *compact letter display* müssen wir uns dann ein wenig strecken, aber es geht dann auch.
 -   In @sec-plowing-data haben wir nochmal ein schönes Beispiel für eine Analyse mit mehreren Faktoren und verschiedenen Outcomes. Wir haben also einen Blumenstrauß an Daten, die wir sortieren und auswerten müssen. Da ich selber keine Ahnung vom Pflügen habe, gehen wir die Sache distanziert durch.
 -   In @sec-app-mixed-cutting schauen wir uns ein lineares gemischtes Modell an. Das heißt, wir wollen einen Gruppenvergleich rechnen und dabei die verschiedenen Zeitpunkte mit berücksichtigen. Anstatt also jeden Zeitpunkt einzeln, rechnen wir alle Zeitpunkte zusammen.
+-   In @sec-app-spinach-metal wollen wir uns die Konzentration von drei Spurenelementen als Outcome in Blättern und Stielen der Spinatpflanze anschauen. Wir haben hierfür dann die Konzentration von Fe, Cd und Zn gemessen. Insgesamt gab es sieben verschiedene Behandlungsformen.
 
 Je weiter du nach unten in diesem Kapitel kommst, desto weniger Text wirst du finden. Ich werde noch eine Zeit brauchen, bis ich alles wieder schon mit Text hier verarbeitet habe. Es wird aber immer mal wieder etwas *messy* aussehen. Hier wird eben auch gearbeitet. Der R Code wird dann aber immer funktionieren, nur die Beschreibungen sind dann eben manchmal nicht da.
 
@@ -83,3 +84,95 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 ## Auswertung mit Messwiederholungen {#sec-app-mixed-cutting}
 
 {{< include app-example-analysis/app-example-analysis-09.qmd >}}
+
+## Spurenelemente in Spinatblättern und Stielen {#sec-app-spinach-metal}
+
+```{r}
+spinach_tbl <- read_excel("data/spinach_metal_data.xlsx") %>% 
+  mutate(trt = as_factor(trt),
+         sample = as_factor(sample),
+         block = as_factor(block))
+```
+
+```{r}
+spinach_plot_tbl <- spinach_tbl %>% 
+  pivot_longer(cols = fe:zn,
+               names_to = "outcome",
+               values_to = "rsp") %>% 
+  mutate(outcome = as_factor(outcome))
+
+```
+
+```{r}
+
+ggplot(spinach_plot_tbl, aes(trt, rsp, shape = block, color = trt)) +
+  theme_minimal() +
+  geom_jitter() +
+  facet_wrap(~ outcome*sample, scales = "free_y", ncol = 2) +
+  labs(x = "Behandlung", y = "Gemessenes Outcome",
+       shape = "Block", color = "Behandlung") +
+  scale_color_okabeito()
+```
+
+### Eisen (Fe) und Blatt
+
+```{r}
+fe_leaf_tbl <- spinach_plot_tbl %>% 
+  filter(outcome == "fe" & sample == "leaf")
+
+```
+
+```{r}
+fe_leaf_fit <- lm(rsp ~ trt + block, data = fe_leaf_tbl)
+
+```
+
+```{r}
+fe_leaf_fit %>% anova()
+
+```
+
+```{r}
+fe_leaf_fit %>% eta_squared()
+
+```
+
+```{r}
+fe_leaf_emm <- fe_leaf_fit %>% 
+  emmeans(~ trt)
+```
+
+```{r}
+fe_leaf_emm %>% 
+  contrast(method = "pairwise", adjust = "bonferroni")
+```
+
+```{r}
+fe_leaf_emm %>%
+  cld(Letters = letters, adjust = "none") %>% 
+  arrange(trt)
+```
+
+```{r}
+spinach_tbl %>% 
+  select(fe, zn) %>% 
+  pairs.panels(smooth = TRUE, density = TRUE, method = "kendall", lm = TRUE, 
+               cor = TRUE, ellipses = FALSE, stars = TRUE) 
+```
+
+```{r}
+spinach_tbl %>% 
+  filter(sample == "leaf") %>% 
+  select(fe, zn) %>% 
+  pairs.panels(smooth = TRUE, density = TRUE, method = "kendall", lm = TRUE, 
+               cor = TRUE, ellipses = FALSE, stars = TRUE)    
+
+```
+
+```{r}
+spinach_tbl %>% 
+  filter(sample == "stem") %>% 
+  select(fe, zn) %>% 
+  pairs.panels(smooth = TRUE, density = TRUE, method = "kendall", lm = TRUE, 
+               cor = TRUE, ellipses = FALSE, stars = TRUE) 
+```
