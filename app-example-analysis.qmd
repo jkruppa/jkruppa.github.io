@@ -38,6 +38,7 @@ pacman::p_load(tidyverse, magrittr, readxl, janitor,
                see, metR, parameters, multcompView,
                modelsummary, rstatix, corrplot, psych,
                ordinal, rcompanion, lme4, performance,
+               scales,
                conflicted)
 ## resolve some conflicts with same function naming
 conflict_prefer("select", "dplyr")
@@ -119,22 +120,18 @@ ggplot(spinach_plot_tbl, aes(trt, rsp, shape = block, color = trt)) +
 ```{r}
 fe_leaf_tbl <- spinach_plot_tbl %>% 
   filter(outcome == "fe" & sample == "leaf")
-
 ```
 
 ```{r}
 fe_leaf_fit <- lm(rsp ~ trt + block, data = fe_leaf_tbl)
-
 ```
 
 ```{r}
 fe_leaf_fit %>% anova()
-
 ```
 
 ```{r}
 fe_leaf_fit %>% eta_squared()
-
 ```
 
 ```{r}
@@ -175,4 +172,27 @@ spinach_tbl %>%
   select(fe, zn) %>% 
   pairs.panels(smooth = TRUE, density = TRUE, method = "kendall", lm = TRUE, 
                cor = TRUE, ellipses = FALSE, stars = TRUE) 
+```
+
+```{r}
+spinach_nest_tbl <- spinach_plot_tbl %>% 
+  group_by(sample, outcome) %>% 
+  nest() 
+```
+
+```{r}
+spinach_nest_tbl %>%
+  mutate(model = map(data, ~lm(rsp ~ trt + block, data = .x)))
+```
+
+```{r}
+spinach_nest_tbl %>%
+  mutate(model = map(data, ~lm(rsp ~ trt + block, data = .x))) %>% 
+  mutate(anova = map(model, anova)) %>% 
+  mutate(parameter = map(anova, model_parameters)) %>% 
+  select(sample, outcome, parameter) %>% 
+  unnest(parameter) %>% 
+  filter(Parameter != "Residuals") %>% 
+  select(sample, outcome, Parameter, p) %>% 
+  mutate(p = pvalue(p))
 ```
