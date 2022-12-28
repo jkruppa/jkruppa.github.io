@@ -10,7 +10,11 @@
 Dieses Kapitel dient dazu *fortgeschrittene* Programmierung in R zu präsentieren. Teilweise nutze ich komplexeren Code bei der [Auswertung von den Beispielen](#sec-beispiel-auswertung). Wenn dich also Programmieren interessiert, dann kannst du dir hier noch was anschauen.
 :::
 
-In diesem Kapitel geht es hauptsählich um [Iterationen](https://r4ds.had.co.nz/iteration.html#iteration). Das heißt wir wollen immer das Gleiche auf verschiedene unterschiedliche Dinge anwenden. In unserem Fall ist das Gleiche eine `function(...){}` in R und das Unterschiedliche sind Einträge in einer Liste `lst()` oder einem Datensatz `tibble()`. Wir wolln also zum Beispiel auf vrschiedenen Datensätzen mit fünf unterschiedlichen Outcomes immer wieder eine multiple lineare Regression rechnen. Anstatt also per Copy&Paste fünfmal den Code zu kopieren, wollen wir alle Datensätze in einer Liste speichern und die Liste dann in einem Schwung auswerten.
+In diesem Kapitel geht es hauptsählich um [Iterationen](https://r4ds.had.co.nz/iteration.html#iteration). Das heißt wir wollen immer das Gleiche auf verschiedene unterschiedliche Dinge anwenden. In unserem Fall ist das "Gleiche" eine Funktion `function(...){}` in R und das "Unterschiedliche" sind Einträge in einer Liste `lst()` oder einem Datensatz `tibble()`. Wir wolln also zum Beispiel auf vrschiedenen Datensätzen mit fünf unterschiedlichen Outcomes immer wieder eine multiple lineare Regression rechnen. Anstatt also per Copy&Paste fünfmal den Code zu kopieren, wollen wir alle Datensätze in einer Liste speichern und die Liste dann in einem Schwung auswerten.
+
+Wie wir die Daten in Gruppen zusammenfassen ist unterschiedlich möglich. Ich präsentiere hier zum einen die Funktion `split()`, die Daten in Listen aufteilt sowie die Funktion `nest()` die Daten in ein `tibble` zusammenfaltet. Beide Varianten haben so ihre Vor- und Nachteile. Wie immer kommt es dann auf die Anwendung an und was du machen willst.
+
+Es lohnt sich hierbei die Listen bzw. die Datensätze, über die dann iteriert werden soll, so gleich wie irgendwie möglich zu bauen. Das heißt, dass wir die gleiche Anzahl an Spalten mit den gleichen Spaltennamen vorliegen haben wollen. Das erleichtert dann die spätere Anwendung mit `map()`.
 
 ## Genutzte R Pakete
 
@@ -39,7 +43,11 @@ soil_tbl <- read_excel("data/soil_1fac_data.xlsx") %>%
   mutate(variante = str_c(variante, "_", amount),
          variante = as_factor(variante),
          across(where(is.numeric), round, 2)) %>% 
-  select(-amount)
+  select(-amount) %>%
+  extract(1:8, 1:4) %>% 
+  pivot_longer(cols = fe:no3, 
+               names_to = "outcome",
+               values_to = "rsp") 
 ```
 
 ```{r}
@@ -53,7 +61,30 @@ spinach_tbl <- read_excel("data/spinach_metal_data.xlsx") %>%
   mutate(outcome = as_factor(outcome))
 ```
 
-## Mit `purrr` über Listen {#sec-purrr}
+## Daten aufteilen...
+
+### ... mit `split()`
+
+```{r}
+soil_lst <- soil_tbl %>%
+  split(.$outcome) 
+
+soil_lst
+```
+
+### ... mit `nest()`
+
+```{r}
+spinach_nest_tbl <- spinach_tbl %>% 
+  group_by(sample, outcome) %>% 
+  nest() 
+
+spinach_nest_tbl
+```
+
+Mit `unnest()` lässt sich dann die genestete Struktur wieder in einen normalen Datensatz zurückführen.
+
+## Mit `purrr` über Daten {#sec-purrr}
 
 [R Paket purrr](https://purrr.tidyverse.org/)
 
@@ -66,14 +97,7 @@ spinach_tbl <- read_excel("data/spinach_metal_data.xlsx") %>%
 
 ### Die Funktion `map()`
 
-```{r}
-soil_lst <- soil_tbl %>%
-  extract(1:8, 1:4) %>% 
-  pivot_longer(cols = fe:no3, 
-               names_to = "outcome",
-               values_to = "rsp") %>%
-  split(.$outcome) 
-```
+Einmal auf Listen
 
 ```{r}
 soil_lst %>%
@@ -95,13 +119,7 @@ soil_lst %>%
   bind_rows(.id = "outcome") 
 ```
 
-### Die Funktion `nest()`
-
-```{r}
-spinach_nest_tbl <- spinach_tbl %>% 
-  group_by(sample, outcome) %>% 
-  nest() 
-```
+Einmal auf genesteten Daten
 
 ```{r}
 spinach_nest_tbl %>%
@@ -122,9 +140,9 @@ spinach_nest_tbl %>%
   mutate(across(where(is.numeric), round, 2))
 ```
 
-## Mit `furrr` parallel über Listen {#sec-furrr}
+## Mit `furrr` parallel über Daten {#sec-furrr}
 
-Warum geht es den jetzt hier? Wenn du `purrr` und die Funktionen `map()` verstanden hast, dann geht natürlich alles auch in Parallel. Die parallele Berechnung ist in dem [R Paket furrr](https://furrr.tidyverse.org/) implementiert. Das heißt wir müssen nur die Funktionsnamen änern und schon rechnet sich alles in Parallel. Wir nutzen also nicht nur einen Kern von unseren Rechnern sondern eben alles was wir haben.
+Warum geht es den jetzt hier? Wenn du `purrr` und die Funktionen `map()` verstanden hast, dann geht natürlich alles auch in paralleler Berechnung. Die parallele Berechnung ist in dem [R Paket furrr](https://furrr.tidyverse.org/) implementiert. Das heißt wir müssen nur die Funktionsnamen ändern und schon rechnet sich alles in Parallel. Wir nutzen also nicht nur einen Kern von unseren Rechnern sondern eben alles was wir haben.
 
 ```{r}
 no_cores <- availableCores() - 1
