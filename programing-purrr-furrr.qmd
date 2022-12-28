@@ -21,6 +21,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, rstatix, 
                janitor, purrr, furrr, see,
                readxl, tictoc, multcompView, 
+               parameters,
                conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
@@ -39,6 +40,17 @@ soil_tbl <- read_excel("data/soil_1fac_data.xlsx") %>%
          variante = as_factor(variante),
          across(where(is.numeric), round, 2)) %>% 
   select(-amount)
+```
+
+```{r}
+spinach_tbl <- read_excel("data/spinach_metal_data.xlsx") %>% 
+  mutate(trt = as_factor(trt),
+         sample = as_factor(sample),
+         block = as_factor(block)) %>% 
+  pivot_longer(cols = fe:zn,
+               names_to = "outcome",
+               values_to = "rsp") %>% 
+  mutate(outcome = as_factor(outcome))
 ```
 
 ## Mit `purrr` über Listen {#sec-purrr}
@@ -60,7 +72,7 @@ soil_lst <- soil_tbl %>%
   pivot_longer(cols = fe:no3, 
                names_to = "outcome",
                values_to = "rsp") %>%
-  split(.$outcome) ## group_split()
+  split(.$outcome) 
 ```
 
 ```{r}
@@ -81,6 +93,33 @@ soil_lst %>%
   map(pull, p.adj, contrast) %>% 
   map(~multcompLetters(.x)$Letters) %>% 
   bind_rows(.id = "outcome") 
+```
+
+### Die Funktion `nest()`
+
+```{r}
+spinach_nest_tbl <- spinach_tbl %>% 
+  group_by(sample, outcome) %>% 
+  nest() 
+```
+
+```{r}
+spinach_nest_tbl %>%
+  mutate(model = map(data, ~lm(rsp ~ trt + block, data = .x)))
+```
+
+```{r}
+spinach_nest_tbl %<>%
+  mutate(model = map(data, ~lm(rsp ~ trt + block, data = .x))) %>% 
+  mutate(anova = map(model, anova)) %>% 
+  mutate(parameter = map(anova, model_parameters)) %>% 
+  select(sample, outcome, parameter) 
+```
+
+```{r}
+spinach_nest_tbl %>%
+  unnest(parameter) %>% 
+  mutate(across(where(is.numeric), round, 2))
 ```
 
 ## Mit `furrr` parallel über Listen {#sec-furrr}
