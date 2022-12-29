@@ -2,12 +2,10 @@
 
 *Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
 
-![](images/caution.png){fig-align="center" width="50%"}
-
 ::: callout-caution
 ## Was soll das hier? Ziemlich wild alles...
 
-Dieses Kapitel dient dazu *fortgeschrittene* Programmierung in R zu präsentieren. Teilweise nutze ich komplexeren Code bei der [Auswertung von den Beispielen](#sec-beispiel-auswertung). Wenn dich also Programmieren interessiert, dann kannst du dir hier noch was anschauen.
+Dieses Kapitel dient dazu *fortgeschrittene* Programmierung in R zu präsentieren. Teilweise nutze ich komplexeren Code bei der [Auswertung von den Beispielen](#sec-beispiel-auswertung). Wenn dich also Programmieren interessiert, dann kannst du dir hier noch was anschauen. Das Kapitel ist eigentlich nie fertig, da ich sicherlich immer mal wieder was ergänzen werde.
 :::
 
 In diesem Kapitel geht es hauptsählich um [Iterationen](https://r4ds.had.co.nz/iteration.html#iteration). Das heißt wir wollen immer das Gleiche auf verschiedene unterschiedliche Dinge anwenden. In unserem Fall ist das "Gleiche" eine Funktion `function(...){}` in R und das "Unterschiedliche" sind Einträge in einer Liste `lst()` oder einem Datensatz `tibble()`. Wir wollen also zum Beispiel auf verschiedenen Datensätzen mit fünf unterschiedlichen Outcomes immer wieder eine multiple lineare Regression rechnen. Anstatt also per Copy&Paste fünfmal den Code zu kopieren, wollen wir alle Datensätze in einer Liste speichern und die Liste dann in einem Schwung auswerten. Das geht natürlich nur eingeschränkt. Wir müssen ja noch beachten, dass jedes Outcome einer anderen Verteilung folgen könnte.
@@ -52,7 +50,7 @@ soil_tbl <- read_excel("data/soil_1fac_data.xlsx") %>%
                values_to = "rsp") 
 ```
 
-Als zweiten Datensatz nehmen wir noch eine zweifaktorilles Design mit einem Behandlungs- und einem Blockeffekt. Darüberhinaus haben wir dann noch verschiedene Outcomes und diese Outcomes dann auch an zwei Orten, einmal im Blatt und einmal im Stiel, gemessen.
+Als zweiten Datensatz nehmen wir noch eine zweifaktorilles Design mit einem Behandlungs- und einem Blockeffekt. Darüberhinaus haben wir dann noch verschiedene Outcomes und diese Outcomes dann auch an zwei Orten, einmal im Blatt und einmal im Stiel, gemessen. Das heißt, wir haben immer eine Outcome/Sample-Kombination vorliegen. Bei drei Outcomes und zwei Messorten macht das dann sechs Kombinationen auf denen wir dann immer unsere zweifaktoriellen Analysen rechnen wollen.
 
 ```{r}
 spinach_tbl <- read_excel("data/spinach_metal_data.xlsx") %>% 
@@ -67,7 +65,11 @@ spinach_tbl <- read_excel("data/spinach_metal_data.xlsx") %>%
 
 ## Daten aufteilen...
 
+In R haben wir zwei Möglichkeiten für `map()` die Daten aufzuteilen. Klar, wir können die Aufteilung sicherlich auch mit anderen Funktionen machen, aber diese beiden Funktionen sind sehr nützlich.
+
 ### ... mit `split()`
+
+Mit der Funktion `split()` können wir einen Datensatz nach *einer* Faktorspalte in eine Liste aufspalten. Die Liste ist dann auch gleich so benannt wie das Level es Faktors für das wir die Aufteilung gemacht haben. Die Benamung der Liste ist dann praktisch, wenn wir später wieder einen Datensatz aus den Ergebnissen bauen.
 
 ```{r}
 soil_lst <- soil_tbl %>%
@@ -78,6 +80,8 @@ soil_lst
 
 ### ... mit `nest()`
 
+Wenn wir mehr als eine Gruppierungsspalte haben, dann können wir die Funktion `nest()` nutzen. In unserem Beispiel haben wir die Spalte `outcome` und `sample`. Für jede Kombination der beiden Spalte wollen wir dann jeweils ein Modell rechnen. Hier meine ich mit Modell eine lineare Regression und dann eine ANOVA. Als erstes müssen wir unsere Daten gruppieren und dann können wir die Daten nesten. Mit `unnest()` lässt sich dann die genestete Struktur wieder in einen normalen Datensatz zurückführen.
+
 ```{r}
 spinach_nest_tbl <- spinach_tbl %>% 
   group_by(sample, outcome) %>% 
@@ -85,8 +89,6 @@ spinach_nest_tbl <- spinach_tbl %>%
 
 spinach_nest_tbl
 ```
-
-Mit `unnest()` lässt sich dann die genestete Struktur wieder in einen normalen Datensatz zurückführen.
 
 ## Mit `purrr` über Daten {#sec-purrr}
 
@@ -103,7 +105,7 @@ Schaue auch mal in das Cheat Sheet des R Paketes `purrr` rein: [Apply functions 
 -   `imap()` können wir nutzen, wenn wir den Index $i$ wieder haben wollen. Das heißt, wir wollen über einen Vektor laufen und brauchen dafür den Index. Hier hilft die `imap()` Familie.
 -   `modify()`können wir anwenden, wenn wir nur Spalten modifizieren oder mutieren wollen. Wir haben einen Datensatz und wollen alle `character` Spalten in einen Faktor umwandeln. Siehe hierzu auch [Modify elements selectively](https://purrr.tidyverse.org/reference/modify.html).
 
-Schauen wir uns die Anwendung von der Funktion `map()` auf eine Liste an.
+Schauen wir uns die Anwendung von der Funktion `map()` auf eine Liste an. In folgenden Code entfernen wir einmal in *jedem* Listeneintrag die Spalte `outcome`. Dann lassen wir uns von *jedem* Listeneintrag die erste Zeile wiedergeben.
 
 ```{r}
 soil_lst %>%
@@ -111,10 +113,14 @@ soil_lst %>%
   map(head, 1)
 ```
 
+Wir können zum einen `map(head, 1)` schreiben oder aber den Listeneintrag als `.x` direkt in die Funktion weiterleiten. Dann schreiben wir `map(~head(.x, 1))` und müssen noch die Tilde `~` vor die Funktion setzen.
+
 ```{r}
 soil_lst %>%
   map(~head(.x, 1))
 ```
+
+Die richtige Stärke entwickelt dann `map()`, wenn wir mehrere Funktionen hineinander schalten. In unserem Fall rechnen wir einen Games-Howell Test und wollen uns dann das *compact letter display* wiedergeben lassen. Da wir am Ende dann einen Datensatz haben wollen, nutzen wir die Funktion `bind_rows()` um die Listeneinträge in einen Datensatz zusammen zukleben.
 
 ```{r}
 soil_lst %>% 
@@ -125,12 +131,14 @@ soil_lst %>%
   bind_rows(.id = "outcome") 
 ```
 
-Wir können auch auch auf genesteten Daten die Funktion `map()` anwenden.
+Wir können auch auch auf genesteten Daten die Funktion `map()` anwenden. In diesem Fall belieben wir die ganze Zeit in einem `tibble`. Wir lagern unsere Ergebnisse sozusagen immer in einer Zelle und können auf diese Einträge dann immer wieder zugreifen. Einmal zu Demonstration rechnen wir sechs Mal ein lineares Modell mit der Funktion `lm()` und speichern das Ergebnis in der Spalte `model`. Wir haben jetzt dort jeweils `<lm>` stehen. Damit wissen wir auch, dass wir dort unser Modell drin haben. Wir können jetzt auf der Spalte `model` weiterechnen und uns neue Spalten mit Ergebnissen erschaffen.
 
 ```{r}
 spinach_nest_tbl %>%
   mutate(model = map(data, ~lm(rsp ~ trt + block, data = .x)))
 ```
+
+Im Folgenden rechnen wir ein lineares Modell, dann eine ANOVA und lassen uns das Ergebnis der ANOVA mit der Funktion `model_parameters()` aufhübschen. Wie du siehst, geben wie immer den Spaltennamen eine Funktion weiter. Dann wählen wir noch die Spalten, die wir dann unnesten wollen.
 
 ```{r}
 spinach_nest_tbl %<>%
@@ -139,6 +147,8 @@ spinach_nest_tbl %<>%
   mutate(parameter = map(anova, model_parameters)) %>% 
   select(sample, outcome, parameter) 
 ```
+
+Zum Abschluss nutzen wir die Funktion `unnest()` um uns die aufgehübschten Ergebnisse der ANOVA wiedergeben zu lassen. Dann will ich noch, dass die Namen alle klein geschrieben sind und auch sonst sauber sind. Dafür nutze ich dann die Funktion `clean_names()`. Abschließend filtere ich und runde ich noch die Ergebnisse. Am Ende will ich dann nur die Kombinationen aus `sample` und `outcome` haben sowie den $p$-Wert aus der ANOVA.
 
 ```{r}
 spinach_nest_tbl %>%
@@ -157,6 +167,8 @@ Warum geht es den jetzt hier? Wenn du `purrr` und die Funktionen `map()` verstan
 no_cores <- availableCores() - 1
 no_cores
 ```
+
+Einmal das ganze in sequenzieller Programmierung. Also alles nacheinander gerechnet.
 
 ```{r}
 plan(sequential)
@@ -178,6 +190,8 @@ nothingness <- future_map(c(2, 2, 2), ~Sys.sleep(.x))
 toc()
 ```
 
+Wie du siehst, must du nur `future_` vor die `map()` Funktion ergänzen und schon kannst du parallel rechnen.
+
 ## progressr: An Introduction
 
-[progressr: An Introduction](https://cran.r-project.org/web/packages/progressr/vignettes/progressr-intro.html)
+Die Funktion `map()` hat die Option `.progress = TRUE` mit der du dir auch einen Fortschritt anzeigen lassen kannst. Also wie lange noch die Funktion braucht um über alle Listeneinträge zu rechnen. Wenn du es noch schöner haben willst, dann schaue dir einmal das R Paket [progressr: An Introduction](https://cran.r-project.org/web/packages/progressr/vignettes/progressr-intro.html) an.
