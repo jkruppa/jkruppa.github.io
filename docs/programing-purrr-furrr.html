@@ -571,7 +571,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
   </div>
   
 
-</header><p><em>Version vom December 28, 2022 um 12:51:19</em></p>
+</header><p><em>Version vom December 29, 2022 um 10:50:38</em></p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure"><p><img src="images/caution.png" class="img-fluid figure-img" style="width:50.0%"></p>
 </figure>
@@ -589,7 +589,7 @@ Was soll das hier? Ziemlich wild alles…
 <p>Dieses Kapitel dient dazu <em>fortgeschrittene</em> Programmierung in R zu präsentieren. Teilweise nutze ich komplexeren Code bei der <a href="app-example-analysis.html">Auswertung von den Beispielen</a>. Wenn dich also Programmieren interessiert, dann kannst du dir hier noch was anschauen.</p>
 </div>
 </div>
-<p>In diesem Kapitel geht es hauptsählich um <a href="https://r4ds.had.co.nz/iteration.html#iteration">Iterationen</a>. Das heißt wir wollen immer das Gleiche auf verschiedene unterschiedliche Dinge anwenden. In unserem Fall ist das “Gleiche” eine Funktion <code>function(...){}</code> in R und das “Unterschiedliche” sind Einträge in einer Liste <code>lst()</code> oder einem Datensatz <code>tibble()</code>. Wir wolln also zum Beispiel auf vrschiedenen Datensätzen mit fünf unterschiedlichen Outcomes immer wieder eine multiple lineare Regression rechnen. Anstatt also per Copy&amp;Paste fünfmal den Code zu kopieren, wollen wir alle Datensätze in einer Liste speichern und die Liste dann in einem Schwung auswerten.</p>
+<p>In diesem Kapitel geht es hauptsählich um <a href="https://r4ds.had.co.nz/iteration.html#iteration">Iterationen</a>. Das heißt wir wollen immer das Gleiche auf verschiedene unterschiedliche Dinge anwenden. In unserem Fall ist das “Gleiche” eine Funktion <code>function(...){}</code> in R und das “Unterschiedliche” sind Einträge in einer Liste <code>lst()</code> oder einem Datensatz <code>tibble()</code>. Wir wollen also zum Beispiel auf verschiedenen Datensätzen mit fünf unterschiedlichen Outcomes immer wieder eine multiple lineare Regression rechnen. Anstatt also per Copy&amp;Paste fünfmal den Code zu kopieren, wollen wir alle Datensätze in einer Liste speichern und die Liste dann in einem Schwung auswerten. Das geht natürlich nur eingeschränkt. Wir müssen ja noch beachten, dass jedes Outcome einer anderen Verteilung folgen könnte.</p>
 <p>Wie wir die Daten in Gruppen zusammenfassen ist unterschiedlich möglich. Ich präsentiere hier zum einen die Funktion <code><a href="https://rdrr.io/r/base/split.html">split()</a></code>, die Daten in Listen aufteilt sowie die Funktion <code>nest()</code> die Daten in ein <code>tibble</code> zusammenfaltet. Beide Varianten haben so ihre Vor- und Nachteile. Wie immer kommt es dann auf die Anwendung an und was du machen willst.</p>
 <p>Es lohnt sich hierbei die Listen bzw. die Datensätze, über die dann iteriert werden soll, so gleich wie irgendwie möglich zu bauen. Das heißt, dass wir die gleiche Anzahl an Spalten mit den gleichen Spaltennamen vorliegen haben wollen. Das erleichtert dann die spätere Anwendung mit <code>map()</code>.</p>
 <section id="genutzte-r-pakete" class="level2" data-number="14.1"><h2 data-number="14.1" class="anchored" data-anchor-id="genutzte-r-pakete">
@@ -609,6 +609,7 @@ Was soll das hier? Ziemlich wild alles…
 <p>Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.</p>
 </section><section id="die-daten" class="level2" data-number="14.2"><h2 data-number="14.2" class="anchored" data-anchor-id="die-daten">
 <span class="header-section-number">14.2</span> Die Daten</h2>
+<p>Als Datenbeispiel schauen wir uns einmal ein einfaktoriellen Datensatz an und suchen uns auch nur acht Zeilen und drei Outcomes raus. Wir könnten die Analyse auch über den vollen Datensatz rechnen, aber dann wird hier alles sehr voll. Es geht ja hier mehr um die Demonstration.</p>
 <div class="cell">
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">soil_tbl</span> <span class="op">&lt;-</span> <span class="fu">read_excel</span><span class="op">(</span><span class="st">"data/soil_1fac_data.xlsx"</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">mutate</span><span class="op">(</span>variante <span class="op">=</span> <span class="fu">str_c</span><span class="op">(</span><span class="va">variante</span>, <span class="st">"_"</span>, <span class="va">amount</span><span class="op">)</span>,</span>
@@ -620,6 +621,7 @@ Was soll das hier? Ziemlich wild alles…
 <span>               names_to <span class="op">=</span> <span class="st">"outcome"</span>,</span>
 <span>               values_to <span class="op">=</span> <span class="st">"rsp"</span><span class="op">)</span> </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>Als zweiten Datensatz nehmen wir noch eine zweifaktorilles Design mit einem Behandlungs- und einem Blockeffekt. Darüberhinaus haben wir dann noch verschiedene Outcomes und diese Outcomes dann auch an zwei Orten, einmal im Blatt und einmal im Stiel, gemessen.</p>
 <div class="cell">
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">spinach_tbl</span> <span class="op">&lt;-</span> <span class="fu">read_excel</span><span class="op">(</span><span class="st">"data/spinach_metal_data.xlsx"</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">mutate</span><span class="op">(</span>trt <span class="op">=</span> <span class="fu">as_factor</span><span class="op">(</span><span class="va">trt</span><span class="op">)</span>,</span>
@@ -856,7 +858,7 @@ $no3
 <span><span class="va">nothingness</span> <span class="op">&lt;-</span> <span class="fu">future_map</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span>, <span class="op">~</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.sleep.html">Sys.sleep</a></span><span class="op">(</span><span class="va">.x</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu">toc</span><span class="op">(</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>6.045 sec elapsed</code></pre>
+<pre><code>6.049 sec elapsed</code></pre>
 </div>
 </div>
 <p>Der folgende Code sollte ca. 2 Sekunden dauern, wenn der Code parallel läuft. Wir haben einen kleinen Overhead in <code>future_map()</code> durch das Senden von Daten an die einzelnen Kerne. Es gibt auch einmalige Zeitkosten für <code>plan(multisession)</code>, um die Kerne einzurichten.</p>
