@@ -178,7 +178,7 @@ fe_leaf_emm %>%
   contrast(method = "pairwise", adjust = "bonferroni") 
 ```
 
-Schauen wir uns für diesen Vergleich dann noch das *Compact letter display* an. Bitte beachte, dass du dir mit der Funktion `arrange()` immer die Reihenfolge der Behandlungen ausgeben lassen kannst. Sonst ist die Ausgabe nach der Spalte `.group` sortiert und nicht nach den Behandlungen.
+Schauen wir uns für diesen Vergleich dann noch das *Compact letter display* an. Bitte beachte, dass du dir mit der Funktion `arrange()` immer die Reihenfolge der Behandlungen ausgeben lassen kannst. Sonst ist die Ausgabe nach der Spalte `.group` sortiert und nicht nach den Behandlungen. Wenn die Buchstaben nicht gleich sind, dann unterscheiden sich die Behandlungen.
 
 ```{r}
 fe_leaf_emm %>%
@@ -224,16 +224,32 @@ spinach_tbl %>%
 
 ### Und alles aufeinmal...
 
+Nun gut, jetzt haben wir unsere Analyse für das Blatt und den Eisengehalt gerechnet. Wir müssten jetzt die Analyse nochmal für alle anderen fünf Kombinationen durchführen. Das würde einiges an Zeit kosten und auch sehr viel Copy&Paste Aufwand. Kann man machen, aber wir können die Analyse auch in einem Rutsch durchführen. Dafür nutzen wir die Funktion `nest()` und dann anschließend die Funktion `map()` um auf den genesteten Daten die Analysen zu rechnen.
+
+Im ersten Schritt müssen wir unsere Daten gruppieren. Wir haben dann die sechs Kombinationen aus Outcome und Sample vorliegen. Dann nesten wir den Datensatz in sechs Zeilen. Wir klappen sozusagen die Daten für jede der sechs Kombinationen zusammen. Alles fällt dann in eine Zelle zusammen.
+
 ```{r}
 spinach_nest_tbl <- spinach_plot_tbl %>% 
   group_by(sample, outcome) %>% 
   nest() 
 ```
 
+Schauen wir uns den genesteten Datensatz einmal an. Wir sehen, dass wir die gesamten Daten in der Spalte `data` zusammengefaltet haben. Wir haben also sechs Tibbles mit den Daten der jeweiligen Outcome/Sample Kombinationen in der Spalte `data` vorliegen.
+
+```{r}
+spinach_nest_tbl 
+```
+
+Wir können jetzt auf den Tibbles in der Spalte `data` weiter rechnen. Wir nutzen für das Weiterrechnen die Funktion `map()`, die in jeder Zeile der Spalte `.data` die gleiche Funktion ausführt. Unser Ergebnis speichern wir dann in einer neuen Spalte und dafür nutzen wir die Funktion `mutate()`.
+
+Konkret erstellen wir uns jetzt eine neue Spalte `model` in der das lineare Modell der Funktion `lm()` abliegt.
+
 ```{r}
 spinach_model_tbl <- spinach_nest_tbl %>%
   mutate(model = map(data, ~lm(rsp ~ trt + block, data = .x))) 
 ```
+
+Im weiteren Schritt rechnen wir jetzt auf der Spalte `model` eine ANOVA und lassen uns dann die schönere Ausgabe über die Funktion `model_parameters()` wiedergeben. Der wichtigste Tiel ist die Funktion `unnest()` die uns die Zellen mit den ANOVA Ergebnissen dann wieder ausklappt. Der Rest ist dann noch filtern und anpassen. Ich möchte das die Ausgabe reduziert ist und die p-Werte sollen auch schön formatiert werden.
 
 ```{r}
 spinach_model_tbl %>% 
@@ -246,6 +262,8 @@ spinach_model_tbl %>%
   mutate(p = pvalue(p))
 ```
 
+Auch können wir un die $\eta^2$ für die Modelle berechnen lassen. Die Funktion `unnest()` klappt uns dann die Ergebnisse wieder aus. Dann müssen wir noch etwas aufräumen und schon haben wir für alle Kombinationen dann den Anteil der erklärten Varianz.
+
 ```{r}
 spinach_model_tbl %>%  
   mutate(eta = map(model, eta_squared)) %>% 
@@ -253,6 +271,8 @@ spinach_model_tbl %>%
   clean_names() %>% 
   select(sample, outcome, eta2_partial) 
 ```
+
+Im letzten Schritt bauen wir uns die Spalten für die Funktion `emmeans()`, dann die Kontraste und das *Compact letter display*. Hier nutzen wir die Schreibweise `map(<Spalte>, <Funktion>, <Optionen>)`. Daher definieren wir erst welche Spalte `map()` bearbeiten soll. Dann die Funktion die `map()` nutzen soll und anschließend die Optionen für die Funktion. Wir können hier auch mehrere Optionen nacheinander angeben.
 
 ```{r}
 spinach_emm_tbl <- spinach_model_tbl %>%  
@@ -262,6 +282,8 @@ spinach_emm_tbl <- spinach_model_tbl %>%
   mutate(cld = map(emm, cld, Letters = letters, adjust = "none"))
 ```
 
+Jetzt lassen wir uns die Spalte `contrast` wiedergeben. Wir müssen aber vorher die Spalte noch in ein Tibble umwandeln. Dann wollen wir noch die p-Werte schöner haben. Wichtig ist auch immer, dass wir über die Funktion `select()` die für uns wichtigen Spalten auswählen.
+
 ```{r}
 spinach_emm_tbl %>% 
   mutate(contrast = map(contrast, as_tibble)) %>% 
@@ -269,6 +291,8 @@ spinach_emm_tbl %>%
   select(sample, outcome, contrast, p.value) %>% 
   mutate(p.value = pvalue(p.value))
 ```
+
+Nachdem wir uns die Kontraste für die paarweisen Vergleiche wiedergeben haben lassen, wollen wir jetzt noch die ganzen *Compact letter displays* haben. Auch hier nutzen wir dann die Funktion `unnest()` und wolle dann nicht alle Spalten haben.
 
 ```{r}
 spinach_emm_tbl %>% 

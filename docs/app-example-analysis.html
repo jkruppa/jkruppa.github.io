@@ -586,7 +586,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </header><div class="cell">
 
 </div>
-<p><em>Version vom January 02, 2023 um 09:58:07</em></p>
+<p><em>Version vom January 02, 2023 um 10:22:14</em></p>
 <div class="callout-tip callout callout-style-default callout-captioned">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -2350,7 +2350,7 @@ Results are averaged over the levels of: block
 P value adjustment: bonferroni method for 21 tests </code></pre>
 </div>
 </div>
-<p>Schauen wir uns für diesen Vergleich dann noch das <em>Compact letter display</em> an. Bitte beachte, dass du dir mit der Funktion <code>arrange()</code> immer die Reihenfolge der Behandlungen ausgeben lassen kannst. Sonst ist die Ausgabe nach der Spalte <code>.group</code> sortiert und nicht nach den Behandlungen.</p>
+<p>Schauen wir uns für diesen Vergleich dann noch das <em>Compact letter display</em> an. Bitte beachte, dass du dir mit der Funktion <code>arrange()</code> immer die Reihenfolge der Behandlungen ausgeben lassen kannst. Sonst ist die Ausgabe nach der Spalte <code>.group</code> sortiert und nicht nach den Behandlungen. Wenn die Buchstaben nicht gleich sind, dann unterscheiden sich die Behandlungen.</p>
 <div class="cell">
 <div class="sourceCode" id="cb127"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">fe_leaf_emm</span> <span class="op">%&gt;%</span></span>
 <span>  <span class="fu">cld</span><span class="op">(</span>Letters <span class="op">=</span> <span class="va">letters</span>, adjust <span class="op">=</span> <span class="st">"none"</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
@@ -2421,17 +2421,38 @@ NOTE: If two or more means share the same grouping symbol,
 </div>
 </section><section id="und-alles-aufeinmal" class="level3" data-number="A.11.2"><h3 data-number="A.11.2" class="anchored" data-anchor-id="und-alles-aufeinmal">
 <span class="header-section-number">A.11.2</span> Und alles aufeinmal…</h3>
+<p>Nun gut, jetzt haben wir unsere Analyse für das Blatt und den Eisengehalt gerechnet. Wir müssten jetzt die Analyse nochmal für alle anderen fünf Kombinationen durchführen. Das würde einiges an Zeit kosten und auch sehr viel Copy&amp;Paste Aufwand. Kann man machen, aber wir können die Analyse auch in einem Rutsch durchführen. Dafür nutzen wir die Funktion <code>nest()</code> und dann anschließend die Funktion <code>map()</code> um auf den genesteten Daten die Analysen zu rechnen.</p>
+<p>Im ersten Schritt müssen wir unsere Daten gruppieren. Wir haben dann die sechs Kombinationen aus Outcome und Sample vorliegen. Dann nesten wir den Datensatz in sechs Zeilen. Wir klappen sozusagen die Daten für jede der sechs Kombinationen zusammen. Alles fällt dann in eine Zelle zusammen.</p>
 <div class="cell">
 <div class="sourceCode" id="cb130"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">spinach_nest_tbl</span> <span class="op">&lt;-</span> <span class="va">spinach_plot_tbl</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">group_by</span><span class="op">(</span><span class="va">sample</span>, <span class="va">outcome</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">nest</span><span class="op">(</span><span class="op">)</span> </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>Schauen wir uns den genesteten Datensatz einmal an. Wir sehen, dass wir die gesamten Daten in der Spalte <code>data</code> zusammengefaltet haben. Wir haben also sechs Tibbles mit den Daten der jeweiligen Outcome/Sample Kombinationen in der Spalte <code>data</code> vorliegen.</p>
 <div class="cell">
-<div class="sourceCode" id="cb131"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">spinach_model_tbl</span> <span class="op">&lt;-</span> <span class="va">spinach_nest_tbl</span> <span class="op">%&gt;%</span></span>
+<div class="sourceCode" id="cb131"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">spinach_nest_tbl</span> </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 6 × 3
+# Groups:   sample, outcome [6]
+  sample outcome data             
+  &lt;fct&gt;  &lt;fct&gt;   &lt;list&gt;           
+1 leaf   fe      &lt;tibble [28 × 3]&gt;
+2 leaf   cd      &lt;tibble [28 × 3]&gt;
+3 leaf   zn      &lt;tibble [28 × 3]&gt;
+4 stem   fe      &lt;tibble [28 × 3]&gt;
+5 stem   cd      &lt;tibble [28 × 3]&gt;
+6 stem   zn      &lt;tibble [28 × 3]&gt;</code></pre>
+</div>
+</div>
+<p>Wir können jetzt auf den Tibbles in der Spalte <code>data</code> weiter rechnen. Wir nutzen für das Weiterrechnen die Funktion <code>map()</code>, die in jeder Zeile der Spalte <code>.data</code> die gleiche Funktion ausführt. Unser Ergebnis speichern wir dann in einer neuen Spalte und dafür nutzen wir die Funktion <code>mutate()</code>.</p>
+<p>Konkret erstellen wir uns jetzt eine neue Spalte <code>model</code> in der das lineare Modell der Funktion <code><a href="https://rdrr.io/r/stats/lm.html">lm()</a></code> abliegt.</p>
+<div class="cell">
+<div class="sourceCode" id="cb133"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">spinach_model_tbl</span> <span class="op">&lt;-</span> <span class="va">spinach_nest_tbl</span> <span class="op">%&gt;%</span></span>
 <span>  <span class="fu">mutate</span><span class="op">(</span>model <span class="op">=</span> <span class="fu">map</span><span class="op">(</span><span class="va">data</span>, <span class="op">~</span><span class="fu"><a href="https://rdrr.io/r/stats/lm.html">lm</a></span><span class="op">(</span><span class="va">rsp</span> <span class="op">~</span> <span class="va">trt</span> <span class="op">+</span> <span class="va">block</span>, data <span class="op">=</span> <span class="va">.x</span><span class="op">)</span><span class="op">)</span><span class="op">)</span> </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>Im weiteren Schritt rechnen wir jetzt auf der Spalte <code>model</code> eine ANOVA und lassen uns dann die schönere Ausgabe über die Funktion <code>model_parameters()</code> wiedergeben. Der wichtigste Tiel ist die Funktion <code>unnest()</code> die uns die Zellen mit den ANOVA Ergebnissen dann wieder ausklappt. Der Rest ist dann noch filtern und anpassen. Ich möchte das die Ausgabe reduziert ist und die p-Werte sollen auch schön formatiert werden.</p>
 <div class="cell">
-<div class="sourceCode" id="cb132"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">spinach_model_tbl</span> <span class="op">%&gt;%</span> </span>
+<div class="sourceCode" id="cb134"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">spinach_model_tbl</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">mutate</span><span class="op">(</span>anova <span class="op">=</span> <span class="fu">map</span><span class="op">(</span><span class="va">model</span>, <span class="va">anova</span><span class="op">)</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">mutate</span><span class="op">(</span>parameter <span class="op">=</span> <span class="fu">map</span><span class="op">(</span><span class="va">anova</span>, <span class="va">model_parameters</span><span class="op">)</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">select</span><span class="op">(</span><span class="va">sample</span>, <span class="va">outcome</span>, <span class="va">parameter</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
@@ -2458,8 +2479,9 @@ NOTE: If two or more means share the same grouping symbol,
 12 stem   zn      block     &lt;0.001</code></pre>
 </div>
 </div>
+<p>Auch können wir un die <span class="math inline">\(\eta^2\)</span> für die Modelle berechnen lassen. Die Funktion <code>unnest()</code> klappt uns dann die Ergebnisse wieder aus. Dann müssen wir noch etwas aufräumen und schon haben wir für alle Kombinationen dann den Anteil der erklärten Varianz.</p>
 <div class="cell">
-<div class="sourceCode" id="cb134"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">spinach_model_tbl</span> <span class="op">%&gt;%</span>  </span>
+<div class="sourceCode" id="cb136"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">spinach_model_tbl</span> <span class="op">%&gt;%</span>  </span>
 <span>  <span class="fu">mutate</span><span class="op">(</span>eta <span class="op">=</span> <span class="fu">map</span><span class="op">(</span><span class="va">model</span>, <span class="va">eta_squared</span><span class="op">)</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">unnest</span><span class="op">(</span><span class="va">eta</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">clean_names</span><span class="op">(</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
@@ -2483,15 +2505,17 @@ NOTE: If two or more means share the same grouping symbol,
 12 stem   zn             0.589</code></pre>
 </div>
 </div>
+<p>Im letzten Schritt bauen wir uns die Spalten für die Funktion <code>emmeans()</code>, dann die Kontraste und das <em>Compact letter display</em>. Hier nutzen wir die Schreibweise <code>map(&lt;Spalte&gt;, &lt;Funktion&gt;, &lt;Optionen&gt;)</code>. Daher definieren wir erst welche Spalte <code>map()</code> bearbeiten soll. Dann die Funktion die <code>map()</code> nutzen soll und anschließend die Optionen für die Funktion. Wir können hier auch mehrere Optionen nacheinander angeben.</p>
 <div class="cell">
-<div class="sourceCode" id="cb136"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">spinach_emm_tbl</span> <span class="op">&lt;-</span> <span class="va">spinach_model_tbl</span> <span class="op">%&gt;%</span>  </span>
+<div class="sourceCode" id="cb138"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">spinach_emm_tbl</span> <span class="op">&lt;-</span> <span class="va">spinach_model_tbl</span> <span class="op">%&gt;%</span>  </span>
 <span>  <span class="fu">mutate</span><span class="op">(</span>emm <span class="op">=</span> <span class="fu">map</span><span class="op">(</span><span class="va">model</span>, <span class="va">emmeans</span>, <span class="op">~</span><span class="va">trt</span><span class="op">)</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">mutate</span><span class="op">(</span>contrast <span class="op">=</span> <span class="fu">map</span><span class="op">(</span><span class="va">emm</span>, <span class="va">contrast</span>, method <span class="op">=</span> <span class="st">"pairwise"</span>, </span>
 <span>                        adjust <span class="op">=</span> <span class="st">"none"</span><span class="op">)</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">mutate</span><span class="op">(</span>cld <span class="op">=</span> <span class="fu">map</span><span class="op">(</span><span class="va">emm</span>, <span class="va">cld</span>, Letters <span class="op">=</span> <span class="va">letters</span>, adjust <span class="op">=</span> <span class="st">"none"</span><span class="op">)</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>Jetzt lassen wir uns die Spalte <code>contrast</code> wiedergeben. Wir müssen aber vorher die Spalte noch in ein Tibble umwandeln. Dann wollen wir noch die p-Werte schöner haben. Wichtig ist auch immer, dass wir über die Funktion <code>select()</code> die für uns wichtigen Spalten auswählen.</p>
 <div class="cell">
-<div class="sourceCode" id="cb137"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">spinach_emm_tbl</span> <span class="op">%&gt;%</span> </span>
+<div class="sourceCode" id="cb139"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">spinach_emm_tbl</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">mutate</span><span class="op">(</span>contrast <span class="op">=</span> <span class="fu">map</span><span class="op">(</span><span class="va">contrast</span>, <span class="va">as_tibble</span><span class="op">)</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">unnest</span><span class="op">(</span><span class="va">contrast</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">select</span><span class="op">(</span><span class="va">sample</span>, <span class="va">outcome</span>, <span class="va">contrast</span>, <span class="va">p.value</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
@@ -2514,8 +2538,9 @@ NOTE: If two or more means share the same grouping symbol,
 # … with 116 more rows</code></pre>
 </div>
 </div>
+<p>Nachdem wir uns die Kontraste für die paarweisen Vergleiche wiedergeben haben lassen, wollen wir jetzt noch die ganzen <em>Compact letter displays</em> haben. Auch hier nutzen wir dann die Funktion <code>unnest()</code> und wolle dann nicht alle Spalten haben.</p>
 <div class="cell">
-<div class="sourceCode" id="cb139"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">spinach_emm_tbl</span> <span class="op">%&gt;%</span> </span>
+<div class="sourceCode" id="cb141"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">spinach_emm_tbl</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">mutate</span><span class="op">(</span>cld <span class="op">=</span> <span class="fu">map</span><span class="op">(</span><span class="va">cld</span>, <span class="va">arrange</span>, <span class="va">trt</span><span class="op">)</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">unnest</span><span class="op">(</span><span class="va">cld</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">select</span><span class="op">(</span><span class="va">sample</span>, <span class="va">outcome</span>, <span class="va">trt</span>, <span class="va">.group</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
