@@ -183,8 +183,12 @@ spinach_nest_tbl <- spinach_plot_tbl %>%
 ```
 
 ```{r}
-spinach_nest_tbl %>%
-  mutate(model = map(data, ~lm(rsp ~ trt + block, data = .x))) %>% 
+spinach_model_tbl <- spinach_nest_tbl %>%
+  mutate(model = map(data, ~lm(rsp ~ trt + block, data = .x))) 
+```
+
+```{r}
+spinach_model_tbl %>% 
   mutate(anova = map(model, anova)) %>% 
   mutate(parameter = map(anova, model_parameters)) %>% 
   select(sample, outcome, parameter) %>% 
@@ -192,4 +196,36 @@ spinach_nest_tbl %>%
   filter(Parameter != "Residuals") %>% 
   select(sample, outcome, Parameter, p) %>% 
   mutate(p = pvalue(p))
+```
+
+```{r}
+spinach_model_tbl %>%  
+  mutate(eta = map(model, eta_squared)) %>% 
+  unnest(eta) %>% 
+  clean_names() %>% 
+  select(sample, outcome, eta2_partial) 
+```
+
+```{r}
+spinach_emm_tbl <- spinach_model_tbl %>%  
+  mutate(emm = map(model, emmeans, ~trt)) %>% 
+  mutate(contrast = map(emm, contrast, method = "pairwise", 
+                        adjust = "none")) %>% 
+  mutate(cld = map(emm, cld, Letters = letters, adjust = "none"))
+```
+
+```{r}
+spinach_emm_tbl %>% 
+  mutate(contrast = map(contrast, as_tibble)) %>% 
+  unnest(contrast) %>% 
+  select(sample, outcome, contrast, p.value) %>% 
+  mutate(p.value = pvalue(p.value))
+```
+
+```{r}
+spinach_emm_tbl %>% 
+  mutate(cld = map(cld, arrange, trt)) %>% 
+  unnest(cld) %>% 
+  select(sample, outcome, trt, .group)
+
 ```
