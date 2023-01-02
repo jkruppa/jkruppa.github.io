@@ -1,0 +1,215 @@
+In der folgenden Datenanalyse schauen wir uns die Konzentrationen von den Spurenelementen Fe, Cd und Zn in Spinat an. Dabei haben wir zum einen in den Blätter und zum anderen in den Stielen gemessen. Daher haben wir insgesamt drei Outcomes an zwei Orten und somit sechs Kombinationen auszuwerten. Wir haben uns darüber hinaus noch sieben Behandlungen in je vier Blöcken als Wiederholung angeschaut. Laden wir also einmal die Daten.
+
+```{r}
+spinach_tbl <- read_excel("data/spinach_metal_data.xlsx") %>% 
+  mutate(trt = as_factor(trt),
+         sample = as_factor(sample),
+         block = as_factor(block))
+```
+
+Wir haben die Daten im Wide-Format vorliegen, daher müssen wir die Daten über die Funktion `pivot_longer()` noch in das Long-Format umwandeln. Zum einen brauchen wir das Long-Format für unsere Abbildungen und zum anderen dann auch für unsere Analysen.
+
+```{r}
+spinach_plot_tbl <- spinach_tbl %>% 
+  pivot_longer(cols = fe:zn,
+               names_to = "outcome",
+               values_to = "rsp") %>% 
+  mutate(outcome = as_factor(outcome))
+
+spinach_plot_tbl %>% 
+  head
+```
+
+Wir sehen, dass wir für jede Outcome/Sample Kombination ein zweifaktorielles Modell für Behandlung und Block rechnen müssen. Schauen wir uns zuerst wie immer einmal die @fig-app-exp-spinach-01 in `ggplot()` an und machen dann mit der Auswertung weiter.
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-app-exp-spinach-01
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Abbildung der drei Outcomes in den zwei Samples für die sieben Behandlungen in jeweils vier Blöcken."
+
+ggplot(spinach_plot_tbl, aes(trt, rsp, shape = block, color = trt)) +
+  theme_minimal() +
+  geom_jitter() +
+  facet_wrap(~ outcome*sample, scales = "free_y", ncol = 2) +
+  labs(x = "Behandlung", y = "Gemessenes Outcome",
+       shape = "Block", color = "Behandlung") +
+  scale_color_okabeito()
+```
+
+Da wir nur eine Beobachtung je Block/Behandlung Kombination haben, können wir später keine Interaktion rechnen. Wir bräiuchten dafür Wiederholungen auf der Ebene der Blöcke. Also nicht nur eine Pflanze pro Block und Behandlung. Im Folgenden gibt es einmal die umständliche Copy&Paste Variante und einmal die etwas komplexere Lösung über `map()` und `nest()`.
+
+### Eisen (Fe) und Blatt
+
+Machen wir es uns erstmal einfach. Wir müssen ja für jede der sechs Outcome/Sample Kombinationen eine ANOVA rechnen, dann rechnen wir einen multiplen Vergleich und lassen uns das *Compact letter display* wiedergeben. Das machen wir jetzt alles einmal für die Kombination Eisen und Blatt.
+
+Also brauchen wir als erstes unseren Datensatz mit nur dem Outcome gleich `fe` und das Sample gleich `leaf`. Das Selektieren machen wir dann über die Funktion `filter()`.
+
+```{r}
+fe_leaf_tbl <- spinach_plot_tbl %>% 
+  filter(outcome == "fe" & sample == "leaf")
+```
+
+Dan müssen wir das lineare Modell schätzen. Das Schätzen der Koeffizienten übernimmt wie immer die Funktion `lm()`. Wir nehmen hier an, dass unsere Konzentrationen ungefähr normalverteilt sind. Wir können den Interaktionsterm `trt:block` nicht mit ins Modell nehmen, da wir nur eine Beobachtung je Behandlung/Block Kombination haben.
+
+```{r}
+fe_leaf_fit <- lm(rsp ~ trt + block, data = fe_leaf_tbl)
+```
+
+Jetzt können wir die ANOVA rechnen und schauen was wir da haben.
+
+```{r}
+fe_leaf_fit %>% anova()
+```
+
+Wir haben einen ganz schwachen signifikanten Effekt des Blocks und einen starken signifikanten Effekt der Behandlung. Der Effekt des Blocks ist nicht so schön, wir würden eigentlich erwarten, dass der Block keinen Effekt hat. Wir haben ja die Zuordnung der Behandlungen zu den Blöcken zufällig durchgeführt. Da sollte also eigentlich kein Effekt des Blocks auftreten. Schauen wir nochmal wie stark die Effekte sind in dem wir uns das $\eta^2$ berechnen.
+
+```{r}
+fe_leaf_fit %>% eta_squared()
+```
+
+Der Effekt der behandlung it auf jeden Fall größer als der Effelt des Blocks. Gut 86% der Vrainz wird durch die Behandlung erklärt, dass passt dann soweit.
+
+Wir rechnen jetzt mit der Funktion `emmeans()` weiter und berücksichtigen dabei die unterschiedlichen Mittelwerte der Blöcke für die einzelnen Behandlungen.
+
+```{r}
+fe_leaf_emm <- fe_leaf_fit %>% 
+  emmeans(~ trt)
+```
+
+Jetzt können wir un die paarweisen Vergleich über die Funktion `contrast()` wiedergeben lassen. Wir sehen, dass wir einiges an signifikanten Ergebnissen vorliegen haben. Du kannst die Ausgabe in ein Tibble mit `as_tibble()` umwandeln und dir dann mit der Funktion `print(n = 21)` alle Zeilen ausgeben lassen.
+
+```{r}
+fe_leaf_emm %>% 
+  contrast(method = "pairwise", adjust = "bonferroni") 
+```
+
+Schauen wir uns für diesen Vergleich dann noch das *Compact letter display* an. Bitte beachte, dass du dir mit der Funktion `arrange()` immer die Reihenfolge der Behandlungen ausgeben lassen kannst. Sonst ist die Ausgabe nach der Spalte `.group` sortiert und nicht nach den Behandlungen. Wenn die Buchstaben nicht gleich sind, dann unterscheiden sich die Behandlungen.
+
+```{r}
+fe_leaf_emm %>%
+  cld(Letters = letters, adjust = "none") %>% 
+  arrange(trt)
+```
+
+Auch hier schauen wir uns einmal die Korrelation zwischen den Outcomes in der @fig-app-exp-spinach-02 an. Wir sehen in der @fig-app-exp-spinach-02-1 die Korrelation zwischen den beiden Outcomes Fe und Zn zusammen in den Blättern und den Stielen. Wir würden meinen, dass wir eine positive Korrelation vorliegen haben. Wir sehen, dass mit mehr Zn auch mehr Fe auftritt. Was uns aber etwas stutzig werden lässt, sind die beiden Punktewolken in der linken unteren Abbildung. Daher einmal schnell aufgetrennt für die Blätter in @fig-app-exp-spinach-02-2 und für die Stiele in @fig-app-exp-spinach-02-3. Wir sehen, dass wir nichts sehen. Denn getrennt für die Blätter und Stiele haben wir dann keine Korrelation mehr für die beiden Outcomes vorliegen.
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-app-exp-spinach-02
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Korrelation und Verteilung zwischen den Outcomes Fe und Zn."
+#| fig-subcap: 
+#|   - "Blätter und Stiele."
+#|   - "Nur Blätter."
+#|   - "Nur Stiele."
+#| layout-nrow: 1
+#| column: page
+
+spinach_tbl %>% 
+  select(fe, zn) %>% 
+  pairs.panels(smooth = TRUE, density = TRUE, method = "kendall", lm = TRUE, 
+               cor = TRUE, ellipses = FALSE, stars = TRUE) 
+
+spinach_tbl %>% 
+  filter(sample == "leaf") %>% 
+  select(fe, zn) %>% 
+  pairs.panels(smooth = TRUE, density = TRUE, method = "kendall", lm = TRUE, 
+               cor = TRUE, ellipses = FALSE, stars = TRUE)    
+
+spinach_tbl %>% 
+  filter(sample == "stem") %>% 
+  select(fe, zn) %>% 
+  pairs.panels(smooth = TRUE, density = TRUE, method = "kendall", lm = TRUE, 
+               cor = TRUE, ellipses = FALSE, stars = TRUE) 
+```
+
+### Und alles aufeinmal...
+
+Nun gut, jetzt haben wir unsere Analyse für das Blatt und den Eisengehalt gerechnet. Wir müssten jetzt die Analyse nochmal für alle anderen fünf Kombinationen durchführen. Das würde einiges an Zeit kosten und auch sehr viel Copy&Paste Aufwand. Kann man machen, aber wir können die Analyse auch in einem Rutsch durchführen. Dafür nutzen wir die Funktion `nest()` und dann anschließend die Funktion `map()` um auf den genesteten Daten die Analysen zu rechnen.
+
+Im ersten Schritt müssen wir unsere Daten gruppieren. Wir haben dann die sechs Kombinationen aus Outcome und Sample vorliegen. Dann nesten wir den Datensatz in sechs Zeilen. Wir klappen sozusagen die Daten für jede der sechs Kombinationen zusammen. Alles fällt dann in eine Zelle zusammen.
+
+```{r}
+spinach_nest_tbl <- spinach_plot_tbl %>% 
+  group_by(sample, outcome) %>% 
+  nest() 
+```
+
+Schauen wir uns den genesteten Datensatz einmal an. Wir sehen, dass wir die gesamten Daten in der Spalte `data` zusammengefaltet haben. Wir haben also sechs Tibbles mit den Daten der jeweiligen Outcome/Sample Kombinationen in der Spalte `data` vorliegen.
+
+```{r}
+spinach_nest_tbl 
+```
+
+Wir können jetzt auf den Tibbles in der Spalte `data` weiter rechnen. Wir nutzen für das Weiterrechnen die Funktion `map()`, die in jeder Zeile der Spalte `.data` die gleiche Funktion ausführt. Unser Ergebnis speichern wir dann in einer neuen Spalte und dafür nutzen wir die Funktion `mutate()`.
+
+Konkret erstellen wir uns jetzt eine neue Spalte `model` in der das lineare Modell der Funktion `lm()` abliegt.
+
+```{r}
+spinach_model_tbl <- spinach_nest_tbl %>%
+  mutate(model = map(data, ~lm(rsp ~ trt + block, data = .x))) 
+```
+
+Im weiteren Schritt rechnen wir jetzt auf der Spalte `model` eine ANOVA und lassen uns dann die schönere Ausgabe über die Funktion `model_parameters()` wiedergeben. Der wichtigste Tiel ist die Funktion `unnest()` die uns die Zellen mit den ANOVA Ergebnissen dann wieder ausklappt. Der Rest ist dann noch filtern und anpassen. Ich möchte das die Ausgabe reduziert ist und die p-Werte sollen auch schön formatiert werden.
+
+```{r}
+spinach_model_tbl %>% 
+  mutate(anova = map(model, anova)) %>% 
+  mutate(parameter = map(anova, model_parameters)) %>% 
+  select(sample, outcome, parameter) %>% 
+  unnest(parameter) %>% 
+  filter(Parameter != "Residuals") %>% 
+  select(sample, outcome, Parameter, p) %>% 
+  mutate(p = pvalue(p))
+```
+
+Auch können wir un die $\eta^2$ für die Modelle berechnen lassen. Die Funktion `unnest()` klappt uns dann die Ergebnisse wieder aus. Dann müssen wir noch etwas aufräumen und schon haben wir für alle Kombinationen dann den Anteil der erklärten Varianz.
+
+```{r}
+spinach_model_tbl %>%  
+  mutate(eta = map(model, eta_squared)) %>% 
+  unnest(eta) %>% 
+  clean_names() %>% 
+  select(sample, outcome, eta2_partial) 
+```
+
+Im letzten Schritt bauen wir uns die Spalten für die Funktion `emmeans()`, dann die Kontraste und das *Compact letter display*. Hier nutzen wir die Schreibweise `map(<Spalte>, <Funktion>, <Optionen>)`. Daher definieren wir erst welche Spalte `map()` bearbeiten soll. Dann die Funktion die `map()` nutzen soll und anschließend die Optionen für die Funktion. Wir können hier auch mehrere Optionen nacheinander angeben.
+
+```{r}
+spinach_emm_tbl <- spinach_model_tbl %>%  
+  mutate(emm = map(model, emmeans, ~trt)) %>% 
+  mutate(contrast = map(emm, contrast, method = "pairwise", 
+                        adjust = "none")) %>% 
+  mutate(cld = map(emm, cld, Letters = letters, adjust = "none"))
+```
+
+Jetzt lassen wir uns die Spalte `contrast` wiedergeben. Wir müssen aber vorher die Spalte noch in ein Tibble umwandeln. Dann wollen wir noch die p-Werte schöner haben. Wichtig ist auch immer, dass wir über die Funktion `select()` die für uns wichtigen Spalten auswählen.
+
+```{r}
+spinach_emm_tbl %>% 
+  mutate(contrast = map(contrast, as_tibble)) %>% 
+  unnest(contrast) %>% 
+  select(sample, outcome, contrast, p.value) %>% 
+  mutate(p.value = pvalue(p.value))
+```
+
+Nachdem wir uns die Kontraste für die paarweisen Vergleiche wiedergeben haben lassen, wollen wir jetzt noch die ganzen *Compact letter displays* haben. Auch hier nutzen wir dann die Funktion `unnest()` und wolle dann nicht alle Spalten haben.
+
+```{r}
+spinach_emm_tbl %>% 
+  mutate(cld = map(cld, arrange, trt)) %>% 
+  unnest(cld) %>% 
+  select(sample, outcome, trt, .group) %>% 
+  print(n = 15)
+```
+
+Mit der Option `print(n = 15)` kannst du dir die ersten fünfzehn Zeilen ausgeben lassen. du musst also schauen, wie viele Zeilen dein Tibble hat und dann kannst du dir das ganze Tibble über die Funktion `print()` ausgeben lassen. Ich nutze immer diese Art der Ausgabe mit `print()` da es sicherer ist, als sich immer den ganzen Datensatz wiedergeben zu lassen. Mit sicherer meine ich, dass ich mir nicht die ganze R Console mit der Ausgabe zubaue.
