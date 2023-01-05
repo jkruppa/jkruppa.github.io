@@ -1,0 +1,117 @@
+Die Daten des Loggers liegen in einer Exceldatei ab. Wir haben jede Minute die Konzentration von CO$_2$, die Temperatur und die relative Feuchte messen lassen. Da wir das Datum in einem ungünstigen Format vorliegen haben, müssen wir der Funktion `as_date()` die Tage, Monate und das Jahr als Format mitgeben. Wir schreiben `'%d.%m.%Y'` und meinen damit, dass erst der Tag, dann der Monat und dann das Jahr angeben ist. Getrennt sind die Tage, Monate und Jahre durch einen Punkt. Dann verbinden wir noch die Spalte des Datums mit der Spalte des Uhrzeit und bauen uns daraus eine `date_time` Spalte. Die `date_time` Spalte brauchen wir um später für jeden Zeitpunkt die gemessenen Werte darstellen zu können.
+
+```{r}
+log_tbl <- read_excel("data/log_data.xlsx") %>% 
+  mutate(date = as_date(date, format = '%d.%m.%Y'),
+         date_time = as_datetime(str_c(date, " ", time))) %>% 
+  select(date_time, everything())
+```
+
+Insgesamt hat unsere Datei $n = `r nrow(log_tbl)`$ Beobachtungen für die Zeit vom 21. November 2022 bis zum 16. Dezember 2022. Dank unserem Tibble wird nicht die ganze Datei wiedergegeben sondern nur die ersten zehn Zeilen.
+
+```{r}
+log_tbl
+```
+
+Wir immer müssen wir die Daten noch aus dem Wide-Format in das Long-Format überführen. Wir wollen dann auch die Outcomes nochmal anders benennen und machen die Umbenennung gleich bei der Erstellung der Faktoren. Dann sind wir auch schon fertig mit der Datenvorbereitung und können dann mit den Abbilungen beginnen.
+
+```{r}
+log_plot_tbl <- log_tbl %>% 
+  pivot_longer(cols = co2:relh, 
+               names_to = "outcome",
+               values_to = "rsp") %>% 
+  mutate(outcome = factor(outcome, 
+                          labels = c("CO2", "Temperatur", "Rel. Luftfeuchtigkeit"))) 
+```
+
+In @fig-app-log-01 sehen wir alle Messdaten aufgetragen. Die Zeit für den Plot ist relativ überschaubar und wir erhalten das Ergebnis in wenigen Augenblicken. Daher spricht eigentlich nichts für diese Darstellung über alle Messdaten. Wir sehen, dass die Temperatur am Anfang höher war, als im späteren Verlauf. Auch haben wir einen Peak an CO$_2$ um den 29. November sowie ein paar Tage später. Die Luftfeuchte zeigt im Laufe der Messungen eine immer höhere Variabilität.
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-app-log-01
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Abbildung der drei Outcomes über alle Messpunkte."
+
+ggplot(log_plot_tbl, aes(date_time, rsp, color = outcome)) +
+  theme_minimal() +
+  geom_line() +
+  facet_wrap(~ outcome, scales = "free_y", nrow = 3) +
+  scale_x_datetime(date_labels = "%b %d", date_breaks = "3 day",
+                   date_minor_breaks = "1 day") +
+  theme(legend.position = "none") +
+  labs(x = "Datum", y = "")
+```
+
+Wir könnten über die `summarise` Funktion auch die Werte für jeden Tag mitteln und uns die Standardabweichung über den Tag als Wert für die Variabilität wiedergeben lassen.
+
+```{r}
+#| message: false
+#| warning: false
+
+log_plot_sum_tbl <- log_plot_tbl %>% 
+  group_by(date, outcome) %>% 
+  summarise(mean = mean(rsp),
+            median = median(rsp),
+            sd = sd(rsp))
+```
+
+In der @fig-app-log-02 plotten wir uns einmal die Mittelwerte für jeden Tag und die entsprechende Standardabweichung als schattierte Fläche. Hier sehen wir sehr schön den Abfall der Luftfeuchte sowie die eher konstante Temperatur ab dem 24. November. Auch wird der Peak in der CO$_2$ Konzentration etwas ausgeglichen. Wir sehen den Effekt aber immer noch gut.
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-app-log-02
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Abbildung der drei Outcomes gemittelt für jeden Tag mit der Standardabweichung für den jeweiligen Tag über alle Zeitpunkte."
+
+ggplot(log_plot_sum_tbl, aes(date, mean)) +
+  theme_minimal() +
+  geom_line(aes(color = outcome)) +
+  geom_ribbon(aes(ymin = mean - sd, 
+                  ymax = mean + sd, 
+                  fill = outcome), alpha = .2) +
+  facet_wrap(~ outcome, scales = "free_y", nrow = 3) +
+  scale_x_date(date_labels = "%b %d", date_breaks = "3 day",
+               date_minor_breaks = "1 day") +
+  theme(legend.position = "none") +
+  labs(x = "Datum", y = "")
+```
+
+Abschließend könnten wir uns auch nur gewisse Zeitpunkte anschauen. Wir wollen also zum Beispiel nur die Werte für die Zeitpunkte um 6 Uhr, 12 Uhr und 18 Uhr visualisieren. Dann filtern wir nur diese Zeitpunkte heraus und können diese Zeitpunkte dann als eigenständige Linien einzeichnen.
+
+```{r}
+#| message: false
+#| warning: false
+
+log_plot_filter_tbl <- log_plot_tbl %>% 
+  filter(time %in% c("06:00:00", "12:00:00", "18:00:00"))
+```
+
+In @fig-app-log-03 sehen wir die Verläufe für die Messzeitpunkte um 6 Uhr, 12 Uhr und dann 18 Uhr. Spannender weise fällt um 12 Uhr die Luftfeuchtigkeit am 9. Dezember. Auch sind die Werte etwas anders für jede Uhrzeit. Da ich mich hier nicht auskenne, was wo und wie gemessen wurde, lassen wir das hier mal so stehen.
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-app-log-03
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Abbildung der drei Outcomes für den Zeitpunkt 6 Uhr, 12 Uhr und 18 Uhr."
+
+ggplot(log_plot_filter_tbl, aes(date, rsp, color = time)) +
+  theme_minimal() +
+  geom_line() +
+  facet_wrap(~ outcome, scales = "free_y", nrow = 3) +
+  scale_x_date(date_labels = "%b %d", date_breaks = "3 day",
+               date_minor_breaks = "1 day") +
+  ##theme(legend.position = "none") +
+  labs(x = "Datum", y = "")
+```
