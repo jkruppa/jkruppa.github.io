@@ -1,0 +1,127 @@
+Im Folgenden wollen wir uns einen Datensatz mit einem etwas missglückten Design anschauen. In der @fig-app-exp-golf sehen wir das Design einmal aus der Vogelperspektive. Wir haben auf zwei Grüns jweils zwei Blöcke angelegt. Leider finden wir nur Block I und II auf dem Grün 1 sowie die Blöcke III und IV auf dem Grün 2. Zwar haben wir dann unsere fünfzehn Behandlungen sauber auf jedem der beiden Grüns randomisiert, aber die ungüntige Blockeinteilung wird uns noch etwas Kopfzerbrechen bereiten.
+
+![Vogelperspektive für unseren Versuch mit Pilzbefall. Leider finden wir nur den Block I und II auf dem Grün 1 sowie die Blöcke III und IV auf dem Grün 2.](images/app_golf_green.png){#fig-app-exp-golf fig-align="center" width="80%"}
+
+Laden wir einmal die Daten und teilen die Daten dann auch gleich für die Jahre 2020 und 2021 auf. Wir haben als Endpunkt `AUDPC` vorliegen. Es handelt sich hier um einen Art Summenscore, der je höher ist, desto stärker der Befall mit Pilzen war. Dann musst du noch wissen, dass wir es hier mit einer Art Beobachtungsstudie zu tun haben. Wir haben den Befall nicht induziert, sondern messen was an Pilzbefall so auf den beiden Golfgrüns passiert.
+
+```{r}
+golf_tbl <- read_excel("data/golf_green_data.xlsx") %>% 
+  clean_names() %>% 
+  mutate(block = as_factor(block),
+         trt = as_factor(trt),
+         golfgreen = as_factor(golfgreen)) 
+```
+
+Schauen wir uns einmal die Korrelation zwischen den AUDPC-Werten für die beiden Jahre an. In der Hoffnung, dass wenn wir immer die gleiche Position gemessen haben, gleiche Bedingungen in beiden Jahren hatten. In @fig-app-exp-golf-01 sehen wir die Korrelation einmal abgebildet. Zwar ist der Korrelation signifikant aber auch nicht sehr hoch. Das ist jetzt nicht so toll, da wir ja eigentlich hoffen würden, den gleichen Pilzbefall in beiden Jahren zu haben.
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-app-exp-golf-01
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "foo."
+
+golf_tbl %>% 
+  select(audpc_2020, audpc_2021) %>% 
+  pairs.panels(smooth = TRUE, density = TRUE, method = "kendall", lm = TRUE, 
+               cor = TRUE, ellipses = FALSE, stars = TRUE)    
+```
+
+Nun nutzen wir die Funktion `pivot_longer()` um unsere Daten dann für die Analye über die beiden Jahre getrennt vorzubereiten. Mir ist die Korrelation zu gering und ich glaube nicht daran, dass sich die Effeket in beiden Jahren sehr ähneln.
+
+```{r}
+golf_tbl %<>% 
+  pivot_longer(cols = c(audpc_2020, audpc_2021),
+               names_sep = "_",
+               names_to = c("prefix", "year"),
+               values_to = "audpc") %>% 
+  select(-prefix)
+```
+
+In der @fig-app-exp-golf-02 schauen wir uns auf zwei Arten einmal die Daten an. Zwar macht es nicht so viel Sinn die Behandlungen untereinander mit einer Linie zu verbinden, aber ich will hier nochmal schauen, wie verschieden die Jahre 2020 und 2021 sind. Hier verstärkt sich nochmal das Bild aus der Korrelationsanalyse. Die beiden Jahre sind sehr unterschiedlich, ich rechne die Analyse daher für die Jahre getrennt.
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-app-exp-golf-02
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Visuelle Abschätzung des Vergleichs der beiden Jahre 2020 und 2021 über die Behandlungen."
+#| fig-subcap: 
+#|   - "Die einzenlnen Behandlungen verbunden"
+#|   - "Verlauf über die Behandlungen."
+#| layout-nrow: 1
+#| column: page
+
+
+ggplot(golf_tbl, aes(trt, audpc, group = block, shape = block:golfgreen,
+                     color = golfgreen)) +
+  theme_minimal() +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~ year, nrow = 2)
+
+ggplot(golf_tbl, aes(trt, audpc, group = block, shape = block:golfgreen,
+                     color = golfgreen)) +
+  theme_minimal() +
+  geom_point() +
+  stat_smooth(se = FALSE) +
+  facet_wrap(~ year, nrow = 2)
+
+```
+
+Nun können wir uns das Problem einmal näher anschauen. Wenn wir das Modell mit den Behandlungen, den Block und dem Golfplatzgrün schätzen dann erhalten wir folgende Koeffizienten. Ganz am Ende sehen wir, dass wir für das `golfgreen` ein `NA` erhalten. Durch unser schlechtes Design, können wir dann den Effekt vom Golfgrün nicht mehr schätzen. Entweder den Effekt der Blöcke oder den Effekt der Golfgrüns. Ich wähle hier die Blöcke. Davon haben wir immerhin zwei pro Grün und hier wurde dann auch sauber randomisiert.
+
+```{r}
+golf_tbl %>% 
+  filter(year == "2021") %>% 
+  lm(audpc ~ trt + block + golfgreen, data = .) %>% 
+  coef() 
+```
+
+Dann geht es wie immer los. Leider können wir nicht den Interaktionsterm schätzen, da unsere Blöcke nicht sauber randomisiert wurden. Daher kriegen wir einen Fehler, wenn wir den Interaktionsterm mit in das Modell nehmen. Also dann eben weniger. Wir nutzen die Funktion `split()` und dann die Funktion `map()` um die Analysen parallel über beide Jahre durchzufühen.
+
+```{r}
+golf_lm_lst <- golf_tbl %>% 
+  split(.$year) %>% 
+  map(~lm(audpc ~ trt + block, data = .x))
+```
+
+Wir schauen uns einmal die $\eta^2$ an und sehen, dass die Behandlungen immerhin im Jahr 2020 gut 50% der Varianz erklären und im Jahr 2021 dann ut 40%. Der Blockeffekt ist auch im Jahr 2021 sehr viel mehr ausgeprägt.
+
+```{r}
+golf_lm_lst %>%
+  map(eta_squared)
+```
+
+Wenn wir jetzt die ANOVA rechnen, sehen wir eine Punktlandung im Jahr 2021 für die Behandlungen. Wir haben einen $p$-Wert von 0.05, der exakt auf dem Signifikanzniveau liegt. Der Block ist aber auch sehr nahe dran an dem Signifikanzniveau.
+
+```{r}
+golf_lm_lst %>% 
+  map(anova) %>% 
+  map(model_parameters)
+```
+
+Dann rehcnen wir noch die paarweisen Vergleiche und lassen uns aber das *Compact letter display* wiedergeben, da wir sonst bei 15 Vergleichen nicht mehr viel erkennen. Wir rechnen das *Compact letter display* auch hier getrennt für die beiden Jahre. Dann sortiere ich die Ausgabe noch nach der Behandlung, damit das Ergebnis auch vergleichbar ist.
+
+```{r}
+golf_cld_lst <- golf_lm_lst %>% 
+  map(emmeans, spec = ~trt) %>% 
+  map(cld, Letters = letters, adjust = "none") %>% 
+  map(arrange, trt)
+
+golf_cld_lst
+```
+
+Ich möchte mich dann nochmal etwas strecken und extrahiere mir die Behandlungen und das *Compact letter display* für beide Jahre. Dann kann ich die beiden Datensätze nach den Behandlungen zusammenfügen und das *Compact letter display* direkt vergleichen. Wir sehen, dass wir hier einen ganz schönen Unterschied vorliegen haben. Es war also eine gute Idee, die beiden Jahre nicht zusammen auszuwerten. Ins Detail möchte ich hier nicht gehen, mir sagen ja die Behandlungen nichts.
+
+```{r}
+golf_cld_lst %>% 
+  map(select, trt, .group) %>% 
+  reduce(left_join, by = "trt", suffix = c("_2020", "_2021"))
+```
