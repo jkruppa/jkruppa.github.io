@@ -109,6 +109,8 @@ death_tbl <- dodo_raw_tbl %>%
   mutate(death = c(rep(1, length(.$dol))))
 ```
 
+Im nächsten Schritt müssen wir die lebenden Dodos *separat für jede Behandlung* ergänzen. Daher spalten wir uns die Daten in eine Liste auf und ergänzen dann die Informationen zu den fehlenden, lebenden Dodos. Alle lebenden Dodos haben die maximale Lebenszeit, sind nicht gestorben und damit bleibt die Anzahl auch konstant.
+
 ```{r}
 alive_tbl <- death_tbl %>% 
   split(.$trt) %>% 
@@ -118,14 +120,18 @@ alive_tbl <- death_tbl %>%
   bind_rows(.id = "trt")
 ```
 
+Wenn wir die Informationen zu toten und den noch lebenden Dodos gebaut haben, können wir uns dann einen finalen Datensatz zusammenkleben.
+
 ```{r}
 dodo_tbl <- bind_rows(death_tbl, alive_tbl)
 ```
 
+In der @tbl-surv-dodo-2 sehen wir den finalen Dododatensatz, den wir uns aus den Informationen zusammengebaut haben. Wir haben hier einmal die Struktur eines Überlebenszeitdatensatz gelernt und das wir manchmal uns ganz schön strecken müssen um die Daten dann auch gut umzubauen. Wir werden am Ende nur die Informationen in der Spalte `dol`, `death` und `trt` nutzen.
+
 ```{r}
 #| message: false
 #| echo: false
-#| tbl-cap: test
+#| tbl-cap: Finaler Dododatensatz für die Überlebenszeitanalysen.
 #| label: tbl-surv-dodo-2
 
 rbind(head(dodo_tbl, n = 6),
@@ -134,18 +140,25 @@ rbind(head(dodo_tbl, n = 6),
   kable(align = "c", "pipe")
 ```
 
+Im folgenden Beispiel in @tbl-surv-2 beobachten wir Fruchtfliegen bis fast alle Tiere verstorben sind. Das ist natürlich das andere Extrem zu den Dododatensatz. Wir testen hier ein Insektizid und am Ende haben wir dann keine lebenden Fruchtfliegen mehr. Das würdest du mit Dodos oder Schweinen nicht machen, denn so lange möchtest du die Tiere ja auch nicht beobachten, bis alle gestorben sind.
+
 ```{r}
 #| message: false
 #| echo: false
 
 set.seed(20220929)
-surv_tbl <- tibble(times_raw = round(c(rpois(50, 10), rpois(50, 14))),
-                   status = rbinom(100, 1, 0.8),
-                   trt = factor(gl(2, 50), labels = c("fruitflyEx", "control")),
-                   sex = sample(factor(gl(2, 50), labels = c("male", "female"))),
-                   times= ifelse(sex == "male", times_raw - 2, times_raw + 5),
-                   weight = round(c(rnorm(50, 11, 3), rnorm(50, 19, 3)), 2),
-                   weight_bin = ifelse(weight <= 15, "low", "high"))
+fruitfly_tbl <- tibble(times_raw = round(c(rpois(50, 10), rpois(50, 14))),
+                       status = rbinom(100, 1, 0.8),
+                       trt = factor(gl(2, 50), labels = c("fruitflyEx", "control")),
+                       sex = sample(factor(gl(2, 50), labels = c("male", "female"))),
+                       time = ifelse(sex == "male", times_raw - 2, times_raw + 5),
+                       weight = round(c(rnorm(50, 11, 3), rnorm(50, 19, 3)), 2),
+                       weight_bin = ifelse(weight <= 15, "low", "high")) %>% 
+  select(-times_raw) %>% 
+  select(trt, time, status, everything()) %>% 
+  arrange(trt, time)
+
+write.xlsx(fruitfly_tbl, "data/fruitfly.xlsx", rowNames = FALSE)
 ```
 
 ```{r}
@@ -154,15 +167,24 @@ surv_tbl <- tibble(times_raw = round(c(rpois(50, 10), rpois(50, 14))),
 #| tbl-cap: test
 #| label: tbl-surv-2
 
-surv_raw_tbl <- surv_tbl %>% 
+fruitfly_raw_tbl <- fruitfly_tbl %>% 
   mutate(trt = as.character(trt),
          sex = as.character(sex))
 
-rbind(head(surv_raw_tbl, n = 4),
-      rep("...", times = ncol(surv_raw_tbl)),
-      tail(surv_raw_tbl, n = 4)) %>% 
+rbind(head(fruitfly_raw_tbl, n = 4),
+      rep("...", times = ncol(fruitfly_raw_tbl)),
+      tail(fruitfly_raw_tbl, n = 4)) %>% 
   kable(align = "c", "pipe")
 ```
+
+Unsere Daten zu den Fruchtfliegen beinhalten die folgenden Spalten mit den entsprechenden Bedeutungen.
+
+-   **trt**, als die Behandlung mit den beiden Leveln `fruitflyEx` und `control`
+-   **time**, den Zeitpunkt des Todes der entsprechenden Fruchfliege
+-   **status**, den Status der Fruchtfliege zu dem Zeitpunkt `time`. Hier meist `1` und damit tot, aber ein paar Fruchtfliegen sind bei der Überprüfung entkommen und haben dann eine `0`.
+-   **sex**, das Geschlecht der entsprechenden Fruchtfliege
+-   **weight**, das Gewicht der entsprechenden Fruchtfliege in $\mu g$.
+-   **weight_bin** das Gewicht der entsprechenden Fruchtfliege aufgeteilt in zwei Gruppen nach dem Cutpoint von $15 \mu g$.
 
 Den Datensatz `lung`
 
@@ -211,26 +233,26 @@ ggsurvplot(fit, data = dodo_tbl, risk.table = TRUE,
 ```{r}
 #| message: false
 
-fit <- survfit(Surv(times, status) ~ sex,
-               data = surv_tbl)
+fit <- survfit(Surv(time, status) ~ sex,
+               data = fruitfly_tbl)
 # Visualize with survminer
-ggsurvplot(fit, data = surv_tbl, risk.table = TRUE,
+ggsurvplot(fit, data = fruitfly_tbl, risk.table = TRUE,
            surv.median.line = "hv",
            ggtheme = theme_light(),
            palette = cbbPalette[2:8])
 
-fit <- survfit(Surv(times, status) ~ trt,
-               data = surv_tbl)
+fit <- survfit(Surv(time, status) ~ trt,
+               data = fruitfly_tbl)
 # Visualize with survminer
-ggsurvplot(fit, data = surv_tbl, risk.table = TRUE,
+ggsurvplot(fit, data = fruitfly_tbl, risk.table = TRUE,
            surv.median.line = "hv",
            ggtheme = theme_light(),
            palette = cbbPalette[2:8])
 
-fit <- survfit(Surv(times, status) ~ weight_bin,
-               data = surv_tbl)
+fit <- survfit(Surv(time, status) ~ weight_bin,
+               data = fruitfly_tbl)
 # Visualize with survminer
-ggsurvplot(fit, data = surv_tbl, risk.table = TRUE,
+ggsurvplot(fit, data = fruitfly_tbl, risk.table = TRUE,
            surv.median.line = "hv",
            ggtheme = theme_light(),
            palette = cbbPalette[2:8])
@@ -252,14 +274,14 @@ Auch im Fall des Cox Proportional-Hazards Modells kann ich hier nur eine Übersi
 ```{r}
 #| message: false
 
-coxph(Surv(times, status) ~ trt + sex + weight, data = surv_tbl) %>% 
+coxph(Surv(time, status) ~ trt + sex + weight, data = fruitfly_tbl) %>% 
   model_parameters()
 ```
 
 ```{r}
 #| message: false
 
-coxph(Surv(times, status) ~ trt + sex + weight_bin, data = surv_tbl) %>% 
+coxph(Surv(time, status) ~ trt + sex + weight_bin, data = fruitfly_tbl) %>% 
   model_parameters()
 ```
 
