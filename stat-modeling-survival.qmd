@@ -1,5 +1,5 @@
 ```{r echo = FALSE}
-pacman::p_load(tidyverse, readxl, knitr, kableExtra)
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, openxlsx)
 ```
 
 # Überlebenszeitanalysen {#sec-survival}
@@ -8,11 +8,17 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
-In diesem Abschnitt wollen wir uns nochmal mit der Zeit beschäftigen. Wir haben hier aber keine zeitlichen Messwiederholungen an dem gleichen Subjekt, Tier oder Pflanze vorliegen sondern wir schauen uns an, wie lange es dauert bis ein Ereignis eintritt. Deshalb nennen wir diese Analysen algemein Ereigniszeitanalysen. Häufig schauen wir uns aber die zeit an, die es braucht, bis das Ereignis "tot" für eine Beobachtung eintritt. Daher heißt der Abschnitt auch Überlebenszeitanalysen (eng. *survival analysis*).
+In diesem Kapitel wollen wir uns nochmal mit der Zeit beschäftigen. Wir haben hier aber keine zeitlichen Messwiederholungen an dem gleichen Subjekt, Tier oder Pflanze vorliegen sondern wir schauen uns an, wie lange es dauert bis ein Ereignis eintritt. Deshalb nennen wir diese Analysen algemein Ereigniszeitanalysen. Häufig schauen wir uns aber die zeit an, die es braucht, bis das Ereignis "tot" für eine Beobachtung eintritt. Daher heißt das Kapitel auch Überlebenszeitanalysen (eng. *survival analysis*).
 
-Überlebenszeitanalysen sind in den Humanwissenschaften und inbesondere in der Onkologie *das* Thema schlechthin. Wir beantworten hier die Fragen nach *3 Monatsmortalität* und wollen wissen, wie viele patienten nach einer Behandlung mit einem Krebsmedikament nach drei Monaten noch leben. Du kanst dir vorstellen, dass es hier eine Menge an Annahmen und Modellen gibt. Wir wollen uns hier in dem Abschnitt die Grundlagen anschauen. Da vieles in der Wissenschaft meist in englischer Sprache abläuft, kann ich hier sehr den das Buch von @david2012survival empfehlen. Insbesondere die Einführungskapitel sind sehr gut geschrieben. Diese Ddetailtiefe wie bei @david2012survival werde ich in diesem Abschnitt nicht erreichen. In den Agrarwissenschaften ist alles ein wenig anders als in den Humanwissenschaften.
+Überlebenszeitanalysen sind in den Humanwissenschaften und inbesondere in der Onkologie *das* Thema schlechthin. Wir beantworten hier die Fragen nach *3 Monatsmortalität* und wollen wissen, wie viele patienten nach einer Behandlung mit einem Krebsmedikament nach drei Monaten noch leben. Du kanst dir vorstellen, dass es hier eine Menge an Annahmen und Modellen gibt. Wir wollen uns hier in dem Kapitel die Grundlagen anschauen. Da vieles in der Wissenschaft meist in englischer Sprache abläuft, kann ich hier sehr den das Buch von @david2012survival empfehlen. Insbesondere die Einführungskapitel sind sehr gut geschrieben. Diese Detailtiefe wie bei @david2012survival werde ich in diesem Abschnitt nicht erreichen. In den Agrarwissenschaften ist alles ein wenig anders als in den Humanwissenschaften.
 
-Wenn wir Überlebenszeit in den Agrarwisenschaften anschauen, dann sind wir eigentlich immer in der Tierzucht. Wir haben verschiedenen Verfahren, die wir miteinander vergleichen wollen um zu sehen, ob wir weniger Tierverluste über die Zeit haben. Da wir aber alle Tiere beobachten, werden wir keine Tiere verlieren. In einer klinischen Studie mit Menschen kann es zu zensierten Ereignissen kommen, wenn der Patient nicht wieder auftaucht oder die Studie verlässt. Eine Zensierung ist in den Agrarwissenschaften faktisch nicht möglich. Mir fällt kein Setting ein indem Tiere aus dem Versuch *verschwinden* und der versucht trotzdem noch auswertbar bleibt.
+Wie bereits erwähnt, konzentriert sich die Überlebensanalyse auf die erwartete Zeitdauer bis zum Auftreten eines Ereignisses von Interesse. Das Ereignis von Interesse ist dann meist ein Rückfall (eng. *relapse*) oder eben tot (eng. *death*). Es kann jedoch sein, dass das Ereignis bei einigen Personen innerhalb des Untersuchungszeitraums nicht beobachtet wird, was zu sogenannten zensierten Beobachtungen führt. Die Zensierung kann auf folgende Weise erfolgen:
+
+-   Ein Patient hat das interessierende Ereignis, wie Rückfall oder Tod, innerhalb des Studienzeitraums (noch) nicht erlebt;
+-   ein Patient wird während des Studienzeitraums nicht weiter beobachtet;
+-   bei einem Patienten tritt ein anderes Ereignis ein, das eine weitere Beobachtung unmöglich macht.
+
+Diese Art der Zensierung, die als rechte Zensierung (eng. *right censoring*) bezeichnet wird, wird in der Überlebensanalyse in diesem Kapitel behandelt.
 
 ::: column-margin
 Wir immer gibt es eine gute Auswahl an aktuellen Tutorien [Survival Analysis Basics](http://www.sthda.com/english/wiki/survival-analysis-basics), die hier auch aufgegrifen werden. Ein umfangreicheres Tutorium in R findet sich unter [Survival Analysis in R](https://www.emilyzabor.com/tutorials/survival_analysis_in_r_tutorial.html).
@@ -37,27 +43,115 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
-https://rviews.rstudio.com/2017/09/25/survival-analysis-with-r/
-
-```{r}
-
-c(1561, 0, 0, -2, -3, 0, -1) %>% cumsum()
-
-tibble(death = c(rep(0, 4,), rpois(10, 0.75)),
-       count = cumsum(c(1512, -1*death[-1]))) %>% 
-  uncount(death, .remove = FALSE)
-
-library(tidyr) # version >= 0.8.0
-df <- data.frame(var1=c('a', 'b', 'c'), var2=c('d', 'e', 'f'), freq=1:3)
-df %>% 
-  uncount(freq)
-
-```
-
-## Visualisierung über Kaplan Meier Kurven
+Insgesamt schauen wir uns in diesem Kapitel dann drei Datensätze an. Einmal einen Datensatz der sehr simple ist und nochmal erklärt wie die Datenstruktur in R aussehen muss. Wir schauen uns hier das Überleben von Dodos mit oder ohne Schnabelstutzen an. Wir schauen dann an jedem Lebenstag, wie viele Dodos verstorben sind. Da wir es hier mit sehr schnellwachsenden Dodos zu tun haben, ist der Datensatz nicht so lang.
 
 ```{r}
 #| message: false
+#| echo: false
+
+## c(1561, 0, 0, -2, -3, 0, -1) %>% cumsum()
+
+set.seed(20220929)
+dodo_raw_tbl <- bind_rows(tibble(dol = 1:55,
+                            death = c(rep(0, 5), rpois(50, 3.5)),
+                            count = cumsum(c(250, -1*death[-1])),
+                            trt = "none"),
+                     tibble(dol = 1:55,
+                            death = c(rep(0, 5), rpois(50, 1.75)),
+                            count = cumsum(c(250, -1*death[-1])),
+                            trt = "clipped")) %>% 
+  select(trt, dol, count, death)
+
+write.xlsx(dodo_raw_tbl, "data/dodo_raw.xlsx", rowNames = FALSE)
+
+
+#death_tbl <- tibble(dol = 1:10,
+#                    death = c(rep(0, 5), rpois(5, 2)),
+#                    count = cumsum(c(25, -1*death[-1])),
+#                    trt = "none") %>% 
+  ## uncount(ifelse(death == 0, death + 1, death), .remove = FALSE) 
+#  uncount(death) %>% 
+#  mutate(death = c(rep(1, length(.$dol))))
+
+#alive_tbl <- tibble(dol = max(death_tbl$dol),
+#                    death = rep(0, last(death_tbl$count)),
+#                    count = last(death_tbl$count),
+#                    trt = "none")
+
+
+death_tbl <- dodo_raw_tbl %>% 
+  uncount(death) %>% 
+  mutate(death = c(rep(1, length(.$dol))))
+
+
+alive_tbl <- death_tbl %>% 
+  split(.$trt) %>% 
+  map(~tibble(dol = max(.x$dol),
+              death = rep(0, last(.x$count)),
+              count = last(.x$count))) %>% 
+  bind_rows(.id = "trt")
+
+#alive_tbl <- tibble(dol = max(death_tbl$dol),
+#                    death = rep(0, last(death_tbl$count)),
+#                    count = last(death_tbl$count),
+#                    trt = "none")
+
+
+foo <- bind_rows(death_tbl, alive_tbl)
+
+fit <- survfit(Surv(dol, death) ~ trt,
+               data = foo)
+# Visualize with survminer
+ggsurvplot(fit, data = foo, risk.table = TRUE,
+           surv.median.line = "hv",
+           ggtheme = theme_light(),
+           palette = cbbPalette[2:8])
+
+## %>% 
+##  uncount(death, .remove = FALSE)
+
+#library(tidyr) # version >= 0.8.0
+#df <- data.frame(var1=c('a', 'b', 'c'), var2=c('d', 'e', 'f'), freq=1:3)
+#df %>% 
+#  uncount(freq)
+
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: test
+#| label: tbl-surv-1
+
+rbind(head(dodo_raw_tbl, n = 6),
+      rep("...", times = ncol(dodo_raw_tbl)),
+      tail(dodo_raw_tbl, n = 6)) %>% 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+
+dodo_tbl <- dodo_raw_tbl %>% 
+  mutate(death_uncount = ifelse(death == 0, 1, death)) %>% 
+  uncount(death_uncount) %>% 
+  mutate(trt = as_factor(trt),
+         death = ifelse(death == 0, 0, 1))
+
+
+
+fit <- survfit(Surv(dol, death) ~ trt,
+               data = dodo_tbl)
+# Visualize with survminer
+ggsurvplot(fit, data = dodo_tbl, risk.table = TRUE,
+           surv.median.line = "hv",
+           ggtheme = theme_light(),
+           palette = cbbPalette[2:8])
+
+```
+
+```{r}
+#| message: false
+#| echo: false
 
 set.seed(20220929)
 surv_tbl <- tibble(times_raw = round(c(rpois(50, 10), rpois(50, 14))),
@@ -67,6 +161,62 @@ surv_tbl <- tibble(times_raw = round(c(rpois(50, 10), rpois(50, 14))),
                    times= ifelse(sex == "male", times_raw - 2, times_raw + 5),
                    weight = round(c(rnorm(50, 11, 3), rnorm(50, 19, 3)), 2),
                    weight_bin = ifelse(weight <= 15, "low", "high"))
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: test
+#| label: tbl-surv-2
+
+surv_raw_tbl <- surv_tbl %>% 
+  mutate(trt = as.character(trt),
+         sex = as.character(sex))
+
+rbind(head(surv_raw_tbl, n = 4),
+      rep("...", times = ncol(surv_raw_tbl)),
+      tail(surv_raw_tbl, n = 4)) %>% 
+  kable(align = "c", "pipe")
+```
+
+Den Datensatz `lung`
+
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: test
+#| label: tbl-surv-3
+
+rbind(head(as_tibble(lung), n = 4),
+      rep("...", times = ncol(lung)),
+      tail(as_tibble(lung), n = 4)) %>% 
+  kable(align = "c", "pipe")
+```
+
+-   **inst** Institution code
+-   **time** Survival time in days
+-   **status** censoring status 1=censored, 2=dead
+-   **age** Age in years
+-   **sex** Male=1 Female=2
+-   **ph.ecog** ECOG performance score (0=good 5=dead)
+-   **ph.karno** Karnofsky performance score (bad=0-good=100) rated by physician
+-   **pat.karno** Karnofsky performance score as rated by patient
+-   **meal.cal** Calories consumed at meals
+-   **wt.loss** Weight loss in last six months
+
+```{r}
+lung_tbl <- lung %>% 
+  as_tibble() %>% 
+  mutate(status = recode(status, `1` = 0, `2` = 1))
+```
+
+## Visualisierung über Kaplan Meier Kurven
+
+```{r}
+#| message: false
+
+set.seed(20220929)
+
 
 fit <- survfit(Surv(times, status) ~ sex,
                data = surv_tbl)
@@ -104,5 +254,11 @@ coxph(Surv(times, status) ~ trt + sex + weight_bin, data = surv_tbl)
 ::: column-margin
 Auch im Fall des Cox Proportional-Hazards Modells kann ich hier nur eine Übersicht geben. Es findet sich natürlich auch ein Tutorium zum [Cox Proportional-Hazards Model Tools](http://www.sthda.com/english/wiki/cox-proportional-hazards-model)
 :::
+
+## Random Forests Modell
+
+Im @sec-class-tree beschreiben wir auch die Random Forest Methode zur Klassifikation. Mit Klassifikation meine ich, dass wir versuchen einer Beobachtung eine Ereignisklasse zuzuordnen. Im Kontext der Ereigniszeitanalyse bietet sich natürlich dann auch an einen maschinellen Lernalgorithmus mit der Aufgabe zu betrauen das Überleben einer Beobachtung zu schätzen.
+
+https://rviews.rstudio.com/2017/09/25/survival-analysis-with-r/
 
 ## Referenzen {.unnumbered}
