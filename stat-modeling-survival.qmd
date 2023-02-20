@@ -31,7 +31,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom,
-               survminer, survival)
+               survminer, survival, parameters,
+               gtsummary)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -49,30 +50,27 @@ Insgesamt schauen wir uns in diesem Kapitel dann drei Datensätze an. Einmal ein
 #| message: false
 #| echo: false
 
-## c(1561, 0, 0, -2, -3, 0, -1) %>% cumsum()
+n_dodo <- 250
 
 set.seed(20220929)
 dodo_raw_tbl <- bind_rows(tibble(dol = 1:55,
                             death = c(rep(0, 5), rpois(50, 3.5)),
-                            count = cumsum(c(250, -1*death[-1])),
+                            count = cumsum(c(n_dodo, -1*death[-1])),
                             trt = "none"),
                      tibble(dol = 1:55,
                             death = c(rep(0, 5), rpois(50, 1.75)),
-                            count = cumsum(c(250, -1*death[-1])),
+                            count = cumsum(c(n_dodo, -1*death[-1])),
                             trt = "clipped")) %>% 
   select(trt, dol, count, death)
 
 write.xlsx(dodo_raw_tbl, "data/dodo_raw.xlsx", rowNames = FALSE)
-
-
-
 ```
 
 ```{r}
 #| message: false
 #| echo: false
 #| tbl-cap: test
-#| label: tbl-surv-1
+#| label: tbl-surv-dodo-1
 
 rbind(head(dodo_raw_tbl, n = 6),
       rep("...", times = ncol(dodo_raw_tbl)),
@@ -80,24 +78,56 @@ rbind(head(dodo_raw_tbl, n = 6),
   kable(align = "c", "pipe")
 ```
 
-```{r}
+-   **trt**, die Behandlung der Schnäbel mit `none` und `clipped`
+-   **dol**, der *day of life* also der Lebenstag der Dodos
+-   **count**, die Anzahl an lebenden Dodos an dem entprechenden *day of life*
+-   **death**, die Anzahl an tot aufgefundenen Dodos an dem entpsrechenden *day of life*
 
+Wir haben mit $n = `r n_dodo`$ beobachtete Dodos.
+
+| dodo_id | trt     | dol | death |
+|---------|---------|-----|-------|
+| 1       | none    | 6   | 1     |
+| 2       | none    | 6   | 1     |
+| 3       | none    | 7   | 1     |
+| ...     | ...     | ... | ...   |
+| 249     | none    | 55  | 0     |
+| 250     | none    | 55  | 0     |
+| 251     | clipped | 6   | 1     |
+| ...     | ...     | ... | ...   |
+| 500     | clipped | 55  | 0     |
+
+: test {#tbl-surv-dodo-2-example}
+
+```{r}
 death_tbl <- dodo_raw_tbl %>% 
   uncount(death) %>% 
   mutate(death = c(rep(1, length(.$dol))))
+```
 
-
+```{r}
 alive_tbl <- death_tbl %>% 
   split(.$trt) %>% 
   map(~tibble(dol = max(.x$dol),
               death = rep(0, last(.x$count)),
               count = last(.x$count))) %>% 
   bind_rows(.id = "trt")
+```
 
-
+```{r}
 dodo_tbl <- bind_rows(death_tbl, alive_tbl)
+```
 
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: test
+#| label: tbl-surv-dodo-2
 
+rbind(head(dodo_tbl, n = 6),
+      rep("...", times = ncol(dodo_tbl)),
+      tail(dodo_tbl, n = 6)) %>% 
+  kable(align = "c", "pipe")
 ```
 
 ```{r}
@@ -177,9 +207,6 @@ ggsurvplot(fit, data = dodo_tbl, risk.table = TRUE,
 ```{r}
 #| message: false
 
-set.seed(20220929)
-
-
 fit <- survfit(Surv(times, status) ~ sex,
                data = surv_tbl)
 # Visualize with survminer
@@ -204,10 +231,11 @@ ggsurvplot(fit, data = surv_tbl, risk.table = TRUE,
            ggtheme = theme_light(),
            palette = cbbPalette[2:8])
 
-coxph(Surv(times, status) ~ trt + sex + weight, data = surv_tbl)
 
-coxph(Surv(times, status) ~ trt + sex + weight_bin, data = surv_tbl)
 
+```
+
+```{r}
 
 ```
 
@@ -216,6 +244,20 @@ coxph(Surv(times, status) ~ trt + sex + weight_bin, data = surv_tbl)
 ::: column-margin
 Auch im Fall des Cox Proportional-Hazards Modells kann ich hier nur eine Übersicht geben. Es findet sich natürlich auch ein Tutorium zum [Cox Proportional-Hazards Model Tools](http://www.sthda.com/english/wiki/cox-proportional-hazards-model)
 :::
+
+```{r}
+#| message: false
+
+coxph(Surv(times, status) ~ trt + sex + weight, data = surv_tbl) %>% 
+  model_parameters()
+```
+
+```{r}
+#| message: false
+
+coxph(Surv(times, status) ~ trt + sex + weight_bin, data = surv_tbl) %>% 
+  model_parameters()
+```
 
 ## Random Forests Modell
 
