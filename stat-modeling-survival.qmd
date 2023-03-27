@@ -271,11 +271,23 @@ Wir können nur kategoriale Variablen in einer Kaplan Meier Kurve darstellen. Da
 
 Ein häufiger Fehler bei der Betrachtung der Kaplan Meier Kurve ist diese als die simple lineare Regression der Überlebenszeitanalyse anzusehen. Wir können zwar mit der Kaplan Meier Kurve immer nur *ein* $X$ betrachten aber der Algorithmus basiert auf dem $\mathcal{X}^2$-Test und hat nichts mit einer Regression zu tun. Daher *kann* es sein, dass du unterschiedliche Ergebnisse in der Visualisierung mit Kaplan Meier Kurven und dann der Analyse mit dem Cox Proportional-Hazards Modell erhälst.
 
+In R nutzen wir das Paket `survminer` und die Funktion `ggsurvplot()` für die Visualisierung der Kaplan Meier Kurven.
+
 ### Dodos
+
+Um eine Kaplan Meier Kurve zeichnen zu können, brauchen wie als erstes die Funktion `survfit()`. Mit der Funktion `survfit()` können wir zum einen das mediane Überleben berechnen und alle Informationen erhalten, die wir brauchen um die Kaplan Meier Kurve zu plotten.
 
 ```{r}
 trt_fit <- survfit(Surv(dol, death) ~ trt, data = dodo_tbl)
 ```
+
+Wir können einmal das Objekt `trt_fit` uns anschauen.
+
+```{r}
+trt_fit
+```
+
+Zum einen fallen uns die `NA`'s in der Wiedergabe des Fits der Überlebenszeit auf. Wenn wir uns die @fig-surv-1 einmal anschauen, dann wird das Problem etwas klarer. Wir sehen nämlich, dass wir bei den geklippten Tieren gar nicht so weit runter kommen mit den toten Tieren, dass wir das mediane Überleben berechnen könnten. Nicht immer können wir auch alle statistischen Methoden auf alle Fragestellungen anwenden. Insbesondere wenn nicht genug Ereignisse wie in diesem Beispiel auftreten.
 
 ```{r}
 #| echo: true
@@ -285,8 +297,10 @@ trt_fit <- survfit(Surv(dol, death) ~ trt, data = dodo_tbl)
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "test."
-ggsurvplot(trt_fit, data = dodo_tbl, risk.table = TRUE,
+#| fig-cap: "Kaplan Meier Kurven für unsere geklippten Dodos. Wir sehen, dass die geklippten Tiere in der Zeit der Versuchsdurchführung garnicht zur Hälfte versterben."
+ggsurvplot(trt_fit, 
+           data = dodo_tbl, 
+           risk.table = TRUE,
            surv.median.line = "hv",
            ggtheme = theme_light(),
            palette = cbbPalette[2:8])
@@ -294,9 +308,19 @@ ggsurvplot(trt_fit, data = dodo_tbl, risk.table = TRUE,
 
 ### Fruchtfliegen
 
+Gehen wir einen Schritt weiter und schauen uns das Modell für die Fruchtfliegen an. Hier haben wir eine Behandlung mit zwei Leveln also Gruppen vorliegen. Wir nutzen wieder die Funktion `survfit()` um einaml unser Modell der Überlebenszeiten zu fitten.
+
 ```{r}
 trt_fit <- survfit(Surv(time, status) ~ trt, data = fruitfly_tbl)
 ```
+
+Wir erhalten dann folgende Ausgabe des Modells.
+
+```{r}
+trt_fit
+```
+
+In der @trt_fit sehen wir die Visualisierung des Modells als Kaplan Meier Kurve. In diesem Experiment sterben fast alle Fruchtfliegen im Laufe der Untersuchung. Wir können also einfach das mediane Überleben für beide Gruppen berechnen.
 
 ```{r}
 #| echo: true
@@ -306,7 +330,7 @@ trt_fit <- survfit(Surv(time, status) ~ trt, data = fruitfly_tbl)
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "test."
+#| fig-cap: "Kaplan Meier Kurven für die Fruchtfliegen nach der Behandlung mit einem Pestizid und einer Kontrolle."
 
 ggsurvplot(trt_fit, data = fruitfly_tbl, risk.table = TRUE,
            surv.median.line = "hv",
@@ -314,9 +338,13 @@ ggsurvplot(trt_fit, data = fruitfly_tbl, risk.table = TRUE,
            palette = cbbPalette[2:8])
 ```
 
+Nachdem wir die Kaplan Meier Kurven einmal für die Behandlung durchgeführt haben, können wir uns auch anschauen, ob das Überleben der Fruchtfliegen etwas mit dem Gewicht der Fruchtfliegen zu tun hat. Hier können wir *nicht* auf das Gewicht in der Spalte `weight` zurückgreifen sondern müssen die Variable `weight_bin` mit zwei Klassen nehmen.
+
 ```{r}
 weight_fit <- survfit(Surv(time, status) ~ weight_bin, data = fruitfly_tbl)
 ```
+
+Wir erhalten dann die Kaplan Meier Kurven in der @fig-surv-3 zurück. Hier ist es wichtig sich nochmal klar zu machen, dass wir eben nur kategoriale Variablen in einer Kaplan Meier Kurve darstellen können.
 
 ```{r}
 #| echo: true
@@ -326,7 +354,7 @@ weight_fit <- survfit(Surv(time, status) ~ weight_bin, data = fruitfly_tbl)
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "test."
+#| fig-cap: "Kaplan Meier Kurven für die Fruchtfliegen nach der Behandlung mit einem Pestizid und einer Kontrolle."
 
 ggsurvplot(weight_fit, data = fruitfly_tbl, risk.table = TRUE,
            surv.median.line = "hv",
@@ -335,6 +363,8 @@ ggsurvplot(weight_fit, data = fruitfly_tbl, risk.table = TRUE,
 ```
 
 ### Lungenkrebs
+
+Als letztes Beispiel wollen wir uns nochmal den Datensatz `lung_tbl` anschauen. Zwar ist Lungenkrebs jetzt nichts was Tiere und Pflanzen als eine wichtige Erkrankung haben können, aber der Datensatz wird viel als Beispiel genutzt, so dass ich den Datensatz hier auch nochmal vorstellen möchte. Auch sind teilweise gewisse Schritte von Interesse, die eventuell auch in deiner Tier- oder Mäusestudie von Interesse sein könnten.
 
 ```{r}
 null_fit <- survfit(Surv(time, status) ~ 1, data = lung_tbl)
@@ -366,7 +396,16 @@ ggsurvplot(null_fit, data = lung_tbl, risk.table = TRUE,
 ```
 
 ```{r}
+lung_tbl %<>% 
+  filter(ph_ecog != 3)
+```
+
+```{r}
 lung_fit <- survfit(Surv(time, status) ~ ph_ecog, data = lung_tbl)
+```
+
+```{r}
+lung_fit
 ```
 
 ```{r}
@@ -394,6 +433,8 @@ survdiff(Surv(time, status) ~ ph_ecog, data = lung_tbl)
 ::: column-margin
 Auch im Fall des Cox Proportional-Hazards Modells kann ich hier nur eine Übersicht geben. Es findet sich natürlich auch ein Tutorium zum [Cox Proportional-Hazards Model Tools](http://www.sthda.com/english/wiki/cox-proportional-hazards-model)
 :::
+
+`coxph()`
 
 ```{r}
 #| message: false
