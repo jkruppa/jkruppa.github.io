@@ -20,6 +20,8 @@ Wie bereits erwähnt, konzentriert sich die Überlebensanalyse auf die erwartete
 
 Diese Art der Zensierung, die als rechte Zensierung (eng. *right censoring*) bezeichnet wird, wird in der Überlebensanalyse in diesem Kapitel behandelt.
 
+Am Ende muss ich dann nochmal auf die *proportional hazards assumption* hinweisen. Wir gehen davon aus, dass die Risiken im Zeitverlauf proportional sind, was bedeutet, dass die Wirkung eines Risikofaktors im Zeitverlauf konstant ist. Das ist jetzt etwas umständlich ausgedrückt, aber wir sagen, dass die Wahrscheinlichkeit zu Sterben über die ganze Studie immer konstant ist. Männer fangen also nicht nach $t$ Tagen an zügiger zu Versterben als Frauen. Wenn wir eine Verletzung der *proportional hazards assumption* vorliegen haben, dann müssen wir nochmal tiefer in das Thema einsteigen.
+
 ::: column-margin
 Wir immer gibt es eine gute Auswahl an aktuellen Tutorien [Survival Analysis Basics](http://www.sthda.com/english/wiki/survival-analysis-basics), die hier auch aufgegrifen werden. Ein umfangreicheres Tutorium in R findet sich unter [Survival Analysis in R](https://www.emilyzabor.com/tutorials/survival_analysis_in_r_tutorial.html).
 :::
@@ -370,18 +372,26 @@ ggsurvplot(weight_fit,
 
 Als letztes Beispiel wollen wir uns nochmal den Datensatz `lung_tbl` anschauen. Zwar ist Lungenkrebs jetzt nichts was Tiere und Pflanzen als eine wichtige Erkrankung haben können, aber der Datensatz wird viel als Beispiel genutzt, so dass ich den Datensatz hier auch nochmal vorstellen möchte. Auch sind teilweise gewisse Schritte von Interesse, die eventuell auch in deiner Tier- oder Mäusestudie von Interesse sein könnten.
 
+Beginnen wir einmal mit dem Nullmodell. Das heißt, wir schauen uns den Verlauf des gesamten Überlebens einmal an. Wir wollen wissen, wie das mediane Überleben in unseren Daten ausschaut ohne das wir uns irgendeien Variable anschauen.
+
 ```{r}
 null_fit <- survfit(Surv(time, status) ~ 1, data = lung_tbl)
 ```
+
+Im Folgenden einmal die Ausgabe des Fits.
+
+```{r}
+null_fit
+```
+
+Wir sehen, dass wir ein medianes Überleben von $310$ Tagen haben. Es gibt insgesamt $165$ Ereignisse zu beobachten von insgesamt $228$ in die Studie eingeschlossenen Patienten. Wir können uns auch für bestimmte Zeitpunkte das Überleben wiedergeben lassen. Wir schauen uns hier einmal das Überleben nach einem Jahr bzw. $365.25$ Tagen an.
 
 ```{r}
 null_fit %>% 
   summary(times = 365.25)
 ```
 
-```{r}
-null_fit
-```
+Hier sehen wir, dass $40.9\%$ das eine Jahr überlebt haben. Achtung, immer auf die Kodierung achten. Nur wenn du `death = 1` kodiert hast, kannst du hier die Ausgaben der Funktionen in diesem Sinne interpretieren. Gerne kannst du hier auch das 3 Monatsüberleben bestimmen. Das kommt ganz darauf an, was deine Fragestellung ist. In der @fig-surv-4 siehst du nochmal die Kaplan Meyer Kurve für das Nullmodell.
 
 ```{r}
 #| echo: true
@@ -391,7 +401,7 @@ null_fit
 #| fig-align: center
 #| fig-height: 6
 #| fig-width: 5
-#| fig-cap: "test."
+#| fig-cap: "Kaplan Meier Kurven für das Nullmodell des Lungenkrebsdatensatzes."
 
 ggsurvplot(null_fit, 
            data = lung_tbl, 
@@ -401,18 +411,24 @@ ggsurvplot(null_fit,
            palette = cbbPalette[2])
 ```
 
+Schauen wir uns auch einmal Kaplan Meier Kurven für die Variable `ph_ecog` an. Hier haben wir das Problem, dass die Kategorie `3` kaum mit Patienten belegt ist. Daher filtern wir die Kategorie `3` einmal aus unseren Daten raus.
+
 ```{r}
 lung_tbl %<>% 
   filter(ph_ecog != 3)
 ```
 
+Wir können dann das Modell der Überlebenszeit einmal fitten.
+
 ```{r}
 lung_fit <- survfit(Surv(time, status) ~ ph_ecog, data = lung_tbl)
 ```
 
-```{r}
-lung_fit
-```
+In der @fig-surv-5 sehen wir dann die Kaplan Meier Kurve für die Variable `ph_ecog`. Du kannst hier schön sehen, dass wenn wir mehrere Kategorien in der Variable haben auch mehrere Graphen erhalten. Wichtig hierbei ist nochmal, dass sich die Graphen nicht überschneiden oder aber in der Mitte kreuzen. Dann haben wir ein Problem und könnten die Daten nicht auswerten.
+
+::: column-margin
+Konkret geht es hier um die **proportional hazards assumption**, die besagt, dass Überlebenszeitkurven für verschiedene Gruppen Hazardfunktionen haben müssen, die über die Zeit $t$ proportional sind. Daher dürfen sich die Kurven nicht schneiden.
+:::
 
 ```{r}
 #| echo: true
@@ -422,7 +438,7 @@ lung_fit
 #| fig-align: center
 #| fig-height: 6
 #| fig-width: 5
-#| fig-cap: "test."
+#| fig-cap: "Kaplan Meier Kurve für die Variable `ph_ecog` des Lungenkrebsdatensatzes."
 
 ggsurvplot(lung_fit, 
            data = lung_tbl, 
@@ -440,6 +456,8 @@ survdiff(Surv(time, status) ~ ph_ecog, data = lung_tbl)
 
 ::: column-margin
 Auch im Fall des Cox Proportional-Hazards Modells kann ich hier nur eine Übersicht geben. Es findet sich natürlich auch ein Tutorium zum [Cox Proportional-Hazards Model Tools](http://www.sthda.com/english/wiki/cox-proportional-hazards-model)
+
+Für das Überprüfen der Modellannahmen empfiehlt sich auch das Tutorium zu [Cox Model Assumptions](http://www.sthda.com/english/wiki/cox-model-assumptions).
 :::
 
 `coxph()`
@@ -447,16 +465,43 @@ Auch im Fall des Cox Proportional-Hazards Modells kann ich hier nur eine Übersi
 ```{r}
 #| message: false
 
-coxph(Surv(time, status) ~ trt + sex + weight, data = fruitfly_tbl) %>% 
+fit_1 <- coxph(Surv(time, status) ~ trt + sex + weight, data = fruitfly_tbl) 
+fit_1 %>% 
   model_parameters(exponentiate = TRUE)
 ```
 
 ```{r}
 #| message: false
 
-coxph(Surv(time, status) ~ trt + sex + weight_bin, data = fruitfly_tbl) %>% 
+fit_2 <- coxph(Surv(time, status) ~ trt + sex + weight_bin, data = fruitfly_tbl) 
+fit_2 %>% 
   model_parameters(exponentiate = TRUE)
 ```
+
+```{r}
+test.ph <- cox.zph(fit_2)
+test.ph
+```
+
+In der @fig-surv-6 ist die durchgezogene Linie eine glättende Spline-Anpassung an das Diagramm, wobei die gestrichelten Linien einen Bereich von +/- 2 Standardfehlern um die Anpassung darstellen.
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-surv-6
+#| fig-align: center
+#| fig-height: 12
+#| fig-width: 5
+#| fig-cap: "test"
+
+ggcoxzph(test.ph)
+```
+
+Ein Verstoß gegen die Proportional-Hazards-Annahme kann durch folgende Maßnahmen behoben werden:
+
+-   Hinzufügen von Kovariate\*Zeit-Interaktion
+-   Stratifizierung
 
 ## Logistische Regression
 
