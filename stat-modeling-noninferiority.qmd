@@ -30,9 +30,9 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, broom,
+pacman::p_load(tidyverse, magrittr, broom, readxl,
                effectsize, multcompView, multcomp,
-               conflicted)
+               janitor, see, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -45,7 +45,53 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 ## Daten
 
 ```{r}
-cold_seed_tbl <- read_excel("data/cold_seeds.xlsx")
+cold_seed_raw_tbl <- read_excel("data/cold_seeds.xlsx") %>% 
+  mutate_if(is.numeric, round, 2)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: Rohe Datentabelle mit den jeweiligen Lebenstagen (abk. *dol*) und der Anzahl an lebenden sowie toten Dodos an den entsprechenden Tagen.
+#| label: tbl-surv-dodo-1
+
+rbind(head(cold_seed_raw_tbl, n = 6),
+      rep("...", times = ncol(cold_seed_raw_tbl)),
+      tail(cold_seed_raw_tbl, n = 6)) %>% 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+cold_seed_tbl <- cold_seed_raw_tbl %>%   
+  clean_names %>% 
+  filter(trt != 1) %>% 
+  mutate(trt = as_factor(trt),
+         log_cold = log(cold),
+         log_non_cold = log(cold),
+         trt = fct_recode(trt, ctrl = "2")) 
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-noninf-1
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 6
+#| fig-cap: "test"
+
+cold_seed_tbl %>% 
+  pivot_longer(cold:last_col(),
+               names_to = "type",
+               values_to = "growth") %>% 
+  mutate(type = as_factor(type)) %>% 
+  ggplot(aes(trt, growth, fill = trt)) +
+  theme_bw() +
+  geom_boxplot() +
+  facet_wrap(~ type, scales = "free_y") +
+  scale_fill_okabeito() +
+  theme(legend.position = "none")
 ```
 
 ## Abschätzung anhand der Normalverteilung
