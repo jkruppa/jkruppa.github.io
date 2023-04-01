@@ -1,5 +1,5 @@
 ```{r echo = FALSE}
-pacman::p_load(tidyverse, readxl, knitr, kableExtra)
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, openxlsx)
 ```
 
 # Äquivalenz oder Nichtunterlegenheit {#sec-noninf}
@@ -8,26 +8,10 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
-[EFSA](https://www.efsa.europa.eu/de)
-
-The limits for equivalence were set to $-\cfrac{1}{2}\log$ and $\cfrac{1}{2}\log$ equal to -0.5 and 0.5 because of the log transformation of the outcome.
-
-[Allgemeine Methoden des Institut für Qualität und Wirtschaftlichkeit im Gesundheitswesen (IQWiG)](https://www.iqwig.de/ueber-uns/methoden/methodenpapier/)
-
-"Umgekehrt erfordert auch die Interpretation nicht statistisch signifikanter Ergebnisse Aufmerksamkeit. Insbesondere wird ein solches Ergebnis nicht als Nachweis für das Nichtvorhandensein eines Effekts (Abwesenheit bzw. Äquivalenz) gewertet"
-
-9.3.5 Nachweis der Gleichheit
-
-@altman1995statistics
-
-::: column-margin
-*One does not simply do a non-inferiority trial*
-:::
-
-Wir müssen zwischen folgenden zwei grundlegenden Settings unterscheiden:
+In diesem Kapitel wollen wir uns mit Gleichheit beschäftigen. Dabei gibt es zwei Arten von Gleichheit. Zum einen können wir uns die technische Gleichheit anschauen oder aber die medizinische- oder Behandlungsgruppengleichheit. Wir definieren die beiden Settings daher wie folgt.
 
 -   **Technische Gleichheit** wollen wir nachweisen, wenn wir zwei *technische* Messmethoden miteinander vergleichen. Wir messen also einmal ein Wachstum mit dem Verfahren A und einmal mit dem Verfahren B. In beiden Fällen erhalten wir dann eine kontinuierliche Zahl, wie zum Beispiel das Gewicht. Jetzt wollen wir wissen, ob das Verfahren A gleich dem Verfahren B das Wachstum gemessen hat.
--   **Medizinische- oder Behandlungsgleichheit** wollen wir nachweisen, wenn wir verschiedene Behandlungs*gruppen* haben. Diese Behandlungsgruppen vergleichen wir dann zu *einer* Kontrolle oder Standard und wollen nachweisen, dass unsere Behandlungsgruppen *gleich* zu dem Standard sind. Die Anwendung ist auch eher bei Tieren oder Menschen zu finden. Wir wollen hier also explizit keine technische Gleichheit nachweisen.
+-   **Medizinische- oder Behandlungsgleichheit** wollen wir nachweisen, wenn wir verschiedene Behandlungs*gruppen* haben. Damit wollen wir auch verschiedene Hypothesen testen. Diese Behandlungsgruppen vergleichen wir dann zu *einer* Kontrolle oder Standard und wollen nachweisen, dass unsere Behandlungsgruppen *gleich* zu dem Standard sind. Die Anwendung ist auch eher bei Tieren oder Menschen zu finden. Wir wollen hier also explizit keine technische Gleichheit nachweisen.
 
 ## Genutzte R Pakete für das Kapitel
 
@@ -51,15 +35,29 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 ## Daten
 
 ```{r}
+#| message: false
+#| echo: false
+
 set.seed(20230564)
 drone_tbl <- tibble(drone_rgb = rnorm(317, 1000, 200),
                     pressure_stick = -1000 + 1.20 * drone_rgb + rnorm(length(drone_rgb), 100, 60)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
   filter(pressure_stick > 1)
+write.xlsx(drone_tbl, "data/drone_tech.xlsx", rowNames = FALSE)
+```
 
+Die Daten eines Dronenüberflugs aus der Datei `drone_tech.xlsx`.
 
-ggplot(drone_tbl, aes(drone_rgb, pressure_stick)) +
-  geom_point()
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: "test"
+#| label: tbl-equal-tech-01
 
+rbind(head(drone_tbl, n = 3),
+      rep("...", times = ncol(drone_tbl)),
+      tail(drone_tbl, n = 3)) %>% 
+  kable(align = "c", "pipe")
 ```
 
 ```{r}
@@ -70,8 +68,8 @@ cold_seed_raw_tbl <- read_excel("data/cold_seeds.xlsx") %>%
 ```{r}
 #| message: false
 #| echo: false
-#| tbl-cap: Rohe Datentabelle mit den jeweiligen Lebenstagen (abk. *dol*) und der Anzahl an lebenden sowie toten Dodos an den entsprechenden Tagen.
-#| label: tbl-surv-dodo-1
+#| tbl-cap: "test"
+#| label: tbl-noninf-01
 
 rbind(head(cold_seed_raw_tbl, n = 6),
       rep("...", times = ncol(cold_seed_raw_tbl)),
@@ -112,7 +110,72 @@ cold_seed_tbl %>%
   theme(legend.position = "none")
 ```
 
-## ANOVA mit Effektschätzer
+## Technische Gleichheit
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-equal-tech-1
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 6
+#| fig-cap: "test"
+
+ggplot(drone_tbl, aes(drone_rgb, pressure_stick)) +
+  theme_bw() +
+  geom_point()
+```
+
+### MSE, RMSE und nRMSE
+
+$$
+MSE = \sqrt{\cfrac{1}{N}\sum^N_{i=1}(y_i - \hat{y}_i)^2}
+$$
+
+https://yardstick.tidymodels.org/reference/index.html
+
+https://en.wikipedia.org/wiki/Mean_absolute_error
+
+$$
+RMSE = \sqrt{MSE}
+$$
+
+Der RMSE ist ein gewichtetes Maß für die Modellgenauigkeit, das auf der gleichen Skala wie das Vorhersageziel angegeben wird. Einfach ausgedrückt kann der RMSE als der durchschnittliche Fehler interpretiert werden, den die Vorhersagen des Modells im Vergleich zum tatsächlichen Wert aufweisen, wobei größere Vorhersagefehler zusätzlich gewichtet werden.
+
+Je näher der RMSE-Wert bei 0 liegt, desto genauer ist das Modell. Der RMSE-Wert wird jedoch auf derselben Skala zurückgegeben wie das Ziel, für das Sie Vorhersagen treffen, und daher gibt es keine allgemeine Regel für die Interpretation von Wertebereichen. Die Interpretation Ihres Wertes kann nur innerhalb Ihres Datensatzes bewertet werden.
+
+$$
+nRMSE = \cfrac{RMSE}{\bar{y}} = \cfrac{\sqrt{MSE}}{\bar{y}} = \cfrac{\sqrt{\cfrac{1}{N}\sum^N_{i=1}(y_i - \hat{y}_i)^2}}{\bar{y}}
+$$
+
+https://stats.stackexchange.com/questions/598437/how-to-interpret-r-squared-versus-nrmse-for-a-random-forest-model
+
+### MAE
+
+$$
+MAE = \cfrac{\sum_{i=1}^n\left| y_i - \hat{y}_i\right|}{n} =\cfrac{\sum_{i=1}^n\left| e_i \right|}{n}
+$$
+
+Der MAE hat gegenüber dem RMSD Vorteile in der Interpretierbarkeit. Der MAE ist der Durchschnitt der absoluten Werte der Fehler. MAE ist grundsätzlich leichter zu verstehen als die Quadratwurzel aus dem Durchschnitt der quadrierten Fehler. Außerdem beeinflusst jeder Fehler den MAE in direktem Verhältnis zum absoluten Wert des Fehlers, was bei der RMSD nicht der Fall ist.
+
+Der MAE ist nicht identisch mit dem mittleren quadratischen Fehler (RMSE), auch wenn einige Forscher ihn so angeben und interpretieren. MAE ist konzeptionell einfacher und auch leichter zu interpretieren als RMSE: Es ist einfach der durchschnittliche absolute vertikale oder horizontale Abstand zwischen jedem Punkt in einem Streudiagramm und der Linie $Y=X$. Mit anderen Worten: MAE ist die durchschnittliche absolute Differenz zwischen $X$ und $Y$. Außerdem trägt jeder Fehler proportional zum absoluten Wert des Fehlers zum MAE bei.
+
+## Medizinische- oder Behandlungsgleichheit
+
+[EFSA](https://www.efsa.europa.eu/de)
+
+The limits for equivalence were set to $-\cfrac{1}{2}\log$ and $\cfrac{1}{2}\log$ equal to -0.5 and 0.5 because of the log transformation of the outcome.
+
+[Allgemeine Methoden des Institut für Qualität und Wirtschaftlichkeit im Gesundheitswesen (IQWiG)](https://www.iqwig.de/ueber-uns/methoden/methodenpapier/)
+
+"Umgekehrt erfordert auch die Interpretation nicht statistisch signifikanter Ergebnisse Aufmerksamkeit. Insbesondere wird ein solches Ergebnis nicht als Nachweis für das Nichtvorhandensein eines Effekts (Abwesenheit bzw. Äquivalenz) gewertet"
+
+9.3.5 Nachweis der Gleichheit
+
+@altman1995statistics
+
+### ANOVA mit Effektschätzer
 
 ```{r}
 #| message: false
@@ -138,7 +201,7 @@ lm_cold_fit %>% anova %>% model_parameters()
 lm_cold_fit %>% eta_squared()
 ```
 
-## Äquivalenztest
+### Äquivalenztest
 
 ```{r}
 res_non_cold <- equivalence_test(lm_non_cold_fit, 
@@ -179,48 +242,6 @@ res_cold <- equivalence_test(lm_cold_fit,
 plot(res_cold) +
   theme_minimal()
 ```
-
-## Technische Äquivalenz
-
-```{r}
-
-
-
-```
-
-## MSE, RMSE und nRMSE
-
-$$
-MSE = \sqrt{\cfrac{1}{N}\sum^N_{i=1}(y_i - \hat{y}_i)^2}
-$$
-
-https://yardstick.tidymodels.org/reference/index.html
-
-https://en.wikipedia.org/wiki/Mean_absolute_error
-
-$$
-RMSE = \sqrt{MSE}
-$$
-
-Der RMSE ist ein gewichtetes Maß für die Modellgenauigkeit, das auf der gleichen Skala wie das Vorhersageziel angegeben wird. Einfach ausgedrückt kann der RMSE als der durchschnittliche Fehler interpretiert werden, den die Vorhersagen des Modells im Vergleich zum tatsächlichen Wert aufweisen, wobei größere Vorhersagefehler zusätzlich gewichtet werden.
-
-Je näher der RMSE-Wert bei 0 liegt, desto genauer ist das Modell. Der RMSE-Wert wird jedoch auf derselben Skala zurückgegeben wie das Ziel, für das Sie Vorhersagen treffen, und daher gibt es keine allgemeine Regel für die Interpretation von Wertebereichen. Die Interpretation Ihres Wertes kann nur innerhalb Ihres Datensatzes bewertet werden.
-
-$$
-nRMSE = \cfrac{RMSE}{\bar{y}} = \cfrac{\sqrt{MSE}}{\bar{y}} = \cfrac{\sqrt{\cfrac{1}{N}\sum^N_{i=1}(y_i - \hat{y}_i)^2}}{\bar{y}}
-$$
-
-https://stats.stackexchange.com/questions/598437/how-to-interpret-r-squared-versus-nrmse-for-a-random-forest-model
-
-## MAE
-
-$$
-MAE = \cfrac{\sum_{i=1}^n\left| y_i - \hat{y}_i\right|}{n} =\cfrac{\sum_{i=1}^n\left| e_i \right|}{n}
-$$
-
-Der MAE hat gegenüber dem RMSD Vorteile in der Interpretierbarkeit. Der MAE ist der Durchschnitt der absoluten Werte der Fehler. MAE ist grundsätzlich leichter zu verstehen als die Quadratwurzel aus dem Durchschnitt der quadrierten Fehler. Außerdem beeinflusst jeder Fehler den MAE in direktem Verhältnis zum absoluten Wert des Fehlers, was bei der RMSD nicht der Fall ist.
-
-Der MAE ist nicht identisch mit dem mittleren quadratischen Fehler (RMSE), auch wenn einige Forscher ihn so angeben und interpretieren. MAE ist konzeptionell einfacher und auch leichter zu interpretieren als RMSE: Es ist einfach der durchschnittliche absolute vertikale oder horizontale Abstand zwischen jedem Punkt in einem Streudiagramm und der Linie $Y=X$. Mit anderen Worten: MAE ist die durchschnittliche absolute Differenz zwischen $X$ und $Y$. Außerdem trägt jeder Fehler proportional zum absoluten Wert des Fehlers zum MAE bei.
 
 ## Links
 
