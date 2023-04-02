@@ -21,7 +21,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 pacman::p_load(tidyverse, magrittr, broom, readxl,
                effectsize, multcompView, multcomp,
-               janitor, see, parameters, 
+               janitor, see, parameters, yardstick,
                conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
@@ -60,9 +60,15 @@ rbind(head(drone_tbl, n = 3),
   kable(align = "c", "pipe")
 ```
 
+Keimungsdaten nach Behandlung mit einem Pilzmittel unter zwei Kältebehandlungen aus der Datei `cold_seeds.xlsx`.
+
 ```{r}
+#| message: false
+#| echo: false
 cold_seed_raw_tbl <- read_excel("data/cold_seeds.xlsx") %>% 
   mutate_if(is.numeric, round, 2)
+
+cold_seed_tbl <- cold_seed_raw_tbl
 ```
 
 ```{r}
@@ -78,36 +84,13 @@ rbind(head(cold_seed_raw_tbl, n = 6),
 ```
 
 ```{r}
-cold_seed_tbl <- cold_seed_raw_tbl %>%   
+cold_seed_tbl <- cold_seed_tbl %>%   
   clean_names %>% 
   filter(trt != 1) %>% 
   mutate(trt = as_factor(trt),
          log_cold = log(cold),
          log_non_cold = log(non_cold),
          trt = fct_recode(trt, ctrl = "2")) 
-```
-
-```{r}
-#| echo: true
-#| message: false
-#| warning: false
-#| label: fig-noninf-1
-#| fig-align: center
-#| fig-height: 6
-#| fig-width: 6
-#| fig-cap: "test"
-
-cold_seed_tbl %>% 
-  pivot_longer(cold:last_col(),
-               names_to = "type",
-               values_to = "growth") %>% 
-  mutate(type = as_factor(type)) %>% 
-  ggplot(aes(trt, growth, fill = trt)) +
-  theme_bw() +
-  geom_boxplot() +
-  facet_wrap(~ type, scales = "free_y") +
-  scale_fill_okabeito() +
-  theme(legend.position = "none")
 ```
 
 ## Technische Gleichheit
@@ -127,6 +110,25 @@ ggplot(drone_tbl, aes(drone_rgb, pressure_stick)) +
   geom_point()
 ```
 
+```{r}
+fit_drone <- lm(pressure_stick ~ drone_rgb, data = drone_tbl)
+```
+
+### Bestimmtheitsmaß $R^2$
+
+$$
+\mathit{R}^2 = 
+\cfrac{\sum_{i=1}^N \left(\hat{y}_i- \bar{y}\right)^2}{\sum_{i=1}^N \left(y_i - \bar{y}\right)^2}
+$$
+
+```{r}
+#| message: false
+
+fit_drone %>% 
+  glance() %>% 
+  select(r.squared, adj.r.squared)
+```
+
 ### MSE, RMSE und nRMSE
 
 $$
@@ -140,6 +142,11 @@ https://en.wikipedia.org/wiki/Mean_absolute_error
 $$
 RMSE = \sqrt{MSE}
 $$
+
+```{r}
+drone_tbl %>%
+  rmse(pressure_stick, drone_rgb)
+```
 
 Der RMSE ist ein gewichtetes Maß für die Modellgenauigkeit, das auf der gleichen Skala wie das Vorhersageziel angegeben wird. Einfach ausgedrückt kann der RMSE als der durchschnittliche Fehler interpretiert werden, den die Vorhersagen des Modells im Vergleich zum tatsächlichen Wert aufweisen, wobei größere Vorhersagefehler zusätzlich gewichtet werden.
 
@@ -174,6 +181,29 @@ The limits for equivalence were set to $-\cfrac{1}{2}\log$ and $\cfrac{1}{2}\log
 9.3.5 Nachweis der Gleichheit
 
 @altman1995statistics
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-noninf-1
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 6
+#| fig-cap: "test"
+
+cold_seed_tbl %>% 
+  pivot_longer(cold:last_col(),
+               names_to = "type",
+               values_to = "growth") %>% 
+  mutate(type = as_factor(type)) %>% 
+  ggplot(aes(trt, growth, fill = trt)) +
+  theme_bw() +
+  geom_boxplot() +
+  facet_wrap(~ type, scales = "free_y") +
+  scale_fill_okabeito() +
+  theme(legend.position = "none")
+```
 
 ### ANOVA mit Effektschätzer
 
