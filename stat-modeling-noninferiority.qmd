@@ -40,24 +40,26 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
-Als erstes wollen wir uns einmal die Daten für die Überprüfung der technischen Gleichheit anschauen. Die Daten stammen aus Dronenüberflügen zur Bestimmung der Grasdichte auf Weideflächen aus der Datei `drone_tech.xlsx`. Dabei haben wir zum einen die Grasdichte traditionell mit einem Druckstab gemessen `pressure_stick` und vergleichen diese Werte dann mit den Werten aus dem Dronenüberflug. Der Drohnenüberflug liefert uns Bilder und aus den Bildern extrahieren wir einen RGB-Wert (abk. *Red, Green, Blue*) in der Spalte `drone_rgb`. Wir wollen nun schauen, ob wir die beiden Werte sinnvoll in ein Verhältnis setzen können.
+Als erstes wollen wir uns einmal die Daten für die Überprüfung der technischen Gleichheit anschauen. Die Daten stammen aus Dronenüberflügen zur Bestimmung der Grasdichte auf Weideflächen aus der Datei `drone_tech.xlsx`. Dabei haben wir zum einen die Grasdichte traditionell mit einem Druckstab gemessen `pressure_stick` und vergleichen diese Werte dann mit den Werten aus dem Dronenüberflug. Der Drohnenüberflug liefert uns Bilder und aus den Bildern extrahieren wir einen RGB-Wert (abk. *Red, Green, Blue*) in der Spalte `drone_rgb` oder einen CMYK-Wert (abk. *Cyan, Magenta, Yellow (Gelb), Key (Schwarz)*) in der Spalte `drone_cmyk`. Wir wollen nun schauen, ob wir die drei Werte sinnvoll in ein Verhältnis setzen können. Ein Auszug aus den Daten ist nochmal in der @tbl-equal-tech-01 dargestellt.
 
 ```{r}
 #| message: false
 #| echo: false
 
 set.seed(20230564)
-drone_tbl <- tibble(drone_rgb = rnorm(317, 1000, 200),
-                    pressure_stick = -1000 + 1.20 * drone_rgb + rnorm(length(drone_rgb), 100, 60)) %>% 
+drone_tbl <- tibble(pressure_stick = rnorm(317, 1000, 200),
+                    drone_rgb = -1000 + 1.20 * pressure_stick + rnorm(length(pressure_stick), 100, 60),
+                    drone_cmyk = -1200 + 0.2 * pressure_stick + rpois(length(pressure_stick), 1200)) %>% 
   mutate_if(is.numeric, round, 2) %>% 
-  filter(pressure_stick > 1)
+  filter(drone_rgb > 1 & drone_cmyk > 1)
+
 write.xlsx(drone_tbl, "data/drone_tech.xlsx", rowNames = FALSE)
 ```
 
 ```{r}
 #| message: false
 #| echo: false
-#| tbl-cap: "test"
+#| tbl-cap: "Datentabelle für den technischen Vergleich eines Druckstabes und dem RGB-Werten eines Dronenüberflugs auf die Grasdichte auf Weideflächen."
 #| label: tbl-equal-tech-01
 
 rbind(head(drone_tbl, n = 3),
@@ -102,16 +104,25 @@ cold_seed_tbl <- cold_seed_tbl %>%
 ## Technische Gleichheit
 
 ```{r}
-#| echo: true
+#| echo: false
 #| message: false
 #| warning: false
-#| label: fig-equal-tech-1
+#| label: fig-equal-tech-01
 #| fig-align: center
-#| fig-height: 6
-#| fig-width: 6
-#| fig-cap: "test"
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "test."
+#| fig-subcap: 
+#|   - "Dronenmessung mit RGB-Werten."
+#|   - "Dronenmessung mit CMYK-Werten."
+#| layout-nrow: 1
+#| column: page
 
-ggplot(drone_tbl, aes(drone_rgb, pressure_stick)) +
+ggplot(drone_tbl, aes(pressure_stick, drone_rgb)) +
+  theme_bw() +
+  geom_point()
+
+ggplot(drone_tbl, aes(pressure_stick, drone_cmyk)) +
   theme_bw() +
   geom_point()
 ```
@@ -193,6 +204,16 @@ drone_tbl %>%
 ```{r}
 drone_tbl %>%
   metrics(pressure_stick, drone_rgb)
+```
+
+Der Vergleich der beiden Farbskalen
+
+```{r}
+drone_tbl %>%
+  metrics(pressure_stick, drone_rgb)
+
+drone_tbl %>%
+  metrics(pressure_stick, drone_cmyk)
 ```
 
 ## Medizinische- oder Behandlungsgleichheit
