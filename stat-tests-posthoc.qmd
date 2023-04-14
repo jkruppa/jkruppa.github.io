@@ -105,23 +105,36 @@ Wir nutzen den paarweisen t-Test,
 
 -   wenn wir ein normalverteiltes $y$ vorliegen haben, wie `jump_length`.
 -   wenn wir *nur* einen Faktor mit mehr als zwei Leveln vorliegen haben, wie `animal`.
+-   wenn wir Varianzhomogenität über alle Level vorliegen haben, dann nutzen wir die Option `pool.sd = TRUE`. Wenn wir Varianzheterogenität über alle Level des Faktors vorliegen haben, dann nutzen wir `pool.sd = FALSE`.
 
-Die Funktion `pairwise.t.test` kann nicht mit Datensätzen arbeiten sondern nur mit Vektoren. Daher können wir der Funktion auch keine `formula` übergeben sondern müssen die Vektoren aus dem Datensatz mit `fac1_tbl$jump_length` für das Outcome und mit `fac1_tbl$animal` für die Gruppierende Variable benennen. Das ist umständlich und dhaer auch fehleranfällig.
+Die Funktion `pairwise.t.test` kann nicht mit Datensätzen arbeiten sondern nur mit Vektoren. Daher können wir der Funktion auch keine `formula` übergeben sondern müssen die Vektoren aus dem Datensatz mit `fac1_tbl$jump_length` für das Outcome und mit `fac1_tbl$animal` für die Gruppierende Variable benennen. Das ist umständlich und daher auch fehleranfällig. Wir können auch den `%$%`-Operator aus dem R Paket `magrittr` nutzen um die Problematik zu umgehen. Weiter unten siehst du dann einmal beide Anwendungen.
 
 ::: column-margin
 Mehr zu `mutate_if()` erfährst du auf der [Hilfeseite von mutate()](https://dplyr.tidyverse.org/reference/mutate_all.html)
 :::
 
-Als Adjustierungsmethode für den $\alpha$ Fehler wählen wir die Bonferroni-Methode mit `p.adjust.method = "bonferroni"` aus. Da wir eine etwas unübersichtliche Ausgabe in R erhalten nutzen wir die Funktion `tidy()`um die Ausgabe in ein saubers `tibble` zu verwandeln. Abschließend runden wir noch alle numerischen Spalten mit der Funktion `round` auf drei Stellen hinter dem Komma.
+Als Adjustierungsmethode für den $\alpha$ Fehler wählen wir die Bonferroni-Methode mit `p.adjust.method = "bonferroni"` aus. Da wir eine etwas unübersichtliche Ausgabe in R erhalten nutzen wir die Funktion `tidy()`um die Ausgabe in ein sauberes `tibble` zu verwandeln. Abschließend runden wir noch alle numerischen Spalten mit der Funktion `round` auf drei Stellen hinter dem Komma.
 
 ```{r}
 pairwise.t.test(fac1_tbl$jump_length, fac1_tbl$animal,
-                p.adjust.method = "bonferroni") %>% 
+                p.adjust.method = "bonferroni",
+                pool.sd = TRUE) %>% 
   tidy %>% 
   mutate_if(is.numeric, round, 3)
 ```
 
-Wir erhalten in einem Tibble die adujstierten p-Werte nach Bonferroni. Wir können daher die adjustierten p-Werte ganz normal mit dem Signifikanzniveau $\alpha$ von 5% vergleichen. Wir sehen, dass der Gruppenvergleich `cat - dog` signifikant ist, der Gruppenvergleich `fox - dog` nicht signifkant ist und der Gruppenvergleich `fox - cat` wiederum signifkant ist.
+Und das ganze nochmal mit dem `%$%`-Operator aus dem R Paket `magrittr`. In diesem Fall können wir uns das `$` sparen und greifen direkt auf die Spalten des Datensatzes zu.
+
+```{r}
+fac1_tbl %$%
+  pairwise.t.test(jump_length, animal,
+                  p.adjust.method = "bonferroni",
+                  pool.sd = TRUE) %>% 
+  tidy %>% 
+  mutate_if(is.numeric, round, 3)
+```
+
+Wir erhalten in einem Tibble die adjustierten p-Werte nach Bonferroni. Wir können daher die adjustierten p-Werte ganz normal mit dem Signifikanzniveau $\alpha$ von 5% vergleichen. Wenn du keine adjustierten p-Werte möchtest, dann nutze die Option `p.adjust.method = "none"`. Wir sehen, dass der Gruppenvergleich `cat - dog` signifikant ist, der Gruppenvergleich `fox - dog` nicht signifikant ist und der Gruppenvergleich `fox - cat` wiederum signifikant ist.
 
 Leider können wir uns keine Konfidenzintervalle wiedergeben lassen, so dass die Funktion nicht dem Stand der Wissenschaft und deren Ansprüchen genügt.
 
