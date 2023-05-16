@@ -8,7 +8,23 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
-## Genutzte R Pakete für das Kapitel
+Permutationstests beruhen nicht auf Annahmen über die Verteilung unseres Outcomes $y$, wie es bei einigen anderen Tests, wie zum Beipsiel dem T-test, der Fall ist. Permutationstests funktionieren, indem die beobachteten Daten mehrmals neu gezogen werden, um einen $p$-Wert für den Test zu bestimmen. Erinnern wir uns daran, dass der $p$-Wert als die Wahrscheinlichkeit definiert ist, Daten zu erhalten, die genauso extrem sind wie die beobachteten Daten, wenn die Nullhypothese wahr ist. Wenn die Daten gemäß der Nullhypothese mehrmals gemischt werden, kann die Anzahl der Fälle mit Daten, die genauso extrem sind wie die beobachteten Daten, gezählt und ein $p$-Wert berechnet werden.
+
+Die Vorteile von Permutationstests, neben der relative Einfachheit bei Durchführung und Interpretation, sind:
+
+-   das Fehlen von Annahmen über die Verteilung der zugrunde liegenden Daten,
+-   ihre Flexibilität bei der Verarbeitung verschiedener Arten von Daten (nominal, ordinal, intervall-/ratioskaliert),
+
+Die Nachteile von Permutationstests sind:
+
+-   die begrenzte Komplexität der Designs, die sie verarbeiten können,
+-   und die Unbekanntheit vieler Anwender mit dieser Methode.
+
+::: column-margin
+Wie immer gibt es auch hier noch ein erweiteres Tutorium von Ben Bolker [Simple permutation tests in R](https://mac-theobio.github.io/QMEE/lectures/permutation_examples.notes.html)
+:::
+
+## Genutzte R Pakete
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
@@ -19,11 +35,87 @@ pacman::p_load(tidyverse, magrittr, conflicted, broom,
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
-cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
-                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+## Daten
+
+Nachdem wir uns im vorherigen Kapitel mit einem sehr kleinen Satensatz beschäftigt haben, nehmen wir einen großen Datensatz. Bleiben aber bei einem simplen Modell. Wir brauchen dafür den Datensatz `flea_dog_cat_length_weight.xlsx`. In einer simplen linearen Regression schauen wir uns den Zusammenhang zwischen einem $y$ und einem $x_1$ an. Daher wählen wir aus dem Datensatz die beiden Spalten `jump_length` und `weight`. Wir wollen nun feststellen, ob es einen Zusammenhang zwischen der Sprungweite in \[cm\] und dem Flohgewicht in \[mg\] gibt. In dem Datensatz finden wir 400 Flöhe von Hunden und Katzen.
+
+```{r}
+#| message: false
+
+model_tbl <- read_csv2("data/flea_dog_cat_length_weight.csv") %>%
+  select(animal, jump_length, weight) %>% 
+  filter(animal %in% c("dog", "cat"))
+```
+
+::: column-margin
+![](images/angel_01.png){fig-align="center" width="50%"}
+
+Hier überfährt man doch den einen oder anderen Statistikengel. Mit dem Permutationstest geht dann vieles und manchmal dann auch zu viel... gerne können wir mal darüber diskutieren, was du da permutieren willst.
+:::
+
+## Einfacher Mittelwertsvergleich
+
+```{r}
+model_tbl %>%
+  group_by(animal) %>% 
+  summarise(mean_jump = mean(jump_length)) %>% 
+  pull(mean_jump) %>% 
+  diff()
+```
+
+```{r}
+n_sim <- 1000
+
+foo <- map_dfr(1:n_sim, \(x) {
+  tmp_diff <- model_tbl %>%
+    mutate(animal = sample(animal)) %>% 
+    group_by(animal) %>% 
+    summarise(mean_jump = mean(jump_length)) %>% 
+    pull(mean_jump) %>% 
+    diff()
+  return(tibble(tmp_diff))
+})
+
+```
+
+```{r}
+ggplot(foo, aes(tmp_diff)) +
+  geom_histogram() +
+  geom_vline(xintercept = 2.6119, color = "red")
+```
+
+## Bestimmtheitsmaß $R^2$
+
+```{r}
+model_tbl %$%
+  lm(jump_length ~ weight) %>% 
+  glance() %>% 
+  pull(r.squared)
+```
+
+```{r}
+n_sim <- 1000
+
+foo <- map_dfr(1:n_sim, \(x) {
+  tmp_r2 <- model_tbl %>%
+    mutate(weight = sample(weight)) %$%
+    lm(jump_length ~ weight) %>% 
+    glance() %>% 
+    pull(r.squared)
+  return(tibble(tmp_r2))
+})
+
+```
+
+```{r}
+ggplot(foo, aes(tmp_r2)) +
+  geom_histogram() +
+  geom_vline(xintercept = 0.291164, color = "red")
+```
 
 ## Links
 
