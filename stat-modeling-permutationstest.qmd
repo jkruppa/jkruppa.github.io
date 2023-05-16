@@ -1,5 +1,6 @@
 ```{r echo = FALSE}
 pacman::p_load(tidyverse, readxl, knitr, kableExtra)
+set.seed(20230526)
 ```
 
 # Permutationstest {#sec-permut}
@@ -48,7 +49,8 @@ Nachdem wir uns im vorherigen Kapitel mit einem sehr kleinen Satensatz beschäft
 
 model_tbl <- read_csv2("data/flea_dog_cat_length_weight.csv") %>%
   select(animal, jump_length, weight) %>% 
-  filter(animal %in% c("dog", "cat"))
+  filter(animal %in% c("dog", "cat")) %>% 
+  slice_sample(n = 20)
 ```
 
 ::: column-margin
@@ -70,22 +72,45 @@ model_tbl %>%
 ```{r}
 n_sim <- 1000
 
-foo <- map_dfr(1:n_sim, \(x) {
-  tmp_diff <- model_tbl %>%
+mean_perm_tbl <- map_dfr(1:n_sim, \(x) {
+  mean_diff <- model_tbl %>%
     mutate(animal = sample(animal)) %>% 
     group_by(animal) %>% 
     summarise(mean_jump = mean(jump_length)) %>% 
     pull(mean_jump) %>% 
     diff()
-  return(tibble(tmp_diff))
+  return(tibble(mean_diff))
 })
 
 ```
 
 ```{r}
-ggplot(foo, aes(tmp_diff)) +
+#| echo: false
+#| message: false
+#| label: fig-permut-01
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Histogram"
+
+ggplot(mean_perm_tbl , aes(mean_diff)) +
+  theme_bw() +
   geom_histogram() +
-  geom_vline(xintercept = 2.6119, color = "red")
+  geom_vline(xintercept = 2.6119, color = "red") +
+  labs(x = "Permutierte Mittelwertsdifferenz",
+       y = "Anzahl")
+```
+
+Zweiseitiges Testen deshalb nehmen wir den Wert mal zwei.
+
+```{r}
+sum(mean_perm_tbl$mean_diff >= 2.6119)/n_sim * 2
+```
+
+Ist das Gleiche als wenn wir dann den Mittelwert berechnen.
+
+```{r}
+mean(mean_perm_tbl$mean_diff >= 2.6119) * 2
 ```
 
 ## Bestimmtheitsmaß $R^2$
@@ -100,21 +125,44 @@ model_tbl %$%
 ```{r}
 n_sim <- 1000
 
-foo <- map_dfr(1:n_sim, \(x) {
-  tmp_r2 <- model_tbl %>%
+r2_perm_tbl <- map_dfr(1:n_sim, \(x) {
+  r2 <- model_tbl %>%
     mutate(weight = sample(weight)) %$%
     lm(jump_length ~ weight) %>% 
     glance() %>% 
     pull(r.squared)
-  return(tibble(tmp_r2))
+  return(tibble(r2))
 })
 
 ```
 
 ```{r}
-ggplot(foo, aes(tmp_r2)) +
+#| echo: false
+#| message: false
+#| label: fig-permut-02
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Histogram"
+
+ggplot(r2_perm_tbl, aes(r2)) +
+  theme_bw() +
   geom_histogram() +
-  geom_vline(xintercept = 0.291164, color = "red")
+  geom_vline(xintercept = 0.291164, color = "red") +
+  labs(x = expression(Permutiertes~Bestimmtheitsmaß~R^2),
+       y = "Anzahl")
+```
+
+Zweiseitiges Testen deshalb nehmen wir den Wert mal zwei.
+
+```{r}
+sum(r2_perm_tbl$r2 >= 0.291164)/n_sim * 2
+```
+
+Ist das Gleiche als wenn wir dann den Mittelwert berechnen.
+
+```{r}
+mean(r2_perm_tbl$r2 >= 0.291164) * 2
 ```
 
 ## Links
