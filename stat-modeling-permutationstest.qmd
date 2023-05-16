@@ -9,17 +9,21 @@ set.seed(20230526)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
-Permutationstests beruhen nicht auf Annahmen über die Verteilung unseres Outcomes $y$, wie es bei einigen anderen Tests, wie zum Beipsiel dem T-test, der Fall ist. Permutationstests funktionieren, indem die beobachteten Daten mehrmals neu gezogen werden, um einen $p$-Wert für den Test zu bestimmen. Erinnern wir uns daran, dass der $p$-Wert als die Wahrscheinlichkeit definiert ist, Daten zu erhalten, die genauso extrem sind wie die beobachteten Daten, wenn die Nullhypothese wahr ist. Wenn die Daten gemäß der Nullhypothese mehrmals gemischt werden, kann die Anzahl der Fälle mit Daten, die genauso extrem sind wie die beobachteten Daten, gezählt und ein $p$-Wert berechnet werden.
+In diesem Kapitel wollen wir enin mächtiges Verfahren kennen lernen, welches zu den altvorderen Zeiten von Fisher und Co nicht zu Verfügung stand: dem Permutationstest. Dabei war die Theorie schon bekannt, aber die technische Durchführung war unmöglich. Erst seit der Entwicklung von Computern, die hunderte bis tausende Rechenschritte durchführen können, sind Permutationstests erst denkbar.
+
+Permutationstests beruhen nicht auf Annahmen über die Verteilung unseres Outcomes $y$, wie es bei einigen anderen Tests, wie zum Beispiel dem T-test, der Fall ist. Permutationstests funktionieren, indem die beobachteten Daten mehrmals neu gezogen werden, um einen $p$-Wert für den Test zu bestimmen. Wir haben es also mit einem iterativen Prozess zu tun. Oder anders gesagt, wir simulieren hier Daten und damit die Nullhypothese. Erinnern wir uns daran, dass der $p$-Wert als die Wahrscheinlichkeit definiert ist, Daten zu erhalten, die genauso extrem sind wie die beobachteten Daten, wenn die Nullhypothese wahr ist. Wenn die Daten gemäß der Nullhypothese mehrmals gemischt werden, kann die Anzahl der Fälle mit Daten, die genauso extrem sind wie die beobachteten Daten, gezählt und ein $p$-Wert berechnet werden.
 
 Die Vorteile von Permutationstests, neben der relative Einfachheit bei Durchführung und Interpretation, sind:
 
--   das Fehlen von Annahmen über die Verteilung der zugrunde liegenden Daten,
--   ihre Flexibilität bei der Verarbeitung verschiedener Arten von Daten (nominal, ordinal, intervall-/ratioskaliert),
+-   das Fehlen von Annahmen über die Verteilung der zugrunde liegenden Daten. Wir müssen *eigentlich* uns keine Gedanken über die Verteilung des Outcomes $y$ machen.
+-   ihre Flexibilität bei der Verarbeitung verschiedener Arten von Daten wie nominal, ordinal oder intervall-/ratioskaliert. Daher geht *prinzipiell* alles mit einem Permutationstest.
 
 Die Nachteile von Permutationstests sind:
 
--   die begrenzte Komplexität der Designs, die sie verarbeiten können,
--   und die Unbekanntheit vieler Anwender mit dieser Methode.
+-   die begrenzte Komplexität der Designs, die sie verarbeiten können. Das heißt, es geht viel, aber wenn unser experimentelles Design genested ist oder aber eine komplexe faktorielle Struktur hat, geht es leider nicht mehr.
+-   und die Unbekanntheit vieler Anwender mit dieser Methode. Der Permutationstest ist nicht sehr bekannt. Daher wird der Permutationstest auch immer etwas zwiespältig gesehen. Der Anwender baut ja seinen Test *selber* und nutzt nicht einen bekannten Algorithmus.
+
+In diesem Kapitel gebe ich eine kurze Übersicht über den Permutationstest. Es gibt einiges an Literatur und auch Kritik sowie Diskussionen. Ich finde den Permutationstest als eine gute Lösung, wenn i) genug Fallzahl vorliegt und damit mehr als 10 Beobachtungen pro Gruppe sowie ii) es keinen passenden Test gibt. Warum muss es genug Beobachtungen in den Gruppen bzw. dann in dem Datensatz geben? Wir müssen ja genug zufällige Daten permutieren. Wenn wir zu wenig Beobachtungen haben, dann wiederholen sich unsere zufälligen Datensätze sehr schnell.
 
 ::: column-margin
 Wie immer gibt es auch hier noch ein erweiteres Tutorium von Ben Bolker [Simple permutation tests in R](https://mac-theobio.github.io/QMEE/lectures/permutation_examples.notes.html)
@@ -42,7 +46,7 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
-Nachdem wir uns im vorherigen Kapitel mit einem sehr kleinen Satensatz beschäftigt haben, nehmen wir einen großen Datensatz. Bleiben aber bei einem simplen Modell. Wir brauchen dafür den Datensatz `flea_dog_cat_length_weight.xlsx`. In einer simplen linearen Regression schauen wir uns den Zusammenhang zwischen einem $y$ und einem $x_1$ an. Daher wählen wir aus dem Datensatz die beiden Spalten `jump_length` und `weight`. Wir wollen nun feststellen, ob es einen Zusammenhang zwischen der Sprungweite in \[cm\] und dem Flohgewicht in \[mg\] gibt. In dem Datensatz finden wir 400 Flöhe von Hunden und Katzen.
+Für unsere Demonstration des Permutationstest nutzen wir den Datensatz `flea_dog_cat_length_weight.xlsx`. Zum einen wollen wir einen Gruppenvergleich zwischen den Sprungweiten der Hunde- und Katzenflöhe rechnen. Also einen klassischen t-Test für einen Gruppenvergleich. Nur eben hier als einen Permutationstest. Als zweites wollen wir einen $p$-Wert für das Bestimmtheitsmaß $R^2$ abschätzen. Per se gibt es keinen $p$-Wert für das Bestimmtheitsmaß $R^2$, aber der Permutationstest liefert hier eine Lösung für das Problem. Daher schauen wir uns in einer simplen linearen Regression den Zusammenhang zwischen einem $y$ und einem $x_1$ an. Daher wählen wir aus dem Datensatz die beiden Spalten `jump_length` und `weight`. Wir wollen nun feststellen, ob es einen Zusammenhang zwischen der Sprungweite in \[cm\] und dem Flohgewicht in \[mg\] gibt. In dem Datensatz finden wir 400 Flöhe wir wählen aber nur zufällig 20 Tiere aus.
 
 ```{r}
 #| message: false
@@ -101,16 +105,26 @@ ggplot(mean_perm_tbl , aes(mean_diff)) +
        y = "Anzahl")
 ```
 
-Zweiseitiges Testen deshalb nehmen wir den Wert mal zwei.
-
 ```{r}
-sum(mean_perm_tbl$mean_diff >= 2.6119)/n_sim * 2
+sum(mean_perm_tbl$mean_diff >= 2.6119)/n_sim
 ```
 
 Ist das Gleiche als wenn wir dann den Mittelwert berechnen.
 
 ```{r}
-mean(mean_perm_tbl$mean_diff >= 2.6119) * 2
+mean(mean_perm_tbl$mean_diff >= 2.6119) 
+```
+
+::: column-margin
+Teilweise wird diskutiert, ob der $p$-Wert hier noch mal 2 genommen werden muss, da wir ja eigentlich zweiseitig Testen wollen, aber da gehen die Meinungen auseinander. Ich belasse es so wie hier.
+:::
+
+Dann das ganze nochmal mit einem Student t-Test verglichen und wir sehen, dass wir dem $p$-Wert aus einem Student t-Test sehr nahe kommen. Wenn du jetzt noch die Anzahl an Simulationen erhöhen würdest, dann würde sich der $p_{perm}$ dem $p_{t-Test}$ immer weiter annähern.
+
+```{r}
+t.test(jump_length ~ animal, data = model_tbl) %>% 
+  pluck("p.value") %>% 
+  round(3)
 ```
 
 ## Bestimmtheitsmaß $R^2$
@@ -153,17 +167,19 @@ ggplot(r2_perm_tbl, aes(r2)) +
        y = "Anzahl")
 ```
 
-Zweiseitiges Testen deshalb nehmen wir den Wert mal zwei.
-
 ```{r}
-sum(r2_perm_tbl$r2 >= 0.291164)/n_sim * 2
+sum(r2_perm_tbl$r2 >= 0.291164)/n_sim 
 ```
 
 Ist das Gleiche als wenn wir dann den Mittelwert berechnen.
 
 ```{r}
-mean(r2_perm_tbl$r2 >= 0.291164) * 2
+mean(r2_perm_tbl$r2 >= 0.291164) 
 ```
+
+::: column-margin
+Teilweise wird diskutiert, ob der $p$-Wert hier noch mal 2 genommen werden muss, da wir ja eigentlich zweiseitig Testen wollen, aber da gehen die Meinungen auseinander. Ich belasse es so wie hier.
+:::
 
 ## Links
 
