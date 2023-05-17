@@ -9,7 +9,7 @@ set.seed(20230526)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
-In diesem Kapitel wollen wir enin mächtiges Verfahren kennen lernen, welches zu den altvorderen Zeiten von Fisher und Co nicht zu Verfügung stand: dem Permutationstest. Dabei war die Theorie schon bekannt, aber die technische Durchführung war unmöglich. Erst seit der Entwicklung von Computern, die hunderte bis tausende Rechenschritte durchführen können, sind Permutationstests erst denkbar.
+In diesem Kapitel wollen wir ein mächtiges Verfahren kennen lernen, welches zu den altvorderen Zeiten von Fisher und Co. nicht zu Verfügung stand: der Permutationstest. Dabei war die Theorie schon bekannt, aber die technische Durchführung war unmöglich. Erst seit der Entwicklung von Computern, die hunderte bis tausende Rechenschritte durchführen können, sind Permutationstests erst denkbar.
 
 Permutationstests beruhen nicht auf Annahmen über die Verteilung unseres Outcomes $y$, wie es bei einigen anderen Tests, wie zum Beispiel dem T-test, der Fall ist. Permutationstests funktionieren, indem die beobachteten Daten mehrmals neu gezogen werden, um einen $p$-Wert für den Test zu bestimmen. Wir haben es also mit einem iterativen Prozess zu tun. Oder anders gesagt, wir simulieren hier Daten und damit die Nullhypothese. Erinnern wir uns daran, dass der $p$-Wert als die Wahrscheinlichkeit definiert ist, Daten zu erhalten, die genauso extrem sind wie die beobachteten Daten, wenn die Nullhypothese wahr ist. Wenn die Daten gemäß der Nullhypothese mehrmals gemischt werden, kann die Anzahl der Fälle mit Daten, die genauso extrem sind wie die beobachteten Daten, gezählt und ein $p$-Wert berechnet werden.
 
@@ -35,8 +35,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, conflicted, broom,
-               survminer, survival)
+pacman::p_load(tidyverse, magrittr, conflicted, broom)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -84,14 +83,16 @@ c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10) %>%
   sample()
 ```
 
-Das gleiche Durchmischen findet auch in der Funktion `mutate()` statt. Wir durchwirblen einmal die Zuordnung der Level des Faktors `animal` zu den jeweiligen Speungweiten. Dann berechnen wir die Mittelwertsdifferenz für diesen neuen Datensatz. Das machen wir dann $n_sim$ gleich 1000 Mal.
+Das gleiche Durchmischen findet auch in der Funktion `mutate()` statt. Wir durchwirblen einmal die Zuordnung der Level des Faktors `animal` zu den jeweiligen Speungweiten. Dann berechnen wir die Mittelwertsdifferenz für diesen neuen Datensatz. Das machen wir dann $n\_sim$ gleich 1000 Mal.
 
 ```{r}
 n_sim <- 1000
 
 mean_perm_tbl <- map_dfr(1:n_sim, \(x) {
   mean_diff <- model_tbl %>%
+    ## Permutation Start
     mutate(animal = sample(animal)) %>% 
+    ## Permutation Ende
     group_by(animal) %>% 
     summarise(mean_jump = mean(jump_length)) %>% 
     pull(mean_jump) %>% 
@@ -142,7 +143,7 @@ t.test(jump_length ~ animal, data = model_tbl) %>%
 
 ## Bestimmtheitsmaß $R^2$
 
-Das vorherige Beispiel mit dem Mittelwertsvergleich war im Prinzip nur eine Fingerübung für den Ablauf. Wir können auch einfach einen t-Test rechnen und dann ist gut. Anders sieht es aus, wenn wir keinen $p$-Wert geliefert bekommen und auch keinen $H_0$ Testverteilung bekannt ist um einen $p$-Wert zu bestimmen. Das ist der Fall bei dem Bestimmtheitsmaß $R^2$. Wir haben hier keine Teststatistik und dadurch einen $p$-Wert vorliegen. Dagegen können wir dann mit einem Permutationstest was tun. Bei dem 95% Konfidenzintervall wird es dann schwieriger, hier muss du dann jeweils schauen, was du genau permutierst.
+Das vorherige Beispiel mit dem Mittelwertsvergleich war im Prinzip nur eine Fingerübung für den Ablauf. Wir können auch einfach einen t-Test rechnen und dann ist gut. Anders sieht es aus, wenn wir keinen $p$-Wert geliefert bekommen und auch keinen $H_0$ Testverteilung bekannt ist um einen $p$-Wert zu bestimmen. Das ist der Fall bei dem Bestimmtheitsmaß $R^2$. Wir haben hier keine Teststatistik und dadurch einen $p$-Wert vorliegen. Dagegen können wir dann mit einem Permutationstest was tun. Bei dem 95% Konfidenzintervall wird es dann schwieriger, hier müssen wir dann etwas anders permutierieren. Wir nutrzen dann die Bootstrap Konfidenzintervalle im nächsten Abschnitt.
 
 ```{r}
 model_tbl %$%
@@ -198,7 +199,28 @@ Teilweise wird diskutiert, ob der $p$-Wert hier noch mal 2 genommen werden muss,
 
 ## Bootstrap 95% Konfidenzintervalle
 
-https://www.r-bloggers.com/2019/09/understanding-bootstrap-confidence-interval-output-from-the-r-boot-package/
+Haben wir in dem Permutatiosntest noch die Spalten permutiert so permutieren wir bei dem Bootstrap-Verfahren die Zeilen. Da wir aber keinen neuen Datensatz erhalten würden, wenn wir nur die Zeilen permutieren, ziehen wir einen *kleineren* Datensatz mit *zurücklegen*. Das heißt, dass wir auch Beobachtungen mehrfach in unseren gezogenen Bootstrapdatensatz haben können. Wir nutzen in R die Funktion `slice_sample()` in der wir dann auswählen, dass 80% der Beobachtungen mit zurücklegen gezogen werden sollen. Das Zurücklegen können wir mit der Option `replace = TRUE` einstellen.
+
+```{r}
+n_boot <- 10
+
+r2_boot_tbl <- map_dfr(1:n_boot, \(x) {
+  r2 <- model_tbl %>%
+    ## Bootstrap Start
+    slice_sample(prop = 0.8, replace = TRUE) %$%
+    ## Bootstrap Ende
+    lm(jump_length ~ weight) %>% 
+    glance() %>% 
+    pull(r.squared)
+  return(tibble(r2))
+})
+```
+
+```{r}
+r2_boot_tbl %$% 
+  quantile(r2, probs = c(0.025, 0.975)) %>% 
+  round(3)
+```
 
 ## Links
 
