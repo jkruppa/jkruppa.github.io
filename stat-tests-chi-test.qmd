@@ -34,12 +34,13 @@ Bitte schau dir die Aufgaben in den [gesammelten Klausurfragen auf GitHub](https
 Wenn kein $\chi^2_{\alpha=5\%}$ in der Klausur gegeben ist, setzen wir $\chi^2_{\alpha=5\%} = 3.84$.
 :::
 
-## Genutzte R Pakete für das Kapitel
+## Genutzte R Pakete
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
-pacman::p_load(tidyverse, magrittr, effectsize)
+pacman::p_load(tidyverse, magrittr, effectsize, rstatix,
+               scales, parameters)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -138,3 +139,145 @@ phi(mat)
 ```
 
 Wir sehen, dass der Effekt mit einem $V = 0.14$ oder einem $\phi = 0.14$ schwach ist. Ein Wert von 0 bedeutet keine Assoziation und ein Wert von 1 einen maximalen Zusamenhang. Wir können die Werte von $V$ und $\phi$ wie eine Korrelation interpretieren.
+
+## Test auf gleiche oder gegebene Anteile
+
+![](images/caution.png){fig-align="center" width="50%"}
+
+```{r}
+#| warning: false
+#| message: false
+damaged  <- c(83, 90, 129, 70)
+berries <- c(86, 93, 136, 82)
+prop.test(damaged, berries)
+```
+
+```{r}
+#| warning: false
+#| message: false
+prop.test(damaged, berries) %>% 
+  model_parameters()
+```
+
+Warum ist ein Test auf Anteile ein $\mathcal{X}^2$-Test?
+
+https://stats.stackexchange.com/questions/2391/what-is-the-relationship-between-a-chi-squared-test-and-test-of-equal-proportion
+
+```{r}
+#| warning: false
+#| message: false
+tab <- matrix(c(100, 80, 20, 10), ncol = 2)
+chisq.test(tab)
+prop.test(tab)
+```
+
+Führen wir den Test nochmal detailierter mit dr Funktion `prop_test()` aus dem R Paket `rstatix` durch.
+
+```{r}
+#| warning: false
+#| message: false
+grp_size <- c(106, 113, 156, 102)
+infected  <- c(50, 100, 139, 80)
+non_infected <- grp_size - infected
+```
+
+```{r}
+#| warning: false
+#| message: false
+infected_tab <- rbind(infected, non_infected) %>% 
+  as.table()
+```
+
+```{r}
+#| warning: false
+#| message: false
+dimnames(infected_tab) <- list(
+  Infected = c("yes", "no"),
+  Groups = c("grp1", "grp2", "grp3", "grp4")
+)
+infected_tab
+```
+
+```{r}
+#| warning: false
+#| message: false
+prop_test(infected_tab, detailed = TRUE)
+```
+
+http://www.sthda.com/english/wiki/two-proportions-z-test-in-r
+
+$$
+Z = \cfrac{\hat{p}_1 - \hat{p}_2}{\sqrt{\hat{p}(1-\hat{p})\left(\cfrac{1}{n_1}+\cfrac{1}{n_2}\right)}}
+$$
+
+-   $\hat{p}_1$ ist der Anteil der ersten Stichprobe
+-   $\hat{p}_2$ ist der Anteil der 2. Stichprobe
+-   $n_1$ ist die Anzahl der Datenproben in der ersten Stichprobe
+-   $n_2$ ist die Anzahl der Datenproben in der 2.
+-   $\hat{p}$ ist der Mittelwert der beiden Stichproben. Wenn $k1$ der Erfolg von $n1$ Daten in Stichprobe 1 und $k2$ der Erfolg von $n2$ Daten in Stichprobe 2 ist, dann kann der Wert von $\hat{p}$ wie folgt berechnet werden:
+
+$\hat{p} = (k_1 + k_2)/(n_1 + n_2)$
+
+$\hat{p}_1 = 130/200 = 0.65, n_1 = 200$
+
+$\hat{p}_2 = 50/100 = 0.5, n_2 = 100$
+
+$\hat{p} = (130 + 50)/(200 + 100) = 180/300 = 0.6$
+
+$$
+\begin{aligned}
+Z &= \cfrac{(0.65 - 0.5)}{\sqrt{0.6\cdot(1-0.6)\cdot\left(\cfrac{1}{200} + \cfrac{1}{100}\right)}}\\
+  &= \cfrac{0.15}{\sqrt{0.6\cdot0.4\cdot(0.005 + 0.01)}}\\
+  &= \cfrac{0.15}{\sqrt{0.24\cdot0.015}}\\
+  &= \cfrac{0.15}{\sqrt{0.49\cdot0.1225}}\\
+&= \cfrac{0.15}{0.06} = 2.5
+\end{aligned}
+$$
+
+https://rdrr.io/r/stats/prop.test.html
+
+https://rpkgs.datanovia.com/rstatix/reference/prop_test.html
+
+https://rdrr.io/r/stats/pairwise.prop.test.html
+
+```{r}
+## delete me
+pacman::p_load(rcompanion, multcompView, multcomp)
+```
+
+```{r}
+#| warning: false
+#| message: false
+damaged  <- c(83, 90, 129, 70)
+berries <- c(86, 93, 136, 82)
+pairwise.prop.test(damaged, berries) 
+```
+
+```{r}
+#| warning: false
+#| message: false
+pairwise_prop_test(infected_tab) %>% 
+  mutate(p = pvalue(p.adj),
+         p.adj = pvalue(p.adj))
+```
+
+```{r}
+#| warning: false
+#| message: false
+pairwise.prop.test(damaged, berries, 
+                   p.adjust.method = "bonferroni") %>% 
+  pluck("p.value") %>% 
+  fullPTable() %>% 
+  multcompLetters()
+```
+
+```{r}
+#| warning: false
+#| message: false
+
+pairwise_prop_test(infected_tab) %>% 
+  mutate(contrast = str_c(group1, "-", group2)) %>% 
+  pull(p.adj, contrast) %>% 
+  multcompLetters() 
+
+```
