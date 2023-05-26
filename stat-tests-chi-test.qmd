@@ -9,7 +9,7 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 ::: callout-note
 ## Was macht der $\mathcal{X}^2$-Test?
 
-Ein $\mathcal{X}^2$-Test vergleicht die Anteile zweier Gruppen.
+Ein $\mathcal{X}^2$-Test vergleicht die Anteile zweier oder mehrerer Gruppen.
 :::
 
 ::: callout-tip
@@ -40,7 +40,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 pacman::p_load(tidyverse, magrittr, effectsize, rstatix,
-               scales, parameters)
+               scales, parameters, conflicted)
+conflicts_prefer(stats::chisq.test)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -138,19 +139,23 @@ cramers_v(mat)
 phi(mat)
 ```
 
-Wir sehen, dass der Effekt mit einem $V = 0.14$ oder einem $\phi = 0.14$ schwach ist. Ein Wert von 0 bedeutet keine Assoziation und ein Wert von 1 einen maximalen Zusamenhang. Wir können die Werte von $V$ und $\phi$ wie eine Korrelation interpretieren.
+Wir sehen, dass der Effekt mit einem $V = 0.14$ oder einem $\phi = 0.14$ schwach ist. Ein Wert von 0 bedeutet keine Assoziation und ein Wert von 1 einen maximalen Zusammenhang. Wir können die Werte von $V$ und $\phi$ wie eine Korrelation interpretieren.
 
 ## Test auf gleiche oder gegebene Anteile
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
+Neben dem Test auf absolute Anteile, wie der $\mathcal{X}^2$-Test es rechnet, wollen wir manchmal auch relative Anteile testen. Also haben wir nicht 8 kranke Erdbeeren gezählt sondern 8 kranke von 12 Erdbeeren. Damit sind dann 66% bzw. 0.66 kranke Erdbeeren vorhanden. Wir rechnen also mit Wahrscheinlichkeiten, also *eng. proportions*. Deshalb können wir hier auch die R Funktion `prop.test()` nutzen. Wichtig ist zu wissen, dass wir trotz allem erst die Anzahl an beschädigten Erdbeeren `damaged` sowie die absolute Anzahl an Erdbeeren `berries` brauchen. Wir haben uns die beschädigten Erdbeeren nach vier Erntearten, A bis D, angeschaut. Beide Vektoren können wir dann in die Funktion `prop.test()` stecken.
+
 ```{r}
 #| warning: false
 #| message: false
-damaged  <- c(83, 90, 129, 70)
-berries <- c(86, 93, 136, 82)
+damaged  <- c(A = 105, B = 100, C = 139, D = 96)
+berries <- c(106, 113, 156, 102)
 prop.test(damaged, berries)
 ```
+
+Wir erhalten dann einen $p$-Wert von 0.0056 wieder. Was testen wir hier eigentlich? Unsere Nullhypothese ist, dass alle paarweisen Wahrscheinlichkeiten zwischen den Gruppen gleich sind. Wie wir sehen ist das nicht der Fall. Wir haben hier vier Wahrscheinlichkeiten vorliegen und mindestens zwei unterscheiden sich. Welche das sind, ist wieder die Frage. Hierzu nutzen wir dann gleich die Funktion `pairwise.prop.test()`. Wir immer geht die Ausgabe auch schöner und aufgeräumter.
 
 ```{r}
 #| warning: false
@@ -159,19 +164,59 @@ prop.test(damaged, berries) %>%
   model_parameters()
 ```
 
-Warum ist ein Test auf Anteile ein $\mathcal{X}^2$-Test?
+Warum ist ein Test auf Anteile ein $\mathcal{X}^2$-Test? Hierfür brauchen wir noch die Informationen zu den nicht beschädigten Erdbeeren.
+
+```{r}
+non_damaged <- berries - damaged 
+non_damaged
+```
+
+Nun können wir uns erstmal eine Tabelle bauen auf der wir dann den $\mathcal{X}^2$-Test und den `prop.test()` rechnen können. Der $\mathcal{X}^2$-Test ist nicht nur auf eine 2x2 Kreuztabelle beschränkt. Wir können in einem $\mathcal{X}^2$-Test auch andere $n \times m$ Tabellen testen. Auf der anderen Seite ist der `prop.test()` auf eine $n \times 2$ Tabelle beschränkt. Es müssen also immer zwei Spalten sein.
+
+```{r}
+#| warning: false
+#| message: false
+damaged_tab <- cbind(damaged, non_damaged) %>% 
+  as.table()
+damaged_tab
+```
+
+Schauen wir uns nun an, ob es einen Unterschied zwischen den vier Erntearten A bis D für die Erdbeeren gibt. Einmal nutzen wir hierfür die Funktion `chisq.test()` und einmal die Funktion `prop.test()`.
+
+```{r}
+#| warning: false
+#| message: false
+chisq.test(damaged_tab) %>% 
+  model_parameters()
+prop.test(damaged_tab) %>% 
+  model_parameters()
+```
+
+Nachdem wir beide Funktionen gerechnet haben, sehen wir, dass beide Tests auf der $\mathcal{X}^2$ Statistik basieren. Das macht ja auch Sinn, denn wir rechnen ja die *Proportions* indem wir die beobachteten Werte durch die Gesamtzahl berechnen.
+
+|           |     |                                   |                                   |               |
+|:---------:|:---:|:---------------------------------:|:---------------------------------:|:-------------:|
+|           |     |            **Damaged**            |                                   |               |
+|           |     |             *Yes (1)*             |             *No (0)*              |               |
+| **Group** | *A* | $\cfrac{41 \cdot 33}{65} = 20.82$ | $\cfrac{24 \cdot 33}{65} = 12.18$ | $\mathbf{33}$ |
+|           | *B* | $\cfrac{41 \cdot 32}{65} = 20.18$ | $\cfrac{24 \cdot 32}{65} = 11.82$ | $\mathbf{32}$ |
+|           |  C  |                                   |                                   |               |
+|           |  D  |                                   |                                   |               |
+|           |     |           $\mathbf{41}$           |           $\mathbf{24}$           |   $n = 65$    |
+
+: Eine 2x2 Tabelle als Beispiel für unterschiedliche Flohinfektionen bei Hunden und Katzen. Dargestellt sind die zu *erwartenden* Werte. {#tbl-chi-square-exp-2}
 
 https://stats.stackexchange.com/questions/2391/what-is-the-relationship-between-a-chi-squared-test-and-test-of-equal-proportion
 
 ```{r}
 #| warning: false
 #| message: false
-tab <- matrix(c(100, 80, 20, 10), ncol = 2)
+tab <- matrix(c(83, 90, 129, 70), ncol = 2)
 chisq.test(tab)
 prop.test(tab)
 ```
 
-Führen wir den Test nochmal detailierter mit dr Funktion `prop_test()` aus dem R Paket `rstatix` durch.
+Führen wir den Test nochmal detaillierter mit der Funktion `prop_test()` aus dem R Paket `rstatix` durch.
 
 ```{r}
 #| warning: false
