@@ -8,14 +8,24 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
+In diesem Kapitel wollen wir uns einmal die Metaanalyse oder indirekte Vergleiche anschauen. Wir halten das Kapitel bewusst kurz, denn wenn wir das Thema *ausführlich* behandeln wollten, dann wäre es ein eigenes Buch. Das wollen wir aber nicht, es reicht, wenn wir hier die Grundlagen verstehen. Das heißt vorallem, dass wir die Daten so erstellt kriegen, dass wir selber eine Metaanlyse rechnen können. Der Fokus ist hier auf den Agrarwissenschaften, aber die Beispiele wurden von mir aus dem "Doing Meta-Analysis with R: A Hands-On Guide" von @harrer2021doing adaptiert und in einen neuen Kontext gesetzt. Wenn du wirklich eine Metaanalyse rechnen willst, dann musst du nochmal durch das Buch von @harrer2021doing oder den Artikel von @balduzzi2019perform durcharbeiten.
+
+::: column-margin
+![](images/angel_01.png){fig-align="center" width="50%"}
+
+Das ist hier natürlich eine Metanalyse für Arme. Wie man es richtig umfangreich macht, findest du in einem sehr gutem und umfangreichen Tutorial zu [Doing Meta-Analysis in R: A Hands-on Guide](https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/)
+:::
+
+Noch als kleine Randbemerkung, wenn du aus den medizinischen Bereich kommst, dann solltest du die Leitlinien in den [Allgemeinen Methoden des Institut für Qualität und Wirtschaftlichkeit im Gesundheitswesen (IQWiG)](https://www.iqwig.de/ueber-uns/methoden/methodenpapier/) zu den Metaanalysen oder indirketen Vergleichen kennen.
+
 ## Genutzte R Pakete
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, conflicted, broom,
-               survminer, survival)
+pacman::p_load(tidyverse, magrittr, conflicted, 
+               meta)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -25,10 +35,107 @@ cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
 
-## Links
+## Das Modell mit fixen Effekten
 
-[Allgemeine Methoden des Institut für Qualität und Wirtschaftlichkeit im Gesundheitswesen (IQWiG)](https://www.iqwig.de/ueber-uns/methoden/methodenpapier/)
+Die Idee hinter dem Modell mit fixen Effekten (*eng. fixed effect*) ist, dass die beobachteten Effektgrößen von Studie zu Studie variieren können, was aber nur auf den Stichprobenfehler zurückzuführen ist. In Wirklichkeit sind die wahren Effektgrößen alle gleich: die Effekte sind fix. Aus diesem Grund wird das Modell mit festen Effekten manchmal auch als Modell mit "gleichen Effekten" oder "gemeinsamen Effekten" bezeichnet.
 
-Indirekte Vergleiche
+Das Modell der festen Effekte geht davon aus, dass alle unsere Studien Teil einer homogenen Population sind und dass die einzige Ursache für Unterschiede in den beobachteten Effekten der Stichprobenfehler der Studien ist. Wenn wir die Effektgröße jeder Studie ohne Stichprobenfehler berechnen würden, wären alle wahren Effektgrößen absolut gleich.
 
-https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/
+## Das Modell mit zufälligen Effekten
+
+Das Modell der zufälligen Effekte (*eng. random effect*) geht davon aus, dass es nicht nur eine wahre Effektgröße gibt, sondern eine Verteilung der wahren Effektgrößen. Das Ziel des Modells mit zufälligen Effekten ist es daher nicht, die eine wahre Effektgröße aller Studien zu schätzen, sondern den Mittelwert der Verteilung der wahren Effekte.
+
+In der Praxis ist es sehr ungewöhnlich, eine Auswahl von Studien zu finden, die vollkommen homogen ist. Dies gilt selbst dann, wenn wir uns an bewährte Verfahren halten und versuchen, den Umfang unserer Analyse so präzise wie möglich zu gestalten.
+
+In vielen Bereichen, einschließlich der Medizin und der Sozialwissenschaften, ist es daher üblich, immer ein Modell mit zufälligen Effekten zu verwenden, da ein gewisses Maß an Heterogenität zwischen den Studien praktisch immer zu erwarten ist. Ein Modell mit festen Effekten kann nur dann verwendet werden, wenn keine Heterogenität zwischen den Studien festgestellt werden konnte und wenn wir sehr gute Gründe für die Annahme haben, dass der wahre Effekt fest ist. Dies kann zum Beispiel der Fall sein, wenn nur exakte Replikationen einer Studie betrachtet werden oder wenn wir Teilmengen einer großen Studie meta-analysieren. Natürlich ist dies nur selten der Fall, und Anwendungen des Modells mit festem Effekt "in freier Wildbahn" sind eher selten.
+
+## Indirekte Vergleiche in R
+
+```{r}
+
+drymatter_iron_tbl <- read_excel("data/meta/drymatter_iron_studies.xlsx")
+sunflower_mold_tbl <- read_excel("data/meta/infected_sunflower_studies.xlsx")
+
+```
+
+```{r}
+m.mean <- metamean(n = n,
+                   mean = mean,
+                   sd = sd,
+                   studlab = author,
+                   data = drymatter_iron_tbl,
+                   sm = "MRAW",
+                   fixed = FALSE,
+                   random = TRUE,
+                   method.tau = "REML",
+                   hakn = TRUE,
+                   title = "Ertrag von Weizen nach Eisenbehandlung")
+summary(m.mean)
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-meta-1
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 9
+#| fig-cap: "foo."
+
+forest.meta(m.mean, 
+            sortvar = TE,
+            prediction = TRUE, 
+            print.tau2 = FALSE,
+            leftlabs = c("Author", "g", "SE"))
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-meta-2
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 9
+#| fig-cap: "foo."
+drapery(m.mean, 
+        labels = "studlab",
+        type = "pval", 
+        legend = FALSE)
+
+```
+
+```{r}
+m.prop <- metaprop(event = event,
+                   n = n,
+                   studlab = author,
+                   data = sunflower_mold_tbl,
+                   method = "GLMM",
+                   sm = "PLOGIT",
+                   fixed = FALSE,
+                   random = TRUE,
+                   hakn = TRUE,
+                   title = "Befall von Sonnenblumen mit Mehltau")
+summary(m.prop)
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-meta-3
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 9
+#| fig-cap: "foo."
+
+forest.meta(m.prop, 
+            sortvar = TE,
+            prediction = TRUE, 
+            print.tau2 = FALSE,
+            leftlabs = c("Author", "g", "SE"))
+
+```
+
+## Referenzen {.unnumbered}
