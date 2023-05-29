@@ -26,7 +26,7 @@ Die Nachteile von Permutationstests sind:
 In diesem Kapitel gebe ich eine kurze Übersicht über den Permutationstest. Es gibt einiges an Literatur und auch Kritik sowie Diskussionen. Ich finde den Permutationstest als eine gute Lösung, wenn i) genug Fallzahl vorliegt und damit mehr als 10 Beobachtungen pro Gruppe sowie ii) es keinen passenden Test gibt. Warum muss es genug Beobachtungen in den Gruppen bzw. dann in dem Datensatz geben? Wir müssen ja genug zufällige Daten permutieren. Wenn wir zu wenig Beobachtungen haben, dann wiederholen sich unsere zufälligen Datensätze sehr schnell.
 
 ::: column-margin
-Wie immer gibt es auch hier noch ein erweiteres Tutorium von Ben Bolker [Simple permutation tests in R](https://mac-theobio.github.io/QMEE/lectures/permutation_examples.notes.html)
+Wie immer gibt es auch hier noch ein erweiteres Tutorium von Ben Bolker [Simple permutation tests in R](https://mac-theobio.github.io/QMEE/lectures/permutation_examples.notes.html) oder aber das R Paket [infer](https://infer.netlify.app/).
 :::
 
 ## Genutzte R Pakete
@@ -102,6 +102,8 @@ mean_perm_tbl <- map_dfr(1:n_sim, \(x) {
 
 ```
 
+In der @fig-permut-01 sehen wir die Verteilung aller Mittelwertsdifferenzen, die aus unserem permutierten Datensätzen herausgekommem sind.
+
 ```{r}
 #| echo: false
 #| message: false
@@ -109,7 +111,7 @@ mean_perm_tbl <- map_dfr(1:n_sim, \(x) {
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "Histogram"
+#| fig-cap: "Histogramm der permutierten Mittelwertsdifferenzen"
 
 ggplot(mean_perm_tbl , aes(mean_diff)) +
   theme_bw() +
@@ -141,9 +143,11 @@ t.test(jump_length ~ animal, data = model_tbl) %>%
   round(3)
 ```
 
+Am Ende bleibt dann die Frage, wie viele Permutationen sollen es denn sein? Auch hier sehen wir dann, dass der t-Test signifikant ist, aber der Permutationstest noch nicht. Vielleicht helfen da mehr Permutationen? Oder aber der Effekt ist dann doch zu gering. Hier musst du dann immer überlegen, ob du nicht zu sehr an dem Signifikanzniveau von 5% klebst. Am Ende muss dann der permutierte $p$-Wert zudammen mit dem Effekt im Kontext der Fragestellung diskutiert werden.
+
 ## Bestimmtheitsmaß $R^2$
 
-Das vorherige Beispiel mit dem Mittelwertsvergleich war im Prinzip nur eine Fingerübung für den Ablauf. Wir können auch einfach einen t-Test rechnen und dann ist gut. Anders sieht es aus, wenn wir keinen $p$-Wert geliefert bekommen und auch keinen $H_0$ Testverteilung bekannt ist um einen $p$-Wert zu bestimmen. Das ist der Fall bei dem Bestimmtheitsmaß $R^2$. Wir haben hier keine Teststatistik und dadurch einen $p$-Wert vorliegen. Dagegen können wir dann mit einem Permutationstest was tun. Bei dem 95% Konfidenzintervall wird es dann schwieriger, hier müssen wir dann etwas anders permutierieren. Wir nutrzen dann die Bootstrap Konfidenzintervalle im nächsten Abschnitt.
+Das vorherige Beispiel mit dem Mittelwertsvergleich war im Prinzip nur eine Fingerübung für den Ablauf. Wir können auch einfach einen t-Test rechnen und dann ist gut. Anders sieht es aus, wenn wir keinen $p$-Wert geliefert bekommen und auch keinen $H_0$ Testverteilung bekannt ist um einen $p$-Wert zu bestimmen. Das ist der Fall bei dem Bestimmtheitsmaß $R^2$. Wir haben hier keine Teststatistik und dadurch einen $p$-Wert vorliegen. Dagegen können wir dann mit einem Permutationstest was tun. Bei dem 95% Konfidenzintervall wird es dann schwieriger, hier müssen wir dann etwas anders permutieren. Wir nutzen dann die Bootstrap Konfidenzintervalle im nächsten Abschnitt.
 
 ```{r}
 model_tbl %$%
@@ -152,12 +156,16 @@ model_tbl %$%
   pull(r.squared)
 ```
 
+Damit haben wir erstmal das Bestimmtheitsmaß aus unseren Daten berechnet. Jetzt stellt sich natürlich die Frage, wie wahrscheinlich ist es den dieses Bestimmtheitsmaß von 0.30 zu beobachten? Dafür lassen wir jetzt einen Permutationstest laufen in dem wir die Daten einmal durchmischen.
+
 ```{r}
 n_sim <- 1000
 
 r2_perm_tbl <- map_dfr(1:n_sim, \(x) {
   r2 <- model_tbl %>%
+    ## Permutation Start
     mutate(weight = sample(weight)) %$%
+    ## Permutation Ende    
     lm(jump_length ~ weight) %>% 
     glance() %>% 
     pull(r.squared)
@@ -166,6 +174,8 @@ r2_perm_tbl <- map_dfr(1:n_sim, \(x) {
 
 ```
 
+In der @fig-permut-02 sehen wir die Verteilung aller Bestimmtheitsmaße $R^2$, die aus unserem permutierten Datensätzen herausgekommem sind. Wir erkennen sofort, dass es wenig zufällig bessere Datensätze gibt, die ein höheres Bestimmtheitsmaße $R^2$ erzeugen.
+
 ```{r}
 #| echo: false
 #| message: false
@@ -173,21 +183,25 @@ r2_perm_tbl <- map_dfr(1:n_sim, \(x) {
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "Histogram"
+#| fig-cap: "Histogramm der permutierten Bestimmtheitsmaße $R^2$"
 
 ggplot(r2_perm_tbl, aes(r2)) +
   theme_bw() +
-  geom_histogram() +
+  geom_histogram(binwidth = 0.01) +
+  xlim(0, 1) +
+  ylim(0, 200) +
   geom_vline(xintercept = 0.291164, color = "red") +
   labs(x = expression(Permutiertes~Bestimmtheitsmaß~R^2),
        y = "Anzahl")
 ```
 
+Jetzt wollen wir einmal bestimmen wie viele Bestimmtheitsmaße $R^2$ größer sind als unser Bestimmtheitsmaß $R^2 = 0.29$ aus den Daten.
+
 ```{r}
 sum(r2_perm_tbl$r2 >= 0.291164)/n_sim 
 ```
 
-Ist das Gleiche als wenn wir dann den Mittelwert berechnen.
+Die Berechnung ist das Gleiche, als wenn wir den Mittelwert aus der logischen Abfrage berechnen würden.
 
 ```{r}
 mean(r2_perm_tbl$r2 >= 0.291164) 
@@ -196,6 +210,8 @@ mean(r2_perm_tbl$r2 >= 0.291164)
 ::: column-margin
 Teilweise wird diskutiert, ob der $p$-Wert hier noch mal 2 genommen werden muss, da wir ja eigentlich zweiseitig Testen wollen, aber da gehen die Meinungen auseinander. Ich belasse es so wie hier.
 :::
+
+Damit haben wir unseren $p$-Wert für das Bestimmtheitsmaß $R^2$ mit $0.013$. Das ist was wir wollten und somit können wir dann auch sagen, dass wir einen signifikantes Bestimmtheitsmaß $R^2$ vorliegen haben. Was noch fehlt ist das 95% Konfidenzintervall, was wir Mithilfe des Bootstrapverfahrens berechnen wollen.
 
 ## Bootstrap 95% Konfidenzintervalle
 
@@ -225,5 +241,3 @@ r2_boot_tbl %$%
 Wir hatten ein Bestimmtheitsmaß $R^2$ von $0.30$ berechnet und können dann die untere und obere 95% Konfidenzgrenze ergänzen. Wir erhaltend dann $0.300\, [0.016; 0.620]$, somit liegt unser beobachtetes Bestimmtheitsmaß $R^2$ mit 95% Sicherheit zwischen $0.016$ und $0.620$.
 
 ## Links
-
-https://infer.netlify.app/
