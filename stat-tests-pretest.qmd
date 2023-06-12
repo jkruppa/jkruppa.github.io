@@ -67,7 +67,53 @@ Auf jeden Fall sollten wir das Ergebnis unseres Pre-Tests auf Varianzhomogenitä
 
 Wir nutzen zum statistischen Testen den Levene-Test über die Funktion `leveneTest()` oder den Bartlett-Test über die Funktion `bartlett.test()`. Beide Tests sind in R implementiert und können über das Paket `car` genutzte werden. Wir werden uns jetzt nicht die Formel anschauen, wir nutzen wenn die beiden Tests nur in R und rechnen nicht selber die Werte nach.
 
-Einfach ausgedrückt, überprüft der Bartlett-Test die Homogenität der Varianzen auf der Grundlage des Mittelwerts. Der Leven Test überprüft die Homogenität der Varianzen auf der Grundlage des Medians ist also robuster gegenüber Ausreißern.
+Einfach ausgedrückt, überprüft der Bartlett-Test die Homogenität der Varianzen auf der Grundlage des Mittelwerts. Dementsprechend ist der Bartlett-Test empfindlicher gegen eine Abweichung von der Normalverteilung der Daten, die er überprüfen soll. Der Levene-Test überprüft die Homogenität der Varianzen auch auf der Grundlage des Mittelwerts. Wir haben aber auch die Wahl, den Median zu nutzen dann ist der Levene-Test robuster gegenüber Ausreißern.
+
+```{r}
+#| message: false
+
+fac1_tbl <- read_csv2("data/flea_dog_cat_fox.csv") %>%
+  select(animal, jump_length) %>% 
+  mutate(animal = as_factor(animal)) %>% 
+  filter(animal != "fox")
+```
+
+|  j  | dog  | cat |
+|:---:|:----:|:---:|
+|  1  | 5.7  | 3.2 |
+|  2  | 8.9  | 2.2 |
+|  3  | 11.8 | 5.4 |
+|  4  | 8.2  | 4.1 |
+|  5  | 5.6  | 4.3 |
+|  6  | 9.1  | 7.9 |
+|  7  | 7.6  | 6.1 |
+
+: Wide Format der Beispieldaten `fac1_tbl` für die jeweils $j=7$ Beobachtungen für den Faktor `animal`. {#tbl-fac1-wide-01}
+
+```{r}
+lm(jump_length ~ animal, data = fac1_tbl) %>% 
+  anova
+```
+
+$$
+Z_{ij} = \begin{cases}
+|Y_{ij} - \bar{Y}_{i\cdot}|, & \bar{Y}_{i\cdot} \text{ is a mean of the } i\text{-th group}, \\
+|Y_{ij} - \tilde{Y}_{i\cdot}|, & \tilde{Y}_{i\cdot} \text{ is a median of the } i\text{-th group}. \end{cases} 
+$$ $Z_{i\cdot} = \frac{1}{N_i} \sum_{j=1}^{N_i} Z_{ij}$ is the mean of the $Z_{ij}$ for group $i$
+
+$Z_{\cdot\cdot} = \frac{1}{N} \sum_{i=1}^k \sum_{j=1}^{N_i} Z_{ij}$ is the mean of all $Z_{ij}$
+
+$$
+L=\cfrac
+{\cfrac{1}{k-1}\sum_{j=1}^{k} n_j (\bar{Z}_j - \bar{Z})^2}
+{\cfrac {1}{n-k}\sum_{j=1}^k \sum_{i=1}^{n_j} (Z_{ji}-\bar{Z}_j)^2} = 
+\cfrac{\cfrac{SS_{trt}}{k-1}}{\cfrac {SS_{error}}{n-k}} =
+\cfrac{MS_{trt}}{MS_{error}}
+$$
+
+```{r}
+leveneTest(jump_length ~ animal, data = fac1_tbl, center = "mean")
+```
 
 ::: column-margin
 ![](images/angel_01.png){fig-align="center" width="50%"}
@@ -75,7 +121,7 @@ Einfach ausgedrückt, überprüft der Bartlett-Test die Homogenität der Varianz
 Einigermaßen zuverlässig meint, dass wir dann in 1 von 20 Fällen eine Varianzhomogenität ablehnen, obwohl eine Varianzhomogenität vorliegt. Ebenso können wir in 1 von 5 Fällen die Nullhypothese nicht ablehnen, obwohl die Varianzen heterogen sind (siehe auch @sec-alpha-beta).
 :::
 
-Wir wollen uns nun zwei Fälle einmal näher anschauen. Zum einen den Fall, dass wir eine niedrige Fallzahl vorliegen haben und Varianzhomogenität sowie den Fall, dass wir eine niedriege Fallzahl und Varianzheterogenität vorliegen haben. Den Fall, dass wir hohe Fallzahl vorliegen haben, betrachten wir jetzt nicht weiter. In dem Fall funktionieren die Tests einigigermaßen zuverlässig.
+Wir wollen uns nun zwei Fälle einmal näher anschauen. Zum einen den Fall, dass wir eine niedrige Fallzahl vorliegen haben und Varianzhomogenität sowie den Fall, dass wir eine niedrige Fallzahl und Varianzheterogenität vorliegen haben. Den Fall, dass wir hohe Fallzahl vorliegen haben, betrachten wir jetzt nicht weiter. In dem Fall funktionieren die Tests einigermaßen zuverlässig.
 
 ## Varianzen sind homogen, Fallzahl niedrig
 
@@ -107,12 +153,16 @@ ggplot(small_homogen_tbl, aes(trt, rsp, fill = trt)) +
   theme(legend.position = "none")
 ```
 
-Wir wollen nun die Varianz auf Homogenität testen. Wir nutzen dafür den `levenTest()` sowie den `bartlett.test()`. Beide Tests bieten sich an. Die Daumenregel ist, dass der Bartlett-Test etwas bessere statistische Eigenschaften hat. Dennoch ist der Levene-Test bekannter und wird häufiger angefragt und genutzt. Wir nutzen die Funktion `tidy()` aus dem Paket `broom` um die Ausgabe aufzuräumen und selektieren nur den $p$-Wert.
+Wir wollen nun die Varianz auf Homogenität testen. Wir nutzen dafür den `leveneTest()` sowie den `bartlett.test()`. Beide Tests bieten sich an. Die Daumenregel ist, dass der Bartlett-Test etwas bessere statistische Eigenschaften hat. Dennoch ist der Levene-Test bekannter und wird häufiger angefragt und genutzt. Wir nutzen die Funktion `tidy()` aus dem Paket `broom` um die Ausgabe aufzuräumen und selektieren nur den $p$-Wert.
 
 ```{r}
-leveneTest(rsp ~ trt, data = small_homogen_tbl) %>% tidy %>% select(p.value)
+leveneTest(rsp ~ trt, data = small_homogen_tbl) %>% 
+  tidy %>% 
+  select(p.value)
 
-bartlett.test(rsp ~ trt, data = small_homogen_tbl) %>% tidy %>% select(p.value)
+bartlett.test(rsp ~ trt, data = small_homogen_tbl) %>% 
+  tidy %>% 
+  select(p.value)
 ```
 
 Wir sehen, dass der $p$-Wert größer ist als das Signifikanzniveau $\alpha$ von 20%. Damit können wir die Nullhypothese nicht ablehnen. Wir nehmen Varianzhomogenität an. Überdies sehen wir auch, dass sich die $p$-Werte nicht groß voneinander unterscheiden.
@@ -120,7 +170,8 @@ Wir sehen, dass der $p$-Wert größer ist als das Signifikanzniveau $\alpha$ von
 Wir können auch die Funktion `check_homogeneity()` aus dem Paket `performance` nutzen. Wir erhalten hier auch gleich eine Entscheidung in englischer Sprache ausgegeben. Die Funktion `check_homogeneity()` nutzt den Bartlett-Test. Wir können in Funktion auch andere Methoden mit `method = c("bartlett", "fligner", "levene", "auto")` wählen.
 
 ```{r}
-lm(rsp ~ trt, data = small_homogen_tbl) %>% check_homogeneity()
+lm(rsp ~ trt, data = small_homogen_tbl) %>% 
+  check_homogeneity()
 ```
 
 Wir nutzen das Paket `performance` für die Modellgüte im @sec-lin-reg-quality.
@@ -158,9 +209,13 @@ ggplot(small_heterogen_tbl, aes(trt, rsp, fill = trt)) +
 Wir wollen nun die Varianz auf Homogenität testen. Wir nutzen dafür den `levenTest()` sowie den `bartlett.test()`. Wir können nur die Varianzhomogenität testen, da jeder statistischer Test nur eine Aussage über die Nullhypothese erlaubt. Damit können wir hier nur die Varianzhomogenität testen.
 
 ```{r}
-leveneTest(rsp ~ trt, data = small_heterogen_tbl) %>% tidy %>% select(p.value)
+leveneTest(rsp ~ trt, data = small_heterogen_tbl) %>% 
+  tidy %>% 
+  select(p.value)
 
-bartlett.test(rsp ~ trt, data = small_heterogen_tbl) %>% tidy %>% select(p.value)
+bartlett.test(rsp ~ trt, data = small_heterogen_tbl) %>% 
+  tidy %>% 
+  select(p.value)
 ```
 
 Wir sehen, dass der $p$-Wert kleiner ist als das Signifikanzniveau $\alpha$ von 20%. Damit können wir die Nullhypothese ablehnen. Wir nehmen Varianzheterogenität an. Überdies sehen wir auch, dass sich die $p$-Werte nicht groß voneinander unterscheiden. Was wir sehen ist, dass wir zu einem Signifikanzniveau von 5% die klare Varianzheterogenität nicht erkannt hätten und immer noch Varianzhomogenität angenommen hätten.
@@ -168,7 +223,8 @@ Wir sehen, dass der $p$-Wert kleiner ist als das Signifikanzniveau $\alpha$ von 
 Wir können auch die Funktion `check_homogeneity()` aus dem Paket `performance` nutzen. Wir erhalten hier auch gleich eine Entscheidung in englischer Sprache ausgegeben. Die Funktion `check_homogeneity()` nutzt den Bartlett-Test. Wir können in Funktion auch andere Methoden mit `method = c("bartlett", "fligner", "levene", "auto")` wählen.
 
 ```{r}
-lm(rsp ~ trt, data = small_heterogen_tbl) %>% check_homogeneity()
+lm(rsp ~ trt, data = small_heterogen_tbl) %>% 
+  check_homogeneity()
 ```
 
 Wir sehen, dass sich die Implementierung des Bartlett-Tests in `check_homogeneity()` nicht von der Funktion `bartlett.test()` unterscheidet, aber die Entscheidung gegen die Varianzhomogenität zu einem Signifikanzniveau von 5% gefällt wird. Nicht immer hilft einem der Entscheidungtext einer Funktion.
