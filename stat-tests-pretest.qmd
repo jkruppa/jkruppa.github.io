@@ -12,7 +12,10 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 Probleme mit dem Pre-Tests ist, dass die Fallzahl in unseren Daten $D$ oft **viel zu klein** ist um eine eindeutige Aussage zu treffen.
 :::
 
-Der Pre-Test, ein Kapiel was ich nicht mag. Also eher weniger das Kapitel als den Pre-Test. Auf der einen Seite sind die Pre-Tests hoffnungslos veraltet. Pre-Tests stammen aus einer Zeit in der man sich nicht einfach die Daten angucken konnte. Mit angucken meine ich dann in `ggplot` visualisieren. Die Idee hinter Pre-Test ist eigentlich die Angst selber die Entscheidung zu treffen, ob die Daten varianzhomogen oder normalverteilt sind. Eine bessere Lösung ist immer noch das Outcome $y$ zu transformieren (siehe @sec-eda-transform) und dann das untransformierte Modell mit transformierten Modell zu vergleichen (siehe @sec-model-basic-compare). Auf der anderen Seite ist der Pre-Test eine Art übermächtiger Entscheider. Dabei sind die Formel sehr trivial und das Konzept eher simpel.
+Der Pre-Test, ein Kapiel was ich nicht mag. Also eher weniger das Kapitel als den Pre-Test. Auf der einen Seite sind die Pre-Tests hoffnungslos veraltet. Pre-Tests stammen aus einer Zeit in der man sich nicht einfach die Daten angucken konnte. Mit angucken meine ich dann in `ggplot` visualisieren. Die Idee hinter Pre-Test ist eigentlich die Angst selber die Entscheidung zu treffen, ob die Daten varianzhomogen oder normalverteilt sind. Eine bessere Lösung ist immer noch das Outcome $y$ zu transformieren (siehe @sec-eda-transform) und dann das untransformierte Modell mit transformierten Modell zu vergleichen (siehe @sec-model-basic-compare). Auf der anderen Seite ist der Pre-Test eine Art übermächtiger Entscheider. Dabei sind die Formel sehr trivial und das Konzept eher simpel. Wir können uns aber folgende Faustregel merken:
+
+1)  Wir testen die Varianzhomogenität auf dem *ganzen* Datensatz.
+2)  Wir testen die Abweichung von der Normalverteilung für jede Behandlungsgruppe *getrennt*.
 
 Neben dieser Angst eine Entscheidung zu treffen, hilft einem der Pre-Test zur Varianzhomogenität und der Pre-Test zur Normalverteilung bei kleiner Fallzahl auch nicht wirklich weiter, wie wir gleich sehen werden. Beide Pre-Tests funktionieren erst bei wirklich hohen Fallzahlen gut. Mit hohen Fallzahlen meine ich, Fallzahlen von über 20 Beobachtungen *je Gruppe* bzw. Level des Faktors. Bei kleiner Fallzahl, also der üblichen Anzahl von weniger als zehn Wiederholungen, können wir auch nur die Boxplots oder Dotplots anschauen. Darüber hinaus können wir uns auch schnell ins Abseits testen, so dass wir gar keinen Test mehr übrig haben um unsere Daten auszuwerten.
 
@@ -28,8 +31,10 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, conflicted,
-               broom, car, performance, see)
+pacman::p_load(tidyverse, magrittr, 
+               broom, car, performance, 
+               see, scales,
+               conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -77,7 +82,7 @@ Einfach ausgedrückt, überprüft der Bartlett-Test die Homogenität der Varianz
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
-Im Folgenden wollen wir uns einmal in der Theorie den Levene-Test anschauen. Dafür nutzen wir als erstes die folgende Formel um die Teststatistik zu berechnen. Dabei ist $W$ die Teststatistik, die wir zu einer $F$-Verteilung, die wir schon aus der ANOVA kennen, vergleichen können.
+Im Folgenden wollen wir uns einmal in der Theorie den Levene-Test anschauen. Dafür nutzen wir als erstes die folgende vereinfachte, händische Formel um die Teststatistik zu berechnen. Dabei ist $W$ die Teststatistik, die wir zu einer $F$-Verteilung, die wir schon aus der ANOVA kennen, vergleichen können.
 
 $$
 W = \frac{(N-k)}{(k-1)} \cdot \frac{\sum_{i=1}^k N_i (\bar{Z}_{i\cdot}-\bar{Z}_{\cdot\cdot})^2} {\sum_{i=1}^k \sum_{j=1}^{N_i} (Z_{ij}-\bar{Z}_{i\cdot})^2}
@@ -88,9 +93,9 @@ Zur Veranschaulichung bauen wir uns einen simplen Datensatz mit $N = 14$ Beobach
 ```{r}
 #| message: false
 
-z_tbl <- tibble(dog = c(5.7, 8.9, 11.8, 8.2, 5.6, 9.1, 7.6),
-                cat = c(3.2, 2.2, 5.4, 4.1, 1.1, 7.9, 8.6))
-z_tbl
+animal_tbl <- tibble(dog = c(5.7, 8.9, 11.8, 8.2, 5.6, 9.1, 7.6),
+                     cat = c(3.2, 2.2, 5.4, 4.1, 1.1, 7.9, 8.6))
+animal_tbl
 ```
 
 Dann berechnen wir uns auch gleich die absoluten Abstände $Z_{ij}$ von jeder Beobachtung zu den jeweiligen Mittelwerten der Gruppe. Wir könnten auch die Abstände zu den jeweiligen Medianen der Gruppe berechnen. Beides ist möglich. Hier sehen wir auch den Unterschied zu der ANOVA, wir berechnen hier nicht die *quadratischen* Abstände sondern die absoluten Abstände.
@@ -98,7 +103,7 @@ Dann berechnen wir uns auch gleich die absoluten Abstände $Z_{ij}$ von jeder Be
 ```{r}
 #| message: false
 
-z_tbl <- z_tbl %>% 
+z_tbl <- animal_tbl %>% 
   mutate(dog_abs = abs(dog - mean(dog)),
          cat_abs = abs(cat - mean(cat)))
 z_tbl
@@ -142,22 +147,35 @@ Wir können dann alle Zahlen einmal zusammenbringen und in die Formel des Levene
 $$
 W = 
 \cfrac{14-2}{2-1}\cdot
-\cfrac{7 \cdot (1.57 - 1.92)^2 + 7 \cdot (2.28 - 1.92)^2}
+\cfrac{7 \cdot (1.57 - 1.93)^2 + 7 \cdot (2.28 - 1.93)^2}
 {10.39 + 11.43} =
 \cfrac{12}{1} \cdot \cfrac{1.76}{21.82} =
 \cfrac{36.96}{21.82} \approx 1.69
 $$
 
+Wir erhalten ein $W = 1.69$, was wir direkt als eine F-Statistik interpretieren können. Schauen wir uns das Ergegebnis einmal in der R Funktion `leveneTest()` aus dem R Paket `car` an. Wir brauchen dafür einmal die Werte für die Sprungweiten und müssen dann die Daten in das long-Format umbauen. Dann rechnen wir den Levene-Test. Wie meistens erhalten wir einen etwas anderen Wert in R als in der vereinfachten, händischen Formel. So weit sind die beiden Werte mit $0.97$ und $1.69$ aber nicht auseinander.
+
 ```{r}
 #| message: false
 #| warning: false
 z_tbl %>% 
+  select(dog, cat) %>% 
   gather(key = animal, value = jump_length) %$% 
   leveneTest(jump_length ~ animal, center = "mean")
 
 ```
 
-Wir wollen uns nun zwei Fälle einmal näher anschauen. Zum einen den Fall, dass wir eine niedrige Fallzahl vorliegen haben und Varianzhomogenität sowie den Fall, dass wir eine niedrige Fallzahl und Varianzheterogenität vorliegen haben. Den Fall, dass wir hohe Fallzahl vorliegen haben, betrachten wir jetzt nicht weiter. In dem Fall funktionieren die Tests einigermaßen zuverlässig.
+Der Levene-Test ist eigentlich nichts anderes als eine einfaktorielle ANOVA auf den absoluten Abständen von den einzelnen Werten zu dem Mittelwert oder dem Median. Das können wir hier einmal nachvollziehen indem wir auf den absoluten Werten einmal eine einfaktorielle ANOVA in R rechnen. Wir erhalten den gleichen F-Wert in beiden Fällen.
+
+```{r}
+z_tbl %>% 
+  select(dog_abs, cat_abs) %>% 
+  gather(key = animal, value = jump_length) %$% 
+  lm(jump_length ~ animal) %>% 
+  anova()
+```
+
+Wir wollen uns nun im Folgenden nun zwei Fälle einmal näher anschauen. Zum einen den Fall, dass wir eine niedrige Fallzahl vorliegen haben und Varianzhomogenität sowie den Fall, dass wir eine niedrige Fallzahl und Varianzheterogenität vorliegen haben. Den Fall, dass wir hohe Fallzahl vorliegen haben, betrachten wir jetzt nicht weiter. In dem Fall funktionieren die Tests einigermaßen zuverlässig.
 
 ## Varianzen sind homogen, Fallzahl niedrig
 
@@ -435,3 +453,23 @@ Super, jetzt haben wir für die eine Gruppe eine Normalverteilung und für die a
 Leider wissen wir im echten Leben nicht, aus welcher Verteilung unsere Daten stammen, wir können aber *annehmen*, dass die Daten einer Normalverteilung folgen oder aber die Daten so transformieren, dass die Daten einer approximativen Normalverteilung folgen. Siehe dazu auch das @sec-eda-transform zur Transformation von Daten.
 
 Wenn deine Daten *keiner* Normalverteilung folgen, dann kann es sein, dass du mit den Effektschätzern ein Problem bekommst. Du erfährst vielleicht, dass du die Nullhypothese ablehnen kannst, aber nicht wie stark der Effekt in der Einheit des gemessenen Outcomes ist.
+
+## Testen der Normalverteilung in mehrern Gruppen
+
+```{r}
+clove_tbl <- read_excel("data/clove_germ_rate.xlsx") %>% 
+  mutate(clove_strain = as_factor(clove_strain),
+         germ_rate = as.numeric(germ_rate))
+```
+
+```{r}
+clove_tbl %>% 
+  split(.$clove_strain) %>% 
+  map(~shapiro.test(.x$germ_rate)) %>% 
+  map(tidy) %>% 
+  bind_rows(.id = "test") %>%
+  select(test, p.value) %>% 
+  mutate(decision = ifelse(p.value <= 0.05, "reject normal", "normal"),
+         p.value = pvalue(p.value, accuracy = 0.001))
+
+```
