@@ -2,13 +2,15 @@
 
 *Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
 
+> *"Until I realized, it is the struggle itself that is most important. We must strive to be more than we are, Lal. It does not matter that we will never reach our ultimate goal. The effort yields its own rewards."* --- Lieutenant Commander Data, Star Trek: The Next Generation, The Offspring
+
 ::: callout-caution
 ## Was soll das hier? Ziemlich wild alles...
 
 Dieses Kapitel dient dazu *fortgeschrittene* Programmierung in R zu präsentieren. Teilweise nutze ich komplexeren Code bei der [Auswertung von den Beispielen](https://jkruppa.github.io/application/). Wenn dich also Programmieren interessiert, dann kannst du dir hier noch was anschauen. Das Kapitel ist eigentlich nie fertig, da ich sicherlich immer mal wieder was ergänzen werde.
 :::
 
-In diesem Kapitel geht es hauptsählich um [Iterationen](https://r4ds.had.co.nz/iteration.html#iteration). Das heißt wir wollen immer das Gleiche auf verschiedene unterschiedliche Dinge anwenden. In unserem Fall ist das "Gleiche" eine Funktion `function(...){}` in R und das "Unterschiedliche" sind Einträge in einer Liste `lst()` oder einem Datensatz `tibble()`. Wir wollen also zum Beispiel auf verschiedenen Datensätzen mit fünf unterschiedlichen Outcomes immer wieder eine multiple lineare Regression rechnen. Anstatt also per Copy&Paste fünfmal den Code zu kopieren, wollen wir alle Datensätze in einer Liste speichern und die Liste dann in einem Schwung auswerten. Das geht natürlich nur eingeschränkt. Wir müssen ja noch beachten, dass jedes Outcome einer anderen Verteilung folgen könnte.
+In diesem Kapitel geht es hauptsächlich um [Iterationen](https://r4ds.had.co.nz/iteration.html#iteration). Das heißt wir wollen immer das Gleiche auf verschiedene unterschiedliche Dinge anwenden. In unserem Fall ist das "Gleiche" eine Funktion `function(...){}` in R und das "Unterschiedliche" sind Einträge in einer Liste `lst()` oder einem Datensatz `tibble()`. Wir wollen also zum Beispiel auf verschiedenen Datensätzen mit fünf unterschiedlichen Outcomes immer wieder eine multiple lineare Regression rechnen. Anstatt also per Copy&Paste fünfmal den Code zu kopieren, wollen wir alle Datensätze in einer Liste speichern und die Liste dann in einem Schwung auswerten. Das geht natürlich nur eingeschränkt. Wir müssen ja noch beachten, dass jedes Outcome einer anderen Verteilung folgen könnte.
 
 Wie wir die Daten in Gruppen zusammenfassen ist unterschiedlich möglich. Ich präsentiere hier zum einen die Funktion `split()`, die Daten in Listen aufteilt sowie die Funktion `nest()` die Daten in ein `tibble` zusammenfaltet. Beide Varianten haben so ihre Vor- und Nachteile. Wie immer kommt es dann auf die Anwendung an und was du machen willst.
 
@@ -23,7 +25,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, rstatix, 
                janitor, purrr, furrr, see,
                readxl, tictoc, multcompView, 
-               parameters,
+               parameters, scales,
                conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
@@ -159,6 +161,49 @@ spinach_nest_tbl %>%
   mutate(across(where(is.numeric), round, 2)) %>% 
   filter(parameter != "Residuals") %>% 
   select(sample, outcome, parameter, p)
+```
+
+Hier noch ein weiteres Beispiel für `split()`, `nest()` und `nest_by()` zum Ausprobieren und rumspielen. Wir wollen für hier einmal auf ganze vielen Behandlungen den Shapiro-Wilk-Tests für die Abweichung von der Normalverteilung rechnen. Dazu laden wir uns einmal die Daten `clove_germ_rate.xlsx`.
+
+```{r}
+clove_tbl <- read_excel("data/clove_germ_rate.xlsx") %>% 
+  mutate(clove_strain = as_factor(clove_strain),
+         germ_rate = as.numeric(germ_rate))
+```
+
+Wir rechnen einmal die Shapiro-Wilk-Tests über die Funktion `split()` und dann einer Liste.
+
+```{r}
+clove_tbl %>% 
+  split(.$clove_strain) %>% 
+  map(~shapiro.test(.x$germ_rate)) %>% 
+  map(tidy) %>% 
+  bind_rows(.id = "test") %>%
+  select(test, p.value) %>% 
+  mutate(decision = ifelse(p.value <= 0.05, "reject normal", "normal"),
+         p.value = pvalue(p.value, accuracy = 0.001))
+
+```
+
+Dann das selbe nochmal mit der Funktion `nest_by()`, die jetzt Vektoren generiert.
+
+```{r}
+clove_tbl %>% 
+  nest_by(clove_strain) %>% 
+  mutate(shapiro = map(data, ~shapiro.test(.x)),
+         clean = tidy(shapiro)) %>% 
+  reframe(clean)
+```
+
+Und nochmal mit der Pipe von `group_by()` zu `nest()`. Die Funktion `nest()` hate auch eine `.by =`-Option, so dass wir auch den Schritt mit `group_by()` weglassen könnten.
+
+```{r}
+clove_tbl %>%
+  group_by(clove_strain) %>% 
+  nest() %>% 
+  mutate(shapiro = map(data, ~shapiro.test(.x$germ_rate)),
+         clean = map(shapiro, tidy)) %>% 
+  unnest(clean)
 ```
 
 ## Mit `furrr` parallel über Daten {#sec-furrr}
