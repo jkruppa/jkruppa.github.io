@@ -6,6 +6,8 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 *Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
 
+> *"Alles, was wir hören, ist eine Meinung, keine Tatsache. Alles, was wir sehen, ist eine Perspektive, nicht die Wahrheit." --- Marcus Aurelius, Meditationen*
+
 ::: column-margin
 Eine wunderbare Übersicht über den Begriff *Effektschätzer* liefert das englische Buch [Doing Meta-Analysis with R: A Hands-On Guide](https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/effects.html).
 :::
@@ -43,13 +45,14 @@ $$
 Dieses Wissen brauchen wir um die Signifikanzschwelle bei einem 95% Konfidenzintervall richtig zu setzen und interpretieren zu können. Siehe dazu auch nochmal das @sec-ki.
 :::
 
-## Genutzte R Pakete für das Kapitel
+## Genutzte R Pakete
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, conflicted, see, effectsize)
+pacman::p_load(tidyverse, magrittr, conflicted, see, 
+               effectsize, parameters, lsmeans, broom)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -336,5 +339,72 @@ oddsratio_to_riskratio(OR, baserate) %>% round(2)
 ```
 
 Weil wir natürlich das Basisrisiko nur abschätzen können, verbleibt hier eine gewisse Unsicherheit, wie das $RR$ zu einem gegebenen $OR$ aussieht.
+
+## Wirkungsgrad von Pflanzenschutzmitteln
+
+@finner1989berechnung
+
+```{r}
+mite_tbl <- read_excel("data/raubmilben_data.xlsx", sheet = "mite") %>% 
+  pivot_longer(block_1:block_5,
+               names_to = "block",
+               values_to = "count") %>% 
+  mutate(block = factor(block, labels = 1:5),
+         sorte = as_factor(sorte))
+```
+
+```{r}
+trespe_tbl <- read_excel("data/raubmilben_data.xlsx", sheet = "trespe") %>% 
+  pivot_longer(block_1:block_4,
+               names_to = "block",
+               values_to = "count") %>% 
+  mutate(block = factor(block, labels = 1:4),
+         variante = as_factor(variante))
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| label: fig-effect-1
+#| fig-cap: "dst."
+#| fig-subcap: 
+#|   - "Verteilung der beobachteten Werte."
+#|   - "Verteilung der theoretischen Werte."
+#| layout-nrow: 2
+#| column: page
+
+ggplot(mite_tbl, aes(sorte, count, color = block)) +
+  theme_bw() +
+  geom_point(size = 3)
+  
+ggplot(mite_tbl, aes(sorte, log(count), color = block)) +
+  theme_bw() +
+  geom_point(size = 3)  
+  
+```
+
+```{r}
+#| message: false
+#| warning: false
+
+fit <- glm(count ~ variante + block, data = trespe_tbl, family = poisson) 
+
+fit %>% 
+  model_parameters(exponentiate = FALSE)
+
+fit %>% lsmeans(~variante, type = "response")
+
+fit %>% 
+  lsmeans(~variante, type = "response") %>% 
+  tidy() %>% 
+  mutate(WG_Abbott = (estimate[1] - estimate)/estimate[1])
+
+
+
+```
 
 ## Referenzen {.unnumbered}
