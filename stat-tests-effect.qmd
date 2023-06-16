@@ -51,8 +51,9 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, conflicted, see, 
-               effectsize, parameters, lsmeans, broom)
+pacman::p_load(tidyverse, magrittr, see, scales,
+               effectsize, parameters, broom,
+               emmeans, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -381,22 +382,24 @@ trespe_tbl <- read_excel("data/raubmilben_data.xlsx", sheet = "trespe") %>%
 #| fig-height: 3
 #| fig-width: 5
 #| label: fig-effect-1
-#| fig-cap: "dst."
+#| fig-cap: "Dotplot der Anzahl an Raubmilden je Sorte und Block."
 #| fig-subcap: 
-#|   - "Verteilung der beobachteten Werte."
-#|   - "Verteilung der theoretischen Werte."
-#| layout-nrow: 2
+#|   - "Verteilung der Werte auf der originalen Skala."
+#|   - "Verteilung der Werte auf der logarithmischen Skala. Beobachtungen mit einer 0 Zählung wurden auf 1 gesetzt."
+#| layout-nrow: 1
 #| column: page
 
-ggplot(mite_tbl, aes(sorte, count, color = block)) +
+ggplot(mite_tbl, aes(sorte, count, fill = block)) +
   theme_bw() +
-  geom_point(size = 3) +
-  scale_color_okabeito()
+  geom_dotplot(binaxis = "y", stackdir = "center") +
+  labs(x = "Sorten", y = "Anzahl", fill = "Block") +
+  scale_fill_okabeito()
   
-ggplot(mite_tbl, aes(sorte, log(count), color = block)) +
+ggplot(mite_tbl, aes(sorte, log1p(count), fill = block)) +
   theme_bw() +
-  geom_point(size = 3) +
-  scale_color_okabeito() 
+  geom_dotplot(binaxis = "y", stackdir = "center") +
+  labs(x = "Sorten", y = "log(Anzahl)", fill = "Block") +
+  scale_fill_okabeito()
   
 ```
 
@@ -404,18 +407,24 @@ ggplot(mite_tbl, aes(sorte, log(count), color = block)) +
 #| message: false
 #| warning: false
 
-fit <- glm(count ~ variante + block, data = trespe_tbl, family = poisson) 
+fit <- glm(count ~ variante + block, data = trespe_tbl, family = poisson)
+```
 
+```{r}
+#| message: false
+#| warning: false
 fit %>% 
-  model_parameters(exponentiate = FALSE)
+  model_parameters(exponentiate = TRUE)
+```
 
-fit %>% lsmeans(~variante, type = "response")
-
+```{r}
+#| message: false
+#| warning: false
 fit %>% 
-  lsmeans(~variante, type = "response") %>% 
+  emmeans(~variante, type = "response") %>% 
   tidy() %>% 
-  mutate(WG_Abbott = (estimate[1] - estimate)/estimate[1])
-
+  mutate(WG_Abbott = percent((rate[1] - rate)/rate[1])) %>% 
+  select(variante, rate, WG_Abbott)
 
 
 ```
