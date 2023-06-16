@@ -407,18 +407,13 @@ fit <- glm(count ~ variante + block, data = trespe_tbl, family = poisson)
 #| message: false
 #| warning: false
 fit %>% 
-  model_parameters(exponentiate = TRUE)
-```
-
-```{r}
-#| message: false
-#| warning: false
-fit %>% 
   emmeans(~variante, type = "response") %>% 
   tidy() %>% 
-  mutate(WG_Abbott = percent((rate[1] - rate)/rate[1])) %>% 
-  select(variante, rate, WG_Abbott)
+  mutate(WG_abbott = percent((rate[1] - rate)/rate[1])) %>% 
+  select(variante, rate, WG_abbott)
 ```
+
+Im zweiten Beispiel wollen wir uns mit dem geometrischen Mittel $WG_{geometric}$ als Schätzer für den Wirkungsgrad beschäftigen. Hier kochen wir dann einmal die Veröffentlichung von @finner1989berechnung nach. Dafür brauchen wir einmal die Daten zu den Raubmilben, die ich schon als Exceldatei aufbereitet habe. Wie immer sind die Rohdaten im Wide-Format, wir müssen aber im Long-Format rechnen. Da bauen wir uns also einmal schnell die Daten um. Dann wollen wir noch die Anzahlen der Raubmilben logarithmieren, so dass wir jede Anzahl um 1 erhöhen um logarithmierte Nullen zu vermeiden. Das ganze machen wir dann in einem Rutsch mit der Funktion `log1p()`.
 
 ```{r}
 mite_tbl <- read_excel("data/raubmilben_data.xlsx", sheet = "mite") %>% 
@@ -429,6 +424,8 @@ mite_tbl <- read_excel("data/raubmilben_data.xlsx", sheet = "mite") %>%
          sorte = as_factor(sorte),
          log_count = log1p(count))
 ```
+
+Schauen wir uns einmal die Daten in der @fig-effect-2 an.
 
 ```{r}
 #| echo: true
@@ -460,66 +457,50 @@ ggplot(mite_tbl, aes(sorte, log1p(count), fill = block)) +
 ```
 
 ```{r}
-#| message: false
-#| warning: false
+get_q <- function(x){100 * (1 - x)}
+n_group <- 5
+```
 
-fit <- glm(count ~ sorte + block, data = mite_tbl, family = poisson)
+$$
+\tau = \left(\cfrac{\prod y_j}{\prod y_{ctrl}}\right)^{1/n_g}
+$$
 
-fit <- glm(log_count ~ sorte + block, data = mite_tbl, family = poisson)
+```{r}
+residual_tbl <- lm(log_count ~ sorte + block, data = mite_tbl) %>% 
+  glance() %>% 
+  select(df.residual, sigma)
+residual_tbl
+```
 
-mite_tbl %>% 
-  filter(sorte == 8 | sorte == "ctrl") %>% 
-  mutate(count = count + 1)
+```{r}
+t_quantile <- qt(p = 0.05, df = residual_tbl$df.residual, lower.tail = FALSE)
+t_quantile
+```
 
-((5*2*1*1*2)/(47*33*63*91*21))^(1/5)
-
-0.24/10
-
-foo <- mite_tbl %>% 
-  select(sorte, block, count) %>% 
-  pivot_wider(names_from = block,
-              values_from = count)
-foo
-
+```{r}
 mite_tbl %>% 
   mutate(count = count + 1) %>% 
   group_by(sorte) %>% 
   summarise(prod = prod(count)) %>% 
-  mutate(GM = 1 - (prod/prod[9])^(1/5),
-         a = sqrt(2/5) * 0.9621 * 1.694 + log((prod/prod[9])^(1/5)),
-         KI = 100*(1 - exp(a)))
-```
-
-```{r}
-lm(log_count ~ sorte + block, data = mite_tbl) %>% 
-  glance() %>% 
-  pull(sigma)
+  mutate(tau = (prod/prod[9])^(1/n_group),
+         WG_geometric = get_q(tau),
+         a = sqrt(2/n_group) * residual_tbl$sigma * t_quantile + log(tau),
+         KI = get_q(exp(a)))
 ```
 
 $$
 [-\infty; a] 
-$$ $$
+$$
+
+$$
 a = \sqrt{2/n} \cdot s \cdot t_{(t-1)(n-1),\,\alpha} + \ln(1 - GM)
 $$
 
 ```{r}
-qt(p = 0.05, df = 32, lower.tail = FALSE)
-```
-
-```{r}
-a <- sqrt(2/5) * 0.9621 * 1.694 + log(0.04036)
-a
-```
-
-```{r}
-100*(1 - exp(a))
-```
-
-```{r}
 #| message: false
 #| warning: false
-fit %>% 
-  model_parameters(exponentiate = TRUE)
+
+fit <- glm(count ~ sorte + block, data = mite_tbl, family = poisson)
 ```
 
 ```{r}
@@ -528,7 +509,7 @@ fit %>%
 fit %>% 
   emmeans(~sorte, type = "response") %>% 
   tidy() %>% 
-  mutate(WG_Abbott = percent((rate[9] - rate)/rate[9])) 
+  mutate(WG_abbott = percent((rate[9] - rate)/rate[9])) 
 
 fit %>% 
   emmeans(~sorte, type = "link") 
