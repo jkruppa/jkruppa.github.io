@@ -354,7 +354,7 @@ mit
 -   $Y_n$ Anzahl lebend in der Behandlung
 -   $X_n$ Anzahl lebend in der Kontrolle
 
-Natürlich ist die Formel wieder sehr abstrakt, deshalb haben wir zwei Beispieldaten. Zuerst schauen wir uns einen Datensatz zu dem Befall mit Trespe an. Wir haben also Parzellen in denen sich die Trespe ausbreitet und haben verschiedene Behandlungen durchgeführt. Wichtig hierbei, wir haben auch Parzellen woe wir nichts gemacht haben, das ist dann unsere positive Kontrolle (*ctrl*).
+Natürlich ist die Formel wieder sehr abstrakt, deshalb haben wir zwei Beispieldaten. Zuerst schauen wir uns einen Datensatz zu dem Befall mit Trespe an. Wir haben also Parzellen in denen sich die Trespe ausbreitet und haben verschiedene Behandlungen durchgeführt. Wichtig hierbei, wir haben auch Parzellen wo wir nichts gemacht haben, das ist dann unsere positive Kontrolle (*ctrl*). Da unsere Daten nicht im Long-Format vorliegen müssen wir die Daten erst noch anpassen und dann die Spalte `block` in einen Faktor umwandeln.
 
 ```{r}
 trespe_tbl <- read_excel("data/raubmilben_data.xlsx", sheet = "trespe") %>% 
@@ -364,6 +364,8 @@ trespe_tbl <- read_excel("data/raubmilben_data.xlsx", sheet = "trespe") %>%
   mutate(block = factor(block, labels = 1:4),
          variante = as_factor(variante))
 ```
+
+In der @fig-effect-1 sehen wir nochmal die orginalen, untransformierten Daten sowie die log-transformierten Daten.
 
 ```{r}
 #| echo: true
@@ -395,12 +397,37 @@ ggplot(trespe_tbl, aes(variante, log1p(count), fill = block)) +
 ```
 
 ```{r}
+#| message: false
+#| warning: false
+
+fit <- glm(count ~ variante + block, data = trespe_tbl, family = poisson)
+```
+
+```{r}
+#| message: false
+#| warning: false
+fit %>% 
+  model_parameters(exponentiate = TRUE)
+```
+
+```{r}
+#| message: false
+#| warning: false
+fit %>% 
+  emmeans(~variante, type = "response") %>% 
+  tidy() %>% 
+  mutate(WG_Abbott = percent((rate[1] - rate)/rate[1])) %>% 
+  select(variante, rate, WG_Abbott)
+```
+
+```{r}
 mite_tbl <- read_excel("data/raubmilben_data.xlsx", sheet = "mite") %>% 
   pivot_longer(block_1:block_5,
                names_to = "block",
                values_to = "count") %>% 
   mutate(block = factor(block, labels = 1:5),
-         sorte = as_factor(sorte))
+         sorte = as_factor(sorte),
+         log_count = log1p(count))
 ```
 
 ```{r}
@@ -436,7 +463,56 @@ ggplot(mite_tbl, aes(sorte, log1p(count), fill = block)) +
 #| message: false
 #| warning: false
 
-fit <- glm(count ~ variante + block, data = trespe_tbl, family = poisson)
+fit <- glm(count ~ sorte + block, data = mite_tbl, family = poisson)
+
+fit <- glm(log_count ~ sorte + block, data = mite_tbl, family = poisson)
+
+mite_tbl %>% 
+  filter(sorte == 8 | sorte == "ctrl") %>% 
+  mutate(count = count + 1)
+
+((5*2*1*1*2)/(47*33*63*91*21))^(1/5)
+
+0.24/10
+
+foo <- mite_tbl %>% 
+  select(sorte, block, count) %>% 
+  pivot_wider(names_from = block,
+              values_from = count)
+foo
+
+mite_tbl %>% 
+  mutate(count = count + 1) %>% 
+  group_by(sorte) %>% 
+  summarise(prod = prod(count)) %>% 
+  mutate(GM = 1 - (prod/prod[9])^(1/5),
+         a = sqrt(2/5) * 0.9621 * 1.694 + log((prod/prod[9])^(1/5)),
+         KI = 100*(1 - exp(a)))
+```
+
+```{r}
+lm(log_count ~ sorte + block, data = mite_tbl) %>% 
+  glance() %>% 
+  pull(sigma)
+```
+
+$$
+[-\infty; a] 
+$$ $$
+a = \sqrt{2/n} \cdot s \cdot t_{(t-1)(n-1),\,\alpha} + \ln(1 - GM)
+$$
+
+```{r}
+qt(p = 0.05, df = 32, lower.tail = FALSE)
+```
+
+```{r}
+a <- sqrt(2/5) * 0.9621 * 1.694 + log(0.04036)
+a
+```
+
+```{r}
+100*(1 - exp(a))
 ```
 
 ```{r}
@@ -450,11 +526,12 @@ fit %>%
 #| message: false
 #| warning: false
 fit %>% 
-  emmeans(~variante, type = "response") %>% 
+  emmeans(~sorte, type = "response") %>% 
   tidy() %>% 
-  mutate(WG_Abbott = percent((rate[1] - rate)/rate[1])) %>% 
-  select(variante, rate, WG_Abbott)
+  mutate(WG_Abbott = percent((rate[9] - rate)/rate[9])) 
 
+fit %>% 
+  emmeans(~sorte, type = "link") 
 
 ```
 
