@@ -485,11 +485,40 @@ get_q <- function(x){100 * (1 - x)}
 n_group <- 5
 ```
 
-Wir nutezn jetzt das [geometrisches Mittel](#sec-desc-stat-geometric) um den Effekt der Behandlung bzw. Sorte im Verhältnis zur Kontrolle zu berechnen. Hierbei ist es wichtig sich zu erinnern, dass wir nicht alle paarweisen Vergleiche rechnen, sondern nur jede Sorte zu der Kontrolle vergleichen. Dabei nutzen wir dann das Verhältnis der geometrisches Mittel um zu Beschreiben um wie viel weniger Befall mit Raubmilden wir in den Sorten im Verhältnis zur Kontrolle vorliegen haben.
+Wir nutezn jetzt das [geometrisches Mittel](#sec-desc-stat-geometric) um den Effekt der Behandlung bzw. Sorte im Verhältnis zur Kontrolle zu berechnen. Hierbei ist es wichtig sich zu erinnern, dass wir nicht alle paarweisen Vergleiche rechnen, sondern nur jede Sorte $j$ zu der Kontrolle $ctrl$ vergleichen. Dabei nutzen wir dann das Verhältnis der geometrisches Mittel um zu Beschreiben um wie viel weniger Befall mit Raubmilden wir in den Sorten $y_j$ im Verhältnis zur Kontrolle $y_{ctrl}$ vorliegen haben.
 
 $$
 \Delta_{geometric} = \left(\cfrac{\prod_{i=1}^n y_j}{\prod_{i=1}^n y_{ctrl}}\right)^{1/n_j} \mbox{ für Sorte } j 
 $$
+
+Berechnen wir also als erstes einmal das Produkt aller gezählten Raubmilden pro Sorte und speichern das Ergebnis in der Spalte `prod`.
+
+```{r}
+mite_wg_gemetric_tbl <- mite_tbl %>% 
+  mutate(count = count + 1) %>% 
+  group_by(sorte) %>% 
+  summarise(prod = prod(count)) 
+mite_wg_gemetric_tbl
+```
+
+Jetzt können wir im nächsten Schritt einmal das $\Delta_{geometric}$ berechnen und dann den Wirkungsgrad über die Gegenwahrscheinlichkeit. Wichtig ist hier, dass die Kontrolle in der neunten Zeile ist. Daher teilen wir immer durch das Produkt an neunter Position mit `prod[9]`. Wir sehen ganz klar, das wir ein Delta von 1 für die Kontrolle erhalten, da wir ja die Kontrolle ins Verhältnis zur Kontrolle setzen. Damit sollte der Rest auch geklappt haben. Den Wirkungsgrad der Sorten in Prozent gegen Raubmilbenbefall im Verhältnis zur Kontrolle können wir dann direkt ablesen. Die Funktion `percent()` berechnet uns aus den Gegenwahrscheinlichkeiten dann gleich die Prozent. Wir brauchen daher hier noch nicht unsere Funktion `get_q()`.
+
+```{r}
+mite_wg_gemetric_tbl %>% 
+  mutate(delta_geometric = (prod/prod[9])^(1/n_group),
+         WG_geometric = percent(1 - delta_geometric))
+```
+
+Soweit haben wir erstmal nur eine andere Variante des Wirkungsgrades berechnet. Im Gegensatz zu der Berechnung nach @abbott1925method können wir aber bei den geometrischen Wirkungsgrad auch ein einseitiges 95% Konfidenzintervall $[-\infty; upper]$ angeben. Dafür müssen wir erstmal den Exponenten $a$ berechnen und mit diesem dann die obere Konfidenzschranke $upper$. Dafür brauchen wir dann doch ein paar statistische Maßzahlen.
+
+$$
+\begin{align}
+a &= \sqrt{2/n} \cdot s \cdot t_{\alpha=5\%} + \ln(1 - \Delta_{geometric})\\
+upper &= 1 - e^a
+\end{align}
+$$
+
+Wir brauchen zum einen die Freiheitsgrade der Residuen `df.residual` sowie den Standardfehler der Residuen `sigma` oder $s$. Beides erhalten wir aus einem linearen Modell auf den logarithmierten Anzahlen der Raubmilben.
 
 ```{r}
 residual_tbl <- lm(log_count ~ sorte + block, data = mite_tbl) %>% 
@@ -498,29 +527,24 @@ residual_tbl <- lm(log_count ~ sorte + block, data = mite_tbl) %>%
 residual_tbl
 ```
 
+Mit den Freiheitsgraden der Residuen können wir jetzt den kritischen Wert $t_{\alpha = 5\%}$ aus der $t$-Verteilung berechnen.
+
 ```{r}
 t_quantile <- qt(p = 0.05, df = residual_tbl$df.residual, lower.tail = FALSE)
 t_quantile
 ```
 
+Wir können jetzt unseren Datensatz `mite_wg_gemetric_tbl` um die Spalte mit den Werten des Exponenten $a$ ergänzen und aus diesem dann die obere Schranke des einseitigen 95% Konfidenzintervall berechnen. Die Werte für die Kontrolle ergeben keinen biologischen Sinn und sind ein matehmatisches Artefakt. Wir kriegen halt immer irgendwelche Zahlen raus.
+
 ```{r}
-mite_tbl %>% 
-  mutate(count = count + 1) %>% 
-  group_by(sorte) %>% 
-  summarise(prod = prod(count)) %>% 
-  mutate(tau = (prod/prod[9])^(1/n_group),
-         WG_geometric = get_q(tau),
-         a = sqrt(2/n_group) * residual_tbl$sigma * t_quantile + log(tau),
-         KI = get_q(exp(a)))
+#| message: false
+#| warning: false
+mite_wg_gemetric_tbl %>% 
+  mutate(delta_geometric = (prod/prod[9])^(1/n_group),
+         WG_geometric = get_q(delta_geometric),
+         a = sqrt(2/n_group) * residual_tbl$sigma * t_quantile + log(delta_geometric),
+         upper = get_q(exp(a)))
 ```
-
-$$
-[-\infty; a] 
-$$
-
-$$
-a = \sqrt{2/n} \cdot s \cdot t_{(t-1)(n-1),\,\alpha} + \ln(1 - GM)
-$$
 
 ```{r}
 #| message: false
