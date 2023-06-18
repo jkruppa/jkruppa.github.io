@@ -367,6 +367,8 @@ read_excel("data/raubmilben_data.xlsx", sheet = "trespe") %>%
   kable(align = "c", "pipe")
 ```
 
+Laden wir einmal den Datensatz in R und verwandeln das Wide-Format in das Long-Format. Dann natürlich wie immer alle Faktoren als Faktoren mutieren.
+
 ```{r}
 trespe_tbl <- read_excel("data/raubmilben_data.xlsx", sheet = "trespe") %>% 
   pivot_longer(block_1:block_4,
@@ -376,7 +378,7 @@ trespe_tbl <- read_excel("data/raubmilben_data.xlsx", sheet = "trespe") %>%
          variante = as_factor(variante))
 ```
 
-In der @fig-effect-1 sehen wir nochmal die orginalen, untransformierten Daten sowie die log-transformierten Daten.
+In der @fig-effect-1 sehen wir nochmal die orginalen, untransformierten Daten sowie die $log$-transformierten Daten. Wir nutzen die Funkrion `log1p()` um die Anzahl künstlich um 1 zu erhöhen, damit wir Nullen in den Zähldaten zum Logarithmieren vermeiden.
 
 ```{r}
 #| echo: true
@@ -407,12 +409,16 @@ ggplot(trespe_tbl, aes(variante, log1p(count), fill = block)) +
   
 ```
 
+Nun geht es eigentlich ganz fix den Wirkungsgrad nach Abbott zu berechnen. Erstmal schätzen wir eine Poissonregression mit der Anzahl der Trespen als Outcome. Es ist wichtig in der Funktion `glm()` die Option `family = poisson` zu setzen. Sonst rechnen wir auch keine Poissonregression.
+
 ```{r}
 #| message: false
 #| warning: false
 
 fit <- glm(count ~ variante + block, data = trespe_tbl, family = poisson)
 ```
+
+Wir nutzen die Schätzer aus dem Modell um mit der Funktion `emmeans()` die Raten in jeder Variante gemittelt über alle Blöcke zu berechnen. Dann müssen wir nur noch die Formel nach Abbott nutzen um jede Rate in das Verhältnis zur Rate der Kontrolle `rate[1]` zu setzen. Wir erhalten dann den Wirkungsgrad nach Abbott für unsere drei Varianten.
 
 ```{r}
 #| message: false
@@ -423,6 +429,8 @@ fit %>%
   mutate(WG_abbott = percent((rate[1] - rate)/rate[1])) %>% 
   select(variante, rate, WG_abbott)
 ```
+
+Damit haben wir den Wirkungsgard $WG_{abbott}$ für unser Trepsenbeispiel einmal berechnet. Die Interpretation ist dann eigentlich sehr intuitiv. Wir haben zum Beispiel bei Variante 2 einen Wirkungsgard von 76.7% der Kontrolle und somit auch nur 76.7% der Trepsen auf unseren Parzellen im Vergleich zur Kontrolle.
 
 Im zweiten Beispiel wollen wir uns mit dem geometrischen Mittel $WG_{geometric}$ als Schätzer für den Wirkungsgrad beschäftigen. Hier kochen wir dann einmal die Veröffentlichung von @finner1989berechnung nach. Dafür brauchen wir einmal die Daten zu den Raubmilben, die ich schon als Exceldatei aufbereitet habe. Wie immer sind die Rohdaten im Wide-Format, wir müssen aber im Long-Format rechnen. Da bauen wir uns also einmal schnell die Daten um. Dann wollen wir noch die Anzahlen der Raubmilben logarithmieren, so dass wir jede Anzahl um 1 erhöhen um logarithmierte Nullen zu vermeiden. Das ganze machen wir dann in einem Rutsch mit der Funktion `log1p()`.
 
@@ -555,7 +563,7 @@ Genauso können wir aber auch den Wirkungsgrad nach @abbott1925method nochmal au
 fit <- glm(count ~ sorte + block, data = mite_tbl, family = poisson)
 ```
 
-Wir nutzen hier dann die Funktion `emmeans()` um die mittlere Anzahl an Raubmilben über alle Blöcke zu ermitteln. Dann können wir auch schon den $WG_{abbott}$ berechnen. Wichtig ist hier, dass die Referenzkategorie mit der Kontrolle an der neunten Stelle bzw. Zeile steht. Deshalb müssen wir auch hier durch `prod[9]` teilen. Achtung, die $p$-Werte und der Rest haben hier keine tiefere Bedeutung im Bezug auf den Wirkungsgrad und deshalb schauen wir uns diese Werte auch gar nicht tiefer an.
+Wir nutzen hier dann die Funktion `emmeans()` um die mittlere Anzahl an Raubmilben über alle Blöcke zu ermitteln. Dann können wir auch schon den $WG_{abbott}$ berechnen. Wichtig ist hier, dass die Referenzkategorie mit der Kontrolle an der neunten Stelle bzw. Zeile steht. Deshalb müssen wir auch hier durch `prod[9]` teilen. Achtung, die $p$-Werte haben hier keine tiefere Bedeutung im Bezug auf den Wirkungsgrad und deshalb schauen wir uns diese Werte auch gar nicht tiefer an.
 
 ```{r}
 #| message: false
@@ -564,7 +572,9 @@ fit %>%
   emmeans(~sorte, type = "response") %>% 
   tidy() %>% 
   mutate(WG_abbott = percent((rate[9] - rate)/rate[9])) %>% 
-  select(sorte, WG_abbott)
+  select(sorte, WG_abbott, rate)
 ```
+
+Wenn du verwirrt bist über die negativen Wirkungsgrade, dann musst du dir klar werden, dass wir immer den Wirkungsgrad im Verhältnis zur Kontrolle berechnen. Wenn du also negative Wirkungsgrade siehst, dann sind die Anzahlen in den Sorten *höher* als in der Kontrolle. Je nach Fragestellung macht dieses Ergebnis mehr oder weniger Sinn.
 
 ## Referenzen {.unnumbered}
