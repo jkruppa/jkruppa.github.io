@@ -423,11 +423,13 @@ Wir nutzen die Schätzer aus dem Modell um mit der Funktion `emmeans()` die Rate
 ```{r}
 #| message: false
 #| warning: false
-fit %>% 
+res_trespe_tbl <- fit %>% 
   emmeans(~variante, type = "response") %>% 
   tidy() %>% 
-  mutate(WG_abbott = percent((rate[1] - rate)/rate[1])) %>% 
-  select(variante, rate, WG_abbott)
+  mutate(WG_abbott = (rate[1] - rate)/rate[1],
+         WG_abbott_per = percent(WG_abbott)) %>% 
+  select(variante, rate, WG_abbott, WG_abbott_per)
+res_trespe_tbl
 ```
 
 Damit haben wir den Wirkungsgard $WG_{abbott}$ für unser Trepsenbeispiel einmal berechnet. Die Interpretation ist dann eigentlich sehr intuitiv. Wir haben zum Beispiel bei Variante 2 einen Wirkungsgard von 76.7% der Kontrolle und somit auch nur 76.7% der Trepsen auf unseren Parzellen im Vergleich zur Kontrolle.
@@ -440,7 +442,15 @@ fit %>%
   pluck("contrasts")
 ```
 
-Wir wir sehen, sind alle Varianten, bis auf die Variante 4, signifikant unterschiedlich zu der Kontrolle.
+Wir wir sehen, sind alle Varianten, bis auf die Variante 4, signifikant unterschiedlich zu der Kontrolle. Nun könnten wir uns auch Fragen in wie weit sich die Wirkungsgrade untereinander unterscheiden. Dafür müssen wir dann die Anteile mit der Funktion `pairwise.prop.test()` paarweise Vergleichen. Da wir natürlich auf die Kontrolle standardisieren hat der Vergleich mit der Kontrolle nur so halbwegs Sinn, mag aber von Interesse sein.
+
+```{r}
+pairwise.prop.test(x = res_trespe_tbl$WG_abbott * 100, 
+                   n = c(100, 100, 100, 100),
+                   p.adjust.method = "none") 
+```
+
+Wir sehen, dass sich alle Varianten in ihrem Wirkungsgrad von der Kontrolle unterscheiden, die Kontrolle hat hier die ID 1. Die Variante 4 unterscheidet sich von allen anderen Varianten in ihrem Wirkungsgrad.
 
 Im zweiten Beispiel wollen wir uns mit dem geometrischen Mittel $WG_{geometric}$ als Schätzer für den Wirkungsgrad beschäftigen. Hier kochen wir dann einmal die Veröffentlichung von @finner1989berechnung nach. Dafür brauchen wir einmal die Daten zu den Raubmilben, die ich schon als Exceldatei aufbereitet habe. Wie immer sind die Rohdaten im Wide-Format, wir müssen aber im Long-Format rechnen. Da bauen wir uns also einmal schnell die Daten um. Dann wollen wir noch die Anzahlen der Raubmilben logarithmieren, so dass wir jede Anzahl um 1 erhöhen um logarithmierte Nullen zu vermeiden. Das ganze machen wir dann in einem Rutsch mit der Funktion `log1p()`.
 
@@ -591,11 +601,13 @@ Wir nutzen hier dann die Funktion `emmeans()` um die mittlere Anzahl an Raubmilb
 ```{r}
 #| message: false
 #| warning: false
-fit %>% 
+res_mite_tbl <- fit %>% 
   emmeans(~sorte, type = "response") %>% 
   tidy() %>% 
-  mutate(WG_abbott = percent((rate[9] - rate)/rate[9])) %>% 
-  select(sorte, WG_abbott, rate)
+  mutate(WG_abbott = (rate[9] - rate)/rate[9],
+         WG_abbott_per = percent(WG_abbott)) %>% 
+  select(sorte, WG_abbott, WG_abbott_per, rate)
+res_mite_tbl
 ```
 
 Wenn du verwirrt bist über die negativen Wirkungsgrade, dann musst du dir klar werden, dass wir immer den Wirkungsgrad im Verhältnis zur Kontrolle berechnen. Wenn du also negative Wirkungsgrade siehst, dann sind die Anzahlen in den Sorten *höher* als in der Kontrolle. Je nach Fragestellung macht dieses Ergebnis mehr oder weniger Sinn.
@@ -609,5 +621,17 @@ fit %>%
 ```
 
 Wir wir sehen, sind alle Varianten signifikant unterschiedlich zu der Kontrolle bis auf die Sorte 3.
+
+Auch hier können wir die Wirkungsgrade miteinander vergleichen. Aber Achtung, wir können nur Wirkungsgrade zwischen 0 und 1 miteinander sinnvoll vergleichen. Deshalb fliegen bei uns einige an Sorten raus. Draüber hinaus musst du jetzt auch einmal schauen, welche Sorte sich hinter der numerischen ID aus dem `pairwise.prop.test()` verbirgt.
+
+```{r}
+res_mite_tbl %>% 
+  filter(WG_abbott < 1 & WG_abbott >= 0) %$% 
+  pairwise.prop.test(x = WG_abbott * 100, 
+                   n = rep(100, 5),
+                   p.adjust.method = "none") 
+```
+
+Das letzte Beispiel zeigt nochmal schön, dass wir uns immer überlegen müssen, was wir mit den Wirkungsgraden eigentlich zeigen wollen und welche Wirkungsgrade noch eine biologisch sinnvolle Bedeutung haben.
 
 ## Referenzen {.unnumbered}
