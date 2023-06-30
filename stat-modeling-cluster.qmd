@@ -43,7 +43,19 @@ Woher
 [Palmer Penguins](https://allisonhorst.github.io/palmerpenguins/index.html)
 
 ```{r}
-penguins_tbl <- penguins
+penguins_raw_tbl <- penguins %>% 
+  select(species, bill_length_mm, bill_depth_mm, body_mass_g) %>% 
+  na.omit()
+```
+
+```{r}
+penguins_tbl <- penguins_raw_tbl %>% 
+  select(bill_length_mm, bill_depth_mm, body_mass_g)
+```
+
+```{r}
+penguins_species <- penguins_raw_tbl %>% 
+  pull(species)
 ```
 
 Schauen
@@ -91,53 +103,58 @@ Häufig
 
 ## Daten preprocessing
 
+Wie die Daten für die Pinguine anpassen?
+
+Wie die Gummibärchendaten anpassen? Nochmal bei Klassifikation reinschauen!
+
 ## Dendrogramm
 
 ```{r}
-car <- select(mtcars, mpg, disp)
-h.cluster <- car %>% dist(., method = "euclidean") %>% hclust(., method = "ward.D")
+h.cluster <- penguins_tbl  %>% dist(., method = "euclidean") %>% hclust(., method = "ward.D")
 ggdendrogram(h.cluster)
 ```
 
 ```{r}
-fviz_nbclust(car, kmeans, method = "gap_stat")
+fviz_nbclust(penguins_tbl, kmeans, method = "gap_stat")
 ```
 
 ```{r}
 set.seed(123) # for reproducibility
-km.res <- kmeans(car, 3, nstart = 25)
+km.res <- kmeans(penguins_tbl, 3, nstart = 25)
 # Visualize
-fviz_cluster(km.res, data = car, palette = "jco",
+fviz_cluster(km.res, data = penguins_tbl, palette = "jco",
              ggtheme = theme_minimal())
 ```
 
 ```{r}
-res.hc <- hclust(dist(car),  method = "ward.D2")
+res.hc <- hclust(dist(penguins_tbl),  method = "ward.D2")
 fviz_dend(res.hc, cex = 0.5, k = 4, palette = "jco") 
 ```
 
 ```{r}
-p.cluster <- car %>% kmeans(., 2)
-p.cluster$cluster <- as.factor(p.cluster$cluster)
+car <- select(mtcars, mpg, disp)
 
-ggplot(car, aes(mpg, disp, label = rownames(car))) + 
-  scale_fill_discrete(name = "Cluster") + xlim(9,35) +
+p.cluster <- penguins_tbl %>% kmeans(., 3)
+p.cluster$cluster <- as.factor(penguins_species)
+
+ggplot(penguins_tbl, aes(bill_length_mm, bill_depth_mm, label = penguins_species)) + 
+  scale_fill_discrete(name = "Cluster") + 
   geom_label(aes(fill = p.cluster$cluster), colour = "white", 
   fontface = "bold", size=2)
 ```
 
 ```{r}
-multi.clust <- data.frame(k = 1:6) %>% group_by(k) %>% do(clust = kmeans(car, .$k))
+multi.clust <- data.frame(k = 1:6) %>% group_by(k) %>% do(clust = kmeans(penguins_tbl, .$k))
 sumsq.clust <- multi.clust %>% group_by(k) %>% do(glance(.$clust[[1]]))
 
 ggplot(sumsq.clust, aes(k, tot.withinss)) + geom_line() + geom_point()
 ```
 
 ```{r}
-multi.clust <- data.frame(k = 1:6) %>% group_by(k) %>% do(clust = kmeans(car, .$k))
-multi.k <- multi.clust %>% group_by(k) %>% do(augment(.$clust[[1]], car))
+multi.clust <- data.frame(k = 1:6) %>% group_by(k) %>% do(clust = kmeans(penguins_tbl, .$k))
+multi.k <- multi.clust %>% group_by(k) %>% do(augment(.$clust[[1]], penguins_tbl))
 
-ggplot(multi.k, aes(mpg, disp)) + geom_point(aes(color = .cluster)) + 
+ggplot(multi.k, aes(bill_length_mm, bill_depth_mm)) + geom_point(aes(color = .cluster)) + 
   facet_wrap(~k)
 ```
 
