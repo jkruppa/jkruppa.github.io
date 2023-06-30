@@ -12,6 +12,8 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 
 In diesem Kapitel wollen wir uns
 
+Teilweise haben wir Überlagerungen mit dem Kapitel @sec-outlier
+
 ## Genutzte R Pakete
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
@@ -19,7 +21,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, 
-               meta)
+               ggdendro, broom, cluster)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -70,6 +72,57 @@ sunflower_tbl %>%
 ```
 
 Häufig
+
+## Heatmap
+
+## Dendrogramm
+
+```{r}
+car <- select(mtcars, mpg, disp)
+h.cluster <- car %>% dist(., method = "euclidean") %>% hclust(., method = "ward.D")
+ggdendrogram(h.cluster)
+```
+
+```{r}
+p.cluster <- car %>% kmeans(., 2)
+p.cluster$cluster <- as.factor(p.cluster$cluster)
+
+ggplot(car, aes(mpg, disp, label = rownames(car))) + 
+  scale_fill_discrete(name = "Cluster") + xlim(9,35) +
+  geom_label(aes(fill = p.cluster$cluster), colour = "white", 
+  fontface = "bold", size=2)
+```
+
+```{r}
+multi.clust <- data.frame(k = 1:6) %>% group_by(k) %>% do(clust = kmeans(car, .$k))
+sumsq.clust <- multi.clust %>% group_by(k) %>% do(glance(.$clust[[1]]))
+
+ggplot(sumsq.clust, aes(k, tot.withinss)) + geom_line() + geom_point()
+```
+
+```{r}
+multi.clust <- data.frame(k = 1:6) %>% group_by(k) %>% do(clust = kmeans(car, .$k))
+multi.k <- multi.clust %>% group_by(k) %>% do(augment(.$clust[[1]], car))
+
+ggplot(multi.k, aes(mpg, disp)) + geom_point(aes(color = .cluster)) + 
+  facet_wrap(~k)
+```
+
+Um das Ergebnis der Gruppenfindung zu beurteilen, eignet sich ein Silhouettenplot. Ein Silhouettenplot zeigt für jede Beobachtung i die Silhouettenbreite $s_i$, welche definiert ist als normierte Differenz der kleinsten Distanz zu den Beobachtungen außerhalb der eigenen Gruppe und dem Mittelwert der Distanzen innerhalb einer Gruppe. Die Silhouettenbreite $s_i$ kann jeden Wert im Intervall \[-1, 1\] annehmen und wird folgendermaßen interpretiert. - $s_i = 1$ Die Beobachtung ist dem "richtigen" Cluster zugeordnet. - $s_i = 0$ Die Beobachtung hätte ebenso gut einer anderen Gruppe zugeordnet werden können. - $s_i = -1$ Die Beobachtung ist schlecht zugeordnet. Es kann darüber hinaus die durchschnittliche Silhouettenbreite über alle Beobachtungen berechnet werden, womit sich die Gruppenbildung als Ganzes beurteilen lässt. Die durchschnittliche Silhouettenbreite wird analog interpretiert.
+
+```{r}
+
+data(ruspini)
+pr4 <- pam(ruspini, 4)
+
+si2 <- silhouette(pr4$clustering, dist(ruspini, "canberra"))
+sil.data <- data.frame(cluster = factor(si2[, 1]), sil_width = si2[, 3])
+
+ggplot(sil.data, aes(x = row.names(sil.data), y = sil_width, fill = cluster)) +
+  geom_bar(stat = "identity", width = 0.5) + coord_flip() + labs(x = "") +
+  scale_x_discrete(limits = row.names(sil.data[order(sil.data$cluster, 
+  sil.data$sil_width), ])) 
+```
 
 ## k-means Clusteranalyse
 
