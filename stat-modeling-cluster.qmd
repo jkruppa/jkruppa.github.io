@@ -1,0 +1,291 @@
+```{r echo = FALSE}
+pacman::p_load(tidyverse, readxl, knitr, kableExtra)
+```
+
+# Clusteranalysen {#sec-cluster-analysis}
+
+*Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
+
+![](images/caution.png){fig-align="center" width="50%"}
+
+> *"Cluster together like stars!" --- Henry Miller*
+
+In diesem Kapitel wollen wir uns
+
+Teilweise haben wir Überlagerungen mit dem Kapitel @sec-outlier
+
+https://www.datanovia.com/en/lessons/cluster-analysis-example-quick-start-r-code/
+
+https://www.r-bloggers.com/2021/04/cluster-analysis-in-r/
+
+https://www.datanovia.com/en/lessons/clustering-distance-measures/#data-preparation
+
+## Genutzte R Pakete
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+#| message: false
+pacman::p_load(tidyverse, magrittr, palmerpenguins, readxl,
+               ggdendro, broom, cluster, factoextra,
+               pheatmap, tidyclust, conflicted)
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("mutate", "dplyr")
+```
+
+Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+## Daten
+
+Woher
+
+[Palmer Penguins](https://allisonhorst.github.io/palmerpenguins/index.html)
+
+```{r}
+penguins_raw_tbl <- penguins %>% 
+  select(species, bill_length_mm, bill_depth_mm, body_mass_g) %>% 
+  na.omit()
+```
+
+```{r}
+penguins_tbl <- penguins_raw_tbl %>% 
+  select(bill_length_mm, bill_depth_mm, body_mass_g)
+```
+
+```{r}
+penguins_species <- penguins_raw_tbl %>% 
+  pull(species)
+```
+
+Schauen
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-meta-drymatter
+#| tbl-cap: "Daten zu den Weizenerträgen nach der Gabe von einer Eisendosis mit $10\\mu mol$. In allen Studien wurde die gleiche Dosis auf die $n$ Pflanzen gegeben."
+
+penguins_tbl %>% 
+  head(7) %>% 
+  kable(align = "lrrr", "pipe")
+```
+
+Im Weiteren betrachten wir noch das Beispiel der Gummibärchendaten. Auch hier haben wir echte Daten vorliegen, so dass wir eventuell Ausreißer entdecken könnten. Da wir hier fehlende Werte in den Daten haben, entfernen wir alle fehlenden Werte mit der Funktion `na.omit()`. Damit löschen wir jede Zeile in den Daten, wo mindestens ein fehlender Wert auftritt. Da wir hier mittlerweile sehr viele Daten vorliegen haben, wollen wir das Problem auf die beiden Quellen *FU Berlin* und dem *Girls and Boys Day* eingrenzen.
+
+```{r}
+#| message: false
+
+gummi_tbl <- read_excel("data/gummibears.xlsx")  %>%
+  filter(module %in% c("FU Berlin", "Girls and Boys Day")) %>% 
+  select(gender, age, height, semester, most_liked) %>% 
+  mutate(gender = as_factor(gender),
+         most_liked = as_factor(most_liked)) %>% 
+  na.omit()
+```
+
+Auch
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-meta-sunflower
+#| tbl-cap: "Daten zu den mit Mehltau infizierten Sonnenblumensamen nach der Behandlung mit MoldEx."
+
+gummi_tbl %>% 
+  head(7) %>% 
+  kable(align = "lrr", "pipe")
+```
+
+Häufig
+
+## Daten preprocessing
+
+Wie die Daten für die Pinguine anpassen?
+
+Wie die Gummibärchendaten anpassen? Nochmal bei Klassifikation reinschauen!
+
+## Dendrogramm
+
+```{r}
+h.cluster <- penguins_tbl  %>% dist(., method = "euclidean") %>% hclust(., method = "ward.D")
+ggdendrogram(h.cluster)
+```
+
+```{r}
+fviz_nbclust(penguins_tbl, kmeans, method = "gap_stat")
+```
+
+```{r}
+set.seed(123) # for reproducibility
+km.res <- kmeans(penguins_tbl, 3, nstart = 25)
+# Visualize
+fviz_cluster(km.res, data = penguins_tbl, palette = "jco",
+             ggtheme = theme_minimal())
+```
+
+```{r}
+res.hc <- hclust(dist(penguins_tbl),  method = "ward.D2")
+fviz_dend(res.hc, cex = 0.5, k = 4, palette = "jco") 
+```
+
+```{r}
+car <- select(mtcars, mpg, disp)
+
+p.cluster <- penguins_tbl %>% kmeans(., 3)
+p.cluster$cluster <- as.factor(penguins_species)
+
+ggplot(penguins_tbl, aes(bill_length_mm, bill_depth_mm, label = penguins_species)) + 
+  scale_fill_discrete(name = "Cluster") + 
+  geom_label(aes(fill = p.cluster$cluster), colour = "white", 
+  fontface = "bold", size=2)
+```
+
+```{r}
+multi.clust <- data.frame(k = 1:6) %>% group_by(k) %>% do(clust = kmeans(penguins_tbl, .$k))
+sumsq.clust <- multi.clust %>% group_by(k) %>% do(glance(.$clust[[1]]))
+
+ggplot(sumsq.clust, aes(k, tot.withinss)) + geom_line() + geom_point()
+```
+
+```{r}
+multi.clust <- data.frame(k = 1:6) %>% group_by(k) %>% do(clust = kmeans(penguins_tbl, .$k))
+multi.k <- multi.clust %>% group_by(k) %>% do(augment(.$clust[[1]], penguins_tbl))
+
+ggplot(multi.k, aes(bill_length_mm, bill_depth_mm)) + geom_point(aes(color = .cluster)) + 
+  facet_wrap(~k)
+```
+
+Um das Ergebnis der Gruppenfindung zu beurteilen, eignet sich ein Silhouettenplot. Ein Silhouettenplot zeigt für jede Beobachtung i die Silhouettenbreite $s_i$, welche definiert ist als normierte Differenz der kleinsten Distanz zu den Beobachtungen außerhalb der eigenen Gruppe und dem Mittelwert der Distanzen innerhalb einer Gruppe. Die Silhouettenbreite $s_i$ kann jeden Wert im Intervall \[-1, 1\] annehmen und wird folgendermaßen interpretiert. - $s_i = 1$ Die Beobachtung ist dem "richtigen" Cluster zugeordnet. - $s_i = 0$ Die Beobachtung hätte ebenso gut einer anderen Gruppe zugeordnet werden können. - $s_i = -1$ Die Beobachtung ist schlecht zugeordnet. Es kann darüber hinaus die durchschnittliche Silhouettenbreite über alle Beobachtungen berechnet werden, womit sich die Gruppenbildung als Ganzes beurteilen lässt. Die durchschnittliche Silhouettenbreite wird analog interpretiert.
+
+Was ist mit tidyclust::silhouette?
+
+```{r}
+
+data(ruspini)
+pr4 <- pam(ruspini, 4)
+
+si2 <- cluster::silhouette(pr4$clustering, dist(ruspini, "canberra"))
+sil.data <- data.frame(cluster = factor(si2[, 1]), sil_width = si2[, 3])
+
+ggplot(sil.data, aes(x = row.names(sil.data), y = sil_width, fill = cluster)) +
+  geom_bar(stat = "identity", width = 0.5) + coord_flip() + labs(x = "") +
+  scale_x_discrete(limits = row.names(sil.data[order(sil.data$cluster, 
+  sil.data$sil_width), ])) 
+```
+
+## Heatmap
+
+```{r}
+pheatmap(t(car), cutree_cols = 4)
+```
+
+## k-means Clusteranalyse
+
+## Hauptkomponentenanalyse
+
+## Datenanalyse mit `tidyclust`
+
+https://tidyclust.tidymodels.org/index.html
+
+Im Folgenden analysieren wir die Gummibärchendaten einmal mit dem R Paket `tidyclust`.
+
+### Hierarchical Clustering
+
+::: column-margin
+[tidyclust Hilfeseite für das Hierarchical Clustering](https://tidyclust.tidymodels.org/articles/hier_clust.html)
+:::
+
+Es gibt vier gängige Ansätze für die Cluster-Cluster-Distanzierung, auch "Linkage" genannt:
+
+-   *single linkage*: Der Abstand zwischen zwei Clustern ist der Abstand zwischen den beiden nächstgelegenen Beobachtungen.
+-   *average linkage*: Der Abstand zwischen zwei Clustern ist der Durchschnitt aller Abstände zwischen den Beobachtungen in einem Cluster und den Beobachtungen im anderen Cluster.
+-   *complete linkage*: Der Abstand zwischen zwei Clustern ist der Abstand zwischen den beiden am weitesten entfernten Beobachtungen.
+-   *centroid method*: Der Abstand zwischen zwei Clustern ist der Abstand zwischen ihren Zentroiden (geometrisches Mittel oder Median).
+-   *Ward-Methode*: Der Abstand zwischen zwei Clustern ist proportional zur Zunahme der Fehlerquadratsumme (ESS), die sich aus der Verbindung der beiden Cluster ergeben würde. Die ESS wird als Summe der quadrierten Abstände zwischen den Beobachtungen in einem Cluster und dem Schwerpunkt des Clusters berechnet.
+
+```{r}
+hc_spec <- hier_clust(num_clusters = 3,
+                       linkage_method = "average")
+```
+
+```{r}
+hc_fit <- hc_spec %>%
+  fit(~ gender + age + height + semester + most_liked,
+      data = gummi_tbl)
+
+hc_fit %>%
+  summary()
+```
+
+```{r}
+hc_fit$fit %>% plot()
+
+ggdendrogram(hc_fit$fit, rotate = FALSE, size = 2)
+
+```
+
+```{r}
+hc_summary <- hc_fit %>% extract_fit_summary()
+
+hc_summary %>% 
+  pluck("cluster_assignments")
+```
+
+### k-means Clustering
+
+::: column-margin
+[tidyclust Hilfeseite für das k-means Clustering](https://tidyclust.tidymodels.org/articles/k_means.html)
+:::
+
+```{r}
+kmeans_spec <- k_means(num_clusters = 3)
+
+kmeans_spec
+```
+
+```{r}
+kmeans_spec_lloyd <- k_means(num_clusters = 3) %>%
+  parsnip::set_engine("stats", algorithm = "Lloyd")
+```
+
+```{r}
+kmeans_fit <- kmeans_spec %>%
+  fit(~ age + height + semester,
+      data = gummi_tbl)
+```
+
+```{r}
+kmeans_fit$fit
+```
+
+```{r}
+kmeans_fit %>%
+  extract_cluster_assignment()
+```
+
+```{r}
+kmeans_summary <- kmeans_fit %>%
+  extract_fit_summary()
+```
+
+```{r}
+tibble(
+  orig_labels = kmeans_summary$orig_labels,
+  standard_labels = kmeans_summary$cluster_assignments
+)
+```
+
+```{r}
+kmeans_fit %>%
+  extract_centroids()
+```
+
+```{r}
+kmeans_fit %>%
+  tidyclust::silhouette_avg(select(gummi_tbl, age, height, semester))
+```
+
+## Referenzen {.unnumbered}
