@@ -16,8 +16,6 @@ Teilweise haben wir Überlagerungen mit dem Kapitel @sec-outlier
 
 https://www.datanovia.com/en/lessons/cluster-analysis-example-quick-start-r-code/
 
-https://tidyclust.tidymodels.org/index.html
-
 https://www.r-bloggers.com/2021/04/cluster-analysis-in-r/
 
 https://www.datanovia.com/en/lessons/clustering-distance-measures/#data-preparation
@@ -28,9 +26,9 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, conflicted, 
+pacman::p_load(tidyverse, magrittr, palmerpenguins, 
                ggdendro, broom, cluster, factoextra,
-               pheatmap, tidyclust)
+               pheatmap, tidyclust, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -45,7 +43,7 @@ Woher
 [Palmer Penguins](https://allisonhorst.github.io/palmerpenguins/index.html)
 
 ```{r}
-drymatter_tbl <- read_excel("data/meta/drymatter_iron_studies.xlsx") 
+penguins_tbl <- penguins
 ```
 
 Schauen
@@ -57,14 +55,22 @@ Schauen
 #| label: tbl-meta-drymatter
 #| tbl-cap: "Daten zu den Weizenerträgen nach der Gabe von einer Eisendosis mit $10\\mu mol$. In allen Studien wurde die gleiche Dosis auf die $n$ Pflanzen gegeben."
 
-drymatter_tbl %>% 
+penguins_tbl %>% 
+  head(7) %>% 
   kable(align = "lrrr", "pipe")
 ```
 
-Ein weiterer
+Im Weiteren betrachten wir noch das Beispiel der Gummibärchendaten. Auch hier haben wir echte Daten vorliegen, so dass wir eventuell Ausreißer entdecken könnten. Da wir hier fehlende Werte in den Daten haben, entfernen wir alle fehlenden Werte mit der Funktion `na.omit()`. Damit löschen wir jede Zeile in den Daten, wo mindestens ein fehlender Wert auftritt. Da wir hier mittlerweile sehr viele Daten vorliegen haben, wollen wir das Problem auf die beiden Quellen *FU Berlin* und dem *Girls and Boys Day* eingrenzen.
 
 ```{r}
-sunflower_tbl <- read_excel("data/meta/infected_sunflower_studies.xlsx") 
+#| message: false
+
+gummi_tbl <- read_excel("data/gummibears.xlsx")  %>%
+  filter(module %in% c("FU Berlin", "Girls and Boys Day")) %>% 
+  select(gender, age, height, semester, most_liked) %>% 
+  mutate(gender = as_factor(gender),
+         most_liked = as_factor(most_liked)) %>% 
+  na.omit()
 ```
 
 Auch
@@ -76,7 +82,8 @@ Auch
 #| label: tbl-meta-sunflower
 #| tbl-cap: "Daten zu den mit Mehltau infizierten Sonnenblumensamen nach der Behandlung mit MoldEx."
 
-sunflower_tbl %>% 
+gummi_tbl %>% 
+  head(7) %>% 
   kable(align = "lrr", "pipe")
 ```
 
@@ -161,5 +168,53 @@ pheatmap(t(car), cutree_cols = 4)
 ## k-means Clusteranalyse
 
 ## Hauptkomponentenanalyse
+
+## Datenanalyse mit `tidyclust`
+
+https://tidyclust.tidymodels.org/index.html
+
+Im Folgenden analysieren wir die Gummibärchendaten einmal mit dem R Paket `tidyclust`.
+
+### Hierarchical Clustering
+
+::: column-margin
+[tidyclust Hilfeseite für das Hierarchical Clustering](https://tidyclust.tidymodels.org/articles/hier_clust.html)
+:::
+
+Es gibt vier gängige Ansätze für die Cluster-Cluster-Distanzierung, auch "Linkage" genannt: - *single linkage*: Der Abstand zwischen zwei Clustern ist der Abstand zwischen den beiden nächstgelegenen Beobachtungen. - *average linkage*: Der Abstand zwischen zwei Clustern ist der Durchschnitt aller Abstände zwischen den Beobachtungen in einem Cluster und den Beobachtungen im anderen Cluster. - *complete linkage*: Der Abstand zwischen zwei Clustern ist der Abstand zwischen den beiden am weitesten entfernten Beobachtungen. - *centroid method*: Der Abstand zwischen zwei Clustern ist der Abstand zwischen ihren Zentroiden (geometrisches Mittel oder Median). - *Ward-Methode*: Der Abstand zwischen zwei Clustern ist proportional zur Zunahme der Fehlerquadratsumme (ESS), die sich aus der Verbindung der beiden Cluster ergeben würde. Die ESS wird als Summe der quadrierten Abstände zwischen den Beobachtungen in einem Cluster und dem Schwerpunkt des Clusters berechnet.
+
+```{r}
+hc_spec <- hier_clust(num_clusters = 3,
+                       linkage_method = "average")
+```
+
+```{r}
+hc_fit <- hc_spec %>%
+  fit(~ gender + age + height + semester + most_liked,
+      data = gummi_tbl)
+
+hc_fit %>%
+  summary()
+```
+
+```{r}
+hc_fit$fit %>% plot()
+
+ggdendrogram(hc_fit$fit, rotate = FALSE, size = 2)
+
+```
+
+```{r}
+hc_summary <- hc_fit %>% extract_fit_summary()
+
+hc_summary %>% 
+  pluck("cluster_assignments")
+```
+
+### k-means Clustering
+
+::: column-margin
+[tidyclust Hilfeseite für das k-means Clustering](https://tidyclust.tidymodels.org/articles/k_means.html)
+:::
 
 ## Referenzen {.unnumbered}
