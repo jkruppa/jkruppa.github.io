@@ -14,6 +14,14 @@ In diesem Kapitel wollen wir uns
 
 Teilweise haben wir Überlagerungen mit dem Kapitel @sec-outlier
 
+https://www.datanovia.com/en/lessons/cluster-analysis-example-quick-start-r-code/
+
+https://tidyclust.tidymodels.org/index.html
+
+https://www.r-bloggers.com/2021/04/cluster-analysis-in-r/
+
+https://www.datanovia.com/en/lessons/clustering-distance-measures/#data-preparation
+
 ## Genutzte R Pakete
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
@@ -21,7 +29,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, 
-               ggdendro, broom, cluster)
+               ggdendro, broom, cluster, factoextra,
+               pheatmap, tidyclust)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -73,7 +82,7 @@ sunflower_tbl %>%
 
 Häufig
 
-## Heatmap
+## Daten preprocessing
 
 ## Dendrogramm
 
@@ -81,6 +90,23 @@ Häufig
 car <- select(mtcars, mpg, disp)
 h.cluster <- car %>% dist(., method = "euclidean") %>% hclust(., method = "ward.D")
 ggdendrogram(h.cluster)
+```
+
+```{r}
+fviz_nbclust(car, kmeans, method = "gap_stat")
+```
+
+```{r}
+set.seed(123) # for reproducibility
+km.res <- kmeans(car, 3, nstart = 25)
+# Visualize
+fviz_cluster(km.res, data = car, palette = "jco",
+             ggtheme = theme_minimal())
+```
+
+```{r}
+res.hc <- hclust(dist(car),  method = "ward.D2")
+fviz_dend(res.hc, cex = 0.5, k = 4, palette = "jco") 
 ```
 
 ```{r}
@@ -110,18 +136,26 @@ ggplot(multi.k, aes(mpg, disp)) + geom_point(aes(color = .cluster)) +
 
 Um das Ergebnis der Gruppenfindung zu beurteilen, eignet sich ein Silhouettenplot. Ein Silhouettenplot zeigt für jede Beobachtung i die Silhouettenbreite $s_i$, welche definiert ist als normierte Differenz der kleinsten Distanz zu den Beobachtungen außerhalb der eigenen Gruppe und dem Mittelwert der Distanzen innerhalb einer Gruppe. Die Silhouettenbreite $s_i$ kann jeden Wert im Intervall \[-1, 1\] annehmen und wird folgendermaßen interpretiert. - $s_i = 1$ Die Beobachtung ist dem "richtigen" Cluster zugeordnet. - $s_i = 0$ Die Beobachtung hätte ebenso gut einer anderen Gruppe zugeordnet werden können. - $s_i = -1$ Die Beobachtung ist schlecht zugeordnet. Es kann darüber hinaus die durchschnittliche Silhouettenbreite über alle Beobachtungen berechnet werden, womit sich die Gruppenbildung als Ganzes beurteilen lässt. Die durchschnittliche Silhouettenbreite wird analog interpretiert.
 
+Was ist mit tidyclust::silhouette?
+
 ```{r}
 
 data(ruspini)
 pr4 <- pam(ruspini, 4)
 
-si2 <- silhouette(pr4$clustering, dist(ruspini, "canberra"))
+si2 <- cluster::silhouette(pr4$clustering, dist(ruspini, "canberra"))
 sil.data <- data.frame(cluster = factor(si2[, 1]), sil_width = si2[, 3])
 
 ggplot(sil.data, aes(x = row.names(sil.data), y = sil_width, fill = cluster)) +
   geom_bar(stat = "identity", width = 0.5) + coord_flip() + labs(x = "") +
   scale_x_discrete(limits = row.names(sil.data[order(sil.data$cluster, 
   sil.data$sil_width), ])) 
+```
+
+## Heatmap
+
+```{r}
+pheatmap(t(car), cutree_cols = 4)
 ```
 
 ## k-means Clusteranalyse
