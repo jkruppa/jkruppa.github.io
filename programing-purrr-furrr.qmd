@@ -1,13 +1,13 @@
-# Mit `purrr` und `furrr` {#sec-purrr-furrr}
+# Ein `purrr` Cookbook {#sec-purrr-furrr}
 
 *Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
 
 > *"Until I realized, it is the struggle itself that is most important. We must strive to be more than we are, Lal. It does not matter that we will never reach our ultimate goal. The effort yields its own rewards." --- Lieutenant Commander Data, Star Trek: The Next Generation, The Offspring*
 
 ::: callout-caution
-## Was soll das hier? Ziemlich wild alles...
+## Was soll das hier? Was für ein Kochbuch?
 
-Dieses Kapitel dient dazu *fortgeschrittene* Programmierung in R zu präsentieren. Teilweise nutze ich komplexeren Code bei der [Auswertung von den Beispielen](https://jkruppa.github.io/application/). Wenn dich also Programmieren interessiert, dann kannst du dir hier noch was anschauen. Das Kapitel ist eigentlich nie fertig, da ich sicherlich immer mal wieder was ergänzen werde.
+Dieses Kapitel dient dazu *fortgeschrittene* Programmierung in R zu präsentieren. Es ist eine Sammlung von Code und Rezepten, die ich immer mal weider nutze. Deshalb hat dieses Kapitel auch den Titel *Cookbook*. Teilweise nutze ich den komplexeren Code bei der [Auswertung von den Beispielen](https://jkruppa.github.io/application/). Wenn dich also Programmieren interessiert, dann kannst du dir hier noch was anschauen. Das Kapitel ist eigentlich nie fertig, da ich sicherlich immer mal wieder was ergänzen werde.
 :::
 
 In diesem Kapitel geht es hauptsächlich um [Iterationen](https://r4ds.had.co.nz/iteration.html#iteration). Das heißt wir wollen immer das Gleiche auf verschiedene unterschiedliche Dinge anwenden. In unserem Fall ist das "Gleiche" eine Funktion `function(...){}` in R und das "Unterschiedliche" sind Einträge in einer Liste `lst()` oder einem Datensatz `tibble()`. Wir wollen also zum Beispiel auf verschiedenen Datensätzen mit fünf unterschiedlichen Outcomes immer wieder eine multiple lineare Regression rechnen. Anstatt also per Copy&Paste fünfmal den Code zu kopieren, wollen wir alle Datensätze in einer Liste speichern und die Liste dann in einem Schwung auswerten. Das geht natürlich nur eingeschränkt. Wir müssen ja noch beachten, dass jedes Outcome einer anderen Verteilung folgen könnte.
@@ -210,16 +210,32 @@ clove_tbl %>%
   unnest(clean)
 ```
 
-### Weitere Funktionen wie `keep` und Co.
+### Weitere Funktionen wie `keep`, `reduce` und Co.
 
-`enframe()` und der [Dokumentation zu `enframe()`](https://tibble.tidyverse.org/reference/enframe.html)
+Im Folgenden nochmal eine Sammlung von weiteren Funktionen, die ich im Rahmen meiner Data Science Analysen dann immer mal wieder nutze und gerne vergesse. Da aber die Funktionen so praktisch sind, habe ich mir mal alles hier mit aufgeschrieben. Tja, teilweise ist das Skript hier auch eine große Fundgrube für mich.
+
+::: column-margin
+Das [Data Wrangling with dplyr and tidyr - Cheat Sheet](https://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf) ist auch immer eine gute Hilfe. Auch ist das [Apply functions with purrr Cheat - Sheet](https://evoldyn.gitlab.io/evomics-2018/ref-sheets/R_purrr.pdf) ist auch immer ein Blick wert.
+:::
+
+Wenn ich einen Vektor habe mit Namen, der teilweise aus `map()` herauskommt, dann kann ich den Vektor über `enframe()` und der [Dokumentation zu `enframe()`](https://tibble.tidyverse.org/reference/enframe.html) in ein `tibble` umwandeln.
 
 ```{r}
 named_vec <- c(dog = 2, cat = 4, dog = 3, fox = 5)
 enframe(named_vec)
 ```
 
-`keep()` und der [Dokumentation zu `keep()`](https://purrr.tidyverse.org/reference/keep.html)
+Das ist manchmal extrem praktisch, wenn eine Liste nur einen Eintrag hat. Dann können wir über `unlist()` einen benamten Vektor bauen und den Vektor dann in einen `tibble` umwandeln.
+
+```{r}
+lst(id237189 = 4,
+    id7629w0 = 5,
+    id790182 = 3) %>% 
+  unlist() %>% 
+  enframe()
+```
+
+Ich habe häufig Listen und möchte nach gewissen Merkmalen die Listeneinträge filtern - manchmal auch Datensätze. Hier hilft die Funktion `keep()` und der [Dokumentation zu `keep()`](https://purrr.tidyverse.org/reference/keep.html) mit der ich dann Listeneinträge nach einer Funktion, dei `TRUE` oder `FALSE` ausgibt filtern kann. Das Gange geht dann mit `discard()` auch in der Verneinung von `keep()`. Ich will in der Folge nur die Listeneinträge behalten in denen das entsprechende `tibble` im Listeneintrag mehr als zwei Zeilen hat.
 
 ```{r}
 data_lst <- lst(dog_tbl = tibble(id = c("id786", "id987", "id231", "id566"),
@@ -232,7 +248,7 @@ data_lst %>%
   keep(\(x) nrow(x) > 2)
 ```
 
-`compact()`
+Wenn ich in einer Liste Einträge finde, die keinen Werte haben, also `NULL` sind, dann kann ich über die Funktion `compact()` die leeren Listeneinträge einfach entfernen.
 
 ```{r}
 data_null_lst <- lst(dog_tbl = tibble(animal = rep("dog", 4)),
@@ -242,14 +258,14 @@ data_null_lst %>%
   compact()
 ```
 
-`reduce` und der [Dokumentation zu `reduce()`](https://purrr.tidyverse.org/reference/reduce.html)
+Die Funktion `reduce` und der [Dokumentation zu `reduce()`](https://purrr.tidyverse.org/reference/reduce.html) ermöglicht es mit Listeneinträge zu kombinieren. Wenn ich alle Listeneinträge nur untereinander packen will, dann nutze ich die Funktion `bind_rows()` oder gleich `map_dfr()`.
 
 ```{r}
 data_lst %>% 
   reduce(left_join, by = "id")
 ```
 
-Weiteres zum Zusammenführen (eng. *merge*) von Datensätzen in der [Dokumentation zu `join()`](https://dplyr.tidyverse.org/reference/mutate-joins.html)
+Wenn alle Listeneinträge nach einer Spalte zusammengführt werden sollen, dann Nutze ich die Funktion `left_join()`. Weiteres zum Zusammenführen (eng. *merge*) von Datensätzen in der [Dokumentation zu `join()`](https://dplyr.tidyverse.org/reference/mutate-joins.html). Beim *Mergen* von Datensätzen muss man recht viel Nachdenken und überlegen was man eigentlich will, deshalb kann ich hier keine vollständige Abhandlung liefern.
 
 ```{r}
 sort_vec <- c("cat", "fox", "dog")
@@ -257,6 +273,8 @@ data_tbl <- tibble(animal = c("dog", "cat", "fox"),
        jump_length = c(4.1, 5.8, 6.2))
 data_tbl
 ```
+
+Dann möchte ich meist noch einen Datensatz nach einer externen Spalte sortieren. Dafür nutze ich die Funktion `arrange()` wie folgt.
 
 ```{r}
 data_tbl %>% 
