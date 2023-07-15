@@ -28,7 +28,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, broom, readxl,
                effectsize, multcompView, multcomp,
                janitor, see, parameters, yardstick,
-               rcompanion,conflicted)
+               rcompanion, emmeans, conflicted)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(dplyr::filter)
 conflicts_prefer(dplyr::mutate)
@@ -420,19 +420,26 @@ Auch hier zeigt die signifikante ANOVA, dass wir mindestens einen paarweisen Mit
 lm_cold_fit %>% eta_squared()
 ```
 
-Auch hier können wir 18% der Varianz in dem Wachstum durch die Behandlungsgruppen erklären. Das ist recht wenig. Schauen wir aber jetzt einmal den paarweisen t-Test an. Die Varianzen sind ungefähr gleich in den Gruppen, die Boxplots haben ungefähr die gleiche Ausdehnung nach der Logarithmierung. Aber auch hier könnte ich mit der Annahme der Varianzheterogenität leben.
+Auch hier können wir 18% der Varianz in dem Wachstum durch die Behandlungsgruppen erklären. Das ist recht wenig. Schauen wir aber jetzt einmal den paarweisen t-Test an. Die Varianzen sind ungefähr gleich in den Gruppen, die Boxplots haben ungefähr die gleiche Ausdehnung nach der Logarithmierung. Deshalb nutzen wir hier einmal dei Funktionalität von `emmeans`.
 
 ```{r}
 #| message: false
-cold_seed_tbl %$%
-  pairwise.t.test(log_cold, trt,
-                  p.adjust.method = "none") %>% 
-  extract2("p.value") %>% 
-  fullPTable() %>% 
-  multcompLetters()
+lm_cold_fit %>% 
+  emmeans(~ trt) %>%
+  cld(Letters = letters, adjust = "none") %>% 
+  arrange()
 ```
 
-Hier unterscheiden sich nun alle Behandlungsgruppen von der Kontrolle. Die neuen Behandlungen unterscheiden sich aber untereinander nicht.
+Hier unterscheiden sich nun alle Behandlungsgruppen von der Kontrolle. Die neuen Behandlungen unterscheiden sich aber untereinander nicht. Jetzt können wir uns noch anschauen, wie groß den der Mittelwertsunterschied für die einzelnen Behandlungen jeweils ist. Das kann uns die Funktion `pwpm()` wiedergeben.
+
+```{r}
+#| message: false
+lm_cold_fit %>% 
+  emmeans(~ trt) %>% 
+  pwpm(adjust = "none")
+```
+
+Wir lesen `Lower triangle: Comparisons (estimate)   earlier vs. later` und damit wird jeweils der `ctrl`- Mittelwert minus den Behandlungsmittelwerten in der ersten Spalte angegeben. Wir sehen, dass die Kontrolle immer ein größeres Wachstum hat. Damit haben wir zwar keine Gleichheit gezeigt, aber unsere Behandlungen haben alle *weniger* als die Kontrolle. Eventuell reicht das ja aus, wir haben zwar nicht gleich viel Wachstum wie die Kontrolle, aber durchgehend weniger.
 
 Das war jetzt hier natürlich die Version für Arme bzw. wenn wir im Rahmen einer Abschlussarbeit noch zusätzlich was berechnen wollen. Wenn es etwas aufwendiger sein soll, dann gibt es natürlich auch richtige statistischen Methoden für den Äquivalenztest.
 
