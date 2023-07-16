@@ -41,7 +41,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom, quantreg,
-               see, performance, emmeans, multcomp, janitor)
+               see, performance, emmeans, multcomp, janitor,
+               parameters)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -97,7 +98,7 @@ In der @tbl-model-2 sehen wir einmal die rohen Daten dargestellt.
 ```{r}
 #| message: false
 #| echo: false
-#| tbl-cap: Datensatz zu der Sprunglänge in [cm] von Flöhen auf Hunde-, Katzen- und Füchsen.
+#| tbl-cap: "Datensatz zu dem Längen- und Dickenwachstum von Gurken."
 #| label: tbl-model-2
 
 ancova_raw_2_tbl <- gurke_raw_tbl %>% 
@@ -123,26 +124,6 @@ gurke_time_len_tbl <- gurke_raw_tbl %>%
          time_num = as.numeric(time_fct)) %>% 
   filter(length != 0) %>% 
   filter(time_num <= 14)
-```
-
-In der @fig-ancova-gurke-03 sehen wir die Daten einmal als Scatterplot. Die Gerade stellt den Verlauf der Mittelwerte über die Versuchsgruppen dar.
-
-```{r}
-#| echo: true
-#| message: false
-#| warning: false
-#| label: fig-ancova-gurke-03
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 8
-#| fig-cap: "Scatterplot des Längenwachstums der drei Gurkensorten über vierzehn Wochen."
-
-ggplot(gurke_time_len_tbl, aes(time_num, length, color = versuchsgruppe)) +
-  theme_bw() +
-  geom_point() +
-  stat_summary(fun = "mean", geom = "line") +
-  stat_summary(fun = "median", geom = "line", linetype = 2) +
-  scale_color_okabeito()
 ```
 
 ## Hypothesen für die ANCOVA
@@ -279,18 +260,43 @@ Nach einer berechneten ANCOVA können wir zwei Fälle vorliegen haben.
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
-Im Folgenden schauen wir uns dann die Auswertung der Gurkendaten einmal genauer an. Für mehr Informationen zu dem Paket `emmeans` und den entsprechenden Funktionen dann bitte einmal in das Kapitel @sec-posthoc schauen.
+Im Folgenden schauen wir uns dann die Auswertung der Gurkendaten einmal genauer an. Für mehr Informationen zu dem Paket `emmeans` und den entsprechenden Funktionen dann bitte einmal in das Kapitel @sec-posthoc schauen. In der @fig-ancova-gurke-03 sehen wir die Daten einmal als Scatterplot. Die durchgezogene Gerade stellt den Verlauf der Mittelwerte über die Versuchsgruppen dar. Die gestrichelte Linie zeigt den Median über die Gruppen. Wir wollen jetzt der Frage nachgehen, ob es einen Unterschied zwischen den Gurkensorten `versuchsgruppen` über den zeitlichen Verlauf der vierzehn Wochen gibt.
 
-::: column-margin
-Es gibt hier auch ein weiteres englischsprachiges Tutorium [Don't Ignore Interactions - Unleash the Full Power of Models with {emmeans} R-package](https://yuzar-blog.netlify.app/posts/2022-12-29-emmeans2interactions/) oder [{emmeans} Game-Changing R-package Squeezes Hidden Knowledge out of Models!](https://yuzar-blog.netlify.app/posts/2022-11-29-emmeans/). DISCLAIMER: Der Text ist gut, die Bebilderung des entsprechenden Videos so leider mal gar nicht...
-:::
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-ancova-gurke-03
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 8
+#| fig-cap: "Scatterplot des Längenwachstums der drei Gurkensorten über vierzehn Wochen. Die gestrichtelten Linien stellen den Median und die durchgezogene Line den Mittelwert der Gruppen dra."
+
+ggplot(gurke_time_len_tbl, aes(time_num, length, color = versuchsgruppe)) +
+  theme_bw() +
+  geom_point() +
+  stat_summary(fun = "mean", geom = "line") +
+  stat_summary(fun = "median", geom = "line", linetype = 2) +
+  scale_color_okabeito()
+```
+
+Unser erstes Modell was wir uns anschauen wollen ist nochmal eine klassische zweifaktorielle ANOVA mit einem Interaktionsterm. Wir wollen raus finden ob die Länge von den Gurken von den Sorten ($f_1$), dem zeitlichen Verlauf ($f_2$) und der Interaktion zwischen der Sorten und der Zeit abhängt ($f_1:f_2$). Wir stellen nun folgendes lineares Modell für die zweifaktorielle ANOVA auf.
+
+$$
+length \sim \overbrace{versuchsgruppe}^{f_1} + \underbrace{time\_fct}_{f_2} + \overbrace{versuchsgruppe:time\_fct}^{f_1:f_2}
+$$
+
+Dieses Modell können wir dann auch in R einmal über die Funktion `lm()` abbilden.
 
 ```{r}
 #| message: false
 #| warning: false
 
-time_fct_fit <- lm(length ~ versuchsgruppe + time_fct + versuchsgruppe:time_fct, gurke_time_len_tbl)
+time_fct_fit <- lm(length ~ versuchsgruppe + time_fct + versuchsgruppe:time_fct, 
+                   gurke_time_len_tbl)
 ```
+
+Nun wollen wir auch überprüfen, ob es eine Interaktion zwischen den Versuchsgruppen und dem zeitlichen Verlauf gibt. Das ganze schauen wir uns neben einer ANOVA auch einmal graphisch mit der Funktion `emmip()` an. Wenn wir keine signifikante Interaktion erwaten würden, dann müssten die drei Versuchgruppe über den zeitlichen Verlauf gleichmäßig ansteigen. Wir sehen in der @fig-stat-ancova-08, dass dies nicht der Fall ist. Wir nehmen daher eine Interaktion zwischen den Versuchsgruppen und dem zeitlichen Verlauf an.
 
 ```{r}
 #| message: false
@@ -308,27 +314,33 @@ emmip(time_fct_fit, versuchsgruppe ~ time_fct, CIs = TRUE) +
 
 ```
 
+Nochmal kurz mit der ANOVA überprüft und wir sehen eine signifikante Interaktion.
+
 ```{r}
 #| message: false
-#| echo: true
 #| warning: false
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 6
-#| fig-cap: Scatterplot der Daten zur einfaktoriellen ANCOVA aufgetelt nach dem Geschlecht der Flöhe.
-#| label: fig-stat-ancova-04
-emmip(time_fct_fit , versuchsgruppe ~ time_fct, CIs = TRUE) +
-  theme_bw() +
-  scale_color_okabeito()
+time_fct_fit %>% anova %>% model_parameters()
 ```
+
+Wir haben eben einmal die Zeit als Faktor mit ins Modell genommen, da wir so für jeden Zeitpunkt einen Mittelwert schätzen können. Wenn wir eine einfaktorielle ANCOVA rechnen, dann geht die Zeit als numerische Kovariate ($c_1$) linear in das Modell ein. Wir haben also von jedem Zeitpunkt zum nächsten den gleichen Anstieg. Wir modellieren ja auch einen linearen Zusammenhang. Hier einmal das Modell für die ANCOVA.
+
+$$
+length \sim \overbrace{versuchsgruppe}^{f_1} + \underbrace{time\_num}_{c_1} + \overbrace{versuchsgruppe:time\_num}^{f_1:c_1}
+$$
+
+Wir fitten wieder das Modell in R mit der Funktion `lm()`.
 
 ```{r}
 time_num_fit <- lm(length ~ versuchsgruppe + time_num + versuchsgruppe:time_num, gurke_time_len_tbl)
 ```
 
+Auch hier einmal die Überprüfung auf eine Interaktion mit der ANCOVA. Wir sehen, dass wir eine signifikante Interaktion zwischen den Versuchsgruppen und dem zeitlichen verlauf vorliegen haben.
+
 ```{r}
-time_num_fit %>% anova()
+time_num_fit %>% anova() %>% model_parameters()
 ```
+
+In der @fig-stat-ancova-05 sehen wir dann nochmal das Modell im Interaktionsplot. In beiden Abbildungen sehe wir den linearen Zusammenhang. Die Interaktion drückt sich in der unterschiedlichen Steigung der Versuchsgruppen über den zeitlichen Verlauf aus. Wir können durch die Option `at =` entscheiden für welche Zeitpunkte wir uns die 95% Konfidenzintervalle anzeigen lassen wollen, wie in der linken Abbildung exemplarisch für die Zeitpunkte 1 Woche, 7 Wochen und 14 Wochen. Oder aber wir lassen uns alle durch die Option `cov.reduce = FALSE` anzeigen, wie in der rechten Abbildung gezeigt.
 
 ```{r}
 #| message: false
@@ -366,6 +378,10 @@ emtrends(time_num_fit, ~ versuchsgruppe, var = "time_num", infer = TRUE)
 emtrends(time_num_fit, pairwise ~ versuchsgruppe, var = "time_num", infer = TRUE)
 
 ```
+
+$$
+length \sim \overbrace{versuchsgruppe}^{f_1} + \underbrace{(time\_num)^3}_{c_1} + \overbrace{versuchsgruppe:(time\_num)^3}^{f_1:c_1}
+$$
 
 ```{r}
 time_num_poly_fit <- lm(length ~ versuchsgruppe * poly(time_num, 3), gurke_time_len_tbl)
