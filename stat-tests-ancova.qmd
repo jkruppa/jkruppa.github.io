@@ -6,7 +6,7 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 *Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
 
-> *"Make use of time, let not advantage slip." --- William Shakespeare"*
+> *"Make use of time, let not advantage slip." --- William Shakespeare*
 
 [Eine Kovariate ist eine Variable, die mit berücksichtigt wird, um mögliche verzerrende Einflüsse auf die Analyseergebnisse (Konfundierung) abzuschätzen oder zu verringern.]{.aside}
 
@@ -109,7 +109,7 @@ rbind(head(ancova_raw_2_tbl),
 
 ```
 
-Wir haben zwei Typen von Daten. Einmal messen wir den Durchmesser für jede Sorte (`D` im Namen der Versuchsgruppe) oder aber die Länge (`L` im Namen der Versuchsgruppe). Wir betrachten hier nur das Längenwachstum und deshalb filtern wir erstmal nach allen Versuchsgruppen mit einem `L` im Namen. Dann müssen wir die Daten noch in Long-Format bringen. Da wir dann auch noch auf zwei Arten die Daten über die Zeit darstellen wollen, brauchen wir einmal die Zeit als Faktor `time_fct` und einmal als numerisch `time_num`. Wir haben auch Gurken mit einer Länge von 0 cm. Diese Gurken schmeißen wir am Ende mal raus. Auch haben wir ab Woche 14 keine Messungen mehr an der Versuchsgruppe `Prolong`, also nehmen wir auch nur die Daten bis zur vierzehnten Woche.
+Wir haben zwei Typen von Daten für das Gurkenwachstum. Einmal messen wir den Durchmesser für jede Sorte (`D` im Namen der Versuchsgruppe) oder aber die Länge (`L` im Namen der Versuchsgruppe). Wir betrachten hier nur das Längenwachstum und deshalb filtern wir erstmal nach allen Versuchsgruppen mit einem `L` im Namen. Dann müssen wir die Daten noch in Long-Format bringen. Da wir dann auch noch auf zwei Arten die Daten über die Zeit darstellen wollen, brauchen wir einmal die Zeit als Faktor `time_fct` und einmal als numerisch `time_num`. Leider haben wir auch Gurken mit einer Länge von 0 cm. Diese Gurken schmeißen wir am Ende mal raus. Auch haben wir ab Woche 14 keine Messungen mehr in der Versuchsgruppe `Prolong`, also nehmen wir auch nur die Daten bis zur vierzehnten Woche.
 
 ```{r}
 gurke_time_len_tbl <- gurke_raw_tbl %>% 
@@ -135,12 +135,12 @@ In der @fig-ancova-gurke-03 sehen wir die Daten einmal als Scatterplot. Die Gera
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 8
-#| fig-cap: "Korrelation zwischen den beiden Jahren der Messung."
+#| fig-cap: "Scatterplot des Längenwachstums der drei Gurkensorten über vierzehn Wochen."
 
 ggplot(gurke_time_len_tbl, aes(time_num, length, color = versuchsgruppe)) +
   theme_bw() +
   geom_point() +
-  stat_summary(fun = "mean", fun.min = "min", fun.max = "max", geom = "line") +
+  stat_summary(fun = "mean", geom = "line") +
   scale_color_okabeito()
 ```
 
@@ -274,21 +274,28 @@ Nach einer berechneten ANCOVA können wir zwei Fälle vorliegen haben.
 1)  Wir habe eine nicht signifkante ANCOVA berechnet. Wir können die Nullhypothese $H_0$ nicht ablehnen und die Mittelwerte über den Faktor sind vermutlich alle gleich. Wir enden hier mit unserer statistischen Analyse.
 2)  Wir haben eine signifikante ANCOVA berechnet. Wir können die Nullhypothese $H_0$ ablehnen und mindestens ein Gruppenvergleich über mindestens einen Faktor ist vermutlich unterschiedlich. Wir können dann in @sec-posthoc eine Posthoc Analyse rechnen.
 
-Im Folgenden schauen wir uns dann die Auswertung der Gurkendaten einmal genauer an.
-
 ## Linearer Trendtest
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
-Für mehr Informationen bitte einmal in das Kapitel @sec-posthoc schauen.
+Im Folgenden schauen wir uns dann die Auswertung der Gurkendaten einmal genauer an. Für mehr Informationen bitte einmal in das Kapitel @sec-posthoc schauen.
 
-https://yuzar-blog.netlify.app/posts/2022-12-29-emmeans2interactions/
+::: column-margin
+Es gibt hier auch ein weiteres englischsprachiges Tutorium [Don't Ignore Interactions - Unleash the Full Power of Models with {emmeans} R-package](https://yuzar-blog.netlify.app/posts/2022-12-29-emmeans2interactions/)
+:::
 
 ```{r}
 #| message: false
 #| warning: false
 
 time_fct_fit <- lm(length ~ versuchsgruppe + time_fct + versuchsgruppe:time_fct, gurke_time_len_tbl)
+
+
+
+emmip(time_fct_fit, versuchsgruppe ~ time_fct, CIs = TRUE) +
+  theme_bw() +
+  scale_color_okabeito()
+
 ```
 
 ```{r}
@@ -349,4 +356,23 @@ emmeans(time_num_poly_fit, pairwise ~ versuchsgruppe | time_num,
 ```{r}
 emtrends(time_num_poly_fit, pairwise ~ versuchsgruppe, var = "time_num", infer = c(TRUE),
          max.degree = 3)
+```
+
+```{r}
+#| eval: false
+
+pacman::p_load(quantreg)
+
+foo <- rq(length ~ versuchsgruppe + time_fct + versuchsgruppe:time_fct, tau = 0.5, method = "pfnb",
+   gurke_time_len_tbl)
+
+
+
+emmeans(foo, pairwise ~ versuchsgruppe | time_num, 
+        at = list(time_num = c(1, 7, 14))) 
+
+mr <- rq(wage ~ education, data = Wage, tau = 0.5)
+
+emmeans::emmeans(foo, pairwise ~ versuchsgruppe | time_num, weights = "prop", adjust = "bonferroni")
+
 ```
