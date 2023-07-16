@@ -40,7 +40,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, conflicted, broom,
+pacman::p_load(tidyverse, magrittr, conflicted, broom, quantreg,
                see, performance, emmeans, multcomp, janitor)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
@@ -141,6 +141,7 @@ ggplot(gurke_time_len_tbl, aes(time_num, length, color = versuchsgruppe)) +
   theme_bw() +
   geom_point() +
   stat_summary(fun = "mean", geom = "line") +
+  stat_summary(fun = "median", geom = "line", linetype = 2) +
   scale_color_okabeito()
 ```
 
@@ -299,6 +300,14 @@ emmip(time_fct_fit, versuchsgruppe ~ time_fct, CIs = TRUE) +
 ```
 
 ```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: Scatterplot der Daten zur einfaktoriellen ANCOVA aufgetelt nach dem Geschlecht der Flöhe.
+#| label: fig-stat-ancova-04
 emmip(time_fct_fit , versuchsgruppe ~ time_fct, CIs = TRUE) +
   theme_bw() +
   scale_color_okabeito()
@@ -313,13 +322,24 @@ time_num_fit %>% anova()
 ```
 
 ```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 4
+#| label: fig-stat-ancova-05
+#| fig-cap: "Darstellung Anzahl an Bärchen und Anzahl an Farben. Es gibt nicht mehr als sechs Farben. Auf der linken Seite die beobachteten Werte und auf der rechten Seite die theoretischen Werte."
+#| fig-subcap: 
+#|   - "Verteilung der beobachteten Anzahl an Bärchen."
+#|   - "Verteilung der theoretischen Anzahl an Bärchen."
+#| layout-nrow: 1
+
 emmip(time_num_fit, versuchsgruppe ~ time_num, CIs = TRUE, 
       at = list(time_num = c(1, 7, 14))) +
   theme_bw() +
   scale_color_okabeito()
-```
 
-```{r}
 emmip(time_num_fit, versuchsgruppe ~ time_num, CIs = TRUE, 
       cov.reduce = FALSE) +
   theme_bw() +
@@ -341,6 +361,14 @@ time_num_poly_fit <- lm(length ~ versuchsgruppe * poly(time_num, 3), gurke_time_
 ```
 
 ```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: Scatterplot der Daten zur einfaktoriellen ANCOVA aufgetelt nach dem Geschlecht der Flöhe.
+#| label: fig-stat-ancova-06
 emmip(time_num_poly_fit, versuchsgruppe ~ time_num, CIs = TRUE, 
       cov.reduce = FALSE) +
   theme_bw() +
@@ -358,21 +386,42 @@ emtrends(time_num_poly_fit, pairwise ~ versuchsgruppe, var = "time_num", infer =
          max.degree = 3)
 ```
 
+## Quantilsregression
+
+Und eigentlich den Spezialfall der Median-Regression schauen wir uns an.
+
+Dafür nutzen wir das R Paket `quantreg` und die Funktion `rq()`
+
+::: column-margin
+Ein englisches Tutorium gibt es dann nochmal ausführlicher unter [Quantile Regression as an useful Alternative for Ordinary Linear Regression](https://yuzar-blog.netlify.app/posts/2022-12-01-quantileregression/)
+:::
+
 ```{r}
-#| eval: false
+#| message: false
+#| warning: false
+time_num_rq_fit <- rq(length ~ versuchsgruppe + time_num + versuchsgruppe:time_num, tau = 0.5,
+                      gurke_time_len_tbl)
+```
 
-pacman::p_load(quantreg)
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: Scatterplot der Daten zur einfaktoriellen ANCOVA aufgetelt nach dem Geschlecht der Flöhe.
+#| label: fig-stat-ancova-07
+emmip(time_num_rq_fit, versuchsgruppe ~ time_num, CIs = TRUE, 
+      cov.reduce = FALSE) +
+  theme_bw() +
+  scale_color_okabeito()
+```
 
-foo <- rq(length ~ versuchsgruppe + time_fct + versuchsgruppe:time_fct, tau = 0.5, method = "pfnb",
-   gurke_time_len_tbl)
-
-
-
-emmeans(foo, pairwise ~ versuchsgruppe | time_num, 
-        at = list(time_num = c(1, 7, 14))) 
-
-mr <- rq(wage ~ education, data = Wage, tau = 0.5)
-
-emmeans::emmeans(foo, pairwise ~ versuchsgruppe | time_num, weights = "prop", adjust = "bonferroni")
+```{r}
+#| message: false
+#| warning: false
+emmeans(time_num_rq_fit, pairwise ~ versuchsgruppe | time_num, infer  = TRUE,
+        adjust = "none", at = list(time_num = c(1, 7, 14))) 
 
 ```
