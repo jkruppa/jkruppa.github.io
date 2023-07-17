@@ -1,0 +1,309 @@
+```{r echo = FALSE}
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
+```
+
+# Robust und Quantile Regression {#sec-reg-quantile}
+
+*Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
+
+> *"All models are approximations. Essentially, all models are wrong, but some are useful. However, the approximate nature of the model must always be borne in mind." --- George E. P. Box*
+
+Die robuste Regression (eng. *robust regression*) und die Quantilsregression (eng. *quantile regression*)
+
+## Genutzte R Pakete
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+#| message: false
+pacman::p_load(tidyverse, magrittr, conflicted, broom, quantreg,
+               see, performance, emmeans, multcomp, janitor,
+               parameters, effectsize, MASS)
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("mutate", "dplyr")
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+## Daten
+
+Für unser Beispiel nutzen wir die Daten
+
+```{r}
+basi_tbl <- read_excel("data/keimversuch_basilikum_block.xlsx") %>%
+  clean_names() %>% 
+  mutate(versuchsgruppe = as_factor(versuchsgruppe)) %>% 
+  select(versuchsgruppe, block_1:block_4)
+```
+
+```{r}
+#| message: false
+#| warning: false
+basi_block_tbl <- basi_tbl %>% 
+  pivot_longer(cols = block_1:block_4,
+               values_to = "values",
+               names_to = "block") %>% 
+  mutate(block = as_factor(block),
+         block_num = as.numeric(block))
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: "Datensatz ."
+#| label: tbl-model-1
+
+basi_raw_tbl <- basi_tbl %>% 
+  mutate(versuchsgruppe = as.character(versuchsgruppe))
+rbind(head(basi_raw_tbl),
+      rep("...", times = ncol(basi_raw_tbl)),
+      tail(basi_raw_tbl)) %>% 
+  kable(align = "c", "pipe")
+
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-robust-basi-00
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "Scatterplot des L."
+
+ggplot(basi_block_tbl, aes(block, values, color = versuchsgruppe)) +
+  theme_bw() +
+  scale_color_okabeito() +
+  geom_jitter(position=position_dodge(0.3), shape = 4) +
+  stat_summary(fun.data="mean_sdl", , fun.args = list(mult = 1), 
+               geom="pointrange", position=position_dodge(0.3))  +
+  stat_summary(fun = "mean", fun.min = "min", fun.max = "max", geom = "line",
+               position=position_dodge(0.3)) 
+```
+
+Unser zweiter Datensatz ist ein Anwendungsdatensatz aus dem Gemüsebau. Wir schauen uns das Wachstum von drei Gurkensorten über siebzehn Wochen an. Die Gurkensorten sind hier unsere Versuchsgruppen. Da wir es hier mit echten Daten zu tun haben, müssen wir uns etwas strecken damit die Daten dann auch passen. Wir wollen das Wachstum der drei Gurkensorten *über* die Zeit betrachten - also faktisch den Verlauf des Wachstums.
+
+Wir haben zwei Typen von Daten für das Gurkenwachstum. Einmal messen wir den Durchmesser für jede Sorte (`D` im Namen der Versuchsgruppe) oder aber die Länge (`L` im Namen der Versuchsgruppe). Wir betrachten hier nur das Längenwachstum und deshalb filtern wir erstmal nach allen Versuchsgruppen mit einem `L` im Namen.
+
+```{r}
+#| message: false
+#| warning: false
+
+gurke_raw_tbl <- read_excel("data/wachstum_gurke.xlsx") %>% 
+  clean_names() %>% 
+  filter(str_detect(versuchsgruppe, "L$")) %>% 
+  select(-pfl, -erntegewicht) %>% 
+  mutate(versuchsgruppe = factor(versuchsgruppe, 
+                                 labels = c("Katrina", "Proloog", "Quarto"))) 
+```
+
+In der @tbl-model-2 sehen wir einmal die rohen Daten dargestellt.
+
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: "Datensatz zu dem Längen- und Dickenwachstum von Gurken."
+#| label: tbl-model-2
+
+gurke_raw_2_tbl <- gurke_raw_tbl %>% 
+  mutate(versuchsgruppe = as.character(versuchsgruppe))
+rbind(head(gurke_raw_2_tbl),
+      rep("...", times = ncol(gurke_raw_2_tbl)),
+      tail(gurke_raw_2_tbl)) %>% 
+  kable(align = "c", "pipe")
+
+```
+
+Dann müssen wir die Daten noch in Long-Format bringen. Da wir dann auch noch auf zwei Arten die Daten über die Zeit darstellen wollen, brauchen wir einmal die Zeit als Faktor `time_fct` und einmal als numerisch `time_num`. Leider haben wir auch Gurken mit einer Länge von 0 cm. Diese Gurken schmeißen wir am Ende mal raus. Auch haben wir ab Woche 14 keine Messungen mehr in der Versuchsgruppe `Prolong`, also nehmen wir auch nur die Daten bis zur vierzehnten Woche.
+
+```{r}
+gurke_time_len_tbl <- gurke_raw_tbl %>% 
+  pivot_longer(cols = t1:t17,
+               values_to = "length",
+               names_to = "time") %>% 
+  mutate(time_fct = as_factor(time),
+         time_num = as.numeric(time_fct)) %>% 
+  filter(length != 0) %>% 
+  filter(time_num <= 14)
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-robust-gurke-00
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 7
+#| fig-cap: "Scatterplot des Längenwachstums der drei Gurkensorten über vierzehn Wochen. Die gestrichtelten Linien stellen den Median und die durchgezogene Line den Mittelwert der Gruppen dar."
+
+ggplot(gurke_time_len_tbl, aes(time_num, length, color = versuchsgruppe)) +
+  theme_bw() +
+  geom_point() +
+  stat_summary(fun = "mean", geom = "line") +
+  stat_summary(fun = "median", geom = "line", linetype = 2) +
+  scale_color_okabeito()
+```
+
+## Gewöhnliche lineare Regression
+
+(eng. *ordinary linear regression*)
+
+```{r}
+#| message: false
+#| warning: false
+basi_lm_fit <- lm(values ~ versuchsgruppe + block + versuchsgruppe:block, basi_block_tbl)
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: Scatterplot der Daten zur einfaktoriellen ANCOVA aufgetelt nach dem Geschlecht der Flöhe.
+#| label: fig-stat-robust
+emmip(basi_lm_fit, versuchsgruppe ~ block, CIs = TRUE, 
+      cov.reduce = FALSE) +
+  theme_bw() +
+  scale_color_okabeito()
+```
+
+## ANOVA
+
+```{r}
+#| message: false
+#| warning: false
+basi_lm_fit %>% 
+  anova() %>% 
+  model_parameters()
+```
+
+```{r}
+pf(1.14, 9, 64, lower.tail = FALSE)
+```
+
+```{r}
+#| message: false
+#| warning: false
+basi_lm_fit %>% 
+  eta_squared()
+```
+
+## Gruppenvergleich
+
+```{r}
+#| message: false
+#| warning: false
+basi_lm_fit %>% 
+  emmeans(specs = ~ versuchsgruppe | block) %>%
+  cld(Letters = letters, adjust = "none") 
+```
+
+## Robuste Regression {#sec-robust-reg}
+
+https://yuzar-blog.netlify.app/posts/2022-09-02-robustregression/
+
+Es gibt noch das R Paket `robustbase` aber hier sind die Funktionen von `emmeans` nicht zugänglich.
+
+$$
+y \sim f_1 + f_2 + c_1
+$$
+
+$$
+length \sim \overbrace{versuchsgruppe}^{f_1} + \underbrace{(time\_num)^3}_{c_1} + \overbrace{versuchsgruppe:(time\_num)^3}^{f_1:c_1}
+$$
+
+```{r}
+#| message: false
+#| warning: false
+basi_rob_fit <- rlm(values ~ versuchsgruppe + block + versuchsgruppe:block, basi_block_tbl)
+```
+
+### ANOVA
+
+Leider hilft hier die ANOVA nicht weiter. Aber wir können händisch rechnen.
+
+```{r}
+#| message: false
+#| warning: false
+basi_rob_fit %>% 
+  anova() %>% 
+  tidy()
+```
+
+```{r}
+pf(3.4, 3, 12, lower.tail = FALSE)
+```
+
+```{r}
+#| message: false
+#| warning: false
+basi_rob_fit %>% 
+  eta_squared()
+```
+
+### Gruppenvergleich
+
+```{r}
+#| message: false
+#| warning: false
+basi_rob_fit %>% 
+  emmeans(specs = ~ versuchsgruppe | block) %>%
+  cld(Letters = letters, adjust = "none") 
+```
+
+## Quantilsregression {#sec-quantile-reg}
+
+https://yuzar-blog.netlify.app/posts/2022-12-01-quantileregression/
+
+```{r}
+#| message: false
+#| warning: false
+time_rq_fit <- rq(length ~ versuchsgruppe + time_num + versuchsgruppe:time_num, tau = 0.5,
+                  gurke_time_len_tbl)
+```
+
+### ANOVA
+
+Geht nicht
+
+### Gruppenvergleich
+
+Und eigentlich den Spezialfall der Median-Regression schauen wir uns an.
+
+Dafür nutzen wir das R Paket `quantreg` und die Funktion `rq()`
+
+::: column-margin
+Ein englisches Tutorium gibt es dann nochmal ausführlicher unter [Quantile Regression as an useful Alternative for Ordinary Linear Regression](https://yuzar-blog.netlify.app/posts/2022-12-01-quantileregression/)
+:::
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: Scatterplot der Daten zur einfaktoriellen ANCOVA aufgetelt nach dem Geschlecht der Flöhe.
+#| label: fig-stat-ancova-07
+emmip(time_rq_fit, versuchsgruppe ~ time_num, CIs = TRUE, 
+      cov.reduce = FALSE) +
+  theme_bw() +
+  scale_color_okabeito()
+```
+
+```{r}
+#| message: false
+#| warning: false
+
+time_rq_fit %>% 
+  emmeans(pairwise ~ versuchsgruppe | time_num, infer  = TRUE,
+          adjust = "none", at = list(time_num = c(1, 7, 14))) 
+
+```
