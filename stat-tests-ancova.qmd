@@ -6,7 +6,7 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 *Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
 
-> *"Make use of time, let not advantage slip." --- William Shakespeare*
+> *"It's better to solve the right problem approximately than to solve the wrong problem exactly." --- John Tukey*
 
 [Eine Kovariate ist eine Variable, die mit berücksichtigt wird, um mögliche verzerrende Einflüsse auf die Analyseergebnisse (Konfundierung) abzuschätzen oder zu verringern.]{.aside}
 
@@ -258,7 +258,7 @@ Nach einer berechneten ANCOVA können wir zwei Fälle vorliegen haben.
 
 ## Linearer Trendtest
 
-![](images/caution.png){fig-align="center" width="50%"}
+> *"Make use of time, let not advantage slip." --- William Shakespeare*
 
 Im Folgenden schauen wir uns dann die Auswertung der Gurkendaten einmal genauer an. Für mehr Informationen zu dem Paket `emmeans` und den entsprechenden Funktionen dann bitte einmal in das Kapitel @sec-posthoc schauen. In der @fig-ancova-gurke-03 sehen wir die Daten einmal als Scatterplot. Die durchgezogene Gerade stellt den Verlauf der Mittelwerte über die Versuchsgruppen dar. Die gestrichelte Linie zeigt den Median über die Gruppen. Wir wollen jetzt der Frage nachgehen, ob es einen Unterschied zwischen den Gurkensorten `versuchsgruppen` über den zeitlichen Verlauf der vierzehn Wochen gibt.
 
@@ -369,23 +369,32 @@ emmip(time_num_fit, versuchsgruppe ~ time_num, CIs = TRUE,
   scale_color_okabeito()
 ```
 
+Jetzt kommt eigentlich der spannende Teil, wir wollen jetzt über den zeitlichen Verlauf einen statistischen Test rechnen, ob wir einen Trend in den verschiedenen Versuchsgruppen haben. Wir rechnen also einen Trendtest über die Kovariate $c_1$ für die drei Gruppen getrennt. Das können wir mit der Funktion `emtrends()` durchführen. Hier musst du angeben welche deine Kovariate `var` ist. In unserem Fall ist die Kovariate natürlich `time_num`.
+
 ```{r}
 emtrends(time_num_fit, ~ versuchsgruppe, var = "time_num", infer = TRUE)
-
 ```
+
+Die Spalte `time_num.trend` zeigt uns jetzt den linearen Anstieg über die Zeit für die jeweilige Versuchsgruppe. Das heißt jede Woche wächst die Sorte Proloog um $1.857cm$ an Länge. In der gleichen Art können wir auch die anderen Werte in der Spalte interpretieren. Jetzt stellt sich natürlich die Frage, ob dieses Längenwachstum *untereinander* unterschiedlich ist. Dafür könne wir dann leicht den Code abändern und setzen das Wort `pairwise` vor die Tilde. Dann testet die Funktion auch alle paarweisen Vergleiche. Wir nutzen jetzt noch die Funktion `model_parameters()` um eine schönere Ausgabe zu erhalten.
 
 ```{r}
-emtrends(time_num_fit, pairwise ~ versuchsgruppe, var = "time_num", infer = TRUE)
-
+emtrends(time_num_fit, pairwise ~ versuchsgruppe, var = "time_num", infer = TRUE) %>% 
+  model_parameters()
 ```
+
+Wir sehen wieder erst die Trends, die kennen wir schon. Dann sehen wir die Kontraste oder auch paarweisen Vergleiche. Das kannst du schnelle nachrechnen, der Unterschied von Proloog zu Quarto ist $1.48 - 0.45 = 1.03$. Damit können wir dann auch über den *gesamten* zeitlichen Verlauf testen, ob ein Unterschied zwischen den Sorten vorliegt.
+
+Wir sind jetzt schon sehr weit gekommen, aber wir könnten auch einen nicht-linearen Zusammenhang zwsichen der Zeit und dem Längenwachstum von Gurken annehmen. Das würde auch biologisch etwas mehr Sinn ergeben. Deshalb modellieren wir den Einfluss der Zeit `time_num` durch einen Exponenten hoch drei. Daher schreiben wir mathematisch $(time\_num)^3$.
 
 $$
 length \sim \overbrace{versuchsgruppe}^{f_1} + \underbrace{(time\_num)^3}_{c_1} + \overbrace{versuchsgruppe:(time\_num)^3}^{f_1:c_1}
-$$
+$$ Den Exponenten schreiben wir dann entsprechend in R mit `poly(time_num, 3)` in die Formel. Die Funktion `poly()` nutzen wir innerhalb von Formelaufrufen um einen Exponenten einzufügen.
 
 ```{r}
 time_num_poly_fit <- lm(length ~ versuchsgruppe * poly(time_num, 3), gurke_time_len_tbl)
 ```
+
+In der @fig-stat-ancova-06 sehen wir dann nochmal die Anpassung des Modells und wir sehen, dass unser Modell besser zu den Daten passt. Das sieht schon sehr viel sauberer aus, als der brutale lineare Zusammenhang, den wir vorher hatten. Du musst hier etwas mit den Exponenten spielen und ausprobieren, welcher da am besten passt.
 
 ```{r}
 #| message: false
@@ -402,18 +411,30 @@ emmip(time_num_poly_fit, versuchsgruppe ~ time_num, CIs = TRUE,
   scale_color_okabeito()
 ```
 
+Jetzt wollen wir die Analyse nochmal auf die Spitze treiben. Wir schauen uns jetzt an den Zeitpunkten 1 Woche, 7 Wochen und 14 Wochen den Unterschied zwischen den Sorten einmal an. Das machen wir indem wir zu der Funktion `emmeans()` die Optione `at = list(time_num = c(1, 7, 14))` ergänzen. Am Ende lassen wir uns noch das *compact letter display* wiedergeben.
+
 ```{r}
 emmeans(time_num_poly_fit, pairwise ~ versuchsgruppe | time_num, 
         at = list(time_num = c(1, 7, 14))) %>% 
-  cld()
+  cld(Letters = letters) 
 ```
+
+Was erkennen wir? Wir sehen, dass sich in der ersten Woche die Sorten noch nicht voneinander unterscheiden. Erst in der Woche sieben sehen wir einen Unterschied von Proloog zu dem Rest der Sorten. In der letzten Woche unterscheiden sich dann alle Sorten voneinander. Wie stark, kannst du aus der Spalte `emmean` entnehmen, dort steht der Mittelwert für die jeweilige Sorte zu dem jeweiligen Zeitpunkt.
+
+Abschließend wollen wir nochmal schauen, wie sich der Trend in den verschiedenen Modellierungen der Exponenten zeigen würde. Wir müssen dafür bei der Funktion `emtrends()` angeben bis zu welchen maximalen Exponenten, bei uns hoch Drei, die Funktion rechnen soll. Deshalb setzen wir `max.degree = 3`. Dann noch `pairwise` vor die Tilde gesetzt, damit wir dann auch die paarweisen Vergleiche für die Sorten und Verläufe angezeigt kriegen. Achtung, jetzt kommt eine lange Ausgabe.
 
 ```{r}
-emtrends(time_num_poly_fit, pairwise ~ versuchsgruppe, var = "time_num", infer = c(TRUE),
-         max.degree = 3)
+emtrends(time_num_poly_fit, pairwise ~ versuchsgruppe, var = "time_num", infer = TRUE,
+         max.degree = 3) 
 ```
 
+Was sehen wir in diesem Fall? In der linearen Modellierung der Zeit haben wir sehr viele signifikante Ergebnisse. Leider entspricht der lineare verlauf über die Zeit nicht so den beobachteten Daten. Bei der kubischen Modellierung, also hoch Drei, haben wir dann in der Abbildung eine bessere Modellierung. Die Effekte reichen dann aber nicht aus um über den gesamten zeitlichen Verlauf, Betonung liegt auf dem gesamten zeitlichen Verlauf, einen Unterschied zeigen zu können.
+
+Daher müsste man hier einmal überlegen, ob man nicht die frühen Wochen aus den Daten entfernt. Hier sind die Gurlen noch sehr ähnlich, so dass wir hier eigentlich auch keinen Unterschied erwarten. Sonst könntest du nochmal mit einer $\log$-Transformation der Länge spielen, dann verlierst du zwar die direkte biologische Interpretierbarkeit der Effektschätzer, aber dafür könnte der Verlauf über die Zeit *besser* aufgesplittet werden. Das Problem sind ja hier sehr kleine Werte zu Anfang und sehr große Werte zum Ende.
+
 ## Quantilsregression
+
+![](images/caution.png){fig-align="center" width="50%"}
 
 Und eigentlich den Spezialfall der Median-Regression schauen wir uns an.
 
