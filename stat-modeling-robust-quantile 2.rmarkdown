@@ -2,6 +2,7 @@
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 ```
 
+
 # Robust und Quantile Regression {#sec-reg-quantile}
 
 *Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
@@ -18,6 +19,7 @@ In diesem Kapitel brechen wir etwas die bisherige Struktur der Regressionskapite
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
+
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom, quantreg,
@@ -30,11 +32,13 @@ cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
+
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
 
 ## Daten
 
 Für unser erstes Beispiel nutzen wir die Daten aus einem Wachstumsversuch mit Basilikum mit vier Bodenbehandlungen und vier Blöcken, die Blöcke sind eigentlich Gewächshaustische. Wir wollen also einen klassischen Gruppenvergleich mit Berücksichtigung der Blockstruktur rechnen.
+
 
 ```{r}
 basi_tbl <- read_excel("data/keimversuch_basilikum_block.xlsx") %>%
@@ -43,7 +47,9 @@ basi_tbl <- read_excel("data/keimversuch_basilikum_block.xlsx") %>%
   select(versuchsgruppe, block_1:block_4)
 ```
 
+
 In @tbl-model-1 sehen wir einmal die Daten im Wide-Format. Wir haben also das Frischgewicht der Basilikumpflanzen gemessen und wollen wissen, ob die verschiedenen Bodenarten einen Einfluss auf das Wachstum haben.
+
 
 ```{r}
 #| message: false
@@ -60,7 +66,9 @@ rbind(head(basi_raw_tbl),
 
 ```
 
+
 Da wir die Daten im Wide-Format vorliegen haben, müssen wir die Daten nochmal in Long-Format umwandeln. Wie immer nutzen wir dafür die Funktion `pivot_longer()`.
+
 
 ```{r}
 #| message: false
@@ -72,7 +80,9 @@ basi_block_tbl <- basi_tbl %>%
   mutate(block = as_factor(block))
 ```
 
+
 In der @fig-robust-basi-00 siehst du einmal die Daten als Dotplots mit Mittelwert und Standardabweichung. Wir machen hier mal einen etwas komplizierteren Plot, aber immer nur Barplot ist ja auch langweilig.
+
 
 ```{r}
 #| echo: true
@@ -94,6 +104,7 @@ ggplot(basi_block_tbl, aes(versuchsgruppe, weight, color = block)) +
                position = position_dodge(0.5)) 
 ```
 
+
 Unser zweiter Datensatz ist ein Anwendungsdatensatz aus dem Gemüsebau. Wir schauen uns das Wachstum von drei Gurkensorten über siebzehn Wochen an. Die Gurkensorten sind hier unsere Versuchsgruppen. Da wir es hier mit echten Daten zu tun haben, müssen wir uns etwas strecken damit die Daten dann auch passen. Wir wollen das Wachstum der drei Gurkensorten *über* die Zeit betrachten - also faktisch den Verlauf des Wachstums. Wir ignorieren hier einmal die abhängige Datenstruktur über die Zeitpunkte.
 
 ::: column-margin
@@ -101,6 +112,7 @@ Mit einer abhängigen Datenstruktur müssten wir eigentlich ein lineares gemisch
 :::
 
 Im Weiteren haben wir zwei Typen von Daten für das Gurkenwachstum. Einmal messen wir den Durchmesser für jede Sorte (`D` im Namen der Versuchsgruppe) oder aber die Länge (`L` im Namen der Versuchsgruppe). Wir betrachten hier nur das Längenwachstum und deshalb filtern wir erstmal nach allen Versuchsgruppen mit einem `L` im Namen. Am Ende schmeißen wir noch Spalten raus, die wir nicht weiter brauchen.
+
 
 ```{r}
 #| message: false
@@ -114,7 +126,9 @@ gurke_raw_tbl <- read_excel("data/wachstum_gurke.xlsx") %>%
                                  labels = c("Katrina", "Proloog", "Quarto"))) 
 ```
 
+
 In der @tbl-model-2 sehen wir einmal die rohen Daten dargestellt.
+
 
 ```{r}
 #| message: false
@@ -131,7 +145,9 @@ rbind(head(gurke_raw_2_tbl),
 
 ```
 
+
 Dann müssen wir die Daten noch in Long-Format bringen. Da wir dann auch noch auf zwei Arten die Daten über die Zeit darstellen wollen, brauchen wir einmal die Zeit als Faktor `time_fct` und einmal als numerisch `time_num`. Leider haben wir auch Gurken mit einer Länge von 0 cm, diese Gruken lassen wir jetzt mal drin, da wir ja eine robuste Regression noch rechnen wollen. Auch haben wir ab Woche 14 keine Messungen mehr in der Versuchsgruppe `Prolong`, also nehmen wir auch nur die Daten bis zur vierzehnten Woche.
+
 
 ```{r}
 gurke_time_len_tbl <- gurke_raw_tbl %>% 
@@ -143,7 +159,9 @@ gurke_time_len_tbl <- gurke_raw_tbl %>%
   filter(time_num <= 14)
 ```
 
+
 In der @fig-robust-gurke-00 sehen wir dann nochmal den Scatterplot für das Gurkenwachstum. Die gestrichtelten Linien stellen den Median und die durchgezogene Line den Mittelwert der Gruppen dar.
+
 
 ```{r}
 #| echo: true
@@ -164,9 +182,11 @@ ggplot(gurke_time_len_tbl, aes(time_num, length, color = versuchsgruppe)) +
   scale_color_okabeito()
 ```
 
+
 ## Gewöhnliche lineare Regression
 
 (eng. *ordinary linear regression*)
+
 
 ```{r}
 #| message: false
@@ -189,7 +209,9 @@ emmip(basi_lm_fit, versuchsgruppe ~ block, CIs = TRUE,
   scale_color_okabeito()
 ```
 
+
 ### ANOVA
+
 
 ```{r}
 #| message: false
@@ -210,7 +232,9 @@ basi_lm_fit %>%
   eta_squared()
 ```
 
+
 ### Gruppenvergleich
+
 
 ```{r}
 #| message: false
@@ -219,6 +243,7 @@ basi_lm_fit %>%
   emmeans(specs = ~ versuchsgruppe | block) %>%
   cld(Letters = letters, adjust = "none") 
 ```
+
 
 ## Robuste Regression {#sec-robust-reg}
 
@@ -231,6 +256,7 @@ Ebenso liefert auch das Tutorium [Robust regression \| R data analysis example](
 :::
 
 Schauen wir uns das Problem an einem kleinen Spieldatensatz einmal an.
+
 
 ```{r}
 #| message: false
@@ -246,7 +272,9 @@ reg_lm_fit <- lm(y ~ x, reg_tbl)
 reg_rlm_fit <- rlm(y ~ x, reg_tbl)
 ```
 
+
 @fig-stat-robust-demo
+
 
 ```{r}
 #| message: false
@@ -266,6 +294,7 @@ ggplot(reg_tbl, aes(x, y, label = x)) +
 
 ```
 
+
 In unserem Beispiel ist die Beobachtung 6 der Ausreißer. In einer normalen Regression erhält diese Beobachtung sehr viel Gewicht. Die Gerade wird dadurch nach unten gezogen. In einer robusten Regression erhält eine Beobachtung mit einem großen Residuum sehr wenig Gewicht, in diesem konstruierten Beispiel fast 0. Daher können wir sagen, das unser Modell *robust* gegen Ausreißer ist.
 
 Okay, soweit lernt es jeder und die Idee der robusten Regression ist auch ziemlich einleuchtend. Aber in der Wissenschaft zeichnen wir keine Gerade durch Punkte und freuen uns drüber, dass die eine gerade besser passt als die andere Gerade.
@@ -280,15 +309,18 @@ Gibt es in biologischen Daten eigentlich überhaupt Ausreißer? Oder müssten wi
 
 Es gibt noch das R Paket `robustbase` aber hier sind die Funktionen von `emmeans` nicht zugänglich.
 
+
 ```{r}
 #| message: false
 #| warning: false
 basi_rob_fit <- rlm(weight ~ versuchsgruppe + block + versuchsgruppe:block, basi_block_tbl)
 ```
 
+
 ### ANOVA
 
 Dann wollen wir einmal eine zweifaktorielle ANOVA auf den Modell der robusten Regression rechnen. Leider kann ich schon gleich sagen, dass wir hier ein Problem kriegen. Es ist nicht ganz klar unter Theoretikern welche Anzahl an Beobachtungen für die Residuen in der robusten Regression genutzt werden soll. Welche Beobachtungen werden den im Modell berücksichtigt und welche nicht? Daher ist dann der Wert für die Freiheitsgrade $df$ leer und wir erhalten keine $F$-Statistik und dann auch keine $p$-Werte. Für mich super unbefriedigend, so kann man dann auch keine Funktionen richtig nutzen.
+
 
 ```{r}
 #| message: false
@@ -299,32 +331,42 @@ basi_rob_aov <- basi_rob_fit %>%
 basi_rob_aov
 ```
 
+
 Was als Freiheitsgrad für die Residuen nehmen? In unserem Datensatz haben wir `r nrow(basi_block_tbl)` Basilikumpflanzen und somit auch Beobachtungen vorliegen. Wir setzen jetzt einfach brutal die Freiheitsgrade `df` für die Residuen auf 80 und können dann die Mean Squares für die Residuen berechnen. Also einmal flott die `meansq` für die Residuen durch die Anzahl an Beobachtungen geteilt.
+
 
 ```{r}
 ms_resid <- 527 / 80
 ```
 
+
 Mit den Mean Square der Residuen können wir dann auch die $F$-Werte berechnen. Den rechnerischen Weg kennen wir ja schon aus der zweifaktoriellen ANOVA.
+
 
 ```{r}
 f_calc <- basi_rob_aov$meansq / ms_resid
 ```
 
+
 Wie kriegen wir jetzt aus den ganzen berechneten $F$-Werten die entsprechenden $p$-Werte? Die $p$-Werte sind die Fläche rechts von den berechneten Werten. Wir können die Funktion `pf()` nutzen um diese Flächen zu berechnen. Wir machen das einmal beispielhaft für einen $F_{calc} = 3.41$ für 4 Gruppen mit $df_1 = 4 - 1 = 3$ und 12 Beobachtungen $df_2 = 12$. Die Berechnung von $df_2$ ist statistisch *falsch* aber für unseren MacGyver Hack hinreichend.
+
 
 ```{r}
 pf(3.41, 3, 12, lower.tail = FALSE) %>% round(3)
 ```
 
+
 Und siehe da, wir erhalten einen $p$-Wert von $0.053$. Nun können wir das nicht nur für einzelnen $F$-Werte machen sondern auch für unseren ganzen Vektor `f_calc`. Als $df_2$ setzen wir die Anzahl an Basilikumpflanzen.
+
 
 ```{r}
 p_vec <- pf(f_calc, c(3, 3, 9), c(80, 80, 80), lower.tail = FALSE) %>% 
   scales::pvalue()
 ```
 
+
 Die berechneten $F$-Werte und $p$-Werte können wir jetzt in die ANOVA Tabelle ergänzen.
+
 
 ```{r}
 basi_rob_aov %>% 
@@ -332,9 +374,11 @@ basi_rob_aov %>%
          p.value = p_vec)
 ```
 
+
 Das war jetzt ein ganz schöner Angang und den $p$-Werten ist nur approximativ zu trauen, aber wenn wir weit vom Signifikanzniveau $\alpha$ gleich 5% sind, dann macht eine numerische Ungenauigkeit auch nicht viel aus. Achtung deshalb bei $p$-Werten nahe des Signifikanzniveau $\alpha$, hier ist dann die Aussage mit Vorsicht zu treffen oder eher nicht möglich.
 
 Glücklicherweise können wir aus den Sum of squares dann unsere $\eta^2$-Werte für die erklärte Varianz unserer ANOVA berechnen. Das ist dann doch schon mal was. Wir sehen, dass die Blöcke am meisten der Varianz erklären und die Versuchsgruppen sehr wenig. Das ist für das Modell dann nicht so schön, deckt sich aber mit den Ergebnissen gewöhnlichen Regression. Wir erhalten eine Konfidenzintervalle, woran du schon erkennen kannst, dass in der Ausgabe der ANOVA der robusten Regression was fehlt.
+
 
 ```{r}
 #| message: false
@@ -343,9 +387,11 @@ basi_rob_fit %>%
   eta_squared()
 ```
 
+
 ### Gruppenvergleich
 
 Dafür geht der Gruppenvergleich für die robuste Regression wie von alleine. Wir haben keine Interaktion vorliegen, daher müssen wir auch nicht den Block berücksichtigen. Das wir in Block 1 ein Problem haben, steht dann aber auf einem anderen Blatt. Da aber *alle* Basilikumpflanzen immer im Block 1 kleiner sind, passt es dann wieder im Sinne keiner Interaktion. Mit Interaktion hätten wir sonst `versuchsgruppe | block` statt nur `versuchsgruppe` hinter die Tilde geschrieben. Dann wollen wir noch das *compact letter disply* und alles ist wie es sein sollte.
+
 
 ```{r}
 #| message: false
@@ -355,17 +401,15 @@ basi_rob_fit %>%
   cld(Letters = letters, adjust = "none") 
 ```
 
+
 Wir sehen also, dass sich Erde+Fließ und Erde nicht unterscheiden. Die beiden aber dann von Perlite+Fließ sowie Erde+Perlite. Am Ende unterscheiden sich Perlite+Fließ und Erde+Perlite nicht.
 
 ## Quantilsregression {#sec-quantile-reg}
-
-Jetzt wollen wir uns als Spezialfall der robusten Regression einmal die Quantilesregression anschauen. Wir der Name schon sagt, optimiert die Quantilregression nicht über den Mittelwert und die Standardabweichung als quadratische Abweichungen sondern über den Median und die absoluten Abweichungen. Wir haben es also hier mit einer Alternativen zu der gewöhnlichen Regression zu tun. Das schöne an der Quantilesregression ist, dass der Median nicht so anfällig gegenüber Ausreißern ist. Hier haben wir einen Vorteil. Wir können theoretisch auch andere Quantile als Referenzwert nehmen und die absoluten Abstände berechnen. Wenn wir aber später dann mit `emmeans` die Gruppenvergleiche rechnen wollen, geht das nur über den Median.
 
 ::: column-margin
 Ein englisches Tutorium gibt es dann nochmal ausführlicher unter [Quantile Regression as an useful Alternative for Ordinary Linear Regression](https://yuzar-blog.netlify.app/posts/2022-12-01-quantileregression/)
 :::
 
-Um die Quantilesregression zu rechnen nutzen wir das R Paket `quantreg` und die Funktion `rq()`. Wichtig ist hier, dass wir das `tau` auf $0.5$ setzen und somit dann eine Median-Regression rechnen. Wir können theoretisch auch andere Quantile als Referenz wählen, aber dann passt es nicht mehr mit `emmeans()`. Wir nutzen hier auch nochmal die Gelegenheit zwei Modelle mit anzupassen. Wir rechnen einmal ein Modell mit einer linearen Komponente der Zeit `time_num` und einmal ein Modell mit der quadratischen Komponenteder Zeit mit `poly(time_num, 2)` was nicht anderes als `time_num`$^2$ ist.
 
 ```{r}
 #| message: false
@@ -396,9 +440,11 @@ ggplot(gurke_time_len_tbl, aes(time_num, length, color = versuchsgruppe)) +
   labs(linetype = "", color = "")
 ```
 
+
 ### ANOVA
 
 Machen wir es kurz. Die ANOVA ist für die Quantilsregression nicht implementiert und damit auch nicht anwendbar. Damit können wir aber leben, wenn wir die ANOVA nur als Vortest ansehen. Wir müssen dann eine mögliche Interaktion visuell überprüfen. Um die Interaktion visuell zu überprüfen nutzen wir die Funktion `emimp()` aus dem R Paket `emmeans`. Wir sehen in der @fig-rob-inter-time, dass sich die Gerade für die Versuchsgruppen über die Zeit nicht schneiden, was gegen eine starke Interaktion spricht. Die Steigung ist aber für alle drei Versuchsgruppen über die Zeit nicht gleich, wir haben zumindest eine mittlere Interaktion.
+
 
 ```{r}
 #| message: false
@@ -424,30 +470,32 @@ emmip(time_rq_quad_fit, versuchsgruppe ~ time_num, CIs = TRUE,
   scale_color_okabeito()
 ```
 
+
 Wir würden also in unseren Gruppenvergleich der Mediane auf jeden Fall die Interaktion mit rein nehmen und die `emmeans()` Funktion entsprechend mit dem `|` anpassen.
 
 ### Gruppenvergleich
 
 Wenn wir den Gruppenvergleich in `emmeans()` rechnen wollen, dann geht es nur dem Spezialfall der Median-Regression. Wir müssen also zwangsweise in der Quantilesregression `rq()` das `tau = 0.5` setzen um dann eine Median-Regression zu rechnen. Sonst können wir nicht `emmeans` nutzen.
 
+
 ```{r}
 #| message: false
 #| warning: false
 
 time_rq_quad_fit %>% 
-  emmeans(~ versuchsgruppe | time_num, 
+  emmeans(pairwise ~ versuchsgruppe | time_num, infer  = TRUE,
           adjust = "none", at = list(time_num = c(1, 7, 14))) %>%
   cld(Letters = letters, adjust = "none") 
 
 ```
 
-Das sieht ja schon mal ganz gut aus. Interessant ist, dass wir an dann in der vierzehnten Woche dann keinen signifikanten Unterschied mehr vorliegen zwischen Quarto und Katrina vorliegen haben. Das liegt dann aber alleinig an dem hohen Standardfehler `SE` der Sorte Katrina mit $3.1$ gegenüber den anderen Sorten. Vermutlich sehe das Ergebnis leicht anders aus, wenn wir die unsinnigen Gurken mit einer Länge von 0 cm wirklich aus den Dten entfernen würden und nicht zu Demonstrationszwecken wie hier drin lassen würden.
 
 ## Modellvergleich
 
 ### Basilikumdaten
 
 Für den Modellvergleich der gewöhnlichen, robusten und medianen Regression nutzen wir nochmal den Datensatz für das Basilikumwachstum. In einem ersten Schritt fitten wir wieder alle Modelle und achten darauf, dass wir bei der Quantilesregression angeben welches Quantile wir wollen. Wir wählen mit `tau = 0.5` dann den Median und rechnen so eine Medianregression.
+
 
 ```{r}
 #| message: false
@@ -458,7 +506,9 @@ basi_rq_fit <- rq(weight ~ versuchsgruppe + block + versuchsgruppe:block, basi_b
                   tau = 0.5)
 ```
 
+
 Im Folgenden nutzen wir dann das fantastische Paket `modelsummary` mit der gleichnamigen Funktion um uns einmal die Modelle im Vergleich anzuschauen. Hier hilft dann wie immer die tolle [Hilfsseite von modelsummary](https://vincentarelbundock.github.io/modelsummary/articles/modelsummary.html) zu besuchen. Ich möchte nur nicht den Intercept und die Schätzer für die Blöcke haben, deshalb fliegen die hier einmal raus.
+
 
 ```{r}
 modelsummary(lst("Ordinary" = basi_lm_fit,
@@ -472,9 +522,11 @@ modelsummary(lst("Ordinary" = basi_lm_fit,
              coef_omit = "Intercept|block")
 ```
 
+
 Wie wir sehen sehen haben nicht alle Modelle die gleichen Informationen zurüch gegeben. Insbesondere das fehlen des Bestimmtheitsmaßes $R^2$ bei der robusten Regression ist schmerzlich, da wir hier dann nicht die Möglichkeit haben eine Aussage über die erklärte Varianz der robusten Regression zu treffen. Auch fehlt bei der Medianregression das adjustierte $R^2$, was die Nutzung bei Modellen mit mehr als einer Einflussvariable $x$ im Modell erschwert bis nutzlos macht. Daher bleibt uns am Ende nur das AIC oder BIC, wobei wir dort den kleinsten Wert als besser erachten. Die AIC und BIC Werte sind somit am besten für die Quantilesregression. Dafür ist dann aber der Fehler RMSE bei der gewöhnlichen Regression am niedrigsten. Und so stehe ich wieder davor und weiß nicht was das beste Modell ist. Hier müsste ich dann nochmal überlegen, ob ich lieber über Mittelwerte oder Mediane berichten möchte und das ist ohne die Forschungsfrage nicht hier zu lösen.
 
 ### Gurkendaten
+
 
 ```{r}
 #| message: false
@@ -485,7 +537,9 @@ time_rq_fit <- rq(length ~ versuchsgruppe + time_num + versuchsgruppe:time_num, 
                   gurke_time_len_tbl)
 ```
 
+
 Auch hier nutzen wir dann das fantastische Paket `modelsummary` mit der gleichnamigen Funktion um uns einmal die Modelle im Vergleich anzuschauen.
+
 
 ```{r}
 modelsummary(lst("Ordinary" = time_lm_fit,
@@ -499,8 +553,10 @@ modelsummary(lst("Ordinary" = time_lm_fit,
              coef_omit = "Intercept|time_num")
 ```
 
+
 Hier sieht es ähnlich aus wie bei den Modellvergleichen von den Basilikumdaten. Nur hier wissen wir, dass wir Ausreißer in der Form von Gurken mit einer Länge von 0 cm in den Daten haben. Daher sehen wir auch, dass die robuste Regression und die Medianregression ein niedrigeres AIC und BIC haben. Für mich interessant ist, dass der Fehler RMSE wieder am kleinsten bei der gewöhnlichen Regression ist, das mag aber auch an der Berechnung liegen. Da wir Ausreißer haben, sind natürlich dann auch die robuste Regression und die Medianregression vorzuziehen. Da die Medianregression den kleineren AIC Wert hat, nehmen wir dann die Medianregression als die beste Regression an.
 
-Ich wiederhole mich hier wirklich, aber vermutlich wäre es schlauer zuerst die Daten zu bereinigen und die Gurken mit einem Wachstum von 0 cm zu entfernen. Auch die anderen Wachstumskurven von anderen Gurken sind etwas wirr. Da müsste man auch nochmal ran und schauen, ob nicht die Gurken lieber aus der Analyse raus müssen. Am Ende ist dann natürlich die Frage, ob man die Daten dann nicht doch lieber über ein gemischtes Modell auswertet, da natürlich die Zeitpunkte voneinander abhängig sind. Aber wie immer im Leben, alles geht nicht.
+Vermutlich wäre es aber schlauer zuerst die Daten zu bereinigen und die Gurken mit einem Wachstum von 0 cm zu entfernen. Auch die anderen Wachstumskurven von anderen Gurken sind etwas wirr. Da müsste man auch nochmal ran und schauen, ob nicht die Gurken lieber aus der Analyse raus müssen. Am Ende ist dann natürlich die Frage, ob man die Daten dann nicht doch lieber über ein gemischtes Modell auswertet, da natürlich die Zeitpunkte voneinander abhängig sind. Aber wie immer im Leben, alles geht nicht.
 
 ## Referenzen {.unnumbered}
+
