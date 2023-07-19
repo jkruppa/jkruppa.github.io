@@ -364,13 +364,19 @@ basi_rlm_fit %>%
   cld(Letters = letters, adjust = "none") 
 ```
 
+Wir sehen also, dass sich Erde+Fließ und Erde nicht unterscheiden. Die beiden aber dann von Perlite+Fließ sowie Erde+Perlite. Am Ende unterscheiden sich Perlite+Fließ und Erde+Perlite nicht.
+
 Für die Funktion `robustbase::lmrob()` müssen wir dann auf das R Paket `multcomp` umswitchen. Hier kriegen wir dann ein Problem, wenn wir eine Interaktion vorliegen ahben, da ist `multcomp` nicht so schön anzuwenden, wie dann `emmeans`. Aber hier schauen wir uns dann mal die einfache Implementierung ohne Interaktion an. Bei einer Interaktion müssten wir dann händisch über die Funktion `filter()` die Analysen für die einzelnen Blöcke aufspalten.
+
+Wir lassen jetzt aber erstmal auf dem Modell aus der Funktion `robustbase::lmrob()` den paarweisen Vergleich nach Tukey laufen.
 
 ```{r}
 #| message: false
 #| warning: false
 mult_lmrob <- glht(basi_lmrob_fit, linfct = mcp(versuchsgruppe = "Tukey"))
 ```
+
+Das erhaltende Objekt können wir dann mit `tidy()` aufräumen und uns dann die gewünschten Spalten wiedergeben lassen.
 
 ```{r}
 #| message: false
@@ -382,16 +388,19 @@ mult_lmrob_tbl <- mult_lmrob %>%
 mult_lmrob_tbl
 ```
 
+Wir sehen, dass wir mit der Adjustierung keinen signifikanten Unterschied zwischen den Bodensorten finden. Im Folgenden dann noch die Darstellung im *compact letter display*, wo wir etwas rumfrickeln müssen damit die Funktion `multcompLetters()` auch die Kontraste aus der Funktion `glht()` akzeptiert. Aber das haben wir dann alles zusammen.
+
 ```{r}
 #| message: false
 #| warning: false
 mult_lmrob_tbl %>% 
   mutate(contrast = str_replace_all(contrast, "\\s", "")) %>% 
   pull(adj.p.value, contrast) %>% 
-  multcompLetters()
+  multcompLetters() %>% 
+  pluck("Letters")
 ```
 
-Für die unadjustierten rohen $p$-Werte nutzen wir dann diesen Umweg hier.
+Auch hier sehen wir keinen Unterschied im *compact letter display* für die adjustierten $p$-Werte. Für die unadjustierten rohen $p$-Werte nutzen wir dann den Umweg über die `summary()` Funktion. Die unadjustierten $p$-Werte können wir dann auch in das *compact letter display* umwandeln lassen.
 
 ```{r}
 #| message: false
@@ -400,10 +409,11 @@ summary(mult_lmrob, test = adjusted("none")) %>%
   tidy() %>% 
   mutate(contrast = str_replace_all(contrast, "\\s", "")) %>% 
   pull(p.value, contrast) %>% 
-  multcompLetters() 
+  multcompLetters() %>% 
+  pluck("Letters")
 ```
 
-Wir sehen also, dass sich Erde+Fließ und Erde nicht unterscheiden. Die beiden aber dann von Perlite+Fließ sowie Erde+Perlite. Am Ende unterscheiden sich Perlite+Fließ und Erde+Perlite nicht.
+Und wenn man eine andere Funktion nutzt, dann kommen auch leicht andere Ergebnisse raus. Bei den rohen $p$-Werten haben wir jetzt etwas andere Unterschiede. Aber das liegt auch an den sehr ähnlichen Mittelwerten. So groß sind die Unterschiede nicht, so dass wir hier natürlich durch unterschiedliche Algorithmen leicht andere Ergebnisse kriegen. Wieder ein Grund die $p$-Werte zu adjustieren.
 
 ## Quantilsregression {#sec-quantile-reg}
 
