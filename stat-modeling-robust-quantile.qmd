@@ -295,7 +295,7 @@ basi_lmrob_fit <- lmrob(weight ~ versuchsgruppe + block + versuchsgruppe:block, 
 
 ### ANOVA
 
-Dann wollen wir einmal eine zweifaktorielle ANOVA auf den Modell der robusten Regression rechnen. Leider kann ich schon gleich sagen, dass wir hier ein Problem kriegen. Es ist nicht ganz klar unter Theoretikern welche Anzahl an Beobachtungen für die Residuen in der robusten Regression genutzt werden soll. Welche Beobachtungen werden den im Modell berücksichtigt und welche nicht? Daher ist dann der Wert für die Freiheitsgrade $df$ leer und wir erhalten keine $F$-Statistik und dann auch keine $p$-Werte. Für mich super unbefriedigend, so kann man dann auch keine Funktionen richtig nutzen.
+Dann wollen wir einmal eine zweifaktorielle ANOVA auf den Modell der robusten Regression mit der Funktion `MASS::rlm()` rechnen. Leider kann ich schon gleich sagen, dass wir hier ein Problem kriegen. Es ist nicht ganz klar unter Theoretikern welche Anzahl an Beobachtungen für die Residuen in der robusten Regression genutzt werden soll. Welche Beobachtungen werden den im Modell berücksichtigt und welche nicht? Daher ist dann der Wert für die Freiheitsgrade $df$ leer und wir erhalten keine $F$-Statistik und dann auch keine $p$-Werte. Für mich super unbefriedigend, so kann man dann auch keine Funktionen richtig nutzen. Die Funktion `robustbase::lmrob()` bietet die ANOVA nicht an.
 
 ```{r}
 #| message: false
@@ -350,9 +350,11 @@ basi_rlm_fit %>%
   eta_squared()
 ```
 
+Nochmal als Erinnerung, mit der Funktion `robustbase::lmrob()` ist die ANOVA nicht möglich. Die Funktionalität ist nicht implementiert.
+
 ### Gruppenvergleich
 
-Dafür geht der Gruppenvergleich für die robuste Regression wie von alleine. Wir haben keine Interaktion vorliegen, daher müssen wir auch nicht den Block berücksichtigen. Das wir in Block 1 ein Problem haben, steht dann aber auf einem anderen Blatt. Da aber *alle* Basilikumpflanzen immer im Block 1 kleiner sind, passt es dann wieder im Sinne keiner Interaktion. Mit Interaktion hätten wir sonst `versuchsgruppe | block` statt nur `versuchsgruppe` hinter die Tilde geschrieben. Dann wollen wir noch das *compact letter disply* und alles ist wie es sein sollte.
+Dafür geht der Gruppenvergleich für die robuste Regression mit `MASS::rlm()` wie von alleine. Wir haben keine Interaktion vorliegen, daher müssen wir auch nicht den Block berücksichtigen. Das wir in Block 1 ein Problem haben, steht dann aber auf einem anderen Blatt. Da aber *alle* Basilikumpflanzen immer im Block 1 kleiner sind, passt es dann wieder im Sinne keiner Interaktion. Mit Interaktion hätten wir sonst `versuchsgruppe | block` statt nur `versuchsgruppe` hinter die Tilde geschrieben. Dann wollen wir noch das *compact letter disply* und alles ist wie es sein sollte.
 
 ```{r}
 #| message: false
@@ -362,13 +364,17 @@ basi_rlm_fit %>%
   cld(Letters = letters, adjust = "none") 
 ```
 
-Und jetzt holen wier mal wieder die statistische Keule raus und lösen das Problem mit den multiplen Vergleichen
+Für die Funktion `robustbase::lmrob()` müssen wir dann auf das R Paket `multcomp` umswitchen. Hier kriegen wir dann ein Problem, wenn wir eine Interaktion vorliegen ahben, da ist `multcomp` nicht so schön anzuwenden, wie dann `emmeans`. Aber hier schauen wir uns dann mal die einfache Implementierung ohne Interaktion an. Bei einer Interaktion müssten wir dann händisch über die Funktion `filter()` die Analysen für die einzelnen Blöcke aufspalten.
 
 ```{r}
+#| message: false
+#| warning: false
 mult_lmrob <- glht(basi_lmrob_fit, linfct = mcp(versuchsgruppe = "Tukey"))
 ```
 
 ```{r}
+#| message: false
+#| warning: false
 mult_lmrob_tbl <- mult_lmrob %>% 
   tidy(conf.int = TRUE) %>% 
   select(contrast, estimate, conf.low, conf.high, adj.p.value) 
@@ -377,6 +383,8 @@ mult_lmrob_tbl
 ```
 
 ```{r}
+#| message: false
+#| warning: false
 mult_lmrob_tbl %>% 
   mutate(contrast = str_replace_all(contrast, "\\s", "")) %>% 
   pull(adj.p.value, contrast) %>% 
@@ -386,13 +394,13 @@ mult_lmrob_tbl %>%
 Für die unadjustierten rohen $p$-Werte nutzen wir dann diesen Umweg hier.
 
 ```{r}
+#| message: false
+#| warning: false
 summary(mult_lmrob, test = adjusted("none")) %>% 
   tidy() %>% 
   mutate(contrast = str_replace_all(contrast, "\\s", "")) %>% 
   pull(p.value, contrast) %>% 
   multcompLetters() 
-
-
 ```
 
 Wir sehen also, dass sich Erde+Fließ und Erde nicht unterscheiden. Die beiden aber dann von Perlite+Fließ sowie Erde+Perlite. Am Ende unterscheiden sich Perlite+Fließ und Erde+Perlite nicht.
