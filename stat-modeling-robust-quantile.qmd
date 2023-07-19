@@ -22,7 +22,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom, quantreg,
                see, performance, emmeans, multcomp, janitor,
-               parameters, effectsize, MASS, modelsummary)
+               parameters, effectsize, MASS, modelsummary,
+               robustbase, multcompView)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -230,14 +231,16 @@ Ein englisches Tutorium gibt es dann nochmal ausführlicher unter [R demo \| Rob
 Ebenso liefert auch das Tutorium [Robust regression \| R data analysis example](https://stats.oarc.ucla.edu/r/dae/robust-regression/) einen Überblick.
 :::
 
-Schauen wir uns das Problem an einem kleinen Spieldatensatz einmal an, den es so in hunderten Geschmacksrichtungen gibt. Wir haben acht Beobachtungen mit jeweils einem $x$ und einem $y$ Wert in unserem Datensatz `reg_tbl`.
+Schauen wir uns das Problem an einem kleinen Spieldatensatz einmal an, den es so in vielen Geschmacksrichtungen gibt. Wir haben acht Beobachtungen mit jeweils einem $x$ und einem $y$ Wert in unserem Datensatz `reg_tbl`. Wie folgt einmal dargestellt.
 
 ```{r}
 #| message: false
 #| warning: false
 reg_tbl <- tibble(x = c(0, 1, 2, 3, 4, 5, 6, 7),
-                  y = c(1, 1.5, 2.3, 2.8, 4.1, 5.3, 0, 6.8))
+                  y = c(1, 1.4, 2.5, 2.7, 4.3, 5.2, 0, 6.7))
 ```
+
+Wir rechnen jetzt einmal eine gewöhnliche lineare Regression mit der Funktion `lm()` und eine robuste Regression mit dem Paket `MASS` und der Funtkion `rlm()`. Es gibt noch das R Paket `robustbase` und der Funktion `rq()` aber wir können die Ergebnisse dann nicht in `emmeans` weiter nutzen, was uns dann etwas den Weg mit versperrt. Wir können aber für die multiplen Mittelwertsvergleich mit `robustbase` das R Paket `multcomp` nutzen. Aber fangen wir hier erstmal mit dem Beispiel an.
 
 ```{r}
 #| message: false
@@ -278,12 +281,16 @@ Unbeliebt?
 
 Gibt es in biologischen Daten eigentlich überhaupt Ausreißer? Oder müssten wir nicht Ausreißer besonders betrachten, weil die Ausreßer dann doch mehr über die Daten verraten?
 
-Es gibt noch das R Paket `robustbase` aber hier sind die Funktionen von `emmeans` nicht zugänglich.
+```{r}
+#| message: false
+#| warning: false
+basi_rlm_fit <- rlm(weight ~ versuchsgruppe + block + versuchsgruppe:block, basi_block_tbl)
+```
 
 ```{r}
 #| message: false
 #| warning: false
-basi_rob_fit <- rlm(weight ~ versuchsgruppe + block + versuchsgruppe:block, basi_block_tbl)
+basi_lmrob_fit <- lmrob(weight ~ versuchsgruppe + block + versuchsgruppe:block, basi_block_tbl)
 ```
 
 ### ANOVA
@@ -293,10 +300,10 @@ Dann wollen wir einmal eine zweifaktorielle ANOVA auf den Modell der robusten Re
 ```{r}
 #| message: false
 #| warning: false
-basi_rob_aov <- basi_rob_fit %>% 
+basi_rlm_aov <- basi_rlm_fit %>% 
   anova() %>% 
   tidy()
-basi_rob_aov
+basi_rlm_aov
 ```
 
 Was als Freiheitsgrad für die Residuen nehmen? In unserem Datensatz haben wir `r nrow(basi_block_tbl)` Basilikumpflanzen und somit auch Beobachtungen vorliegen. Wir setzen jetzt einfach brutal die Freiheitsgrade `df` für die Residuen auf 80 und können dann die Mean Squares für die Residuen berechnen. Also einmal flott die `meansq` für die Residuen durch die Anzahl an Beobachtungen geteilt.
@@ -308,7 +315,7 @@ ms_resid <- 527 / 80
 Mit den Mean Square der Residuen können wir dann auch die $F$-Werte berechnen. Den rechnerischen Weg kennen wir ja schon aus der zweifaktoriellen ANOVA.
 
 ```{r}
-f_calc <- basi_rob_aov$meansq / ms_resid
+f_calc <- basi_rlm_aov$meansq / ms_resid
 ```
 
 Wie kriegen wir jetzt aus den ganzen berechneten $F$-Werten die entsprechenden $p$-Werte? Die $p$-Werte sind die Fläche rechts von den berechneten Werten. Wir können die Funktion `pf()` nutzen um diese Flächen zu berechnen. Wir machen das einmal beispielhaft für einen $F_{calc} = 3.41$ für 4 Gruppen mit $df_1 = 4 - 1 = 3$ und 12 Beobachtungen $df_2 = 12$. Die Berechnung von $df_2$ ist statistisch *falsch* aber für unseren MacGyver Hack hinreichend.
@@ -327,7 +334,7 @@ p_vec <- pf(f_calc, c(3, 3, 9), c(80, 80, 80), lower.tail = FALSE) %>%
 Die berechneten $F$-Werte und $p$-Werte können wir jetzt in die ANOVA Tabelle ergänzen.
 
 ```{r}
-basi_rob_aov %>% 
+basi_rlm_aov %>% 
   mutate(statistic = f_calc, 
          p.value = p_vec)
 ```
@@ -339,7 +346,7 @@ Glücklicherweise können wir aus den Sum of squares dann unsere $\eta^2$-Werte 
 ```{r}
 #| message: false
 #| warning: false
-basi_rob_fit %>% 
+basi_rlm_fit %>% 
   eta_squared()
 ```
 
@@ -350,9 +357,42 @@ Dafür geht der Gruppenvergleich für die robuste Regression wie von alleine. Wi
 ```{r}
 #| message: false
 #| warning: false
-basi_rob_fit %>% 
+basi_rlm_fit %>% 
   emmeans(specs = ~ versuchsgruppe) %>%
   cld(Letters = letters, adjust = "none") 
+```
+
+Und jetzt holen wier mal wieder die statistische Keule raus und lösen das Problem mit den multiplen Vergleichen
+
+```{r}
+mult_lmrob <- glht(basi_lmrob_fit, linfct = mcp(versuchsgruppe = "Tukey"))
+```
+
+```{r}
+mult_lmrob_tbl <- mult_lmrob %>% 
+  tidy(conf.int = TRUE) %>% 
+  select(contrast, estimate, conf.low, conf.high, adj.p.value) 
+
+mult_lmrob_tbl
+```
+
+```{r}
+mult_lmrob_tbl %>% 
+  mutate(contrast = str_replace_all(contrast, "\\s", "")) %>% 
+  pull(adj.p.value, contrast) %>% 
+  multcompLetters()
+```
+
+Für die unadjustierten rohen $p$-Werte nutzen wir dann diesen Umweg hier.
+
+```{r}
+summary(mult_lmrob, test = adjusted("none")) %>% 
+  tidy() %>% 
+  mutate(contrast = str_replace_all(contrast, "\\s", "")) %>% 
+  pull(p.value, contrast) %>% 
+  multcompLetters() 
+
+
 ```
 
 Wir sehen also, dass sich Erde+Fließ und Erde nicht unterscheiden. Die beiden aber dann von Perlite+Fließ sowie Erde+Perlite. Am Ende unterscheiden sich Perlite+Fließ und Erde+Perlite nicht.
@@ -445,6 +485,18 @@ time_rq_quad_fit %>%
 
 Das sieht ja schon mal ganz gut aus. Interessant ist, dass wir an dann in der vierzehnten Woche dann keinen signifikanten Unterschied mehr vorliegen zwischen Quarto und Katrina vorliegen haben. Das liegt dann aber alleinig an dem hohen Standardfehler `SE` der Sorte Katrina mit $3.1$ gegenüber den anderen Sorten. Vermutlich sehe das Ergebnis leicht anders aus, wenn wir die unsinnigen Gurken mit einer Länge von 0 cm wirklich aus den Dten entfernen würden und nicht zu Demonstrationszwecken wie hier drin lassen würden.
 
+Aber Achtung, die Spalte `emmean` beschriebt hier die Mediane. Wir haben also hier die Mediane des Längenwachstums für die Gurken vorliegen. Wenn wir die paarweisen Vergleich rechnen wollen würden dann können wir noch `pairwise ~ versuchsgruppe` statt `~ versuchsgruppe` schreiben. Auch liefert die Funktion `pwpm()` die Medianunterschiede wie wir im Folgenden einmal sehen. Ich habe hier mal das `at` entfernt und da die Zeit numrisch ist, haben wir dann auch nur noch eine Tabelle. Die `Diagonal: [Estimates] (emmean)` sind die Mediane des Längenwachstums.
+
+```{r}
+#| message: false
+#| warning: false
+
+time_rq_quad_fit %>% 
+  emmeans(~ versuchsgruppe | time_num, adjust = "none") %>%
+  pwpm()
+
+```
+
 ## Modellvergleich
 
 Im Folgenden wollen wir einmal verschiedene Modelle miteinander vergleichen und schauen, welches Modell hier das beste ist. Das machen wir dann einmal für die Basilikumdaten sowie die Wachstumsdaten für die Gurken.
@@ -458,6 +510,7 @@ Für den Modellvergleich der gewöhnlichen, robusten und medianen Regression nut
 #| warning: false
 basi_lm_fit <- lm(weight ~ versuchsgruppe + block + versuchsgruppe:block, basi_block_tbl)
 basi_rlm_fit <- rlm(weight ~ versuchsgruppe + block + versuchsgruppe:block, basi_block_tbl)
+basi_lmrob_fit <- lmrob(weight ~ versuchsgruppe + block + versuchsgruppe:block, basi_block_tbl)
 basi_rq_fit <- rq(weight ~ versuchsgruppe + block + versuchsgruppe:block, basi_block_tbl,
                   tau = 0.5)
 ```
@@ -466,7 +519,8 @@ Im Folgenden nutzen wir dann das fantastische Paket `modelsummary` mit der gleic
 
 ```{r}
 modelsummary(lst("Ordinary" = basi_lm_fit,
-                 "Robust" = basi_rlm_fit,
+                 "MASS::rlm" = basi_rlm_fit,
+                 "robustbase::lmrob" = basi_lmrob_fit,
                  "Quantile" = basi_rq_fit),
              estimate  = "{estimate}",
              statistic = c("conf.int",
@@ -476,7 +530,7 @@ modelsummary(lst("Ordinary" = basi_lm_fit,
              coef_omit = "Intercept|block")
 ```
 
-Wie wir sehen sehen haben nicht alle Modelle die gleichen Informationen zurüch gegeben. Insbesondere das fehlen des Bestimmtheitsmaßes $R^2$ bei der robusten Regression ist schmerzlich, da wir hier dann nicht die Möglichkeit haben eine Aussage über die erklärte Varianz der robusten Regression zu treffen. Auch fehlt bei der Medianregression das adjustierte $R^2$, was die Nutzung bei Modellen mit mehr als einer Einflussvariable $x$ im Modell erschwert bis nutzlos macht. Daher bleibt uns am Ende nur das AIC oder BIC, wobei wir dort den kleinsten Wert als besser erachten. Die AIC und BIC Werte sind somit am besten für die Quantilesregression. Dafür ist dann aber der Fehler RMSE bei der gewöhnlichen Regression am niedrigsten. Und so stehe ich wieder davor und weiß nicht was das beste Modell ist. Hier müsste ich dann nochmal überlegen, ob ich lieber über Mittelwerte oder Mediane berichten möchte und das ist ohne die Forschungsfrage nicht hier zu lösen.
+Wie wir sehen sehen haben nicht alle Modelle die gleichen Informationen zurück gegeben. Insbesondere das fehlen des Bestimmtheitsmaßes $R^2$ bei der robusten Regression `MASS::rlm` ist schmerzlich, da wir hier dann nicht die Möglichkeit haben eine Aussage über die erklärte Varianz der robusten Regression zu treffen. Auch fehlt bei der Medianregression das adjustierte $R^2$, was die Nutzung bei Modellen mit mehr als einer Einflussvariable $x$ im Modell erschwert bis nutzlos macht. Da ist dann die Funktion aus dem Paket `robustbase` besser, hier haben wir dann ein $R^2$ vorliegen. Daher bleibt uns am Ende nur das AIC oder BIC, wobei wir dort den kleinsten Wert als besser erachten. Die AIC und BIC Werte sind somit am besten für die Quantilesregression. Für die Funktion `robustbase::lmrob` haben wir dann kein AIC. Dafür ist dann aber der Fehler RMSE bei der gewöhnlichen Regressionzusammen mit der Funktion `robustbase::lmrob` am niedrigsten. Und so stehe ich wieder davor und weiß nicht was das beste Modell ist. Hier müsste ich dann nochmal überlegen, ob ich lieber über Mittelwerte oder Mediane berichten möchte und das ist ohne die Forschungsfrage nicht hier zu lösen.
 
 ### Gurkendaten
 
