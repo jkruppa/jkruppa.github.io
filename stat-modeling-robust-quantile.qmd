@@ -240,16 +240,17 @@ reg_tbl <- tibble(x = c(0, 1, 2, 3, 4, 5, 6, 7),
                   y = c(1, 1.4, 2.5, 2.7, 4.3, 5.2, 0, 6.7))
 ```
 
-Wir rechnen jetzt einmal eine gewöhnliche lineare Regression mit der Funktion `lm()` und eine robuste Regression mit dem Paket `MASS` und der Funtkion `rlm()`. Es gibt noch das R Paket `robustbase` und der Funktion `rq()` aber wir können die Ergebnisse dann nicht in `emmeans` weiter nutzen, was uns dann etwas den Weg mit versperrt. Wir können aber für die multiplen Mittelwertsvergleich mit `robustbase` das R Paket `multcomp` nutzen. Aber fangen wir hier erstmal mit dem Beispiel an.
+Wir rechnen jetzt einmal eine gewöhnliche lineare Regression mit der Funktion `lm()` und eine robuste Regression mit dem Paket `MASS` und der Funtkion `rlm()`. Es gibt noch das R Paket `robustbase` und der Funktion `rq()` aber wir können die Ergebnisse dann nicht in `emmeans` weiter nutzen, was uns dann etwas den Weg mit versperrt. Wir können aber für die multiplen Mittelwertsvergleich mit `robustbase` das R Paket `multcomp` nutzen. Aber fangen wir hier erstmal mit dem Beispiel an und vergleichen die beiden Implementierungen der robusten Regression zu der gewöhnlichen Regression
 
 ```{r}
 #| message: false
 #| warning: false
 reg_lm_fit <- lm(y ~ x, reg_tbl)
 reg_rlm_fit <- rlm(y ~ x, reg_tbl)
+reg_lmrob_fit <- lmrob(y ~ x, reg_tbl)
 ```
 
-@fig-stat-robust-demo
+In der @fig-stat-robust-demo sehen wir einmal den Unterschied zwischen den beiden robusten Regressionen und der gewöhnlichen Regression.
 
 ```{r}
 #| message: false
@@ -258,18 +259,21 @@ reg_rlm_fit <- rlm(y ~ x, reg_tbl)
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 5
-#| fig-cap: "Scatterplot für den Unterschied zwischen einer robusten und gewöhnlichen Regression. Die gewöhnliche Regression ist blau, die robuste Regression rot."
+#| fig-cap: "Scatterplot für den Unterschied zwischen einer robusten und gewöhnlichen Regression. Die gewöhnliche Regression ist gelb, die robuste Regression MASS::rlm() grün und die robuste Regression robustbase::lmrob() blau."
 #| label: fig-stat-robust-demo
 
 ggplot(reg_tbl, aes(x, y, label = x)) +
   theme_bw() +
   geom_label() +
-  geom_line(aes(y = predict(reg_lm_fit)), color = cbbPalette[3]) +
-  geom_line(aes(y = predict(reg_rlm_fit)), color = cbbPalette[7]) 
+  geom_line(aes(y = predict(reg_lm_fit), colour = "lm")) +
+  geom_line(aes(y = predict(reg_rlm_fit), colour = "rlm")) +
+  geom_line(aes(y = predict(reg_lmrob_fit), colour = "lmrob")) +
+  scale_colour_okabeito() +
+  labs(colour = "Method")
 
 ```
 
-In unserem Beispiel ist die Beobachtung 6 der Ausreißer. In einer normalen Regression erhält diese Beobachtung sehr viel Gewicht. Die Gerade wird dadurch nach unten gezogen. In einer robusten Regression erhält eine Beobachtung mit einem großen Residuum sehr wenig Gewicht, in diesem konstruierten Beispiel fast 0. Daher können wir sagen, das unser Modell *robust* gegen Ausreißer ist.
+In unserem Beispiel ist die sechste Beobachtung der Ausreißer. Die `lm`-Regression wird durch den Wert 0 der sechsten Beobachtung nach unten gezogen. Die sechste Beobachtung erhält ein viel zu starkes Gewicht in der gewöhnlichen Regression im Bezug auf den Verlauf der Geraden. Die robusten Regressionen geben der sechsten Beobachtung hingegen ein viel geringeres Gewicht, so dass die Beobachtung keinen Einfluss auf den Verlauf der Geraden hat. In einer robusten Regression erhält eine Beobachtung mit einem großen Residuum sehr wenig Gewicht, in diesem konstruierten Beispiel fast 0. Daher können wir sagen, das unser Modell *robust* gegen Ausreißer ist.
 
 Okay, soweit lernt es jeder und die Idee der robusten Regression ist auch ziemlich einleuchtend. Aber in der Wissenschaft zeichnen wir keine Gerade durch Punkte und freuen uns drüber, dass die eine gerade besser passt als die andere Gerade.
 
@@ -413,7 +417,7 @@ summary(mult_lmrob, test = adjusted("none")) %>%
   pluck("Letters")
 ```
 
-Und wenn man eine andere Funktion nutzt, dann kommen auch leicht andere Ergebnisse raus. Bei den rohen $p$-Werten haben wir jetzt etwas andere Unterschiede. Aber das liegt auch an den sehr ähnlichen Mittelwerten. So groß sind die Unterschiede nicht, so dass wir hier natürlich durch unterschiedliche Algorithmen leicht andere Ergebnisse kriegen. Wieder ein Grund die $p$-Werte zu adjustieren.
+Und wenn man eine andere Funktion nutzt, dann kommen auch leicht andere Ergebnisse raus. Bei den rohen $p$-Werten haben wir jetzt etwas andere Unterschiede. Aber das liegt auch an den sehr ähnlichen Mittelwerten. So groß sind die Unterschiede nicht, so dass wir hier natürlich durch unterschiedliche Algorithmen leicht andere Ergebnisse kriegen. Wieder ein Grund die $p$-Werte zu adjustieren um dann auch konsistente Ergebnisse zu haben.
 
 ## Quantilsregression {#sec-quantile-reg}
 
