@@ -10,7 +10,13 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 
 > *"Cluster together like stars!" --- Henry Miller*
 
-In diesem Kapitel wollen wir uns
+In diesem Kapitel wollen wir uns mit der Clusteranalyse beschäftigen. Zuerst was verstehen wir unter einem Cluster? Ein Cluster ist ein Zusammenschluss von ähnlichen Beobachtungen. Nun stellt sich zuerst die Frage, was heißt ähnlich? Wir brauchen also Maßzahlen für die Ähnlichkeit zwischen zwei und mehreren Beobachtungen. Im Weiteren haben wir in erster Linie kein Outcome $y$. Wir nehmen alle Spalten $x$ aus unseren Daten und versuchen anhand der Spalten Gruppen über die Beobachtungen in den Zeilen zu bilden.
+
+-   Die **Dendrogramme** über hierarchisches Clustern in @sec-clust-dendro
+-   Das **k-NN** oder nächste Nachbarn Clustern in @sec-clust-knn
+-   Die **Hauptkomponentenanalyse** in @sec-clust-pca
+-   Die **Heatmaps** verbreitet in der genetischen Analys in @sec-clust-heat
+-   Einmal das hierarchisches Clustern und k-NN über das R Paket `tidyclust` in @sec-clust-tidyclust
 
 Teilweise haben wir Überlagerungen mit dem Kapitel @sec-outlier
 
@@ -28,10 +34,11 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 pacman::p_load(tidyverse, magrittr, palmerpenguins, readxl,
                ggdendro, broom, cluster, factoextra,
-               pheatmap, tidyclust, conflicted)
+               pheatmap, tidyclust, dlookr, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
+conflicts_prefer(dlookr::transform)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -67,7 +74,7 @@ Schauen
 #| label: tbl-meta-drymatter
 #| tbl-cap: "Daten zu den Weizenerträgen nach der Gabe von einer Eisendosis mit $10\\mu mol$. In allen Studien wurde die gleiche Dosis auf die $n$ Pflanzen gegeben."
 
-penguins_tbl %>% 
+penguins_raw_tbl %>% 
   head(7) %>% 
   kable(align = "lrrr", "pipe")
 ```
@@ -103,11 +110,67 @@ Häufig
 
 ## Daten preprocessing
 
-Wie die Daten für die Pinguine anpassen?
+Wir können die Daten so wir wie sie vorliegen haben in einem Clusteralgorithmus verwenden. Wir führen also keine Transformation der Daten durch, wir nutzen die Daten untransformiert. Dieses untransfomierte Verwenden der Daten führt aber meist dazu, dass Variablen nicht im gleichen Maße berücksichtigt werden. Es macht eben einen Unterschied, ob wir wie bei dem Alter sehr viele verschiedene Werte haben als beim Geschlecht. Es macht auch einen Unterschied, ob das Alter numerische Werte von 20 bis 60 haben kann und das Semester nur numerische Werte von 1 bis 10.
 
-Wie die Gummibärchendaten anpassen? Nochmal bei Klassifikation reinschauen!
+In dem @sec-eda-transform findest du die hier verwendeten Standardfunktionen in R aus dem Paket `dlookr` für die Normalisierung sowie Standardisierung mit der Funktion `transform()`. Wenn es komplexer wird, dann empfehle ich den Workflow, wie er im @sec-pre-processing für die Klassifikation von Daten vorgestellt wird.
 
-## Dendrogramm
+### Normalisieren
+
+Die Normalisierung von Variablen in ein Intervall von $[0;1]$. Es gehen natürlich auch andere Intervalle, aber das Intervall von 0 bis 1 ist wohl das häufigste Intervall was genutzt wird.
+
+```{r}
+norm_pen_tbl <- penguins_tbl %>% 
+  mutate(bill_length_mm = transform(bill_length_mm, "minmax"),
+         bill_depth_mm = transform(bill_depth_mm, "minmax"),
+         body_mass_g = transform(body_mass_g, "minmax")) 
+norm_pen_tbl
+```
+
+Hier helfen natürlich auch die Funktionen von dem R Paket `dplyr` und der [Hilfsseite von `across()`](https://dplyr.tidyverse.org/reference/across.html) um mehrere Spalten schneller in `mutate` zu transformieren.
+
+### Standardisieren
+
+Die Standardisierung von Variablen zu einer $\mathcal{N(0,1)}$ Standardnormalverteilung
+
+```{r}
+scale_gummi_tbl <- gummi_tbl %>% 
+  mutate(gender = as_factor(gender),
+         age = transform(age, "zscore"),
+         height = transform(height, "zscore"),
+         semester = transform(semester, "zscore"),
+         most_liked = as_factor(most_liked))
+scale_gummi_tbl
+```
+
+Wie beim Normalisieren helfen hier natürlich auch die Funktionen von dem R Paket `dplyr` und der [Hilfsseite von `across()`](https://dplyr.tidyverse.org/reference/across.html) um mehrere Spalten schneller in `mutate` zu transformieren.
+
+## Distanzmaße
+
+Wir betrachten im Folgenden immer die Distanzen zwischen den Zeilen des Datensatzes. Das heißt, wir wollen immer die Distanzen zwischen den Beobachtungen berechnen. Wie nah oder fern sind sich zwei Beobachtungen gegeben den Spalten? Wir schauen uns einmal zwei sehr intuitive Distanzmaße mit der euklidischen sowie der manhattan Distanz an.
+
+Euklidische Distanz
+
+:   $$
+    d_E(p,q) = \sqrt{(p-q)^2}
+    $$
+
+Manhattan Distanz
+
+:   $$
+    d_M(p,q) = \lvert p-q \rvert
+    $$
+
+-   `dist()` als Standardfunktion: Akzeptiert nur numerische Daten als Eingabe, das zu verwendende Abstandsmaß muss eines der Folgenden sein: `euclidean`, `maximum`, `manhattan`, `canberra`, `binary` oder `minkowski`. Die Hilfeseite `?dist()` liefert mehr Informationen über die Distanzmaße.
+-   `get_dist()` aus dem R Paket `factoextra`: Akzeptiert nur numerische Daten als Eingabe. Im Vergleich zur Standardfunktion dist() unterstützt sie korrelationsbasierte Abstandsmaße einschließlich der Methoden `pearson`, `kendall` und `spearman`.
+-   `daisy()` aus dem R Paket `cluster`: Kann mit anderen Variablentypen umgehen als numerisch. Also auch mit Kategorien und Faktoren. In diesem Fall wird automatisch der Gower-Koeffizient als Metrik verwendet. Er ist eines der beliebtesten Näherungsmaße für gemischte Datentypen. Weitere Einzelheiten findest du auf der Hilfeseite der Funktion `?daisy`.
+
+Durch die Standardisierung werden die Abstandsmaße - Euklidisch, Manhattan, Korrelation - ähnlicher, als sie es bei nicht transformierten Daten wären.
+
+Die Funktion `fviz_dist()` aus dem R Paket `factorextra` erlaubt hier die Distanzmatrix zu visualisieren.
+
+## Algorithmen fürs Clustern
+
+### Dendrogramm {#sec-clust-dendro}
 
 ```{r}
 h.cluster <- penguins_tbl  %>% 
@@ -260,7 +323,7 @@ ggplot(sil.data, aes(x = row.names(sil.data), y = sil_width, fill = cluster)) +
   sil.data$sil_width), ])) 
 ```
 
-## Heatmap
+### Heatmap {#sec-clust-heat}
 
 gdata Packae genetik data?
 
@@ -279,11 +342,11 @@ https://bioconductor.org/packages/release/bioc/vignettes/heatmaps/inst/doc/heatm
 pheatmap(t(penguins_tbl), cutree_cols = 4)
 ```
 
-## k-means Clusteranalyse
+### k-means Clusteranalyse {#sec-clust-knn}
 
-## Hauptkomponentenanalyse
+### Hauptkomponentenanalyse {#sec-clust-pca}
 
-## Datenanalyse mit `tidyclust`
+## Datenanalyse mit `tidyclust` {#sec-clust-tidyclust}
 
 https://tidyclust.tidymodels.org/index.html
 
