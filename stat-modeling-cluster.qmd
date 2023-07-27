@@ -34,7 +34,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 pacman::p_load(tidyverse, magrittr, palmerpenguins, readxl,
                ggdendro, broom, cluster, factoextra,
-               pheatmap, tidyclust, dlookr, conflicted)
+               pheatmap, tidyclust, dlookr, janitor,
+               conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -65,18 +66,45 @@ penguins_species <- penguins_raw_tbl %>%
   pull(species)
 ```
 
+Beginnen wir mit einem normierten Datensatz
+
+```{r}
+animals_tbl <- read_excel("data/cluster_animal.xlsx", sheet = 1) %>% 
+  clean_names() %>% 
+  mutate(across(where(is.numeric), \(x) x - 1))
+```
+
 Schauen
 
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
-#| label: tbl-meta-drymatter
-#| tbl-cap: "Daten zu den Weizenerträgen nach der Gabe von einer Eisendosis mit $10\\mu mol$. In allen Studien wurde die gleiche Dosis auf die $n$ Pflanzen gegeben."
+#| label: tbl-cluster-01
+#| tbl-cap: "."
 
-penguins_raw_tbl %>% 
-  head(7) %>% 
-  kable(align = "lrrr", "pipe")
+animals_tbl %>% 
+  kable(align = "c", "pipe")
+```
+
+Als nächstes einen sehr schön hetrogenen Datensatz
+
+```{r}
+creature_tbl <- read_excel("data/cluster_animal.xlsx", sheet = 2) %>% 
+  clean_names() %>% 
+  mutate(creature = tolower(creature))
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-cluster-02
+#| tbl-cap: "."
+
+creature_tbl %>% 
+  kable(align = "c", "pipe")
 ```
 
 Im Weiteren betrachten wir noch das Beispiel der Gummibärchendaten. Auch hier haben wir echte Daten vorliegen, so dass wir eventuell Ausreißer entdecken könnten. Da wir hier fehlende Werte in den Daten haben, entfernen wir alle fehlenden Werte mit der Funktion `na.omit()`. Damit löschen wir jede Zeile in den Daten, wo mindestens ein fehlender Wert auftritt. Da wir hier mittlerweile sehr viele Daten vorliegen haben, wollen wir das Problem auf die beiden Quellen *FU Berlin* und dem *Girls and Boys Day* eingrenzen.
@@ -119,11 +147,11 @@ In dem @sec-eda-transform findest du die hier verwendeten Standardfunktionen in 
 Die Normalisierung von Variablen in ein Intervall von $[0;1]$. Es gehen natürlich auch andere Intervalle, aber das Intervall von 0 bis 1 ist wohl das häufigste Intervall was genutzt wird.
 
 ```{r}
-norm_pen_tbl <- penguins_tbl %>% 
-  mutate(bill_length_mm = transform(bill_length_mm, "minmax"),
-         bill_depth_mm = transform(bill_depth_mm, "minmax"),
-         body_mass_g = transform(body_mass_g, "minmax")) 
-norm_pen_tbl
+norm_creature_tbl <- creature_tbl %>% 
+  mutate(mass_grams = transform(mass_grams, "minmax"),
+         heart_rate_bpm = transform(heart_rate_bpm, "minmax"),
+         longevity_years = transform(longevity_years, "minmax")) 
+norm_creature_tbl
 ```
 
 Hier helfen natürlich auch die Funktionen von dem R Paket `dplyr` und der [Hilfsseite von `across()`](https://dplyr.tidyverse.org/reference/across.html) um mehrere Spalten schneller in `mutate` zu transformieren.
@@ -143,6 +171,23 @@ scale_gummi_tbl
 ```
 
 Wie beim Normalisieren helfen hier natürlich auch die Funktionen von dem R Paket `dplyr` und der [Hilfsseite von `across()`](https://dplyr.tidyverse.org/reference/across.html) um mehrere Spalten schneller in `mutate` zu transformieren.
+
+### Als `data.frame()`
+
+```{r}
+animals_df <- animals_tbl %>% 
+  as.data.frame() %>% 
+  set_rownames(.$animal) %>% 
+  select(-animal)
+
+```
+
+```{r}
+norm_creature_df <- norm_creature_tbl %>% 
+  as.data.frame() %>% 
+  set_rownames(.$creature) %>% 
+  select(-creature)
+```
 
 ## Distanzmaße
 
@@ -173,35 +218,77 @@ Die Funktion `fviz_dist()` aus dem R Paket `factorextra` erlaubt hier die Distan
 ### Dendrogramm {#sec-clust-dendro}
 
 ```{r}
-h.cluster <- penguins_tbl  %>% 
+#| message: false
+#| warning: false
+h_clust_animal <- animals_df  %>% 
   dist(., method = "euclidean") %>% 
   hclust(., method = "ward.D")
 ```
 
 ```{r}
-#| echo: true
 #| message: false
 #| warning: false
-#| label:  fig-cluster-01
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: "."
+grp_animal <- cutree(h_clust_animal , k=3)
+grp_animal
+```
 
-ggdendrogram(h.cluster)
+Wir nehmen jetzt mal die normalisierten Kreaturen
+
+```{r}
+#| message: false
+#| warning: false
+h_clust_creature <- norm_creature_df %>% 
+  dist(., method = "euclidean") %>% 
+  hclust(., method = "ward.D")
+```
+
+```{r}
+#| message: false
+#| warning: false
+grp_creature <- cutree(h_clust_creature , k=3)
+grp_creature
 ```
 
 ```{r}
 #| echo: true
 #| message: false
 #| warning: false
-#| label:  fig-cluster-02
 #| fig-align: center
-#| fig-height: 4
+#| fig-height: 5
 #| fig-width: 6
-#| fig-cap: "."
+#| label: fig-cluster-01
+#| fig-cap: "dst."
+#| fig-subcap: 
+#|   - "Verteilung der beobachteten Werte."
+#|   - "Verteilung der theoretischen Werte."
+#| layout-nrow: 1
 
-fviz_nbclust(penguins_tbl, kmeans, method = "gap_stat")
+ggdendrogram(h_clust_animal)
+ggdendrogram(h_clust_creature)
+```
+
+[Introduction to dendextend](https://cran.r-project.org/web/packages/dendextend/vignettes/dendextend.html)
+
+[Hierarchical cluster analysis on famous data sets - enhanced with the dendextend package](https://cran.r-project.org/web/packages/dendextend/vignettes/Cluster_Analysis.html)
+
+Was ist das optimale $k$ für die Anzahl an Gruppen?
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| label: fig-cluster-02
+#| fig-cap: "dst."
+#| fig-subcap: 
+#|   - "within cluster sums of squares"
+#|   - "gap statistics."
+#| layout-nrow: 1
+
+fviz_nbclust(na.omit(animals_df), kmeans, method = "wss")
+fviz_nbclust(na.omit(norm_creature_df), kmeans, method = "gap_stat")
 ```
 
 ```{r}
@@ -375,7 +462,15 @@ hc_spec <- hier_clust(num_clusters = 3,
 hc_fit <- hc_spec %>%
   fit(~ gender + age + height + semester + most_liked,
       data = gummi_tbl)
+
+hc_fit <- hc_spec %>%
+  fit(~ warm_blooded + fly + vertebrate + threatened + live_in_groups + hair,
+      data = animals_tbl)
+
+
 ```
+
+Wenn es zu lang wird dann auch `fit(~ .)`
 
 ```{r}
 hc_fit %>%
