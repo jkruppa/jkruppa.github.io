@@ -35,7 +35,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, palmerpenguins, readxl,
                ggdendro, broom, cluster, factoextra,
                pheatmap, tidyclust, dlookr, janitor,
-               conflicted)
+               dendextend, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -88,6 +88,8 @@ animals_tbl %>%
 ```
 
 Als nächstes einen sehr schön hetrogenen Datensatz
+
+[Clustering Creatures](https://rpubs.com/askieswe/clustering)
 
 ```{r}
 creature_tbl <- read_excel("data/cluster_animal.xlsx", sheet = 2) %>% 
@@ -176,6 +178,7 @@ Wie beim Normalisieren helfen hier natürlich auch die Funktionen von dem R Pake
 
 ```{r}
 animals_df <- animals_tbl %>% 
+  na.omit() %>% 
   as.data.frame() %>% 
   set_rownames(.$animal) %>% 
   select(-animal)
@@ -215,7 +218,15 @@ Die Funktion `fviz_dist()` aus dem R Paket `factorextra` erlaubt hier die Distan
 
 ## Algorithmen fürs Clustern
 
-### Dendrogramm {#sec-clust-dendro}
+### Hierarchische Clusteranalyse oder Dendrogramme {#sec-clust-dendro}
+
+Es gibt vier gängige Ansätze für die Cluster-Cluster-Distanzierung, auch *Linkage* genannt:
+
+-   *single linkage*: Der Abstand zwischen zwei Clustern ist der Abstand zwischen den beiden nächstgelegenen Beobachtungen.
+-   *average linkage*: Der Abstand zwischen zwei Clustern ist der Durchschnitt aller Abstände zwischen den Beobachtungen in einem Cluster und den Beobachtungen im anderen Cluster.
+-   *complete linkage*: Der Abstand zwischen zwei Clustern ist der Abstand zwischen den beiden am weitesten entfernten Beobachtungen.
+-   *centroid method*: Der Abstand zwischen zwei Clustern ist der Abstand zwischen ihren Zentroiden (geometrisches Mittel oder Median).
+-   *Ward-Methode*: Der Abstand zwischen zwei Clustern ist proportional zur Zunahme der Fehlerquadratsumme (ESS), die sich aus der Verbindung der beiden Cluster ergeben würde. Die ESS wird als Summe der quadrierten Abstände zwischen den Beobachtungen in einem Cluster und dem Schwerpunkt des Clusters berechnet.
 
 ```{r}
 #| message: false
@@ -271,6 +282,59 @@ ggdendrogram(h_clust_creature)
 
 [Hierarchical cluster analysis on famous data sets - enhanced with the dendextend package](https://cran.r-project.org/web/packages/dendextend/vignettes/Cluster_Analysis.html)
 
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label:  fig-cluster-04
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "dst."
+#| fig-subcap: 
+#|   - "within cluster sums of squares"
+#|   - "gap statistics."
+#| layout-nrow: 1
+
+fviz_dend(h_clust_animal, cex = 0.5, k = 4, palette = "jco") 
+fviz_dend(h_clust_creature, cex = 0.5, k = 4, palette = "jco") 
+
+```
+
+### k-means Clusteranalyse {#sec-clust-knn}
+
+```{r}
+knn_animal <- animals_df %>% 
+  kmeans(centers = 4)
+```
+
+```{r}
+knn_creature <- norm_creature_df %>% 
+  kmeans(centers = 4)
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label:  fig-cluster-03
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "dst."
+#| fig-subcap: 
+#|   - "within cluster sums of squares"
+#|   - "gap statistics."
+#| layout-nrow: 1
+
+fviz_cluster(knn_animal, data = animals_df, palette = "jco") +
+  theme_minimal() 
+
+fviz_cluster(knn_creature, data = norm_creature_df, palette = "jco") +
+  theme_minimal() 
+
+```
+
 Was ist das optimale $k$ für die Anzahl an Gruppen?
 
 ```{r}
@@ -287,47 +351,11 @@ Was ist das optimale $k$ für die Anzahl an Gruppen?
 #|   - "gap statistics."
 #| layout-nrow: 1
 
-fviz_nbclust(na.omit(animals_df), kmeans, method = "wss")
-fviz_nbclust(na.omit(norm_creature_df), kmeans, method = "gap_stat")
-```
+animals_df %>% 
+  fviz_nbclust(kmeans, method = "wss")
 
-```{r}
-set.seed(123) # for reproducibility
-km.res <- kmeans(penguins_tbl, 3, nstart = 25)
-```
-
-```{r}
-#| echo: true
-#| message: false
-#| warning: false
-#| label:  fig-cluster-03
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: "."
-fviz_cluster(km.res, data = penguins_tbl, palette = "jco",
-             ggtheme = theme_minimal())
-```
-
-```{r}
-res.hc <- hclust(dist(penguins_tbl),  method = "ward.D2")
-```
-
-```{r}
-#| echo: true
-#| message: false
-#| warning: false
-#| label:  fig-cluster-04
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: "."
-fviz_dend(res.hc, cex = 0.5, k = 4, palette = "jco") 
-```
-
-```{r}
-p.cluster <- penguins_tbl %>% kmeans(., 3)
-p.cluster$cluster <- as.factor(penguins_species)
+norm_creature_df %>% 
+  fviz_nbclust(kmeans, method = "gap_stat")
 ```
 
 ```{r}
@@ -339,10 +367,11 @@ p.cluster$cluster <- as.factor(penguins_species)
 #| fig-height: 4
 #| fig-width: 6
 #| fig-cap: "."
-ggplot(penguins_tbl, aes(bill_length_mm, bill_depth_mm, label = penguins_species)) + 
-  scale_fill_discrete(name = "Cluster") + 
-  geom_label(aes(fill = p.cluster$cluster), colour = "white", 
-  fontface = "bold", size=2)
+ggplot(creature_tbl, aes(longevity_years, heart_rate_bpm, label = creature)) + 
+  theme_bw() +
+  geom_label(aes(fill = as_factor(knn_creature$cluster)), colour = "white", 
+             fontface = "bold", size=2) +
+  scale_fill_discrete(name = "Cluster") 
 ```
 
 ```{r}
@@ -363,8 +392,13 @@ ggplot(sumsq.clust, aes(k, tot.withinss)) + geom_line() + geom_point()
 ```
 
 ```{r}
-multi.clust <- data.frame(k = 1:6) %>% group_by(k) %>% do(clust = kmeans(penguins_tbl, .$k))
-multi.k <- multi.clust %>% group_by(k) %>% do(augment(.$clust[[1]], penguins_tbl))
+multi.clust <- data.frame(k = 1:6) %>% 
+  group_by(k) %>% 
+  do(clust = kmeans(penguins_tbl, .$k))
+
+multi.k <- multi.clust %>% 
+  group_by(k) %>% 
+  do(augment(.$clust[[1]], penguins_tbl))
 ```
 
 ```{r}
@@ -416,6 +450,8 @@ gdata Packae genetik data?
 
 https://bioconductor.org/packages/release/bioc/vignettes/heatmaps/inst/doc/heatmaps.html https://jokergoo.github.io/ComplexHeatmap-reference/book/index.html
 
+[Heatmap in R: Static and Interactive Visualization](https://www.datanovia.com/en/lessons/heatmap-in-r-static-and-interactive-visualization/)
+
 ```{r}
 #| echo: true
 #| message: false
@@ -429,7 +465,42 @@ https://bioconductor.org/packages/release/bioc/vignettes/heatmaps/inst/doc/heatm
 pheatmap(t(penguins_tbl), cutree_cols = 4)
 ```
 
-### k-means Clusteranalyse {#sec-clust-knn}
+Mach den Zeilen
+
+```{r}
+dend_r <- animals_df %>% dist(method = "man") %>% hclust(method = "ward.D") %>% as.dendrogram %>% ladderize %>%
+    color_branches(k=4)
+```
+
+Nach den Spalten
+
+```{r}
+dend_c <- t(animals_df) %>% dist(method = "man") %>% hclust(method = "com") %>% as.dendrogram %>% ladderize%>%
+    color_branches(k=3)
+```
+
+```{r}
+# some_col_func <- function(n) rev(colorspace::heat_hcl(n, c = c(80, 30), l = c(30, 90), power = c(1/5, 1.5)))
+# some_col_func <- colorspace::diverge_hcl
+# some_col_func <- colorspace::sequential_hcl
+ some_col_func <- function(n) (colorspace::diverge_hcl(n, h = c(246, 40), c = 96, l = c(65, 90)))
+
+```
+
+```{r}
+gplots::heatmap.2(as.matrix(animals_df), 
+          main = "Attributes of Animals",
+          srtCol = 35,
+          Rowv = dend_r,
+          Colv = dend_c,
+          trace="row", hline = NA, tracecol = "darkgrey",         
+          margins =c(6, 5),      
+          key.xlab = "no / yes",
+          denscol = "grey",
+          density.info = "density",
+          col = gplots::bluered(100)
+         )
+```
 
 ### Hauptkomponentenanalyse {#sec-clust-pca}
 
@@ -445,14 +516,6 @@ Im Folgenden analysieren wir die Gummibärchendaten einmal mit dem R Paket `tidy
 [tidyclust Hilfeseite für das Hierarchical Clustering](https://tidyclust.tidymodels.org/articles/hier_clust.html)
 :::
 
-Es gibt vier gängige Ansätze für die Cluster-Cluster-Distanzierung, auch "Linkage" genannt:
-
--   *single linkage*: Der Abstand zwischen zwei Clustern ist der Abstand zwischen den beiden nächstgelegenen Beobachtungen.
--   *average linkage*: Der Abstand zwischen zwei Clustern ist der Durchschnitt aller Abstände zwischen den Beobachtungen in einem Cluster und den Beobachtungen im anderen Cluster.
--   *complete linkage*: Der Abstand zwischen zwei Clustern ist der Abstand zwischen den beiden am weitesten entfernten Beobachtungen.
--   *centroid method*: Der Abstand zwischen zwei Clustern ist der Abstand zwischen ihren Zentroiden (geometrisches Mittel oder Median).
--   *Ward-Methode*: Der Abstand zwischen zwei Clustern ist proportional zur Zunahme der Fehlerquadratsumme (ESS), die sich aus der Verbindung der beiden Cluster ergeben würde. Die ESS wird als Summe der quadrierten Abstände zwischen den Beobachtungen in einem Cluster und dem Schwerpunkt des Clusters berechnet.
-
 ```{r}
 hc_spec <- hier_clust(num_clusters = 3,
                        linkage_method = "average")
@@ -462,12 +525,6 @@ hc_spec <- hier_clust(num_clusters = 3,
 hc_fit <- hc_spec %>%
   fit(~ gender + age + height + semester + most_liked,
       data = gummi_tbl)
-
-hc_fit <- hc_spec %>%
-  fit(~ warm_blooded + fly + vertebrate + threatened + live_in_groups + hair,
-      data = animals_tbl)
-
-
 ```
 
 Wenn es zu lang wird dann auch `fit(~ .)`
