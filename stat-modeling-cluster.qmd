@@ -38,8 +38,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 set.seed(20230727)
 pacman::p_load(tidyverse, magrittr, palmerpenguins, readxl,
-               ggdendro, broom, cluster, factoextra,
-               pheatmap, tidyclust, dlookr, janitor,
+               ggdendro, broom, cluster, factoextra, FactoMineR, 
+               pheatmap, tidyclust, dlookr, janitor, corrplot,
                dendextend, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
@@ -203,27 +203,29 @@ Wie eben gesagt, ist es teilweise echt nervig immer die `row.names()` mit zu neh
 
 ## Distanzmaße
 
-Wir betrachten im Folgenden immer die Distanzen zwischen den Zeilen des Datensatzes. Das heißt, wir wollen immer die Distanzen zwischen den Beobachtungen berechnen. Wie nah oder fern sind sich zwei Beobachtungen gegeben den Spalten? Wir schauen uns einmal zwei sehr intuitive Distanzmaße mit der euklidischen sowie der manhattan Distanz an.
+Wie nah oder weit entfernt sind jetzt zwei Beobachtungen? Wenn wir die Distanz von zwei Beobachtungen zueinander haben, wie weit ist dann eine dritte Beobachtung entfernt? Aus den paarweisen Abständen aller Beobachtungen zueinander können wir dann Cluster bilden. Wir brauchen aber zuallerst die Distanzen der Beobachtungen zuaeinander. Wir betrachten dabei im Folgenden immer die Distanzen zwischen den Zeilen des Datensatzes. Das heißt, wir wollen immer die Distanzen zwischen den Beobachtungen berechnen. Wie nah oder fern sind sich zwei Beobachtungen gegeben den Spalten? Wir schauen uns einmal zwei sehr intuitive Distanzmaße mit der euklidischen sowie der manhattan Distanz an.
 
 Euklidische Distanz
 
-:   $$
+:   Die euklidische Distanz $d_E$ ist einfach die Wurzel des quadratischen Abstands zwischen zwei Punkten $p$ und $q$. $$
     d_E(p,q) = \sqrt{(p-q)^2}
     $$
 
 Manhattan Distanz
 
-:   $$
+:   Die manhattan Distanz $d_M$ ist einfach der absolute Abstands zwischen zwei Punkten $p$ und $q$.$$
     d_M(p,q) = \lvert p-q \rvert
     $$
 
--   `dist()` als Standardfunktion: Akzeptiert nur numerische Daten als Eingabe, das zu verwendende Abstandsmaß muss eines der Folgenden sein: `euclidean`, `maximum`, `manhattan`, `canberra`, `binary` oder `minkowski`. Die Hilfeseite `?dist()` liefert mehr Informationen über die Distanzmaße.
--   `get_dist()` aus dem R Paket `factoextra`: Akzeptiert nur numerische Daten als Eingabe. Im Vergleich zur Standardfunktion dist() unterstützt sie korrelationsbasierte Abstandsmaße einschließlich der Methoden `pearson`, `kendall` und `spearman`.
--   `daisy()` aus dem R Paket `cluster`: Kann mit anderen Variablentypen umgehen als numerisch. Also auch mit Kategorien und Faktoren. In diesem Fall wird automatisch der Gower-Koeffizient als Metrik verwendet. Er ist eines der beliebtesten Näherungsmaße für gemischte Datentypen. Weitere Einzelheiten findest du auf der Hilfeseite der Funktion `?daisy`.
+Es gibt noch viel mehr Distanzen, die du berechnen kannst. Je nach R Paket sind unterschiedlich Distanzen dann auszuwählen. Hier eine generelle Empfehlung zu geben ist mir unmöglich. Da müssen wir dann zusammen mal schauen, was für deine Daten dann konkret passt.
 
-Durch die Standardisierung werden die Abstandsmaße - Euklidisch, Manhattan, Korrelation - ähnlicher, als sie es bei nicht transformierten Daten wären.
+-   Die Funktion `dist()` als die Standardfunktion: Die Funktion akzeptiert nur numerische Daten als Eingabe und das zu verwendende Abstandsmaß muss eines der Folgenden sein: `euclidean`, `maximum`, `manhattan`, `canberra`, `binary` oder `minkowski`. Die Hilfeseite `?dist()` liefert mehr Informationen über die Distanzmaße.
+-   Die Funktion `get_dist()` aus dem R Paket `factoextra`: Die Funktion akzeptiert nur numerische Daten als Eingabe. Im Vergleich zur Standardfunktion `dist()` unterstützt sie korrelationsbasierte Abstandsmaße einschließlich der Methoden `pearson`, `kendall` und `spearman`.
+-   Die Funktion `daisy()` aus dem R Paket `cluster`: Die Funktion kann mit anderen Variablentypen umgehen als numerisch - also auch mit Kategorien und Faktoren. In diesem Fall wird automatisch der Gower-Koeffizient als Metrik verwendet. Der Gower-Koeffizient ist eines der beliebtesten Näherungsmaße für gemischte Datentypen. Weitere Einzelheiten findest du auf der Hilfeseite der Funktion `?daisy`.
 
-Die Funktion `fviz_dist()` aus dem R Paket `factorextra` erlaubt hier die Distanzmatrix zu visualisieren.
+Wenn du deine Daten transformierts, dann werden auch die Abstandmaße ähnlicher. Zum Beispiel werden durch die Standardisierung die folgenden Abstandsmaße kelinere Werte ergeben: Euklidisch, Manhattan und die Korrelation. Das ist aber nicht so schlimm, wenn du nicht untransformierte Daten mit transformierten Daten vergleichst.
+
+Wenn du dir die Distanzmatrix anschauen willst, so erlaubt die Funktion `fviz_dist()` aus dem R Paket `factorextra` dir die Distanzmatrix zu visualisieren. Wir nutzen die Distanzmatrix dann aber gleich um auf den Distanzen Cluster zu bilden.
 
 ## Algorithmen fürs Clustern
 
@@ -463,6 +465,135 @@ silhouette_animals_tbl %>%
             sd(sil_width))
 ```
 
+### Hauptkomponentenanalyse {#sec-clust-pca}
+
+Eine weitere Möglichkeit die Dimensionen eines Datensatzes zu reduzieren und Abstände zu bestimmen ist die Hauptkomponentenanalyse, die wir schon aus dem @sec-outlier über die Bestimmung von Ausreißern kennen. Es gibt viele Implementierungen der Hauptkomponentenanalyse in R. Wir nutzen die Funktion `PCA()` aus dem R Paket `FactoMineR`.
+
+::: column-margin
+Neben vielemn anderen Tutorien gibt es hier noch ein weiteres zu den [PCA - Principal Component Analysis Essentials](http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/112-pca-principal-component-analysis-essentials/).
+:::
+
+-   `get_eigenvalue()`: Extrahiert die Eigenwerte/Varianzen der Hauptkomponenten
+-   `fviz_eig()`: Visualisierung der Eigenwerte
+-   `get_pca_ind()`, `get_pca_var(res.pca)`: Extrahiert die Ergebnisse für Individuen bzw. Variablen.
+-   `fviz_pca_ind()`, `fviz_pca_var(res.pca)`: Visualisierung der Ergebnisse für Individuen bzw. Variablen.
+-   `fviz_pca_biplot()`: Erstellt einen Biplot der Individuen und Variablen.
+
+```{r}
+pca_animals <- PCA(animals_df,  graph = FALSE)
+```
+
+```{r}
+eig_animals <- get_eigenvalue(pca_animals)
+eig_animals
+```
+
+```{r}
+fviz_eig(pca_animals, addlabels = TRUE)
+```
+
+```{r}
+ind_animals <- get_pca_ind(pca_animals)
+ind_animals
+```
+
+```{r}
+var_animals <- get_pca_var(pca_animals)
+var_animals
+```
+
+Schauen wir uns einmal an was wir mit den Informationen über die Variablen durch die Funktion `get_pca_var()` machen können.
+
+-   `coord`: Koordinaten der Variablen zur Erstellung eines Streudiagramms
+-   `cos2`: stellt die Qualität der Darstellung der Variablen auf der Faktorkarte dar. Es wird berechnet als die quadrierten Koordinaten: `cos2 = coord * coord`
+-   `contrib:` enthält die Beiträge (in Prozent) der Variablen zu den Hauptkomponenten. Der Beitrag einer Variablen zu einer bestimmten Hauptkomponente ist (in Prozent): (`cos2` \* 100) / (gesamter `cos2` der Komponente).
+
+Beachte, dass es möglich ist, Variablen zu zeichnen und sie entweder nach i) ihrer Qualität auf der Faktorkarte `cos2` oder ii) ihren Beitragswerten zu den Hauptkomponenten `contrib` zu färben.
+
+Die Qualität der Darstellung der Variablen auf der Faktorkarte wird als `cos2` (quadratischer Kosinus, quadratische Koordinaten) bezeichnet. Sie können auf den `cos2` wie folgt zugreifen:
+
+```{r}
+corrplot(var_animals$cos2, is.corr = FALSE)
+```
+
+```{r}
+fviz_cos2(pca_animals, choice = "var", axes = 1:2)
+```
+
+Beachten Sie das,
+
+-   Ein hoher cos2-Wert deutet auf eine gute Darstellung der Variablen auf der Hauptkomponente hin. In diesem Fall ist die Variable nahe am Umfang des Korrelationskreises positioniert.
+-   Ein niedriger cos2-Wert zeigt an, dass die Variable nicht perfekt durch die PC's repräsentiert ist. In diesem Fall befindet sich die Variable in der Nähe der Kreismitte.
+-   Für eine bestimmte Variable ist die Summe des cos2 aller Hauptkomponenten gleich eins.
+
+Wenn eine Variable nur durch zwei Hauptkomponenten (Dim.1 & Dim.2) perfekt repräsentiert wird, ist die Summe des cos2 auf diesen beiden PC gleich eins. In diesem Fall werden die Variablen auf dem Korrelationskreis positioniert. In @fig-cluster-pca-2 wären die Namen direkt auf dem Korrelationskreis. Für einige der Variablen sind möglicherweise mehr als 2 Komponenten erforderlich, um die Daten perfekt zu repräsentieren. In diesem Fall werden die Variablen innerhalb des Korrelationskreises positioniert, was wir eher in der @fig-cluster-pca-2 sehen.
+
+Die cos2-Werte werden verwendet, um die Qualität der Darstellung abzuschätzen Je näher eine Variable am Korrelationskreis liegt, desto besser ist ihre Darstellung auf der Faktorkarte (und desto wichtiger ist es, diese Komponenten zu interpretieren) Variablen, die sich in der Nähe der Mitte des Diagramms befinden, sind für die ersten Komponenten weniger wichtig.
+
+Es ist möglich, Variablen nach ihren cos2-Werten zu färben, indem man das Argument col.var = "cos2" verwendet. Dies erzeugt einen Farbverlauf. In diesem Fall kann das Argument gradient.cols verwendet werden, um eine benutzerdefinierte Farbe anzugeben. Zum Beispiel bedeutet gradient.cols = c("weiß", "blau", "rot"), dass:
+
+Variablen mit niedrigen cos2-Werten werden in "weiß" eingefärbt Variablen mit mittleren cos2-Werten werden in "blau" eingefärbt Variablen mit hohen cos2-Werten werden in "rot" eingefärbt
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-cluster-pca-2
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Diagramm der PCA für die Variablen (Saplten) und den Beobachtungen (Zeilen) der Datenmatrix."
+#| fig-subcap: 
+#|   - "Richtung der Variablen (Spalten)"
+#|   - "Verteilung der Beobachtungen (Zeilen)."
+#| layout-nrow: 1
+#| column: page
+
+fviz_pca_var(pca_animals, col.var = "cos2",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             repel = TRUE # Avoid text overlapping
+             )
+
+fviz_pca_var(pca_animals, col.var = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             repel = TRUE # Avoid text overlapping
+             )
+
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-cluster-pca-1
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Diagramm der PCA für die Variablen (Saplten) und den Beobachtungen (Zeilen) der Datenmatrix."
+#| fig-subcap: 
+#|   - "Richtung der Variablen (Spalten)"
+#|   - "Verteilung der Beobachtungen (Zeilen)."
+#|   - "Komibination Variablen und Individuen."
+#| layout-nrow: 1
+#| column: page
+
+fviz_pca_var(pca_animals, col.var = "black") +
+  scale_x_continuous(expand = expansion(add = c(0.5, 0.5))) +
+  scale_y_continuous(expand = expansion(add = c(0.5, 0.5))) 
+
+fviz_pca_ind(pca_animals,
+             col.ind = "cos2", 
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE) +
+  scale_x_continuous(expand = expansion(add = c(0.5, 1))) +
+  scale_y_continuous(expand = expansion(add = c(0.5, 0.5))) 
+
+fviz_pca_biplot(pca_animals) +
+  scale_x_continuous(expand = expansion(add = c(0.5, 1))) +
+  scale_y_continuous(expand = expansion(add = c(0.5, 0.5))) 
+
+```
+
 ### Heatmap {#sec-clust-heat}
 
 Das R Paket `pheatmap` [Making a heatmap in R with the pheatmap package](https://davetang.github.io/muse/pheatmap.html) um Heatmaps
@@ -524,10 +655,6 @@ gplots::heatmap.2(as.matrix(animals_df),
 Das R Paket `heatmaps` [Tutorial heatmaps](https://bioconductor.org/packages/release/bioc/vignettes/heatmaps/inst/doc/heatmaps.html) liefert nochmal Beispiele mit genetischen Datensätzen.
 
 [ComplexHeatmap](https://jokergoo.github.io/ComplexHeatmap-reference/book/index.html), was sich vom R Paket `pheatmap` inspirieren lies. Das geht dann aber hier zu weit, schauen da, wenn du wirklich Heatmaps brauchst.
-
-### Hauptkomponentenanalyse {#sec-clust-pca}
-
-Teilweise haben wir Überlagerungen mit dem Kapitel @sec-outlier
 
 ## Datenanalyse mit `tidyclust` {#sec-clust-tidyclust}
 
