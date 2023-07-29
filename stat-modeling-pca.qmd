@@ -106,11 +106,13 @@ creature_tbl %>%
 
 ## Daten standardisieren
 
-Die Standardisierung zwingt Variablen in eine $\mathcal{N(0,1)}$ Standardnormalverteilung. Das heißt, wir transformieren alle Variablen auf einen Mittelwert von $0$ und einer Standardabweichung von $1$.
+Die Standardisierung zwingt Variablen in eine $\mathcal{N(0,1)}$ Standardnormalverteilung. Das heißt, wir transformieren alle Variablen auf einen Mittelwert von $0$ und einer Standardabweichung von $1$. Hier nochmal die Formel für die Standardisierung oder auch $z$-Transformation.
 
 $$
-z = \cfrac{x - \bar{x}}{s_x}
-$$ Das macht dann auch die Daten sehr schon gleichförmig. Hier nutzen wir auch die Funktion `transform()` aus dem R Paket `dlookr` mit der Option `zscore`. Damit wir auch auf jeden Fall sicher gehen, dass wir die richtige Funktion nutzen, schreiben wir `dlookr::transform()` und damit ist sichergestellt, dass wir auch die Funktion `transform()` aus dem R Paket `dlookr` nutzen.
+z = \cfrac{x_i - \bar{x}}{s_x}
+$$ Wie wir hier sehen ziehen wir von jeder $i$-ten Beobachtung den Mittlwert von allen Beobachtungen ab. Dann teilen wir noch durch die Standardabweichung alle Beobachtungen. Am Ende ist dann damit unser Mittelwert auf $0$ und unsere Standardabweichung auf $1$.
+
+Die Standardisierung macht dann auch die Daten sehr schon gleichförmig. Hier nutzen wir auch die Funktion `transform()` aus dem R Paket `dlookr` mit der Option `zscore`. Damit wir auch auf jeden Fall sicher gehen, dass wir die richtige Funktion nutzen, schreiben wir `dlookr::transform()` und damit ist sichergestellt, dass wir auch die Funktion `transform()` aus dem R Paket `dlookr` nutzen.
 
 ```{r}
 std_creature_tbl <- creature_tbl %>% 
@@ -119,6 +121,8 @@ std_creature_tbl <- creature_tbl %>%
          longevity_years = dlookr::transform(longevity_years, "zscore")) 
 std_creature_tbl
 ```
+
+Die Funktion `PCA()`, die wir im Folgenden verwenden wollen, wird zwar auch die Daten intern von sich aus standardisieren, wenn die nicht standardisiert wurden. Ich mag es aber nicht, wenn wichtige Schritte in Funktionen begraben werden, deshlab hier nochmal das Beispiel, wie man es macht.
 
 ## Das `data.frame()` Problem
 
@@ -145,7 +149,7 @@ std_creature_df <- std_creature_tbl %>%
 
 ## Hauptkomponentenanalyse
 
-Es gibt viele Implementierungen der Hauptkomponentenanalyse in R. Wir nutzen die Funktion `PCA()` aus dem R Paket `FactoMineR`.
+Es gibt viele Implementierungen der Hauptkomponentenanalyse in R. Wir nutzen die Funktion `PCA()` aus dem R Paket `FactoMineR`. Es kann nur so viele Hauptkomponenten (eng. *Principle Component Analysis*, abk. PCA) geben, wie wir auch Spalten in den Daten vorliegen haben.
 
 -   `get_eigenvalue()`: Extrahiert die Eigenwerte/Varianzen der Hauptkomponenten
 -   `fviz_eig()`: Visualisierung der Eigenwerte
@@ -163,15 +167,29 @@ pca_creature <- PCA(std_creature_df,  graph = FALSE)
 
 ### Ebene der Eigenwerte
 
-```{r}
-eig_animals <- get_eigenvalue(pca_animals)
-eig_animals
-```
+Die Eigenwerte messen die Menge der von jeder Hauptkomponente beibehaltenen Variation. Die Eigenwerte sind für die ersten Hauptkomponenten grundsätzlich groß und für die nachfolgenden Hauptkomponente immer kleiner. Das heißt, die ersten Hauptkomponente beschreiben Variablen mit der größten Variation im Datensatz. Wie schon gesagt, wir erschaffen neue Variablen aus den Daten, die wir Hauptkomponenten nennen. Jede Hauptkomponente hat einen Eigenwert, der beschreibt, wie viel Varianz die Hauptkomponente in den Daten erklären kann.
+
+Mit Hilfe der Eigenwerte lässt sich die Anzahl der Hauptkomponenten bzw. Dimensionen bestimmen, die nach der PCA beibehalten werden sollen. Wir wollen selten alle Hauptkomponenten berücksichtigen. Es geht hier ja auch darum die Dimensionen der Daten zu reduzieren. Wenn wir alle Hauptkomponenten weiterverwenden würden, dann könnten wir auch den ursprünglichen Datensatz nutzen. Die Eigenwerte und der Anteil der Varianzen, die von den Hauptkomponenten beibehalten werden, können mit der Funktion `get_eigenvalue()` extrahiert werden.
+
+Dabei bedeutet ein Eigenwert \> 1, dass die Hauptkomponenten mehr Varianz erklären als eine der ursprünglichen Variablen in den standardisierten Daten. Dies wird üblicherweise als Grenzwert für die Beibehaltung der Hauptkomponenten verwendet. Dies trifft nur zu, wenn die Daten standardisiert sind.
 
 ```{r}
-eig_creature <- get_eigenvalue(pca_creature)
+eig_animals <- get_eigenvalue(pca_animals) %>% 
+  as_tibble()
+eig_animals 
+```
+
+Die Summe aller Eigenwerte für die Tiere ergibt eine Gesamtvarianz von `r sum(eig_animals$eigenvalue)`. Jetzt können wir ganz einfach den Anteil der erklärten Varianz von jedem Eigenwert berechnen. In der zweiten Spalte finden wir dann die Werte der Eigenwerte geteilt durch die Gesamtvarianz. Daher ist $42.35$ gleich $2.54$ geteilt durch $6$. Der kumulative Prozentsatz der erklärten Variation wird durch Addition der aufeinanderfolgenden Anteile der erklärten Variation ermittelt.
+
+```{r}
+eig_creature <- get_eigenvalue(pca_creature) %>% 
+  as_tibble()
 eig_creature
 ```
+
+Die Summe aller Eigenwerte für die Kreaturen ergibt eine Gesamtvarianz von `r sum(eig_animals$eigenvalue)`.
+
+Sie können die Anzahl der Komponenten auch auf die Anzahl beschränken, die einen bestimmten Anteil der Gesamtvarianz ausmacht. Wenn Sie beispielsweise mit 70 % der erklärten Gesamtvarianz zufrieden sind, verwenden Sie die Anzahl der Komponenten, um dies zu erreichen.
 
 ```{r}
 #| message: false
@@ -191,6 +209,14 @@ eig_creature
 fviz_eig(pca_animals, addlabels = TRUE)
 fviz_eig(pca_creature, addlabels = TRUE)
 ```
+
+Leider gibt es keine allgemein anerkannte objektive Methode, um zu entscheiden, wie viele Hauptkomponenten ausreichend sind. Dies hängt von dem jeweiligen Anwendungsbereich und dem jeweiligen Datensatz ab. In der Praxis neigen wir dazu, die ersten paar Hauptkomponenten zu betrachten, um interessante Muster in den Daten zu finden.
+
+In unserer Analyse erklären die ersten drei Hauptkomponenten 72 % der Variation. Dies ist ein akzeptabel hoher Prozentsatz.
+
+Eine alternative Methode zur Bestimmung der Anzahl der Hauptkomponenten ist die Betrachtung eines Scree Plots, d. h. die Darstellung der Eigenwerte in der Reihenfolge vom größten zum kleinsten Wert. Die Anzahl der Komponenten wird an dem Punkt bestimmt, ab dem die verbleibenden Eigenwerte alle relativ klein und von vergleichbarer Größe sind
+
+Übersetzt mit www.DeepL.com/Translator (kostenlose Version)
 
 ### Ebene der Variablen
 
@@ -256,6 +282,12 @@ fviz_pca_var(pca_animals, col.var = "contrib",
              repel = TRUE # Avoid text overlapping
              )
 
+```
+
+```{r}
+res.desc <- dimdesc(pca_animals, axes = c(1,2), proba = 0.05)
+# Description of dimension 1
+res.desc$Dim.1
 ```
 
 ### Ebene der Individuen
