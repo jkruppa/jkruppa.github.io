@@ -163,9 +163,6 @@ std_creature_df <- std_creature_tbl %>%
 
 Es gibt viele Implementierungen der Hauptkomponentenanalyse in R. Wir nutzen die Funktion `PCA()` aus dem R Paket `FactoMineR` für die Analyse von kontinuierlichen Variablen. Denk immer daran, es kann maximal nur so viele Hauptkomponenten geben, wie wir auch Spalten in den Daten vorliegen haben. Folgende wichtige Funktionen werden wir jetzt einmal nutzen. Es gibt noch mehr, aber das übersteigt die einfache Hauptkomponentenanalyse, die wir uns hier anschauen wollen.
 
--   `get_eigenvalue()`: Extrahiert die Eigenwerte/Varianzen der Hauptkomponenten
--   `fviz_eig()`: Visualisierung der Eigenwerte
-
 Die zentrale Funktion ist aber die Funktion `PCA()` womit wir die eigentliche Hauptkomponentenanalyse erstmal durchführen, wenn kontinuierliche Variablen vorliegen. Die Funktion nimmt die Daten und berechnet dann intern die Varianz/Kovarianzmatrix. Die Varianz/Kovarianzmatrix wird dann als Distanzmatrix genutzt um die Hauptkomponenten und deren Eigenwerte zu berechnen.
 
 Neben der Funktion `PCA()` aus dem R Paket `FactoMineR` für die Analyse von kontinuierlichen Variablen gibt es noch eine Reihe anderer Funktionen für eine Hauptkomponentenanalyse wenn wir kategoriale Variablen oder eine Mischung vorliegen haben. Hier mal die vollständige Liste.
@@ -423,7 +420,10 @@ cov_tbl %>%
 Wie wir sehen können wir die Werte in der Varianz/Kovarianzmatrix wiederfinden. Das ist ja mal ein Erfolg. Wir nutzen also die Varianz/Kovarianzmatrix als unsere Ähnlichkeitsmatrix, wie schon bei den Clusteranalysen, um hier unbekannte Zusammenhänge zwischen den Spalten und damit dann Hauptkomponenten aufzuklären.
 :::
 
-Mit Hilfe der Eigenwerte lässt sich die Anzahl der Hauptkomponenten bzw. Dimensionen bestimmen, die nach der PCA beibehalten werden sollen. Wir wollen selten alle Hauptkomponenten berücksichtigen. Es geht hier ja auch darum die Dimensionen der Daten zu reduzieren. Wenn wir alle Hauptkomponenten weiterverwenden würden, dann könnten wir auch den ursprünglichen Datensatz nutzen. Die Eigenwerte und der Anteil der Varianzen, die von den Hauptkomponenten beibehalten werden, können mit der Funktion `get_eigenvalue()` extrahiert werden.
+Mit Hilfe der Eigenwerte lässt sich die Anzahl der Hauptkomponenten bzw. Dimensionen bestimmen, die nach der PCA beibehalten werden sollen. Wir wollen selten alle Hauptkomponenten berücksichtigen. Es geht hier ja auch darum die Dimensionen der Daten zu reduzieren. Wenn wir alle Hauptkomponenten weiterverwenden würden, dann könnten wir auch den ursprünglichen Datensatz nutzen. Die Eigenwerte und der Anteil der Varianzen, die von den Hauptkomponenten beibehalten werden, können mit folgenden Funktionen extrahiert werden.
+
+-   `get_eigenvalue()`: Extrahiert die Eigenwerte/Varianzen der Hauptkomponenten
+-   `fviz_eig()`: Visualisierung der Eigenwerte
 
 Dabei bedeutet ein Eigenwert \> 1, dass die Hauptkomponenten mehr Varianz erklären als eine der ursprünglichen Variablen in den standardisierten Daten. Dies wird üblicherweise als Grenzwert für die Beibehaltung der Hauptkomponenten verwendet. Dies trifft nur zu, wenn die Daten standardisiert sind.
 
@@ -483,9 +483,13 @@ Schauen wir uns einmal an was wir mit den Informationen über die Variablen durc
 -   `cos2`: stellt die Qualität der Darstellung der Variablen auf der Faktorkarte dar. Es wird berechnet als die quadrierten Koordinaten: `cos2 = coord * coord`
 -   `contrib:` enthält die Beiträge (in Prozent) der Variablen zu den Hauptkomponenten. Der Beitrag einer Variablen zu einer bestimmten Hauptkomponente ist (in Prozent): (`cos2` \* 100) / (gesamter `cos2` der Komponente).
 
-Im Folgenden bewerten wir die Qualität einer Variable nach den `cos2`-Werten oder ihren Beitragswerten zu den Hauptkomponenten dargestellt durch `contrib`.
+Im Folgenden bewerten wir die Qualität einer Variable nach den `cos2`-Werten oder ihren Beitragswerten zu den Hauptkomponenten dargestellt durch die `contrib`-Werte. Wir nutzen hier jetzt aber erstmal die `cos2`-Werte, weil sonst hier alles an Abbildungen explodiert.
 
-Die Qualität der Darstellung der Variablen auf der Faktorkarte wird als `cos2` (quadratischer Kosinus, quadratische Koordinaten) bezeichnet. Sie können auf den `cos2` wie folgt zugreifen:
+-   Ein hoher cos2-Wert deutet auf eine gute Darstellung der Variablen auf der Hauptkomponente hin. In diesem Fall ist die Variable nahe am Umfang des Korrelationskreises positioniert.
+-   Ein niedriger cos2-Wert zeigt an, dass die Variable nicht perfekt durch die PC's repräsentiert ist. In diesem Fall befindet sich die Variable in der Nähe der Kreismitte.
+-   Für eine bestimmte Variable ist die Summe des cos2 aller Hauptkomponenten gleich eins.
+
+In der @fig-pca-corrplot-cos2 sehen wir einmal die Zusammenhänge von den `cos2`-Werten und den jeweiligen Hauptkomponenten. Wir setzen `is.corr = FALSE`, weil wir keine Korrelation abbiden wollen sondern `cos2`-Werte.
 
 ```{r}
 #| message: false
@@ -495,16 +499,20 @@ Die Qualität der Darstellung der Variablen auf der Faktorkarte wird als `cos2` 
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "Diagramm der PCA für die Variablen (Saplten) und den Beobachtungen (Zeilen) der Datenmatrix."
+#| fig-cap: "Zusammenhang von den `cos2`-Werten und den jeweiligen Hauptkomponenten"
 #| fig-subcap: 
-#|   - "Richtung der Variablen (Spalten)"
-#|   - "Verteilung der Beobachtungen (Zeilen)."
+#|   - "Tierdaten `animals_df`"
+#|   - "Kreaturendaten `std_creature_df`"
 #| layout-nrow: 1
 #| column: page
 
 corrplot(var_animals$cos2, is.corr = FALSE)
 corrplot(var_creature$cos2, is.corr = FALSE)
 ```
+
+Wir sehen bei den Tierdaten, dass die die erste Hauptkomponente `Dim.1` die Variablen `warm_blooded`, `vertebrate` und etwas weniger `threatened` und `live_in_groups` beschreibt. Die zweite Hauptkomponente `Dim.2` repräsentiert die Variable `hair`. Die dritte Hauptkomponente deckt `fly` ab. Die vierte Hauptkomponente beschreibt dann `live_groups` etwas stärker als die erste Hauptkomponente. Die fünfte Hauptkomponente können wir fast ignorieren. Bei den Kreaturendaten sehen wir das die erste Hauptkomponente fast alle Variablen repräsentiert. Die zweite Hauptkomponente beschreibt dann noch etwas `mass_grams` und `heart_rate_bpm`.
+
+In der @fig-pca-fviz-cos2 sehen wir die gleichen Informationen nochmal als Säulendiagramm dargestellt. Hier ist es eventuell numerisch schöner und besser zu sehen, wie sich die `cos2`-Werte für die *erste und zweite* Hauptkomponente verhalten. Du musst hier nämlich entscheiden, wie viele Hauptkomponenten du *zusammen* betrachten willst. Hier habe ich über `axes = 1:2` die ersten beiden Hauptkomponenten gewählt.
 
 ```{r}
 #| message: false
@@ -514,10 +522,10 @@ corrplot(var_creature$cos2, is.corr = FALSE)
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "Diagramm der PCA für die Variablen (Saplten) und den Beobachtungen (Zeilen) der Datenmatrix."
+#| fig-cap: "Zusammenhang von den `cos2`-Werten und die ersten beiden Hauptkomponenten `Dim.1` und `Dim.2`."
 #| fig-subcap: 
-#|   - "Richtung der Variablen (Spalten)"
-#|   - "Verteilung der Beobachtungen (Zeilen)."
+#|   - "Tierdaten `animals_df`"
+#|   - "Kreaturendaten `std_creature_df`"
 #| layout-nrow: 1
 #| column: page
 
@@ -525,12 +533,6 @@ fviz_cos2(pca_animals, choice = "var", axes = 1:2)
 fviz_cos2(pca_creature, choice = "var", axes = 1:2)
 
 ```
-
-Beachten Sie das,
-
--   Ein hoher cos2-Wert deutet auf eine gute Darstellung der Variablen auf der Hauptkomponente hin. In diesem Fall ist die Variable nahe am Umfang des Korrelationskreises positioniert.
--   Ein niedriger cos2-Wert zeigt an, dass die Variable nicht perfekt durch die PC's repräsentiert ist. In diesem Fall befindet sich die Variable in der Nähe der Kreismitte.
--   Für eine bestimmte Variable ist die Summe des cos2 aller Hauptkomponenten gleich eins.
 
 Wenn eine Variable nur durch zwei Hauptkomponenten (Dim.1 & Dim.2) perfekt repräsentiert wird, ist die Summe des cos2 auf diesen beiden PC gleich eins. In diesem Fall werden die Variablen auf dem Korrelationskreis positioniert. In @fig-cluster-pca-2 wären die Namen direkt auf dem Korrelationskreis. Für einige der Variablen sind möglicherweise mehr als 2 Komponenten erforderlich, um die Daten perfekt zu repräsentieren. In diesem Fall werden die Variablen innerhalb des Korrelationskreises positioniert, was wir eher in der @fig-cluster-pca-2 sehen.
 
