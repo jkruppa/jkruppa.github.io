@@ -1,5 +1,6 @@
 ```{r echo = FALSE}
-pacman::p_load(tidyverse, readxl, knitr, kableExtra)
+set.seed(20230727)
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, latex2exp)
 ```
 
 # Hauptkomponentenanalyse {#sec-pca-main}
@@ -8,15 +9,106 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
-Die Hauptkomponentenanalyse (eng. *Principle Component Analysis*, abk. PCA) ist ein bedeutendes Verfahren zur Dimensionsreduktion. Wir haben also einen sehr großen Datensatz mit sehr vielen Spalten und wollen Muster in den Beobachtungen finden, die durch die Zeilen definiert sind. Dieses Kapitel umfasst dabei aber nur die notwendigen Verfahren und Anwendungen. Das hat vor allem damit zu tun, dass die Hauptkomponentenanalyse in den Sozialwissenschaften sehr weitreichend genutzt wird. Wir machen hier aber Agrarwissenschaften, also ist es eher ein nebensächlicher Fokus. Ebenso ist die Auswertung von Fragebögen allgemein ein Schwerpunkt der Hauptkomponentenanalyse. Auch werden Fragebögen eher in meinem Feld ausgewertet, deshalb hier nur das eine Kapitel, wenn man auch sicherlich viel mehr schreiben könnte.
+Die Hauptkomponentenanalyse (eng. *Principle Component Analysis*, abk. PCA) ist ein bedeutendes Verfahren zur Dimensionsreduktion. Wir haben also einen sehr großen Datensatz mit sehr vielen Spalten und wollen Muster in den Beobachtungen finden, die durch die Zeilen definiert sind. Dieses Kapitel umfasst dabei aber nur die notwendigen Verfahren und Anwendungen. Das hat vor allem damit zu tun, dass die Hauptkomponentenanalyse in den Sozialwissenschaften sehr weitreichend genutzt wird. Wir machen hier aber Agrarwissenschaften, also ist es eher ein nebensächlicher Fokus. Ebenso ist die Auswertung von Fragebögen allgemein ein Schwerpunkt der Hauptkomponentenanalyse. Auch werden Fragebögen eher selten in meinem Feld ausgewertet, deshalb hier nur das eine Kapitel, wenn man auch sicherlich viel mehr schreiben könnte.
 
 Das folgende Kapitel basiert zum Teilen auf den [Articles - Principal Component Methods in R: Practical Guide](http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/). Diese Sammlung an Tutorien geben einen wunderbaren Überblick über alle möglichen Methoden zu der Hauptkomponentenanalyse und deren verwandten Algorithmen. Wenn dich dazu mehr interessiert kann ich das Buch von @kassambara2017practical dir sehr ans Herz legen. Dort findest du eine tolle Übersicht über die Hauptkomponentenanalyse in R.
 
-::: column-margin
-Neben viele anderen Tutorien gibt es hier noch ein weiteres zu den [PCA - Principal Component Analysis Essentials](http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/112-pca-principal-component-analysis-essentials/).
-:::
+Was ist grob die Idee der Hauptkomponentenanalyse? Wir wollen Geraden durch unsere Datenwolke ziehen und dabei die Varianz minimieren. Das klingt jetzt wie die Regression und damit hast du auch recht. Die Hauptkomponentenanalyse und die lineare Regression sind nah miteinander verwandt. Damit wären wir schon beim ersten Punkt, Hauptkomponenten beschreiben einen Anteil der erklärten Varianz durch die entsprechende Hauptkomponente. Dabei erklärt *grundsätzlich* die 1. Hauptkomponente die meiste Varianz gefolfgt von 2. Hauptkomponente und so fort. Die Hauptkomponenten sind somit nach dem Anteil der erklärten Varianz sortiert. Das ist eine grundlegende Eigenschaft der Hauptkomponenten. Darüber hinaus sind auch alle Hauptkomponenten untereinander mit 0 korreliert und somit maximal unkorreliert. Die Hauptkomponenten und damit die Geraden durch die Punktwolke stehen orthogonal oder senkrecht aufeinander.
 
-Was ist grob die Idee der Hauptkomponentenanalyse? Wir wollen unseren Daten, also die ganze Daten*matrix* einmal so transformieren, dass wir neue Komponenten aus den Daten extrahieren, die die Daten auf einer anderen Dimension beschreiben. Klingt etwas kryptisch, aber im Prinzip handelt es sich bei der Hauptkomponentenanalyse um eine komplexere Transformation der Daten. Wir nutzen dabei die Varianzstruktur und die Varianz/Kovarianzmatrix als unsere Distanzmatrix für die Variablen und Beobachtungen. Im Prinzip also die Korrelation zwischen den einzelnen Variablen in dem Datensatz. Über diese Korrelation zwischen den Spalten und Zeilen wollen wir die Daten reduzieren. Wird die gesamte Varianz der Daten vielleicht nur von wenigen Spalten verursacht? Dann brauchen wir ja nur diese Hauptkomponenten weiter betrachten. Wir nutzen also die Varianz/Kovarianzmatrix als unsere Ähnlichkeitsmatrix, wie schon bei den Clusteranalysen, um hier unbekannte Zusammenhänge zwischen den Spalten und damit dann Hauptkomponenten aufzuklären.
+![Schematische Darstellung der 1. Hauptkomponente (PC1) durch die Punktewolke mit maximal erklärter Varianz, da minimaler Abstand zu den Punkten. Die 2. Hauptkomponente (PC2) stellt eine *mögliche* Repräsentation dar. Die 2. Hauptkomponente muss lotrecht auf der 1. Hauptkomponente stehen und dabei die Varianz weiter maximal minimieren. Dabei ist ja eine Drehung um die 1. Hauptkomponente als Achse möglich.](images/pca/pca_5.png){#fig-pca-schema fig-align="center" width="70%"}
+
+In der @fig-pca-schema sehen wir einmal dargestellt, was eine Hauptkomponentenanalyse erreichen will. Wir legen zuerst die 1. Hauptkomponente (PC1) so durch die Daten, dass die Varianz durch die 1. Hauptkomponente maximal minimiert wird. Dann berechnen wir die 2. Hauptkomponente (PC2) so, dass die 2. Hauptkomponente senkrecht auf der 1. Hauptkomponente steht. Hier sehen wir nur eine Möglichkeit, den es gebe ja auch noch andere Drehungen der 2. Hauptkomponente die ebenfalls die Bedingung, das Lot zur 1. Hauptkomponente zu sein, erfüllen würde. Es ist ja dann im Prinzip eine Drehung um die 1. Hauptkomponente als zentrale Achse zu sehen. Wir wählen die lotrechte Repräsentation der 2. Hauptkomponente, die am meisten Varianz erklärt, also die Abstände minimiert, die noch nicht durch die 1. Hauptkomponente minimiert wurden. Somit erklärt die 2. Hauptkomponente *immer* weniger Varianz als die 1. Hauptkomponente.
+
+Gut klingt jetzt erstmal einleuchtend, aber wie geht das mathematisch? Da sieht es schon etwas komplizierter aus.
+
+```{r}
+set.seed(2045312)
+tbl <- tibble(x = rnorm(30, 0, 5),
+              y = 0 + 0.5 * x + rnorm(30, 0, 1))
+```
+
+```{r}
+lm(y ~ x, tbl)
+```
+
+```{r}
+cov(tbl) %>% 
+  round(1)
+```
+
+$$
+\Sigma = 
+\begin{pmatrix}
+\operatorname{Var}(x) & \operatorname{Cov}(x, y) \\
+\operatorname{Cov}(x, y) & \operatorname{Var}(y)
+\end{pmatrix} = 
+\begin{pmatrix}
+21.6 & 10.9 \\
+10.9 & 6.1
+\end{pmatrix}
+$$
+
+text
+
+$$
+\beta_x = \cfrac{\operatorname{Cov}(x, y)}{\operatorname{Var}(x)} = \cfrac{10.9}{21.6} \approx 0.5
+$$
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-cluster-pca-exp
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Diagramm der PCA für die Variablen (Saplten) und den Beobachtungen (Zeilen) der Datenmatrix."
+#| fig-subcap: 
+#|   - "Richtung der Variablen (Spalten)"
+#|   - "Verteilung der Beobachtungen (Zeilen)."
+#| layout-nrow: 1
+#| column: page
+
+tbl %>% 
+  ggplot(aes(x, y)) +
+  theme_minimal() +
+  geom_point() +
+  geom_hline(yintercept = 0, alpha = 0.5) + geom_vline(xintercept = 0, alpha = 0.5) +
+  geom_abline(slope = 0.515749, intercept = -0.101, color = "red") +
+  geom_abline(slope = -1.938928, intercept = -0.101, color = "blue") +
+  annotate("text", x = 8, y = 6, label = "PC1", size = 8, color = "red") +
+  annotate("text", x = -2.5, y = 9, label = "PC2", size = 8, color = "blue") +
+  annotate("text", x = -7, y = -1,
+           label = TeX(r"($y = -0.1 + 0.52 \cdot x$)"), size = 5, color = "red") +
+  annotate("text", x = 6, y = -2,
+           label = TeX(r"($y = -0.1 - 1.94 \cdot x$)"), size = 5, color = "blue") +
+  scale_x_continuous(limits = c(-10, 10), breaks = seq(-10, 10, 1)) +
+  scale_y_continuous(limits = c(-10, 10), breaks = seq(-10, 10, 1)) +
+  theme(panel.grid.minor = element_blank())
+```
+
+```{r}
+pca_res <- prcomp(tbl)$rotation
+pca_res
+```
+
+```{r}
+pca_res[2,] / pca_res[1,]
+
+```
+
+Das funktioniert nur auf standardisierten Daten. Sonst ist der Intercept nicht 0.
+
+```{r}
+cov(tbl) %>% 
+  eigen
+```
+
+[Eigenvalues and Eigenvectors: Properties](https://cran.r-project.org/web/packages/matlib/vignettes/eigen-ex1.html)
+
+[Adding orthogonal regression line in ggplot](https://stackoverflow.com/questions/49368754/adding-orthogonal-regression-line-in-ggplot)
+
+Wir wollen unseren Daten, also die ganze Daten*matrix* einmal so transformieren, dass wir neue Komponenten aus den Daten extrahieren, die die Daten auf einer anderen Dimension beschreiben. Klingt etwas kryptisch, aber im Prinzip handelt es sich bei der Hauptkomponentenanalyse um eine komplexere Transformation der Daten. Wir nutzen dabei die Varianzstruktur und die Varianz/Kovarianzmatrix als unsere Distanzmatrix für die Variablen und Beobachtungen. Im Prinzip also die Korrelation zwischen den einzelnen Variablen in dem Datensatz. Über diese Korrelation zwischen den Spalten und Zeilen wollen wir die Daten reduzieren. Wird die gesamte Varianz der Daten vielleicht nur von wenigen Spalten verursacht? Dann brauchen wir ja nur diese Hauptkomponenten weiter betrachten. Wir nutzen also die Varianz/Kovarianzmatrix als unsere Ähnlichkeitsmatrix, wie schon bei den Clusteranalysen, um hier unbekannte Zusammenhänge zwischen den Spalten und damit dann Hauptkomponenten aufzuklären.
 
 ::: callout-note
 ## Hauptkomponente, Eigenwert und Varianz kurz zusammengefasst
@@ -48,7 +140,6 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-set.seed(20230727)
 pacman::p_load(tidyverse, magrittr, readxl, patchwork,
                factoextra, FactoMineR, ggpubr,
                janitor, corrplot, conflicted)
@@ -291,7 +382,7 @@ $$
  \operatorname{Cov}(x_2,x_1)  & \operatorname{Var}(x_2) & \cdots & \operatorname{Cov}(x_2,x_n) \\ \\
  \vdots & \vdots & \ddots & \vdots \\ \\
 \operatorname{Cov}(x_n,x_1) & \operatorname{Cov}(x_n,x_2) & \cdots & \operatorname{Var}(x_n)
-\end{pmatrix} \\
+\end{pmatrix} 
 $$
 
 Hier einmal das Beispiel der Varianz/Kovarianzmatrix für den Datensatz `animals_df`. Wie du siehst liegen auf der Diagonalen die Varianzen. In dem Rest der Matrix findest du dann immer die Kovarainz zwischen den Variablen. Achtung, die Kovarianz ist nicht die Korrelation. Zwar bedeutet eine Kovarianz von 0, dass die beiden Variablen nichts miteinander zu tun haben, aber die Kovarianz ist nicht auf 1 skaliert. Wir können auch sehr viel größere Werte für die Kovarianz beobachten.
@@ -329,6 +420,8 @@ Das Ganze ist natürlich sehr trocken. Deshalb füttern wir einmal die Variablen
 ```{r}
 cov_tbl <- tibble(x_1 = c(0.8, 1.0, 1.2, 1.9, 2.0, 2.7, 2.8),
                   x_2 = c(1.2, 1.8, 1.3, 1.7, 2.6, 1.8, 2.7))
+
+
 ```
 
 Dann können wir uns einmal den Mittelwert und die Varianz für die beiden Variablen $x_1$ und $x_2$ berechnen und dann direkt in der @fig-pca-cov verwenden.
