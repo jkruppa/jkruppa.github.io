@@ -1,6 +1,7 @@
 ```{r echo = FALSE}
 set.seed(20230727)
-pacman::p_load(tidyverse, readxl, knitr, kableExtra, latex2exp)
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, latex2exp,
+               patchwork)
 ```
 
 # Hauptkomponentenanalyse {#sec-pca-main}
@@ -19,11 +20,16 @@ Was ist grob die Idee der Hauptkomponentenanalyse? Wir wollen Geraden durch unse
 #| message: false
 #| echo: false
 #| warning: false
-#| label: fig-pca-exp-01
+#| label: fig-cluster-pca-exp-01
 #| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "Berechnung der Abstände für die Varianz von $x_1$ sowie $x_2$ in der oberen Zeile. In der unteren Zeile die Rechtecke der Berechnung der Kovarianz von $x_1$ und $x_2$."
+#| fig-height: 4.5
+#| fig-width: 4.5
+#| fig-cap: "Diagramm der PCA für die Variablen (Saplten) und den Beobachtungen (Zeilen) der Datenmatrix."
+#| fig-subcap: 
+#|   - "Richtung der Variablen (Spalten)"
+#|   - "Verteilung der Beobachtungen (Zeilen)."
+#| layout-nrow: 1
+#| column: page
 
 set.seed(2045312)
 tbl <- tibble(x = rnorm(30, 0, 5),
@@ -37,6 +43,17 @@ tbl %>%
   scale_x_continuous(limits = c(-10, 10)) +
   scale_y_continuous(limits = c(-5, 5)) +
   theme(panel.grid.minor = element_blank())
+
+tbl %>% 
+  ggplot(aes(x, y)) +
+  theme_minimal() +
+  geom_point() +
+  geom_hline(yintercept = 0, alpha = 0.5) + geom_vline(xintercept = 0, alpha = 0.5) +
+  geom_abline(slope = 0.515749, intercept = -0.101, color = "red") +
+  annotate("text", x = 6, y = 4.5, label = "PC1", size = 8, color = "red") +
+  scale_x_continuous(limits = c(-10, 10)) +
+  scale_y_continuous(limits = c(-5, 5)) +
+  theme(panel.grid.minor = element_blank())
 ```
 
 ![Schematische Darstellung der 1. Hauptkomponente (PC1) durch die Punktewolke mit maximal erklärter Varianz, da minimaler Abstand zu den Punkten. Die 2. Hauptkomponente (PC2) stellt eine *mögliche* Repräsentation dar. Die 2. Hauptkomponente muss lotrecht auf der 1. Hauptkomponente stehen und dabei die Varianz weiter maximal minimieren. Dabei ist ja eine Drehung um die 1. Hauptkomponente als Achse möglich.](images/pca/pca_5.png){#fig-pca-schema fig-align="center" width="70%"}
@@ -46,8 +63,136 @@ In der @fig-pca-schema sehen wir einmal dargestellt, was eine Hauptkomponentenan
 Gut klingt jetzt erstmal einleuchtend, aber wie geht das mathematisch? Da sieht es schon etwas komplizierter aus.
 
 ```{r}
-lm(y ~ x, tbl)
+lm(y ~ x, tbl) %>% 
+  coefficients()
 ```
+
+::: {.callout-note collapse="true"}
+## Exkurs: Die Varianz/Kovarianzmatrix $\boldsymbol{\Sigma_x}$
+
+Wenn du dich ein wenig mit Eigenwerten auskennst, dann weißt du, dass Eigenwerte immer auf einer Matrix berechnet werden. In unserem Fall werden die Eigenwerte der Hauptkomponeten auf der Varianz/Kovarianzmatrix der standardisierten Daten berechnet. Im Folgenden siehst du einmal die Varianz/Kovarianzmatrix $\boldsymbol{\Sigma_x}$ für die Datenmatrix $x$. Wie du siehst, kann diese Matrix sehr groß werden. Du musst dir vorstellen, dass jedes $x_1$ bis $x_n$ jeweils eine Spalte in deiner Datenmatrix $\boldsymbol{x}$ entspricht. Damit hätte unser Tierdatensatz zum Beispiel $x_1$ bis $x_5$ und die Varianz/Kovarianzmatrix hätte fünf Zeilen und Spalten.
+
+$$
+\boldsymbol{\Sigma_x} = \begin{pmatrix}\operatorname{Var}(x_1) & \operatorname{Cov}(x_1,x_2) & \cdots & \operatorname{Cov}(x_1,x_n) \\ \\
+ \operatorname{Cov}(x_2,x_1)  & \operatorname{Var}(x_2) & \cdots & \operatorname{Cov}(x_2,x_n) \\ \\
+ \vdots & \vdots & \ddots & \vdots \\ \\
+\operatorname{Cov}(x_n,x_1) & \operatorname{Cov}(x_n,x_2) & \cdots & \operatorname{Var}(x_n)
+\end{pmatrix} 
+$$ Für den Fall von zwei Variablen $x_1$ und $x_2$ können wir die Idee der Kovarianz nochmal nachvollziehen. Später rechnen wir dann die Hauptkomponentenanalyse auf der großen Matrix, aber ich kann dir den Zusammenhang leider nur für zwei Variablen erklären, den zweidimensional kriege ich noch hin. Wir können mit folgender Formel die Kovarianzen zwischen den beiden Variablen $x_1$ und $x_2$ berechnen.
+
+$$
+\operatorname{Cov}(x_2,x_1) = \sum_{i=1}^n(x_{1i}-\bar{x_1})(x_{2i}-\bar{x_2})
+$$
+
+Nochmal als Erinnerung, die Formel berechnet die quadrierten Abweichung der Beobachtungen von $x_1$ zum Mittelwert $\bar{x}_1$ und somit die Varianz $\operatorname{Var}(x_1)$ von $x_1$.
+
+$$
+\operatorname{Var}(x_1) = \sum_{i=1}^n(x_{1i}-\bar{x}_1)^2
+$$
+
+Ebenso berechnet diese Formel die quadrierten Abweichung der Beobachtungen von $x_2$ zum Mittelwert $\bar{x}_2$ und damit die Varianz $\operatorname{Var}(x_2)$ von $x_2$.
+
+$$
+\operatorname{Var}(x_2) = \sum_{i=1}^n(x_{2i}-\bar{x}_2)^2
+$$
+
+Das Ganze ist natürlich sehr trocken. Deshalb füttern wir einmal die Variablen $x_1$ und $x_2$ mit echten Daten und erschaffen uns den Datensatz `cov_tbl`. In @tbl-pca-corr-example ist der Zusammenhang nochmal Schritt für Schritt aufgeschlüsselt wie sich die Zahlen grob berechnen. Ich habe ein, zwei Schritte ausgelassen,a ber die ergänzt du fix selber.
+
+```{r}
+cov_tbl <- tibble(x_1 = c(0.8, 1.0, 1.2, 1.9, 2.0, 2.7, 2.8),
+                  x_2 = c(1.2, 1.8, 1.3, 1.7, 2.6, 1.8, 2.7))
+
+
+```
+
+Dann können wir uns einmal den Mittelwert und die Varianz für die beiden Variablen $x_1$ und $x_2$ berechnen und dann direkt in der @fig-pca-cov verwenden.
+
+```{r}
+cov_tbl %>% 
+  gather %>% 
+  group_by(key) %>% 
+  summarise(mean = mean(value), var = var(value))
+```
+
+In der folgenden @fig-pca-cov siehst du einmal die Konzepte der Varianz für $x_1$ in Subplot A und $x_2$ in Subplot B dargestellt. Die durchgezogene Linie stellt dabei den Mittelwert für die beiden Variablen dar. Die Varianz berechnet sich jetzt als der quadrierte Abstand von den Beobachtungen zu den Mittelwerten. Der Abstand ist als gestrichelte Linie dargestellt. Faktisch addierst du die sich ergebenden Quadrate auf. Bei der Kovarianz sind es keine Quadrate, sondern Rechtecke. Die berechnest nämlich einmal den Abstand einer Beobachtung zum Mittelwert von $x_1$ und einmal den Abstand zum Mittelwert von $x_2$. Die beiden Abstände $(x_{1i}-\bar{x_1})$ und $(x_{2i}-\bar{x_2})$ multiplizierst du und addierst dann diese Rechtecke auf.
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-pca-cov
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Berechnung der Abstände für die Varianz von $x_1$ sowie $x_2$ in der oberen Zeile. In der unteren Zeile die Rechtecke der Berechnung der Kovarianz von $x_1$ und $x_2$."
+
+
+p1 <- ggplot(cov_tbl, aes(x_1, x_2)) +
+  theme_bw() +
+  geom_point() +
+  geom_vline(xintercept = 1.771429, color = "blue") +
+  geom_segment(aes(x = x_1, 
+                   xend = rep(1.771429, 7), 
+                   y = x_2, yend = x_2), linetype = 2, color = "blue") +
+  labs(x = expression(x[1]), y = expression(x[2]))
+
+
+p2 <- ggplot(cov_tbl, aes(x_1, x_2)) +
+  theme_bw() +
+  geom_point() +
+  geom_hline(yintercept = 1.871429, color = "red") +
+  geom_segment(aes(x = x_1, 
+                   xend = x_1, 
+                   y = x_2, 
+                   yend = rep(1.871429, 7)), linetype = 2, color = "red") +
+  labs(x = expression(x[1]), y = expression(x[2]))
+
+p3 <- ggplot(cov_tbl, aes(x_1, x_2)) +
+  theme_bw() +
+  geom_point() +
+  geom_hline(yintercept = 1.871429, color = "red") +
+  geom_segment(aes(x = x_1, 
+                   xend = x_1, 
+                   y = x_2, 
+                   yend = rep(1.871429, 7)), linetype = 2, color = "red") +
+  geom_vline(xintercept = 1.771429, color = "blue") +
+  geom_segment(aes(x = x_1, 
+                   xend = rep(1.771429, 7), 
+                   y = x_2, yend = x_2), linetype = 2, color = "blue") +
+  labs(x = expression(x[1]), y = expression(x[2]))
+
+p1 + p2 + p3 + 
+  plot_layout(nrow = 2) + 
+  plot_annotation(tag_levels = 'A')
+
+```
+
+In der folgenden @tbl-pca-corr-example siehst du dann das Vorgehen nochmal numerisch. Wichtig ist hierbei, dass wir am Ende die Varianz und die Kovarianz berechnen können indem wir die Summen $\sum$ durch $n-1$ gleich 6 teilen.
+
+| $\boldsymbol{x_1}$ | $\boldsymbol{x_2}$  | $\boldsymbol{(x_{2i}-\bar{x}_2)^2}$ | $\boldsymbol{(x_{1i}-\bar{x}_1)^2}$ | $\boldsymbol{(x_{1i}-\bar{x}_1)(x_{2i}-\bar{x}_2)}$ |
+|:------------------:|:-------------------:|:-----------------------------------:|:-----------------------------------:|:---------------------------------------------------:|
+|        1.2         |         0.8         |                0.94                 |                0.45                 |                        0.65                         |
+|        1.8         |         1.0         |                0.60                 |                0.01                 |                        0.06                         |
+|        1.3         |         1.2         |                0.33                 |                0.33                 |                        0.33                         |
+|        1.7         |         1.9         |                0.02                 |                0.03                 |                        -0.02                        |
+|        2.6         |         2.0         |                0.05                 |                0.53                 |                        0.17                         |
+|        1.8         |         2.7         |                0.86                 |                0.03                 |                        -0.07                        |
+|        2.7         |         2.8         |                1.06                 |                0.69                 |                        0.85                         |
+|                    |       $\sum$        |                3.86                 |                2.05                 |                        1.97                         |
+|                    | $\cfrac{\sum}{n-1}$ |                0.64                 |                0.34                 |                        0.33                         |
+
+: Tabelle zur Berechnung der Varianz sowie der Kovarianz von $x_1$ und $x_2$. {#tbl-pca-corr-example}
+
+Schauen wir mal, ob wir richtig gerechnet haben und die Varianz für $x_1$ mit 0.64, die Varianz von $x_2$ mit 0.34 sowie die Kovarianz von $x_1$ und $x_2$ auch R wiederfinden. Wir nutzen die Funktion `cov()` um uns die Varianz/Kovarianzmatrix wiedergeben zu lassen.
+
+```{r}
+cov_tbl %>% 
+  cov() %>% 
+  round(2)
+```
+
+Wie wir sehen können wir die Werte in der Varianz/Kovarianzmatrix wiederfinden. Das ist ja mal ein Erfolg. Wir nutzen also die Varianz/Kovarianzmatrix als unsere Ähnlichkeitsmatrix, wie schon bei den Clusteranalysen, um hier unbekannte Zusammenhänge zwischen den Spalten und damit dann Hauptkomponenten aufzuklären.
+:::
 
 ```{r}
 cov(tbl) %>% 
@@ -78,11 +223,12 @@ $$
 #| warning: false
 #| label: fig-cluster-pca-exp-02
 #| fig-align: center
-#| fig-height: 4
-#| fig-width: 4
+#| fig-height: 4.5
+#| fig-width: 4.5
 #| fig-cap: "Diagramm der PCA für die Variablen (Saplten) und den Beobachtungen (Zeilen) der Datenmatrix."
 #| fig-subcap: 
 #|   - "Richtung der Variablen (Spalten)"
+#|   - "Verteilung der Beobachtungen (Zeilen)."
 #|   - "Verteilung der Beobachtungen (Zeilen)."
 #| layout-nrow: 1
 #| column: page
@@ -416,147 +562,6 @@ Im Folgenden betrachten wir dann die Hauptkomponentenanalyse auf drei Ebenen. Wi
 ### Ebene der Eigenwerte
 
 Die Eigenwerte messen die Menge der von jeder Hauptkomponente beibehaltenen Variation. Damit repräsentieren die Eigenwerte die Varianz/Kovarianzmatrix der Daten. Die Eigenwerte sind für die ersten Hauptkomponenten grundsätzlich groß und für die nachfolgenden Hauptkomponente immer kleiner. Das heißt, die ersten Hauptkomponente beschreiben Variablen mit der größten Variation im Datensatz. Wie schon gesagt, wir erschaffen neue Variablen aus den Daten, die wir Hauptkomponenten nennen. Jede Hauptkomponente hat einen Eigenwert, der beschreibt, wie viel Varianz die Hauptkomponente in den Daten erklären kann.
-
-::: {.callout-note collapse="true"}
-## Auf welcher Matrix basieren die Eigenwerte der Hauptkomponeten?
-
-Wenn du dich ein wenig mit Eigenwerten auskennst, dann weißt du, dass Eigenwerte immer auf einer Matrix berechnet werden. In unserem Fall werden die Eigenwerte der Hauptkomponeten auf der Varianz/Kovarianzmatrix der standardisierten Daten berechnet. Im Folgenden siehst du einmal die Varianz/Kovarianzmatrix $\boldsymbol{\Sigma_x}$ für die Datenmatrix $x$. Wie du siehst, kann diese Matrix sehr groß werden. Du musst dir vorstellen, dass jedes $x_1$ bis $x_n$ jeweils eine Spalte in deiner Datenmatrix $\boldsymbol{x}$ entspricht. Damit hätte unser Tierdatensatz zum Beispiel $x_1$ bis $x_5$ und die Varianz/Kovarianzmatrix hätte fünf Zeilen und Spalten.
-
-$$
-\boldsymbol{\Sigma_x} = \begin{pmatrix}\operatorname{Var}(x_1) & \operatorname{Cov}(x_1,x_2) & \cdots & \operatorname{Cov}(x_1,x_n) \\ \\
- \operatorname{Cov}(x_2,x_1)  & \operatorname{Var}(x_2) & \cdots & \operatorname{Cov}(x_2,x_n) \\ \\
- \vdots & \vdots & \ddots & \vdots \\ \\
-\operatorname{Cov}(x_n,x_1) & \operatorname{Cov}(x_n,x_2) & \cdots & \operatorname{Var}(x_n)
-\end{pmatrix} 
-$$
-
-Hier einmal das Beispiel der Varianz/Kovarianzmatrix für den Datensatz `animals_df`. Wie du siehst liegen auf der Diagonalen die Varianzen. In dem Rest der Matrix findest du dann immer die Kovarainz zwischen den Variablen. Achtung, die Kovarianz ist nicht die Korrelation. Zwar bedeutet eine Kovarianz von 0, dass die beiden Variablen nichts miteinander zu tun haben, aber die Kovarianz ist nicht auf 1 skaliert. Wir können auch sehr viel größere Werte für die Kovarianz beobachten.
-
-```{r}
-#| echo: true
-#| message: false
-#| warning: false
-#| eval: true
-animals_df %>% 
-  cov() %>% 
-  round(2) 
-```
-
-Für den Fall von zwei Variablen $x_1$ und $x_2$ können wir die Idee der Kovarianz nochmal nachvollziehen. Später rechnen wir dann die Hauptkomponentenanalyse auf der großen Matrix, aber ich kann dir den Zusammenhang leider nur für zwei Variablen erklären, den zweidimensional kriege ich noch hin. Wir können mit folgender Formel die Kovarianzen zwischen den beiden Variablen $x_1$ und $x_2$ berechnen.
-
-$$
-\operatorname{Cov}(x_2,x_1) = \sum_{i=1}^n(x_{1i}-\bar{x_1})(x_{2i}-\bar{x_2})
-$$
-
-Nochmal als Erinnerung, die Formel berechnet die quadrierten Abweichung der Beobachtungen von $x_1$ zum Mittelwert $\bar{x}_1$ und somit die Varianz $\operatorname{Var}(x_1)$ von $x_1$.
-
-$$
-\operatorname{Var}(x_1) = \sum_{i=1}^n(x_{1i}-\bar{x}_1)^2
-$$
-
-Ebenso berechnet diese Formel die quadrierten Abweichung der Beobachtungen von $x_2$ zum Mittelwert $\bar{x}_2$ und damit die Varianz $\operatorname{Var}(x_2)$ von $x_2$.
-
-$$
-\operatorname{Var}(x_2) = \sum_{i=1}^n(x_{2i}-\bar{x}_2)^2
-$$
-
-Das Ganze ist natürlich sehr trocken. Deshalb füttern wir einmal die Variablen $x_1$ und $x_2$ mit echten Daten und erschaffen uns den Datensatz `cov_tbl`. In @tbl-pca-corr-example ist der Zusammenhang nochmal Schritt für Schritt aufgeschlüsselt wie sich die Zahlen grob berechnen. Ich habe ein, zwei Schritte ausgelassen,a ber die ergänzt du fix selber.
-
-```{r}
-cov_tbl <- tibble(x_1 = c(0.8, 1.0, 1.2, 1.9, 2.0, 2.7, 2.8),
-                  x_2 = c(1.2, 1.8, 1.3, 1.7, 2.6, 1.8, 2.7))
-
-
-```
-
-Dann können wir uns einmal den Mittelwert und die Varianz für die beiden Variablen $x_1$ und $x_2$ berechnen und dann direkt in der @fig-pca-cov verwenden.
-
-```{r}
-cov_tbl %>% 
-  gather %>% 
-  group_by(key) %>% 
-  summarise(mean = mean(value), var = var(value))
-```
-
-In der folgenden @fig-pca-cov siehst du einmal die Konzepte der Varianz für $x_1$ in Subplot A und $x_2$ in Subplot B dargestellt. Die durchgezogene Linie stellt dabei den Mittelwert für die beiden Variablen dar. Die Varianz berechnet sich jetzt als der quadrierte Abstand von den Beobachtungen zu den Mittelwerten. Der Abstand ist als gestrichelte Linie dargestellt. Faktisch addierst du die sich ergebenden Quadrate auf. Bei der Kovarianz sind es keine Quadrate, sondern Rechtecke. Die berechnest nämlich einmal den Abstand einer Beobachtung zum Mittelwert von $x_1$ und einmal den Abstand zum Mittelwert von $x_2$. Die beiden Abstände $(x_{1i}-\bar{x_1})$ und $(x_{2i}-\bar{x_2})$ multiplizierst du und addierst dann diese Rechtecke auf.
-
-```{r}
-#| message: false
-#| echo: false
-#| warning: false
-#| label: fig-pca-cov
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "Berechnung der Abstände für die Varianz von $x_1$ sowie $x_2$ in der oberen Zeile. In der unteren Zeile die Rechtecke der Berechnung der Kovarianz von $x_1$ und $x_2$."
-
-
-p1 <- ggplot(cov_tbl, aes(x_1, x_2)) +
-  theme_bw() +
-  geom_point() +
-  geom_vline(xintercept = 1.771429, color = "blue") +
-  geom_segment(aes(x = x_1, 
-                   xend = rep(1.771429, 7), 
-                   y = x_2, yend = x_2), linetype = 2, color = "blue") +
-  labs(x = expression(x[1]), y = expression(x[2]))
-
-
-p2 <- ggplot(cov_tbl, aes(x_1, x_2)) +
-  theme_bw() +
-  geom_point() +
-  geom_hline(yintercept = 1.871429, color = "red") +
-  geom_segment(aes(x = x_1, 
-                   xend = x_1, 
-                   y = x_2, 
-                   yend = rep(1.871429, 7)), linetype = 2, color = "red") +
-  labs(x = expression(x[1]), y = expression(x[2]))
-
-p3 <- ggplot(cov_tbl, aes(x_1, x_2)) +
-  theme_bw() +
-  geom_point() +
-  geom_hline(yintercept = 1.871429, color = "red") +
-  geom_segment(aes(x = x_1, 
-                   xend = x_1, 
-                   y = x_2, 
-                   yend = rep(1.871429, 7)), linetype = 2, color = "red") +
-  geom_vline(xintercept = 1.771429, color = "blue") +
-  geom_segment(aes(x = x_1, 
-                   xend = rep(1.771429, 7), 
-                   y = x_2, yend = x_2), linetype = 2, color = "blue") +
-  labs(x = expression(x[1]), y = expression(x[2]))
-
-p1 + p2 + p3 + 
-  plot_layout(nrow = 2) + 
-  plot_annotation(tag_levels = 'A')
-
-```
-
-In der folgenden @tbl-pca-corr-example siehst du dann das Vorgehen nochmal numerisch. Wichtig ist hierbei, dass wir am Ende die Varianz und die Kovarianz berechnen können indem wir die Summen $\sum$ durch $n-1$ gleich 6 teilen.
-
-| $\boldsymbol{x_1}$ | $\boldsymbol{x_2}$  | $\boldsymbol{(x_{2i}-\bar{x}_2)^2}$ | $\boldsymbol{(x_{1i}-\bar{x}_1)^2}$ | $\boldsymbol{(x_{1i}-\bar{x}_1)(x_{2i}-\bar{x}_2)}$ |
-|:------------------:|:-------------------:|:-----------------------------------:|:-----------------------------------:|:---------------------------------------------------:|
-|        1.2         |         0.8         |                0.94                 |                0.45                 |                        0.65                         |
-|        1.8         |         1.0         |                0.60                 |                0.01                 |                        0.06                         |
-|        1.3         |         1.2         |                0.33                 |                0.33                 |                        0.33                         |
-|        1.7         |         1.9         |                0.02                 |                0.03                 |                        -0.02                        |
-|        2.6         |         2.0         |                0.05                 |                0.53                 |                        0.17                         |
-|        1.8         |         2.7         |                0.86                 |                0.03                 |                        -0.07                        |
-|        2.7         |         2.8         |                1.06                 |                0.69                 |                        0.85                         |
-|                    |       $\sum$        |                3.86                 |                2.05                 |                        1.97                         |
-|                    | $\cfrac{\sum}{n-1}$ |                0.64                 |                0.34                 |                        0.33                         |
-
-: Tabelle zur Berechnung der Varianz sowie der Kovarianz von $x_1$ und $x_2$. {#tbl-pca-corr-example}
-
-Schauen wir mal, ob wir richtig gerechnet haben und die Varianz für $x_1$ mit 0.64, die Varianz von $x_2$ mit 0.34 sowie die Kovarianz von $x_1$ und $x_2$ auch R wiederfinden. Wir nutzen die Funktion `cov()` um uns die Varianz/Kovarianzmatrix wiedergeben zu lassen.
-
-```{r}
-cov_tbl %>% 
-  cov() %>% 
-  round(2)
-```
-
-Wie wir sehen können wir die Werte in der Varianz/Kovarianzmatrix wiederfinden. Das ist ja mal ein Erfolg. Wir nutzen also die Varianz/Kovarianzmatrix als unsere Ähnlichkeitsmatrix, wie schon bei den Clusteranalysen, um hier unbekannte Zusammenhänge zwischen den Spalten und damit dann Hauptkomponenten aufzuklären.
-:::
 
 Mit Hilfe der Eigenwerte lässt sich die Anzahl der Hauptkomponenten bzw. Dimensionen bestimmen, die nach der PCA beibehalten werden sollen. Wir wollen selten alle Hauptkomponenten berücksichtigen. Es geht hier ja auch darum die Dimensionen der Daten zu reduzieren. Wenn wir alle Hauptkomponenten weiterverwenden würden, dann könnten wir auch den ursprünglichen Datensatz nutzen. Die Eigenwerte und der Anteil der Varianzen, die von den Hauptkomponenten beibehalten werden, können mit folgenden Funktionen extrahiert werden.
 
