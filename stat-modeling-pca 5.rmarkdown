@@ -4,6 +4,7 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, latex2exp,
                patchwork)
 ```
 
+
 # Multivariate Verfahren {#sec-pca-main}
 
 *Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
@@ -13,6 +14,7 @@ In diesem Kapitel betrachten wir verschiedene multivariate Verfahren. Im Znetrum
 Das folgende Kapitel basiert zum Teilen auf den [Articles - Principal Component Methods in R: Practical Guide](http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/). Diese Sammlung an Tutorien geben einen wunderbaren Überblick über alle möglichen Methoden zu der Hauptkomponentenanalyse und deren verwandten Algorithmen. Wenn dich dazu mehr interessiert kann ich das Buch von @kassambara2017practical dir sehr ans Herz legen. Dort findest du eine tolle Übersicht über die Hauptkomponentenanalyse in R.
 
 Was ist grob die Idee der Hauptkomponentenanalyse? Wir wollen Geraden durch unsere Datenwolke ziehen und dabei die Varianz minimieren. In der @fig-cluster-pca-exp-01-1 siehst du eine solche Punktewolke. Das klingt jetzt wie die Regression und damit hast du auch recht. Die Hauptkomponentenanalyse und die lineare Regression sind nah miteinander verwandt. Damit wären wir schon beim ersten Punkt, Hauptkomponenten beschreiben einen Anteil der erklärten Varianz durch die entsprechende Hauptkomponente. Dabei erklärt *grundsätzlich* die 1. Hauptkomponente die meiste Varianz gefolgt von 2. Hauptkomponente und so fort. Die Hauptkomponenten sind somit nach dem Anteil der erklärten Varianz sortiert. Das ist eine grundlegende Eigenschaft der Hauptkomponenten. Darüber hinaus sind auch alle Hauptkomponenten untereinander mit 0 korreliert und somit maximal unkorreliert. Die Hauptkomponenten und damit die Geraden durch die Punktwolke stehen orthogonal oder senkrecht aufeinander. Es gibt so viele Hauptkomponente wie es Variablen in den Daten gibt. Mit Variablen meine ich hier die ungefähr die Spalten eines Datensatzes. Ungefähr, da wir nicht auf allen Spalten eine Hauptkomponenteanalyse rechnen können, aber dazu später mehr.
+
 
 ```{r}
 #| message: false
@@ -56,6 +58,7 @@ tbl %>%
   theme(panel.grid.minor = element_blank())
 ```
 
+
 In der @fig-cluster-pca-exp-01-2 sehen wir einmal dargestellt, was eine Hauptkomponentenanalyse erreichen will. Wir legen zuerst die 1. Hauptkomponente (PC1) so durch die Daten, dass die Varianz durch die 1. Hauptkomponente maximal minimiert wird. Dann berechnen wir die 2. Hauptkomponente (PC2) so, dass die 2. Hauptkomponente senkrecht auf der 1. Hauptkomponente steht. Wir reduzieren damit die Varianz maximal weiter. Denn nur durch den senkrechten Stand der zweiten Hauptkomponente auf der ersten Hauptkomponente, können wir maximal viel Varianz erklären. Da wir hier nur zwei Variablen haben, gibt es auch nur zwei Hauptkomponenten.
 
 Mit zwei Variablen gibt es nur eine Möglichkeit, die 2. Hauptkomponente anzuordnen. Bei mehr als zwei Hauptkomponenten gebe es ja auch noch andere Drehungen der 2. Hauptkomponente die ebenfalls die Bedingung, das Lot zur 1. Hauptkomponente zu sein, erfüllen würde. Du kannst es als eine eine Drehung um die 1. Hauptkomponente als zentrale Achse sehen. Wir wählen die lotrechte Repräsentation der 2. Hauptkomponente, die am meisten Varianz erklärt, also die Abstände minimiert, die noch nicht durch die 1. Hauptkomponente minimiert wurden. Somit erklärt die 2. Hauptkomponente *immer* weniger Varianz als die 1. Hauptkomponente. Mit weiteren Hauptkomponenten würden wir dann immer so weiter machen, bis wir immer weniger Varianz erklären können.
@@ -65,6 +68,7 @@ Du kannst dir jetzt noch den theoretischen Hintergrund durchlesen oder aber den 
 ## Theoretischer Hintergrund
 
 Soweit klingt es ja alles recht einleuchten mit der Hauptkomponentenanalyse. Wie aber kommt jetzt die Idee einer Geraden durch die Punktewolke mit Hauptkomponenten zusammen? Wie geht das mathematisch eigentlich? Da sieht es schon etwas komplizierter aus. Deshalb fangen wir wie immer einmal mit einem Datensatz an. Wir nehmen das Datenbeispiel aus der @fig-cluster-pca-exp-01-1. In der folgenden Tablle siehst du einmal die ersten sieben Wertepaare für $x$ und $y$ der insgesamt dreißig Zeilen.
+
 
 ```{r}
 #| message: false
@@ -77,6 +81,7 @@ tbl %>%
   kable(align = "c", "pipe")
 ```
 
+
 Wie haben wir die Daten gebaut? Wir haben uns folgendes Modell genommen. Die $y$ Werte hängen von den $x$ Werten wfolgt ab.
 
 $$
@@ -85,19 +90,23 @@ $$
 
 Das heißt, wir haben eine Steigung der Geraden $\beta_x$ von $0.5$. Unsere Punkte streuen mit einer Varianz von $1$ um die Gerade. Wir wollen es nicht komplizierter machen als sowieso schon ist. Hier dann einmal die Implementierung in R. Das `set.seed()` nutzen wir um immer die gleichen Zahlen wiedergegeben zu bekommen. Wir ziehen die $x$-Werte aus einer Normalverteilung mit einem Mittelwert von 0 und einer Standardabweichung von 5.
 
+
 ```{r}
 set.seed(2045312)
 tbl <- tibble(x = rnorm(30, 0, 5),
               y = 0 + 0.5 * x + rnorm(30, 0, 1))
 ```
 
+
 Jetzt können wir einmal über die Funktion `lm()` die Koeffizienten der Geraden schätzen. Also wie ist den nun die Steigung und der Achsenabschnitt in den generierten Daten?
+
 
 ```{r}
 lm(y ~ x, tbl) %>% 
   coefficients() %>% 
   round(2)
 ```
+
 
 Wir sehen, dass wir den y-Achsenabschnitt mit $-0.1$ nicht ganz treffen, wohl aber die Steigung mit $0.5$. Damit hätten wir die Information für die erste Gerade, was ja auch die 1. Hauptkomponente wäre. Nun müssten wir die Gerade finden, die senkrecht auf der geschätzten Geraden steht und durch den Nullpunkt läuft. Das könnten wir ausprobieren oder aber auch abschätzen. Problematisch wird das ganze, wenn wir mehr als zwei Variablen haben. Hier kommt uns aber die Varianz/Kovarianzmatrix $\boldsymbol{\Sigma_x}$ zur Hilfe. In der Varianz/Kovarianzmatrix finden wir alle Informationen die wir brauchen und noch mehr.
 
@@ -134,12 +143,15 @@ $$
 
 Das Ganze ist natürlich sehr trocken. Deshalb füttern wir einmal die Variablen $x_1$ und $x_2$ mit echten Daten und erschaffen uns den Datensatz `cov_tbl`. In @tbl-pca-corr-example ist der Zusammenhang nochmal Schritt für Schritt aufgeschlüsselt wie sich die Zahlen grob berechnen. Ich habe ein, zwei Schritte ausgelassen, aber die ergänzt du fix selber.
 
+
 ```{r}
 cov_tbl <- tibble(x_1 = c(0.8, 1.0, 1.2, 1.9, 2.0, 2.7, 2.8),
                   x_2 = c(1.2, 1.8, 1.3, 1.7, 2.6, 1.8, 2.7))
 ```
 
+
 Dann können wir uns einmal den Mittelwert und die Varianz für die beiden Variablen $x_1$ und $x_2$ berechnen.
+
 
 ```{r}
 cov_tbl %>% 
@@ -148,7 +160,9 @@ cov_tbl %>%
   summarise(mean = mean(value), var = var(value))
 ```
 
+
 In der folgenden @fig-pca-cov siehst du einmal die Konzepte der Varianz für $x_1$ in Subplot A und $x_2$ in Subplot B dargestellt. Die durchgezogene Linie stellt dabei den Mittelwert für die beiden Variablen dar. Die Varianz berechnet sich jetzt als der quadrierte Abstand von den Beobachtungen zu den Mittelwerten. Der Abstand ist als gestrichelte Linie dargestellt. Faktisch addierst du die sich ergebenden Quadrate auf. Bei der Kovarianz sind es keine Quadrate, sondern Rechtecke. Die berechnest nämlich einmal den Abstand einer Beobachtung zum Mittelwert von $x_1$ und einmal den Abstand zum Mittelwert von $x_2$. Die beiden Abstände $(x_{1i}-\bar{x_1})$ und $(x_{2i}-\bar{x_2})$ multiplizierst du und addierst dann diese Rechtecke auf.
+
 
 ```{r}
 #| message: false
@@ -201,6 +215,7 @@ p1 + p2 + p3 +
 
 ```
 
+
 In der folgenden @tbl-pca-corr-example siehst du dann das Vorgehen nochmal numerisch. Wichtig ist hierbei, dass wir am Ende die Varianz und die Kovarianz berechnen können indem wir die Summen $\sum$ durch $n-1$ gleich 6 teilen.
 
 | $\boldsymbol{x_1}$ | $\boldsymbol{x_2}$  | $\boldsymbol{(x_{2i}-\bar{x}_2)^2}$ | $\boldsymbol{(x_{1i}-\bar{x}_1)^2}$ | $\boldsymbol{(x_{1i}-\bar{x}_1)(x_{2i}-\bar{x}_2)}$ |
@@ -219,21 +234,25 @@ In der folgenden @tbl-pca-corr-example siehst du dann das Vorgehen nochmal numer
 
 Schauen wir mal, ob wir richtig gerechnet haben und die Varianz für $x_1$ mit 0.64, die Varianz von $x_2$ mit 0.34 sowie die Kovarianz von $x_1$ und $x_2$ auch R wiederfinden. Wir nutzen die Funktion `cov()` um uns die Varianz/Kovarianzmatrix wiedergeben zu lassen.
 
+
 ```{r}
 cov_tbl %>% 
   cov() %>% 
   round(2)
 ```
 
+
 Wie wir sehen können wir die Werte in der Varianz/Kovarianzmatrix wiederfinden. Das ist ja mal ein Erfolg. Wir nutzen also die Varianz/Kovarianzmatrix als unsere Ähnlichkeitsmatrix, wie schon bei den Clusteranalysen, um hier unbekannte Zusammenhänge zwischen den Spalten und damit dann den Hauptkomponenten aufzuklären.
 :::
 
 Erstmal wollen wir die Varianz/Kovarianzmatrix mit der Funktion `cov()` aus dem Datensatz berechnen. Wir runden hier ziemlich streng damit wir die Zahlen besser vergleichen können.
 
+
 ```{r}
 cov(tbl) %>% 
   round(1)
 ```
+
 
 Hier nochmal die Varianz/Kovarianzmatrix mathematisch aufgeschrieben. Auf der Diagonalen der Matrix findest du die Varianzen von $x$ sowie von $y$. Auf den Nebendiagonalen dann die Kovarianz von $x$ und $y$. Die Kovarianz beschriebt ja das Variieren von $y$, wenn sich auch $x$ ändert. Eine Kovarianz von 0 bedeutet damit dann auch, dass wir keine Steigung oder einen Trend in der Punktewolke sehen. Ändert sich $x$ ändert sich $y$ nicht, wir haben kein gemeinsames Variieren.
 
@@ -256,6 +275,7 @@ $$
 $$
 
 Das heißt, dass wir in der Varianz/Kovarianzmatrix die Informationen über die Steigung der Geraden haben. Mehr noch, wenn wir mehrere Variablen haben, dann ist das Zusammenspiel der Variablen in der Varianz/Kovarianzmatrix verborgen. Schauen wir dazu nochmal die @fig-cluster-pca-exp-02-1 an. Hier sehen wir, wie die 1. Hauptkomponente durch die Punktewolke läuft. Wie kriegen wir jetzt in @fig-cluster-pca-exp-02-2 für die 2. Hauptkomponente die Koeffizienten der Gerade bestimmt? Hier kommt uns eine Eigenschaft einer Matrix und die Zerlegung der Matrix in ihre Eigenwerte und Eigenvektoren zu Hilfe.
+
 
 ```{r}
 #| message: false
@@ -318,7 +338,9 @@ tbl %>%
 
 ```
 
+
 Folgende Funktion `eigen()` berechnet die Eigenwerte aus der Varianz/Kovarianzmatrix. Erstmal sieht das wieder realtiv wild aus und wir erkennen da noch nicht so richtig ein Muster. Eigenwerte und ihre Eigenvektoren sind nicht miteinander korreliert und stehen sozusagen orthogonal und damit senkrecht aufeinander. Das ist es was wir suchen!
+
 
 ```{r}
 eigen_res <- cov(tbl) %>% 
@@ -326,32 +348,41 @@ eigen_res <- cov(tbl) %>%
 eigen_res
 ```
 
+
 Wenn du jetzt die untere Zeile durch die obere Zeile der Eigenvektoren teilst, dann erhälst du zwei Zahlen.
+
 
 ```{r}
 eigen_res$vectors[2,] / eigen_res$vectors[1,]
 ```
 
+
 Und wir sehen auch, dass wir in den Eigenwerten die Varianz wiederfinden. Wir hatten ja unsere $x$-Variable mit einer Standardabweichung von $5$ erschaffen und unsere $y$-Variable um die Standardabweichung von $1$ erhöht. Das finden wir dann auch hier wieder.
+
 
 ```{r}
 eigen_res$values %>% sqrt()
 ```
 
+
 Die erste Zahl ist $\beta_x$ extrem nahe und entspricht auch der Steigung der Geraden durch die Punktewolke. Die zweite Zahl ist die Steigung einer Geraden die orthogonal auf der ersten gerade steht und durch den Ursprung läuft. Wir haben damit die zweite Hauptkomponente gefunden.
 
 Das Ganze auch mal mit der richtigen Funktion `prcomp()`, die das Ganze dann auch für mehr als zwei Dimensionen und Variablen kann. Hier siehst du auch warum es in der Funktion dann `rotation` heißt, es ist eben die Drehung der Hauptkomponenten untereinander. Auch finden wir hier in den Eigenwerten die Standardabweichungen wieder, die wir ursprünglich in der Generierung der Daten verwendet haben.
+
 
 ```{r}
 pca_res <- prcomp(tbl)
 pca_res
 ```
 
+
 Auch hier können wir wieder die zweite Zeile durch die erste Zeile teilen und kriegen die Steigungen der Geraden aus der @fig-cluster-pca-exp-02-2 wieder.
+
 
 ```{r}
 pca_res$rotation[2,] / pca_res$rotation[1,]
 ```
+
 
 Ich habe dann mal die Geradengleichungen, die sich für die beiden Hauptkomponenten ergeben einmal zu der @fig-cluster-pca-exp-02-3 ergänzt. Das funktioniert natürlich alles nur auf standardisierten Daten sonst ist ja auch der y-Achsenabschnitt nicht 0. Ja, es geht formal auch auf den nicht transformierten Daten, aber der Standard ist, die Daten zu standardisieren.
 
@@ -393,18 +424,19 @@ Wir wollen uns jetzt die Hauptkomponentenanalyse an zwei Spieldaten anschauen. E
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
+
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, readxl, patchwork,
-               factoextra, FactoMineR, ggpubr, MASS, mda,
-               janitor, corrplot, HDclassif, klaR,
-               conflicted)
+               factoextra, FactoMineR, ggpubr,
+               janitor, corrplot, HDclassif, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
 conflicts_prefer(magrittr::set_names)
 conflicts_prefer(dlookr::transform)
 ```
+
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
 
@@ -416,13 +448,16 @@ Wenn wir jetzt die Hauptkomponentenanalyse rechnen wollen, dann brauchen wir auc
 
 Beginnen wir mit einem normierten Datensatz aus dem R Paket `cluster`. Der Datensatz `animals` wurde von mir noch mit ein paar Tieren ergänzt und schaut sich sechs Eigenschaften von 23 Tieren an. Wir wollen im Folgenden nun herausfinden, ob wir anhand der Eigenschaften in den Spalten die Tiere in den Zeilen in Gruppen einordnen können. Einige der Tiere sind ja näher miteinander verwandt als andere Tiere. Die ursprünglichen Daten liefen noch auf einem $1/2$-System, das ändern wir dann zu $0/1$ damit wir dann auch besser mit den Daten arbeiten können. Für die Algorithmen ist es egal, aber ich habe lieber $1$ gleich ja und $0$ gleich nein.
 
+
 ```{r}
 animals_tbl <- read_excel("data/cluster_animal.xlsx", sheet = 1) %>% 
   clean_names() %>% 
   mutate(across(where(is.numeric), \(x) x - 1))
 ```
 
+
 Schauen wir uns einmal den Datensatz in der @tbl-cluster-01 an. Wir sehen, dass wir noch einige fehlende Werte in den Daten vorliegen haben. Das ist manchmal ein Problem, deshalb werden wir im Laufe der Analyse die `NA` Werte mit `na.omit()` entfernen.
+
 
 ```{r}
 #| echo: false
@@ -435,6 +470,7 @@ animals_tbl %>%
   kable(align = "c", "pipe")
 ```
 
+
 Der Tierdatensatz ist schön, da wir es hier nur mit 0/1 Werten zu tun haben. Wir werden später in dem preprocessing der Daten sehen, dass wir alle Spalten in der gleichen Spannweite der Werte wollen. Das klingt immer etwas kryptisch, aber der nächste Datensatz über verschiedene Kreaturen macht es deutlicher.
 
 ::: column-margin
@@ -443,6 +479,7 @@ Eine andere Art die Daten zu Gruppieren kannst du im Tutorium [Clustering Creatu
 
 Im Folgenen einmal der Datensatz, den wir dann in der gleichen Exceldatei finden nur eben auf dem zweiten Tabellenblatt. Wir reinigen noch die Namen und setzen die `creature`-Spalte auf Klein geschrieben. Wie du siehst, haben wir dann nur 15 Kreaturen und drei Spalten mit dem Gewicht, der Herzrate und dem maximalen möglichen Alter.
 
+
 ```{r}
 creature_tbl <- read_excel("data/cluster_animal.xlsx", sheet = 2) %>% 
   clean_names() %>% 
@@ -450,7 +487,9 @@ creature_tbl <- read_excel("data/cluster_animal.xlsx", sheet = 2) %>%
 
 ```
 
+
 In der @tbl-cluster-02 sehen wir nochmal die Daten dargestellt und hier erkennst du auch gut, wo das Problem liegt. Die Masse der Tiere reicht von $6g$ beim Hamster bis $120000000g$ beim Wal. Diese Spannweiten in einer Spalte und zwischen den Spalten führt dann zu Problemen bei den Algorithmen. Deshalb müssen wir hier Daten nochmal normalisieren oder aber standardisieren. Je nachdem was da besser passt.
+
 
 ```{r}
 #| echo: false
@@ -462,6 +501,7 @@ In der @tbl-cluster-02 sehen wir nochmal die Daten dargestellt und hier erkennst
 creature_tbl %>% 
   kable(align = "c", "pipe")
 ```
+
 
 ### Standardisieren
 
@@ -475,6 +515,7 @@ Wie wir hier sehen ziehen wir von jeder $i$-ten Beobachtung den Mittlwert von al
 
 Die Standardisierung macht dann auch die Daten sehr schon gleichförmig. Hier nutzen wir auch die Funktion `transform()` aus dem R Paket `dlookr` mit der Option `zscore`. Damit wir auch auf jeden Fall sicher gehen, dass wir die richtige Funktion nutzen, schreiben wir `dlookr::transform()` und damit ist sichergestellt, dass wir auch die Funktion `transform()` aus dem R Paket `dlookr` nutzen.
 
+
 ```{r}
 std_creature_tbl <- creature_tbl %>% 
   mutate(mass_grams = dlookr::transform(mass_grams, "zscore"),
@@ -482,6 +523,7 @@ std_creature_tbl <- creature_tbl %>%
          longevity_years = dlookr::transform(longevity_years, "zscore")) 
 std_creature_tbl
 ```
+
 
 Die Funktion `PCA()`, die wir im Folgenden verwenden wollen, wird zwar auch die Daten intern von sich aus standardisieren, wenn die nicht standardisiert wurden. Ich mag es aber nicht, wenn wichtige Schritte in Funktionen begraben werden, deshalb hier nochmal das Beispiel, wie man es macht. Doppelt Standardisieren tut aber nicht weh, schon standardiserte Daten ändern sich nicht durch eine weitere Standardisierung.
 
@@ -491,6 +533,7 @@ Leider ist es so, dass fast alle Pakete im Kontext der Hauptkomponentenanalyse m
 
 Wir bauen uns also einmal einen `data.frame()` für unseren Tierdatensatz und setzen die Tiernamen als Zeilennamen bzw. `row.names()`. Wir entfernen dann auch noch schnell alle fehlenden Werte, denn wir wollen uns hier nicht noch mit der Imputation von fehlenden Werten beschäftigen.
 
+
 ```{r}
 animals_df <- animals_tbl %>% 
   na.omit() %>% 
@@ -499,7 +542,9 @@ animals_df <- animals_tbl %>%
   select(-animal)
 ```
 
+
 Das Ganze machen wir dann auch noch einmal für die normalisierten Kreaturendaten. Wir wollen dann ja nur auf den normalisierten Daten weitermachen.
+
 
 ```{r}
 std_creature_df <- std_creature_tbl %>% 
@@ -507,6 +552,7 @@ std_creature_df <- std_creature_tbl %>%
   set_rownames(.$creature) %>% 
   select(-creature)
 ```
+
 
 ## Hauptkomponentenanalyse
 
@@ -532,6 +578,7 @@ Neben der Funktion `PCA()` aus dem R Paket `FactoMineR` für die Analyse von kon
 
 Bei der Nutzung der Funktion `PCA()` ist für mich wichtig, dass wir nicht gleich irgendwelche Abbildungen erhalten, deshalb ist hier im Skript `graph = FALSE` gewählt. Mit der Option `scale.unit = TRUE` musst du die Daten selber nicht standardisieren sondern die Funktion `PCA()` macht das für dich. Manchmal sind Fragebögen sehr groß mit mehr als Dutzenden von Fragen, da macht es Sinn sich nicht die Anzahl an Fragen als Hauptkomponenten wiedergeben zu lassen. Die Option `ncp = 5` zum Beispiel schränkt hier die Anzahl auf 5 Hauptkomponenten ein. Bei den Kreaturen macht es keinen Sinn, da erhalten wir natürlich nur drei Hauptkomponenten, da wir nur drei Spalten in dem Datensatz haben.
 
+
 ```{r}
 pca_animals <- PCA(animals_df, scale.unit = TRUE, 
                    ncp = 5, graph = FALSE)
@@ -541,6 +588,7 @@ pca_animals <- PCA(animals_df, scale.unit = TRUE,
 pca_creature <- PCA(std_creature_df, scale.unit = TRUE, 
                     ncp = 5, graph = FALSE)
 ```
+
 
 Folgende Funktionen sind wichtig um die klassische Hauptkomponentenanalyse einmal zu visualisieren und zu bewerten. Die Namen folgen alle einem Schema im Paket `FactoMineR`, so dass wir hier nur Kleinigkeiten im Namen ändern müssen um alle Funktionen zu nutzen.
 
@@ -558,12 +606,14 @@ Die CA-Analyse funktioniert nur auf einer $n \times k$ Tabelle. Daher können wi
 
 Wir nutzen die *Correspondence Analysis* zur Analyse des Zusammenhangs zwischen zwei kategorialen Variablen. Also eher ein großer $\mathcal{X}^2$-Test mit anderen Mitteln auf einer $n \times k$ Tabelle.
 
+
 ```{r}
 #| message: false
 #| warning: false
 #| eval: false
 CA(tbl, ncp = 5, graph = FALSE)
 ```
+
 
 Wir erhalten alle wichtigen Informationen aus einer *Correspondence Analysis* mit den folgenden Funktionen.
 
@@ -577,12 +627,14 @@ Wir betrachteten den Fall hier nicht weiter, da er wirklich sehr speziell ist un
 
 Wir nutzen die *Multiple Correspondence Analysis* für die Analyse eines Datensatzes mit kategorialen Variablen.
 
+
 ```{r}
 #| message: false
 #| warning: false
 #| eval: false
 MCA(tbl, ncp = 5, graph = FALSE)
 ```
+
 
 Wir erhalten dann wiederum alle wichtigen Informationen und Abbildungen über folgende Funktionen.
 
@@ -594,12 +646,14 @@ Wir erhalten dann wiederum alle wichtigen Informationen und Abbildungen über fo
 
 Für die Analyse eines Datensatzes, der sowohl kontinuierlichen Variablen als auch kategorialen Variablen enthält nutzen wir die *Factor Analysis of Mixed Data*.
 
+
 ```{r}
 #| message: false
 #| warning: false
 #| eval: false
 FAMD(tbl, ncp = 5, graph = FALSE)
 ```
+
 
 Auch hier haben wir die wichtigen Funktionen für die Darstellung einmal dargestellt.
 
@@ -610,12 +664,14 @@ Auch hier haben wir die wichtigen Funktionen für die Darstellung einmal dargest
 
 Komplexer wird es, wenn wir eine *Multiple Factor Analysis* durchführen wollen. In diesem Fall ist es die Analyse eines Datensatzes, der in Gruppen strukturierte Variablen enthält.
 
+
 ```{r}
 #| message: false
 #| warning: false
 #| eval: false
 MCA(X, ncp = 5, graph = FALSE)
 ```
+
 
 Auch gibt es bei der *Multiple Factor Analysis* ein Set an Funktionen, die wir hauptsählcihc benötigen.
 
@@ -643,13 +699,16 @@ Mit Hilfe der Eigenwerte lässt sich die Anzahl der Hauptkomponenten bzw. Dimens
 
 Dabei bedeutet ein Eigenwert \> 1, dass die Hauptkomponenten mehr Varianz erklären als eine der ursprünglichen Variablen in den standardisierten Daten. Dies wird üblicherweise als Grenzwert für die Beibehaltung der Hauptkomponenten verwendet. Dies trifft nur zu, wenn die Daten standardisiert sind.
 
+
 ```{r}
 eig_animals <- get_eigenvalue(pca_animals) %>% 
   as_tibble()
 eig_animals 
 ```
 
+
 Die Summe aller Eigenwerte für die Tiere ergibt eine Gesamtvarianz von `r sum(eig_animals$eigenvalue)`. Jetzt können wir ganz einfach den Anteil der erklärten Varianz von jedem Eigenwert berechnen. In der zweiten Spalte finden wir dann die Werte der Eigenwerte geteilt durch die Gesamtvarianz. Daher ist $42.35$ gleich $2.54$ geteilt durch $6$. Der kumulative Prozentsatz der erklärten Variation wird durch Addition der aufeinander folgenden Anteile der erklärten Variation ermittelt.
+
 
 ```{r}
 eig_creature <- get_eigenvalue(pca_creature) %>% 
@@ -657,9 +716,11 @@ eig_creature <- get_eigenvalue(pca_creature) %>%
 eig_creature
 ```
 
+
 Die Summe aller Eigenwerte für die Kreaturen ergibt eine Gesamtvarianz von `r sum(eig_creature$eigenvalue)`. Damit können wir dann auch einfach die anderen Werte in den Spalten nachvollziehen.
 
 Jetzt stellt sich natürlich die Frage, wie viele der Hauptkomponenten sollen den jetzt zukünftig berücksichtigt werden? Leider gibt es keine allgemein anerkannte objektive Methode, um zu entscheiden, wie viele Hauptkomponenten ausreichend sind. Dies hängt von dem jeweiligen Anwendungsbereich und dem jeweiligen Datensatz ab. In der Praxis neigen wir dazu, die ersten paar Hauptkomponenten zu betrachten, um interessante Muster in den Daten zu finden. Dafür nutzen wir den Scree Plot und entscheiden anhand der *Beuge* in dem Plot. Wenn wir nur wenige Variablen in den Daten haben, dann kann es sein, dass wir nur wenige Hauptkomponenten raus schmeißen. In der @fig-cluster-pca-3 siehst du einmal die beiden Scree Plots für die beiden Datensätze.
+
 
 ```{r}
 #| message: false
@@ -680,6 +741,7 @@ fviz_eig(pca_animals, addlabels = TRUE)
 fviz_eig(pca_creature, addlabels = TRUE)
 ```
 
+
 Wir sehen für die Tierdaten, dass die erste Hauptkomponente gut 42% der Varianz in den Daten erklärt, die folgende Hauptkomponente dann nur noch 20% und so weiter. Hier sehen wir dann auch die Beuge und könnten schließen, dass die ersten beiden Hauptkomponenten ausreichen um den Datensatz zu beschreiben. Bei den Kreaturendaten sieht es so aus, als ob wir die Datan alleinig mit der ersten Hauptkomponente erklären könnten. Wir sehen ja, dass gut 62% der Varianz durch die erste Hauptkomponente erklärt wird.
 
 ### Ebene der Variablen
@@ -692,11 +754,13 @@ Du kannst einfach das `*` in `get_*_var()` durch den klein geschriebenen Funktio
 
 Schauen wir jetzt einmal die Informationen der Variablen also Spalten der Hauptkomponentenanalyse an. Wir erhalten jetzt also die Informationen zu den einzelnen Hauptkomponenten, die ja die Variablen bzw. Spalten der Daten repräsentieren. Wir erhalten die Informationen über die Funktion `get_pca_var()`.
 
+
 ```{r}
 var_animals <- get_pca_var(pca_animals)
 var_creature <- get_pca_var(pca_creature)
 var_creature
 ```
+
 
 Schauen wir uns einmal an was wir mit den Informationen über die Variablen durch die Funktion `get_pca_var()` machen können.
 
@@ -712,6 +776,7 @@ Im Folgenden bewerten wir die Qualität einer Variable nach den `cos2`-Werten od
 -   Für eine bestimmte Variable ist die Summe des cos2 aller Hauptkomponenten gleich eins.
 
 In der @fig-pca-corrplot-cos2 sehen wir einmal die Zusammenhänge von den `cos2`-Werten und den jeweiligen Hauptkomponenten. Wir setzen `is.corr = FALSE`, weil wir keine Korrelation abbiden wollen sondern `cos2`-Werte.
+
 
 ```{r}
 #| message: false
@@ -732,9 +797,11 @@ corrplot(var_animals$cos2, is.corr = FALSE)
 corrplot(var_creature$cos2, is.corr = FALSE)
 ```
 
+
 Wir sehen bei den Tierdaten, dass die die erste Hauptkomponente `Dim.1` die Variablen `warm_blooded`, `vertebrate` und etwas weniger `threatened` und `live_in_groups` beschreibt. Die zweite Hauptkomponente `Dim.2` repräsentiert die Variable `hair`. Die dritte Hauptkomponente deckt `fly` ab. Die vierte Hauptkomponente beschreibt dann `live_groups` etwas stärker als die erste Hauptkomponente. Die fünfte Hauptkomponente können wir fast ignorieren. Bei den Kreaturendaten sehen wir das die erste Hauptkomponente fast alle Variablen repräsentiert. Die zweite Hauptkomponente beschreibt dann noch etwas `mass_grams` und `heart_rate_bpm`.
 
 In der @fig-pca-fviz-cos2 sehen wir die gleichen Informationen nochmal als Säulendiagramm dargestellt. Hier ist es eventuell numerisch schöner und besser zu sehen, wie sich die `cos2`-Werte für die *erste und zweite* Hauptkomponente verhalten. Du musst hier nämlich entscheiden, wie viele Hauptkomponenten du *zusammen* betrachten willst. Hier habe ich über `axes = 1:2` die ersten beiden Hauptkomponenten gewählt.
+
 
 ```{r}
 #| message: false
@@ -756,6 +823,7 @@ fviz_cos2(pca_creature, choice = "var", axes = 1:2)
 
 ```
 
+
 Als nächstes wollen wir uns dann mal die ersten beiden Hauptkomponenten `Dim.1` und `Dim.2` in einer Abbildung anschauen. In der @fig-pca-var-1 sehen wir das Korrelationsdiagramm der Variablen für die ersten beiden Hauptkomponenten. Über die Option `axes =` kannst du dir auch andere Kombinationen von *zwei* Hauptkomponenten anschauen. Das Korrelationsdiagramm zeigt die Beziehungen zwischen allen Variablen und kann wie folgt interpretiert werden:
 
 -   Positiv korrelierte Variablen sind zusammen gruppiert.
@@ -763,6 +831,7 @@ Als nächstes wollen wir uns dann mal die ersten beiden Hauptkomponenten `Dim.1`
 -   Der Abstand zwischen den Variablen und dem Ursprung misst die Qualität der Variablen im Bezug auf den erklärenden Anteil. Variablen, die vom Ursprung entfernt sind, sind bedeutender als Variablen nahe des Ursprungs.
 
 Wenn eine Variable nur durch zwei Hauptkomponenten, also zum Beispiel die `Dim.1` und die `Dim.`, perfekt repräsentiert wird, ist die Summe des `cos2` von diesen beiden Hauptkomponenten gleich eins. In diesem Fall werden die Variablen auf dem Korrelationskreis positioniert und der Pfeil geht damit vom Ursprung direkt zum Kreis. In @fig-pca-var-1-2 sind die Variablen `heart_rate_bpm` und `mass_grams` direkt auf dem Korrelationskreis. Daher sind diese beiden Variablen erklärend für einen Großteil der Varianz in den Daten. Für einige der Variablen sind möglicherweise mehr als 2 Komponenten erforderlich, um die Daten perfekt zu repräsentieren. In diesem Fall werden die Variablen innerhalb des Korrelationskreises positioniert, was wir eher in der @fig-pca-var-1-1 sehen. Variablen nahe des Zentrum haben keine Bedeutung für die beiden Hauptkomponenten. Je nach betrachteten Hauptkomponentenpaar kann es natürlich wieder anders aussehen.
+
 
 ```{r}
 #| message: false
@@ -784,9 +853,11 @@ fviz_pca_var(pca_creature, repel = TRUE, axes = 1:2)
 
 ```
 
+
 Im Weiteren können wir diee cos2-Werte verwenden um die Qualität der Darstellung abzuschätzen. Es ist möglich, Variablen nach ihren `cos2`-Werten zu färben, indem du das Argument `col.var = "cos2"` verwendest und damit einen Farbverlauf erzeugst. Die Option `gradient.cols =` definiert dabei den Farbverlauf.
 
 In der @fig-pca-var-2 siehst du nochmal die Einfärbung. Wie du sehen kannst, hat bei den Tierdaten `warm_blooded` den größten Einfluss auf die Aufteilung und erklärt auch am meisten Varianz der Daten. Die Variablen `fly` und `live_in_groups` helfen nicht um die Daten aufzutrennen und die Varianz zu erklären. Bei den Kreaturendaten sehen wir dann ebenfalls das es zwei Variablen gibt, die viel erklären und eine Variable mit einer schlechteren Qualität.
+
 
 ```{r}
 #| message: false
@@ -814,7 +885,9 @@ fviz_pca_var(pca_creature, col.var = "cos2",
 
 ```
 
+
 Wir können auch mit der `kmeans()` Funktion auch versuchen über die Koordinaten Gruppen zu bilden. Wir rechnen also auf den Koordinaten der Variablen eine Clusteranalyse. Faktisch könnten wir hier auch andere Clusteralgorithmen nehmen, aber ich nutze hier mal `kmeans()`. Im Prinzip kannst du den Algorithmus ändern, denn du brauchst später nur einen Faktor mit der Grupenzuordnung.
+
 
 ```{r}
 grp_animal_var <- kmeans(var_animals$coord, centers = 3, nstart = 25) %>% 
@@ -822,7 +895,9 @@ grp_animal_var <- kmeans(var_animals$coord, centers = 3, nstart = 25) %>%
   as_factor()
 ```
 
+
 Wir machen dann die Gruppenbildung auch für die Kreaturendaten. Hier dann nur zwei Gruppen, denn wir haben ja nur drei Variablen. Da machen dann drei Gruppen keinen Sinn.
+
 
 ```{r}
 grp_creature_var <- kmeans(var_creature$coord, centers = 2, nstart = 25) %>% 
@@ -830,7 +905,9 @@ grp_creature_var <- kmeans(var_creature$coord, centers = 2, nstart = 25) %>%
   as_factor()
 ```
 
+
 Dann nutzen wir die Gruppen einmal um nach diesen dann unseren Korrelaionsplot einzufärben. Wir sehen jetzt in diesen beiden Beipsielen in der @fig-pca-var-knn-1 kein so großen Änderungen oder Überraschungen. Aber je mehr Variablen du hast, desto spannender wird es dann auch.
+
 
 ```{r}
 #| message: false
@@ -857,7 +934,9 @@ fviz_pca_var(pca_creature, col.var = grp_creature_var,
              legend.title = "Cluster")
 ```
 
+
 Abschließend wollen wir uns noch die Frage stellen, wie stark haben den jetzt die einzelnen Variablen zu den ersten beiden Hauptkomponenten beigetragen? Wir können dazu die Funktion `fviz_contrib()` nutzen. Die rote gestrichelte Linie in der @fig-pca-var-cont zeigt den erwarteten durchschnittlichen Beitrag an. Wäre der Beitrag der Variablen bei den Tierdaten gleichmäßig, wäre der erwartete Wert $1/n_{var} = 1/6 = 16\%$. Eine Variable mit einem Beitrag, der über diesem Grenzwert liegt, sehen wir als wichtig für die betrachteten Hauptkomponenten an.
+
 
 ```{r}
 #| message: false
@@ -878,6 +957,7 @@ fviz_contrib(pca_animals, choice = "var", axes = 1:2)
 fviz_contrib(pca_creature, choice = "var", axes = 1:2)
 ```
 
+
 ### Ebene der Individuen
 
 ::: callout-note
@@ -888,13 +968,16 @@ Du kannst einfach das `*` in `get_*_ind()` durch den klein geschriebenen Funktio
 
 Nachdem wir uns die Informationen von den Variablen und damit die Informationen von den Spalten angeschaut haben, wollen wir uns nochmal die Informationen aus den Zeilen, also den Individuen anschauen. Auch hier können wir ja einfach mal schauen, wie die Individuen untereinander zusammenhängen. Wir arbeiten jetzt also mit den Informationen zu den einzelnen Individuen. Wir erhalten die Informationen über die Funktion `get_pca_var()`.
 
+
 ```{r}
 ind_animals <- get_pca_ind(pca_animals)
 ind_creature <- get_pca_ind(pca_creature)
 ind_creature
 ```
 
+
 Nachdem wir die Informationen zu den Individuen extrahiert haben, können wir uns die Koordinaten der einzelnen Individuen, die sich aus der Varianz/Kovarianzmatrix der Individuen ergeben, einmal in der @fig-pca-ind-1 anschauen. Wir interpretieren die `cos2`-Werte analog zu den Variablen. Das heißt, `cos2`-Werte geben an, wie bedeutend ein Individuum für die beiden Hauptkomponenten `Dim.1` und `Dim.2` ist. Wie sehen bei den Tierdaten, dass der Hering nichts zur Aufspaltung der Daten beiträgt. Die Tiere die weiter Außen liegen, haben mehr Informationen. Bei den Kreaturendaten sehen wir klar, dass der Hamster und der Wal nicht zu den anderen Tieren passen will. Beide Tiere pressen förmlich die anderen Tiere in den unteren linken Quadranten zusammen.
+
 
 ```{r}
 #| message: false
@@ -926,9 +1009,11 @@ fviz_pca_ind(pca_creature,
   scale_y_continuous(expand = expansion(add = c(0.5, 0.5))) 
 ```
 
+
 Wir können uns dann auch recht schnelle einmal die meisten bedeutenden Individuen für die ersten beiden Hauptkomponenten numerisch in der @fig-pca-ind-2 ansehen. Achtung, wir haben hier einige Individuen entfernt, die fehlende Werte in den Zeielne hatten. Da hätten wir vorher mal reagieren sollen, aber wir machen hier ja keine Imputation von fehlenden Werten. Die rote gestrichelte Linie zeigt den erwarteten durchschnittlichen Beitrag an. Wäre der Beitrag der Variablen gleichmäßig, wäre der erwartete Wert $1/n_{ind}$. Für die ersten beiden Hauptkomponenten kann ein Individuum mit einem Beitrag, der über diesem Grenzwert liegt, als wichtig angesehen werden.
 
 Auch hier sehen wir, dass die Fliege und der Tausendfüßler den größten Einfluss haben. Bei den Kreaturendaten ist es noch auffälliger, da liegt die gesamte Information der Daten in dem Wal und dem Hamster. Der Rest der Daten ist dagegen recht homogen. Hier siehst du auch, wie man die Hauptkomponentenanalyse zum Detektieren von Ausreißern nutzen kannst.
+
 
 ```{r}
 #| message: false
@@ -949,7 +1034,9 @@ fviz_contrib(pca_animals, choice = "ind", axes = 1:2)
 fviz_contrib(pca_creature, choice = "ind", axes = 1:2)
 ```
 
+
 Wie schon bei den Variablen können wir auch über das Koordinatensystem der Individuen Gruppen bilden. Wir rechnen auch hier eine Clusteranalyse mit der Funktion `kmeans()`. Wie auch schon vorab, kannst du auch hier dir einen anderen Clusteralgorithmus auswählen um die Gruppen zu bilden. Wir bleiben hier aber bei einem k-NN Algorithmus der uns einen Faktor mit der Gruppenzugehörigkeit wiedergibt.
+
 
 ```{r}
 grp_animal_ind <- kmeans(ind_animals$coord, centers = 3, nstart = 25) %>% 
@@ -957,7 +1044,9 @@ grp_animal_ind <- kmeans(ind_animals$coord, centers = 3, nstart = 25) %>%
   as_factor()
 ```
 
+
 Das Ganze dann auch nochmal für den Kreaturendatensatz. Hier können wir dann wiederum mehr als zwei Cluster wählen, da wir ja sehr viele Individuen haben, die wir in Gruppen einteilen können. Die Anzahl an Gruppen ist hier mit `k = 4` eher zufällig gewählt.
+
 
 ```{r}
 grp_creature_ind <- kmeans(ind_creature$coord, centers = 4, nstart = 25) %>% 
@@ -965,7 +1054,9 @@ grp_creature_ind <- kmeans(ind_creature$coord, centers = 4, nstart = 25) %>%
   as_factor()
 ```
 
+
 In der @fig-pca-ind-3 siehst du die Gruppen aus dm k-NN Algorithmus eingefärbt und Ellipsen um die Gruppen gezeichnet. Mit der Option `ellipse.type = "confidence"` kannst du dir auch Ellipsen mit dem Konfidenzbereich anzeigen lassen. Wir bleiben hier aber mal bei dem Standard der Funktion, der auch sonst genutzt wird. Ich habe mich dann noch dazu entschieden den Mittelpunkt der Ellipse mit `mean.point = FALSE` nicht anzeigen zu lassen. Wir können auch das `geom.ind` zu `text` ändern, dann werden nicht die Punkte sondern die Label der Individuen angezeigt.
+
 
 ```{r}
 #| message: false
@@ -998,7 +1089,9 @@ fviz_pca_ind(pca_creature,
              legend.title = "Groups", mean.point = FALSE)
 ```
 
+
 Tja, sieht dann etwas wild aus. Aber da musst du dann eben mit der Anzahl der Gruppen aus dem k-NN Algorithmus spielen. Auch siehst du, dass einzelne extreme Beobachtungen dir alles zunichte machen können. Hier müsste man überlegen, ob nicht der Wal und der Hamster bei den Kreaturendaten nicht eins zu viel sind. Jetzt stehen wir vor der Frage, passt das so? Was sind den die einzelnen Punkt für Beobachtungen? Da hilft uns dann die Funktion `fviz_pca_biplot()` weiter. Nicht alle Methoden der Hauptkomponentenanalyse können auch einen Biplot generieren, aber wenn, dann ist der Biplot sehr nützlich. In der @fig-pca-ind-4 siehst du den Biplot für die Tierdaten sowie für die Kreaturendaten sowie die Clusterinformationen ergänzt.
+
 
 ```{r}
 #| message: false
@@ -1037,11 +1130,13 @@ fviz_pca_biplot(pca_creature,
   scale_fill_manual(values = c("#F0E442", "#0072B2", "#D55E00", "#CC79A7"))
 ```
 
+
 Bei den Tierdaten passe es eigentlich ganz gut mit den Clustern, aber die Inhalte machen teilweise nicht so viel Sinn. Wir haben Tiere zusammen gruppiert, die eigentlich nicht so richtig zusammen passsen. Zwar sind in der einen Gruppe die Insekten aber der Elefant ist zusammen mit dem Wal, dem Delphin und dem Adler sowie der Ente gruppiert. Da reichen anscheinend die Daten und Variablen noch nicht aus um hier eine gute Trennung hinzukriegen. Immerhin passt es auch mit den Säugetieren. Du siehst hier auch gut, wie die Vektoren in die Richtung der passenden Individuen zeigen. So sind die haarigen Individuen dann unten rechts. Das passt ganz gut. Bei den Kreaturendaten siehst du auch schön, wie der Wal die Variable `mass_grams` nach oben rechst zu sich zieht. Auch die Variable der Lebendauer zieht den Elefanten und den Menschen nach rechts weg.
 
 ## Multi Dimensional Scaling (MDS)
 
 Eine besondere Form der Hauptkomponentenanalyse ist das *Multidimensional Scaling* (abk. MDS). Im Prinzip sind die Mechanismen sehr ähnlich. Der Hauptunterschied ist aber, das wir für die MDS eine Distanzmatrix benötigen. Wir können dafür die Funktion `dist()` oder `as.dist()` nehmen, wenn wir schon Distanzen vorliegen haben. Nehmen wir als plakatives Beispiel einmal die Distanzen von europäischen Städten zueinander. Wir haben die Daten in der Exceldatei `distance.xlsx` vorliegen. Wir lesen die Daten einmal ein und schauen uns die ersten fünf Spalten und die ersten fünf Zeilen des Daten*satzes* einmal an.
+
 
 ```{r}
 #| message: false
@@ -1053,7 +1148,9 @@ distance_tbl <- read_excel("data/distance.xlsx")
 distance_tbl[1:5, 1:5]
 ```
 
+
 Wenn wir jetzt auf diesem Datensatz jetzt ein MDS rechnen wollen, dann müssen wir zum einen alle Spalten mit einem `character` entfernen. Wir haben dann nur noch einen Datensatz bzw. Datenmatrix mit den Distanzen vorliegen. Dann kann wir das `tibble` in einen `dist`-Objekt mit der Funktion `as.dist()` umwandeln. Die eigentliche Berechnung für das *Multidimensional Scaling* findet in der Funktion `cmdscale()` statt. Mit der Option `k = 2` legen wir fest, dass wir nur zwei Hauptkomponenten bzw. Dimensionen bestimmen wollen. Wir machen also aus unserem 37x37 großen Datenmatrix durch *Multidimensional Scaling* eine Reduktion auf zwei Dimensionen bzw. Spalten.
+
 
 ```{r}
 #| message: false
@@ -1071,7 +1168,9 @@ colnames(mds) <- c("Dim.1", "Dim.2")
 
 ```
 
+
 In @fig-mds-1 sehen wir das Ergebnis der Dimensionsreduktion auf zwei Dimensionen. Wir erhalten die Zusammenhänge bzw. Distanzen aus der Datenmatrix in einem Scatterplot. Ein Scatterplot ist ja nichts anders als die Darstellung von zwei Dimensionen. Wie wir sehen können nimmt die Anordnung der Orte in etwa die Positionen von den Orten auf der Landkarte in Europa ein. Natürlich stimmen die Relationen nicht perfekt, aber das Abbild ist schon recht nahe dran. Wir können also auf diese Art und Weise auch Ausreißer bestimmen.
+
 
 ```{r}
 #| message: false
@@ -1089,7 +1188,9 @@ ggscatter(mds, x = "Dim.1", y = "Dim.2",
           repel = TRUE)
 ```
 
+
 Wenn wir keine Distanzmatrix wie im obigen Beispiel zu den Entfernungen der europäischen Städte vorliegen haben, dann können wir uns die Distanzen auch mit der Funktion `dist()` berechnen lassen. Wir nutzen jetzt mal als Echtdaten die Daten der Gummibärchen. Mal sehen, ob wir hier irgendwelche Gruppen erkennen. Die Hilfeseite der Funktion `?dist` zeigt welche mathematischen Distanzmaße wir auf die Daten anwenden können. In unseren Fall berechnen wir die euklidische Distanz zwischen den Beobachtungen. Dann rufen wir über die Funkion `cmdsscale` das *Multidimensional Scaling* auf.
+
 
 ```{r}
 #| message: false
@@ -1103,7 +1204,9 @@ mds <- animals_df %>%
   set_names(c("Dim.1", "Dim.2"))
 ```
 
+
 Das Ergebnis des *Multidimensional Scaling* hat keine Bedeutung für uns. Wir können die Zahlen nicht interpretieren. Was wir können ist das Ergebnis in einem Scatterplot wie in @fig-mds-2 zu visualisieren.
+
 
 ```{r}
 #| message: false
@@ -1113,7 +1216,7 @@ Das Ergebnis des *Multidimensional Scaling* hat keine Bedeutung für uns. Wir k�
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "Scatterplot der zwei Dimensionen nach dem *Multidimensional Scaling* für den Tierdatensatz."
+#| fig-cap: "Scatterplot der zwei Dimensionen nach dem *Multidimensional Scaling* für den Gummibärchendatensatz."
 
 ggscatter(mds, x = "Dim.1", y = "Dim.2", 
           label = rownames(animals_df),
@@ -1122,9 +1225,11 @@ ggscatter(mds, x = "Dim.1", y = "Dim.2",
 
 ```
 
+
 Zum einen Spalten sich die Tiere sehr gut auf. Wir sehen hier auch, welche Tiere eher nahe beieinander liegen und welche Tiere eher artfremd sind. Manche Tiere sind dann etwas seltsam, wie zum Beispiel der Adler und der Elefant, die nah beieinander liegen. Aber es gibt auf der anderen Seite auch nicht so viele Vögel in den Daten. Beachte immer, alle Beobachtungen werden auch abgebildet. Es gibt kein, passt dann doch nicht.
 
 Wie schon bei der Hauptkomponentenanalyse können wir uns auch das $k$-NN Verfahren aus dem @sec-knn nutzen um Cluster in den Daten zu finden. Das heißt wir nutzen das maschinelle Lernverfahren $k-NN$ um uns $k$ Cluster bestimmen zu lassen. Dafür nutzen wir die Funktion `kmeans()` und ziehen uns über die Funktion `pluck()` die Cluster raus. Daher erhalten wir einen Vektor mit Zahlen, die beschreiben in welchem Cluster die jeweilige $i$-te Beobachtung ist.
+
 
 ```{r}
 # K-means clustering
@@ -1133,14 +1238,18 @@ clust <- kmeans(mds, centers = 3) %>%
   as.factor()
 ```
 
+
 Wir wollen jetzt unser MDS Ergebnis von den Gummibärchen um eine Spalte für die Clusterergebnisse von $k$-NN ergänzen.
+
 
 ```{r}
 mds <- mds %>%
   mutate(groups = clust)
 ```
 
+
 Nun sehen in @fig-mds-3 die gleiche Abbildung wie oben nur ergänzt um die farbliche Hinterlegung der $k=3$ Clustern aus dem $k$-NN Algorithmus. Hier hängt es wieder stark von der Anzahl an Clustern ab. Wenn du mal spielst, wirst du sehen, dass bei vier Clustern dann auch der gelbe Großcluster aufgebrochen wird. Es sind eben dann doch recht wenig Tiere von jeder Art um hier eine saubere Zuordnung zu kriegen.
+
 
 ```{r}
 #| message: false
@@ -1162,6 +1271,7 @@ ggscatter(mds, x = "Dim.1", y = "Dim.2",
           repel = TRUE)
 ```
 
+
 ## Diskriminanzanalyse {#sec-lda}
 
 ![](images/caution.png){fig-align="center" width="50%"}
@@ -1172,14 +1282,8 @@ R Packet `HDclassif` den Datensatz `wine` auch bekannt vom [UC Irvine Machine Le
 Eine detailierte Auswertung des Datensatzes kann auch bei dem Tutorium [Analysis of White Wine Quality Dataset](https://rpubs.com/joelrudinas03/WQD) nachvollzogen werden.
 :::
 
-```{r}
-data(wine)
-```
 
 ```{r}
-#| message: false
-#| echo: true
-#| warning: false
 wine_tbl <- wine %>% 
   set_names(c("Class", "Alcohol", "Malic acid", "Ash", "Alcalinity of ash", "Magnesium", "Total phenols",
               "Flavanoids", "Nonflavanoid phenols", "Proanthocyanins", "Color intensity", "Hue", 
@@ -1196,9 +1300,9 @@ wine_tbl <- wine %>%
 #| tbl-cap: "Übersicht."
 
 wine_tbl %>% 
-  head(7) %>% 
   kable(align = "c", "pipe")
 ```
+
 
 Die folgenden Methoden der Diskriminanzanalyse werden beschrieben:
 
@@ -1212,187 +1316,21 @@ Die folgenden Methoden der Diskriminanzanalyse werden beschrieben:
 
 (eng. *Linear discriminant analysis*)
 
-```{r}
-wine_lda <- lda(class ~ ., data = wine_tbl)
-wine_lda
-```
-
-```{r}
-#| message: false
-#| echo: true
-#| warning: false
-wine_lda_pred_tbl <- predict(wine_lda) %>% 
-  reduce(bind_cols) %>% 
-  set_names(c("class", "pred_1", "pred_2", "pred_3", "ld1", "ld2"))
-```
-
-```{r}
-#| message: false
-#| echo: true
-#| warning: false
-#| label: fig-disc-01
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "foo"
-
-wine_lda_pred_tbl %>% 
-  ggplot(aes(ld1, ld2, label = class, color = class)) +
-  theme_bw() +
-  geom_text()
-```
-
-```{r}
-mean(wine_lda_pred_tbl$class == wine_tbl$class)
-```
-
 ### Quadratische Diskriminanzanalyse (QDA)
 
 (eng. *Quadratic discriminant analysis* )
-
-```{r}
-wine_qda <- qda(class ~ ., data = wine_tbl)
-wine_qda
-```
-
-```{r}
-#| message: false
-#| echo: true
-#| warning: false
-wine_qda_pred_tbl <- predict(wine_qda) %>% 
-  reduce(bind_cols) %>% 
-  set_names(c("class", "pred_1", "pred_2", "pred_3"))
-```
-
-```{r}
-mean(wine_qda_pred_tbl$class == wine_tbl$class)
-```
 
 ### Mischungsdiskriminanzanalyse (MDA)
 
 (eng. *Mixture discriminant analysis*)
 
-R Paket `mda`
-
-```{r}
-wine_mda <- mda(class ~ ., data = wine_tbl)
-wine_mda
-```
-
-Achtung, Wir wählen nur die ersten beiden Dimensionen!
-
-```{r}
-#| message: false
-#| echo: true
-#| warning: false
-wine_mda_pred_tbl <- lst(class = predict(wine_mda, type = "class"), 
-                         posterior = predict(wine_mda, type = "posterior"), 
-                         variates = predict(wine_mda, type = "variates")[, 1:2]) %>% 
-  reduce(bind_cols) %>% 
-  set_names(c("class", "pred_1", "pred_2", "pred_3", "ld1", "ld2"))
-
-```
-
-```{r}
-#| message: false
-#| echo: true
-#| warning: false
-#| label: fig-disc-02
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "foo"
-
-wine_mda_pred_tbl %>% 
-  ggplot(aes(ld1, ld2, label = class, color = class)) +
-  theme_bw() +
-  geom_text()
-```
-
-```{r}
-mean(wine_mda_pred_tbl$class == wine_tbl$class)
-```
-
-```{r}
-wine_mda$confusion
-```
-
 ### Flexible Diskriminanzanalyse (FDA)
 
 (eng. *Flexible Discriminant Analysis*)
 
-R Paket `mda`
-
-```{r}
-#| message: false
-#| echo: true
-#| warning: false
-wine_fda <- fda(class ~ ., data = wine_tbl)
-wine_fda
-```
-
-```{r}
-#| message: false
-#| echo: true
-#| warning: false
-wine_fda_pred_tbl <- lst(class = predict(wine_fda, type = "class"), 
-                         posterior = predict(wine_fda, type = "posterior"), 
-                         variates = predict(wine_fda, type = "variates")) %>% 
-  reduce(bind_cols) %>% 
-  set_names(c("class", "pred_1", "pred_2", "pred_3", "ld1", "ld2"))
-
-```
-
-```{r}
-#| message: false
-#| echo: true
-#| warning: false
-#| label: fig-disc-03
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "foo"
-
-wine_fda_pred_tbl %>% 
-  ggplot(aes(ld1, ld2, label = class, color = class)) +
-  theme_bw() +
-  geom_text()
-```
-
-```{r}
-mean(wine_lda_pred_tbl$class == wine_tbl$class)
-```
-
-```{r}
-wine_fda$confusion
-```
-
 ### Regulierte Diskriminanzanalyse (RDA)
 
-R Paket `klaR`
-
 (eng. *Regularized discriminant anlysis*)
-
-```{r}
-#| message: false
-#| echo: true
-#| warning: false
-wine_rda <- rda(class ~ ., data = wine_tbl)
-wine_rda
-```
-
-```{r}
-#| message: false
-#| echo: true
-#| warning: false
-wine_rda_pred_tbl <- predict(wine_rda) %>% 
-  reduce(bind_cols) %>% 
-  set_names(c("class", "pred_1", "pred_2", "pred_3"))
-```
-
-```{r}
-mean(wine_rda_pred_tbl$class == wine_tbl$class)
-```
 
 http://www.sthda.com/english/articles/36-classification-methods-essentials/146-discriminant-analysis-essentials-in-r/
 
@@ -1401,3 +1339,4 @@ https://rpubs.com/Nolan/298913
 https://rstudio-pubs-static.s3.amazonaws.com/35817_2552e05f1d4e4db8ba87b334101a43da.html
 
 ## Referenzen {.unnumbered}
+
