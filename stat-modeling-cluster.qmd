@@ -22,7 +22,7 @@ Wie immer können wir nicht alles erschlagen.
 ::: {.callout-tip collapse="true"}
 ## Weitere Tutorien für die Clusteranalyse
 
-Wie immer gibt es eine Vielzahl an tollen Tutorien, die die PCA gut erklären. Ich habe hier einmal eine Auswahl zusammengestellt und du kannst dich da ja mal vertiefend mit beschäftigen, wenn du willst. Teile der Tutorien findest du vermutlich hier im Kapitel wieder.
+Wie immer gibt es eine Vielzahl an tollen Tutorien, die eine Clusteranalyse gut erklären. Ich habe hier einmal eine Auswahl zusammengestellt und du kannst dich da ja mal vertiefend mit beschäftigen, wenn du willst. Teile der Tutorien findest du vermutlich hier im Kapitel wieder.
 
 -   Das R Paket `dendextend` [Introduction to dendextend](https://cran.r-project.org/web/packages/dendextend/vignettes/dendextend.html) um Dendrogramme wirklich schön zu zeichnen.
 -   Das R Paket `pheatmap` [Making a heatmap in R with the pheatmap package](https://davetang.github.io/muse/pheatmap.html) um Heatmaps mit allem was das Herz begehrt zu bauen. Dann haben wir noch das R Paket [ComplexHeatmap](https://jokergoo.github.io/ComplexHeatmap-reference/book/index.html), was sich vom R Paket `pheatmap` inspirieren lies. Das geht dann aber hier zu weit, schauen da, wenn du wirklich Heatmaps brauchst.
@@ -221,11 +221,12 @@ Es gibt noch viel mehr Distanzen, die du berechnen kannst. Je nach R Paket sind 
 
 -   Die Funktion `dist()` als die Standardfunktion: Die Funktion akzeptiert nur numerische Daten als Eingabe und das zu verwendende Abstandsmaß muss eines der Folgenden sein: `euclidean`, `maximum`, `manhattan`, `canberra`, `binary` oder `minkowski`. Die Hilfeseite `?dist()` liefert mehr Informationen über die Distanzmaße.
 -   Die Funktion `get_dist()` aus dem R Paket `factoextra`: Die Funktion akzeptiert nur numerische Daten als Eingabe. Im Vergleich zur Standardfunktion `dist()` unterstützt sie korrelationsbasierte Abstandsmaße einschließlich der Methoden `pearson`, `kendall` und `spearman`.
--   Die Funktion `daisy()` aus dem R Paket `cluster`: Die Funktion kann mit anderen Variablentypen umgehen als numerisch - also auch mit Kategorien und Faktoren. In diesem Fall wird automatisch der Gower-Koeffizient als Metrik verwendet. Der Gower-Koeffizient ist eines der beliebtesten Näherungsmaße für gemischte Datentypen. Weitere Einzelheiten findest du auf der Hilfeseite der Funktion `?daisy`.
+-   Die Funktion `daisy()` aus dem R Paket `cluster`: Die Funktion kann mit anderen Variablentypen umgehen als numerisch, also auch mit Kategorien und Faktoren. In diesem Fall wird automatisch der Gower-Koeffizient als Metrik verwendet. Der Gower-Koeffizient ist eines der beliebtesten Näherungsmaße für gemischte Datentypen. Weitere Einzelheiten findest du auf der Hilfeseite der Funktion `?daisy`.
+-   Die Funktion `PCA()` aus dem R Paket `FactoMineR`: Die Funktion erlaubt es dir eine Hauptkomponentenanalyse zu rechnen. Das ist aber dann ein eigens Thema für sich. In dem @sec-pca-main erkläre ich nochmal die Hauptkomponentenanalyse und zeige dort auch, wie du mit den Ergebnissen einer Hauptkomponentenanalyse clustern kannst.
 
-Wenn du deine Daten transformierts, dann werden auch die Abstandmaße ähnlicher. Zum Beispiel werden durch die Standardisierung die folgenden Abstandsmaße kelinere Werte ergeben: Euklidisch, Manhattan und die Korrelation. Das ist aber nicht so schlimm, wenn du nicht untransformierte Daten mit transformierten Daten vergleichst.
+Wenn du deine Daten transformierst, dann werden auch die Abstandmaße ähnlicher. Zum Beispiel werden durch die Standardisierung die folgenden Abstandsmaße kelinere Werte ergeben: Euklidisch, Manhattan und die Korrelation. Das ist aber nicht so schlimm, wenn du nicht untransformierte Daten mit transformierten Daten vergleichst.
 
-In der @fig-dist-01 kannst du dir die Distanzmatrix als Heatmap anzuschauen. Die Funktion `fviz_dist()` aus dem R Paket `factorextra` ermöglicht dir die Distanzmatrix zu visualisieren. Wir nutzen die Distanzmatrix dann aber gleich um auf den Distanzen Cluster zu bilden.
+Die Funktion `fviz_dist()` aus dem R Paket `factorextra` ermöglicht dir die Distanzmatrix zu visualisieren. In der @fig-dist-01 kannst du dir die Distanzmatrix der Funktion `dist()` als Heatmap anzuschauen. Wir nutzen die Distanzmatrix dann aber gleich um auf den Distanzen Cluster zu bilden.
 
 ```{r}
 #| echo: true
@@ -241,24 +242,26 @@ animals_df  %>%
   fviz_dist()
 ```
 
+Wenn du also die Distanzen zwischen deinen Beobachtungen berechnet hast, kannst du mit der Distanzmatrix entweder hierarchisch Clustern oder über den $k$-NN Algorithmus Gruppen bilden.
+
 ## Algorithmen fürs Clustern
 
 ### Hierarchische Clusteranalyse {#sec-clust-dendro}
 
 Es gibt vier gängige Ansätze für die Cluster-Cluster-Distanzierung, auch *Linkage* genannt:
 
--   *single linkage*: Der Abstand zwischen zwei Clustern ist der Abstand zwischen den beiden nächstgelegenen Beobachtungen.
--   *average linkage*: Der Abstand zwischen zwei Clustern ist der Durchschnitt aller Abstände zwischen den Beobachtungen in einem Cluster und den Beobachtungen im anderen Cluster.
--   *complete linkage*: Der Abstand zwischen zwei Clustern ist der Abstand zwischen den beiden am weitesten entfernten Beobachtungen.
--   *centroid method*: Der Abstand zwischen zwei Clustern ist der Abstand zwischen ihren Zentroiden (geometrisches Mittel oder Median).
--   *Ward-Methode*: Der Abstand zwischen zwei Clustern ist proportional zur Zunahme der Fehlerquadratsumme (ESS), die sich aus der Verbindung der beiden Cluster ergeben würde. Die ESS wird als Summe der quadrierten Abstände zwischen den Beobachtungen in einem Cluster und dem Schwerpunkt des Clusters berechnet.
+-   *single linkage*: Der Abstand zwischen zwei Clustern ist der Abstand zwischen den beiden nächstgelegenen Beobachtungen. In R nutzen wir dann `single` als Option.
+-   *average linkage*: Der Abstand zwischen zwei Clustern ist der Durchschnitt aller Abstände zwischen den Beobachtungen in einem Cluster und den Beobachtungen im anderen Cluster. In R ist es dann die Option `average`.
+-   *complete linkage*: Der Abstand zwischen zwei Clustern ist der Abstand zwischen den beiden am weitesten entfernten Beobachtungen. Auch hier passt es dann mit dem Optionnamen von `complete`.
+-   *centroid method*: Der Abstand zwischen zwei Clustern ist der Abstand zwischen ihren geometrischen Mittel oder Medianen. Hier nutzen wir die Option `median`.
+-   *ward method*: Der Abstand zwischen zwei Clustern ist proportional zur Zunahme der Fehlerquadratsumme, die sich aus der Verbindung der beiden Cluster ergeben würde. Die Fehlerquadratsumme wird als Summe der quadrierten Abstände zwischen den Beobachtungen in einem Cluster und dem Schwerpunkt des Clusters berechnet. In R haben wir hier die Wahl zwischen `ward.D` und `ward.D2`. Wenn, dann nutze bitte `ward.D2` da es sich um die neuere Implementierung handelt, die weniger fehleranfällig ist.
 
 ```{r}
 #| message: false
 #| warning: false
 h_clust_animal <- animals_df  %>% 
-  dist(., method = "euclidean") %>% 
-  hclust(., method = "ward.D")
+  dist(method = "euclidean") %>% 
+  hclust(method = "ward.D")
 ```
 
 ```{r}
@@ -485,9 +488,20 @@ silhouette_animals_tbl %>%
 
 ### Heatmap {#sec-clust-heat}
 
-Das R Paket `pheatmap` [Making a heatmap in R with the pheatmap package](https://davetang.github.io/muse/pheatmap.html) um Heatmaps
+Wenn es um Heatmaps geht, dann gibt es so viele Möglichkeiten eine Heatmap in R zu erstellen, dass ich hier nur einen Ausschnitt aus den Sammlungen vorstellen kann. Ich selber mag gerne das R Paket `pheatmap` mit dem guten Tutorium [Making a heatmap in R with the pheatmap package](https://davetang.github.io/muse/pheatmap.html). Am Anfang des Kapitels wird dieses Paket auch als empfehlenswert genannt. Daneben schauen wir uns nochmal die Heatmaps in dem R Paket `gplots` mit der Funktion `heatmap.2()` an.
 
-[Heatmap in R: Static and Interactive Visualization](https://www.datanovia.com/en/lessons/heatmap-in-r-static-and-interactive-visualization/)
+::: {.callout-tip collapse="true"}
+## Weitere Tutorien für die Erstellung einer Heatmap
+
+Wie immer gibt es eine Vielzahl an tollen Tutorien, die eine Heatmap gut erklären. Ich habe hier einmal eine Auswahl zusammengestellt und du kannst dich da ja mal vertiefend mit beschäftigen, wenn du willst. Teile der Tutorien findest du vermutlich hier im Kapitel wieder.
+
+-   Eine Übersicht zu [Heatmap in R: Static and Interactive Visualization](https://www.datanovia.com/en/lessons/heatmap-in-r-static-and-interactive-visualization/)
+-   Das Tutorium [Hierarchical cluster analysis on famous data sets](https://cran.r-project.org/web/packages/dendextend/vignettes/Cluster_Analysis.html#heatmap-1).
+-   Das R Paket `heatmaps` [Tutorial heatmaps](https://bioconductor.org/packages/release/bioc/vignettes/heatmaps/inst/doc/heatmaps.html) liefert nochmal Beispiele mit genetischen Datensätzen.
+-   Das R Paket [ComplexHeatmap](https://jokergoo.github.io/ComplexHeatmap-reference/book/index.html), was sich vom R Paket `pheatmap` inspirieren lies. Das geht dann aber hier zu weit, schauen da, wenn du wirklich Heatmaps brauchst.
+:::
+
+In der @fig-cluster-09 sehen wir einmal die Funktion `pheatmap()` und die sich daraus ergebenden Heatmaps. Die Ähnlihckeit wird einmal in der Legende angegeben. Je nach gewünschten Distanzmaß, kommt da eben was anderes bei raus. Du musst dir da einmal die Hilfeseite zu anschauen ober aber das Tutorium. In unserem Fall wollte ich vier Schnitte für die Spalten des Dendrogramms bei den Tierdaten haben. Bei den Kreaturen habe ich nur zwei Schritte gewählt.
 
 ```{r}
 #| echo: true
@@ -495,55 +509,93 @@ Das R Paket `pheatmap` [Making a heatmap in R with the pheatmap package](https:/
 #| warning: false
 #| label:  fig-cluster-09
 #| fig-align: center
-#| fig-height: 4
+#| fig-height: 5
 #| fig-width: 6
-#| fig-cap: "."
+#| fig-cap: "Darstellung der Ähnlichkeiten zwischen den Datensätzen mit der Funktion `pheatmap()`. Auch hier gibt es dann eine Menge möglicher Optionen, hier nur sehr sparsam gezeigt."
+#| fig-subcap: 
+#|   - "Tierdaten `animals_df`"
+#|   - "Kreaturendaten `norm_creature_df`"
+#| layout-nrow: 1
+#| column: page
 
 pheatmap(animals_df, cutree_cols = 4)
+pheatmap(norm_creature_df, cutree_cols = 2)
 ```
 
-Wir schauen uns im Folgenden das Beispiel von [Hierarchical cluster analysis on famous data sets](https://cran.r-project.org/web/packages/dendextend/vignettes/Cluster_Analysis.html#heatmap-1) nochmal an.
-
-Nach den Zeilen
+Die Funktion `heatmap.2()` liefert sehr viel mehr Optionen und erlaubt noch etwas feinere Abtsimmungen.
 
 ```{r}
-dend_r <- animals_df %>% dist(method = "man") %>% hclust(method = "ward.D") %>% as.dendrogram %>% ladderize %>%
-    color_branches(k=4)
+get_dendro_margin <- function(tbl, k, dim = "row"){
+  if(dim == "row") {
+    tmp_tbl <- tbl %>% 
+      dist(method = "man") %>% 
+      hclust(method = "ward.D") 
+  } else {
+    tmp_tbl <- t(tbl) %>% 
+      dist(method = "man") %>% 
+      hclust(method = "com") 
+  }
+  dendro_obj <- tmp_tbl %>% 
+    as.dendrogram %>% 
+    ladderize%>%
+    color_branches(k = k)
+  return(dendro_obj)
+}
+```
+
+```{r}
+dend_animal_r <- get_dendro_margin(animals_df, k = 4, dim = "row")
 ```
 
 Nach den Spalten
 
 ```{r}
-dend_c <- t(animals_df) %>% dist(method = "man") %>% hclust(method = "com") %>% as.dendrogram %>% ladderize%>%
-    color_branches(k=3)
+dend_animal_c <- get_dendro_margin(animals_df, k = 3, dim = "col")
 ```
 
 ```{r}
-# some_col_func <- function(n) rev(colorspace::heat_hcl(n, c = c(80, 30), l = c(30, 90), power = c(1/5, 1.5)))
-# some_col_func <- colorspace::diverge_hcl
-# some_col_func <- colorspace::sequential_hcl
- some_col_func <- function(n) (colorspace::diverge_hcl(n, h = c(246, 40), c = 96, l = c(65, 90)))
+dend_creature_r <- get_dendro_margin(norm_creature_df, k = 4, dim = "row")
+```
 
+Nach den Spalten
+
+```{r}
+dend_creature_c <- get_dendro_margin(norm_creature_df, k = 2, dim = "col")
 ```
 
 ```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label:  fig-cluster-12
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Darstellung der Ähnlichkeiten zwischen den Datensätzen mit der Funktion `heatmap.2()`. Auch hier gibt es dann eine Menge möglicher Optionen."
+#| fig-subcap: 
+#|   - "Tierdaten `animals_df`"
+#|   - "Kreaturendaten `norm_creature_df`"
+#| layout-nrow: 1
+#| column: page
 gplots::heatmap.2(as.matrix(animals_df), 
-          main = "Attributes of Animals",
+          main = "Eigenschaften von Tieren",
           srtCol = 35,
-          Rowv = dend_r,
-          Colv = dend_c,
+          Rowv = dend_animal_r, Colv = dend_animal_c,
           trace="row", hline = NA, tracecol = "darkgrey",         
-          margins =c(6, 5),      
-          key.xlab = "no / yes",
-          denscol = "grey",
-          density.info = "density",
-          col = gplots::bluered(100)
-         )
+          margins =c(6, 5), key.xlab = "no / yes",
+          denscol = "grey", density.info = "density",
+          col = gplots::bluered(100))
+
+
+gplots::heatmap.2(as.matrix(norm_creature_df), 
+          main = "Eigenschaften von Kreaturen",
+          srtCol = 35,
+          Rowv = dend_creature_r, Colv = dend_creature_c,
+          trace = "row", hline = NA, tracecol = "darkgrey",         
+          margins = c(6, 7), key.xlab = "no / yes",
+          denscol = "grey", density.info = "density",
+          col = gplots::bluered(100))
 ```
-
-Das R Paket `heatmaps` [Tutorial heatmaps](https://bioconductor.org/packages/release/bioc/vignettes/heatmaps/inst/doc/heatmaps.html) liefert nochmal Beispiele mit genetischen Datensätzen.
-
-[ComplexHeatmap](https://jokergoo.github.io/ComplexHeatmap-reference/book/index.html), was sich vom R Paket `pheatmap` inspirieren lies. Das geht dann aber hier zu weit, schauen da, wenn du wirklich Heatmaps brauchst.
 
 ## Datenanalyse mit `tidyclust` {#sec-clust-tidyclust}
 
