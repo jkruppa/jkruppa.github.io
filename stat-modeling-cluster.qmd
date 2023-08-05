@@ -26,6 +26,7 @@ Wie immer gibt es eine Vielzahl an tollen Tutorien, die eine Clusteranalyse gut 
 
 -   Das R Paket `dendextend` [Introduction to dendextend](https://cran.r-project.org/web/packages/dendextend/vignettes/dendextend.html) um Dendrogramme wirklich schön zu zeichnen.
 -   Das R Paket `pheatmap` [Making a heatmap in R with the pheatmap package](https://davetang.github.io/muse/pheatmap.html) um Heatmaps mit allem was das Herz begehrt zu bauen. Dann haben wir noch das R Paket [ComplexHeatmap](https://jokergoo.github.io/ComplexHeatmap-reference/book/index.html), was sich vom R Paket `pheatmap` inspirieren lies. Das geht dann aber hier zu weit, schauen da, wenn du wirklich Heatmaps brauchst.
+-   Das R Paket [cluster](https://cran.r-project.org/web/packages/cluster/index.html), wenn auch ohne gute Hilfeseite ermöglicht die Paketbeschreibung eine gute Übersicht an möglichen Algorithmen.
 :::
 
 Wir wollen uns die Clusteranalyse an zwei Spieldaten anschauen sowie einmal an den echten Daten zu den Gummibärchen. Eigentlich werden ja auch gerne Fragebögen mit der Clusteranalyse ausgewertet, aber hier muss ich nochmal warten bis ich ein gutes Beispiel in den Beratungen hatte. Dann ergänze ich ein Beispiel bei dem Skript zu den [Beispielhaften Auswertungen](https://jkruppa.github.io/application/).
@@ -40,7 +41,7 @@ set.seed(20230727)
 pacman::p_load(tidyverse, magrittr, palmerpenguins, readxl,
                ggdendro, broom, cluster, factoextra, FactoMineR, 
                pheatmap, tidyclust, dlookr, janitor, corrplot,
-               dendextend, conflicted)
+               dendextend, see, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -286,7 +287,7 @@ Wie bauen wir uns so ein Dendrogramm? Wir nehmen als erstes eine Distanzmatrix u
 
 Wir nehmen also die Daten und berechnen erst die Distanzmatrix und dann die hierarchische Clusteranalyse. Da wir zum einen aus verschiedenen Distanzalgorithmen plus verschiedenen Algorithmen für das hierarchische Clustern wählen können, musst du hier immer mal wieder rumprobieren, bis du das richtige für dich gefunden hast. Wir schauen uns später noch Kriterien an, aber am Ende musst du entscheiden, ob es *inhaltlich* mit den gefundenen Gruppen passt.
 
-Die hierarchische Clusteranalyse führen wir in R mit dem Paket `hclust()` durch. Die Distanz berechnen wir hier mit der Funktion `dist()`. Dann haben wir auch schon unser Clustern abgeschlossen. Der Baum ist gewachsen.
+Die hierarchische Clusteranalyse führen wir in R mit dem Paket `hclust()` durch. Die Distanz berechnen wir hier mit der Funktion `dist()`. Dann haben wir auch schon unser Clustern abgeschlossen. Der Baum ist gewachsen. Die Funktion `hclust()` ist nur *eine* mögliche Funktion für das hierarchische Clustern. Das R Paket [cluster](https://cran.r-project.org/web/packages/cluster/index.html) kennt noch eine mehr auch wenn ohne gute Hilfeseite. Du musst die Paketbeschreibung eine gute Übersicht an möglichen Algorithmen nehmen und unter den `plot.*` Funktionen schauen. Jeder Algorithmus hat eine eigene Funktion für einen Plot und so findest du schnell die Algorithmen. Hier jetzt aber weiter mit *der* Standardfunktion `hclust()`.
 
 ```{r}
 #| message: false
@@ -382,19 +383,22 @@ Wie du schön siehst, ist eine hierarchische Clusteranalyse nur so gut wie das e
 
 ### k-means Clusteranalyse {#sec-clust-knn}
 
-[K-means Cluster Analysis](https://uc-r.github.io/kmeans_clustering)
+Kommen wir dann zum zweiten Algorithmus, der darauf basiert sich immer die $k$ nächsten Nachbarn anzuschauen und zu entscheiden zu welcher Gruppe die Beachtungen gehören sollen. Das ist sehr simple das Prinzip des Algorithmus. Wir gehen hier jetzt aber nicht weiter in die Tiefe, der $k$-NN Algorithmus clustert nicht in der Form eines Baumes sondern schaut sich die direkten Verwandtschaft zwischen von der Distanz nahe liegenden Beobachtungen an. Daher können wir den Algorithmus auch auf alle Distanzmatrizen anwenden. Auch hier verweise ich nochmal auf das R Paket [cluster](https://cran.r-project.org/web/packages/cluster/index.html) welches als eine mögliche Alternative für die Funktion `kmeans()` die robustere Funktion `pam()` kennt. Wir nutzen hier einmal die Standardfunktion für das Clustern mit $k$ nächsten Nachbarn, aber du solltest auch die anderen
 
-Siehe auch `pam()` aus dem R Paket `cluster`.
+::: column-margin
+Auch gibt es noch ein schönes Tutorium für die Analyse weiterer spannender Datensätzen unter [K-means Cluster Analysis](https://uc-r.github.io/kmeans_clustering)
+:::
+
+Die `kmeans()` Funktion ist relativ simple. Wir definieren einfach wie viele Cluster oder Gruppen `centers` gebildet werden sollen. Der Algorithmus versucht jetzt die Beobachtungen um diese Zentren zu gruppieren. Dabei müssen wir vorab sagen wie viele Gruppen wir wollen. Wir sehen gleich nochmal ein Möglichkeit uns da iterativ zu nähern, das klappt aber nicht immer.
 
 ```{r}
 knn_animal <- animals_df %>% 
   kmeans(centers = 4)
-```
-
-```{r}
 knn_creature <- norm_creature_df %>% 
   kmeans(centers = 4)
 ```
+
+Wir schauen uns hetzt nicht die Ausgabe an, sondern wollen gleich mal in der @fig-cluster-03 die Ergebnisse des Clusterings. Da haben wir dann schon fast ein ähnlich gutes Bild drüber. Du kannst dir aber mit `animals_df$cluster` die Cluster angeben lassen. Wir müssen dann noch die Fläche links und rechts auf dem Plot etwas erweitern damit wir dann dort mehr drauf kriegen. Wir nutzen hier die Funktion `fviz_cluster()` welche dafür geeignet ist gut Cluster darzustellen.
 
 ```{r}
 #| echo: true
@@ -404,7 +408,7 @@ knn_creature <- norm_creature_df %>%
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
-#| fig-cap: "dst."
+#| fig-cap: "Darstellung des `kmeans()` Clustering. Die Einfärbung stellt die vier vordefinierten Cluster dar."
 #| fig-subcap: 
 #|   - "Tierdaten `animals_df`"
 #|   - "Kreaturendaten `norm_creature_df`"
@@ -424,7 +428,9 @@ fviz_cluster(knn_creature, data = norm_creature_df, palette = "jco") +
 
 ```
 
-Was ist das optimale $k$ für die Anzahl an Gruppen?
+Wie du siehst funktioniert es einigermaßen für die Tierdaten. Ich möchte nochmal den Fokus auf die Symbole in der Mitte der Clusterflächen lenken, dort siehst du dann den Mittelpunkt. Alle Beobachtungen, die nah an dem Wert sind, werden zu diesem Cluster gezählt. Teilweise funktioniert das etwas komplizierter, den der Regenwurm ist auf jeden Fall näher an dem Mittelpunkt des grauen Clusters als dem gelben Clusters. Es gibt also noch sekundäre Regeln, die versuchen einen Cluster möglichst symmetrisch zu erstellen. Bei den Kreaturdaten haben wir auch das Problem, dass wieder unser Wal mit dem Elefanten und dem Menschen zusammengepackt wird. Hier scheinen die Daten wirklich nicht gut zu sein.
+
+Was ist das optimale $k$ für die Anzahl an Gruppen, die wir in den Algorithmus stecken wollen? Dafür gibt es die Optimierungsfunktion `fviz_nbclust()`, die uns versucht die optimale Anzahl an Clustergruppen visuell abzuschätzen. Wir sehen die Kurven einmal in der @fig-cluster-02. Für die Tierdaten hat die Methode `gap_stat` nicht funktioniert, so dass wir da keine Entscheidung raus kriegen sondern selber schauen müssen.
 
 ```{r}
 #| echo: true
@@ -434,13 +440,12 @@ Was ist das optimale $k$ für die Anzahl an Gruppen?
 #| fig-height: 5
 #| fig-width: 6
 #| label: fig-cluster-02
-#| fig-cap: "dst."
+#| fig-cap: "Bestimmung der optimalen Anzahl an Clustern für den `k-means` Algorithmus und andere. Die Option `gap_stat` liefert eine Entscheidung, funktioniert aber nicht auf allen Datensätzen."
 #| fig-subcap: 
 #|   - "Tierdaten `animals_df`"
 #|   - "Kreaturendaten `norm_creature_df`"
 #| layout-nrow: 1
 #| column: page
-
 
 animals_df %>% 
   fviz_nbclust(kmeans, method = "wss")
@@ -448,6 +453,10 @@ animals_df %>%
 norm_creature_df %>% 
   fviz_nbclust(kmeans, method = "gap_stat")
 ```
+
+Wie wir sehen gibt es bei den Tierdaten zwar einen größeren Sprung von einem auf zwei Cluster, aber das hilft uns nichts. Wir wollen ja nicht nur einen Cluster wählen, dann können wir uns das Clustern auch sparen. Die anderen Sprünge sind auch eher gleichmäßig, so dass wir hier gar keine optimale Anzahl an Clustern haben. Das heißt, dass wir vermutlich die Tierdaten gar nicht so gut clustern können. Auch liefert der Algorithmus `gap_stat` die Empfehlung für nur einen Cluster. Das hilft uns nun auch nichts besonders weiter. Hier scheinen die Daten wirklich etwas schwierig zum clustern zu sein.
+
+Wenn du kontienuierliche Spalten in deinen Daten hast, dann kannst du natürlichb auch zwei Spalten auswählen und dir die Aufteilung der Beobachtungen über diese beiden Spalten anschauen. In der @fig-cluster-05 habe ich das mal für zwei Spalten aus dem Kreaturendaten gemacht und dann die Individuen einmal nach den Clustern eingefärbt. Hier siehst du ganz gut, dass der Elefant und Mensch sowie Wal einfach alle drei lange Leben und eine geringe Herzrate haben. Das macht dann diese drei Wesen sehr ähnlich laut *unseren Daten*. Das heißt natürlich nicht, das der Mensch ein Wal ist. Es braucht einfach mehr Daten und damit Variablen um die Wesen voneinander zu trennen.
 
 ```{r}
 #| echo: true
@@ -462,16 +471,19 @@ ggplot(creature_tbl, aes(longevity_years, heart_rate_bpm, label = creature)) +
   theme_bw() +
   geom_label(aes(fill = as_factor(knn_creature$cluster)), colour = "white", 
              fontface = "bold", size=2) +
-  scale_fill_discrete(name = "Cluster") 
+  scale_fill_discrete(name = "Cluster") +
+  scale_fill_okabeito()
 ```
+
+Das war es dann schon hier mit dem kurzen Ausflug zum Clustern mit dem `kmeans` Algorithmus. Du findest dann in dem @sec-pca-main zu der Hauptkomponentenanalyse nochmal die Anwendung auf einem anderem Gebiet. Hier ist aber vorerst einmal Schluß mit den Grundlagen.
 
 ### Silhouettenplot
 
-Um das Ergebnis der Gruppenfindung zu beurteilen, eignet sich ein Silhouettenplot. Ein Silhouettenplot zeigt für jede Beobachtung i die Silhouettenbreite $s_i$, welche definiert ist als normierte Differenz der kleinsten Distanz zu den Beobachtungen außerhalb der eigenen Gruppe und dem Mittelwert der Distanzen innerhalb einer Gruppe. Die Silhouettenbreite $s_i$ kann jeden Wert im Intervall \[-1, 1\] annehmen und wird folgendermaßen interpretiert.
+Jetzt haben wir Gruppen gefunden und wollen wissen, ob das jetzt auch gute Gurppen sind oder nicht. Wenn wir nicht so viele Beobachtungen haben, dann können wir uns ja die Daten direkt anschauen. Aber häufig wollen wir auch einen Wert haben, der uns eine Bewertung erleichtert. Um das Ergebnis der Clusteranalyse zu beurteilen, eignet sich ein Silhouettenplot. Ein Silhouettenplot zeigt für jede Beobachtung $i$ die Silhouettenbreite $s_i$, welche definiert ist als normierte Differenz der kleinsten Distanz zu den Beobachtungen außerhalb der eigenen Gruppe und dem Mittelwert der Distanzen innerhalb einer Gruppe. Die Silhouettenbreite $s_i$ kann jeden Wert im Intervall \[-1, 1\] annehmen und wird von dir folgendermaßen interpretiert.
 
--   $s_i = 1$ Die Beobachtung ist dem "richtigen" Cluster zugeordnet.
--   $s_i = 0$ Die Beobachtung hätte ebenso gut einer anderen Gruppe zugeordnet werden können.
--   $s_i = -1$ Die Beobachtung ist schlecht zugeordnet.
+-   $s_i = 1$ Die Beobachtung ist dem *richtigen* Cluster zugeordnet. Oder eher dem Cluster, der gut passt gegeben den Daten und der Anzahl an Clustern.
+-   $s_i = 0$ Die Beobachtung hätte ebenso gut einer anderen Gruppe zugeordnet werden können. Und wurde also eher zufällig dem Cluster zugeordnet.
+-   $s_i = -1$ Die Beobachtung ist schlecht zugeordnet. Und sollte damit eher einem anderen Cluster zugeordnet werden, den es vielleicht nicht gibt, da du zu wenige Clustergruppen vorab definiert hast.
 
 Es kann darüber hinaus die durchschnittliche Silhouettenbreite über alle Beobachtungen berechnet werden, womit sich die Gruppenbildung als Ganzes beurteilen lässt. Die durchschnittliche Silhouettenbreite wird analog interpretiert.
 
