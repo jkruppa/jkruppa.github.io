@@ -6,8 +6,6 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 
 *Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
 
-![](images/caution.png){fig-align="center" width="50%"}
-
 > *"Cluster together like stars!" --- Henry Miller*
 
 In diesem Kapitel wollen wir uns mit der Clusteranalyse beschäftigen. Zuerst was verstehen wir unter einem Cluster? Ein Cluster ist ein Zusammenschluss von ähnlichen Beobachtungen. Nun stellt sich zuerst die Frage, was heißt ähnlich? Wir brauchen also Maßzahlen für die Ähnlichkeit zwischen zwei und mehreren Beobachtungen. In unserem Datensatz haben wir ja nicht nur zwei Beobachtungen, also Zeilen, sondern sehr viel mehr. Im Weiteren haben wir in erster Linie kein Outcome $y$. Wir nehmen alle Spalten $x$ aus unseren Daten und versuchen anhand der Spalten Gruppen über die Beobachtungen in den Zeilen zu bilden. Manchmal wollen wir dann *nachräglich* die Cluster nach einer Spalte in unseren ursprünglichen Daten einfärben oder benennen. Dieses Benennen von bekannten Zuordnungen hat aber erstmal mit dem Clusteralgorithmus nichts zu tun. Wir schauen uns im Folgenden diese Schwerpunktthemen an.
@@ -677,14 +675,18 @@ Wie du schon oben gesehen hast, ist es teilweise echt nervig immer die `row.name
 
 ### Hierarchical Clustering
 
+Im Folgenden also einmal der Ablauf in `tidyclust` für die hierarchische Clusteranalyse. Auch hier müssen wir im ersten Schritt einmal festlegen welche Anzahl an Clustern `num_clusters` wir wollen. Dann müssen wir auch noch festlegen, welche *linkage* Methode wir wollen. Ich nehme hier einmal die `average` Methode. Damit haben wir aber noch nichts gerechnet, sondern nur ein Objekt erschaffen in dem steht, was wir machen wollen.
+
 ::: column-margin
 [tidyclust Hilfeseite für das Hierarchical Clustering](https://tidyclust.tidymodels.org/articles/hier_clust.html)
 :::
 
 ```{r}
 hc_spec <- hier_clust(num_clusters = 3,
-                       linkage_method = "average")
+                      linkage_method = "average")
 ```
+
+Jetzt können wir das Objekt `hc_spec` in die Funktion `fit()` pipen, die uns dann die hierarchische Clusteranalyse rechnet. Da wir in der Funktion `fit()` bestimmen können, welche Spalten mit in den Algorithmus sollen, müssen wir nicht umständlich mit einem vollem Datensatz arbeiten.
 
 ```{r}
 hc_fit <- hc_spec %>%
@@ -692,32 +694,26 @@ hc_fit <- hc_spec %>%
       data = gummi_tbl)
 ```
 
-Wenn es zu lang wird dann auch `fit(~ .)`
-
-```{r}
-#| echo: true
-#| message: false
-#| warning: false
-#| label:   fig-cluster-11
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: "."
-
-ggdendrogram(hc_fit$fit, rotate = FALSE, size = 2) +
-  theme_bw()
-```
+Wenn es zu lang wird dann geht auch `fit(~ .)`, dann ist es aber ehrlich gesagt besser, die Variante mit dem `data.frame()` zu nutzen. In diesem Fall nimmst du dann ja wieder alle Spalten mit rein. Mit dem `hc_fit` kannst du dann ganz normal weiterarbeiten. Die Funktion `extract_fit_summary()` erlaubt es dir dann die wichtigsten Informationen aus dem Fit rauszuziehen und über `cluster_assignments` kommst du dann an die Clusterzuordnungen ran.
 
 ```{r}
 hc_summary <- hc_fit %>% 
   extract_fit_summary()
+```
 
+Im Folgenden einmal die ersten sieben Clusterzuordnungen.
+
+```{r}
 hc_summary %>% 
   pluck("cluster_assignments") %>% 
   head(7)
 ```
 
+Die weitere Analyse ist dann wie auch oben. Du kannst dir dann einen Silhouettenplot erstellen lassen oder aber die Ergebnisse in einem Dendrogramm visualisieren. Das ist dann alles das Gleiche.
+
 ### k-means Clustering
+
+Auch gibt es für den `kmeans` Algorithmus eine bessere Variante für einen sauberen Workflow. Auch hier wird als erstes einmal der Algorithmus definiert. In unserem Fall heißt er dann `k_means()`. Wir wählen mit `num_clusters` die Anzahl an Gruppen, die am Ende raus kommen sollen.
 
 ::: column-margin
 [tidyclust Hilfeseite für das k-means Clustering](https://tidyclust.tidymodels.org/articles/k_means.html)
@@ -725,14 +721,9 @@ hc_summary %>%
 
 ```{r}
 kmeans_spec <- k_means(num_clusters = 3)
-
-kmeans_spec
 ```
 
-```{r}
-kmeans_spec_lloyd <- k_means(num_clusters = 3) %>%
-  parsnip::set_engine("stats", algorithm = "Lloyd")
-```
+Danach können wir dann unsere Informationen über den Algorithmus in die Funktion `fit()` weiterleiten. In der `fit()` Funktion definieren wir dann die Spalten, die für das Clustern von Bedeutung sein sollen.
 
 ```{r}
 kmeans_fit <- kmeans_spec %>%
@@ -740,31 +731,14 @@ kmeans_fit <- kmeans_spec %>%
       data = gummi_tbl)
 ```
 
-```{r}
-kmeans_fit$fit
-```
+Wir können auch hier über die Funktion `extract_cluster_assignment()` die Clusterzugehörigkeiten erhalten. Damit können wir dann prinzipiell auch schon aufhören und die Visualisierungen erstellen, die wir aus den vorherigen Abschnitten kennen.
 
 ```{r}
 kmeans_fit %>%
   extract_cluster_assignment()
 ```
 
-```{r}
-kmeans_summary <- kmeans_fit %>%
-  extract_fit_summary()
-```
-
-```{r}
-tibble(
-  orig_labels = kmeans_summary$orig_labels,
-  standard_labels = kmeans_summary$cluster_assignments
-)
-```
-
-```{r}
-kmeans_fit %>%
-  extract_centroids()
-```
+Mit der Funktion `extract_fit_summary()` erhalten wir dann noch zusätzliche Informationen, da musst du dann aber mal auf der Hilfeseite schauen, was du konkret an Informationen brauchst. Da gibt es wieder eine Menge. Am Ende kannst du dir dann noch die Informationen zu dem durchschnittlichen Silhouettenwert wiedergeben lassen um Modelle untereinander vergleichen zu können. Der Vergleich geht hier natürlich schneller, da du einfacher Variablen aus dem Modell nehmen kannst als dir immer weider enue Datensätze zu bauen.
 
 ```{r}
 kmeans_fit %>%
