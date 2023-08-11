@@ -29,9 +29,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, conflicted, broom,
-               see, emmeans, multcomp, scales, performance,
-               effectsize, parameters)
+pacman::p_load(tidyverse, magrittr, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -46,6 +44,65 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ![Visualisierung des *complete randomized design* mit einer Behandlung und vier Behandlungsleveln.](images/experimental-design-table-crd.png){#fig-design-table-crd fig-align="center" width="50%"}
 
+$$
+y \sim \overbrace{trt}^{f_1} 
+$$
+
+```{r}
+crd_long_tbl <- expand_grid(trt = 1:4, rep = 1:4) %>% 
+  mutate(trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
+         rep = factor(rep, labels = as.roman(1:4)),
+         id = sample(1:n()))
+
+crd_plot_tbl <- crd_long_tbl %>% 
+  arrange(id) %>% 
+  bind_cols(expand_grid(row = 1:4, col = 1:4))
+  
+```
+
+```{r}
+#| message: false
+#| warning: false
+ggdesplot(data = crd_plot_tbl, 
+          form = trt ~ col + row,
+          text = trt, cex = 1, show.key = FALSE, shorten = "no", flip = TRUE)
+```
+
+`pivot_wider()`
+
+```{r}
+crd_wide_tbl <- pivot_wider(crd_long_tbl, names_from = rep, values_from = id)
+crd_wide_tbl
+```
+
+::: {.callout-caution collapse="true"}
+## Und zurück mit `pivot_longer()`
+
+```{r}
+#| eval: false
+#| message: false
+#| warning: false
+
+crd_wide_tbl %>% 
+  pivot_longer(cols = I:IV,
+               names_to = "rep",
+               values_to = "id")
+```
+:::
+
+```{r}
+#| eval: false
+#| message: false
+#| warning: false
+crd_wide_tbl %>% 
+  write_xlsx("template_sheet.xlsx")
+```
+
+```{r}
+sample(1:16) %>% 
+  matrix(ncol = 4, nrow = 4)
+```
+
 ## Randomized complete block design (RCBD) {#sec-rcbd}
 
 ::: {#fig-table-rcbd .column-page layout-ncol="2"}
@@ -55,6 +112,112 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 Visualisierung der zwei Möglichkeiten ein *Randomized complete block design* zu konstruieren.
 :::
+
+$$
+y \sim \overbrace{trt}^{f_1} + \underbrace{block}_{f_2} 
+$$
+
+```{r}
+rcbd_long_tbl <- expand_grid(block = 1:4, 
+                             trt = 1:4) %>% 
+  mutate(trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
+         block = factor(block, labels = as.roman(1:4)),
+         id = 1:n()) %>% 
+  group_by(block) %>% 
+  mutate(trt = sample(trt))
+```
+
+```{r}
+rcbd_plot_tbl <- rcbd_long_tbl %>% 
+  arrange(id) %>% 
+  bind_cols(expand_grid(row = 1:4, col = 1:4))
+  
+```
+
+```{r}
+ggdesplot(data = rcbd_plot_tbl, 
+          form = trt ~ row + col,
+          out1 = block,
+          text = trt, cex = 1, show.key = FALSE, shorten = "no")
+```
+
+`pivot_wider()`
+
+```{r}
+rcbd_wide_tbl <- pivot_wider(rcbd_long_tbl, names_from = block, values_from = id)
+rcbd_wide_tbl
+```
+
+::: {.callout-caution collapse="true"}
+## Und zurück mit `pivot_longer()`
+
+```{r}
+#| eval: false
+#| message: false
+#| warning: false
+
+rcbd_wide_tbl %>% 
+  pivot_longer(cols = I:IV,
+               names_to = "block",
+               values_to = "id")
+```
+:::
+
+```{r}
+#| eval: false
+#| message: false
+#| warning: false
+rcbd_wide_tbl %>% 
+  write_xlsx("template_sheet.xlsx")
+```
+
+## Faktordesign
+
+$$
+y \sim \overbrace{trt}^{f_1} + \underbrace{block}_{f_2} + \overbrace{location}^{f_3}
+$$
+
+```{r}
+three_fct_long_tbl <- expand_grid(location = 1:2, trt = 1:4, block = 1:4) %>% 
+  mutate(location = factor(location, labels = c("north", "south")),
+         trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
+         block = factor(block, labels = as.roman(1:4)),
+         id = sample(1:n()))
+
+three_fct_long_tbl
+```
+
+```{r}
+three_fct_wide_tbl <- three_fct_long_tbl %>% 
+  split(.$location) %>% 
+  map(~pivot_wider(., names_from = block, values_from = id)) %>% 
+  bind_rows()
+
+three_fct_wide_tbl
+```
+
+::: {.callout-caution collapse="true"}
+## Und zurück mit `pivot_longer()`
+
+```{r}
+#| eval: false
+#| message: false
+#| warning: false
+
+crd_wide_tbl %>% 
+  pivot_longer(cols = I:IV,
+               names_to = "block",
+               values_to = "id")
+```
+:::
+
+```{r}
+#| eval: false
+#| message: false
+#| warning: false
+three_fct_wide_tbl %>% 
+  write_xlsx("template_sheet.xlsx")
+```
 
 ## Latin square design (LSD) {#sec-lsd}
 

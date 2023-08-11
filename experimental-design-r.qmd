@@ -27,109 +27,60 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-set.seed(20230811)
+set.seed(20230812)
 pacman::p_load(tidyverse, magrittr, writexl, agricolae,
                desplot,
                conflicted)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
-conflict_prefer("set_names", "magrittr")
-cbbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", 
-                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+conflicts_prefer(magrittr::set_names)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
 
-:::
-
 ## Selbermachen mit `expand_grid()`
 
-Wir gehen immer von einem balanzierten Design aus.
+Wenn wir uns das experimentelle Design selber zusammenprogrammieren können wir auf das `tidyverse` Paket zurückgreifen und haben dann ein schöneres Leben. Wir müssen zwar etwas mehr beachten, aber dafür sind wir auch sehr viel mehr flexibel. Deshalb stelle ich für die einfacheren Designs in den folgenden Kapiteln auch immer den Code zum Selbermachen vor. Hier gibt es jetzt einmal die Grundidee am *Complete randomized design (CRD)*. Wir gehen immer von einem balancierten Design aus, dass heißt in jeder Behandlungsgruppe sind gleich viele Beobachtungen.
+
+Nehmen wir folgendes simples Modell. Wir wollen untersuchen, ob das Trockengewicht *drymatter* von einer Behandlung *trt* abhängt. Wir werden uns dann gleich noch entscheiden, wie viele Behandlungsgruppen wir wollen und wie viele Wiederholungen wir pro Behandlungsgruppe nehmen.
 
 $$
-y \sim \overbrace{trt}^{f_1} + \underbrace{block}_{f_2} 
+drymatter \sim \overbrace{trt}^{f_1} 
 $$
+
+Zentral für unsere Überlegungen ist die Funktion `expand_grid()`, die es uns einfach erlaubt alle Faktorkombinationen aus zwei oder mehr Vektoren zu erstellen. Wir haben im Folgenden im Vektor `a` die Zahlen 1 bis 3 und in dem Vektor `b` die Zahlen 1 und 2. Jetzt wollen wir alle Kombinationen von `a` und `b` haben und nutzen dafür `expand_grid()`.
 
 ```{r}
-crd_long_tbl <- expand_grid(trt = 1:4, block = 1:4) %>% 
+expand_grid(a = 1:3, b = 1:2)
+```
+
+Jetzt einmal konkreter auf unser Beispiel angewandt. Wir wollen vier Behandlungsgruppen und in jeder Behandlungsgruppe fünf Wiederholungen `rep`. Dann benennen wir noch die Behandlungen mit `ctrl`, `A`, `B` und `C`. Unsere Wiederholungen kriegen die Zahlen von 1 bis 5. Jetzt kannst du dir noch überlegen, ob du eine Pflanzenidentifizierungsnummer `pid` vergeben möchtest oder nicht. Wir lassen die `pid` erstmal weg, dann aktuell brauchen wir die `pid` nicht.
+
+```{r}
+crd_long_tbl <- expand_grid(trt = 1:4, rep = 1:5) %>% 
   mutate(trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
-         block = factor(block, labels = as.roman(1:4)),
-         id = sample(1:n()))
-
-crd_plot_tbl <- crd_long_tbl %>% 
-  arrange(id) %>% 
-  bind_cols(expand_grid(row = 1:4, col = 1:4))
-  
+         rep = factor(rep, labels = 1:5)) 
+crd_long_tbl
 ```
 
-```{r}
-ggdesplot(data = crd_plot_tbl, 
-          form = trt ~ col + row,
-          text = trt, cex = 1, show.key = FALSE, shorten = "no", flip = TRUE)
-```
-
-`pivot_wider()`
-
-```{r}
-crd_wide_tbl <- pivot_wider(crd_long_tbl, names_from = block, values_from = id)
-crd_wide_tbl
-```
-
-::: {.callout-caution collapse="true"}
-## Und zurück mit `pivot_longer()`
+Dann kannst du dir die Datei mit der Funktion `write_xlsx()` aus dem R Paket `writexl` raus schreiben und dann entsprechend mit deinen Messwerten für das Trockengewicht ergänzen.
 
 ```{r}
 #| eval: false
 #| message: false
 #| warning: false
-
-crd_wide_tbl %>% 
-  pivot_longer(cols = I:IV,
-               names_to = "block",
-               values_to = "id")
-```
-:::
-
-```{r}
-#| eval: false
-#| message: false
-#| warning: false
-crd_wide_tbl %>% 
+crd_long_tbl %>% 
   write_xlsx("template_sheet.xlsx")
 ```
 
-```{r}
-sample(1:16) %>% 
-  matrix(ncol = 4, nrow = 4)
-```
-
-$$
-y \sim \overbrace{trt}^{f_1} + \underbrace{block}_{f_2} + \overbrace{location}^{f_3}
-$$
+Wenn du für deine zwanzig Pflanzen noch ein Randomisierungmuster brauchst, dann empfehle ich dir die Folgende schnelle Art und Weise. Du nimmst die Zahlen von 1 bis 20 und mischt die Zahlen einmal mit der Funktion `sample()` durch. Dann erstellst du dir als dein Grid für deine Pflanzen mit einer $4 \times 5$-Matrix und pflanzt danach aus.
 
 ```{r}
-data_long_tbl <- expand_grid(location = 1:2, trt = 1:4, block = 1:4) %>% 
-  mutate(location = factor(location, labels = c("north", "south")),
-         trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
-         block = factor(block, labels = as.roman(1:4)),
-         id = sample(1:n()))
-
-data_long_tbl
+sample(1:20) %>% 
+  matrix(nrow = 4, ncol = 5,
+         dimnames = list(str_c("Reihe", 1:4, sep = "-"),
+                         str_c("Spalte", 1:5, sep = "-")))
 ```
 
-```{r}
-data_wide_lst <- data_long_tbl %>% 
-  split(.$location) %>% 
-  map(~pivot_wider(., names_from = block, values_from = id))
-
-data_wide_lst
-```
-
-```{r}
-data_wide_lst %>% 
-  write_xlsx("template_sheet.xlsx")
-```
+Es gibt natürlich noch andere Möglichkeiten, aber das ist jetzt die schnellste Variante.
 
 sample ID Spalte und fertig ist
 
@@ -191,6 +142,45 @@ rcbd_obj %>% pluck("sketch")
 ## Das R Paket `desplot`
 
 [Plotting field maps with the desplot package](https://cran.r-project.org/web/packages/desplot/vignettes/desplot_examples.html)
+
+Jetzt müssen wir noch unser Grid ergänzen auf dem wir unsere Pflanzen stellen wollen. In unserem Fall wollen wir unsere Pflanzen auf vier Zeilen `row` und fünf Spalten `col` stellen. Das bietet sich bei zwanzig Pflanzen dann ja auch an.
+
+```{r}
+crd_grid <- expand_grid(row = 1:4, col = 1:5)
+crd_grid  
+```
+
+Jetzt sortieren wir unsere Daten nach den Individuen und durchmischen damit auch gleichzeitig die Zuordnung von den Behandlungen. Dann ergänzen wir unser Grid für die Pflanzenpositionen durch die Funktion `bind_cols()`.
+
+```{r}
+crd_long_tbl <- crd_long_tbl %>% 
+  mutate(id = sample(1:n()))
+```
+
+```{r}
+crd_plot_tbl <- crd_long_tbl %>% 
+  arrange(id) %>% 
+  bind_cols(crd_grid)
+crd_plot_tbl  
+```
+
+In der @fig-exp-r-01 sehen wir einmal unser Design dargestellt. Wir sehen, dass wir die vier Behandlungen mit den fünf Wiederholungen zufällig über den ganzen Tisch verteilt haben.
+
+```{r}
+#| message: false
+#| warning: false
+#| label: fig-exp-r-01
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "foo"
+
+ggdesplot(data = crd_plot_tbl, 
+          form = trt ~ col + row,
+          text = trt, cex = 1, show.key = FALSE, 
+          shorten = "no", 
+          main = "Complete randomized design (CRD)")
+```
 
 ## Das R Paket `agridat`
 
