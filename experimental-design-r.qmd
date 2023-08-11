@@ -21,15 +21,16 @@ In diesem Kapitel wollen wir
 
 [dae: Functions Useful in the Design and ANOVA of Experiments](https://cran.r-project.org/web/packages/dae/index.html)
 
+Was heißt hier *nested* (deu. *verschachtelt*). Wer ist in was nested?
+
 ## Genutzte R Pakete für das Kapitel
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, conflicted, broom,
-               see, emmeans, multcomp, scales, performance,
-               effectsize, parameters)
+pacman::p_load(tidyverse, magrittr, writexl,
+               conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -42,17 +43,71 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 :::
 
-## Das R Paket `agricolae`
+## Selbermachen mit `expand_grid()`
+
+$$
+y \sim \overbrace{trt}^{f_1} + \underbrace{block}_{f_2} 
+$$
 
 ```{r}
+data_long_tbl <- expand_grid(trt = 1:4, block = 1:4) %>% 
+  mutate(trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
+         block = factor(block, labels = as.roman(1:4)),
+         id = sample(1:n()))
 
-data_tbl <- expand_grid(trt = 1:4, block = 1:4, rep = 1:5) %>% 
-    mutate(rsp = 20 + 2.5 * trt + 1.5 * block + rnorm(n(), 0, 1),
-           trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
-           block = factor(block, labels = as.roman(1:4)),
-           rep = as_factor(rep))
-
+data_long_tbl
 ```
+
+`pivot_wider()`
+
+```{r}
+data_wide_tbl <- pivot_wider(data_long_tbl, names_from = block, values_from = id)
+data_wide_tbl
+```
+
+```{r}
+#| eval: false
+#| message: false
+#| warning: false
+data_wide_tbl %>% 
+  write_xlsx("template_sheet.xlsx")
+```
+
+```{r}
+sample(1:16) %>% 
+  matrix(ncol = 4, nrow = 4)
+```
+
+$$
+y \sim \overbrace{trt}^{f_1} + \underbrace{block}_{f_2} + \overbrace{location}^{f_3}
+$$
+
+```{r}
+data_long_tbl <- expand_grid(location = 1:2, trt = 1:4, block = 1:4) %>% 
+  mutate(location = factor(location, labels = c("north", "south")),
+         trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
+         block = factor(block, labels = as.roman(1:4)),
+         id = sample(1:n()))
+
+data_long_tbl
+```
+
+```{r}
+data_wide_lst <- data_long_tbl %>% 
+  split(.$location) %>% 
+  map(~pivot_wider(., names_from = block, values_from = id))
+
+data_wide_lst
+```
+
+```{r}
+data_wide_lst %>% 
+  write_xlsx("template_sheet.xlsx")
+```
+
+sample ID Spalte und fertig ist
+
+## Das R Paket `agricolae`
 
 ## Das R Paket `desplot`
 
