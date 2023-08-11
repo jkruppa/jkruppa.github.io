@@ -27,7 +27,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, writexl,
+pacman::p_load(tidyverse, magrittr, writexl, agricolae,
+               desplot,
                conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
@@ -43,31 +44,42 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Selbermachen mit `expand_grid()`
 
+Wir gehen immer von einem balanzierten Design aus.
+
 $$
 y \sim \overbrace{trt}^{f_1} + \underbrace{block}_{f_2} 
 $$
 
 ```{r}
-data_long_tbl <- expand_grid(trt = 1:4, block = 1:4) %>% 
+crd_long_tbl <- expand_grid(trt = 1:4, block = 1:4) %>% 
   mutate(trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
          block = factor(block, labels = as.roman(1:4)),
          id = sample(1:n()))
 
-data_long_tbl
+crd_plot_tbl <- crd_long_tbl %>% 
+  arrange(id) %>% 
+  bind_cols(expand_grid(row = 1:4, col = 1:4) )
+  
+```
+
+```{r}
+ggdesplot(data = crd_plot_tbl, 
+          form = trt ~ col + row,
+          text = id, cex = 1, show.key = FALSE, shorten = "no", flip = TRUE)
 ```
 
 `pivot_wider()`
 
 ```{r}
-data_wide_tbl <- pivot_wider(data_long_tbl, names_from = block, values_from = id)
-data_wide_tbl
+crd_wide_tbl <- pivot_wider(crd_long_tbl, names_from = block, values_from = id)
+crd_wide_tbl
 ```
 
 ```{r}
 #| eval: false
 #| message: false
 #| warning: false
-data_wide_tbl %>% 
+crd_wide_tbl %>% 
   write_xlsx("template_sheet.xlsx")
 ```
 
@@ -107,9 +119,58 @@ sample ID Spalte und fertig ist
 
 ## Das R Paket `agricolae`
 
+Für die Erstellung von komplexeren experimentellen Designs fürht kein Weg an dem R Paket `agricolae` vorbei. Bei den einfacheren Designs ist es dann so eine Sache, ob du dir mit `agricolae` einen Gefallen tust oder eher die Sache sehr stark verkomplizierst. Ich würde dir bei den einfacheren Designs empfehlen einfach `exoand_grid()` wie oben beschrieben zu nutzen. Das its einfacher und funktioniert auch gut, wenn nicht gar besser.
+
+Wichtige Parameter bei der Erstellung des Designs:
+
+-   `series`: Eine Konstante, die verwendet wird, um numerische Markierungsblöcke festzulegen, z. B. Nummer = 2, die Etiketten lauten: 101, 102, für die erste Reihe oder den ersten Block, 201, 202, für die folgenden, im Falle eines vollständig randomisierten Designs ist die Nummerierung fortlaufend.
+-   `design`: Einige Merkmale des Entwurfs, die agricolae anfordert, werden speziell auf design.ab (faktoriell) oder design.split (geteilter Plot) angewandt, und ihre möglichen Werte sind: "rcbd", "crd" und "lsd".
+-   `seed`: Der Seed für die Zufallsgenerierung und sein Wert ist ein beliebiger reeller Wert, wenn der Wert Null ist, gibt es keine reproduzierbare Generierung, in diesem Fall eine Kopie des Wertes der outdesign\$Parameter.
+-   `kinds`: die Methode der Zufallsgenerierung, standardmäßig "Super-Duper".
+-   `first`: Bei einigen Mustern ist die erste Wiederholung nicht zufällig, vor allem im Blockmuster, wenn Sie zu zufällig wechseln wollen, ändern Sie auf TRUE: TRUE oder FALSE. Wenn false, wird die Randomisierung nicht durchgeführt
+
+Output design:
+
+-   `parameters`: die Eingabe zur Generierung Design, enthalten die Saatgut zur Generierung zufällig, wenn seed=0, das Programm einen Wert zu generieren und es ist möglich, das Design zu reproduzieren.
+-   `book`: Feldbuch
+-   `statistics`: die Informationsstatistiken das Design, z.B. Effizienzindex, Anzahl der Behandlungen.
+-   `sketch`: Verteilung der Behandlungen im Feld.
+
+Die Aufzählung der Parzellen
+
+-   `zigzag`: ist eine Funktion, die es Ihnen ermöglicht, die Nummerierung der Plots in der Richtung der Serpentine zu platzieren: Die Zickzack-Ausgabe wird durch ein Design erzeugt
+-   `fieldbook`: Ausgabe des Zickzacks, enthält Feldbuch.
+
 [Tutorium agricolae](https://cran.r-project.org/web/packages/agricolae/vignettes/tutorial.pdf)
 
 R Paket `agricolae` mit Beispielen von [Experimental Designs with agricolae](https://myaseen208.com/agricolae/articles/ExperimentalDesign.html) genauer einmal an.
+
+Der Vorteil ist hier, dass wir verschiedene Anzahlen von Individuen in die Generierung nehmen können. Also zum Beispiel drei Pflanzen in der Kontrolle und dann jeweils fünf Pflanzen in der Behandlung. Weil es aber dann meistens nicht auf die zwei Kontrollpflanzen weniger ankommt, machen wir immer ein balanziertes Design. Wenn es aber sein soll, dann ist es natürlich hier einfacher umzusetzen.
+
+```{r}
+crd_obj <- design.crd(trt = c("ctrl", "A", "B", "C"), r = c(3, 5, 5, 5), serie = 3)
+
+crd_book <- crd_obj %>% 
+  pluck("book") %>% 
+  set_names(c("plots", "r", "trt"))
+
+
+ggdesplot(data = crd_book, flip = TRUE,
+          form = trt ~ r + plots,              # fill color per variety
+          text = trt, cex = 1, shorten = "no", # show variety names per plot
+          main = "Field layout", show.key = F)     # formatting
+
+
+
+```
+
+```{r}
+rcbd_obj <- design.rcbd(trt = c("ctrl", "A", "B", "C"), r = 5)
+
+rcbd_obj %>% pluck("book")
+
+rcbd_obj %>% pluck("sketch")
+```
 
 ## Das R Paket `desplot`
 
