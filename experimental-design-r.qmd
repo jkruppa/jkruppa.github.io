@@ -23,23 +23,29 @@ Nirgendwo sonst findest du so einen Überblick über mögliche Pakete und Anwend
 
 Jetzt müssen wir doch noch auf den Begriff *nested* (deu. *verschachtelt*) kommen. Wenn wir über *nested* sprechen, dann meinen wir, dass Faktoren ineinander verschachtelt sind. Mit Faktoren meine ich experimentelle Bedingungen. Das klingt jetzt etwas wirr, aber wir machen das mal an einem Beispiel fest. Wir haben den Faktor `table` und *auf* dem Tisch stehen die Behandlungen des Faktors `trt` mit den jeweiligen Pflanzen. Also ist die Behandlung in den Tischen *genested*. Die Tische mögen in verschiedenen Gewächshäusern mit dem Faktor `location` stehen, also sind die Tische in den Gewächshäusern genested. Wir haben folgendes Schema vorliegen.
 
+::: column-page
 $$
 \mbox{Wiederholungen} \xrightarrow[]{nested} \overbrace{\mbox{Behandlungen}}^{f_1} \xrightarrow[]{nested} \underbrace{\mbox{Tische}}_{f_2} \xrightarrow[]{nested} \overbrace{\mbox{Gewächshauser}}^{f_3} 
 $$
+:::
 
 Damit haben wir dann aber auch *meistens* folgende Abhängigkeit von den jeweiligen Beobachtungen untereinander nach der wir dann unser Experiment planen müssen.
 
+::: column-page
 $$
 \overbrace{\mbox{Gewächshauser}}^{f_3} \xrightarrow[]{beinhaltet\; alle} \underbrace{\mbox{Tische}}_{f_2} \xrightarrow[]{beinhaltet\; alle} \overbrace{\mbox{Behandlungen}}^{f_1} \xrightarrow[]{beinhaltet\; alle} \mbox{Wiederholungen}
 $$
+:::
 
 Okay, das ist jetzt abstrakt. Machen wir das mal konkret mit einem Beispiel mit drei Behandlungen gegen Blattläuse auf jeweils vier Tischen in drei Gewächshäusern. Pro Behandlung nehmen wir fünf Pflanzen. Damit ergibt sich folgendes Schema mit den jeweiligen Anzahlen darübergeschrieben.
 
+::: column-page
 $$
 \overbrace{\mbox{Gewächshauser}}^{n_g = 3} \xrightarrow[]{beinhaltet\; alle} \underbrace{\mbox{Tische}}_{n_t = 4} \xrightarrow[]{beinhaltet\; alle} \overbrace{\mbox{Behandlungen}}^{n_b = 3} \xrightarrow[]{beinhaltet\; alle} \underbrace{\mbox{Wiederholungen}}_{n_w = 5}
 $$
+:::
 
-Jetzt können wir auch ausrechnen, wie viele Pflanzentöpfe wir brauchen. Wir multiplizieren alle $n$-Angaben miteinander und erhalten $n_{gesamt} = n_g \cdot n_t \cdot n_b \cdot n_w = 3 \cdot 4 \cdot 3 \cdot 5 = 180$
+Jetzt können wir auch ausrechnen, wie viele Pflanzentöpfe wir brauchen. Wir multiplizieren alle $n$-Angaben miteinander und erhalten $n_{gesamt} = n_g \cdot n_t \cdot n_b \cdot n_w = 3 \cdot 4 \cdot 3 \cdot 5 = 180$ Pflanzen. Jetzt ist immer die Frage, sind das zu viele oder zu wenig? Das wollen wir uns dann am Ende in dem Kapitel zur Fallzahlplanung anschauen. Hier geht es erstmal um die technische Umsetzung.
 
 ## Genutzte R Pakete für das Kapitel
 
@@ -49,7 +55,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 set.seed(20230812)
 pacman::p_load(tidyverse, magrittr, writexl, agricolae,
-               desplot,
+               desplot, dae,
                conflicted)
 conflicts_prefer(magrittr::set_names)
 ```
@@ -103,63 +109,74 @@ crd_long_tbl$pid %>%
                          str_c("Spalte", 1:5, sep = "-")))
 ```
 
-Es gibt natürlich noch andere Möglichkeiten, aber das ist jetzt die schnellste Variante.
+Es gibt natürlich noch andere Möglichkeiten, aber das ist jetzt die schnellste Variante ein gutes Randomisierungsmuster hinzukriegen.
 
 ## Das R Paket `agricolae`
 
-Für die Erstellung von komplexeren experimentellen Designs führt kein Weg an dem R Paket `agricolae` vorbei. Bei den einfacheren Designs ist es dann so eine Sache, ob du dir mit `agricolae` einen Gefallen tust oder eher die Sache sehr stark verkomplizierst. Ich würde dir bei den einfacheren Designs empfehlen einfach `exoand_grid()` wie oben beschrieben zu nutzen. Das ist einfacher und funktioniert auch gut, wenn nicht gar besser. Darüber hinaus ist die Hilfe der Funktionen teilweise etwas sehr mager und die Weiterentwicklung eher fraglich.
+Für die Erstellung von komplexeren experimentellen Designs führt kein Weg an dem R Paket `agricolae` vorbei. Bei den einfacheren Designs ist es dann so eine Sache, ob du dir mit `agricolae` einen Gefallen tust oder eher die Sache sehr stark verkomplizierst. Ich würde dir bei den einfacheren Designs empfehlen einfach `exoand_grid()` wie oben beschrieben zu nutzen. Das ist einfacher und funktioniert auch gut, wenn nicht gar besser. Darüber hinaus ist die Hilfe der Funktionen teilweise etwas sehr mager und die Weiterentwicklung eher fraglich. Für das Paket `agricolae` gibt es zwe i ziemlich identische Tutorien einmal das [Tutorium agricolae als PDF](https://cran.r-project.org/web/packages/agricolae/vignettes/tutorial.pdf) und einmal mit Beispielen von der Webseite [Experimental Designs with agricolae](https://myaseen208.com/agricolae/articles/ExperimentalDesign.html). Beide Tutorien sind identisch, dass eine ist ein PDF und das andere eine Webseite.
 
-Wichtige Parameter bei der Erstellung des Designs mit den Funktionen von `agricolae`:
+So dann schauen wir uns mal die gängigen Parameter bei der Erstellung des Designs mit den Funktionen von `agricolae` an:
 
--   `series`: Eine Konstante, die verwendet wird, um numerische Markierungsblöcke festzulegen, z. B. Nummer = 2, die Etiketten lauten: 101, 102, für die erste Reihe oder den ersten Block, 201, 202, für die folgenden, im Falle eines vollständig randomisierten Designs ist die Nummerierung fortlaufend.
--   `design`: Einige Merkmale des Entwurfs, die agricolae anfordert, werden speziell auf design.ab (faktoriell) oder design.split (geteilter Plot) angewandt, und ihre möglichen Werte sind: "rcbd", "crd" und "lsd".
--   `seed`: Der Seed für die Zufallsgenerierung und sein Wert ist ein beliebiger reeller Wert, wenn der Wert Null ist, gibt es keine reproduzierbare Generierung, in diesem Fall eine Kopie des Wertes der outdesign\$Parameter.
--   `kinds`: die Methode der Zufallsgenerierung, standardmäßig "Super-Duper".
--   `first`: Bei einigen Mustern ist die erste Wiederholung nicht zufällig, vor allem im Blockmuster, wenn Sie zu zufällig wechseln wollen, ändern Sie auf TRUE: TRUE oder FALSE. Wenn false, wird die Randomisierung nicht durchgeführt
+-   `series`: legt fest wie viele Zeichen plus 1 die Nummerierung der Zeile haben soll. Wenn wir `series = 2` setzen, dann zählen wir mit 101, 102, 203 usw. die Zeilen hoch. Im Falle eines vollständig randomisierten Designs ist die Nummerierung fortlaufend.
+-   `seed`: der Seed für die Zufallsgenerierung und sein Wert ist eine beliebige Zahl.
+-   `kinds`: die Methode der Zufallsgenerierung, standardmäßig "Super-Duper" und interessiert uns hier nicht besonders.
 -   `randomization`: Soll das Design randomisiert werden?
 
-Output design:
+Und Folgendes kommt dann bei `agricolae` als Ausgabe raus. Zwar nicht immer, aber das ist der grobe Überblick.
 
--   `parameters`: die Eingabe zur Generierung Design, enthalten die Saatgut zur Generierung zufällig, wenn seed=0, das Programm einen Wert zu generieren und es ist möglich, das Design zu reproduzieren.
--   `book`: Feldbuch
--   `statistics`: die Informationsstatistiken das Design, z.B. Effizienzindex, Anzahl der Behandlungen.
--   `sketch`: Verteilung der Behandlungen im Feld.
+-   `parameters`: die Eingabe zur Generierung des Designs. Wir erhalten also nochmal unsere Werte wieder, die wir eingegeben haben. Meistens nicht von Interesse.
+-   `book`: Das Feldbuch indem das wichtige drin steht, nämlich unsere generiertes Faktordesign.
+-   `statistics`: die Informationsstatistiken das Design, die wir noch zusätzlich kriegen. Diese nutzen wir nur für komplexere Designs.
+-   `sketch`: Verteilung der Behandlungen im Feld. Wird uns nicht immer wiedergeben und ist als Hilfe für die direkte Anwendung gedacht.
 
-Die Aufzählung der Parzellen
+Wenn wir Parzellen anlegen, dann erhalten wir auch noch folgende Informationen wieder. Dfür muss dann aber auch das experimentelle Design entsprechende Parzellen haben.
 
--   `zigzag`: ist eine Funktion, die es Ihnen ermöglicht, die Nummerierung der Plots in der Richtung der Serpentine zu platzieren: Die Zickzack-Ausgabe wird durch ein Design erzeugt
--   `fieldbook`: Ausgabe des Zickzacks, enthält Feldbuch.
+-   `zigzag`: ist eine Funktion, die es erlaubt die Verteilung der Beobachtungen entlang der Parzellen zu kontrollieren. Meistens ist es etwas zu viel des Guten, aber gut das du hier noch Änderungen vornehmen kannst.
+-   `fieldbook`: Ausgabe des Zickzacks aus der obigen Funktion und das entsprechende Feldbuch mit dem Design.
 
-[Tutorium agricolae](https://cran.r-project.org/web/packages/agricolae/vignettes/tutorial.pdf)
+Es gibt eine weitreichende Anzahl an `design.*`-Funktionen für sehr viele Designs. Wir schauen uns also jetzt einmal als Beispiel die Funktion `design.crd()` an um ein *complete randomized design* zu erstellen. Der Vorteil der Funktion ist hier, dass wir verschiedene Anzahlen von Individuen in die Generierung des Designs nehmen können. Also zum Beispiel drei Pflanzen in der Kontrolle und dann jeweils fünf Pflanzen in der Behandlung. Weil es aber dann meistens nicht auf die zwei Kontrollpflanzen weniger ankommt, machen wir immer ein balanciertes Design. Wenn es aber unbalanciert sein soll, dann ist es natürlich hier einfacher umzusetzen als mit `expand_grid()`.
 
-R Paket `agricolae` mit Beispielen von [Experimental Designs with agricolae](https://myaseen208.com/agricolae/articles/ExperimentalDesign.html) genauer einmal an.
-
-Der Vorteil ist hier, dass wir verschiedene Anzahlen von Individuen in die Generierung nehmen können. Also zum Beispiel drei Pflanzen in der Kontrolle und dann jeweils fünf Pflanzen in der Behandlung. Weil es aber dann meistens nicht auf die zwei Kontrollpflanzen weniger ankommt, machen wir immer ein balanziertes Design. Wenn es aber sein soll, dann ist es natürlich hier einfacher umzusetzen.
+In den Designfunktionen haben wir meistens einmal die Option für die Behandlung `trt` sowie für die Wiederholungen `r`. Leider ist es so, dass je nach Design die Option `r` mal die Wiederholungen oder aber die Blöcke beschreibt. Schau dir da bitte die Beispiele an. Im Weiteren haben wir dann noch die `serie` Option, die einfach die Nummerierung auf Hunderter setzt.
 
 ```{r}
-crd_obj <- design.crd(trt = c("ctrl", "A", "B", "C"), r = c(3, 5, 5, 5), serie = 3)
+crd_obj <- design.crd(trt = c("ctrl", "A", "B", "C"), 
+                      r = c(3, 5, 5, 5), serie = 2)
+```
 
+Nun ist es so, dass die Funktion den Spaltennamen der Behandlung auf `c("ctrl", "A", "B", "C")` setzt anstatt auf einen Namen. Dafür müssten wir dann einen Vektor mit Namen übergeben, aber das wird mir dann irgendwann zu wirr. Deshalb nenne ich dann alle Spalten nochmal mit der Funktion `set_names()` entsprechend um und erschaffe mir einen `tibble`.
+
+```{r}
 crd_book <- crd_obj %>% 
   pluck("book") %>% 
+  as_tibble() %>% 
   set_names(c("plots", "r", "trt"))
-
-
-ggdesplot(data = crd_book, flip = TRUE,
-          form = trt ~ r + plots,              # fill color per variety
-          text = trt, cex = 1, shorten = "no", # show variety names per plot
-          main = "Field layout", show.key = F)     # formatting
-
-
-
+crd_book
 ```
+
+Wir haben kein `sketch` aus der Funktion. Daher müssen wir uns selber überlegen, wie wir dann die Pflanzen anordnen würden. Darüber hinaus ist die Ordnung wild, ich sehe da eher weniger Struktur in der Ausgabe, als das mir es hilft. Aber dazu dann mehr in den folgenden Kapiteln. Hier ist es erstmal die stumpfe Durchführung am Beispiel des *complete randomized design*.
+
+Das Paket `agricolae` hat keine interne Möglichkeit sich die Designs zu visualisieren.
+
+::: {.callout-important collapse="true"}
+## Fehlende Einbindung von `agricolae` in andere R Pakete
+
+In der @fig-exp-r-02 sehen wir die Problematik mit der fehlenden Einbindung von `agricolae` in das Paket `desplot`. Die Abbildung ist einfach suboptimal. Da wir in dem Feldbuch von `agricolae` keine Zeilen und Spalten der Position wiederbekommen, können wir das Design nicht sauber darstellen. Leider liefert uns die Funktion `design.crd()` auch keine Verteilung der Behandlungen im Feld, so dass wir hier alles selber bauen müssten. Dann geht es mit `expand_grid()` schneller.
 
 ```{r}
-rcbd_obj <- design.rcbd(trt = c("ctrl", "A", "B", "C"), r = 5)
+#| message: false
+#| warning: false
+#| label: fig-exp-r-01
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "Beispiel für die fehlende Einbindung von `agricolae` durch `desplot`. Da `agricolae` für durch die Funktion `design.crd()` keine Positionen in Zeile und Spalte liefert kann nur ein suboptimaler Plot erstellt werden."
 
-rcbd_obj %>% pluck("book")
-
-rcbd_obj %>% pluck("sketch")
+ggdesplot(data = crd_book, flip = TRUE,
+          form = trt ~ r + plots,              
+          text = trt, cex = 1, shorten = "no", 
+          main = "Field layout", show.key = F)    
 ```
+:::
 
 ## Das R Paket `desplot`
 
@@ -191,7 +208,7 @@ In der @fig-exp-r-01 sehen wir einmal unser Design dargestellt. Wir sehen, dass 
 ```{r}
 #| message: false
 #| warning: false
-#| label: fig-exp-r-01
+#| label: fig-exp-r-02
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 5
