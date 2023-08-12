@@ -64,7 +64,7 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Selbermachen mit `expand_grid()`
 
-Wenn wir uns das experimentelle Design selber zusammenprogrammieren können wir auf das `tidyverse` Paket zurückgreifen und haben dann ein schöneres Leben. Wir müssen zwar etwas mehr beachten, aber dafür sind wir auch sehr viel mehr flexibel. Deshalb stelle ich für die einfacheren Designs in den folgenden Kapiteln auch immer den Code zum Selbermachen vor. Hier gibt es jetzt einmal die Grundidee am *Complete randomized design (CRD)*. Wir gehen immer von einem balancierten Design aus, dass heißt in jeder Behandlungsgruppe sind gleich viele Beobachtungen.
+Wenn wir uns das experimentelle Design selber zusammen programmieren können wir auf das `tidyverse` Paket zurückgreifen und haben dann ein schöneres Leben. Wir müssen zwar etwas mehr beachten, aber dafür sind wir auch sehr viel mehr flexibel. Deshalb stelle ich für die einfacheren Designs in den folgenden Kapiteln auch immer den Code zum Selbermachen vor. Hier gibt es jetzt einmal die Grundidee am *Complete randomized design (CRD)*. Wir gehen immer von einem balancierten Design aus, dass heißt in jeder Behandlungsgruppe sind gleich viele Beobachtungen.
 
 Nehmen wir folgendes simples Modell. Wir wollen untersuchen, ob das Trockengewicht *drymatter* von einer Behandlung *trt* abhängt. Wir werden uns dann gleich noch entscheiden, wie viele Behandlungsgruppen wir wollen und wie viele Wiederholungen wir pro Behandlungsgruppe nehmen.
 
@@ -221,10 +221,46 @@ ggdesplot(data = crd_plot_tbl,
           main = "Complete randomized design (CRD)")
 ```
 
-## Das R Paket `agridat`
-
-[agridat: Agricultural Datasets](https://cran.r-project.org/web/packages/agridat/index.html)
-
 ## Das R Paket `dae`
 
-[dae: Functions Useful in the Design and ANOVA of Experiments](https://cran.r-project.org/web/packages/dae/index.html)
+Ein weiteres R Paket, was es ermöglicht *komplexere* Experimente zu designen ist das R Paket `dae`. Über die Hilfeseite [dae: Functions Useful in the Design and ANOVA of Experiments](https://cran.r-project.org/web/packages/dae/vignettes/DesignNotes.pdf) kannst du dir das Tutorium anschauen.
+
+Das R Paket `dae` hat für die Faktorerstellung in Gruppen eine eigne Funktion `fac.gen()`. Mit der Funktion können wir recht einfach Faktoren generieren. Bei einfachen Beispielen wie dem *randomized complete block design* (RCBD) bräuchten wir die Funktion eigentlich nicht, aber hier einmal zur Demonstration.
+
+```{r}
+rcbd_sys <- cbind(fac.gen(generate = list(rows = 5, columns = 4)),
+                  fac.gen(generate = list(treatments = LETTERS[1:4]), times = 5))
+```
+
+Wir können auch mit der Funktion `expand_grid()` von weiter oben relativ einfach das Pflanzengrid nachbauen. Da brauchen wir eigentlich nicht die Funktion `fac.gen()`. In den komplexeren Beispielen ist die Funktion dann aber hilfreich.
+
+```{r}
+rcbd_sys <- expand_grid(rows = 1:5,
+                        columns = 1:4) %>% 
+  mutate(treatments = factor(columns, labels = LETTERS[1:4]),
+         rows = as_factor(rows),
+         columns = as_factor(columns))
+```
+
+```{r}
+rcbd_lay <- designRandomize(allocated = rcbd_sys["treatments"],
+                            recipient = rcbd_sys[c("rows", "columns")],
+                            nested.recipients = list(columns = "rows"),
+                            seed = 1134)
+rcbd_lay 
+```
+
+-   `allocated`: Ist meistens der Faktor unserer Behandlung und damit der zugeordnete Faktor. Das heißt, wir wollen diesen Faktor auf das Grid aus Zeilen und Spalten verteilen bzw. zuordnen. In unserem Fall die vier Behandlungen.
+-   `recipient`: Ist der Faktor, dem die Behandlungsgruppen zugeordnet werden. Damit auch das Grid, was den Behandlungsfaktor empfängt. Wir haben hier also Zeilen `rows` und Spalten `columns` in denen unsere Behandlung zufällig verteilt werden soll.
+-   `nested.recipients`: Hier wird angegeben, in welcher Abhängigkeitsstruktur das Grid vorliegt. Unsere Blöcke sind in diesem Fall über die Zeilen orientiert.
+
+```{r}
+designGGPlot(rcbd_lay, labels = "treatments", 
+             row.factors = "rows", column.factors = "columns",
+             cellalpha = 0.75,
+             blockdefinition = cbind(1, 4))
+```
+
+## Das R Paket `agridat`
+
+Eine wunderbare Sammlung von Datensätzen aus dem Bereich der Agarwissenschaften liefert das R Paket `agridat`. Über die Hilfeseite [agridat: Agricultural Datasets](https://cran.r-project.org/web/packages/agridat/index.html) findest du dann einmal einen gesamten Überblick und auch die Informationen über einige ausgewählte Datensätze aus Dutzenden von Datensätzen. Alle Datensätze der wichtigen Bücher zu dem experimentellen Designs sind dort eigentlich enthalten und einmal kuratiert.
