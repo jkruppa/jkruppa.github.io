@@ -15,21 +15,16 @@ Ein Teil der Beispiele basiert auf [DSFAIR von P. Schmidt](https://schmidtpaul.g
 Im Weiteren schauen wir uns auch das R Paket `agricolae` mit Beispielen von [Experimental Designs with agricolae](https://myaseen208.com/agricolae/articles/ExperimentalDesign.html) genauer einmal an.
 :::
 
-In diesem Kapitel wollen wir uns mit der Auswertung von verschiedenen experimentellen Designs beschäftigen. Wir schauen uns dafür jeweils eine mögliche Visualisierung an und bauen uns dann die Daten künstlich nach. Warum eigentlich künstliche Daten? Das heißt wir erschaffen uns Daten wo wir genau wissen, wie der Mittelwert und die Standardabweichungen in den einzelnen Gruppen sind. Warum ist das hilfreich? Dadurch das wir wissen, dass der Mittelwertsunterschied zwischen Gruppe $A$ und Gruppe $B$ mit dem Effekt von $\Delta_{A-B} = 5$ erschaffen wurde, können wir dann auch die Ausgaben der Funktionen besser bewerten.
+In diesem Kapitel wollen wir uns mit der Erstellung von einfachen experimentellen Designs beschäftigen
 
-::: callout-caution
-## Es fährt ein Zug nach nirgendwo...
-
-Dieses Kapitel ist nicht zu verstehen, wenn du nicht schon was über Statistik weist. Im Zweifel musst du nochmal in die vorherigen Kapitel zurückspringen um nochmal die Konzepte nachzulesen.
-:::
-
-## Genutzte R Pakete für das Kapitel
+## Genutzte R Pakete
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, dae, conflicted)
+pacman::p_load(tidyverse, magrittr, dae, agricolae,
+               conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -42,18 +37,20 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Complete randomized design (CRD) {#sec-crd}
 
-![Visualisierung des *complete randomized design* mit einer Behandlung und vier Behandlungsleveln.](images/experimental-design-table-crd.png){#fig-design-table-crd fig-align="center" width="50%"}
+$$
+drymatter \sim \overbrace{trt}^{f_1} 
+$$
 
-$$
-y \sim \overbrace{trt}^{f_1} 
-$$
+### ... mit `expand_grid()`
 
 ```{r}
 crd_long_tbl <- expand_grid(trt = 1:4, rep = 1:4) %>% 
   mutate(trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
          rep = factor(rep, labels = as.roman(1:4)),
          id = sample(1:n()))
+```
 
+```{r}
 crd_plot_tbl <- crd_long_tbl %>% 
   arrange(id) %>% 
   bind_cols(expand_grid(row = 1:4, col = 1:4))
@@ -63,6 +60,12 @@ crd_plot_tbl <- crd_long_tbl %>%
 ```{r}
 #| message: false
 #| warning: false
+#| label: fig-exp-basic-1
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "foo."
+
 ggdesplot(data = crd_plot_tbl, 
           form = trt ~ col + row,
           text = trt, cex = 1, show.key = FALSE, shorten = "no", flip = TRUE)
@@ -103,19 +106,50 @@ sample(1:16) %>%
   matrix(ncol = 4, nrow = 4)
 ```
 
+### ... mit `agricolae`
+
+```{r}
+crd_obj <- design.crd(trt = c("ctrl", "A", "B", "C"), 
+                      r = c(5, 5, 5, 5), serie = 2)
+```
+
+```{r}
+crd_book_tbl <- crd_obj %>% 
+  pluck("book") %>% 
+  as_tibble() %>% 
+  set_names(c("plots", "r", "trt"))
+crd_book_tbl
+```
+
+```{r}
+crd_plot_tbl <- crd_book_tbl %>%
+  bind_cols(expand_grid(rows = 1:4,
+                        cols = 1:5))
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| label: fig-exp-basic-2
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "foo."
+
+desplot(trt ~ rows + cols, flip = TRUE,
+        text = trt, cex = 1, shorten = "no",
+        data = crd_plot_tbl,
+        main = "Complete randomized design (CRD)", 
+        show.key = FALSE)
+```
+
 ## Randomized complete block design (RCBD) {#sec-rcbd}
 
-::: {#fig-table-rcbd .column-page layout-ncol="2"}
-![Visualisierung des *Randomized complete block design* mit einer Behandlung und vier Behandlungsleveln. In jedem Block findet sich nur ein Behandlungslevel randomisiert wieder.](images/experimental-design-table-block.png){#fig-design-table-block fig-align="center" width="65%"}
-
-![Visualisierung des *Randomized complete block design* mit einer Behandlung und vier Behandlungsleveln. In jedem Block finden wir mehrfach die Level der Behandlung. Im Prinzip ein *Complete randomized design* in mehreren Wiederholungen.](images/experimental-design-table-block-rep.png){#fig-design-table-block-rep fig-align="center" width="100%"}
-
-Visualisierung der zwei Möglichkeiten ein *Randomized complete block design* zu konstruieren.
-:::
-
 $$
-y \sim \overbrace{trt}^{f_1} + \underbrace{block}_{f_2} 
+drymatter \sim \overbrace{trt}^{f_1} + \underbrace{block}_{f_2} 
 $$
+
+### ... mit `expand_grid()`
 
 ```{r}
 rcbd_long_tbl <- expand_grid(block = 1:4, 
@@ -135,6 +169,14 @@ rcbd_plot_tbl <- rcbd_long_tbl %>%
 ```
 
 ```{r}
+#| message: false
+#| warning: false
+#| label: fig-exp-basic-3
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "foo."
+
 ggdesplot(data = rcbd_plot_tbl, 
           form = trt ~ row + col,
           out1 = block,
@@ -171,73 +213,86 @@ rcbd_wide_tbl %>%
   write_xlsx("template_sheet.xlsx")
 ```
 
+### ... mit `agricolae`
+
 ```{r}
 rcbd_obj <- design.rcbd(trt = c("ctrl", "A", "B", "C"), r = 5)
-
-rcbd_obj %>% pluck("book")
-
-rcbd_obj %>% pluck("sketch")
-```
-
-## Faktordesign
-
-$$
-y \sim \overbrace{trt}^{f_1} + \underbrace{block}_{f_2} + \overbrace{location}^{f_3}
-$$
-
-```{r}
-three_fct_long_tbl <- expand_grid(location = 1:2, trt = 1:4, block = 1:4) %>% 
-  mutate(location = factor(location, labels = c("north", "south")),
-         trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
-         block = factor(block, labels = as.roman(1:4)),
-         id = sample(1:n()))
-
-three_fct_long_tbl
 ```
 
 ```{r}
-three_fct_wide_tbl <- three_fct_long_tbl %>% 
-  split(.$location) %>% 
-  map(~pivot_wider(., names_from = block, values_from = id)) %>% 
-  bind_rows()
-
-three_fct_wide_tbl
+rcbd_book_tbl <- rcbd_obj %>% 
+  pluck("book") %>% 
+  as_tibble() %>% 
+  set_names(c("plots", "block", "trt"))
+rcbd_book_tbl
 ```
 
-::: {.callout-caution collapse="true"}
-## Und zurück mit `pivot_longer()`
+```{r}
+rcbd_plot_tbl <- rcbd_book_tbl %>%
+  mutate(rows = as.numeric(block)) %>% 
+  group_by(rows) %>% 
+  mutate(cols = 1:n())
+```
 
 ```{r}
-#| eval: false
+rcbd_obj %>% 
+  pluck("sketch") %>% 
+  t()
+```
+
+```{r}
 #| message: false
 #| warning: false
-
-crd_wide_tbl %>% 
-  pivot_longer(cols = I:IV,
-               names_to = "block",
-               values_to = "id")
-```
-:::
-
-```{r}
-#| eval: false
-#| message: false
-#| warning: false
-three_fct_wide_tbl %>% 
-  write_xlsx("template_sheet.xlsx")
+#| label: fig-exp-basic-4
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "foo."
+desplot(trt ~ rows + cols, flip = TRUE,
+        text = trt, cex = 1, shorten = "no",
+        out1 = block,
+        data = rcbd_plot_tbl,
+        main = "randomized complete block design", 
+        show.key = T, key.cex = 0.5)
 ```
 
 ## Latin square design (LSD) {#sec-lsd}
 
-### Visualisierung
-
-![Visualisierung des *latin square design* mit einer Behandlung und vier Behandlungsleveln.](images/experimental-design-lsd.png){#fig-design-lsd fig-align="center" width="60%"}
-
-### Daten
+### ... mit `agricolae`
 
 ```{r}
-expand_grid(trt = 1:4, block = 1:4)
+lsd_obj <- design.lsd(trt = c("ctrl", "A", "B", "C", "D"), 
+                      seed = 42)
 ```
+
+```{r}
+lsd_book_tbl <- lsd_obj %>% 
+  pluck("book") %>% 
+  as_tibble() %>% 
+  set_names(c("plots", "rows", "cols", "trt")) %>% 
+  mutate(rows = as.numeric(rows),
+         cols = as.numeric(cols))
+lsd_book_tbl
+```
+
+```{r}
+lsd_obj %>% 
+  pluck("sketch") %>% 
+  t()
+```
+
+```{r}
+# Plot field layout
+desplot(trt ~ rows + cols, flip = TRUE,
+        out1 = rows, out1.gpar = list(col="black", lwd=3),
+        out2 = cols, out2.gpar = list(col="black", lwd=3),
+        text = trt, cex = 1, shorten = "no",
+        data = lsd_book_tbl,
+        main = "Latin square design (LSD)", 
+        show.key = FALSE, key.cex = 0.5)
+```
+
+### ... mit `dae`
 
 ```{r}
 LSqD.sys <- cbind(fac.gen(list(Rows = 5, Columns = 5)),
@@ -252,5 +307,6 @@ LSqD.lay <- designRandomize(allocated = LSqD.sys["Treatments"],
 
 ```{r}
 designGGPlot(LSqD.lay, labels = "Treatments", cellalpha = 0.75,
-             blockdefinition = cbind(1,1))
+             blockdefinition = cbind(1, 1),
+             blocklinecolour = "black")
 ```
