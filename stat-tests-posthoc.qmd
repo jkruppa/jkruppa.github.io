@@ -21,7 +21,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, broom,
+pacman::p_load(tidyverse, magrittr, broom, nlme,
                multcomp, emmeans, ggpubr, multcompView,
                rstatix, conflicted, see, rcompanion)
 conflict_prefer("select", "dplyr")
@@ -35,7 +35,7 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 Wir nutzen in diesem Kapitel den Datensatz aus dem Beispiel in @sec-example-3. Wir haben als Outcome die Sprunglänge in \[cm\] von Flöhen. Die Sprunglänge haben wir an Flöhen von Hunde, Katzen und Füchsen gemessen. Der Datensatz ist also recht übeerschaubar. Wir haben ein normalverteiltes $y$ mit `jump_length` sowie einen multinomialverteiltes $y$ mit `grade` und einen Faktor `animal` mit drei Leveln.
 
-Du kannst dir komplexere Auswertungen im @sec-beispiel-auswertung anschauen. Dort sammelt sich mit der Zeit Auswertungen vom Fachbereich an. Daher finden sich dort auch Beispiele für multiple Vergleiche.
+Du kannst dir komplexere Auswertungen in dem Skript [Beispielhaften Auswertungen](https://jkruppa.github.io/application/) anschauen. Dort sammelt sich mit der Zeit Auswertungen vom Fachbereich an. Daher finden sich dort auch Beispiele für multiple Vergleiche.
 
 Im Folgenden laden wir den Datensatz `flea_dog_cat_fox.csv` und selektieren mit der Funktion `select()` die benötigten Spalten. Abschließend müssen wir die Spalte `animal`noch in einen Faktor umwandeln. Damit ist unsere Vorbereitung des Datensatzes abgeschlossen.
 
@@ -384,6 +384,32 @@ Abschließend wollen wir noch die 95% Konfidenzintervalle in @fig-emmeans-1 abbi
     theme_classic()
 ```
 
+In @fig-emmeans-3 sehen wir die Ergebnisse des multiplen Vergleiches nochmal anders als *Pairwise P-value plot* dargestellt. Wir haben auf der y-Achse zu Abwechselung mal die Gruppen dargestellt und auf der x-Achse die $p$-Werte. In den Kästchen sind die Effekte der Gruppen nochmal gezeigt. In unserem Fall die Mittelwerte der Sprungweiten für die drei Gruppen. Wir sehen jetzt immer den $p$-Wert für den jeweiligen Vergleich durch eine farbige Linie miteinander verbunden. So können wir nochmal eine andere Übersicht über das Ergebnis des multiplen Vergleich kriegen.
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 5
+#| fig-cap: "Visualisierung der Ergebnisse im Pairwise P-value plot."
+#| label: fig-emmeans-3
+
+fit_2 %>% 
+  emmeans(~ animal) %>% 
+  pwpp(adjust = "bonferroni") +
+  theme_bw()
+```
+
+Auch haben wir die Möglichkeit un die $p$-Werte mit der Funktion `pwpm()` als eine Matrix ausgeben zu lassen. Wir erhalten in dem oberen Triangel die $p$-Wert für den jeweiligen Vergleich. In dem unteren Triangel die geschätzten Mittelwertsunterschiede. Auf der Diagonalen dann die geschätzten Mittelwerte für die jeweilige Gruppe. So haben wir nochmal alles sehr kompakt zusammen dargestellt.
+
+```{r}
+fit_2 %>% 
+  emmeans(~ animal) %>% 
+  pwpm(adjust = "bonferroni")
+```
+
 Wir wollen uns noch einen etwas komplizierteren Fall anschauen, indem sich `emmeans` von `multcomp` in der Anwendung unterscheidet. Wir laden den Datensatz `flea_dog_cat_fox_site.csv` in dem wir *zwei* Faktoren haben. Damit können wir dann ein Modell mit einem Interaktionsterm bauen. Wir erinnern uns, dass wir in der zweifaktoriellen ANOAV eine signifikante Interaktion zwischen den beiden Faktoren `animal` und `site` festgestelt hatten.
 
 ```{r}
@@ -411,32 +437,6 @@ rbind(head(fac2_raw_tbl),
       tail(fac2_raw_tbl)) %>% 
   kable(align = "c", "pipe")
 
-```
-
-In @fig-emmeans-3 sehen wir die Ergebnisse des multiplen Vergleiches nochmal anders als *Pairwise P-value plot* dargestellt. Wir haben auf der y-Achse zu Abwechselung mal die Gruppen dargestellt und auf der x-Achse die $p$-Werte. In den Kästchen sind die Effekte der Gruppen nochmal gezeigt. In unserem Fall die Mittelwerte der Sprungweiten für die drei Gruppen. Wir sehen jetzt immer den $p$-Wert für den jeweiligen Vergleich durch eine farbige Linie miteinander verbunden. So können wir nochmal eine andere Übersicht über das Ergebnis des multiplen Vergleich kriegen.
-
-```{r}
-#| message: false
-#| warning: false
-#| echo: true
-#| fig-align: center
-#| fig-height: 3
-#| fig-width: 5
-#| fig-cap: "Visualisierung der Ergebnisse im Pairwise P-value plot."
-#| label: fig-emmeans-3
-
-fit_2 %>% 
-  emmeans(~ animal) %>% 
-  pwpp(adjust = "bonferroni") +
-  theme_bw()
-```
-
-Auch haben wir die Möglichkeit un die $p$-Werte mit der Funktion `pwpm()` als eine Matrix ausgeben zu lassen. Wir erhalten in dem oberen Triangel die $p$-Wert für den jeweiligen Vergleich. In dem unteren Triangel die geschätzten Mittelwertsunterschiede. Auf der Diagonalen dann die geschätzten Mittelwerte für die jeweilige Gruppe. So haben wir nochmal alles sehr kompakt zusammen dargestellt.
-
-```{r}
-fit_2 %>% 
-  emmeans(~ animal) %>% 
-  pwpm(adjust = "bonferroni")
 ```
 
 In @fig-boxplot-emmeans-1 sehen wir nochmal die Daten visualisiert. Wichtig ist hier, dass wir *zwei* Faktoren vorliegen haben. Den Faktor `animal` und den Faktor `site`. Dabei ist der Faktor `animal` in dem Faktor `site` genested. Wir messen jedes Level des Faktors `animal` jeweils in jedem Level des Faktors `site`.
@@ -521,9 +521,13 @@ Besonders mit den 95% Konfiendezintervallen sehen wir nochmal den Interaktionsef
     theme_classic()
 ```
 
-## Gruppenvergleich mit dem Games-Howell-Test {#sec-posthoc-ght}
+## Gruppenvergleich unter Varianzheterogenität
 
-Der Games-Howell-Test ist eine Alternative zu dem Paket `multcomp` und dem Paket `emmeans`. Wir nutzen den Games-Howell-Test, wenn die Annahme der Homogenität der Varianzen, der zum Vergleich aller möglichen Kombinationen von Gruppenunterschieden verwendet wird, verletzt ist. Dieser Post-Hoc-Test liefert Konfidenzintervalle für die Unterschiede zwischen den Gruppenmitteln und zeigt, ob die Unterschiede statistisch signifikant sind. Der Test basiert auf der Welch'schen Freiheitsgradkorrektur und adjustiert die $p$-Werte. Der Test vergleicht also die Differenz zwischen den einzelnen Mittelwertpaaren mit einer Adjustierung für den Mehrfachtest. Es besteht also keine Notwendigkeit, zusätzliche p-Wert-Korrekturen vorzunehmen. Mit dem Games-Howell-Test ist nur ein *all-pair* Vergleich möglich.
+Bis jetzt sind wir von Varianzhomogenität über alle Gruppen in unserer Behandlung ausgegangen. Oder aber konkret auf unser Beispiel, die Tierarten haben alle die gleiche Varianz. Jetzt gibt es aber häufiger mal den Fall, da können oder wollen wir nicht an Varianzhomogenität über alle Gruppen glauben. Deshalb gibt es hier noch Alternativen, von denen ich ein paar Vorstellen werde.
+
+### Games-Howell-Test {#sec-posthoc-ght}
+
+Der Games-Howell-Test ist eine Alternative zu dem Paket `multcomp` und dem Paket `emmeans` für ein einfaktorielles Design. Wir nutzen den Games-Howell-Test, wenn die Annahme der Homogenität der Varianzen, der zum Vergleich aller möglichen Kombinationen von Gruppenunterschieden verwendet wird, verletzt ist. Dieser Post-Hoc-Test liefert Konfidenzintervalle für die Unterschiede zwischen den Gruppenmitteln und zeigt, ob die Unterschiede statistisch signifikant sind. Der Test basiert auf der Welch'schen Freiheitsgradkorrektur und adjustiert die $p$-Werte. Der Test vergleicht also die Differenz zwischen den einzelnen Mittelwertpaaren mit einer Adjustierung für den Mehrfachtest. Es besteht also keine Notwendigkeit, zusätzliche p-Wert-Korrekturen vorzunehmen. Mit dem Games-Howell-Test ist nur ein *all-pair* Vergleich möglich.
 
 Für den Games-Howell-Test aus dem Paket `rstatix` müssen wir kein lineares Modell fitten. Wir schreiben einfach die wie in einem t-Test das Outcome und den Faktor mit den Gruppenleveln in die Funktion `games_howell_test()`. Wir erhalten dann direkt das Ergebnis des Games-Howell-Test. Wir nutzen in diesem Beispiel die Daten aus dem Objekt `fac1_tbl` zu sehen in @tbl-data-posthoc-1.
 
@@ -568,6 +572,63 @@ In @fig-ght-1 sind die simultanen 95% Konfidenzintervalle nochmal in einem `ggpl
 ```
 
 Die Entscheidungen nach den 95% Konfidenzintervallen sind die gleichen wie nach dem $p$-Wert. Da wir hier es mit einem Mittelwertsvergleich zu tun haben, ist die Entscheidung gegen die Nullhypothese zu treffen wenn die 0 im Konfidenzintervall ist.
+
+### Generalized Least Squares
+
+Neben dem Games-Howell-Test gibt es auch die Möglichkeit *Generalized Least Squares* zu nutzen. Hier haben wir dann auch die Möglichkeit mehrfaktorielle Modelle zu schätzen und dann auch wieder `emmeans` zu nutzen. Das ist natürlich super, weil wir dann wieder in dem `emmeans` Framework sind und alle Funktionen von oben nutzen können. Deshalb hier auch nur die Modellanpassung, den Rest kopierst du dir dann von oben dazu.
+
+Die Funktion `gls()` aus dem R Paket `nlme` passt ein lineares Modell unter Verwendung der verallgemeinerten kleinsten Quadrate an. Die Fehler dürfen dabei aber korreliert oder aber ungleiche Varianzen haben. Damit haben wir ein Modell, was wir nutzen können, wenn wir Varianzheterogenität vorliegen haben. Hier einmal das simple Beispiel für die Tierarten. Wir nehmen wieder die ganz normale Formelschreiweise. Wir können jetzt aber über die Option `weights =` angeben, wie wir die Varianz modellieren wollen. Die Schreibweise mag etwas ungewohnt sein, aber es gibt wirklich viele Arten die Varainz zu modellieren. Hier machen wir uns es einfach und nutzen die Helferfunktion `varIdent` und modellieren dann für jedes Tier eine eigene Gruppenvarianz.
+
+```{r}
+gls_fac1_fit <- gls(jump_length ~ animal, 
+                    weights = varIdent(form =  ~ 1 | animal), 
+                    data = fac1_tbl)
+```
+
+Dann können wir die Modellanpasssung auch schon in `emmeans()` weiterleiten und schauen uns mal das Ergebnis gleich an. Wir achten jetzt auf die Spalte `SE`, die uns ja den Fehler der Mittelwerte für jede Gruppe wiedergibt.
+
+```{r}
+gls_fac1_fit %>% 
+  emmeans(~ animal)
+```
+
+Wir sehen, dass wir für jedes Tier eine eigene Varianz über den Standardfehler `SE` geschätzt haben. Das war es ja auch was wir wollten. Bis hierhin wäre es auch mit dem Games-Howell-Test gegangen. Was ist aber, wenn wir ein zweifaktorielles design mit Interaktion schätzen wollen? Das können wir analog wie eben machen. Wir erweitern einfach das Modell um die Terme `site` für den zweiten Faktor und den Interaktionsterm `animal:site`.
+
+```{r}
+gls_fac2_fit <- gls(jump_length ~ animal + site + animal:site, 
+                    weights = varIdent(form =  ~ 1 | animal), 
+                    data = fac2_tbl)
+```
+
+Dann können wir uns wieder die multiplen Vergleiche getrennt für die Interaktionsterme wiedergeben lassen. Blöderweise haben jetzt alle Messorte `site` die gleiche Varianz für jede Tierart, aber auch da können wir noch ran.
+
+```{r}
+gls_fac2_fit %>% 
+  emmeans(~ animal | site)
+```
+
+Die eigentliche Stärke von `gls()` kommt eigentlich erst zu tragen, wenn wir auch noch erlauben, dass wir die Varianz *über alle* Tierarten, Messsorte und Interaktionen variieren kann. Das machen wir, in dem wir einfach `animal*site` zu der `varIdent()` Funktion ergänzen.
+
+```{r}
+gls_fac2_fit <- gls(jump_length ~ animal + site + animal:site, 
+                    weights = varIdent(form =  ~ 1 | animal*site), 
+                    data = fac2_tbl)
+```
+
+Dann noch schnell in `emmeans()` gesteckt und sich das Ergebnis angeschaut.
+
+```{r}
+gls_fac2_fit %>% 
+  emmeans(~ animal | site)
+```
+
+Wie du jetzt siehst schätzen wir die Varianz für jede Tierart und jeden Messort separat. Wir haben also wirklich jede Varianz einzeln zugeordnet. Die Frage ist immer, ob das notwendig ist, denn wir brauchen auch eine gewisse Fallzahl, damit die Modelle funktionieren. Aber das kommt jetzt sehr auf deine Fragestellung an und müssten wir nochmal konkret besprechen.
+
+::: callout-tip
+## Weitere Literatur
+
+Auf der Seite DSFAIR gibt es noch einen Artikel zu `emmeans` und der Frage [Why are the StdErr all the same?](https://schmidtpaul.github.io/dsfair_quarto/ch/summaryarticles/whyseequal.html) und dazu dann auch passend die Publikation [Analyzing designed experiments: Should we report standard deviations or standard errors of the mean or standard errors of the difference or what?](https://www.cambridge.org/core/services/aop-cambridge-core/content/view/92DB0AF151C157B9C6E2FA40F9C9B635/S0014479719000401a.pdf/analyzing-designed-experiments-should-we-report-standard-deviations-or-standard-errors-of-the-mean-or-standard-errors-of-the-difference-or-what.pdf)
+:::
 
 ## Compact letter display {#sec-compact-letter}
 
