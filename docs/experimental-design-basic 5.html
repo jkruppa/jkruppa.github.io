@@ -672,7 +672,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </div>
   
 
-</header><p><em>Version vom August 13, 2023 um 20:08:19</em></p>
+</header><p><em>Version vom August 13, 2023 um 15:41:58</em></p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure"><p><img src="images/caution.png" class="img-fluid figure-img" style="width:50.0%"></p>
 </figure>
@@ -682,17 +682,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>Ein Teil der Beispiele basiert auf <a href="https://schmidtpaul.github.io/DSFAIR/DesigningExperiments.html">DSFAIR von P. Schmidt</a> und wurde von mir angepasst und vereinfacht. Hier findet sich auch weiterführende Literatur und weitere Beispiele.</p>
 <p>Im Weiteren schauen wir uns auch das R Paket <code>agricolae</code> mit Beispielen von <a href="https://myaseen208.com/agricolae/articles/ExperimentalDesign.html">Experimental Designs with agricolae</a> genauer einmal an.</p>
 </div></div><p>In diesem Kapitel wollen wir uns mit der Erstellung von einfachen experimentellen Designs beschäftigen</p>
-<ul>
-<li><a href="#sec-crd">Complete randomized design (CRD)</a></li>
-<li><a href="#sec-rcbd">Randomized complete block design (RCBD)</a></li>
-<li><a href="#sec-lsd">Latin square design (LSD)</a></li>
-</ul>
 <section id="genutzte-r-pakete" class="level2" data-number="56.1"><h2 data-number="56.1" class="anchored" data-anchor-id="genutzte-r-pakete">
 <span class="header-section-number">56.1</span> Genutzte R Pakete</h2>
 <p>Wir wollen folgende R Pakete in diesem Kapitel nutzen.</p>
 <div class="cell">
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html">set.seed</a></span><span class="op">(</span><span class="fl">2034</span><span class="op">)</span></span>
-<span><span class="fu">pacman</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/pacman/man/p_load.html">p_load</a></span><span class="op">(</span><span class="va">tidyverse</span>, <span class="va">magrittr</span>, <span class="va">dae</span>, <span class="va">agricolae</span>,</span>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">pacman</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/pacman/man/p_load.html">p_load</a></span><span class="op">(</span><span class="va">tidyverse</span>, <span class="va">magrittr</span>, <span class="va">dae</span>, <span class="va">agricolae</span>,</span>
 <span>               <span class="va">conflicted</span><span class="op">)</span></span>
 <span><span class="fu">conflict_prefer</span><span class="op">(</span><span class="st">"select"</span>, <span class="st">"dplyr"</span><span class="op">)</span></span>
 <span><span class="fu">conflict_prefer</span><span class="op">(</span><span class="st">"filter"</span>, <span class="st">"dplyr"</span><span class="op">)</span></span>
@@ -704,101 +698,93 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.</p>
 </section><section id="sec-crd" class="level2" data-number="56.2"><h2 data-number="56.2" class="anchored" data-anchor-id="sec-crd">
 <span class="header-section-number">56.2</span> Complete randomized design (CRD)</h2>
-<p>Das komplett randomisierte Design ist sicherlich das einfachste Design. Aber auch das praktischste, wenn du ein gar nicht so komplexes Experiment hast. Im PRinzip hast du nur eine Behandlung mit unterschiedlichen Gruppen. Oder allgemeiner gesprochen, du hast einen Faktor <span class="math inline">\(f_1\)</span>, der deine Behandlungen beinhaltet. Du kannst viele Behandlungen haben, die dann als Level des Faktors dargestellt werden. Wir gehen jetzt das <em>complete randomized design</em> einmal an einem Beispiel durch. Hier einmal für eine Behandlung <code>trt</code> mit vier Leveln oder auch Gruppen <code>ctrl</code>, <code>A</code>, <code>B</code> und <code>C</code> sowie als Outcome das Trockengewicht <code>drymatter</code>. Das Outcome müssen wir gar nicht weiter beachten, es dient nur als Gedankenstütze.</p>
-<p>Wir haben also folgendes Modell, was wir dann in einem Design abbilden wollen.</p>
 <p><span class="math display">\[
 drymatter \sim \overbrace{trt}^{f_1}
 \]</span></p>
-<p>Jetzt ist nur noch die Frage, wie oft wollen wir jede Behandlung wiederholen (eng. <em>replicate</em>). Wir entscheiden uns dafür jeweils 4 Pflanzen pro Behandlungsgruppe zu verwenden. Damit haben wir vier Wiederholungen für vier Behandlungsgruppen und somit insgesamt zwanzig Pflanzen oder auch Beobachtungen.</p>
 <section id="mit-expand_grid" class="level3" data-number="56.2.1"><h3 data-number="56.2.1" class="anchored" data-anchor-id="mit-expand_grid">
 <span class="header-section-number">56.2.1</span> … mit <code>expand_grid()</code>
 </h3>
-<p>Warum kompliziert, wenn es auch einfach geht. Wir nutzen hier einmal die Funktion <code>expand_grid()</code> um uns das <em>complete randomized design</em> zu erstellen. Die Randomisierung kommt dann über das <code><a href="https://rdrr.io/r/base/sample.html">sample()</a></code> und der Pflanzenidentifikationsnummer <code>pid</code>. Das geht super einfach und wir brauchen auch gar keine anderen höheren Funktionen von komplexeren R Paketen. Die Spalte <code>trt_rep</code> wird uns später helfen die Beobachtung dann in dem Grid der Pflanzenposition auf dem Tisch wiederzufinden.</p>
 <div class="cell">
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">crd_long_tbl</span> <span class="op">&lt;-</span> <span class="fu">expand_grid</span><span class="op">(</span>trt <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span>, rep <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">mutate</span><span class="op">(</span>trt <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html">factor</a></span><span class="op">(</span><span class="va">trt</span>, labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"ctrl"</span>, <span class="st">"A"</span>, <span class="st">"B"</span>, <span class="st">"C"</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>         rep <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html">factor</a></span><span class="op">(</span><span class="va">rep</span>, labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/utils/roman.html">as.roman</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">4</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>         trt_rep <span class="op">=</span> <span class="fu">str_c</span><span class="op">(</span><span class="va">trt</span>, <span class="st">"."</span>, <span class="va">rep</span><span class="op">)</span>,</span>
-<span>         pid <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fu">n</span><span class="op">(</span><span class="op">)</span><span class="op">)</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
-<span>  <span class="fu">select</span><span class="op">(</span><span class="va">pid</span>, <span class="fu">everything</span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">crd_long_tbl</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code># A tibble: 16 × 4
-     pid trt   rep   trt_rep 
-   &lt;int&gt; &lt;fct&gt; &lt;fct&gt; &lt;chr&gt;   
- 1     4 ctrl  I     ctrl.I  
- 2    11 ctrl  II    ctrl.II 
- 3    14 ctrl  III   ctrl.III
- 4     9 ctrl  IV    ctrl.IV 
- 5    15 A     I     A.I     
- 6     7 A     II    A.II    
- 7    13 A     III   A.III   
- 8     8 A     IV    A.IV    
- 9     6 B     I     B.I     
-10     5 B     II    B.II    
-11    12 B     III   B.III   
-12     1 B     IV    B.IV    
-13     3 C     I     C.I     
-14     2 C     II    C.II    
-15    16 C     III   C.III   
-16    10 C     IV    C.IV    </code></pre>
+<span>         id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fu">n</span><span class="op">(</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-</div>
-<p>Dann kannst du dir die Datei mit der Funktion <code>write_xlsx()</code> aus dem R Paket <code>writexl</code> raus schreiben und dann entsprechend mit deinen Messwerten für das Trockengewicht ergänzen.</p>
 <div class="cell">
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">crd_long_tbl</span> <span class="op">%&gt;%</span> </span>
-<span>  <span class="fu">write_xlsx</span><span class="op">(</span><span class="st">"template_sheet.xlsx"</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">crd_plot_tbl</span> <span class="op">&lt;-</span> <span class="va">crd_long_tbl</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="fu">arrange</span><span class="op">(</span><span class="va">id</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="fu">bind_cols</span><span class="op">(</span><span class="fu">expand_grid</span><span class="op">(</span>row <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span>, col <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span><span class="op">)</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>Für die Visualisierung fehlt uns jetzt noch die Positionsangaben auf dem Feld. Daher bauen wir uns einmal ein Grid der Reihen <code>rows</code> und der Spalten <code>cols</code>. Das Grid können wir dann mit den nach den Pflanzen-ID’s sortieren Design zusammenbringen. Damit haben wir dann eigentlich schon fast alles zusammen.</p>
-<div class="cell">
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">crd_plot_tbl</span> <span class="op">&lt;-</span> <span class="va">crd_long_tbl</span> <span class="op">%&gt;%</span> </span>
-<span>  <span class="fu">arrange</span><span class="op">(</span><span class="va">pid</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
-<span>  <span class="fu">bind_cols</span><span class="op">(</span><span class="fu">expand_grid</span><span class="op">(</span>row <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span>, col <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">crd_plot_tbl</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code># A tibble: 16 × 6
-     pid trt   rep   trt_rep    row   col
-   &lt;int&gt; &lt;fct&gt; &lt;fct&gt; &lt;chr&gt;    &lt;int&gt; &lt;int&gt;
- 1     1 B     IV    B.IV         1     1
- 2     2 C     II    C.II         1     2
- 3     3 C     I     C.I          1     3
- 4     4 ctrl  I     ctrl.I       1     4
- 5     5 B     II    B.II         2     1
- 6     6 B     I     B.I          2     2
- 7     7 A     II    A.II         2     3
- 8     8 A     IV    A.IV         2     4
- 9     9 ctrl  IV    ctrl.IV      3     1
-10    10 C     IV    C.IV         3     2
-11    11 ctrl  II    ctrl.II      3     3
-12    12 B     III   B.III        3     4
-13    13 A     III   A.III        4     1
-14    14 ctrl  III   ctrl.III     4     2
-15    15 A     I     A.I          4     3
-16    16 C     III   C.III        4     4</code></pre>
-</div>
-</div>
-<p>Jetzt können wir uns einmal das Grid der Pflanzungen in der <a href="#fig-exp-basic-1">Abbildung&nbsp;<span>56.1</span></a> einmal anschauen. Wir nutzen hier die Möglichkeiten des R Pakets <code>desplot</code>. Hier wird es dann nochmal klarer wo die Pflanzen eigentlich hin sollen. Du kannst dir dann den Tisch so einteilen, dass eben oben links die vierte Wiederholung der Behandlung <code>B</code> steht. Dann steht rechts daneben die zweite Wiederholung der Behandlung <code>C</code>. Nach der Ernte bestimmst du dann das Trockengewicht und trägst es in die Exceltabelle ein.</p>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">ggdesplot</span><span class="op">(</span>data <span class="op">=</span> <span class="va">crd_plot_tbl</span>, </span>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">ggdesplot</span><span class="op">(</span>data <span class="op">=</span> <span class="va">crd_plot_tbl</span>, </span>
 <span>          form <span class="op">=</span> <span class="va">trt</span> <span class="op">~</span> <span class="va">col</span> <span class="op">+</span> <span class="va">row</span>,</span>
-<span>          text <span class="op">=</span> <span class="va">trt_rep</span>, cex <span class="op">=</span> <span class="fl">1</span>, show.key <span class="op">=</span> <span class="cn">FALSE</span>, shorten <span class="op">=</span> <span class="st">"no"</span>, flip <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span>          text <span class="op">=</span> <span class="va">trt</span>, cex <span class="op">=</span> <span class="fl">1</span>, show.key <span class="op">=</span> <span class="cn">FALSE</span>, shorten <span class="op">=</span> <span class="st">"no"</span>, flip <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div id="fig-exp-basic-1" class="quarto-figure quarto-figure-center anchored">
 <figure class="figure"><p><img src="experimental-design-basic_files/figure-html/fig-exp-basic-1-1.png" class="img-fluid figure-img" width="480"></p>
-<figcaption class="figure-caption">Abbildung&nbsp;56.1— Schema der Behandlungen nach dem <em>complete randomized design</em> .</figcaption></figure>
+<figcaption class="figure-caption">Abbildung&nbsp;56.1— foo.</figcaption></figure>
 </div>
 </div>
 </div>
-<p>Das war jetzt die schnelle Variante mit <code>expand_grid()</code> und der anschließenden Visualisierung mit einem Plan für die Positionen der jeweiligen Beobachtungen.</p>
+<p><code>pivot_wider()</code></p>
+<div class="cell">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">crd_wide_tbl</span> <span class="op">&lt;-</span> <span class="fu">pivot_wider</span><span class="op">(</span><span class="va">crd_long_tbl</span>, names_from <span class="op">=</span> <span class="va">rep</span>, values_from <span class="op">=</span> <span class="va">id</span><span class="op">)</span></span>
+<span><span class="va">crd_wide_tbl</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 4 × 5
+  trt       I    II   III    IV
+  &lt;fct&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt;
+1 ctrl     13     3    16     1
+2 A         6     7     4    15
+3 B         9     5     8    10
+4 C        14    11     2    12</code></pre>
+</div>
+</div>
+<div class="callout callout-style-default callout-caution callout-titled">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-1-contents" aria-controls="callout-1" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Und zurück mit <code>pivot_longer()</code>
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-1" class="callout-1-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<div class="cell">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">crd_wide_tbl</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="fu">pivot_longer</span><span class="op">(</span>cols <span class="op">=</span> <span class="va">I</span><span class="op">:</span><span class="va">IV</span>,</span>
+<span>               names_to <span class="op">=</span> <span class="st">"rep"</span>,</span>
+<span>               values_to <span class="op">=</span> <span class="st">"id"</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">crd_wide_tbl</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="fu">write_xlsx</span><span class="op">(</span><span class="st">"template_sheet.xlsx"</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/sample.html">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">16</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span>ncol <span class="op">=</span> <span class="fl">4</span>, nrow <span class="op">=</span> <span class="fl">4</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     [,1] [,2] [,3] [,4]
+[1,]    8    2   11    4
+[2,]    6   10   12   13
+[3,]    7    1    5   14
+[4,]    9    3   15   16</code></pre>
+</div>
+</div>
 </section><section id="mit-agricolae" class="level3" data-number="56.2.2"><h3 data-number="56.2.2" class="anchored" data-anchor-id="mit-agricolae">
 <span class="header-section-number">56.2.2</span> … mit <code>agricolae</code>
 </h3>
 <div class="cell">
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">crd_obj</span> <span class="op">&lt;-</span> <span class="fu">design.crd</span><span class="op">(</span>trt <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"ctrl"</span>, <span class="st">"A"</span>, <span class="st">"B"</span>, <span class="st">"C"</span><span class="op">)</span>, </span>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">crd_obj</span> <span class="op">&lt;-</span> <span class="fu">design.crd</span><span class="op">(</span>trt <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"ctrl"</span>, <span class="st">"A"</span>, <span class="st">"B"</span>, <span class="st">"C"</span><span class="op">)</span>, </span>
 <span>                      r <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">5</span>, <span class="fl">5</span>, <span class="fl">5</span>, <span class="fl">5</span><span class="op">)</span>, serie <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">crd_book_tbl</span> <span class="op">&lt;-</span> <span class="va">crd_obj</span> <span class="op">%&gt;%</span> </span>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">crd_book_tbl</span> <span class="op">&lt;-</span> <span class="va">crd_obj</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">pluck</span><span class="op">(</span><span class="st">"book"</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">as_tibble</span><span class="op">(</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">set_names</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"plots"</span>, <span class="st">"r"</span>, <span class="st">"trt"</span><span class="op">)</span><span class="op">)</span></span>
@@ -807,35 +793,35 @@ drymatter \sim \overbrace{trt}^{f_1}
 <pre><code># A tibble: 20 × 3
    plots     r trt  
    &lt;dbl&gt; &lt;int&gt; &lt;chr&gt;
- 1   101     1 ctrl 
- 2   102     1 C    
- 3   103     2 C    
- 4   104     2 ctrl 
- 5   105     1 A    
- 6   106     1 B    
- 7   107     3 ctrl 
- 8   108     2 A    
+ 1   101     1 A    
+ 2   102     2 A    
+ 3   103     1 C    
+ 4   104     1 B    
+ 5   105     1 ctrl 
+ 6   106     2 C    
+ 7   107     2 B    
+ 8   108     3 B    
  9   109     3 C    
 10   110     3 A    
-11   111     4 A    
-12   112     4 C    
-13   113     2 B    
-14   114     5 C    
+11   111     2 ctrl 
+12   112     4 B    
+13   113     3 ctrl 
+14   114     4 C    
 15   115     4 ctrl 
-16   116     5 ctrl 
-17   117     3 B    
-18   118     5 A    
-19   119     4 B    
+16   116     4 A    
+17   117     5 ctrl 
+18   118     5 C    
+19   119     5 A    
 20   120     5 B    </code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">crd_plot_tbl</span> <span class="op">&lt;-</span> <span class="va">crd_book_tbl</span> <span class="op">%&gt;%</span></span>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">crd_plot_tbl</span> <span class="op">&lt;-</span> <span class="va">crd_book_tbl</span> <span class="op">%&gt;%</span></span>
 <span>  <span class="fu">bind_cols</span><span class="op">(</span><span class="fu">expand_grid</span><span class="op">(</span>rows <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span>,</span>
 <span>                        cols <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">)</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">desplot</span><span class="op">(</span><span class="va">trt</span> <span class="op">~</span> <span class="va">rows</span> <span class="op">+</span> <span class="va">cols</span>, flip <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">desplot</span><span class="op">(</span><span class="va">trt</span> <span class="op">~</span> <span class="va">rows</span> <span class="op">+</span> <span class="va">cols</span>, flip <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>        text <span class="op">=</span> <span class="va">trt</span>, cex <span class="op">=</span> <span class="fl">1</span>, shorten <span class="op">=</span> <span class="st">"no"</span>,</span>
 <span>        data <span class="op">=</span> <span class="va">crd_plot_tbl</span>,</span>
 <span>        main <span class="op">=</span> <span class="st">"Complete randomized design (CRD)"</span>, </span>
@@ -856,7 +842,7 @@ drymatter \sim \overbrace{trt}^{f_1} + \underbrace{block}_{f_2}
 <span class="header-section-number">56.3.1</span> … mit <code>expand_grid()</code>
 </h3>
 <div class="cell">
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">rcbd_long_tbl</span> <span class="op">&lt;-</span> <span class="fu">expand_grid</span><span class="op">(</span>block <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span>, </span>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">rcbd_long_tbl</span> <span class="op">&lt;-</span> <span class="fu">expand_grid</span><span class="op">(</span>block <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span>, </span>
 <span>                             trt <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">mutate</span><span class="op">(</span>trt <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html">factor</a></span><span class="op">(</span><span class="va">trt</span>, labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"ctrl"</span>, <span class="st">"A"</span>, <span class="st">"B"</span>, <span class="st">"C"</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>         block <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html">factor</a></span><span class="op">(</span><span class="va">block</span>, labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/utils/roman.html">as.roman</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">4</span><span class="op">)</span><span class="op">)</span>,</span>
@@ -865,12 +851,12 @@ drymatter \sim \overbrace{trt}^{f_1} + \underbrace{block}_{f_2}
 <span>  <span class="fu">mutate</span><span class="op">(</span>trt <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html">sample</a></span><span class="op">(</span><span class="va">trt</span><span class="op">)</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">rcbd_plot_tbl</span> <span class="op">&lt;-</span> <span class="va">rcbd_long_tbl</span> <span class="op">%&gt;%</span> </span>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">rcbd_plot_tbl</span> <span class="op">&lt;-</span> <span class="va">rcbd_long_tbl</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">arrange</span><span class="op">(</span><span class="va">id</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">bind_cols</span><span class="op">(</span><span class="fu">expand_grid</span><span class="op">(</span>row <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span>, col <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span><span class="op">)</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">ggdesplot</span><span class="op">(</span>data <span class="op">=</span> <span class="va">rcbd_plot_tbl</span>, </span>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">ggdesplot</span><span class="op">(</span>data <span class="op">=</span> <span class="va">rcbd_plot_tbl</span>, </span>
 <span>          form <span class="op">=</span> <span class="va">trt</span> <span class="op">~</span> <span class="va">row</span> <span class="op">+</span> <span class="va">col</span>,</span>
 <span>          out1 <span class="op">=</span> <span class="va">block</span>,</span>
 <span>          text <span class="op">=</span> <span class="va">trt</span>, cex <span class="op">=</span> <span class="fl">1</span>, show.key <span class="op">=</span> <span class="cn">FALSE</span>, shorten <span class="op">=</span> <span class="st">"no"</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -883,20 +869,20 @@ drymatter \sim \overbrace{trt}^{f_1} + \underbrace{block}_{f_2}
 </div>
 <p><code>pivot_wider()</code></p>
 <div class="cell">
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">rcbd_wide_tbl</span> <span class="op">&lt;-</span> <span class="fu">pivot_wider</span><span class="op">(</span><span class="va">rcbd_long_tbl</span>, names_from <span class="op">=</span> <span class="va">block</span>, values_from <span class="op">=</span> <span class="va">id</span><span class="op">)</span></span>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">rcbd_wide_tbl</span> <span class="op">&lt;-</span> <span class="fu">pivot_wider</span><span class="op">(</span><span class="va">rcbd_long_tbl</span>, names_from <span class="op">=</span> <span class="va">block</span>, values_from <span class="op">=</span> <span class="va">id</span><span class="op">)</span></span>
 <span><span class="va">rcbd_wide_tbl</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code># A tibble: 4 × 5
   trt       I    II   III    IV
   &lt;fct&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt;
-1 ctrl      1     8    10    16
-2 B         2     5    11    13
-3 A         3     6    12    14
-4 C         4     7     9    15</code></pre>
+1 C         1     6    11    13
+2 ctrl      2     5    12    14
+3 A         3     7    10    15
+4 B         4     8     9    16</code></pre>
 </div>
 </div>
 <div class="callout callout-style-default callout-caution callout-titled">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-1-contents" aria-controls="callout-1" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-2-contents" aria-controls="callout-2" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -905,10 +891,10 @@ Und zurück mit <code>pivot_longer()</code>
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-1" class="callout-1-contents callout-collapse collapse">
+<div id="callout-2" class="callout-2-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <div class="cell">
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">rcbd_wide_tbl</span> <span class="op">%&gt;%</span> </span>
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">rcbd_wide_tbl</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">pivot_longer</span><span class="op">(</span>cols <span class="op">=</span> <span class="va">I</span><span class="op">:</span><span class="va">IV</span>,</span>
 <span>               names_to <span class="op">=</span> <span class="st">"block"</span>,</span>
 <span>               values_to <span class="op">=</span> <span class="st">"id"</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -917,17 +903,17 @@ Und zurück mit <code>pivot_longer()</code>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">rcbd_wide_tbl</span> <span class="op">%&gt;%</span> </span>
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">rcbd_wide_tbl</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">write_xlsx</span><span class="op">(</span><span class="st">"template_sheet.xlsx"</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section><section id="mit-agricolae-1" class="level3" data-number="56.3.2"><h3 data-number="56.3.2" class="anchored" data-anchor-id="mit-agricolae-1">
 <span class="header-section-number">56.3.2</span> … mit <code>agricolae</code>
 </h3>
 <div class="cell">
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">rcbd_obj</span> <span class="op">&lt;-</span> <span class="fu">design.rcbd</span><span class="op">(</span>trt <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"ctrl"</span>, <span class="st">"A"</span>, <span class="st">"B"</span>, <span class="st">"C"</span><span class="op">)</span>, r <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">rcbd_obj</span> <span class="op">&lt;-</span> <span class="fu">design.rcbd</span><span class="op">(</span>trt <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"ctrl"</span>, <span class="st">"A"</span>, <span class="st">"B"</span>, <span class="st">"C"</span><span class="op">)</span>, r <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">rcbd_book_tbl</span> <span class="op">&lt;-</span> <span class="va">rcbd_obj</span> <span class="op">%&gt;%</span> </span>
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">rcbd_book_tbl</span> <span class="op">&lt;-</span> <span class="va">rcbd_obj</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">pluck</span><span class="op">(</span><span class="st">"book"</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">as_tibble</span><span class="op">(</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">set_names</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"plots"</span>, <span class="st">"block"</span>, <span class="st">"trt"</span><span class="op">)</span><span class="op">)</span></span>
@@ -936,48 +922,48 @@ Und zurück mit <code>pivot_longer()</code>
 <pre><code># A tibble: 20 × 3
    plots block trt  
    &lt;dbl&gt; &lt;fct&gt; &lt;fct&gt;
- 1   101 1     A    
- 2   102 1     C    
- 3   103 1     B    
- 4   104 1     ctrl 
- 5   201 2     C    
- 6   202 2     ctrl 
- 7   203 2     B    
+ 1   101 1     C    
+ 2   102 1     A    
+ 3   103 1     ctrl 
+ 4   104 1     B    
+ 5   201 2     B    
+ 6   202 2     C    
+ 7   203 2     ctrl 
  8   204 2     A    
  9   301 3     ctrl 
-10   302 3     C    
-11   303 3     B    
+10   302 3     B    
+11   303 3     C    
 12   304 3     A    
-13   401 4     C    
+13   401 4     A    
 14   402 4     B    
-15   403 4     A    
+15   403 4     C    
 16   404 4     ctrl 
-17   501 5     ctrl 
+17   501 5     A    
 18   502 5     C    
 19   503 5     B    
-20   504 5     A    </code></pre>
+20   504 5     ctrl </code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">rcbd_plot_tbl</span> <span class="op">&lt;-</span> <span class="va">rcbd_book_tbl</span> <span class="op">%&gt;%</span></span>
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">rcbd_plot_tbl</span> <span class="op">&lt;-</span> <span class="va">rcbd_book_tbl</span> <span class="op">%&gt;%</span></span>
 <span>  <span class="fu">mutate</span><span class="op">(</span>rows <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html">as.numeric</a></span><span class="op">(</span><span class="va">block</span><span class="op">)</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">group_by</span><span class="op">(</span><span class="va">rows</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">mutate</span><span class="op">(</span>cols <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fu">n</span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">rcbd_obj</span> <span class="op">%&gt;%</span> </span>
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">rcbd_obj</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">pluck</span><span class="op">(</span><span class="st">"sketch"</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/t.html">t</a></span><span class="op">(</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>     [,1]   [,2]   [,3]   [,4]   [,5]  
-[1,] "A"    "C"    "ctrl" "C"    "ctrl"
-[2,] "C"    "ctrl" "C"    "B"    "C"   
-[3,] "B"    "B"    "B"    "A"    "B"   
-[4,] "ctrl" "A"    "A"    "ctrl" "A"   </code></pre>
+[1,] "C"    "B"    "ctrl" "A"    "A"   
+[2,] "A"    "C"    "B"    "B"    "C"   
+[3,] "ctrl" "ctrl" "C"    "C"    "B"   
+[4,] "B"    "A"    "A"    "ctrl" "ctrl"</code></pre>
 </div>
 </div>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">desplot</span><span class="op">(</span><span class="va">trt</span> <span class="op">~</span> <span class="va">rows</span> <span class="op">+</span> <span class="va">cols</span>, flip <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">desplot</span><span class="op">(</span><span class="va">trt</span> <span class="op">~</span> <span class="va">rows</span> <span class="op">+</span> <span class="va">cols</span>, flip <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>        text <span class="op">=</span> <span class="va">trt</span>, cex <span class="op">=</span> <span class="fl">1</span>, shorten <span class="op">=</span> <span class="st">"no"</span>,</span>
 <span>        out1 <span class="op">=</span> <span class="va">block</span>,</span>
 <span>        data <span class="op">=</span> <span class="va">rcbd_plot_tbl</span>,</span>
@@ -996,11 +982,11 @@ Und zurück mit <code>pivot_longer()</code>
 <span class="header-section-number">56.4.1</span> … mit <code>agricolae</code>
 </h3>
 <div class="cell">
-<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">lsd_obj</span> <span class="op">&lt;-</span> <span class="fu">design.lsd</span><span class="op">(</span>trt <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"ctrl"</span>, <span class="st">"A"</span>, <span class="st">"B"</span>, <span class="st">"C"</span>, <span class="st">"D"</span><span class="op">)</span>, </span>
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">lsd_obj</span> <span class="op">&lt;-</span> <span class="fu">design.lsd</span><span class="op">(</span>trt <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"ctrl"</span>, <span class="st">"A"</span>, <span class="st">"B"</span>, <span class="st">"C"</span>, <span class="st">"D"</span><span class="op">)</span>, </span>
 <span>                      seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">lsd_book_tbl</span> <span class="op">&lt;-</span> <span class="va">lsd_obj</span> <span class="op">%&gt;%</span> </span>
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">lsd_book_tbl</span> <span class="op">&lt;-</span> <span class="va">lsd_obj</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">pluck</span><span class="op">(</span><span class="st">"book"</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">as_tibble</span><span class="op">(</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">set_names</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"plots"</span>, <span class="st">"rows"</span>, <span class="st">"cols"</span>, <span class="st">"trt"</span><span class="op">)</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
@@ -1025,7 +1011,7 @@ Und zurück mit <code>pivot_longer()</code>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">lsd_obj</span> <span class="op">%&gt;%</span> </span>
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">lsd_obj</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu">pluck</span><span class="op">(</span><span class="st">"sketch"</span><span class="op">)</span> <span class="op">%&gt;%</span> </span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/t.html">t</a></span><span class="op">(</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
@@ -1038,7 +1024,7 @@ Und zurück mit <code>pivot_longer()</code>
 </div>
 </div>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">desplot</span><span class="op">(</span><span class="va">trt</span> <span class="op">~</span> <span class="va">rows</span> <span class="op">+</span> <span class="va">cols</span>, flip <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">desplot</span><span class="op">(</span><span class="va">trt</span> <span class="op">~</span> <span class="va">rows</span> <span class="op">+</span> <span class="va">cols</span>, flip <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>        out1 <span class="op">=</span> <span class="va">rows</span>, out1.gpar <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>col<span class="op">=</span><span class="st">"black"</span>, lwd<span class="op">=</span><span class="fl">3</span><span class="op">)</span>,</span>
 <span>        out2 <span class="op">=</span> <span class="va">cols</span>, out2.gpar <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>col<span class="op">=</span><span class="st">"black"</span>, lwd<span class="op">=</span><span class="fl">3</span><span class="op">)</span>,</span>
 <span>        text <span class="op">=</span> <span class="va">trt</span>, cex <span class="op">=</span> <span class="fl">1</span>, shorten <span class="op">=</span> <span class="st">"no"</span>,</span>
@@ -1056,16 +1042,16 @@ Und zurück mit <code>pivot_longer()</code>
 <span class="header-section-number">56.4.2</span> … mit <code>dae</code>
 </h3>
 <div class="cell">
-<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">lsd_sys</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html">cbind</a></span><span class="op">(</span><span class="fu">fac.gen</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>rows <span class="op">=</span> <span class="fl">5</span>, cols <span class="op">=</span> <span class="fl">5</span><span class="op">)</span><span class="op">)</span>,</span>
+<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">lsd_sys</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html">cbind</a></span><span class="op">(</span><span class="fu">fac.gen</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>rows <span class="op">=</span> <span class="fl">5</span>, cols <span class="op">=</span> <span class="fl">5</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>                 trt <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html">factor</a></span><span class="op">(</span><span class="fu">designLatinSqrSys</span><span class="op">(</span><span class="fl">5</span><span class="op">)</span>, labels <span class="op">=</span> <span class="va">LETTERS</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">lsd_lay</span> <span class="op">&lt;-</span> <span class="fu">designRandomize</span><span class="op">(</span>allocated <span class="op">=</span> <span class="va">lsd_sys</span><span class="op">[</span><span class="st">"trt"</span><span class="op">]</span>,</span>
+<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">lsd_lay</span> <span class="op">&lt;-</span> <span class="fu">designRandomize</span><span class="op">(</span>allocated <span class="op">=</span> <span class="va">lsd_sys</span><span class="op">[</span><span class="st">"trt"</span><span class="op">]</span>,</span>
 <span>                            recipient <span class="op">=</span> <span class="va">lsd_sys</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"rows"</span>, <span class="st">"cols"</span><span class="op">)</span><span class="op">]</span>,</span>
 <span>                            seed <span class="op">=</span> <span class="fl">141</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">designGGPlot</span><span class="op">(</span><span class="va">lsd_lay</span>, labels <span class="op">=</span> <span class="st">"trt"</span>, cellalpha <span class="op">=</span> <span class="fl">0.75</span>,</span>
+<div class="sourceCode" id="cb38"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">designGGPlot</span><span class="op">(</span><span class="va">lsd_lay</span>, labels <span class="op">=</span> <span class="st">"trt"</span>, cellalpha <span class="op">=</span> <span class="fl">0.75</span>,</span>
 <span>             row.factors <span class="op">=</span> <span class="st">"rows"</span>, column.factors <span class="op">=</span> <span class="st">"cols"</span>,</span>
 <span>             blockdefinition <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html">cbind</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>,</span>
 <span>             blocklinecolour <span class="op">=</span> <span class="st">"black"</span><span class="op">)</span></span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>

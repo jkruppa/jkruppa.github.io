@@ -17,12 +17,17 @@ Im Weiteren schauen wir uns auch das R Paket `agricolae` mit Beispielen von [Exp
 
 In diesem Kapitel wollen wir uns mit der Erstellung von einfachen experimentellen Designs beschäftigen
 
+-   [Complete randomized design (CRD)](#sec-crd)
+-   [Randomized complete block design (RCBD)](#sec-rcbd)
+-   [Latin square design (LSD)](#sec-lsd)
+
 ## Genutzte R Pakete
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
+set.seed(2034)
 pacman::p_load(tidyverse, magrittr, dae, agricolae,
                conflicted)
 conflict_prefer("select", "dplyr")
@@ -37,25 +42,50 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Complete randomized design (CRD) {#sec-crd}
 
+Das komplett randomisierte Design ist sicherlich das einfachste Design. Aber auch das praktischste, wenn du ein gar nicht so komplexes Experiment hast. Im PRinzip hast du nur eine Behandlung mit unterschiedlichen Gruppen. Oder allgemeiner gesprochen, du hast einen Faktor $f_1$, der deine Behandlungen beinhaltet. Du kannst viele Behandlungen haben, die dann als Level des Faktors dargestellt werden. Wir gehen jetzt das *complete randomized design* einmal an einem Beispiel durch. Hier einmal für eine Behandlung `trt` mit vier Leveln oder auch Gruppen `ctrl`, `A`, `B` und `C` sowie als Outcome das Trockengewicht `drymatter`. Das Outcome müssen wir gar nicht weiter beachten, es dient nur als Gedankenstütze.
+
+Wir haben also folgendes Modell, was wir dann in einem Design abbilden wollen.
+
 $$
 drymatter \sim \overbrace{trt}^{f_1} 
 $$
 
+Jetzt ist nur noch die Frage, wie oft wollen wir jede Behandlung wiederholen (eng. *replicate*). Wir entscheiden uns dafür jeweils 4 Pflanzen pro Behandlungsgruppe zu verwenden. Damit haben wir vier Wiederholungen für vier Behandlungsgruppen und somit insgesamt zwanzig Pflanzen oder auch Beobachtungen.
+
 ### ... mit `expand_grid()`
+
+Warum kompliziert, wenn es auch einfach geht. Wir nutzen hier einmal die Funktion `expand_grid()` um uns das *complete randomized design* zu erstellen. Die Randomisierung kommt dann über das `sample()` und der Pflanzenidentifikationsnummer `pid`. Das geht super einfach und wir brauchen auch gar keine anderen höheren Funktionen von komplexeren R Paketen. Die Spalte `trt_rep` wird uns später helfen die Beobachtung dann in dem Grid der Pflanzenposition auf dem Tisch wiederzufinden.
 
 ```{r}
 crd_long_tbl <- expand_grid(trt = 1:4, rep = 1:4) %>% 
   mutate(trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
          rep = factor(rep, labels = as.roman(1:4)),
-         id = sample(1:n()))
+         trt_rep = str_c(trt, ".", rep),
+         pid = sample(1:n())) %>% 
+  select(pid, everything())
+crd_long_tbl
 ```
+
+Dann kannst du dir die Datei mit der Funktion `write_xlsx()` aus dem R Paket `writexl` raus schreiben und dann entsprechend mit deinen Messwerten für das Trockengewicht ergänzen.
+
+```{r}
+#| eval: false
+#| message: false
+#| warning: false
+crd_long_tbl %>% 
+  write_xlsx("template_sheet.xlsx")
+```
+
+Für die Visualisierung fehlt uns jetzt noch die Positionsangaben auf dem Feld. Daher bauen wir uns einmal ein Grid der Reihen `rows` und der Spalten `cols`. Das Grid können wir dann mit den nach den Pflanzen-ID's sortieren Design zusammenbringen. Damit haben wir dann eigentlich schon fast alles zusammen.
 
 ```{r}
 crd_plot_tbl <- crd_long_tbl %>% 
-  arrange(id) %>% 
+  arrange(pid) %>% 
   bind_cols(expand_grid(row = 1:4, col = 1:4))
-  
+crd_plot_tbl
 ```
+
+Jetzt können wir uns einmal das Grid der Pflanzungen in der @fig-exp-basic-1 einmal anschauen. Wir nutzen hier die Möglichkeiten des R Pakets `desplot`. Hier wird es dann nochmal klarer wo die Pflanzen eigentlich hin sollen. Du kannst dir dann den Tisch so einteilen, dass eben oben links die vierte Wiederholung der Behandlung `B` steht. Dann steht rechts daneben die zweite Wiederholung der Behandlung `C`. Nach der Ernte bestimmst du dann das Trockengewicht und trägst es in die Exceltabelle ein.
 
 ```{r}
 #| message: false
@@ -64,47 +94,14 @@ crd_plot_tbl <- crd_long_tbl %>%
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 5
-#| fig-cap: "foo."
+#| fig-cap: "Schema der Behandlungen nach dem *complete randomized design* ."
 
 ggdesplot(data = crd_plot_tbl, 
           form = trt ~ col + row,
-          text = trt, cex = 1, show.key = FALSE, shorten = "no", flip = TRUE)
+          text = trt_rep, cex = 1, show.key = FALSE, shorten = "no", flip = TRUE)
 ```
 
-`pivot_wider()`
-
-```{r}
-crd_wide_tbl <- pivot_wider(crd_long_tbl, names_from = rep, values_from = id)
-crd_wide_tbl
-```
-
-::: {.callout-caution collapse="true"}
-## Und zurück mit `pivot_longer()`
-
-```{r}
-#| eval: false
-#| message: false
-#| warning: false
-
-crd_wide_tbl %>% 
-  pivot_longer(cols = I:IV,
-               names_to = "rep",
-               values_to = "id")
-```
-:::
-
-```{r}
-#| eval: false
-#| message: false
-#| warning: false
-crd_wide_tbl %>% 
-  write_xlsx("template_sheet.xlsx")
-```
-
-```{r}
-sample(1:16) %>% 
-  matrix(ncol = 4, nrow = 4)
-```
+Das war jetzt die schnelle Variante mit `expand_grid()` und der anschließenden Visualisierung mit einem Plan für die Positionen der jeweiligen Beobachtungen.
 
 ### ... mit `agricolae`
 
