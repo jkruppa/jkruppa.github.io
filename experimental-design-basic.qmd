@@ -15,11 +15,15 @@ Ein Teil der Beispiele basiert auf [DSFAIR von P. Schmidt](https://schmidtpaul.g
 Im Weiteren schauen wir uns auch das R Paket `agricolae` mit Beispielen von [Experimental Designs with agricolae](https://myaseen208.com/agricolae/articles/ExperimentalDesign.html) genauer einmal an.
 :::
 
-In diesem Kapitel wollen wir uns mit der Erstellung von einfachen experimentellen Designs beschäftigen
+In diesem Kapitel wollen wir uns mit der Erstellung von einfachen experimentellen Designs beschäftigen. Dementsprechend schauen wir uns nur die drei folgenden Designs hier in diesem Kapitel an.
 
 -   [Complete randomized design (CRD)](#sec-crd)
 -   [Randomized complete block design (RCBD)](#sec-rcbd)
 -   [Latin square design (LSD)](#sec-lsd)
+
+Dabei werden wir verschiedene Wege gehen. Leider geht es hier wirklich nicht mehr ohne eine Idee der Programmierung in R. Sonst kannst du leider dem Kapitel nicht folgen. Bitte schau auch nochmal in das vorherige Kapitel zur [Versuchsplanung in R](#sec-experimental-design-r). Wir schauen uns jetzt einmal die einfache Umsetzung händsich an, dann einmal in dem R Paket `agricolae` und abschließend in dem R Paket `dae`. Nicht immer ist alles möglcih, mal ist es dann händisch zu kompliziert oder aber eines der Pakete bietet das experimentelle Design nicht an.
+
+In dem nachfolgenden Kapitel zu den fortgeschrittenen Designs findest du dann noch mehr experimentelle Designs und wie du diese Designs in R generieren kannst. Dieses Kapitel sollte aber ausreichen um einfache Projekte im Rahmen einer Abschlussarbeit oder einem Studienprojekt zu planen.
 
 ## Genutzte R Pakete
 
@@ -51,6 +55,20 @@ drymatter \sim \overbrace{trt}^{f_1}
 $$
 
 Jetzt ist nur noch die Frage, wie oft wollen wir jede Behandlung wiederholen (eng. *replicate*). Wir entscheiden uns dafür jeweils 4 Pflanzen pro Behandlungsgruppe zu verwenden. Damit haben wir vier Wiederholungen für vier Behandlungsgruppen und somit insgesamt zwanzig Pflanzen oder auch Beobachtungen.
+
+::: {.callout-caution collapse="true"}
+## Randomsiierung kurz und schmerzlos
+
+Wenn du für deine zwanzig Pflanzen nur ein Randomisierungmuster brauchst, dann empfehle ich dir die Folgende schnelle Art und Weise. Du nimmst die Zahlen von 1 bis 20 und mischt die Zahlen einmal mit der Funktion `sample()` durch. Dann erstellst du dir als dein Grid für deine Pflanzen mit einer $4 \times 5$-Matrix und pflanzt nach diesem Grid die Pflanzen ein. Das war es dann und du bist durch.
+
+```{r}
+1:20 %>% 
+  sample() %>% 
+  matrix(nrow = 4, ncol = 5,
+         dimnames = list(str_c("Reihe", 1:4, sep = "-"),
+                         str_c("Spalte", 1:5, sep = "-")))
+```
+:::
 
 ### ... mit `expand_grid()`
 
@@ -107,10 +125,16 @@ Das war jetzt die schnelle Variante mit `expand_grid()` und der anschließenden 
 
 ### ... mit `agricolae`
 
+Als Alternative bietet sich dann auch das R Paket `agricolae` an, obwohl ich für so einfaches Design nicht `agricolae` empfehlen kann. Wir haben nämlich so ein paar gewünschte Eigenschaften und damit musst du etwas programmieren um gut mit dem Paket umgehen zu können. Wir nutzen hier die Funktion `design.crd()` um uns das Design eines *complete randomized design* zu erstellen. Die Funktion benötigt einen Vektor mit den Namen der Behandlungslevel. Also in unserem Fall eben `ctrl`, `A`, `B` und `C`. Dann noch einen Vektor `r` mit den Wiederholungen pro Behandlungslevel. Hier ist Funktion `design.crd()` etwas besser, denn wir können hier auch unbalancierte Designs abbilden. Der Nachteil ist, dass wir faktisch danach keine andere Funktion mehr aus den anderen Paketen nutzen können. Deshalb ist es sinniger, balanciert zu planen und dann eben die Pflanzen später zu entfernen.
+
+Hier einmal die simple Anwendung der Funktion zum erstellen eines *complete randomized design* mit vier Behandlungen und fünf Wiederholungen pro Behandlung.
+
 ```{r}
 crd_obj <- design.crd(trt = c("ctrl", "A", "B", "C"), 
-                      r = c(5, 5, 5, 5), serie = 2)
+                      r = c(5, 5, 5, 5))
 ```
+
+Jetzt kommt leider der etwas aufwenidigere Teil. Das Paket `agricolae` ist schon etwas älter und damit auch teilweise nicht mehr so kompatibel und auf dem Stand der Zeit. Wir bauen uns daher jetzt noch ein paar Sachen zurecht. Am Ende wollen wie ein sauberes `tibble` mit anständigen Namen und einer Variable `trt_rep`, die uns sagt welche Behandlung und Wiederholung wir vorliegen haben.
 
 ```{r}
 crd_book_tbl <- crd_obj %>% 
@@ -121,11 +145,15 @@ crd_book_tbl <- crd_obj %>%
 crd_book_tbl
 ```
 
+Schön ist was anderes, da hast du recht, aber wir können uns dann auch noch das Pflanzgrid einmal als Abbildung wiedergeben lassen. Da die Ausgabe der Funktion `design.crd()` schon permutiert ist, müssen wir hier nur die Informationen zu den Zeilen und Spalten ergänzen. Im Prinzip kannst du entscheiden, wie du die Wiederholungen `cols` oder Behandlungen `rows` anordnest. Du kannst am Ende aber auch einfach den ausgedruckten Zettel drehen.
+
 ```{r}
 crd_plot_tbl <- crd_book_tbl %>%
   bind_cols(expand_grid(rows = 1:4,
                         cols = 1:5))
 ```
+
+In der @fig-exp-basic-2 siehst du dann einmal das Schema für die Pflanzungen eines *complete randomized design*. Das Schema unterscheidet sich so nicht von dem Eigenbau mit `expand_grid()`. Da bist du frei zu entscheiden was du nutzen möchtest.
 
 ```{r}
 #| message: false
@@ -136,12 +164,14 @@ crd_plot_tbl <- crd_book_tbl %>%
 #| fig-width: 5
 #| fig-cap: "Schema der Pflanzungen nach den Behandlungen für das *complete randomized design*."
 
-desplot(trt ~ rows + cols, flip = TRUE,
-        text = trt_rep, cex = 1, shorten = "no",
-        data = crd_plot_tbl,
-        main = "Pflanzschema für ein complete randomized design", 
-        show.key = FALSE)
+ggdesplot(trt ~ rows + cols, flip = TRUE,
+          text = trt_rep, cex = 1, shorten = "no",
+          data = crd_plot_tbl,
+          main = "Pflanzschema für ein complete randomized design", 
+          show.key = FALSE) 
 ```
+
+Damit wären wir auch schon durch. Wir haben in R im Prinzip die beiden Möglichkeiten das *complete randomized design* selber oder mit dem R Paket `agricolae` zu erstellen.
 
 ## Randomized complete block design (RCBD) {#sec-rcbd}
 
