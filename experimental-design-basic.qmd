@@ -57,7 +57,7 @@ $$
 Jetzt ist nur noch die Frage, wie oft wollen wir jede Behandlung wiederholen (eng. *replicate*). Wir entscheiden uns dafür jeweils 4 Pflanzen pro Behandlungsgruppe zu verwenden. Damit haben wir vier Wiederholungen für vier Behandlungsgruppen und somit insgesamt zwanzig Pflanzen oder auch Beobachtungen.
 
 ::: {.callout-caution collapse="true"}
-## Randomsiierung kurz und schmerzlos
+## Randomisierung kurz und schmerzlos
 
 Wenn du für deine zwanzig Pflanzen nur ein Randomisierungmuster brauchst, dann empfehle ich dir die Folgende schnelle Art und Weise. Du nimmst die Zahlen von 1 bis 20 und mischt die Zahlen einmal mit der Funktion `sample()` durch. Dann erstellst du dir als dein Grid für deine Pflanzen mit einer $4 \times 5$-Matrix und pflanzt nach diesem Grid die Pflanzen ein. Das war es dann und du bist durch.
 
@@ -79,7 +79,7 @@ crd_long_tbl <- expand_grid(trt = 1:4, rep = 1:4) %>%
   mutate(trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
          rep = factor(rep, labels = as.roman(1:4)),
          trt_rep = str_c(trt, ".", rep),
-         pid = sample(1:n())) %>% 
+         pid = sample(1:n())) %>%  ## Randomsierung über alles
   select(pid, everything())
 crd_long_tbl
 ```
@@ -175,28 +175,54 @@ Damit wären wir auch schon durch. Wir haben in R im Prinzip die beiden Möglich
 
 ## Randomized complete block design (RCBD) {#sec-rcbd}
 
+Jetzt kommen wir zum vermutlich meist genutzten Design, dem *randomized complete block design*. Hier haben wir neben dem Faktor Behandlung `trt` auch noch einen zusätzlichen Faktor `block`. Wir haben dann für jede Behandlung/Block-Kombination einen Messwert. Wenn du am Feld stehst, ist es aber meistens so, dass wir nicht *eine* Pflanze pro Block haben, sondern 20 oder mehr Pflanzen. Wir mitteln aber den Wert für das Trockengewicht über alle 20 Pflanzen pro Block und haben dann wieder einen Messwert für jede Behandlung/Block-Kombination. Das ist manchmal etwas verwirrend.
+
+Wir haben also folgendes Modell vorliegen, wir habend den Faktor Behandlung `trt` sowie den Faktor Block `block`. Für jede der Behandlung/Block-Kombination erhalten wir dann einen Wert. Wir schauen uns gleich vier Behandlungen und vier Blöcke an.
+
 $$
 drymatter \sim \overbrace{trt}^{f_1} + \underbrace{block}_{f_2} 
 $$
 
+Wir randomiseren unsere Behandlungen *in* den Blöcken. Somit sind unsere Behandlungen in den Blöcken genestet.
+
+$$
+\overbrace{\mbox{Behandlungen}}^{f_1} \xrightarrow[]{nested} \underbrace{\mbox{Blöcke}}_{f_2} 
+$$
+
+Damit gilt dann auch, dass jeder Block alle Behandlungslevel enthält und die Behandlungen innerhalb eines Blockes randomsiert werden. Unsere Randomisierungseinheit ist also der Block.
+
+$$
+\underbrace{\mbox{Blöcke}}_{f_2} \xrightarrow[]{beinhaltet\; alle} \overbrace{\mbox{Behandlungen}}^{f_1}
+$$
+
+Theoretisch könnten wir auch pro Block mehrere *einzelne* Pflanzen messen, dann sind wir aber im Subsampling drin. Wenn du mehr zum Design erfahren möchtest, dann schau einfach mal bei [Abschnitt zum *subsampling*](#sec-subsampling) im nächsten Kapitel rein.
+
+::: column-margin
+Hier einmal der Link zu der Auswertung zum [Subsampling](https://schmidtpaul.github.io/DSFAIR/subsampling_Piepho1997.html) bei DSFAIR.
+:::
+
 ### ... mit `expand_grid()`
+
+Das praktische an `expand_grid()` ist, dass du nochmal eine Vorstellugn über den Aufbau des Experiments erhälst. Wir nehmen als erstes den Block `block` und ergänzen dann die Behandlungen `trt`. Damit erschaffen wir uns erst die vier Blöcke und dann pro Block die vier Behandlungen. Dann müssen wir noch unsere Daten etwas mutieren und schöner machen. Wir ergänzen noch einen Identifikator `trt_block` damit wir auch unsere Positionen für die Pflanzungen später in den Abbildungen wieder finden. Am Ende gruppieren wir die Daten nochmal pro Block damit wir dann innerhalb der Blöcke unsere Behandlungslevel über die Funktion `sample()` randomsisiern können.
 
 ```{r}
 rcbd_long_tbl <- expand_grid(block = 1:4, 
                              trt = 1:4) %>% 
   mutate(trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
          block = factor(block, labels = as.roman(1:4)),
-         id = 1:n()) %>% 
+         trt_block = str_c(trt, ".", block),
+         pid = 1:n()) %>% 
   group_by(block) %>% 
-  mutate(trt = sample(trt))
+  mutate(trt = sample(trt)) ## Randomisierung pro Block
 ```
 
 ```{r}
 rcbd_plot_tbl <- rcbd_long_tbl %>% 
-  arrange(id) %>% 
-  bind_cols(expand_grid(row = 1:4, col = 1:4))
-  
+  bind_cols(expand_grid(rows = 1:4, cols = 1:4))
+
 ```
+
+Die dicken, schwarzen Linien stellen die Grenzen der Blöcke dar. Im realen Leben kann eine farbige Kachel in der Abbildung ein ganzes Feld sein und die Blockgrenzen sind dann eben Feldwege. Die Abbildung stellt ja auch nur eine schematische Darstellung der Pflanzungen dar.
 
 ```{r}
 #| message: false
@@ -205,35 +231,14 @@ rcbd_plot_tbl <- rcbd_long_tbl %>%
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 5
-#| fig-cap: "foo."
+#| fig-cap: "Schema der Pflanzungen nach den Behandlungen für das randomized complete block design. Beachte die schwarzen Linien als Grenzen für die Blöcke. Im realen Leben können das Gänge zwischen Tischen sein oder Feldwege."
 
 ggdesplot(data = rcbd_plot_tbl, 
-          form = trt ~ row + col,
+          form = trt ~ rows + cols,
           out1 = block,
-          text = trt, cex = 1, show.key = FALSE, shorten = "no")
+          main = "Pflanzschema für ein randomized complete block design", 
+          text = trt_block, cex = 1, show.key = FALSE, shorten = "no")
 ```
-
-`pivot_wider()`
-
-```{r}
-rcbd_wide_tbl <- pivot_wider(rcbd_long_tbl, names_from = block, values_from = id)
-rcbd_wide_tbl
-```
-
-::: {.callout-caution collapse="true"}
-## Und zurück mit `pivot_longer()`
-
-```{r}
-#| eval: false
-#| message: false
-#| warning: false
-
-rcbd_wide_tbl %>% 
-  pivot_longer(cols = I:IV,
-               names_to = "block",
-               values_to = "id")
-```
-:::
 
 ```{r}
 #| eval: false

@@ -1,6 +1,6 @@
 ```{r echo = FALSE}
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc,
-               grid, agricolae, patchwork, desplot, modelr)
+               grid, agricolae, patchwork, desplot, modelr, see)
 ```
 
 # Fortgeschrittene Designs {#sec-experimental-design-advanced}
@@ -25,6 +25,98 @@ Ich werde mich in diesem Kapitel für das Erste auf die wichtigen experimentelle
 **Wenn dir ein experimentelles Design fehlt, dann schreibe mir gerne eine Mail und ich schaue, dass ich das experimentelle Design ergänze.**
 :::
 
+In der @fig-exp-adv-1 sehen wir einmal die Übersicht über die drei häufigsten komplexeren experimentellen Designs mit dem RCBD (3-faktoriell), dem Split plot Design (3-faktoriell) sowie dem Subsampling eines RCBD (2-faktoriell). Die drei experimentellen Designs werden immer mal wieder etwas durcheinander gewirbelt.
+
+```{r}
+#| echo: false
+#| warning: false
+#| label: fig-exp-adv-1
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 6
+#| fig-cap: "Vergleich der drei häufigsten komplexeren experimentellen Designs mit dem RCBD (3-faktoriell), dem Split plot Design (3-faktoriell) sowie dem Subsampling eines RCBD (2-faktoriell). Die Zahlen bei dem Subsampling stellt die ID's der individuellen Beobachtungen dar."
+#| fig-subcap: 
+#|   - "Sechs Eisendüngerbehandlung (Text: fe_1 bis fe_6) sowie vier Bodenbehandlung (Farbe: schwarz, rot, orange, grün) in vier Blöcken."
+#|   - "Sechs Eisendüngerbehandlung (Text: fe_1 bis fe_6) sowie vier Bodenbehandlung (Farbe: schwarz, rot, orange, grün) in vier Blöcken."
+#|   - "Vier Bodenbehandlung (Farbe: schwarz, rot, orange, grün) mit den individuellen Beobachtungen in vier Blöcken."
+#| layout-nrow: 1
+#| column: page
+
+
+trt_fac1_soil <- str_c("soil_", 1:4)    
+n_trt_fac1_soil <- n_distinct(trt_fac1_soil) 
+trt_fac2_fert <- str_c("fe_", 1:6)  
+n_trt_fac2_fert <- n_distinct(trt_fac2_fert) 
+n_rep <- 4
+
+## rcbd
+fac2rcbd_out <- design.ab(trt = c(n_trt_fac2_fert, n_trt_fac1_soil), 
+                          design = "rcbd",
+                          r = n_rep, 
+                          seed = 42)
+
+fac2rcbd_out$bookRowCol <- fac2rcbd_out$book %>%
+  bind_cols(expand.grid(rows = 1:n_trt_fac2_fert,
+                        cols = 1:(n_trt_fac1_soil*n_rep))) %>% 
+  mutate(trt_fac2_fert = paste0("fe_", A),
+         trt_fac1_soil = paste0("soil_", B),
+         block = paste0("Block ", block))
+
+desplot(block ~ cols + rows | block, flip = TRUE,
+        out1 = rows, out1.gpar = list(col = "grey", lty = 1),
+        out2 = cols, out2.gpar = list(col = "grey", lty = 1), 
+        text = trt_fac2_fert, cex = 1, shorten = "no", col=trt_fac1_soil,
+        data = fac2rcbd_out$bookRowCol,
+        main = "Randomized complete block design (3-faktoriell)", 
+        show.key = FALSE, key.cex = 0.5)
+
+## split plot
+splitplot_out <- design.split(trt1 = trt_fac1_soil,
+                              trt2 = trt_fac2_fert,
+                              r = n_rep,
+                              seed = 42)
+
+
+splitplot_out$bookRowCol <- splitplot_out$book %>% 
+  mutate(block = paste0("Block ", block),
+         cols = plots %>% str_sub(2,3) %>% as.integer,
+         rows = splots %>% as.integer)
+
+desplot(block ~ cols + rows | block, flip = TRUE,
+        out1 = rows, out1.gpar = list(col = "grey", lty = 1),
+        out2 = cols, out2.gpar = list(col = "grey", lty = 1), 
+        text = trt_fac2_fert, cex = 1, shorten = "no", col=trt_fac1_soil,
+        data = splitplot_out$bookRowCol ,
+        main = "Split plot design (3-faktoriell)",
+        show.key = FALSE, key.cex = 0.5)
+
+## subsampling
+
+rcbd_long_tbl <- expand_grid(block = 1:4, 
+                             trt = 1:4) %>% 
+  mutate(trt = factor(trt, labels = trt_fac1_soil),
+         block = factor(block, labels = str_c("Block ", 1:4))) %>% 
+  group_by(block) %>% 
+  mutate(trt = sample(trt)) %>% 
+  expand_grid(pid = 1:6) %>% 
+  mutate(pid = as_factor(pid),
+         pid_text = str_pad(1:96, width = 2, pad = "0"))
+
+rcbd_plot_tbl <- rcbd_long_tbl %>% 
+  bind_cols(expand_grid(cols = 1:16, rows = 1:6))
+
+desplot(data = rcbd_plot_tbl, flip = TRUE, 
+          form = block ~ cols + rows | block,
+          out1 = trt, out1.gpar = list(col = "grey", lty = 1),
+          out2 = pid, out2.gpar = list(col = "grey", lty = 1),
+          main = "Subsampling (2-faktoriell)", 
+          text = pid_text, 
+          cex = 1, show.key = FALSE, shorten = "no", col = trt) 
+
+
+
+```
+
 ## Genutzte R Pakete
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
@@ -43,33 +135,13 @@ cbbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73",
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
 
-## Split plot design {#sec-split}
-
-::: column-page
-![Visualisierung des *split plot design* mit einer Behandlung und vier Behandlungsleveln sowie einer zweiten Behandlung mit fünf Behandlungsleveln. Die erste Behandlung ist über die drei Blöcke randomisiert.](images/experimental-design-split.png){#fig-design-split fig-align="center" width="80%"}
-:::
-
-### Daten
-
-```{r}
-
-data_tbl <- expand_grid(trt = 1:4, block = 1:4, rep = 1:5) %>% 
-    mutate(rsp = 20 + 2.5 * trt + 1.5 * block + rnorm(n(), 0, 1),
-           trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
-           block = factor(block, labels = as.roman(1:4)),
-           rep = as_factor(rep))
-
-```
-
-## Subsampling
-
-## Incomplete block design
-
-## Randomized complete block design (RCBD) - mit 2 Faktoren
+## Randomized complete block design (RCBD, 3-faktoriell)
 
 $$
 y \sim \overbrace{trt}^{f_1} + \underbrace{block}_{f_2} + \overbrace{location}^{f_3}
 $$
+
+### ... mit `expand_grid()`
 
 ```{r}
 three_fct_long_tbl <- expand_grid(location = 1:2, trt = 1:4, block = 1:4) %>% 
@@ -82,33 +154,179 @@ three_fct_long_tbl
 ```
 
 ```{r}
-three_fct_wide_tbl <- three_fct_long_tbl %>% 
-  split(.$location) %>% 
-  map(~pivot_wider(., names_from = block, values_from = id)) %>% 
-  bind_rows()
-
-three_fct_wide_tbl
-```
-
-::: {.callout-caution collapse="true"}
-## Und zurück mit `pivot_longer()`
-
-```{r}
-#| eval: false
-#| message: false
-#| warning: false
-
-crd_wide_tbl %>% 
-  pivot_longer(cols = I:IV,
-               names_to = "block",
-               values_to = "id")
-```
-:::
-
-```{r}
 #| eval: false
 #| message: false
 #| warning: false
 three_fct_wide_tbl %>% 
   write_xlsx("template_sheet.xlsx")
+```
+
+### ... mit `agricolae`
+
+```{r}
+trt_fac1_soil <- str_c("soil_", 1:4)    
+n_trt_fac1_soil <- n_distinct(trt_fac1_soil) 
+trt_fac2_fert <- str_c("fe_", 1:6)  
+n_trt_fac2_fert <- n_distinct(trt_fac2_fert) 
+n_rep <- 4
+```
+
+```{r}
+rcbd_fac3_obj <- design.ab(trt = c(n_trt_fac2_fert, n_trt_fac1_soil), 
+                           design = "rcbd",
+                           r = n_rep, 
+                           seed = 42)
+```
+
+```{r}
+rcbd_fac3_book_tbl <- rcbd_fac3_obj$book %>%
+  bind_cols(expand.grid(rows = 1:n_trt_fac2_fert,
+                        cols = 1:(n_trt_fac1_soil*n_rep))) %>% 
+  mutate(trt_fac2_fert = str_c("fe_", A),
+         trt_fac1_soil = str_c("soil_", B),
+         block = paste0("Block ", block)) %>% 
+  select(block, fert = trt_fac2_fert, soil = trt_fac1_soil, rows, cols)
+```
+
+Kein `sketch`, wenn man ihn braucht.
+
+```{r}
+#| message: false
+#| warning: false
+#| label: fig-exp-adv-2
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "foo."
+
+desplot(block ~ cols + rows | block, flip = TRUE,
+        out1 = rows, out1.gpar = list(col = "grey", lty = 1),
+        out2 = cols, out2.gpar = list(col = "grey", lty = 1), 
+        text = fert, cex = 1, shorten = "no", col = soil,
+        data = rcbd_fac3_book_tbl,
+        main = "Randomized complete block design (3-faktoriell)", 
+        show.key = FALSE, key.cex = 0.5)
+```
+
+### ... mit `dae`
+
+## Split plot design {#sec-split}
+
+### ... mit `agricolae`
+
+```{r}
+trt_fac1_soil <- str_c("soil_", 1:4)    
+n_trt_fac1_soil <- n_distinct(trt_fac1_soil) 
+trt_fac2_fert <- str_c("fe_", 1:6)  
+n_trt_fac2_fert <- n_distinct(trt_fac2_fert) 
+n_rep <- 4
+```
+
+Achtung, unbedingt `serie = 0` als Option nutzen, sondt klappt es nicht mit der Option die `plots` gleich den Spalten `cols` zu setzen. Ja, ich weiß, ist alles super suboptimal.
+
+```{r}
+splitplot_obj <- design.split(trt1 = trt_fac1_soil,
+                              trt2 = trt_fac2_fert,
+                              r = n_rep,
+                              seed = 42, serie = 0)
+```
+
+Leider gibt es kein `sketch`-Objekt gerade hier wo man eins gebrauchen könnte.
+
+```{r}
+splitsplot_book_tbl <- splitplot_obj$book %>% 
+  mutate(block = paste0("Block ", block),
+         cols = plots, 
+         rows = as.numeric(splots)) %>% 
+  select(block, fert = trt_fac2_fert, soil = trt_fac1_soil, rows, cols)
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| label: fig-exp-adv-3
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "foo."
+desplot(block ~ cols + rows | block, flip = TRUE,
+        out1 = rows, out1.gpar = list(col = "grey", lty = 1),
+        out2 = cols, out2.gpar = list(col = "grey", lty = 1), 
+        text = fert, cex = 1, shorten = "no", col = soil,
+        data = splitsplot_book_tbl ,
+        main = "Split plot design (3-faktoriell)",
+        show.key = FALSE)
+```
+
+### ... mit `dae`
+
+```{r}
+oast_sys <- cbind(fac.gen(list(Blocks = 4, MPlots = 4, SubPlots = 6)),
+                  fac.gen(list(soil = str_c("soil_", 1:4),
+                               fert = str_c("fe_", 1:6)), times = 4)) 
+```
+
+```{r}
+oats_lay <- designRandomize(allocated = oast_sys[c("soil", "fert")],
+                            recipient = oast_sys[c("Blocks", "MPlots", "SubPlots")],
+                            nested.recipients = list(MPlots = "Blocks",
+                                                     SubPlots = c("MPlots", "Blocks")),
+                            seed = 235805)
+
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| label: fig-exp-adv-4
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 6
+#| fig-cap: "foo."
+#| fig-subcap: 
+#|   - "... mit `desplot()`"
+#|   - "... mit `designGGplot()`."
+#| layout-nrow: 1
+#| column: page
+
+desplot(Blocks ~ MPlots + SubPlots | Blocks, flip = TRUE,
+        out1 = MPlots, out1.gpar = list(col = "grey", lty = 1),
+        out2 = SubPlots, out2.gpar = list(col = "grey", lty = 1), 
+        text = fert, cex = 1, shorten = "no", col = soil,
+        data = oats_lay ,
+        main = "Split plot design (3-faktoriell)",
+        show.key = FALSE)
+
+designGGPlot(oats_lay, labels = "fert", cellalpha = 0.75, cellfillcolour.column = "soil",
+             row.factors = c("Blocks", "SubPlots"), column.factors = c("MPlots"),
+             blockdefinition = rbind(c(6, 1)),
+             blocklinecolour = "black")
+
+
+```
+
+## Subsampling {#sec-subsampling}
+
+### ... mit `expand_grid()`
+
+### ... mit `agricolae`
+
+### ... mit `dae`
+
+## Incomplete block design
+
+### ... mit `expand_grid()`
+
+### ... mit `agricolae`
+
+```{r}
+trt <- c("A", "B", "C", "D", "E" )
+k <- 4
+outdesign <- design.bib(trt,k, seed=543, serie=2)
+book5 <- outdesign$book
+book5
+```
+
+```{r}
+outdesign$sketch
 ```
