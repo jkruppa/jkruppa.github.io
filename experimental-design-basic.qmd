@@ -7,8 +7,6 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc,
 
 *Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
 
-![](images/caution.png){fig-align="center" width="50%"}
-
 ::: column-margin
 Ein Teil der Beispiele basiert auf [DSFAIR von P. Schmidt](https://schmidtpaul.github.io/DSFAIR/DesigningExperiments.html) und wurde von mir angepasst und vereinfacht. Hier findet sich auch weiterführende Literatur und weitere Beispiele.
 
@@ -26,7 +24,7 @@ Als Spezialfälle dann noch folgende Designs am Ende des Kapitels.
 -   [Alpha design](#sec-alpha)
 -   [Augmented design](#sec-augment)
 
-Dabei werden wir verschiedene Wege gehen. Leider geht es hier wirklich nicht mehr ohne eine Idee der Programmierung in R. Sonst kannst du leider dem Kapitel nicht folgen. Bitte schau auch nochmal in das vorherige Kapitel zur [Versuchsplanung in R](#sec-experimental-design-r). Wir schauen uns jetzt einmal die einfache Umsetzung händsich an, dann einmal in dem R Paket `agricolae` und abschließend in dem R Paket `dae`. Nicht immer ist alles möglcih, mal ist es dann händisch zu kompliziert oder aber eines der Pakete bietet das experimentelle Design nicht an.
+Dabei werden wir verschiedene Wege gehen. Leider geht es hier wirklich nicht mehr ohne eine Idee der Programmierung in R. Sonst kannst du leider dem Kapitel nicht folgen. Bitte schau auch nochmal in das vorherige Kapitel zur [Versuchsplanung in R](#sec-experimental-design-r). Wir schauen uns jetzt einmal die einfache Umsetzung händisch an, dann einmal in dem R Paket `agricolae` und abschließend in dem R Paket `dae`. Nicht immer ist alles möglich, mal ist es dann händisch zu kompliziert oder aber eines der Pakete bietet das experimentelle Design nicht an - oder ich habe es nicht gefunden.
 
 In dem nachfolgenden Kapitel zu den fortgeschrittenen Designs findest du dann noch mehr experimentelle Designs und wie du diese Designs in R generieren kannst. Dieses Kapitel sollte aber ausreichen um einfache Projekte im Rahmen einer Abschlussarbeit oder einem Studienprojekt zu planen.
 
@@ -257,9 +255,13 @@ rcbd_long_tbl %>%
 
 ### ... mit `agricolae`
 
+Wir können auch ein *randomized complete block design* mit `agricolae` erstellen. Hier geht es ähnlich wie vorher schon. Wichtig ist, dass wir hier unsere Blöcke wieder mit `r` bezeichnen. Damit bauen wir uns also wieder ein Design mit vier Behandlungsleveln und fünf Blöcken.
+
 ```{r}
 rcbd_obj <- design.rcbd(trt = c("ctrl", "A", "B", "C"), r = 5)
 ```
+
+Leider ist die Ausgabe von `design.rcbd()` etwas ungünstig für die weitere Darstellung. Deshalb wandeln wir etwas das Feldbuch für unsere Bedürfnisse um. Wir könnten natürlich gleich mit dem Feldbuch weitermachen und die Pflanzen in der Form ausbringen, aber wir wollen ja noch ein Pflanzschema erstellen.
 
 ```{r}
 rcbd_book_tbl <- rcbd_obj %>% 
@@ -269,6 +271,8 @@ rcbd_book_tbl <- rcbd_obj %>%
 rcbd_book_tbl
 ```
 
+Jetzt nochmal das Grid für die Pflanzungen ergänzt. Hier müssen wir etwas mehr schauen, wie wir die Zeilen `rows` und Spalten `cols` zuordnen. Unsere Zeilen sind die Blöcke, aber innerhalb der Blöcke müssen wir die Anzahl der Behandlungen nummerieren. Deshalb machen wir den Zwischenschritt mit `group_by()`.
+
 ```{r}
 rcbd_plot_tbl <- rcbd_book_tbl %>%
   mutate(rows = as.numeric(block),
@@ -277,11 +281,15 @@ rcbd_plot_tbl <- rcbd_book_tbl %>%
   mutate(cols = 1:n())
 ```
 
+Zur Kontrolle einmal die Ausgabe des `skretch`. Auch hier steht wieder nichts an den Zeilen und Spalten, so dass wir immer überlegen müssen, was war nun der Block und was war die Behandlung.
+
 ```{r}
 rcbd_obj %>% 
   pluck("sketch") %>% 
   t()
 ```
+
+Um es schöner zu haben schauen wir uns einmal die @fig-exp-basic-4 als Pfalnzschema an. Wir haben hier die gleiche Ausgabe wie auch schon weiter oben. Die Positionen haben sich geändert, wir haben ja auch zweimal randomisiert. Sonst sehen wir aber das Gleiche. Die schwarze Striche sind wieder die Grenzen unserer Blöcke und können im echten Leben dann Feldwege oder Gewächshäuser sein.
 
 ```{r}
 #| message: false
@@ -301,12 +309,18 @@ desplot(trt ~ rows + cols, flip = TRUE,
 
 ## Latin square design (LSD) {#sec-lsd}
 
+Das *latin suare design* erweist sich dann als besonders sinnvoll, wenn zwei unabhängige Störgradienten vorhanden sind, die orthogonal zueinander ausgerichtet sind. Ein Beispiel hierfür wäre im Boden des Versuchsfeldes ein Feuchtigkeitsgefälle von Nord nach Süd und ein Nährstoffgefälle von Ost nach West. Um diese Störgrößen im Boden zu berücksichtigen, werden die Randomisationseinheiten in Form von Quadraten angeordnet. Diese Anordnung stellt sicher, dass sowohl die Anzahl der Zeilen als auch die Anzahl der Spalten zwangsläufig gleich sind. Durch diese Anordnung ist es möglich, eine Randomisierung durchzuführen, bei der sowohl jede Spalte als auch jede Zeile einen vollständigen Block bildet, ähnlich wie bei einem Sudoku-Raster. Es darf eben in jeder Zeile und Spalte immer nur einmal eine Behandlung auftauchen. Wir schauen uns hier nur das R Paket `agricolae` und das R Paket `dae` an. Selber machen ist hier nicht, da du dir bei der Erstellung sehr schnell Fehler reinholst. Da sind die vorgefertigten Funktionen echt mal besser.
+
 ### ... mit `agricolae`
+
+Im *latin suare design* brauchen wir nur einen Behandlungsvektor. Durch die Anzahl der Behandlungen wird auch die Größe des *latin suare* bestimmt. Wir haben hier fünf Behandlungen vorliegen, also kriegen wir dann auch ein $5 \times 5$-*latin suare* für unseren Versuchsplan raus.
 
 ```{r}
 lsd_obj <- design.lsd(trt = c("ctrl", "A", "B", "C", "D"), 
                       seed = 42)
 ```
+
+Zum Glück kriegen wir hier auch die Zeilen und Spalten direkt von der Funktion `design.lsd()` geliefert. Leider als Faktoren, so dass wir die Faktoren nochmal in Zahlen umwandeln damit es später mit der Visualisierung klappt.
 
 ```{r}
 lsd_book_tbl <- lsd_obj %>% 
@@ -318,11 +332,15 @@ lsd_book_tbl <- lsd_obj %>%
 lsd_book_tbl
 ```
 
+Dann einmal die Ausgabe des `sketch`. Hier kann man mal nichts falsch machen. Wir kriegen unser Quadrat als *latin suare* und gut ist.
+
 ```{r}
 lsd_obj %>% 
   pluck("sketch") %>% 
   t()
 ```
+
+In der @fig-exp-basic-5 siehst du dann nochmal das *latin square design* visualisiert. Die dicken Linien sind wieder die Blockgrenzen und mögen dann die Feldwege oder Wege zwischen den Behandlungens sein. Wie du siehst, gibt es pro Zeile und Spalte immer nur eine Behandlung. Wir haben einmal perfekt über das ganze *latin square* randomisiert.
 
 ```{r}
 #| message: false
@@ -341,18 +359,35 @@ desplot(trt ~ rows + cols, flip = TRUE,
         show.key = FALSE, key.cex = 0.5)
 ```
 
+Dann nochmal das *latin square design* rausschreiben und wir können mit der Datenerfassung beginnen.
+
+```{r}
+#| eval: false
+#| message: false
+#| warning: false
+lsd_book_tbl %>% 
+  select(trt, rows, cols) %>% 
+  write_xlsx("template_sheet.xlsx")
+```
+
 ### ... mit `dae`
+
+Das *latin square design* in dem R Paket `dae` ist etwas verkompliziert herzustellen. Das Paket `dae` ist eher vür komplexere Designs gedacht, so dass simple Designs manchmal übermaßig kompliziert wirken. Wir übergeben erstmal unser Positionsgrid, natürlich ein $5 \times 5$-Grid, aus Zeilen und Spalten. Dann ergänzen wir unsere fünf Behandlungen in einem *latin square design*. Das Ganze ist irgendwie dreifach, aber da wir auch komplexeres können, machen wir das mal so und gehen hier nicht tiefer drauf ein.
 
 ```{r}
 lsd_sys <- cbind(fac.gen(list(rows = 5, cols = 5)),
                  trt = factor(designLatinSqrSys(5), labels = LETTERS[1:5]))
 ```
 
+Wenn wir das grundlegende Objekt `lsd_obj` mit den Spalten, Zeilen und Behandlungen erstellt haben, können wir die Zuordnung randomisieren. Dabei wollen wir die Behandlungen `trt` auf die Zeilen `rows` und Spalten `cols` randomisieren. Deshalb ist sind die Behandlungen in der Option `allocated` sowie die Zeilen und Spalten in `recipient`.
+
 ```{r}
 lsd_lay <- designRandomize(allocated = lsd_sys["trt"],
                             recipient = lsd_sys[c("rows", "cols")],
                             seed = 141)
 ```
+
+Wir können dann uns auch in @fig-exp-basic-6 die Ausgabe des *latin square design* anschauen. Prinzipiell gibt es hier keinen Unterschied zu dem R Paket `agricolae`. Es ist dann eher eine Geschmacksfrage, wie die Darstellung aussehen soll.
 
 ```{r}
 #| message: false
@@ -380,22 +415,33 @@ Wir schauen uns einmal für diese Designs die Implementierung in `agricolae` an.
 
 ### Alpha design {#sec-alpha}
 
-Ein Alpha-Versuchsplan ist dafür gedacht ein Versuchsplan mit unvollständigen Blöcken abzubilden. Die Blöcke sind dann aber wiederum zu vollständigen Wiederholungen gruppiert. Solche Versuchspläne werden dann als auflösbar bezeichnet, also als berechenbar. Das Modell was wir dann anpassen würden muss daher einen Effekt für die vollständige Wiederholungen haben sowie Effekte für die unvollständige Blöcke. Die unvollständigen Blöcke müssen innerhalb der Wiederholungen verschachtelt sein.
+Der Alpha-Versuchsplan ist dafür gedacht ein Versuchsplan mit unvollständigen Blöcken abzubilden. Die Blöcke sind dann aber wiederum zu vollständigen Wiederholungen gruppiert. Das heißt, in jeder Wiederholung findest du alle Blöcke wieder. Solche Versuchspläne werden dann als auflösbar bezeichnet, also als berechenbar. Das klingt jetzt etwas komplizierter als es eiigentlich ist. Wie haben auch in diesem Beispiel wieder fünfzehn genetische Linien vorliegen. Wir haben aber in jedem unserer Blöcke nur Platz drei dieser Linien abzubilden. Das heißt also pro Block nehmen wir drei Linien damit kommen wir auf fünf Blöcke um alle Linien abzubilden. Diese fünf Blöcke werden dann in drei Wiederholungen randomisiert, so dass wir auf fünfzehn Blöcke kommen.
+
+::: column-margin
+Auch hier hilft die Seite [DSFAIR - Alpha design](https://schmidtpaul.github.io/DSFAIR/alpha_JohnWilliams1995.html) mit einer beispielhaften Auswertung eventuell weiter. Beispielhafte Daten und Auswertung sind dort vorhanden.
+:::
+
+Deshalb brauchen wir erstmal unsere fünfzehn Linien `trt_gen` und unsere drei Wiederholungen `n_rep` sowie eine Größe von unseren Blöcken `size_block` von drei.
 
 ```{r}
 trt_gen <- str_c("G", 1:15)  
 n_trt_gen <- n_distinct(trt_gen)
 n_rep <- 3
+size_block <- 3
 ```
+
+Leider sind die Namen der Optionen etwas unglücklich gewählt. Zwar macht es Sinn die Namen etwas gleich zu halten, aber manchmal macht es die Sache für die Anwendung echt nicht einfacher. Hier ist also `k` die Größe der Blöcke und `r` die Anzahl der Wiederholungen. Es funktionieren nicht alle möglichen Kombinationen, im Zweifel bitte vorher hier mal rumspielen, bevor der Versuch angelegt wird oder schon Anzahlen bestimmt werden.
 
 ```{r}
 #| message: false
 #| warning: false
 alpha_obj <- design.alpha(trt = trt_gen,
-                          k = 3,
+                          k = size_block,
                           r = n_rep,
                           seed = 42)
 ```
+
+Wie immer müssen wir uns noch die Zeilen und Spalten selber erschaffen, damit wir das *alpha design* auch abbilden können. Hier ist wichtig, dass wir dann noch die Wiederholung haben, die kein Block ist. Pro Wiederholung haben wir eben fünf unvollständige Blöcke mit drei Linien vorliegen.
 
 ```{r}
 alpha_book_tbl <- alpha_obj$book %>% 
@@ -403,6 +449,8 @@ alpha_book_tbl <- alpha_obj$book %>%
          rows = as.numeric(block),
          cols = as.numeric(cols))
 ```
+
+In der @fig-exp-basic-7 siehst du dann das Ergebnis der Versuchsplanung. Wir haben unsere drei Wiederholungen und in den drei Wiederholungen dann jeweils fünf Blöcke randomisiert. Pro Block finden sich dann drei Linien. Unsere Blöcke sind damit unvollständig. Für mich ist das *alpha design* eins der schwierigeren Designs, weil man hier zwsichen den Wiederholungen und den Blöcken unterscheiden muss. Das führt manchmal zu Verwirrung was randomisert wird.
 
 ```{r}
 #| message: false
@@ -421,9 +469,24 @@ desplot(block ~ rows + cols | replication, flip = TRUE,
         show.key = FALSE)
 ```
 
+Dann nochmal das *alpha design* rausschreiben und wir können mit der Datenerfassung beginnen.
+
+```{r}
+#| eval: false
+#| message: false
+#| warning: false
+lsd_book_tbl %>% 
+  select(replication, trt_gen, inc_block = block, rows, cols) %>% 
+  write_xlsx("template_sheet.xlsx")
+```
+
 ### Augmented design {#sec-augment}
 
 Das Augmened design basiert darauf, dass wir neben den eigentlichen Behandlungen noch Standardbehandlungen vorliegen haben. Die Standardbehandlungen randomisieren wir voll auf die Blöcke, wohingegen die anderen Behandlungen unvollständig randomisiert werden. In unserem Beispiel haben wir jetzt fünfzehn genetische Linien `G1` bis `G15` in dem Behandlungsfaktor `trt_gen` vorliegen. Wir werden dann drei Blöcke bilden und in jeder der Blöcke wird jeweils die Standardbehandlung `Std_A` und `Std_B` enthalten sein.
+
+::: column-margin
+Auch hier hilft die Seite [DSFAIR - Augmented design](https://schmidtpaul.github.io/DSFAIR/augmented_Pattersen1994.html) mit einer beispielhaften Auswertung eventuell weiter. Beispielhafte Daten und Auswertung sind dort vorhanden.
+:::
 
 Wir brauchen also einmal einen Faktor für unsere genetischen Linien, dann einmal die Anzahl an Linien sowie die Anzahl an Blöcken. Das definieren wir uns jetzt hier einmal in Objekten vor, dass macht die Arbeit später einfacher.
 
