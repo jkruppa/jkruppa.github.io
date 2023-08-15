@@ -47,17 +47,17 @@ trt_fac1_soil <- str_c("soil_", 1:4)
 n_trt_fac1_soil <- n_distinct(trt_fac1_soil) 
 trt_fac2_fert <- str_c("fe_", 1:6)  
 n_trt_fac2_fert <- n_distinct(trt_fac2_fert) 
-n_rep <- 4
+n_block <- 4
 
 ## rcbd
 fac2rcbd_out <- design.ab(trt = c(n_trt_fac2_fert, n_trt_fac1_soil), 
                           design = "rcbd",
-                          r = n_rep, 
+                          r = n_block, 
                           seed = 42)
 
 fac2rcbd_out$bookRowCol <- fac2rcbd_out$book %>%
   bind_cols(expand.grid(rows = 1:n_trt_fac2_fert,
-                        cols = 1:(n_trt_fac1_soil*n_rep))) %>% 
+                        cols = 1:(n_trt_fac1_soil*n_block))) %>% 
   mutate(trt_fac2_fert = paste0("fe_", A),
          trt_fac1_soil = paste0("soil_", B),
          block = paste0("Block ", block))
@@ -73,7 +73,7 @@ desplot(block ~ cols + rows | block, flip = TRUE,
 ## split plot
 splitplot_out <- design.split(trt1 = trt_fac1_soil,
                               trt2 = trt_fac2_fert,
-                              r = n_rep,
+                              r = n_block,
                               seed = 42)
 
 
@@ -144,20 +144,46 @@ $$
 ### ... mit `expand_grid()`
 
 ```{r}
-three_fct_long_tbl <- expand_grid(location = 1:2, trt = 1:4, block = 1:4) %>% 
-  mutate(location = factor(location, labels = c("north", "south")),
-         trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
-         block = factor(block, labels = as.roman(1:4)),
-         id = sample(1:n()))
+three_fct_long_tbl <- expand_grid(block = 1:2, soil = 1:4, fert = 1:6) %>% 
+  mutate(block = factor(block, labels = str_c("Block ", 1:2)),
+         soil = factor(soil, labels = str_c("soil_", 1:4)),
+         fert = factor(fert, label = str_c("fe_", 1:6))) %>% 
+  group_by(block) %>% 
+  mutate(fert = sample(fert),
+         soil = sample(soil))
 
 three_fct_long_tbl
+```
+
+```{r}
+three_fct_plot_tbl <- three_fct_long_tbl %>% 
+  bind_cols(expand_grid(rep = 1:2, cols = 1:4, rows = 1:6))
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| label: fig-exp-adv-6
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "foo."
+
+desplot(block ~ cols + rows | block, flip = TRUE,
+        out1 = rows, out1.gpar = list(col = "grey", lty = 1),
+        out2 = cols, out2.gpar = list(col = "grey", lty = 1), 
+        text = fert, cex = 1, shorten = "no", col = soil,
+        data = three_fct_plot_tbl ,
+        main = "Randomized complete block design (3-faktoriell)",
+        show.key = FALSE)
 ```
 
 ```{r}
 #| eval: false
 #| message: false
 #| warning: false
-three_fct_wide_tbl %>% 
+three_fct_plot_tbl %>% 
+  select(-rep) %>% 
   write_xlsx("template_sheet.xlsx")
 ```
 
@@ -168,20 +194,20 @@ trt_fac1_soil <- str_c("soil_", 1:4)
 n_trt_fac1_soil <- n_distinct(trt_fac1_soil) 
 trt_fac2_fert <- str_c("fe_", 1:6)  
 n_trt_fac2_fert <- n_distinct(trt_fac2_fert) 
-n_rep <- 4
+n_block <- 4
 ```
 
 ```{r}
 rcbd_fac3_obj <- design.ab(trt = c(n_trt_fac2_fert, n_trt_fac1_soil), 
                            design = "rcbd",
-                           r = n_rep, 
+                           r = n_block, 
                            seed = 42)
 ```
 
 ```{r}
 rcbd_fac3_book_tbl <- rcbd_fac3_obj$book %>%
   bind_cols(expand.grid(rows = 1:n_trt_fac2_fert,
-                        cols = 1:(n_trt_fac1_soil*n_rep))) %>% 
+                        cols = 1:(n_trt_fac1_soil*n_block))) %>% 
   mutate(trt_fac2_fert = str_c("fe_", A),
          trt_fac1_soil = str_c("soil_", B),
          block = paste0("Block ", block)) %>% 
@@ -195,8 +221,8 @@ Kein `sketch`, wenn man ihn braucht.
 #| warning: false
 #| label: fig-exp-adv-2
 #| fig-align: center
-#| fig-height: 4
-#| fig-width: 5
+#| fig-height: 6
+#| fig-width: 6
 #| fig-cap: "foo."
 
 desplot(block ~ cols + rows | block, flip = TRUE,
@@ -208,9 +234,43 @@ desplot(block ~ cols + rows | block, flip = TRUE,
         show.key = FALSE, key.cex = 0.5)
 ```
 
-### ... mit `dae`
-
 ## Split plot design {#sec-split}
+
+### ... mit `expand_grid()`
+
+```{r}
+splitplot_long_tbl <- expand_grid(block = 1:2, soil = 1:4, fert = 1:6) %>% 
+  mutate(block = factor(block, labels = str_c("Block ", 1:2)),
+         soil = factor(soil, labels = str_c("soil_", 1:4)),
+         fert = factor(fert, label = str_c("fe_", 1:6))) %>% 
+  group_by(block, soil) %>% 
+  mutate(fert = sample(fert))
+
+splitplot_long_tbl
+```
+
+```{r}
+splitplot_plot_tbl <- splitplot_long_tbl %>% 
+  bind_cols(expand_grid(rep = 1:2, cols = 1:4, rows = 1:6))
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| label: fig-exp-adv-5
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "foo."
+
+desplot(block ~ cols + rows | block, flip = TRUE,
+        out1 = rows, out1.gpar = list(col = "grey", lty = 1),
+        out2 = cols, out2.gpar = list(col = "grey", lty = 1), 
+        text = fert, cex = 1, shorten = "no", col = soil,
+        data = splitplot_plot_tbl ,
+        main = "Split plot design (3-faktoriell)",
+        show.key = FALSE)
+```
 
 ### ... mit `agricolae`
 
@@ -219,15 +279,15 @@ trt_fac1_soil <- str_c("soil_", 1:4)
 n_trt_fac1_soil <- n_distinct(trt_fac1_soil) 
 trt_fac2_fert <- str_c("fe_", 1:6)  
 n_trt_fac2_fert <- n_distinct(trt_fac2_fert) 
-n_rep <- 4
+n_block <- 4
 ```
 
-Achtung, unbedingt `serie = 0` als Option nutzen, sondt klappt es nicht mit der Option die `plots` gleich den Spalten `cols` zu setzen. Ja, ich weiß, ist alles super suboptimal.
+Achtung, unbedingt `serie = 0` als Option nutzen, sonst klappt es nicht mit der Option die `plots` gleich den Spalten `cols` zu setzen. Ja, ich weiß, ist alles super suboptimal.
 
 ```{r}
 splitplot_obj <- design.split(trt1 = trt_fac1_soil,
                               trt2 = trt_fac2_fert,
-                              r = n_rep,
+                              r = n_block,
                               seed = 42, serie = 0)
 ```
 
@@ -246,8 +306,8 @@ splitsplot_book_tbl <- splitplot_obj$book %>%
 #| warning: false
 #| label: fig-exp-adv-3
 #| fig-align: center
-#| fig-height: 4
-#| fig-width: 5
+#| fig-height: 6
+#| fig-width: 6
 #| fig-cap: "foo."
 desplot(block ~ cols + rows | block, flip = TRUE,
         out1 = rows, out1.gpar = list(col = "grey", lty = 1),
@@ -309,24 +369,128 @@ designGGPlot(oats_lay, labels = "fert", cellalpha = 0.75, cellfillcolour.column 
 
 ### ... mit `expand_grid()`
 
+```{r}
+subsampling_long_tbl <- expand_grid(block = 1:4, 
+                             trt = 1:4) %>% 
+  mutate(trt = factor(trt, labels = trt_fac1_soil),
+         block = factor(block, labels = str_c("Block ", 1:4))) %>% 
+  group_by(block) %>% 
+  mutate(trt = sample(trt)) %>% 
+  expand_grid(pid = 1:6) %>% 
+  mutate(pid = as_factor(pid),
+         pid_text = str_pad(1:96, width = 2, pad = "0"))
+```
+
+```{r}
+subsampling_plot_tbl <- subsampling_long_tbl %>% 
+  bind_cols(expand_grid(cols = 1:16, rows = 1:6))
+```
+
+```{r}
+desplot(data = subsampling_plot_tbl, flip = TRUE, 
+        form = block ~ cols + rows | block,
+        out1 = trt, out1.gpar = list(col = "grey", lty = 1),
+        out2 = pid, out2.gpar = list(col = "grey", lty = 1),
+        main = "Subsampling (2-faktoriell)", 
+        text = pid_text, 
+        cex = 1, show.key = FALSE, shorten = "no", col = trt) 
+```
+
 ### ... mit `agricolae`
 
 ### ... mit `dae`
 
 ## Incomplete block design
 
-### ... mit `expand_grid()`
-
-### ... mit `agricolae`
+### ... mit `expand_grid()` (3-faktoriell)
 
 ```{r}
-trt <- c("A", "B", "C", "D", "E" )
-k <- 4
-outdesign <- design.bib(trt,k, seed=543, serie=2)
-book5 <- outdesign$book
-book5
+incomplete_long_tbl <- expand_grid(block = 1:2, soil = 1:4, fert = 1:6) %>% 
+  mutate(block = factor(block, labels = str_c("Block ", 1:2)),
+         soil = factor(soil, labels = str_c("soil_", 1:4)),
+         fert = factor(fert, label = str_c("fe_", 1:6))) %>% 
+  group_by(block) %>% 
+  mutate(fert = sample(fert),
+         soil = sample(soil)) 
+
+incomplete_long_tbl
 ```
 
 ```{r}
-outdesign$sketch
+incomplete_plot_tbl <- incomplete_long_tbl %>% 
+  bind_cols(expand_grid(rep = 1:2, cols = 1:4, rows = 1:6)) %>% 
+  filter(rows <= 4)
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| label: fig-exp-adv-7
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 6
+#| fig-cap: "foo."
+
+desplot(block ~ cols + rows | block, flip = TRUE,
+        out1 = rows, out1.gpar = list(col = "grey", lty = 1),
+        out2 = cols, out2.gpar = list(col = "grey", lty = 1), 
+        text = fert, cex = 1, shorten = "no", col = soil,
+        data = incomplete_plot_tbl,
+        main = "Incomplete block design (3-faktoriell)",
+        show.key = FALSE)
+```
+
+```{r}
+#| eval: false
+#| message: false
+#| warning: false
+incomplete_plot_tbl %>% 
+  select(-rep) %>% 
+  write_xlsx("template_sheet.xlsx")
+```
+
+### ... mit `agricolae` (2-faktoriell)
+
+```{r}
+#| message: false
+#| warning: false
+bib_obj <- design.bib(trt = c("ctrl", "A", "B", "C"),
+                      k = 3, seed = 543, serie = 2)
+```
+
+```{r}
+bib_book_tbl <- bib_obj %>% 
+  pluck("book") %>% 
+  as_tibble() %>% 
+  set_names(c("plots", "block", "trt"))
+bib_book_tbl
+```
+
+```{r}
+bib_plot_tbl <- bib_book_tbl %>%
+  mutate(cols = as.numeric(block)) %>% 
+  group_by(cols) %>% 
+  mutate(rows = 1:n())
+```
+
+```{r}
+bib_obj %>% 
+  pluck("sketch") %>% 
+  t()
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| label: fig-exp-adv-8
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 6
+#| fig-cap: "foo."
+desplot(trt ~ cols + rows, flip = TRUE,
+        text = trt, cex = 1, shorten = "no",
+        out1 = block,
+        data = bib_plot_tbl,
+        main = "Incomplete block design (2-faktoriell)", 
+        show.key = FALSE, key.cex = 0.5)
 ```

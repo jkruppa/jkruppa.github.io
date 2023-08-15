@@ -21,6 +21,11 @@ In diesem Kapitel wollen wir uns mit der Erstellung von einfachen experimentelle
 -   [Randomized complete block design (RCBD)](#sec-rcbd)
 -   [Latin square design (LSD)](#sec-lsd)
 
+Als Spezialfälle dann noch folgende Designs am Ende des Kapitels.
+
+-   [Alpha design](#sec-alpha)
+-   [Augmented design](#sec-augment)
+
 Dabei werden wir verschiedene Wege gehen. Leider geht es hier wirklich nicht mehr ohne eine Idee der Programmierung in R. Sonst kannst du leider dem Kapitel nicht folgen. Bitte schau auch nochmal in das vorherige Kapitel zur [Versuchsplanung in R](#sec-experimental-design-r). Wir schauen uns jetzt einmal die einfache Umsetzung händsich an, dann einmal in dem R Paket `agricolae` und abschließend in dem R Paket `dae`. Nicht immer ist alles möglcih, mal ist es dann händisch zu kompliziert oder aber eines der Pakete bietet das experimentelle Design nicht an.
 
 In dem nachfolgenden Kapitel zu den fortgeschrittenen Designs findest du dann noch mehr experimentelle Designs und wie du diese Designs in R generieren kannst. Dieses Kapitel sollte aber ausreichen um einfache Projekte im Rahmen einer Abschlussarbeit oder einem Studienprojekt zu planen.
@@ -244,7 +249,7 @@ ggdesplot(data = rcbd_plot_tbl,
 #| eval: false
 #| message: false
 #| warning: false
-rcbd_wide_tbl %>% 
+rcbd_long_tbl %>% 
   write_xlsx("template_sheet.xlsx")
 ```
 
@@ -358,4 +363,110 @@ designGGPlot(lsd_lay, labels = "trt", cellalpha = 0.75,
              row.factors = "rows", column.factors = "cols",
              blockdefinition = cbind(1, 1),
              blocklinecolour = "black")
+```
+
+## Spezialfälle
+
+Im Folgenden schauen wir uns noch die Generierung von zwei Spezialfällen an. Beide sind im Prinzip wiederum zweifaktorielle Versuchspläne mit einer Behandlung und entsprechenden Wiederholungen in Blöcken. Beide sind aber etwas spezieller beim Aufbau, deshalb hier nur am Rande. Die Auswertung verlangt dann natürlich auch wieder etwas mehr Modellierung.
+
+-   [Alpha design](#sec-alpha)
+-   [Augmented design](#sec-augment)
+
+Wir schauen uns einmal für diese Designs die Implementierung in `agricolae` an. Selber machen ist hier etwas aufwendig und hier nutzen wir dann mal wirklich ein R Paket, dass macht es uns dann einfacher im Erstellen.
+
+### Alpha design {#sec-alpha}
+
+Ein Alpha-Versuchsplan ist dafür gedacht ein Versuchsplan mit unvollständigen Blöcken abzubilden. Die Blöcke sind dann aber wiederum zu vollständigen Wiederholungen gruppiert. Solche Versuchspläne werden dann als auflösbar bezeichnet, also als berechenbar. Das Modell was wir dann anpassen würden muss daher einen Effekt für die vollständige Wiederholungen haben sowie Effekte für die unvollständige Blöcke. Die unvollständigen Blöcke müssen innerhalb der Wiederholungen verschachtelt sein.
+
+```{r}
+trt_gen <- str_c("G", 1:15)  
+n_trt_gen <- n_distinct(trt_gen)
+n_rep <- 3
+```
+
+```{r}
+#| message: false
+#| warning: false
+alpha_obj <- design.alpha(trt = trt_gen,
+                          k = 3,
+                          r = n_rep,
+                          seed = 42)
+```
+
+```{r}
+alpha_book_tbl <- alpha_obj$book %>% 
+  mutate(replication = str_c("Wiederholung ", replication),
+         rows = as.numeric(block),
+         cols = as.numeric(cols))
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| label: fig-exp-basic-7
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 6
+#| fig-cap: "foo."
+desplot(block ~ rows + cols | replication, flip = TRUE,
+        out1 = replication,
+        out2 = block, out2.gpar = list(col = "black", lty = 3), 
+        text = trt_gen, cex = 1, shorten = "no",
+        data = alpha_book_tbl, 
+        main = "Alpha design", 
+        show.key = F)
+```
+
+### Augmented design {#sec-augment}
+
+Das Augmened design basiert darauf, dass wir neben den eigentlichen Behandlungen noch Standardbehandlungen vorliegen haben. Die Standardbehandlungen randomisieren wir voll auf die Blöcke, wohingegen die anderen Behandlungen unvollständig randomisiert werden.
+
+```{r}
+trt_gen <- str_c("G", 1:15)   
+n_trt_gen <- n_distinct(trt_gen)
+n_rep <- 3
+```
+
+```{r}
+checks <- c("Std_A", "Std_B")
+```
+
+```{r}
+augmented_obj <- design.dau(trt1 = checks,
+                            trt2 = trt_gen,
+                            r = n_rep,
+                            seed = 42)
+```
+
+```{r}
+augmented_book_tbl <- augmented_obj$book %>% 
+  mutate(cols = as.numeric(block),
+         rows = as.numeric(str_sub(plots, 3,3)))
+```
+
+```{r}
+get_shades_of_blue <- colorRampPalette(colors=c("skyblue", "royalblue3"))
+blue_15  <- get_shades_of_blue(15) 
+orange_3 <- c("darkorange", "darkorange2", "darkorange3") 
+blue_15_and_orange_3 <- c(blue_15, orange_3) 
+
+names(blue_15_and_orange_3) <- augmented_book_tbl %>% 
+  pull(trt) %>% as.character() %>% sort %>% unique
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| label: fig-exp-basic-8
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "foo."
+desplot(trt ~ rows + cols, flip = TRUE,
+        out1 = block, out1.gpar = list(col = "black", lwd = 2, lty = 3),
+        col.regions = blue_15_and_orange_3,  
+        text = trt, cex = 1, shorten = "no",
+        data = augmented_book_tbl,
+        main = "Augmented design mit zwei Standards", 
+        show.key = F)
 ```
