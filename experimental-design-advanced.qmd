@@ -402,7 +402,7 @@ designGGPlot(oats_lay, labels = "fert", cellalpha = 0.75, cellfillcolour.column 
 
 ## Subsampling {#sec-subsampling}
 
-Die zentrale Idee des Subsamplings ist, dass wir nicht über die Pflanzen in unseren Blöcken mitteln. Wir nehmen also alle Pflanzen in unserem Block mit in die Analyse. Wir messen Pflanzen innerhalb der Behandlung und nehmen diese individuellen Pflanzen auch mit ins Modell. Damit haben wir eigentlich das gleiche Modell wie auch bei dem RCBD mit zwei Faktoren. Nur das wir eben in den Blöcken und Behandlungen nicht einen Mittelwert über alles haben, sondern eben sechs individuelle Werte für die sechs Pflanzen in einer Behandlung/Block-Kombination.
+Die zentrale Idee des Subsamplings ist, dass wir nicht über die Pflanzen in unseren Blöcken mitteln. Wir nehmen also alle Pflanzen in unserem Block mit in die Analyse. Oder aber wir mitteln nicht das Gewicht der Ferkel für jede Bucht, sondern wollen die Gewichte individuell mit betrachten. Wir messen die Beobachtungen innerhalb der Behandlung und nehmen diese individuellen Beobachtungen auch mit ins Modell. Damit haben wir eigentlich das gleiche Modell wie auch bei dem RCBD mit zwei Faktoren. Nur das wir eben in den Blöcken und Behandlungen nicht einen Mittelwert über alles haben, sondern eben sechs individuelle Werte für die sechs Beobachtungen in einer Behandlung/Block-Kombination in unserem Beispiel.
 
 Das generelle Modell unterscheidet sich nicht von einem RCBD. Wir haben zwei Faktoren, einmal die Behandlung und einmal einen Block vorliegen.
 
@@ -414,7 +414,7 @@ Jetzt kommt es darauf an, wie die individuellen Pflanzen in den Behandlungen ste
 
 Wenn du aber die Pflanzen in einem Pflanztray oder irgendwie anders fixierst hast, dann macht es schon einen Unterschied. In dem Fall sind die Pflanzen ja individuell nicht unabhängig voneinander. Die Pflanzen sind ja in einem Tray zusammen. Dann nutzen wir ein lineares gemischtes Modell.
 
-Im Folgenden generieren wir einmal beide Fälle, wobei der zweite Fall - Pflanzen stehen zusammen - als Subsampling angesehen wird. Da aber ab und zu beides vorkommt, hier dann einmal beides. Wir können das Subsampling nur selber mit `expand_grid()` durchführen, da weder das R Paket `agricolae` noch das R Paket `dae` eine entsprechende Implementierung der Funkationalität zur Generierung eines Datensatzes mit Subsampling aufweist.
+Im Folgenden generieren wir einmal beide Fälle, wobei der zweite Fall - Pflanzen stehen zusammen - als Subsampling angesehen wird. Häufig kann dies auch bei Tierversuchen passieren, wenn zum Beispiel Ferkel in einer Bucht in einem Stahl stehen. Da aber ab und zu beides vorkommt, hier dann einmal beides. Wir können das Subsampling nur selber mit `expand_grid()` durchführen, da weder das R Paket `agricolae` noch das R Paket `dae` eine entsprechende Implementierung der Funkationalität zur Generierung eines Datensatzes mit Subsampling aufweist.
 
 ::: callout-tip
 ## Modell zur Auswertung
@@ -434,9 +434,7 @@ fit <- lmer(drymatter ~ fert + block + (1 | block:fert), data = subsampling_tbl)
 ```
 :::
 
-### ... mit `expand_grid()`
-
-Als erstes erstellen wir einmal ein Design mit vier Blöcken und vier Behandlungen. Dann ergänzen wir noch pro Behandlung sechs individuelle Beobachtungen. Am Ende randomisieren wir einmal über die Behandlungen in den Blöcken. Wichtig ist hier, dass wir die Daten nach den Blöcken gruppieren müssen und schon vorher alle individuellen Pflanzen generieren.
+Das Subsampling geht nur im Selbermachen, also machen wir das dann einmal mit der Funktion `expand_grid()`. Als erstes erstellen wir einmal ein Design mit vier Blöcken und vier Behandlungen. Dann ergänzen wir noch pro Behandlung sechs individuelle Beobachtungen. Am Ende randomisieren wir einmal über die Behandlungen in den Blöcken. Wichtig ist hier, dass wir die Daten nach den Blöcken gruppieren müssen und schon vorher alle individuellen Pflanzen generieren.
 
 ```{r}
 subsampling_long_tbl <- expand_grid(block = 1:4, 
@@ -457,7 +455,7 @@ subsampling_plot_tbl <- subsampling_long_tbl %>%
   bind_cols(expand_grid(cols = 1:16, rows = 1:6))
 ```
 
-Eine andere Möglichkeit ist, dass unsere Pflanzen in einem Pflanztray stehen. Damit haben wir keine Randomisierung mehr in den Blöcken, sondern wir können nur unsere Behandlungen in den Blöcken randomisieren. Die Positionen in den Trays sind ja fix.
+Eine andere Möglichkeit ist, dass unsere Pflanzen in einem Pflanztray stehen. Damit haben wir keine Randomisierung mehr in den Blöcken, sondern wir können nur unsere Behandlungen in den Blöcken randomisieren. Die Positionen in den Trays sind ja fix. Daher Randomisieren wir erst den Faktor der Behandlungen in den gruppierten Blöcken. Dann ergänzen wir noch die sechs individuellen Pflanzen.
 
 ```{r}
 
@@ -467,13 +465,18 @@ subsampling_tray_long_tbl <- expand_grid(block = 1:4,
          block = factor(block, labels = str_c("Block ", 1:4))) %>% 
   group_by(block) %>% 
   mutate(trt = sample(trt)) %>% # Randomisierung der Behandlungen in den Blöcken
-  expand_grid(rep = 1:6)
+  expand_grid(rep = str_pad(1:6, width = 2, pad = "0"))
+
 ```
+
+Jetzt bauen wir uns noch das Grid für die Positionen zusammen, da bleibt alles beim alten. Wir brauchen auch wieder sechzehn Spalten, dass sind die Blöcke/Behandlungs-Kombinationen. Dann noch die sechs Zeilen für das Pflanzentray. In der @fig-exp-adv-10-2 sehen wir einmal das Ergebnis der Randomisierung. Alle Pflanzen sind jetzt in einer Spalte randomisiert, die eben das Tray der Pflanzung entspricht.
 
 ```{r}
 subsampling_tray_plot_tbl <- subsampling_tray_long_tbl %>% 
   bind_cols(expand_grid(cols = 1:16, rows = 1:6))
 ```
+
+In der @fig-exp-adv-10 sehen wir nochmal die beiden Arten des Subsamplings miteinander vergleichen. In der @fig-exp-adv-10-1 sind alle Behandlungen mit ihren sechs Wiederholungen zufällig im Block verteilt. Im anderen Fall sehen wir in der @fig-exp-adv-10-2, wenn die Pfanzen zusammen in einem Tray stehen und alle die gleiche Behandlung kriegen. Es können aber auch Schweine in einer Bucht sein und die Blöcke sind dann die einzelnen Ställe.
 
 ```{r}
 #| echo: false
@@ -482,7 +485,7 @@ subsampling_tray_plot_tbl <- subsampling_tray_long_tbl %>%
 #| fig-align: center
 #| fig-height: 6
 #| fig-width: 6
-#| fig-cap: "Verschiedene Arten des Subsamplings. Einmal vollständig innerhalb der Blöcke randomsiert und einmal bedingt durch Pflanztrays nur die Behandlung randomisiert."
+#| fig-cap: "Verschiedene Arten des Subsamplings. Einmal vollständig innerhalb der Blöcke randomsiert und einmal die Behandlung randomisiert."
 #| fig-subcap: 
 #|   - "... vollständig innerhalb Block randomisiert (`subsampling_plot_tbl`)."
 #|   - "... Behandlungen innerhalb Block randomisiert (`subsampling_tray_plot_tbl`)."
@@ -663,3 +666,5 @@ desplot(trt_gen ~ cols*rows,
         show.key = FALSE, data = strip_plot_tbl,
         main = "Strip plot design (3-faktoriell)")
 ```
+
+## Referenzen {.unnumbered}
