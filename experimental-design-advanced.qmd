@@ -141,12 +141,35 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Randomized complete block design (RCBD, 3-faktoriell) {#sec-rcbd-3fac}
 
+Das Maximum des machbaren ist eigentlich ein dreifaktorielles Modell im *randomized complete block design*. Natürlich geht auch noch mehr, aber der Grundsatz ist eigentlich, dass wir uns maximal zwei Behandlungsfaktoren und dann ein bis zwei Cluster anschauen. Die Cluster sind dann meist einmal der klassische Block plus ein Faktor für verschiedene Lokalisationen. Wir nehmen hier jetzt einmal zwei Behandlungsfaktoren und dann noch einen klassischen Block dazu. Beide Behandlungsfaktoren sind ineinander und dann natürlich im Block genested. Hier aber erstmal das Modell mit den drei Faktoren für den besseren Überblick. Wir haben einmal die Düngung `fert`, dann den Faktor Boden `soil` sowie die verschiedenen Blöcke durch `block`.
+
 $$
 y \sim \overbrace{soil}^{f_1} + \underbrace{fert}_{f_2} + \overbrace{block}^{f_3}
 $$
 
+mit
+
+-   dem Faktor Dünger `fert` und den sechs Düngestufen als Level `fe_1` bis `fe_6`.
+-   dem Faktor Boden `soil` und den vier Bodenarten als Level `soil_1` bis `soil_4`.
+-   dem Faktor Block `block` und den zwei Leveln `block_1` und `block_2`.
+
+Die Struktur der Daten ist wie folgt gegeben. Jedes Level der Düngerstufe `fert` ist in dem Faktor des Bodens `soil` enthalten. Die beiden Behandlungen sind dann wiederum jeweils vollständig in den Blöcken `block` vorhanden.
+
+$$
+\overbrace{\mbox{fert}}^{f_1} \xrightarrow[]{nested} \underbrace{\mbox{soil}}_{f_2} \xrightarrow[]{nested} \overbrace{\mbox{block}}^{f_3} 
+$$
+
+```{mermaid}
+flowchart LR
+   A == text ==> B
+```
+
+Wir wollen uns jetzt die Daten einmal selber erstellen und das R Paket `agricolae` nutzen um uns ein passendes Design zu bauen. Abschließend schauen wir uns den Versuchsplan einmal mit `desplot` an.
+
 ::: callout-tip
 ## Modell zur Auswertung
+
+Wir rechnen ein multiples lineares Modell für die statistische Analyse.
 
 ```{r}
 #| eval: FALSE
@@ -156,40 +179,48 @@ fit <- lm(drymatter ~ soil + fert + soil:fert + block +, data = rcbd_3f_tbl)
 
 ### ... mit `expand_grid()`
 
+Bei dem *randomized complete block design* haben wir ja Glück, wir müssen nur darauf achten, das die einzelnen Beobachtungen innerhalb der Blöcke vollständig randomisiert sind. Daher Randomisieren wir ganz am Ende einmal die Saplte `fert` und die Spalte `soil` durch. Wir hätten uns das `mutate()` auch sparen können und stattdessen einfach die Funktion `slice_sample(prop = 1)` nutzen. Die Funktion permutiert dann alles innerhalb der gruppierten Blöcke durch. Mach wie es dir besser gefällt und du es besser nachvollziehen kannst.
+
 ```{r}
 three_fct_long_tbl <- expand_grid(block = 1:2, soil = 1:4, fert = 1:6) %>% 
   mutate(block = factor(block, labels = str_c("Block ", 1:2)),
          soil = factor(soil, labels = str_c("soil_", 1:4)),
          fert = factor(fert, label = str_c("fe_", 1:6))) %>% 
   group_by(block) %>% 
-  mutate(fert = sample(fert),
-         soil = sample(soil))
-
+  mutate(fert = sample(fert), # Randomisierung fert
+         soil = sample(soil)) # Randomisierung soil
 three_fct_long_tbl
 ```
+
+Jetzt mache ich es etwas anders bei der Erstellung des Grids der Spalten und Zeilen. Ich will später beim `desplot()` für die Blöcke durch `| block` separieren. Daher setzte ich die Spaltennummerierung `cols` jeweils auf 1 bis 4 und bilde die Blöcke durch ein davor geschaltetes `rep` ab. Wenn du die Variable `rep` nicht möchtest, kannst du auch die `cols` auf 1 bis 8 setzten, darfst dann aber nicht für die Blöcke durch `rep` separieren.
 
 ```{r}
 three_fct_plot_tbl <- three_fct_long_tbl %>% 
   bind_cols(expand_grid(rep = 1:2, cols = 1:4, rows = 1:6))
 ```
 
+In der @fig-exp-adv-6 sehen wir dann einmal das *randomized complete block design* mit drei Faktoren einmal dargestellt. Wir sehen gut, wie die zwei Behandlungen vollständig randomisiert wurden. Beachte, dass die Farben den Faktor `soil` darstellen und die Labels dann den Faktor `fert`. Du kannst mit der Option `show.key = FALSE` auch die Legende ausschalten. Bei sehr komplexen Designs mit vielen Faktorstufen ist es dann doch mal ratsam, sich die Legende mit ausgeben zu lassen.
+
 ```{r}
 #| message: false
 #| warning: false
 #| label: fig-exp-adv-6
 #| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: "foo."
+#| fig-height: 5
+#| fig-width: 7
+#| fig-cap: "Randomized complete block design (3-faktoriell) für die Faktoren Dünger `fert` sowie `soil` vollständig randomisiert in den beiden Blöcken."
 
 desplot(block ~ cols + rows | block, flip = TRUE,
         out1 = rows, out1.gpar = list(col = "grey", lty = 1),
         out2 = cols, out2.gpar = list(col = "grey", lty = 1), 
-        text = fert, cex = 1, shorten = "no", col = soil,
+        text = fert, cex = 1, shorten = "no", 
+        col = soil, 
         data = three_fct_plot_tbl ,
         main = "Randomized complete block design (3-faktoriell)",
-        show.key = FALSE)
+        show.key = TRUE)
 ```
+
+Auch hier können wir dann den Versuchsplan relativ einfach raus schreiben. Ich entferne noch die Spalte `rep`, da ich die Spalte nicht weiter brauchen werde. Dann wären wir auch schon mit dem Design fertig.
 
 ```{r}
 #| eval: false
@@ -202,6 +233,8 @@ three_fct_plot_tbl %>%
 
 ### ... mit `agricolae`
 
+Jetzt bauen wir unser Design nochmal in `agricolae` nach. Hier brauchen wir dann aber alles als Vektor, sonst wird es zu unübersichtlich in den Funktionen. Darüber hinaus ist es dann auch mal was anders und du siehst nochmal eine andere Art den Code zu schreiben. Prinzipiell hätten wir auch im vorherigen Teil alles erstmal in Vektoren lagern können. Aber gut, hier erstmal alle Level der Faktoren vorbereiten und die Anzahl der Blöcke auf vier gesetzt. Dann brauchen wir noch die Länge der Level, also die Anzahl an Düngerstufen und Bodenarten. Dafür nutzen wir die Funktion `distinct_n()`.
+
 ```{r}
 trt_fac1_soil <- str_c("soil_", 1:4)    
 n_trt_fac1_soil <- n_distinct(trt_fac1_soil) 
@@ -210,12 +243,16 @@ n_trt_fac2_fert <- n_distinct(trt_fac2_fert)
 n_block <- 4
 ```
 
+Dann können wir schon das *randomized complete block design* mit drei Faktoren über die Funktion `design.ab()` erstellen. Wie immer heißt die Wiederholung auch hier `r`, das ist zwar sehr einheitlich aber manchmal auch verwirrend. Auch musst die beiden Vektoren aneinanderkleben damit die Funktion funktioniert.
+
 ```{r}
 rcbd_fac3_obj <- design.ab(trt = c(n_trt_fac2_fert, n_trt_fac1_soil), 
                            design = "rcbd",
                            r = n_block, 
                            seed = 42)
 ```
+
+Dann können wir auch schon unser Ergebnis der Funktion einmal aufarbeiten. Wie immer fehlt das Positionsgrid, so dass wir hier nochmal tätig werden müssen. Dann wollen wir noch die Faktoren wieder umbenennen, so dass auch die Level passen. Am Ende wähle ich noch die Spalten aus, die wir dann später brauchen werden. Meistens müssen wir auch bei den komplexeren Designs und der Nutzung von `agricolae` im Nachgang sehr viel selber machen. Teilweise lohnt es sich da für mich nicht, für zwei Zeilen Code eine Funktion zu nutzen, der ich dann auch noch sehr viel Nachprogrammieren muss. Man merkt hier eben auch das Alter von dem R Paket `agricolae`.
 
 ```{r}
 rcbd_fac3_book_tbl <- rcbd_fac3_obj$book %>%
@@ -227,16 +264,16 @@ rcbd_fac3_book_tbl <- rcbd_fac3_obj$book %>%
   select(block, fert = trt_fac2_fert, soil = trt_fac1_soil, rows, cols)
 ```
 
-Kein `sketch`, wenn man ihn braucht.
+Natürlich hat die Funktion auch keinen `sketch`, wenn man ihn braucht. Das haben wir ja jetzt schon selber mit dem Positionsgrid programmiert. In der @fig-exp-adv-2 siehst du dann das Ergebnis des Versuchsplans. Wir haben hier nochmal zwei Blöcke zusätzlich zu dem obigen Beispiel genommen, dann siehst du nochmal schöner, wie sich die beiden Behandlungen in den Blöcken randomisieren.
 
 ```{r}
 #| message: false
 #| warning: false
 #| label: fig-exp-adv-2
 #| fig-align: center
-#| fig-height: 6
-#| fig-width: 6
-#| fig-cap: "foo."
+#| fig-height: 5
+#| fig-width: 7
+#| fig-cap: "Randomized complete block design (3-faktoriell) für die Faktoren Dünger `fert` sowie `soil` vollständig randomisiert in den vier Blöcken."
 
 desplot(block ~ cols + rows | block, flip = TRUE,
         out1 = rows, out1.gpar = list(col = "grey", lty = 1),
@@ -244,31 +281,43 @@ desplot(block ~ cols + rows | block, flip = TRUE,
         text = fert, cex = 1, shorten = "no", col = soil,
         data = rcbd_fac3_book_tbl,
         main = "Randomized complete block design (3-faktoriell)", 
-        show.key = FALSE, key.cex = 0.5)
+        show.key = TRUE, key.cex = 1)
 ```
 
 ## Split plot design (3-faktoriell) {#sec-split}
+
+Die Spaltanalse (eng. *split plot design*) ist eine häufig genutzte Variante, wenn wir eine Behandlungsfaktor nur in einem anderen Level eines zweiten Behandlungsfaktor randomisieren können. Wir können also eine Feldspur nur auf eine Art mechanisch bearbeiten und geben dann aber pro Feld verschiedene Dünger auf. Oder wir können in einen Stahl nur auf eien Art Futter zuführen, aber verschiedne Arten von Futter.
+
+Beide Behandlungsfaktoren sind ineinander und dann natürlich im Block genested. Hier aber erstmal das Modell mit den drei Faktoren für den besseren Überblick. Wir haben einmal die Düngung `fert`, dann den Faktor Boden `soil` sowie die verschiedenen Blöcke durch `block`.
 
 $$
 y \sim \overbrace{soil}^{f_1} + \underbrace{fert}_{f_2} + \overbrace{block}^{f_3}
 $$
 
+mit
+
+-   dem Faktor Dünger `fert` und den sechs Düngestufen als Level `fe_1` bis `fe_6`.
+-   dem Faktor Boden `soil` und den vier Bodenarten als Level `soil_1` bis `soil_4`.
+-   dem Faktor Block `block` und den zwei Leveln `block_1` und `block_2`.
+
 ::: callout-tip
 ## Modell zur Auswertung
 
-Bei viel Fallzahl
+Wir rechnen ein komplexeres gemischtes Modell.
 
 ```{r}
 #| eval: FALSE
 fit <-  lmer(yield ~ soil + fert + soil:fert + (1|block) + (1|block:fert) + (1|block:soil), data = split_tbl)
 ```
 
-Bei weniger Fallzahl
+Oder können überlegen ein gemischtes Modell mit weniger Parametern zu rechnen.
 
 ```{r}
 #| eval: FALSE
 fit <-  lmer(yield ~ soil + fert + soil:fert + (1|block), data = split_tbl)
 ```
+
+Die Entscheidung kannst du dann mit der [Modellselektion](https://jkruppa.github.io/stat-modeling-basic.html#sec-model-basic-compare) durchführen.
 :::
 
 ### ... mit `expand_grid()`
@@ -294,8 +343,8 @@ splitplot_plot_tbl <- splitplot_long_tbl %>%
 #| warning: false
 #| label: fig-exp-adv-5
 #| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
+#| fig-height: 5
+#| fig-width: 7
 #| fig-cap: "foo."
 
 desplot(block ~ cols + rows | block, flip = TRUE,
@@ -304,7 +353,7 @@ desplot(block ~ cols + rows | block, flip = TRUE,
         text = fert, cex = 1, shorten = "no", col = soil,
         data = splitplot_plot_tbl ,
         main = "Split plot design (3-faktoriell)",
-        show.key = FALSE)
+        show.key = TRUE)
 ```
 
 ### ... mit `agricolae`
@@ -341,8 +390,8 @@ splitsplot_book_tbl <- splitplot_obj$book %>%
 #| warning: false
 #| label: fig-exp-adv-3
 #| fig-align: center
-#| fig-height: 6
-#| fig-width: 6
+#| fig-height: 5
+#| fig-width: 7
 #| fig-cap: "foo."
 desplot(block ~ cols + rows | block, flip = TRUE,
         out1 = rows, out1.gpar = list(col = "grey", lty = 1),
@@ -350,7 +399,7 @@ desplot(block ~ cols + rows | block, flip = TRUE,
         text = fert, cex = 1, shorten = "no", col = soil,
         data = splitsplot_book_tbl ,
         main = "Split plot design (3-faktoriell)",
-        show.key = FALSE)
+        show.key = TRUE)
 ```
 
 ### ... mit `dae`
@@ -377,20 +426,8 @@ oats_lay <- designRandomize(allocated = oast_sys[c("soil", "fert")],
 #| fig-align: center
 #| fig-height: 6
 #| fig-width: 6
-#| fig-cap: "Vergleich der Darstellung eines Split plots Designs mit den jeweiligen Funktionen."
-#| fig-subcap: 
-#|   - "... mit `desplot()`"
-#|   - "... mit `designGGplot()`."
-#| layout-nrow: 1
-#| column: page
+#| fig-cap: "foo."
 
-desplot(Blocks ~ MPlots + SubPlots | Blocks, flip = TRUE,
-        out1 = MPlots, out1.gpar = list(col = "grey", lty = 1),
-        out2 = SubPlots, out2.gpar = list(col = "grey", lty = 1), 
-        text = fert, cex = 1, shorten = "no", col = soil,
-        data = oats_lay ,
-        main = "Split plot design (3-faktoriell)",
-        show.key = FALSE)
 
 designGGPlot(oats_lay, labels = "fert", cellalpha = 0.75, cellfillcolour.column = "soil",
              row.factors = c("Blocks", "SubPlots"), column.factors = c("MPlots"),
@@ -483,8 +520,8 @@ In der @fig-exp-adv-10 sehen wir nochmal die beiden Arten des Subsamplings mitei
 #| warning: false
 #| label: fig-exp-adv-10
 #| fig-align: center
-#| fig-height: 6
-#| fig-width: 6
+#| fig-height: 5
+#| fig-width: 7
 #| fig-cap: "Verschiedene Arten des Subsamplings. Einmal vollständig innerhalb der Blöcke randomsiert und einmal die Behandlung randomisiert."
 #| fig-subcap: 
 #|   - "... vollständig innerhalb Block randomisiert (`subsampling_plot_tbl`)."
@@ -558,8 +595,8 @@ incomplete_plot_tbl <- incomplete_long_tbl %>%
 #| warning: false
 #| label: fig-exp-adv-7
 #| fig-align: center
-#| fig-height: 3
-#| fig-width: 6
+#| fig-height: 5
+#| fig-width: 7
 #| fig-cap: "foo."
 
 desplot(block ~ cols + rows | block, flip = TRUE,
@@ -568,7 +605,7 @@ desplot(block ~ cols + rows | block, flip = TRUE,
         text = fert, cex = 1, shorten = "no", col = soil,
         data = incomplete_plot_tbl,
         main = "Incomplete block design (3-faktoriell)",
-        show.key = FALSE)
+        show.key = TRUE)
 ```
 
 ```{r}
@@ -623,7 +660,7 @@ desplot(trt ~ cols + rows, flip = TRUE,
         out1 = block,
         data = bib_plot_tbl,
         main = "Incomplete block design (2-faktoriell)", 
-        show.key = FALSE, key.cex = 0.5)
+        show.key = FALSE)
 ```
 
 ## Strip plot design (3-faktoriell) {#sec-strip-plot}
@@ -658,12 +695,15 @@ strip_plot_tbl <- strip_obj$book %>%
 #| warning: false
 #| label: fig-exp-adv-9
 #| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
+#| fig-height: 5
+#| fig-width: 7
 #| fig-cap: "foo."
 desplot(trt_gen ~ cols*rows,
-        out1 = block, out2 = trt_nitro, num = trt_nitro, cex=1,
-        show.key = FALSE, data = strip_plot_tbl,
+        out1 = block, 
+        out2 = trt_nitro, out2.gpar = list(col = "grey", lty = 1), 
+        col.regions = cbbPalette, 
+        text = trt_nitro, cex = 1,
+        show.key = TRUE, data = strip_plot_tbl, shorten = "no",
         main = "Strip plot design (3-faktoriell)")
 ```
 
