@@ -16,7 +16,7 @@ Ich werde mich in diesem Kapitel für das Erste auf die wichtigen experimentelle
 
 **Wenn dir ein experimentelles Design fehlt, dann schreibe mir gerne eine Mail und ich schaue, dass ich das experimentelle Design ergänze.**
 
-Sieh dazu auch das Inhaltsverzeichnis von dem R Paket `agricolae` mit [Experimental Designs with agricolae](https://myaseen208.com/agricolae/articles/ExperimentalDesign.html) einmal genauer an. Auch ist es sehr hilfreich sich Datenbeispiele auf [agridat - Datensätze mit Abbildungen in `desplot`](https://kwstat.github.io/agridat/reference/index.html) anzuschauen.
+Siehe dazu auch das Inhaltsverzeichnis von dem R Paket `agricolae` mit [Experimental Designs with agricolae](https://myaseen208.com/agricolae/articles/ExperimentalDesign.html) einmal genauer an. Auch ist es sehr hilfreich sich Datenbeispiele auf [agridat - Datensätze mit Abbildungen in `desplot`](https://kwstat.github.io/agridat/reference/index.html) anzuschauen.
 :::
 
 In diesem Kapitel wollen wir uns mit der Erstellung von komplexeren experimentellen Designs beschäftigen.
@@ -27,7 +27,9 @@ In diesem Kapitel wollen wir uns mit der Erstellung von komplexeren experimentel
 -   [Incomplete block design (3-faktoriell und 2-faktoriell)](#sec-incomplete)
 -   [Strip plot design (3-faktoriell) oder Streifenanlage](#sec-strip-plot)
 
-In der @fig-exp-adv-1 sehen wir einmal die Übersicht über die drei häufigsten komplexeren experimentellen Designs mit dem RCBD (3-faktoriell), dem Split plot Design (3-faktoriell) sowie dem Subsampling eines RCBD (2-faktoriell). Die drei experimentellen Designs werden immer mal wieder etwas durcheinander gewirbelt. Du kannst dir im Prinzip die Sachlage wie folgt vorstellen. Im RCBD (3-faktoriell) werden die beiden Behandlungsfaktoren über die Blöcke randomsiert. Die beiden Behandlungen sind vollkommen durcheinander in der @fig-exp-adv-1-1. Im Fall eines Split plot Design (3-faktoriell) wird eine Behandlung innerhalb der anderen Behandlung über die Blöcke randomisiert. Wir haben also eine Spaltanlage vorliegen, da wir immer eine Behandlung in einer Spalte randomisieren. Das ist schon in der @fig-exp-adv-1-2 zu sehen. Die Farben bilden die zweite Behandlung ab. Innerhalb einer Spalte ist dann die erste Behandlung randomisiert. Das Subsampling nimmt jetzt eine Behandlung raus. Wir haben dann nur noch eine Behandlung, die wir in den Blöcken randomisieren, messen aber wiederholt Pflanzen innerhalb der Behandlung. In der @fig-exp-adv-1-3 sehen wir schön
+Dabei ist zu Bedenkne, dass diese Designs sehr viel Aufwand in der Anlegen der Anlage sowie der praktischen Auswertung auf dem Feld bedürfen. Hier musst du dich dann nochmal beraten lassen, bevor du mit einem Experiment startest. Wir schauen uns jetzt aber erstmal einen Überblick über die gängigsten komplexeren experimentellen Designs an.
+
+In der @fig-exp-adv-1 sehen wir einmal die Übersicht über die drei häufigsten komplexeren experimentellen Designs mit dem RCBD (3-faktoriell), dem Split plot Design (3-faktoriell) sowie dem Subsampling eines RCBD (2-faktoriell). Die drei experimentellen Designs werden immer mal wieder etwas durcheinander gewirbelt. Du kannst dir im Prinzip die Sachlage wie folgt vorstellen. Im RCBD (3-faktoriell) werden die beiden Behandlungsfaktoren über die Blöcke randomsiert. Die beiden Behandlungen sind vollkommen durcheinander in der @fig-exp-adv-1-1. Im Fall eines Split plot Design (3-faktoriell) wird eine Behandlung innerhalb der anderen Behandlung über die Blöcke randomisiert. Wir haben also eine Spaltanlage vorliegen, da wir immer eine Behandlung in einer Spalte randomisieren. Das ist schon in der @fig-exp-adv-1-2 zu sehen. Die Farben bilden die zweite Behandlung ab. Innerhalb einer Spalte ist dann die erste Behandlung randomisiert. Das Subsampling nimmt jetzt eine Behandlung raus. Wir haben dann nur noch eine Behandlung als Faktor, die wir in den Blöcken randomisieren. Die Idee des Subsamplings ist nun, dass wir wiederholt Pflanzen innerhalb der Behandlung messen. Wir mitteln jetzt aber nicht über die Pflanzen in einem Block sondern nehmen alle Pflanzen mit in die statistische Auswertung. Das ist eigentlich die zentrale Idee des Subsamplings, wie wir das machen, ist dann die andere Frage. In der @fig-exp-adv-1-3 sehen wir schön wie sich die Pflanzen-ID's über das Feld verteilen. Die Farben stellen die vier Behandlungslevel dar.
 
 ```{r}
 #| echo: false
@@ -95,25 +97,25 @@ desplot(block ~ cols + rows | block, flip = TRUE,
 ## subsampling
 
 rcbd_long_tbl <- expand_grid(block = 1:4, 
-                             trt = 1:4) %>% 
+                             trt = 1:4,
+                             rep = 1:6) %>% 
   mutate(trt = factor(trt, labels = trt_fac1_soil),
-         block = factor(block, labels = str_c("Block ", 1:4))) %>% 
+         block = factor(block, labels = str_c("Block ", 1:4)),
+         pid = 1:n(),
+         pid_text = str_pad(1:96, width = 2, pad = "0")) %>% 
   group_by(block) %>% 
-  mutate(trt = sample(trt)) %>% 
-  expand_grid(pid = 1:6) %>% 
-  mutate(pid = as_factor(pid),
-         pid_text = str_pad(1:96, width = 2, pad = "0"))
+  mutate(trt = sample(trt)) 
 
 rcbd_plot_tbl <- rcbd_long_tbl %>% 
   bind_cols(expand_grid(cols = 1:16, rows = 1:6))
 
 desplot(data = rcbd_plot_tbl, flip = TRUE, 
-          form = block ~ cols + rows | block,
-          out1 = trt, out1.gpar = list(col = "grey", lty = 1),
-          out2 = pid, out2.gpar = list(col = "grey", lty = 1),
-          main = "Subsampling (2-faktoriell)", 
-          text = pid_text, 
-          cex = 1, show.key = FALSE, shorten = "no", col = trt) 
+        form = block ~ cols + rows | block,
+        out1 = trt, out1.gpar = list(col = "grey", lty = 1),
+        out2 = pid, out2.gpar = list(col = "grey", lty = 1),
+        main = "Subsampling (2-faktoriell)", 
+        text = pid_text, 
+        cex = 1, show.key = FALSE, shorten = "no", col = trt) 
 
 
 
@@ -148,7 +150,7 @@ $$
 
 ```{r}
 #| eval: FALSE
-fit <- lm(drymatter ~ trt + cols + rows, data = lsd_tbl)
+fit <- lm(drymatter ~ soil + fert + soil:fert + block +, data = rcbd_3f_tbl)
 ```
 :::
 
@@ -254,9 +256,18 @@ $$
 ::: callout-tip
 ## Modell zur Auswertung
 
+Bei viel Fallzahl
+
 ```{r}
 #| eval: FALSE
-fit <- lm(drymatter ~ trt + cols + rows, data = lsd_tbl)
+fit <-  lmer(yield ~ soil + fert + soil:fert + (1|block) + (1|block:fert) + (1|block:soil), data = split_tbl)
+```
+
+Bei weniger Fallzahl
+
+```{r}
+#| eval: FALSE
+fit <-  lmer(yield ~ soil + fert + soil:fert + (1|block), data = split_tbl)
 ```
 :::
 
@@ -391,51 +402,110 @@ designGGPlot(oats_lay, labels = "fert", cellalpha = 0.75, cellfillcolour.column 
 
 ## Subsampling {#sec-subsampling}
 
+Die zentrale Idee des Subsamplings ist, dass wir nicht über die Pflanzen in unseren Blöcken mitteln. Wir nehmen also alle Pflanzen in unserem Block mit in die Analyse. Wir messen Pflanzen innerhalb der Behandlung und nehmen diese individuellen Pflanzen auch mit ins Modell. Damit haben wir eigentlich das gleiche Modell wie auch bei dem RCBD mit zwei Faktoren. Nur das wir eben in den Blöcken und Behandlungen nicht einen Mittelwert über alles haben, sondern eben sechs individuelle Werte für die sechs Pflanzen in einer Behandlung/Block-Kombination.
+
+Das generelle Modell unterscheidet sich nicht von einem RCBD. Wir haben zwei Faktoren, einmal die Behandlung und einmal einen Block vorliegen.
+
 $$
-y \sim \overbrace{trt}^{f_1} + \underbrace{fert}_{f_2} 
+y \sim \overbrace{trt}^{f_1} + \underbrace{block}_{f_2} 
 $$
+
+Jetzt kommt es darauf an, wie die individuellen Pflanzen in den Behandlungen stehen. Eventuell ist alles durcheinander gemischt, das heißt, die Pflanzen sind in den Behandlungen und Blöcken randomisiert. Dann ist es recht einfach mit einem linearen Modell zu machen.
+
+Wenn du aber die Pflanzen in einem Pflanztray oder irgendwie anders fixierst hast, dann macht es schon einen Unterschied. In dem Fall sind die Pflanzen ja individuell nicht unabhängig voneinander. Die Pflanzen sind ja in einem Tray zusammen. Dann nutzen wir ein lineares gemischtes Modell.
+
+Im Folgenden generieren wir einmal beide Fälle, wobei der zweite Fall - Pflanzen stehen zusammen - als Subsampling angesehen wird. Da aber ab und zu beides vorkommt, hier dann einmal beides. Wir können das Subsampling nur selber mit `expand_grid()` durchführen, da weder das R Paket `agricolae` noch das R Paket `dae` eine entsprechende Implementierung der Funkationalität zur Generierung eines Datensatzes mit Subsampling aufweist.
 
 ::: callout-tip
 ## Modell zur Auswertung
 
+Vollständig im Block randomisiert, wir rechnen ein lineares Modell.
+
 ```{r}
 #| eval: FALSE
-fit <- lm(drymatter ~ trt + cols + rows, data = lsd_tbl)
+fit <- lm(drymatter ~ fert + block + block:fert, data = subsampling_tbl)
+```
+
+Behandlung im Block randomisiert, dass heißt, dass die Pflanzen zusammen in einem Tray stehen, wir rechnen ein gemischtes Modell.
+
+```{r}
+#| eval: FALSE
+fit <- lmer(drymatter ~ fert + block + (1 | block:fert), data = subsampling_tbl)
 ```
 :::
 
 ### ... mit `expand_grid()`
 
+Als erstes erstellen wir einmal ein Design mit vier Blöcken und vier Behandlungen. Dann ergänzen wir noch pro Behandlung sechs individuelle Beobachtungen. Am Ende randomisieren wir einmal über die Behandlungen in den Blöcken. Wichtig ist hier, dass wir die Daten nach den Blöcken gruppieren müssen und schon vorher alle individuellen Pflanzen generieren.
+
 ```{r}
 subsampling_long_tbl <- expand_grid(block = 1:4, 
-                             trt = 1:4) %>% 
+                                    trt = 1:4,
+                                    rep = 1:6) %>% 
   mutate(trt = factor(trt, labels = trt_fac1_soil),
-         block = factor(block, labels = str_c("Block ", 1:4))) %>% 
+         block = factor(block, labels = str_c("Block ", 1:4)),
+         pid = 1:n(),
+         pid_text = str_pad(1:96, width = 2, pad = "0")) %>% 
   group_by(block) %>% 
-  mutate(trt = sample(trt)) %>% 
-  expand_grid(pid = 1:6) %>% 
-  mutate(pid = as_factor(pid),
-         pid_text = str_pad(1:96, width = 2, pad = "0"))
+  mutate(trt = sample(trt)) ## Randomisierung in den Blöcken
 ```
+
+Dann bauen wir noch unser Grid auf. Wir wollen insgesamt sechzehn Spalten, dass sind die Blöcke/Behandlungs-Kombinationen. Dann brauchen wir noch jeweils sechs Zeilen für die individuellen Pflanzen. Dann können wir die Daten schon nehmen und in der @fig-exp-adv-10-1 visualisieren. Bevor wir die Abbildung besprechen, generieren wir uns nochmal die anderen Daten, wo die Behandlungen in den Blöcken randomisiert werden.
 
 ```{r}
 subsampling_plot_tbl <- subsampling_long_tbl %>% 
   bind_cols(expand_grid(cols = 1:16, rows = 1:6))
 ```
 
+Eine andere Möglichkeit ist, dass unsere Pflanzen in einem Pflanztray stehen. Damit haben wir keine Randomisierung mehr in den Blöcken, sondern wir können nur unsere Behandlungen in den Blöcken randomisieren. Die Positionen in den Trays sind ja fix.
+
 ```{r}
+
+subsampling_tray_long_tbl <- expand_grid(block = 1:4, 
+                                        trt = 1:4) %>% 
+  mutate(trt = factor(trt, labels = trt_fac1_soil),
+         block = factor(block, labels = str_c("Block ", 1:4))) %>% 
+  group_by(block) %>% 
+  mutate(trt = sample(trt)) %>% # Randomisierung der Behandlungen in den Blöcken
+  expand_grid(rep = 1:6)
+```
+
+```{r}
+subsampling_tray_plot_tbl <- subsampling_tray_long_tbl %>% 
+  bind_cols(expand_grid(cols = 1:16, rows = 1:6))
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| label: fig-exp-adv-10
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 6
+#| fig-cap: "Verschiedene Arten des Subsamplings. Einmal vollständig innerhalb der Blöcke randomsiert und einmal bedingt durch Pflanztrays nur die Behandlung randomisiert."
+#| fig-subcap: 
+#|   - "... vollständig innerhalb Block randomisiert (`subsampling_plot_tbl`)."
+#|   - "... Behandlungen innerhalb Block randomisiert (`subsampling_tray_plot_tbl`)."
+#| layout-nrow: 1
+#| column: page
+
 desplot(data = subsampling_plot_tbl, flip = TRUE, 
         form = block ~ cols + rows | block,
         out1 = trt, out1.gpar = list(col = "grey", lty = 1),
         out2 = pid, out2.gpar = list(col = "grey", lty = 1),
-        main = "Subsampling (2-faktoriell)", 
+        main = "Subsampling (2-faktoriell, vollständig randomisiert)", 
         text = pid_text, 
         cex = 1, show.key = FALSE, shorten = "no", col = trt) 
+
+desplot(data = subsampling_tray_plot_tbl, flip = TRUE, 
+        form = block ~ cols + rows | block,
+        out1 = trt, out1.gpar = list(col = "grey", lty = 1),
+        #out2 = pid, out2.gpar = list(col = "grey", lty = 1),
+        main = "Subsampling (2-faktoriell, Behandlung randomisiert)", 
+        text = rep, 
+        cex = 1, show.key = FALSE, shorten = "no", col = trt) 
+
 ```
-
-### ... mit `agricolae`
-
-### ... mit `dae`
 
 ## Incomplete block design {#sec-incomplete}
 
@@ -555,7 +625,7 @@ desplot(trt ~ cols + rows, flip = TRUE,
 
 ## Strip plot design (3-faktoriell) {#sec-strip-plot}
 
-[Strip-plot experiment of rice](https://kwstat.github.io/agridat/reference/gomez.stripplot.html)
+Das Streifenparzellenversuch (eng. *strip plot design*) orientiert sich an dem [Strip-plot experiment of rice](https://kwstat.github.io/agridat/reference/gomez.stripplot.html) aus @gomez1984statistical. Du findest dann das Datenbeispiel auch in `agridat` als `data(gomez.stripplot)`. Ich habe versucht jetzt die Daten in der Form nachzubauen und somit kannst du dann auch ähnliche Experimente planen.
 
 Ein Streifenparzellenversuch (eng. *strip plot design*) mit drei Wiederholungen `block`, Sorte `trt_gen` als horizontaler Streifen und Stickstoffdünger `trt_nitro` als vertikaler Streifen.
 
