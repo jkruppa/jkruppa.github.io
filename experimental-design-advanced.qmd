@@ -153,10 +153,10 @@ mit
 -   dem Faktor Boden `soil` und den vier Bodenarten als Level `soil_1` bis `soil_4`.
 -   dem Faktor Block `block` und den zwei Leveln `block_1` und `block_2`.
 
-Die Struktur der Daten ist wie folgt gegeben. Jedes Level der Düngerstufe `fert` ist in dem Faktor des Bodens `soil` enthalten. Die beiden Behandlungen sind dann wiederum jeweils vollständig in den Blöcken `block` vorhanden. In der @fig-mermaid-01 sehen wir einmal den Zusammenhang zwischend den drei Faktoren
+Die Struktur der Daten ist wie folgt gegeben. Jedes Level der Düngerstufe `fert` ist in dem Faktor des Bodens `soil` enthalten. Die beiden Behandlungen sind dann wiederum jeweils vollständig in den Blöcken `block` vorhanden. In der @fig-mermaid-adv-rcbd sehen wir einmal den Zusammenhang zwischend den drei Faktoren
 
 ```{mermaid}
-%%| label: fig-mermaid-01
+%%| label: fig-mermaid-adv-rcbd
 %%| fig-width: 6
 %%| fig-cap: "text"
 flowchart LR
@@ -287,9 +287,9 @@ desplot(block ~ cols + rows | block, flip = TRUE,
 
 ## Split plot design (3-faktoriell) {#sec-split}
 
-Die Spaltanalse (eng. *split plot design*) ist eine häufig genutzte Variante, wenn wir eine Behandlungsfaktor nur in einem anderen Level eines zweiten Behandlungsfaktor randomisieren können. Wir können also eine Feldspur nur auf eine Art mechanisch bearbeiten und geben dann aber pro Feld verschiedene Dünger auf. Oder wir können in einen Stahl nur auf eien Art Futter zuführen, aber verschiedne Arten von Futter.
+Die Spaltanalse (eng. *split plot design*) ist eine häufig genutzte Variante, wenn wir eine Behandlungsfaktor nur in einem anderen Level eines zweiten Behandlungsfaktor randomisieren können. Wir können also eine Feldspur nur auf eine Art mechanisch bearbeiten und geben dann aber pro Feldspur verschiedene Dünger auf. Oder wir können in einen Stahl nur auf eine Art Futter zuführen, aber verschiedene Arten von Futter. Das gleiche kannst du dir auch mit einer Klimakammer vorstellen in der wir verschiedene Pflanzenlinien stellen können.
 
-Beide Behandlungsfaktoren sind ineinander und dann natürlich im Block genested. Hier aber erstmal das Modell mit den drei Faktoren für den besseren Überblick. Wir haben einmal die Düngung `fert`, dann den Faktor Boden `soil` sowie die verschiedenen Blöcke durch `block`.
+Beide Behandlungsfaktoren sind ineinander und dann natürlich im Block genested. Hier aber erstmal das Modell mit den drei Faktoren für den besseren Überblick. Wir haben einmal die Düngung `fert`, dann den Faktor Boden `soil` sowie die verschiedenen Blöcke mit `block`.
 
 $$
 y \sim \overbrace{soil}^{f_1} + \underbrace{fert}_{f_2} + \overbrace{block}^{f_3}
@@ -301,51 +301,64 @@ mit
 -   dem Faktor Boden `soil` und den vier Bodenarten als Level `soil_1` bis `soil_4`.
 -   dem Faktor Block `block` und den zwei Leveln `block_1` und `block_2`.
 
+In der @fig-mermaid-splitplot sehen wir die Abhängigkeitsstruktur des *split plot designs*. Wir haben den Faktor `fert` den wir in den Faktor `soil` nesten. Den Faktor `soil` nesten wir dann wiederrum in die Spalten `cols` des Blocks. Deshalb nennen wir das ja auch eine Spaltanlage. Ein Faktor ist immer in den Spalten angeordnet und der andere Faktor in der Spalte randomisiert. Wie immer wird es vielleicht klarer, wenn du dir dazu die @fig-exp-adv-5 als Ergebnis des Versuchsdesigns anschaust.
+
 ```{mermaid}
-%%| label: fig-mermaid-02
+%%| label: fig-mermaid-splitplot
 %%| fig-width: 6
-%%| fig-cap: "text"
+%%| fig-cap: "Abhängigkeitsstruktur des *split plot design*. Der Faktor `soil` ist in den Spalten `cols` der Blöcke randomisiert und der zweite Faktor `fert` innerhalb des anderen Faktors und somit auch in den Spalten."
 flowchart LR
-    A(fert):::factor --- B(((nested))) --> C(soil):::factor --- D(((nested))) --> E(block):::factor
+    A(fert):::factor --- B(((nested))) --> C(soil):::factor --- D(((nested))) --> E(cols) --- F(block):::factor
     classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
 ```
 
 ::: callout-tip
 ## Modell zur Auswertung
 
-Wir rechnen ein komplexeres gemischtes Modell.
+Wir rechnen ein komplexeres gemischtes Modell mit allen möglichen zufälligen Effekten.
 
 ```{r}
 #| eval: FALSE
-fit <-  lmer(yield ~ soil + fert + soil:fert + (1|block) + (1|block:fert) + (1|block:soil), data = split_tbl)
+fit <-  lmer(yield ~ soil + fert + soil:fert + 
+               (1|block) + (1|block:fert) + (1|block:soil), 
+             data = split_tbl)
 ```
 
-Oder können überlegen ein gemischtes Modell mit weniger Parametern zu rechnen.
+Oder können überlegen ein gemischtes Modell mit weniger zufälligen Effekten zu rechnen.
 
 ```{r}
 #| eval: FALSE
-fit <-  lmer(yield ~ soil + fert + soil:fert + (1|block), data = split_tbl)
+fit <-  lmer(yield ~ soil + fert + soil:fert + 
+               (1|block), 
+             data = split_tbl)
 ```
 
 Die Entscheidung kannst du dann mit der [Modellselektion](https://jkruppa.github.io/stat-modeling-basic.html#sec-model-basic-compare) durchführen.
 :::
 
+Jetzt haben wir die volle Auswahl an Möglichkeiten. Ich zeige einmal wie man händisch das *split plot designs* erstellt. Dann schauen wir uns die Erstellung in `agricolae` einmal an und dann zeige ich noch die Variante in `dae`, die mich echt einiges an Zeit und Nerven gekostet hat. In sich ist das Paket `dae` ja logisch, aber die Dokumentation lässt für mich etwas zu wünschen übrig. Dennoch hier einmal die volle Dreifaltigkeit der Versuchsdesignerstellung, wenn ich mir schon die Mühe gemacht habe.
+
 ### ... mit `expand_grid()`
 
 ```{r}
-splitplot_long_tbl <- expand_grid(block = 1:2, soil = 1:4, fert = 1:6) %>% 
+splitplot_long_tbl <- expand_grid(block = 1:2, 
+                                  soil = 1:4) %>% 
   mutate(block = factor(block, labels = str_c("Block ", 1:2)),
-         soil = factor(soil, labels = str_c("soil_", 1:4)),
-         fert = factor(fert, label = str_c("fe_", 1:6))) %>% 
-  group_by(block, soil) %>% 
-  mutate(fert = sample(fert))
+         soil = factor(soil, labels = str_c("soil_", 1:4))) %>% 
+  group_by(block) %>% 
+  mutate(soil = sample(soil)) %>% # Randomiseren von soil in block
+  expand_grid(fert = 1:6) %>%   
+  mutate(fert = sample(fert),     # Randomiseren von fert in soil
+         fert = factor(fert, label = str_c("fe_", 1:6)))
 
 splitplot_long_tbl
 ```
 
 ```{r}
 splitplot_plot_tbl <- splitplot_long_tbl %>% 
-  bind_cols(expand_grid(rep = 1:2, cols = 1:4, rows = 1:6))
+  bind_cols(expand_grid(rep = 1:2, 
+                        cols = 1:4, 
+                        rows = 1:6))
 ```
 
 ```{r}
@@ -457,6 +470,29 @@ $$
 y \sim \overbrace{trt}^{f_1} + \underbrace{block}_{f_2} 
 $$
 
+mit
+
+-   dem Faktor Behandlung `trt` und den vier Behandlungsstufen als Level `ctrl`, `A`, `B` und `C`.
+-   dem Faktor Block `block` und den vier Leveln `block_1` bis `block_4`.
+
+```{mermaid}
+%%| label: fig-mermaid-sub-1
+%%| fig-width: 6
+%%| fig-cap: "text"
+flowchart LR
+    A(trt):::factor --- B(((nested))) --> C(block):::factor 
+    classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
+```
+
+```{mermaid}
+%%| label: fig-mermaid-sub-2
+%%| fig-width: 6
+%%| fig-cap: "text"
+flowchart LR
+    A(tray) --- B(((nested))) --> C(trt):::factor --- D(((nested))) --> E(cols) --- F(block):::factor
+    classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
+```
+
 Jetzt kommt es darauf an, wie die individuellen Pflanzen in den Behandlungen stehen. Eventuell ist alles durcheinander gemischt, das heißt, die Pflanzen sind in den Behandlungen und Blöcken randomisiert. Dann ist es recht einfach mit einem linearen Modell zu machen.
 
 Wenn du aber die Pflanzen in einem Pflanztray oder irgendwie anders fixierst hast, dann macht es schon einen Unterschied. In dem Fall sind die Pflanzen ja individuell nicht unabhängig voneinander. Die Pflanzen sind ja in einem Tray zusammen. Dann nutzen wir ein lineares gemischtes Modell.
@@ -470,14 +506,14 @@ Vollständig im Block randomisiert, wir rechnen ein lineares Modell.
 
 ```{r}
 #| eval: FALSE
-fit <- lm(drymatter ~ fert + block + block:fert, data = subsampling_tbl)
+fit <- lm(drymatter ~ trt + block + trt:block, data = subsampling_tbl)
 ```
 
-Behandlung im Block randomisiert, dass heißt, dass die Pflanzen zusammen in einem Tray stehen, wir rechnen ein gemischtes Modell.
+Behandlung im Block randomisiert, dass heißt, dass die Pflanzen zusammen in einem Tray stehen, wir rechnen ein gemischtes Modell. Der Tray-Effekt wird dann im zufälligen Effekt `(1 | trt:block)` modelliert.
 
 ```{r}
 #| eval: FALSE
-fit <- lmer(drymatter ~ fert + block + (1 | block:fert), data = subsampling_tbl)
+fit <- lmer(drymatter ~ trt + block + (1 | trt:block), data = subsampling_tbl)
 ```
 :::
 
@@ -487,7 +523,7 @@ Das Subsampling geht nur im Selbermachen, also machen wir das dann einmal mit de
 subsampling_long_tbl <- expand_grid(block = 1:4, 
                                     trt = 1:4,
                                     rep = 1:6) %>% 
-  mutate(trt = factor(trt, labels = trt_fac1_soil),
+  mutate(trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
          block = factor(block, labels = str_c("Block ", 1:4)),
          pid = 1:n(),
          pid_text = str_pad(1:96, width = 2, pad = "0")) %>% 
@@ -565,11 +601,36 @@ $$
 y \sim \overbrace{soil}^{f_1} + \underbrace{fert}_{f_2} + \overbrace{block}^{f_3}
 $$
 
+mit
+
+-   dem Faktor Dünger `fert` und den sechs Düngestufen als Level `fe_1` bis `fe_6`.
+-   dem Faktor Boden `soil` und den vier Bodenarten als Level `soil_1` bis `soil_4`.
+-   dem Faktor Block `block` und den zwei Leveln `block_1` und `block_2`.
+
+```{mermaid}
+%%| label: fig-mermaid-incomplete-1
+%%| fig-width: 6
+%%| fig-cap: "text"
+flowchart LR
+    A(fert):::factor -.- B(((nested))) -.-> E(block):::factor
+    C(soil):::factor -.- D(((nested))) -.-> E
+    classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
+```
+
 Einmal als 2-faktorielles Design
 
 $$
 y \sim \overbrace{trt}^{f_1} + \underbrace{block}_{f_2} 
 $$
+
+```{mermaid}
+%%| label: fig-mermaid-incomplete-2
+%%| fig-width: 6
+%%| fig-cap: "text"
+flowchart LR
+    C(trt):::factor -.- D(((nested))) -.-> E(block):::factor
+    classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
+```
 
 ::: callout-tip
 ## Modell zur Auswertung
@@ -678,6 +739,38 @@ desplot(trt ~ cols + rows, flip = TRUE,
 Das Streifenparzellenversuch (eng. *strip plot design*) orientiert sich an dem [Strip-plot experiment of rice](https://kwstat.github.io/agridat/reference/gomez.stripplot.html) aus @gomez1984statistical. Du findest dann das Datenbeispiel auch in `agridat` als `data(gomez.stripplot)`. Ich habe versucht jetzt die Daten in der Form nachzubauen und somit kannst du dann auch ähnliche Experimente planen.
 
 Ein Streifenparzellenversuch (eng. *strip plot design*) mit drei Wiederholungen `block`, Sorte `trt_gen` als horizontaler Streifen und Stickstoffdünger `trt_nitro` als vertikaler Streifen.
+
+$$
+y \sim \overbrace{trt_{gen}}^{f_1} + \underbrace{trt_{nitro}}_{f_2} + \overbrace{block}^{f_3}
+$$
+
+mit
+
+-   dem Faktor Behandlung `trt_gen` und den sechs Linien als Level `G_1` bis `G_6`.
+-   dem Faktor Dünger `trt_nitro` und den drei Düngestufen als Level `0`, `60` und `120`.
+-   dem Faktor Block `block` und den drei Leveln `1` bis `3`.
+
+```{mermaid}
+%%| label: fig-mermaid-stripplot
+%%| fig-width: 6
+%%| fig-cap: "text"
+flowchart LR
+    A(trt_gen):::factor --- B(((nested))) ---> C(rows) --- E(block):::factor
+    F(trt_nitro):::factor --- G(((nested))) ---> H(cols) --- E
+    classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
+```
+
+::: callout-tip
+## Modell zur Auswertung
+
+```{r}
+#| eval: FALSE
+fit <- lmer(yield ~ trt_gen + nitro + trt_gen:nitro + 
+              (1 | block) + (1 | block:nitro) + 
+              (1 | block:trt_gen), 
+            data = stripplot_tbl)
+```
+:::
 
 ```{r}
 trt_gen <- str_c("G", 1:6)
