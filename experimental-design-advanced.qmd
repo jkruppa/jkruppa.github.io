@@ -141,7 +141,7 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Randomized complete block design (RCBD, 3-faktoriell) {#sec-rcbd-3fac}
 
-Das Maximum des machbaren ist eigentlich ein dreifaktorielles Modell im *randomized complete block design*. Natürlich geht auch noch mehr, aber der Grundsatz ist eigentlich, dass wir uns maximal zwei Behandlungsfaktoren und dann ein bis zwei Cluster anschauen. Die Cluster sind dann meist einmal der klassische Block plus ein Faktor für verschiedene Lokalisationen. Wir nehmen hier jetzt einmal zwei Behandlungsfaktoren und dann noch einen klassischen Block dazu. Beide Behandlungsfaktoren sind ineinander und dann natürlich im Block genested. Hier aber erstmal das Modell mit den drei Faktoren für den besseren Überblick. Wir haben einmal die Düngung `fert`, dann den Faktor Boden `soil` sowie die verschiedenen Blöcke durch `block`.
+Das Maximum des machbaren ist eigentlich ein dreifaktorielles Modell im *randomized complete block design*. Natürlich geht auch noch mehr, aber der Grundsatz ist eigentlich, dass wir uns maximal zwei Behandlungsfaktoren und dann ein bis zwei Cluster anschauen. Die Cluster sind dann meist einmal der klassische Block plus ein Faktor für verschiedene Lokalisationen. Wir nehmen hier jetzt einmal zwei Behandlungsfaktoren und dann noch einen klassischen Block dazu. Beide Behandlungsfaktoren sind ineinander und dann natürlich im Block genestet. Hier aber erstmal das Modell mit den drei Faktoren für den besseren Überblick. Wir haben einmal die Düngung `fert`, dann den Faktor Boden `soil` sowie die verschiedenen Blöcke durch `block`.
 
 $$
 y \sim \overbrace{soil}^{f_1} + \underbrace{fert}_{f_2} + \overbrace{block}^{f_3}
@@ -160,8 +160,8 @@ Die Struktur der Daten ist wie folgt gegeben. Jedes Level der Düngerstufe `fert
 %%| fig-width: 6
 %%| fig-cap: "text"
 flowchart LR
-    A(fert):::factor --- B(((nested))) --> E(block):::factor
-    C(soil):::factor --- D(((nested))) --> E
+    A(fert):::factor --- B(((nestet))) --> E(block):::factor
+    C(soil):::factor --- D(((nestet))) --> E
     classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
 ```
 
@@ -289,7 +289,7 @@ desplot(block ~ cols + rows | block, flip = TRUE,
 
 Die Spaltanalse (eng. *split plot design*) ist eine häufig genutzte Variante, wenn wir eine Behandlungsfaktor nur in einem anderen Level eines zweiten Behandlungsfaktor randomisieren können. Wir können also eine Feldspur nur auf eine Art mechanisch bearbeiten und geben dann aber pro Feldspur verschiedene Dünger auf. Oder wir können in einen Stahl nur auf eine Art Futter zuführen, aber verschiedene Arten von Futter. Das gleiche kannst du dir auch mit einer Klimakammer vorstellen in der wir verschiedene Pflanzenlinien stellen können.
 
-Beide Behandlungsfaktoren sind ineinander und dann natürlich im Block genested. Hier aber erstmal das Modell mit den drei Faktoren für den besseren Überblick. Wir haben einmal die Düngung `fert`, dann den Faktor Boden `soil` sowie die verschiedenen Blöcke mit `block`.
+Beide Behandlungsfaktoren sind ineinander und dann natürlich im Block genestet. Hier aber erstmal das Modell mit den drei Faktoren für den besseren Überblick. Wir haben einmal die Düngung `fert`, dann den Faktor Boden `soil` sowie die verschiedenen Blöcke mit `block`.
 
 $$
 y \sim \overbrace{soil}^{f_1} + \underbrace{fert}_{f_2} + \overbrace{block}^{f_3}
@@ -308,7 +308,7 @@ In der @fig-mermaid-splitplot sehen wir die Abhängigkeitsstruktur des *split pl
 %%| fig-width: 6
 %%| fig-cap: "Abhängigkeitsstruktur des *split plot design*. Der Faktor `soil` ist in den Spalten `cols` der Blöcke randomisiert und der zweite Faktor `fert` innerhalb des anderen Faktors und somit auch in den Spalten."
 flowchart LR
-    A(fert):::factor --- B(((nested))) --> C(soil):::factor --- D(((nested))) --> E(cols) --- F(block):::factor
+    A(fert):::factor --- B(((nestet))) --> C(soil):::factor --- D(((nestet))) --> E(cols) --- F(block):::factor
     classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
 ```
 
@@ -340,19 +340,24 @@ Jetzt haben wir die volle Auswahl an Möglichkeiten. Ich zeige einmal wie man h�
 
 ### ... mit `expand_grid()`
 
+Ja, selber machen ist hier etwas mühsamer, aber wenn du die Schritte nachvollziehst, dann wird dir vermutlich das *split plot design* sehr viel klarer. Als erstes erschaffen wir die zwei Blöcke und die vier Bodenarten. Dabei sind in jedem Block die vier Bodenarten genestet. Dann gruppieren wir nach Block und randomiseren einmal die Bodenarten je Block. Im nächsten Schritt erweitern wir dann jede Block/Boden-Kombination um die sechs Düngerstufen. Dann gruppieren wir wieder, aber diesmal für jede Block/Boden-Kombination, um hier dann einmal die Düngestufen zu randomisieren. Dann lösen wir alle Gruppen auf und setzen fürunsere Faktoren dann noch die richtigen Labels.
+
 ```{r}
 splitplot_long_tbl <- expand_grid(block = 1:2, 
                                   soil = 1:4) %>% 
-  mutate(block = factor(block, labels = str_c("Block ", 1:2)),
-         soil = factor(soil, labels = str_c("soil_", 1:4))) %>% 
-  group_by(block) %>% 
-  mutate(soil = sample(soil)) %>% # Randomiseren von soil in block
+  group_by(block) %>%             # Gruppieren nach block
+  mutate(soil = sample(soil)) %>% # Randomisieren von soil in block
   expand_grid(fert = 1:6) %>%   
-  mutate(fert = sample(fert),     # Randomiseren von fert in soil
-         fert = factor(fert, label = str_c("fe_", 1:6)))
-
+  group_by(block, soil) %>%       # Gruppieren nach block und soil
+  mutate(fert = sample(fert)) %>% # Randomisieren von fert in block und soil
+  ungroup() %>% 
+  mutate(fert = factor(fert, label = str_c("fe_", 1:6)),
+         block = factor(block, labels = str_c("Block ", 1:2)),
+         soil = factor(soil, labels = str_c("soil_", 1:4))) 
 splitplot_long_tbl
 ```
+
+Da ich auch gleich wieder für die Blöcke separieren möchte, baue ich mir für jeden Block `rep` nochmal vier Spalten, je eine Spalte für eine Bodenbehandlung, und dann nochmal sechs Zeilen, eine für jede Düngestufe. Dann verbinden wir den randomisirten Datensatz mit den Pflanzgrid und schon können wir uns das *split plot design* einmal anschauen.
 
 ```{r}
 splitplot_plot_tbl <- splitplot_long_tbl %>% 
@@ -361,6 +366,8 @@ splitplot_plot_tbl <- splitplot_long_tbl %>%
                         rows = 1:6))
 ```
 
+In der @fig-exp-adv-5 siehst du einmal das *split plot design* dargestellt. Hier wird auch nochmal schön das Randomisierungsmuster klar. Du siehst auch warum das *split plot design* im Deutschen auch Spaltanlage heißt. Der Dünger ist in Spalten des Bodenfaktores randomisiert. Jeder Block hat also seine eigene Randomiserung der Böden.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -368,7 +375,7 @@ splitplot_plot_tbl <- splitplot_long_tbl %>%
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 7
-#| fig-cap: "foo."
+#| fig-cap: "Split plot design (3-faktoriell) für die Faktoren Dünger `fert` sowie `soil` randomisiert in den zwei Blöcken. Der Faktor `fert` ist in dem Faktor `soil` genestet und randomisiert."
 
 desplot(block ~ cols + rows | block, flip = TRUE,
         out1 = rows, out1.gpar = list(col = "grey", lty = 1),
@@ -381,6 +388,8 @@ desplot(block ~ cols + rows | block, flip = TRUE,
 
 ### ... mit `agricolae`
 
+Jetzt machen wir das Ganze nochmal mit dem R Paket `agricolae`. Hier müssen wir wieder die Vektoren mit den Faktoren und Leveln vorab erschaffen. Auch brauchen wir die Anzahl an Leveln für jeden Faktor. Am Ende randomisieren wir hier mal in vier Blöcke, einfach um es etwas anders zu machen.
+
 ```{r}
 trt_fac1_soil <- str_c("soil_", 1:4)    
 n_trt_fac1_soil <- n_distinct(trt_fac1_soil) 
@@ -389,7 +398,7 @@ n_trt_fac2_fert <- n_distinct(trt_fac2_fert)
 n_block <- 4
 ```
 
-Achtung, unbedingt `serie = 0` als Option nutzen, sonst klappt es nicht mit der Option die `plots` gleich den Spalten `cols` zu setzen. Ja, ich weiß, ist alles super suboptimal.
+Für die Erstellung des *split plot design* nutzen wir die Funktion `design.split()`. Hier ist es wichtig, unbedingt die `serie = 0` als Option zu setzen. Wir brauchen die so entstehende Information in der Spalte `plots` sonst klappt es im Folgenden nicht die `plots` gleich den Spalten `cols` zu setzen. Ja, ich weiß, ist alles super suboptimal, aber so ist es eben in `agricolae`. Du musst noch einges machen, damit die Funktion auch einen visualisierbare Ausgabe wiedergibt.
 
 ```{r}
 splitplot_obj <- design.split(trt1 = trt_fac1_soil,
@@ -398,15 +407,17 @@ splitplot_obj <- design.split(trt1 = trt_fac1_soil,
                               seed = 42, serie = 0)
 ```
 
-Leider gibt es kein `sketch`-Objekt gerade hier wo man eins gebrauchen könnte.
+Leider gibt es kein `sketch`-Objekt gerade hier wo man eins gebrauchen könnte. Deshalb also nochmal alles umbauen und die Zeilen `rows` und Spalten `cols` entsprechend ergänzen. Ich nenne jetzt nochmal ein wenig die Variablen um, einfach damit hier nicht immer das Gleiche passiert. Wichtig ist, dass wir hier immer für die Blöcke separieren. Wir müssen also in `desplot` definitiv die Option `| block` setzen, sonst klappt es mit der Darstellung nicht.
 
 ```{r}
 splitsplot_book_tbl <- splitplot_obj$book %>% 
-  mutate(block = paste0("Block ", block),
+  mutate(block = str_c("Block ", block),
          cols = plots, 
          rows = as.numeric(splots)) %>% 
   select(block, fert = trt_fac2_fert, soil = trt_fac1_soil, rows, cols)
 ```
+
+In der @fig-exp-adv-3 siehst du das Ergebnis der Versuchsplanerstellung mit `agricolae`. Wir kriegen faktisch das Gleiche raus, gut die Faktoren sind anders permutiert, aber das wundert uns jetzt nicht. Am Ende musst du entscheiden, was dir besser gefällt. Je komplexer die Randomisierung ist, desto einfacher ist die Nutzung der `agricolae` Funktionen. Beim *split plot design* ist es so eine Sache, es lohnt sich bei sehr großen Anlagen dann schon.
 
 ```{r}
 #| message: false
@@ -415,7 +426,7 @@ splitsplot_book_tbl <- splitplot_obj$book %>%
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 7
-#| fig-cap: "foo."
+#| fig-cap: "Split plot design (3-faktoriell) für die Faktoren Dünger `fert` sowie `soil` randomisiert in den vier Blöcken. Der Faktor `fert` ist in dem Faktor `soil` genestet und randomisiert."
 desplot(block ~ cols + rows | block, flip = TRUE,
         out1 = rows, out1.gpar = list(col = "grey", lty = 1),
         out2 = cols, out2.gpar = list(col = "grey", lty = 1), 
@@ -427,20 +438,33 @@ desplot(block ~ cols + rows | block, flip = TRUE,
 
 ### ... mit `dae`
 
-```{r}
-oast_sys <- cbind(fac.gen(list(Blocks = 4, MPlots = 4, SubPlots = 6)),
-                  fac.gen(list(soil = str_c("soil_", 1:4),
-                               fert = str_c("fe_", 1:6)), times = 4)) 
-```
+Auch das R Paket `dae` liefert die Möglichkeit ein *split plot design* zu erstellen. Die Idee von `dae` ist ja ein mehr generalisiertes Framework für die Erstellung von Versuchsplänen anzubieten. Deshalb gibt es ja nur die Funktion `designRandomize()`, die ein gegebenes Design nach feststehenden Regeln randomisiert. Die IDee ist gut, aber dafür musst du dich realtiv tief in das Paket `dae` einarbeiten. Für mich war dieser kurze Code für das *split plot design* schon recht langwierig aus den Beispielen aus den [Notes on the use of dae for design](https://cran.r-project.org/web/packages/dae/vignettes/DesignNotes.pdf) herzuleiten. Prinzipiell ist es ja nicht schwer, aber es ist schon etwas mehr Auswand.
+
+Wie funktioniert nun die Erstellung eines *split plot design*? Wir bauen uns erstmal unser Design der Positionen mit den Blöcken, Mainplots `MPlots` sowie den Subplot `SubPlots`. Dabei ist es wichtig zu wissen, dass die Subplots in den Mainplots genestet sind. Die Mainplots sind dann wiederum in den Blöcken genestet. Ja, hier hast du dann ein Paket spezifisches Naming der Optionen. Im zweiten Schritt packen wir dann den Faktor Boden `soil` und den Faktor `fert` zu den Positionen hinzu. Wichtig ist das `times = 4` am Ende, was nochmal die Faktorkombinationen von `soil` und `fert` jeweils in der Anzahl der Blöcke wiederholt. Wir haben ja hier vier Blöcke vorliegen, dass vergisst man ja mal schnell.
 
 ```{r}
-oats_lay <- designRandomize(allocated = oast_sys[c("soil", "fert")],
-                            recipient = oast_sys[c("Blocks", "MPlots", "SubPlots")],
-                            nested.recipients = list(MPlots = "Blocks",
-                                                     SubPlots = c("MPlots", "Blocks")),
-                            seed = 235805)
-
+split_sys <- cbind(fac.gen(list(Blocks = 4, MPlots = 4, SubPlots = 6)),
+                   fac.gen(list(soil = str_c("soil_", 1:4),
+                                fert = str_c("fe_", 1:6)), times = 4)) 
+split_sys %>% 
+  as_tibble()
 ```
+
+An der Ausgabe siehst du ganz schön, wie die Spalte Mainplots zu dem Faktor `soil` passt sowie die Spalte Subplots zu dem Faktor `fert`. Die Herausforderung ist nun, dass das R Paket `dae` davon ausgeht, dass du weißt, was ein *split plot design* ist und wie es aufgebaut ist. Es gibt also wenig Hilfestellung innerhalb der Funktionen. Dafür sind die Funktionen super flexibel und du kannst dir deine eigenen kreativen Designs bauen - wovon ich abrate.
+
+Im nächsten Schritt nutzen wir die Funktion `designRandomize()` um die Faktoren `soil` und `fert` den Positionen in der Spalte `Block`, `MPlots` und `SubPlots` randomisiert zuzuweisen. Deshalb sind ja auch die Faktoren `soil` und `fert` der Option `allocated` (deu. *zugeteilt*) zugewiesen, da die beiden Faktoren ja den Spalten `Block`, `MPlots` und `SubPlots` als Empfänger (eng. `recipient`) zugeteilt werden. Soweit so gut, dass sagt aber noch nichts über das *Wie* der Zuteilung aus. Das machen wir dann mit der Option `nestet.recipients`. Der Option sagen wir jetzt wer in was genestet ist. Und durch diese Zuordnung erschaffen wir ein *split plot design*. Die Mainplots sind in den Blöcken genestet und dann die Subplots in den Mainplots und den Blöcken. Ja, da muss man erstmal drauf kommen. Hat bei mir gedauert, bis ich das hingekriegt habe.
+
+```{r}
+split_lay <- designRandomize(allocated = split_sys[c("soil", "fert")],
+                             recipient = split_sys[c("Blocks", "MPlots", "SubPlots")],
+                             nestet.recipients = list(MPlots = "Blocks",
+                                                      SubPlots = c("MPlots", "Blocks")),
+                             seed = 235805)
+split_lay %>% 
+  as_tibble()
+```
+
+Und wir haben eine Randomisierung. Leider wissen wir nicht, ob die so geklappt hat, es ist ja wirklich schwer zusehen. Deshalb wollen wir uns die Ausgabe mal visualisieren. Das Gleiche Problem wie schon eben haben wir mit der Visualisierung mit `designGGPlot()`. Die Hilfeseite ist etwas unterkomplex für die Möglichkeiten der Funktion. So musste ich auch hier recht lange Rumspielen, bis ich die folgende @fig-exp-adv-4 erstellen konnte. Der Witz ist eigentlich hier, dass wir eine interne Funktion nutzen und auch das Objekt aus `designRandomize()` übergeben. Dennoch müssen wir uns selber mit den `row.factors()` und den `column.factors()` alles zusammenkleben.
 
 ```{r}
 #| echo: false
@@ -451,13 +475,10 @@ oats_lay <- designRandomize(allocated = oast_sys[c("soil", "fert")],
 #| fig-width: 6
 #| fig-cap: "foo."
 
-
-designGGPlot(oats_lay, labels = "fert", cellalpha = 0.75, cellfillcolour.column = "soil",
+designGGPlot(split_lay, labels = "fert", cellalpha = 0.75, cellfillcolour.column = "soil",
              row.factors = c("Blocks", "SubPlots"), column.factors = c("MPlots"),
              blockdefinition = rbind(c(6, 1)),
              blocklinecolour = "black", title = NULL)
-
-
 ```
 
 ## Subsampling {#sec-subsampling}
@@ -480,7 +501,7 @@ mit
 %%| fig-width: 6
 %%| fig-cap: "text"
 flowchart LR
-    A(trt):::factor --- B(((nested))) --> C(block):::factor 
+    A(trt):::factor --- B(((nestet))) --> C(block):::factor 
     classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
 ```
 
@@ -489,7 +510,7 @@ flowchart LR
 %%| fig-width: 6
 %%| fig-cap: "text"
 flowchart LR
-    A(tray) --- B(((nested))) --> C(trt):::factor --- D(((nested))) --> E(cols) --- F(block):::factor
+    A(tray) --- B(((nestet))) --> C(trt):::factor --- D(((nestet))) --> E(cols) --- F(block):::factor
     classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
 ```
 
@@ -612,8 +633,8 @@ mit
 %%| fig-width: 6
 %%| fig-cap: "text"
 flowchart LR
-    A(fert):::factor -.- B(((nested))) -.-> E(block):::factor
-    C(soil):::factor -.- D(((nested))) -.-> E
+    A(fert):::factor -.- B(((nestet))) -.-> E(block):::factor
+    C(soil):::factor -.- D(((nestet))) -.-> E
     classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
 ```
 
@@ -628,7 +649,7 @@ $$
 %%| fig-width: 6
 %%| fig-cap: "text"
 flowchart LR
-    C(trt):::factor -.- D(((nested))) -.-> E(block):::factor
+    C(trt):::factor -.- D(((nestet))) -.-> E(block):::factor
     classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
 ```
 
@@ -755,8 +776,8 @@ mit
 %%| fig-width: 6
 %%| fig-cap: "text"
 flowchart LR
-    A(trt_gen):::factor --- B(((nested))) ---> C(rows) --- E(block):::factor
-    F(trt_nitro):::factor --- G(((nested))) ---> H(cols) --- E
+    A(trt_gen):::factor --- B(((nestet))) ---> C(rows) --- E(block):::factor
+    F(trt_nitro):::factor --- G(((nestet))) ---> H(cols) --- E
     classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
 ```
 
