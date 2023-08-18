@@ -128,6 +128,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, agricolae, dae, desplot,
+               janitor, 
                conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
@@ -485,9 +486,9 @@ Am Ende ermöglicht das Paket `dae` super flexibel experimentelle Design zu erst
 
 ## Subsampling {#sec-subsampling}
 
-Die zentrale Idee des Subsamplings ist, dass wir nicht über die Pflanzen in unseren Blöcken mitteln. Wir nehmen also alle Pflanzen in unserem Block mit in die Analyse. Oder aber wir mitteln nicht das Gewicht der Ferkel für jede Bucht, sondern wollen die Gewichte individuell mit betrachten. Wir messen die Beobachtungen innerhalb der Behandlung und nehmen diese individuellen Beobachtungen auch mit ins Modell. Damit haben wir eigentlich das gleiche Modell wie auch bei dem RCBD mit zwei Faktoren. Nur das wir eben in den Blöcken und Behandlungen nicht einen Mittelwert über alles haben, sondern eben sechs individuelle Werte für die sechs Beobachtungen in einer Behandlung/Block-Kombination in unserem Beispiel.
+Die zentrale Idee des Subsamplings ist, dass wir nicht über die Pflanzen in unseren Blöcken mitteln. Wir nehmen also alle Pflanzen in unserem Block mit in die Analyse. Oder aber wir mitteln nicht das Gewicht der Ferkel für jede Bucht, sondern wollen die Gewichte individuell mit betrachten. Wir messen die Beobachtungen innerhalb der Behandlung und nehmen diese individuellen Beobachtungen auch mit ins Modell. Damit haben wir eigentlich das gleiche Modell wie auch bei dem *randomized complete block design* mit zwei Faktoren. Nur das wir eben in den Blöcken und Behandlungen nicht einen Mittelwert über alles haben, sondern eben sechs individuelle Werte für die sechs Beobachtungen in einer Behandlung/Block-Kombination in unserem Beispiel.
 
-Das generelle Modell unterscheidet sich nicht von einem RCBD. Wir haben zwei Faktoren, einmal die Behandlung und einmal einen Block vorliegen.
+Das generelle Modell unterscheidet sich nicht von einem RCBD. Wir haben zwei Faktoren, einmal die Behandlung und einmal einen Block vorliegen. Damit sind wir noch sehr ähnlich. Den Unterschied macht gleich die Randomisierung und die Betrachtung der einzelnen individuellen Beobachtungen.
 
 $$
 y \sim \overbrace{trt}^{f_1} + \underbrace{block}_{f_2} 
@@ -498,6 +499,8 @@ mit
 -   dem Faktor Behandlung `trt` und den vier Behandlungsstufen als Level `ctrl`, `A`, `B` und `C`.
 -   dem Faktor Block `block` und den vier Leveln `block_1` bis `block_4`.
 
+Es gibt jetzt zwei Arten, wie wir die Daten randomisieren und betrachten können. Zum einen randomisieren wir die Individuen vollständig auf die Behandlungen und die Behandlungen nesten wir dann in die Blöcke. Dann haben wir die Abhängigkeitssruktur in der @fig-mermaid-sub-1 vorliegen. Im Anschluss mitteln wir dann nicht über alle Beobachtungen. Prinzipiell ist es also ein sehr großes *randomized complete block design*.
+
 ```{mermaid}
 %%| label: fig-mermaid-sub-1
 %%| fig-width: 6
@@ -506,6 +509,8 @@ flowchart LR
     A(trt):::factor --- B(((nestet))) --> C(block):::factor 
     classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
 ```
+
+Anders sieht es in der Variante zwei aus, hier haben wir die individuellen Beobachtungen in Clustern für eine einzelne Behandlung vorliegen. Die Beobachtungen sind innerhalb der Behandlungen genestet. In unserem Beispiel stehen die individuellen Pflanzen immer in einem Pflanztray. Du kannst dir aber auch Ferkel von verschiedenen Müttern in einer Bucht in einem Stall vorstellen. Es ergibt sich dann die @fig-mermaid-sub-2, wo unsere einzelnen Beobachtungen in den Behandlungen und dann in den Blöcken genestet sind.
 
 ```{mermaid}
 %%| label: fig-mermaid-sub-2
@@ -516,11 +521,11 @@ flowchart LR
     classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
 ```
 
-Jetzt kommt es darauf an, wie die individuellen Pflanzen in den Behandlungen stehen. Eventuell ist alles durcheinander gemischt, das heißt, die Pflanzen sind in den Behandlungen und Blöcken randomisiert. Dann ist es recht einfach mit einem linearen Modell zu machen.
+Für die abschließende statistische Analyse kommt es darauf an, wie die individuellen Pflanzen in den Behandlungen stehen. Eventuell ist alles durcheinander gemischt, das heißt, die Pflanzen sind in den Behandlungen und Blöcken randomisiert. Dann ist es recht einfach mit einem linearen Modell zu machen.
 
 Wenn du aber die Pflanzen in einem Pflanztray oder irgendwie anders fixierst hast, dann macht es schon einen Unterschied. In dem Fall sind die Pflanzen ja individuell nicht unabhängig voneinander. Die Pflanzen sind ja in einem Tray zusammen. Dann nutzen wir ein lineares gemischtes Modell.
 
-Im Folgenden generieren wir einmal beide Fälle, wobei der zweite Fall - Pflanzen stehen zusammen - als Subsampling angesehen wird. Häufig kann dies auch bei Tierversuchen passieren, wenn zum Beispiel Ferkel in einer Bucht in einem Stahl stehen. Da aber ab und zu beides vorkommt, hier dann einmal beides. Wir können das Subsampling nur selber mit `expand_grid()` durchführen, da weder das R Paket `agricolae` noch das R Paket `dae` eine entsprechende Implementierung der Funkationalität zur Generierung eines Datensatzes mit Subsampling aufweist.
+Im Folgenden generieren wir einmal beide Fälle, wobei der zweite Fall - Pflanzen stehen zusammen - als Subsampling angesehen wird. Häufig kann dies auch bei Tierversuchen passieren, wenn zum Beispiel Ferkel in einer Bucht in einem Stahl stehen. Da aber ab und zu beides vorkommt, hier dann einmal beides. Wir können das Subsampling nur selber mit `expand_grid()` durchführen, da weder das R Paket `agricolae` noch das R Paket `dae` eine entsprechende Implementierung der Funktionalität zur Generierung eines Datensatzes mit Subsampling aufweist.
 
 ::: callout-tip
 ## Modell zur Auswertung
@@ -618,10 +623,18 @@ desplot(data = subsampling_tray_plot_tbl, flip = TRUE,
 
 ## Incomplete block design {#sec-incomplete}
 
-Einmal als 3-faktorielles Design
+Bei dem *incomplete block design* haben wir eigentlich ein normales Design, wie das 3-faktorielle *randomized complete block design* vorliegen, aber die Randomiserung ist nicht vollständig über alle Blöcke. Wir nehmen einmal die beiden Spezialfälle [Alpha design](#sec-alpha) und [Augmented design](#sec-augment) aus der Betrachtung raus. Wir schauen uns hier nochmal zu Vervollständigung das *randomized complete block design* mit nicht kompletten Blöcken an. Ich persönlich stehe dem Design etwas zwiegesaplten gegenüber. Ich würde lieber die Anzahl der Gruppen der Behandlungen reduzieren als die Blöcke. Wenn du ein Pilotversuch machst um zu schauen welche Linien wachsen oder aber ob es überhaupt einen Effekt einer Behandlung gibt, dann mag das *incomplete block design* einen Sinn machen. Dann sparst du wirklich Ressourcen und Zeit.
+
+::: callout-caution
+## Verliere keine Behandlung im *incomplete block design*
+
+Achte immer darauf, dass du genug Blöcke hast um auch alle Behandlungslevel aufzunehmen. Schaue lieber doppelt, ob du auch wirklich alle Behandlungen in deinem Versuchsplan drin hast. Es kann schnell passieren, dass du auf einmal nur ein Level der Behandlung oder gar keins mehr in deinem Design vorliegen hast. Das R Paket `agricolae` versucht das *incomplete block design* so zu bauen, dass du keine Behandlungen verlierst.
+:::
+
+Wir immer erstmal unser Modell mit den zwei Behandlungsfaktoren `soil` und `fert`. Dann kommt noch der nicht komplette Block `inc_block` hinzu.
 
 $$
-y \sim \overbrace{soil}^{f_1} + \underbrace{fert}_{f_2} + \overbrace{block}^{f_3}
+y \sim \overbrace{soil}^{f_1} + \underbrace{fert}_{f_2} + \overbrace{inc\_block}^{f_3}
 $$
 
 mit
@@ -630,41 +643,63 @@ mit
 -   dem Faktor Boden `soil` und den vier Bodenarten als Level `soil_1` bis `soil_4`.
 -   dem Faktor Block `block` und den zwei Leveln `block_1` und `block_2`.
 
+In der @fig-mermaid-incomplete-1 sehen wir nochmal die Abhängigkeitsstruktur des *incomplete block design*. Die beiden Faktoren `soil` und `fert` sind in den Blöcken genestet. Wir stellen hier die Linien als gestrichelt dar um auszudrücken, dass wir nur eine nicht komplette Zuordnung der Behandlungsfaktoren zu den Blöcken haben.
+
 ```{mermaid}
 %%| label: fig-mermaid-incomplete-1
 %%| fig-width: 6
-%%| fig-cap: "text"
+%%| fig-cap: "Schema der Abhängigkeitsstruktur des *incomplete block design* für das 3-faktorielle *randomized complete block design*. Die gestrichelte Linie stellt die nicht vollständige Zuordnung der Behandlungsfaktoren zu den Blöcken dar. Daher sind die Blöcke `inc_block` nicht komplett."
 flowchart LR
-    A(fert):::factor -.- B(((nestet))) -.-> E(block):::factor
+    A(fert):::factor -.- B(((nestet))) -.-> E(inc_block):::inc_block
     C(soil):::factor -.- D(((nestet))) -.-> E
     classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
+    classDef inc_block fill:#CC79A7,stroke:#333,stroke-width:0.75px
 ```
 
-Einmal als 2-faktorielles Design
+Dann das Ganze nochmal in dem R Paket `agricolae` mit einem 2-faktoriellen *randomized complete block design* mit dem Fall der nicht kompletten Blöcke. Wir können in der Standardfunktion von `agricolae` nur ein 2-faktorielles *incomplete block design* abbilden. Deshalb dieses etwas kleinere Modell mit einem Behandlungsfaktor `trt` und einem Block `block`. Wir werden dann dan Behandlungsgruppen nicht komplett auf alle Blöcke randomisieren.
 
 $$
-y \sim \overbrace{trt}^{f_1} + \underbrace{block}_{f_2} 
-$$
+y \sim \overbrace{trt}^{f_1} + \underbrace{inc\_block}_{f_2} 
+$$ mit
+
+-   dem Faktor Behandlung `trt` und den vier Behandlungsstufen als Level `ctrl`, `A`, `B` und `C`.
+-   dem Faktor Block `soil` und den drei Blöcken mit den Leveln `1`, `2`, `3`.
+
+Dann schauen wir uns nochmal die die Abhängigkeitsstruktur des *incomplete block design* in der @fig-mermaid-incomplete-2 an. Wir sehen, dass Design ist relativ einfach. Die Behandlungen sind in den Blöcken genestet, aber wir haben nicht alle Behandlungen in allen Blöcken vorliegen.
 
 ```{mermaid}
 %%| label: fig-mermaid-incomplete-2
 %%| fig-width: 6
-%%| fig-cap: "text"
+%%| fig-cap: "Schema der Abhängigkeitsstruktur des *incomplete block design* für das 2-faktorielle *randomized complete block design*. Die gestrichelte Linie stellt die nicht vollständige Zuordnung der Behandlungsfaktoren zu den Blöcken dar. Daher sind die Blöcke `inc_block` nicht komplett."
 flowchart LR
-    C(trt):::factor -.- D(((nestet))) -.-> E(block):::factor
+    C(trt):::factor -.- D(((nestet))) -.-> E(inc_block):::inc_block
     classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
+    classDef inc_block fill:#CC79A7,stroke:#333,stroke-width:0.75px
 ```
+
+Wir oben schon geschrieben, die Verwendung von dem R Paket `agricolae` schützt dich davor, keine der Behandlungslevel zu verlieren. Bei dem Selbermachen musst du dann immer schauen, ob dir der Versuchsplan so passt und alle Behandlungen einigermaßen vertreten und randomisiert sind.
 
 ::: callout-tip
 ## Modell zur Auswertung
 
+Wir rechnen ein multiples lineares Modell für die statistische Analyse. Vermutlich reicht die Fallzahl nicht für alle Interaktionen zwischen allen Faktoren.
+
 ```{r}
 #| eval: FALSE
-fit <- lm(drymatter ~ trt + cols + rows, data = lsd_tbl)
+fit <- lm(drymatter ~ fert + soil + fert:soil + inc_block, data = inc_block_tbl)
+```
+
+Wir rechnen ein multiples lineares Modell für die statistische Analyse.
+
+```{r}
+#| eval: FALSE
+fit <- lm(drymatter ~ trt + inc_block + trt:inc_block, data = inc_block_tbl)
 ```
 :::
 
 ### ... mit `expand_grid()` (3-faktoriell)
+
+Bei dem Selbermachen ist es jetzt eigentlich wie bei dem 3-faktoriellen *randomized complete block design*. Deshalb schaue einfach nochmal oben nach, wenn dir Teile der Generierung unklar sind. Hier und dort ändert sich ja bei mir immer nur leicht der Code, damit du auch mal was anderes siehst. Es gibt ja viele Wege nach Rom.
 
 ```{r}
 incomplete_long_tbl <- expand_grid(block = 1:2, soil = 1:4, fert = 1:6) %>% 
@@ -678,11 +713,15 @@ incomplete_long_tbl <- expand_grid(block = 1:2, soil = 1:4, fert = 1:6) %>%
 incomplete_long_tbl
 ```
 
+Noch haben wir kein *incomplete block design* vorliegen, dass bauen wir uns jetzt. Wir rasieren nämlich einfach die letzten beiden Zeilen unseres *randomized complete block design* ab. Damit haben wir dann nur noch ein $4\times4$-Block übrig. Sonst wäre es ja ein Block mit sechs Zeilen.
+
 ```{r}
 incomplete_plot_tbl <- incomplete_long_tbl %>% 
   bind_cols(expand_grid(rep = 1:2, cols = 1:4, rows = 1:6)) %>% 
   filter(rows <= 4)
 ```
+
+Jetzt müssen wir uns die Sachlage einmal anschauen. In der @fig-exp-adv-7 sehen wir einmal den Versuchsplan für das *incomplete block design*. Du musst immer schauen, ob wir wirklich alle Level jedes Behandlungsfaktors auch vorliegen haben und ob sich die Level auch einigermaßen gut verteilen. Das *incomplete block design* ist da etwas frickelig, ob es dann auch wirklich gut ist. Aber du kannst auch nciht alle Kombinationen vorliegen haben, denn sondt wäre es ja auch kein *incomplete block design*.
 
 ```{r}
 #| message: false
@@ -691,7 +730,7 @@ incomplete_plot_tbl <- incomplete_long_tbl %>%
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 7
-#| fig-cap: "foo."
+#| fig-cap: "Incomplete block design (3-faktoriell) für die Faktoren Dünger `fert` sowie `soil` randomisiert in den zwei Blöcken."
 
 desplot(block ~ cols + rows | block, flip = TRUE,
         out1 = rows, out1.gpar = list(col = "grey", lty = 1),
@@ -702,16 +741,11 @@ desplot(block ~ cols + rows | block, flip = TRUE,
         show.key = TRUE)
 ```
 
-```{r}
-#| eval: false
-#| message: false
-#| warning: false
-incomplete_plot_tbl %>% 
-  select(-rep) %>% 
-  write_xlsx("template_sheet.xlsx")
-```
-
 ### ... mit `agricolae` (2-faktoriell)
+
+Der Vorteil von `agricolae` und der Funktion `design.bib()` ist ganz klar die Effizienz und die optimale Verteilung der Behandlungsfaktoren auf die Blöcke. Wir können hier sicher sein das optimale Ergebnis der Randomisierung zu erhalten und müssen auch keine Sorge haben, das Level der Behandlungen abhanden gekommen sind. Deshalb kann ich hier die Funktion `design.bib()` in `agricolae` sehr empfehlen.
+
+Die Namen der Optionen sind nicht die Stärke von `agricolae`, also haben wir hier wieder die alten Probleme. Wir müssen darauf achten, dass wir die Anzahl an Blöcken mit `k` angeben. Wenn du zu wenig Blöcke bei zu vielen Behandlungslevel wählst, dann gibt dir die Funktion einen Fehler wieder und kein Ergebnis. An der Ausgabe der Funktion kannst du dann gleich deine Effizienz gegenüber einer vollständigen Randomisierung abschätzen.
 
 ```{r}
 #| message: false
@@ -719,6 +753,10 @@ incomplete_plot_tbl %>%
 bib_obj <- design.bib(trt = c("ctrl", "A", "B", "C"),
                       k = 3, seed = 543, serie = 2)
 ```
+
+Wichtig ist hier, dass wir auf den `Efficiency factor` schauen. Wir sind mit unserer Randomisierung des *incomplete block design* ungefähr zu 89% so gut wie das gleichwertige *randomized complete block design*. Das ist schonmal gut. Wir sparen Platz auf dem Feld oder dem Stall und sind trotzdem nicht so viel schlechter als ein vollständig randomisiertes Design. Aber Achtung, die Aussagekraft ist hier geringer, für Pilotstudien ist das immer okay, für echte Feldstudien zur Zulassung oder für wissenschaftliche Publikationen eher weniger bis gar nicht.
+
+Wir müssen in diesem Fall nicht so viel an den Daten bereinigen um uns gleich die Visualisierung anzuschauen. Das geht hier relativ einfach. Wir benennen nur die Spalten um und sind schon soweit fertig.
 
 ```{r}
 bib_book_tbl <- bib_obj %>% 
@@ -728,6 +766,8 @@ bib_book_tbl <- bib_obj %>%
 bib_book_tbl
 ```
 
+Dann ergänzen wir noch die Informationen zu den Spalten und den Zeilen, so dass wir dann auch gleich `desplot()` nutzen können. Wir müssen hier nochmal nach den Spalten gruppieren, damit wir die Zeilen sauber zugeordnet kriegen. Wir haben ja nicht für jede Behandlung eine Zeile sondern eben weniger. Ja, man hätte auch mit der Information von `k = 3` hier arbeiten können. So finde ich es aber schöner.
+
 ```{r}
 bib_plot_tbl <- bib_book_tbl %>%
   mutate(cols = as.numeric(block)) %>% 
@@ -735,11 +775,15 @@ bib_plot_tbl <- bib_book_tbl %>%
   mutate(rows = 1:n())
 ```
 
+Einmal der Vergleich zum `sketch` aus der Ausgabe von `design.bib()`. Siehst gut aus und entspricht unseren Erwartungen. Du siehst hier gut, dass im ersten Block die Kontrolle gar nicht enthalten ist.
+
 ```{r}
 bib_obj %>% 
   pluck("sketch") %>% 
   t()
 ```
+
+In der @fig-exp-adv-8 sehen wir die Visualisierung unseres *incomplete block design* für den Faktor `trt` randomisiert in den vier Blöcken. Ich finde die farbliche Hinterlegung sehr schön, da sieht man viel schneller die eigentliche Zuordnung der Behandlungslevel zu den Blöcken. Auch siehst du schön, dass in dem vierten Block die Behandlung `C` gar nicht vorkommt. Was du dann nicht misst, kann auch nicht in der statistischen Auswertung berücksichtigt werden.
 
 ```{r}
 #| message: false
@@ -748,7 +792,7 @@ bib_obj %>%
 #| fig-align: center
 #| fig-height: 3
 #| fig-width: 6
-#| fig-cap: "foo."
+#| fig-cap: "Incomplete block design (2-faktoriell) für den Faktor `trt` randomisiert in den vier Blöcken."
 desplot(trt ~ cols + rows, flip = TRUE,
         text = trt, cex = 1, shorten = "no",
         out1 = block,
@@ -759,9 +803,9 @@ desplot(trt ~ cols + rows, flip = TRUE,
 
 ## Strip plot design (3-faktoriell) {#sec-strip-plot}
 
-Das Streifenparzellenversuch (eng. *strip plot design*) orientiert sich an dem [Strip-plot experiment of rice](https://kwstat.github.io/agridat/reference/gomez.stripplot.html) aus @gomez1984statistical. Du findest dann das Datenbeispiel auch in `agridat` als `data(gomez.stripplot)`. Ich habe versucht jetzt die Daten in der Form nachzubauen und somit kannst du dann auch ähnliche Experimente planen.
+Das Streifenparzellenversuch (eng. *strip plot design*) ist eigentlich ein doppeltes *split plot design*. Wo das *split plot design* in Spalten orientiert ist ergänzen wir jetzt durch das *strip plot design* noch die horizontale Dimension. Das heißt wir haben eine Randomisierung und Abhängigkeitsstruktur in den Spalten sowie in den Zeilen. Dabei orientieren wir uns an dem [Strip-plot experiment of rice](https://kwstat.github.io/agridat/reference/gomez.stripplot.html) aus @gomez1984statistical. Du findest dann das Datenbeispiel auch in `agridat` als `data(gomez.stripplot)`. Ich habe versucht jetzt die Daten in der Form nach zubauen und somit kannst du dann auch ähnliche Experimente planen.
 
-Ein Streifenparzellenversuch (eng. *strip plot design*) mit drei Wiederholungen `block`, Sorte `trt_gen` als horizontaler Streifen und Stickstoffdünger `trt_nitro` als vertikaler Streifen.
+Unser *strip plot design* hat drei Wiederholungen mit `block`, eine Sorte `trt_gen` als horizontaler Streifen und Stickstoffdünger `trt_nitro` als vertikaler Streifen. Das ganze klingt immer super abstrakt, deshalb gehe gerne gleich zur Auflösung in die @fig-exp-adv-9. Manchmal ist es besser sich gleich die Visualisierung anzuschauen und dann das folgende Modell.
 
 $$
 y \sim \overbrace{trt_{gen}}^{f_1} + \underbrace{trt_{nitro}}_{f_2} + \overbrace{block}^{f_3}
@@ -773,10 +817,12 @@ mit
 -   dem Faktor Dünger `trt_nitro` und den drei Düngestufen als Level `0`, `60` und `120`.
 -   dem Faktor Block `block` und den drei Leveln `1` bis `3`.
 
+In der @fig-mermaid-stripplot dann einmal die Abhängigkeitsstruktur des *split plot design*. Wichtig ist hierbei, dass die genetischen Linien `trt_gen` in den Zeilen `rows` der Blöcke genestet und randomisiert sind. Wir sehen aber die Zeilen später nicht in der Auswertung. Die Zeilen werden durch den Faktor Block repräsentiert. Genauso ist es mit der Stickstoffbehandlung `trt_nitro`, die dann in den Spalten `cols` des Blocks genested und randomisiert wird. Auch hier sehen wir dann in der späteren Auswertung nur den Block.
+
 ```{mermaid}
 %%| label: fig-mermaid-stripplot
 %%| fig-width: 6
-%%| fig-cap: "text"
+%%| fig-cap: "Schema der Abhängigkeitsstruktur des *split plot design*. Die genetischen Linien `trt_gen` sind in den Zeilen `rows` der Blöcke genestet und randomisiert. Die Stickstoffbehandlung `trt_nitro` ist dann in den Spalten `cols` des Blocks genested und randomisiert."
 flowchart LR
     A(trt_gen):::factor --- B(((nestet))) ---> C(rows) --- E(block):::factor
     F(trt_nitro):::factor --- G(((nestet))) ---> H(cols) --- E
@@ -785,6 +831,8 @@ flowchart LR
 
 ::: callout-tip
 ## Modell zur Auswertung
+
+Wir rechnen hier ein lineares gemischtes Modell für die Auswertung der Daten.
 
 ```{r}
 #| eval: FALSE
@@ -795,6 +843,8 @@ fit <- lmer(yield ~ trt_gen + nitro + trt_gen:nitro +
 ```
 :::
 
+Das *strip plot design* kann ich selber machen, aber hier fängt es dann an wirklich so kompliziert zu werden, dass es sich nicht mehr lohnt. Dafür haben wir dann in `agricolae` die passende Funktion. Die würde ich dann auch immer empfehlen zu nutzen, dass macht das Leben wirklich einfacher. Wir müssen zwar wieder erstmal unsere Faktoren als Vektoren bauen und dann alles in den passenden Objekten ablegen, aber das ist nur wenig Aufwand im Vergleich zum Selbermachen.
+
 ```{r}
 trt_gen <- str_c("G", 1:6)
 n_trt_gen <- n_distinct(trt_gen)
@@ -803,17 +853,20 @@ n_trt_nitro <- n_distinct(trt_nitro)
 n_block <- 3
 ```
 
-Erst der kurze Vektor dann der lange
+Jetzt kommt der einzige wichtige Teil, damit du später die Zeilen- und Spaltenpositionen einfach zuweisen kannst. Du musst in die Option `trt1 =` den *kürzen* Vektor packen. Hier hat der Dünger nur drei Level, also ist der Dünger in der Option `trt1 =` vertreten. Dann nehmen wir den längeren Vektor für die genetischen Linien in die zweite Option `trt2 =` mit rein. Nimm also erst den kurzen Vektor dann den langen Vektor, dann klappt es auch mit der späteren Zuweisung der Positionen leichter.
 
 ```{r}
-strip_obj <- design.strip(trt1 = trt_nitro, 
-                          trt2 = trt_gen, 
+strip_obj <- design.strip(trt1 = trt_nitro, # kürzerer Vektor (hier der Länge 3) 
+                          trt2 = trt_gen,   # längerer Vektor (hier der Länge 6)
                           r = n_block, serie = 2, seed = 543)
 ```
 
+Für die Zuweisung der richtigen Zeilen `rows` und Spalten `cols` im Positionsgrid müssen wir dann nicht so viel machen, wenn wir oben darauf geachtet haben, die Behandlungsfaktoren in der richtigen Reihenfolge den Optionen zuzuweisen. Die Zuweisung der `cols` funktioniert also nur, wenn du oben wirklich den kürzeren vor dem längeren Vektor zuweist.
+
 ```{r}
 strip_plot_tbl <- strip_obj$book %>% 
-  bind_cols(expand_grid(cols = 1:(n_trt_nitro*n_block), rows = 1:n_trt_gen))
+  bind_cols(expand_grid(cols = 1:(n_trt_nitro*n_block), 
+                        rows = 1:n_trt_gen))
 ```
 
 ```{r}

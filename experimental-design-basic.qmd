@@ -7,12 +7,6 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc,
 
 *Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
 
-::: column-margin
-Ein Teil der Beispiele basiert auf [DSFAIR von P. Schmidt](https://schmidtpaul.github.io/DSFAIR/DesigningExperiments.html) und wurde von mir angepasst und vereinfacht. Hier findet sich auch weiterführende Literatur und weitere Beispiele.
-
-Im Weiteren schauen wir uns auch das R Paket `agricolae` mit Beispielen von [Experimental Designs with agricolae](https://myaseen208.com/agricolae/articles/ExperimentalDesign.html) genauer einmal an.
-:::
-
 In diesem Kapitel wollen wir uns mit der Erstellung von einfachen experimentellen Designs beschäftigen. Dementsprechend schauen wir uns nur die drei folgenden Designs hier in diesem Kapitel an.
 
 -   [Complete randomized design (CRD)](#sec-crd)
@@ -25,6 +19,12 @@ Als Spezialfälle dann noch folgende Designs am Ende des Kapitels.
 -   [Augmented design](#sec-augment)
 
 Dabei werden wir verschiedene Wege gehen. Leider geht es hier wirklich nicht mehr ohne eine Idee der Programmierung in R. Sonst kannst du leider dem Kapitel nicht folgen. Bitte schau auch nochmal in das vorherige Kapitel zur [Versuchsplanung in R](#sec-experimental-design-r). Wir schauen uns jetzt einmal die einfache Umsetzung händisch an, dann einmal in dem R Paket `agricolae` und abschließend in dem R Paket `dae`. Nicht immer ist alles möglich, mal ist es dann händisch zu kompliziert oder aber eines der Pakete bietet das experimentelle Design nicht an - oder ich habe es nicht gefunden.
+
+::: column-margin
+Ein Teil der Beispiele basiert auf [DSFAIR von P. Schmidt](https://schmidtpaul.github.io/DSFAIR/DesigningExperiments.html) und wurde von mir angepasst und vereinfacht. Hier findet sich auch weiterführende Literatur und weitere Beispiele.
+
+Im Weiteren schauen wir uns auch das R Paket `agricolae` mit Beispielen von [Experimental Designs with agricolae](https://myaseen208.com/agricolae/articles/ExperimentalDesign.html) genauer einmal an.
+:::
 
 In dem nachfolgenden Kapitel zu den fortgeschrittenen Designs findest du dann noch mehr experimentelle Designs und wie du diese Designs in R generieren kannst. Dieses Kapitel sollte aber ausreichen um einfache Projekte im Rahmen einer Abschlussarbeit oder einem Studienprojekt zu planen.
 
@@ -502,7 +502,7 @@ flowchart LR
     A(trt_gen):::factor --> B & C & D & E & F
     B[("G_10 
         G_4
-        G_8")]:::level -.- G(((nested))) -.-> L(inc_block):::factor
+        G_8")]:::level -.- G(((nested))) -.-> L(inc_block):::inc_block
     C[("G_3
         G_15
         G_9")]:::level -.- H(((nested))) -.-> L
@@ -518,6 +518,7 @@ flowchart LR
     L --- M(((nested))) --> N(Wiederholung):::factor
     classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
     classDef level fill:#E69F00,stroke:#333,stroke-width:0.75px
+    classDef inc_block fill:#CC79A7,stroke:#333,stroke-width:0.75px
 ```
 
 ::: callout-tip
@@ -610,13 +611,13 @@ Das *augmened design* basiert darauf, dass wir neben den eigentlichen Behandlung
 Klingt jetzt auch wieder sehr viel wirrer als es am Ende ist. Deshalb hier erstmal das Modell, wir haben auch hier im Prinzip nur zwei Faktoren vorliegen. Wir haben einmal den Faktor Behandlung `trt_gen` sowie den Faktor Block zu erstellen.
 
 $$
-drymatter \sim \overbrace{trt_{gen}}^{f_1} + \underbrace{block}_{f_2} 
+drymatter \sim \overbrace{trt_{gen}}^{f_1} + \underbrace{inc\_{block}}_{f_2} 
 $$
 
 mit
 
 -   dem Faktor Behandlung `trt` und den fünzehn genetischen Linien als Level `G_1` bis `G_15` und die beiden Standardbehandlungen `Std_A` und `Std_B`.
--   dem Faktor Block `block` und den vier Leveln `I` bis `III`.
+-   dem Faktor Block `inc_block` und den vier Leveln `I` bis `III`.
 
 In dem *augmened design* dreht sich aber alles um die Zuweisung der Behandlungslevel zu den Blöcken. In der @fig-mermaid-basic-aug wird die Zuordnung nochmal dargestellt. Die Standardbedingungen werden immer auf die Blöcke randomisiert. Daher haben wir für die Blöcke eine vollständige Randomisierung vorliegen. Die genetischen Linien werden nur teilweise jedem Block zugeordnet. Wir haben für die Level der genetischen Linien ein *incomplete block design* vorliegen.
 
@@ -627,12 +628,13 @@ In dem *augmened design* dreht sich aber alles um die Zuweisung der Behandlungsl
 flowchart LR
     A(trt_gen):::factor --> B & D
     B[("Std_A 
-        Std_B")]:::level --- C(((nested))) --> F(block):::factor
+        Std_B")]:::level --- C(((nested))) --> F(inc_block):::inc_block
     D[("G_1
         bis
         G_15")]:::level -.- E(((nested))) -.-> F
     classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
     classDef level fill:#E69F00,stroke:#333,stroke-width:0.75px
+    classDef inc_block fill:#CC79A7,stroke:#333,stroke-width:0.75px
 ```
 
 ::: callout-tip
@@ -642,14 +644,14 @@ Wir rechnen ein multiples lineares Modell für die statistische Analyse.
 
 ```{r}
 #| eval: FALSE
-fit <- lm(drymatter ~ trt + block, data = augment_tbl)
+fit <- lm(drymatter ~ trt + inc_block, data = augment_tbl)
 ```
 
 Oder können überlegen ein gemischtes Modell zu rechnen.
 
 ```{r}
 #| eval: FALSE
-fit <- lmer(drymatter ~ trt + (1 | block), data = augment_tbl)
+fit <- lmer(drymatter ~ trt + (1 | inc_block), data = augment_tbl)
 ```
 
 Die Entscheidung kannst du dann mit der [Modellselektion](https://jkruppa.github.io/stat-modeling-basic.html#sec-model-basic-compare) durchführen.
@@ -714,12 +716,12 @@ Dann können wir schon in der @fig-exp-basic-8 einmal das *augmented design* ein
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 6
-#| fig-cap: "Schema der Pflanzungen nach den Behandlungen für das augmented design."
+#| fig-cap: "Schema der Pflanzungen nach den Behandlungen für das augmented design. Die Standardbedingungen sind vollständig in den Blöcken randomisiert, die genetischen Linien nur nicht komplett."
 desplot(trt ~ rows + cols, flip = TRUE,
         out1 = block, out1.gpar = list(col = "black", lwd = 2, lty = 3),
         col.regions = blue_15_and_orange_03,  
         text = trt, cex = 1, shorten = "no",
         data = augmented_book_tbl,
-        main = "Pflanzschema für ein augmented design mit zwei Standards", 
+        main = "Pflanzschema für ein *augmented design* mit zwei Standards.", 
         show.key = F)
 ```
