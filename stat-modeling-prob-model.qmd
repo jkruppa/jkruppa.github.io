@@ -1,0 +1,221 @@
+```{r echo = FALSE}
+pacman::p_load(tidyverse, readxl, knitr, kableExtra)
+set.seed(20230526)
+```
+
+# Linear Probability Model {#sec-prob-model}
+
+*Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
+
+![](images/caution.png){fig-align="center" width="50%"}
+
+Das Wahrscheinlichkeitsmodell (eng. *probability model* oder *linear probabiliyt model*) ist ein seltsames Konstrukt aus der Ökonomie und den Sozialwissenschaften. Wir nutzen hier auch den englischen Begriff, da der deutsche Begriff eigentlich nicht benutzt wird. Es handelt sich hier also um *probability models*.
+
+Wir immer gibt es auch wieder zwei gute Tutorien auf die sich hier alles reimt. Einmal bitte das Tutorium [Linear Probability Model](https://murraylax.org/rtutorials/linearprob.html) sowie [Binary Dependent Variables and the Linear Probability Model](https://www.econometrics-with-r.org/11-1-binary-dependent-variables-and-the-linear-probability-model.html) besuchen. Wenn du noch mehr über `lm()` und `glm()` lesen möchtest, dann kannst du das auch nochmal in der Frage zu [Linear probability model: lm() und glm()](https://stats.stackexchange.com/questions/489651/linear-probability-model-why-do-lm-and-glm-not-give-the-same-results-in-r) machen.
+
+## Genutzte R Pakete
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+#| message: false
+pacman::p_load(tidyverse, magrittr, sandwich, lmtest, emmeans, multcomp,
+               performance, broom, conflicted)
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("mutate", "dplyr")
+conflicts_prefer(magrittr::extract)
+conflicts_prefer(magrittr::set_names)
+```
+
+Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+## Daten
+
+In diesem Kapitel nutzen wir die infizierten Ferkel als Beispieldatensatz. Wir haben in dem Datensatz über vierhundert Ferkel untersucht und festgehalten, ob die Ferkel infiziert sind ($1$, ja) oder nicht infiziert ($0$, nein). Wir haben daneben noch eine ganze Reihe von *Risiko*faktoren erhoben. Hier sieht man mal wieder wie wirr die Sprache der Statistik ist. Weil wir rausfinden wollen welche Variable das Risiko für die Infektion erhöht, nennen wir diese Variablen Risikofaktoren. Obwohl die Variablen gar keine kategorialen Spalten sin bzw. nicht alle. So ist das dann in der Statistik, ein verwirrender Begriff jagt den Nächsten.
+
+```{r}
+#| message: false
+
+pig_tbl <- read_excel("data/infected_pigs.xlsx") 
+
+```
+
+Schauen wir uns nochmal einen Ausschnitt der Daten in der @tbl-lpm-pigs an.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-lpm-pigs
+#| tbl-cap: Auszug aus dem Daten zu den kranken Ferkeln.
+#| column: page
+
+rbind(head(pig_tbl),
+      rep("...", times = ncol(pig_tbl)),
+      tail(pig_tbl)) %>% 
+  kable(align = "c", "pipe")
+```
+
+## Theoretischer Hintergrund
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-lpm-activity-01
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 5
+#| fig-cap: "Visualisierung des Zusammenhangs zwischen dem Infektionsstatus und der Aktivität der Ferkel."
+
+ggplot(pig_tbl, aes(x = crp, y = infected)) +
+  theme_bw() +
+  geom_point() 
+```
+
+## Modellierung
+
+```{r}
+lm_fit <- lm(infected ~ crp + age + sex + frailty, data = pig_tbl)
+lm_fit
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-lpm-activity-02
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 5
+#| fig-cap: "Visualisierung des Zusammenhangs zwischen dem Infektionsstatus und der Aktivität der Ferkel."
+
+ggplot(pig_tbl, aes(x = crp, y = infected)) +
+  theme_bw() +
+  geom_point() +
+  stat_smooth(method = "lm", se = FALSE)
+```
+
+## Varianzheterogenität
+
+Heteroskedastizität, auch Varianzheterogenität oder Heteroskedastie, bedeutet in der Statistik, dass die Varianz der Störterme nicht konstant ist.
+
+```{r}
+check_heteroscedasticity(lm_fit)
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-lpm-01a
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Ausgabe ausgewählter Modelgüteplots der Funktion `check_model()`."
+
+lm_fit %>% 
+  augment() %>% 
+  ggplot(aes(x = .fitted, y = .resid^2)) +
+  theme_bw() +
+  geom_point()
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-lpm-02
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 10
+#| fig-cap: "Ausgabe ausgewählter Modelgüteplots der Funktion `check_model()`."
+
+check_model(lm_fit, check = c("homogeneity", "normality"))
+```
+
+## Interpretation des Modells
+
+```{r}
+lm_fit %>% 
+  summary() %>% 
+  pluck("coefficients") 
+```
+
+```{r}
+lm_fit %>% 
+  coeftest(vcov. = vcovHC, type = "HC1")
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-lpm-comp
+#| tbl-cap: "foo"
+
+bind_cols(names(coef(lm_fit))) %>% 
+  bind_cols(lm_fit %>% 
+              summary() %>% 
+              pluck("coefficients") %>% 
+              extract(, 2),
+            lm_fit %>% 
+              coeftest(vcov. = vcovHC, type = "HC1") %>% 
+              tidy() %>% 
+              pluck("std.error")) %>% 
+  mutate_if(is.numeric, round, 4) %>% 
+  set_names(c("", "OLS", "HC1")) %>% 
+  kable(align = "lcc", "pipe")  
+
+```
+
+## Gruppenvergleich
+
+```{r}
+em_obj <- lm_fit %>% 
+  emmeans(~ frailty, method = "pairwise", vcov. = sandwich::vcovHAC)
+em_obj
+```
+
+```{r}
+em_obj %>% 
+  contrast(method = "pairwise", adjust = "bonferroni")
+```
+
+```{r}
+em_obj %>%
+  cld(Letters = letters, adjust = "none")
+```
+
+```{r}
+n_grp <- 10
+toy_tbl <- tibble(trt = gl(3, n_grp, labels = c("ctrl", "roundUp", "killAll")),
+                  infected = c(rbinom(n_grp, 1, 0.8), rbinom(n_grp, 1, 0.5), rbinom(n_grp, 1, 0.3)))
+
+toy_tbl
+```
+
+```{r}
+fit <- lm(infected ~ trt, data = toy_tbl)
+fit
+```
+
+```{r}
+check_heteroscedasticity(fit)
+```
+
+```{r}
+coeftest(fit, vcov. = vcovHC, type = "HC1")
+```
+
+```{r}
+em_obj <- fit %>% 
+  emmeans(~ trt, method = "pairwise", vcov. = sandwich::vcovHAC)
+```
+
+```{r}
+em_obj %>% 
+  contrast(method = "pairwise", adjust = "none")
+```
+
+```{r}
+em_obj %>%
+  cld(Letters = letters, adjust = "none")
+```
