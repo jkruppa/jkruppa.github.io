@@ -234,7 +234,7 @@ Wir drehen hier einmal die Erklärung um. Wir machen erst die Anwendung in R und
 Die Ausgabe von `multcomp` können über die Funktion `tidy()` aufgeräumt werden. Mehr dazu unter der [Hilfeseite von `tidy`() zu multcomp](https://broom.tidymodels.org/reference/tidy.glht.html).
 :::
 
-Als erstes brauchen wir ein lineares Modell für die Verwendung von `multcomp`. Normalerweise verenden wir das gleiche Modell, was wir schon in der ANOVA verwendet haben. Wir nutzen hier ein simples lineares Modell mit nur einem Faktor. Im Prinzip kann das Modell auch größer sein. Du findest immer Beispiel im @sec-beispiel-auswertung, die dir eventuell dann nochmal zeigen, wie du deine Daten nutzen musst.
+Als erstes brauchen wir ein lineares Modell für die Verwendung von `multcomp`. Normalerweise verenden wir das gleiche Modell, was wir schon in der ANOVA verwendet haben. Wir nutzen hier ein simples lineares Modell mit nur einem Faktor. Im Prinzip kann das Modell auch größer sein, davon schauen wir uns dann später im Verlauf des Kapitels noch welche an.
 
 ```{r}
 fit_1 <- lm(jump_length ~ animal, data = fac1_tbl)
@@ -628,6 +628,42 @@ Wie du jetzt siehst schätzen wir die Varianz für jede Tierart und jeden Messor
 ## Weitere Literatur
 
 Auf der Seite DSFAIR gibt es noch einen Artikel zu `emmeans` und der Frage [Why are the StdErr all the same?](https://schmidtpaul.github.io/dsfair_quarto/ch/summaryarticles/whyseequal.html) und dazu dann auch passend die Publikation [Analyzing designed experiments: Should we report standard deviations or standard errors of the mean or standard errors of the difference or what?](https://www.cambridge.org/core/services/aop-cambridge-core/content/view/92DB0AF151C157B9C6E2FA40F9C9B635/S0014479719000401a.pdf/analyzing-designed-experiments-should-we-report-standard-deviations-or-standard-errors-of-the-mean-or-standard-errors-of-the-difference-or-what.pdf)
+:::
+
+### Robuste Schätzung von Standardfehlern
+
+Wir immer gibt es noch eine Möglichkeit die Varianzheterogenität zu behandeln. Wir nutzen jetzt hier einmal die Funktionen aus dem R Paket `sandwich`, die es uns ermöglichen Varianzheterogenität (eng. *heteroskedasticity*) zu modellieren. Es ist eigentlich super einfach, wir müssen als erstes wieder unser Modell anpassen. Hier einmal mit einer simplen linearen Regression.
+
+```{r}
+lm_fac1_fit <- lm(jump_length ~ animal, data = fac1_tbl)
+```
+
+Dann können wir auch schon für einen Gruppenvergleich direkt in der Funktion `emmeans` für die Varianzheterogenität adjustieren. Es gibt verschiedene mögliche Sandwich-Schätzer, aber wir nehmen jetzt mal einen der häufigsten mit `vcovHC`. Wie immer gilt, es gibt ja nach Datenlage bessere und schlechtere Schätzer. Wir laden jetzt nicht das ganze Paket, sondern nur die Funktion mit `sandwich::vcovHAC`. Achtung, hinter der Option `vcov.` ist ein *Punkt*. Ohne den Aufruf `vcov. =` funktioniert die Funktion dann nicht.
+
+```{r}
+em_obj <- lm_fac1_fit %>% 
+  emmeans(~ animal, method = "pairwise", vcov. = sandwich::vcovHAC)
+em_obj
+```
+
+Wir du siehst, die Standardfehler sind jetzt nicht mehr über alle Gruppen gleich. Dann können wir uns auch die paarweisen Vergleiche ausgeben lassen.
+
+```{r}
+contr_obj <- em_obj %>% 
+  contrast(method = "pairwise", adjust = "none")
+```
+
+Oder aber wir lassen uns das *compact letter display* wiedergeben.
+
+```{r}
+cld_obj <- em_obj %>%
+  cld(Letters = letters, adjust = "none")
+```
+
+::: {.callout-tip collapse="true"}
+## Exkurs: Robuste Schätzung von Standardfehlern, Konfidenzintervallen und p-Werten
+
+Wenn du noch etwas weiter gehen möchtest, dann kannst du dir noch die Hilfeseite von dem R Paket `performance` [Robust Estimation of Standard Errors, Confidence Intervals, and p-values](https://easystats.github.io/parameters/articles/model_parameters_robust.html?q=Heteroskedasticity#robust-covariance-matrix-estimation-from-model-parameters) anschauen. Die Idee ist hier, dass wir die Varianz/Kovarianz robuster daher mit der Berücksichtigung von Varianzheterogenität (eng. *heteroskedasticity*) schätzen.
 :::
 
 ## Compact letter display {#sec-compact-letter}
