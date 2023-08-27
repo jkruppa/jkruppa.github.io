@@ -9,7 +9,7 @@ set.seed(20230526)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
-Das Wahrscheinlichkeitsmodell (eng. *probability model* oder *linear probabiliyt model*) ist ein seltsames Konstrukt aus der Ökonomie und den Sozialwissenschaften. Wir nutzen hier auch den englischen Begriff, da der deutsche Begriff eigentlich nicht benutzt wird. Es handelt sich hier also um *probability models*.
+Das Wahrscheinlichkeitsmodell (eng. *probability model* oder *linear probabiliyt model*) ist ein seltsames Konstrukt aus der Ökonomie und den Sozialwissenschaften. Wir nutzen hier auch den englischen Begriff, da der deutsche Begriff eigentlich nicht benutzt wird. Es handelt sich hier also um *probability models*. Was macht also das *probability model*? Eigentlich alles falsch, was man so im Allgemeinen meinen würde. Das *probability model* nimmt als Outcome $y$ eine $0/1$ Variable. Wir modellieren also wie bei der logistischen Regression ein Outcome $y$ was sich nur durch zwei Ausprägungen darstellen lässt. Und damit wären wir dann auch beim Punkt angekommen. Anstatt das $0/1$ Outcome jetzt *richtig* mit der logistischen Regression auszuwerten, nutzen wir die klassische Gaussian Regression mit der Annahme eines normalverteilten Outcomes. Wir nutzen hier also das falsche Modell für das gemessene Outcome. Warum machen wir das? Weil sich die Effektschätzer aus einer Gaussian Regression auf einem $0/1$ Outcome besser interpretieren lassen. Wie immer gibt es viel Disput, ob du so was überhaupt machen darfst. Können tust es auf jeden Fall. Wir können auf alle Daten alle Modelle anwenden. Nun ist es aber so, dass die Auswertung von einem $0/1$ Outcome mit einem *probability model* teilweise in der Ökonomie oder den Sozialwissenschaften sehr verbreitet ist. Deshalb findest du auch hier dieses etwas kurzes Kapitel.
 
 Wir immer gibt es auch wieder zwei gute Tutorien auf die sich hier alles reimt. Einmal bitte das Tutorium [Linear Probability Model](https://murraylax.org/rtutorials/linearprob.html) sowie [Binary Dependent Variables and the Linear Probability Model](https://www.econometrics-with-r.org/11-1-binary-dependent-variables-and-the-linear-probability-model.html) besuchen. Wenn du noch mehr über `lm()` und `glm()` lesen möchtest, dann kannst du das auch nochmal in der Frage zu [Linear probability model: lm() und glm()](https://stats.stackexchange.com/questions/489651/linear-probability-model-why-do-lm-and-glm-not-give-the-same-results-in-r) machen.
 
@@ -32,12 +32,13 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
-In diesem Kapitel nutzen wir die infizierten Ferkel als Beispieldatensatz. Wir haben in dem Datensatz über vierhundert Ferkel untersucht und festgehalten, ob die Ferkel infiziert sind ($1$, ja) oder nicht infiziert ($0$, nein). Wir haben daneben noch eine ganze Reihe von *Risiko*faktoren erhoben. Hier sieht man mal wieder wie wirr die Sprache der Statistik ist. Weil wir rausfinden wollen welche Variable das Risiko für die Infektion erhöht, nennen wir diese Variablen Risikofaktoren. Obwohl die Variablen gar keine kategorialen Spalten sin bzw. nicht alle. So ist das dann in der Statistik, ein verwirrender Begriff jagt den Nächsten.
+In diesem Kapitel nutzen wir die infizierten Ferkel als Beispieldatensatz. Wir haben in dem Datensatz über vierhundert Ferkel untersucht und festgehalten, ob die Ferkel infiziert sind ($1$, ja) oder nicht infiziert ($0$, nein). Wir haben daneben noch eine ganze Reihe von *Risiko*faktoren erhoben. Hier sieht man mal wieder wie wirr die Sprache der Statistik ist. Weil wir rausfinden wollen welche Variable das Risiko für die Infektion erhöht, nennen wir diese Variablen Risikofaktoren. Wir nehmen hier jetzt aber nicht alle Variablen mit, sondern nur die Variablen für den Entzündungswert `crp`, das Geschlecht `sex`, dem Alter `age` und der Gebrechlichkeitskategorie `frailty`.
 
 ```{r}
 #| message: false
 
-pig_tbl <- read_excel("data/infected_pigs.xlsx") 
+pig_tbl <- read_excel("data/infected_pigs.xlsx") %>% 
+  select(infected, crp, sex, age, frailty)
 
 ```
 
@@ -49,15 +50,18 @@ Schauen wir uns nochmal einen Ausschnitt der Daten in der @tbl-lpm-pigs an.
 #| warning: false
 #| label: tbl-lpm-pigs
 #| tbl-cap: Auszug aus dem Daten zu den kranken Ferkeln.
-#| column: page
 
-rbind(head(pig_tbl),
+rbind(head(pig_tbl, 4),
       rep("...", times = ncol(pig_tbl)),
-      tail(pig_tbl)) %>% 
+      tail(pig_tbl, 4)) %>% 
   kable(align = "c", "pipe")
 ```
 
+Im Folgenden wollen wir einmal modellieren, ob es einen Zusammenhang von den Variablen `crp`, `sex`, `age` und `frailty` auf das $0/1$-Outcome `infected` gibt. Welche der Variablen erniedrigen oder erhöhen also das Risiko einer Ferkelinfektion?
+
 ## Theoretischer Hintergrund
+
+Den theoretischen Hintergrund belassen wir hier nur kurz. Die Idee sehen wir dann einmal in der @fig-lpm-activity-01. Wir haben hier dann nur die Variable `crp` und das Outcome `infected` dargestellt. Wir sehe die klaren zwei Ebenen. Wir haben ja bei dem Infektionsstatus auch nur zwei mögliche Ausprägungen. Entweder ist unser Ferkel infiziert oder eben nicht. Da wir aber die Entzündungswerte kontinuierlich messen ergeben sich die beiden Ebenen.
 
 ```{r}
 #| echo: true
@@ -73,12 +77,7 @@ ggplot(pig_tbl, aes(x = crp, y = infected)) +
   geom_point() 
 ```
 
-## Modellierung
-
-```{r}
-lm_fit <- lm(infected ~ crp + age + sex + frailty, data = pig_tbl)
-lm_fit
-```
+Tja und dann rechnen wir einfach eine Gaussian linear Regression mit der Funktion `lm()`. Es ergibt sich dann eine gerade Linie, wie wir sie in der @fig-lpm-activity-02 sehen. Da wir aber mi unserem Infektionsstatus auf $0/1$ begrenzt sind, aber eine Gerade nicht, haben wir das Problem, dass wir in diesem Fall den Infektionsstatus für CRP-Werte größer als 22 überschätzen.
 
 ```{r}
 #| echo: true
@@ -93,6 +92,14 @@ ggplot(pig_tbl, aes(x = crp, y = infected)) +
   theme_bw() +
   geom_point() +
   stat_smooth(method = "lm", se = FALSE)
+```
+
+## Modellierung
+
+```{r}
+lm_fit <- lm(infected ~ crp + age + sex + frailty, data = pig_tbl)
+lm_fit %>% 
+  summary
 ```
 
 ## Varianzheterogenität
