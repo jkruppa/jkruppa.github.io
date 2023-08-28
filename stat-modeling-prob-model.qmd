@@ -7,8 +7,6 @@ set.seed(20230526)
 
 *Version vom `r format(Sys.time(), '%B %d, %Y um %H:%M:%S')`*
 
-![](images/caution.png){fig-align="center" width="50%"}
-
 Das Wahrscheinlichkeitsmodell (eng. *probability model* oder *linear probabiliyt model*) ist ein seltsames Konstrukt aus der Ökonomie und den Sozialwissenschaften. Wir nutzen hier auch den englischen Begriff, da der deutsche Begriff eigentlich nicht benutzt wird. Es handelt sich hier also um *probability models*. Was macht also das *probability model*? Eigentlich alles falsch, was man so im Allgemeinen meinen würde. Das *probability model* nimmt als Outcome $y$ eine $0/1$ Variable. Wir modellieren also wie bei der logistischen Regression ein Outcome $y$ was sich nur durch zwei Ausprägungen darstellen lässt. Und damit wären wir dann auch beim Punkt angekommen. Anstatt das $0/1$ Outcome jetzt *richtig* mit der logistischen Regression auszuwerten, nutzen wir die klassische Gaussian Regression mit der Annahme eines normalverteilten Outcomes. Wir nutzen hier also das falsche Modell für das gemessene Outcome. Warum machen wir das? Weil sich die Effektschätzer aus einer Gaussian Regression auf einem $0/1$ Outcome besser interpretieren lassen. Wie immer gibt es viel Disput, ob du so was überhaupt machen darfst. Können tust es auf jeden Fall. Wir können auf alle Daten alle Modelle anwenden. Nun ist es aber so, dass die Auswertung von einem $0/1$ Outcome mit einem *probability model* teilweise in der Ökonomie oder den Sozialwissenschaften sehr verbreitet ist. Deshalb findest du auch hier dieses etwas kurzes Kapitel.
 
 Wir immer gibt es auch wieder zwei gute Tutorien auf die sich hier alles reimt. Einmal bitte das Tutorium [Linear Probability Model](https://murraylax.org/rtutorials/linearprob.html) sowie [Binary Dependent Variables and the Linear Probability Model](https://www.econometrics-with-r.org/11-1-binary-dependent-variables-and-the-linear-probability-model.html) besuchen. Wenn du noch mehr über `lm()` und `glm()` lesen möchtest, dann kannst du das auch nochmal in der Frage zu [Linear probability model: lm() und glm()](https://stats.stackexchange.com/questions/489651/linear-probability-model-why-do-lm-and-glm-not-give-the-same-results-in-r) machen.
@@ -231,7 +229,7 @@ bind_cols(names(coef(lm_fit))) %>%
 
 Häufig ist es ja so, dass wir das Modell nur schätzen um dann einen Gruppenvergleich zu rechnen. Das heißt, dass es uns interessiert, ob es einen Unterschied zwischen den Leveln eines Faktors gegeben dem Outcome $y$ gibt. Wir machen den Gurppenvergleich jetzt einmal an der Gebrechlichkeit `frailty` einmal durch. Wir habe die drei Gruppen `frail`, `pre-frail` und `robust` vorliegen. Danach schauen wir uns nochmal die prinzipielle Idee des Gruppenvergleichs auf mittleren Wahrscheinlichkeiten infiziert zu sein an.
 
-Eigentlich ist es recht einfach. Wir nehmen wieder unser lineares Modell, was wir oben schon angepasst haben. Wir schicken dann das Modell in die Funktion `emmeans()` um die Gruppenvergleiche zu rechnen. Jetzt müssen wir nur zwei Dinge noch machen. Zum einen wollen wir alle paarweisen Vergleiche zwischen den drei Leveln von dem Faktor `frailty` rechnen, deshalb setzen wir `method = "pairwise"`. Dann müssen wir noch dafür sorgen, dass wir nicht homogene Varianzen schätzen. Deshalb setzen wir die Option `vcov. = sandwich::vcovHAC`. Damit wählen wir aus dem Paket `sabdwich` den Sandwichschätzer `vcovHAC`. Wenn du das Paket `sandwich` schon geladen hast, dann musst due das Peket nicht mit Doppelpunkt vor die Funktion des Sandwich-Schätzers setzen.
+Eigentlich ist es recht einfach. Wir nehmen wieder unser lineares Modell, was wir oben schon angepasst haben. Wir schicken dann das Modell in die Funktion `emmeans()` um die Gruppenvergleiche zu rechnen. Jetzt müssen wir nur zwei Dinge noch machen. Zum einen wollen wir alle paarweisen Vergleiche zwischen den drei Leveln von dem Faktor `frailty` rechnen, deshalb setzen wir `method = "pairwise"`. Dann müssen wir noch dafür sorgen, dass wir nicht homogene Varianzen schätzen. Deshalb setzen wir die Option `vcov. = sandwich::vcovHAC`. Damit wählen wir aus dem Paket `sandwich` den Sandwichschätzer `vcovHAC` und berücksichtigen damit die Varianzheterogenität in den Daten. Wenn du das Paket `sandwich` schon geladen hast, dann musst du das Paket nicht mit Doppelpunkt vor die Funktion des Sandwich-Schätzers setzen.
 
 ```{r}
 em_obj <- lm_fit %>% 
@@ -239,48 +237,85 @@ em_obj <- lm_fit %>%
 em_obj
 ```
 
+Dann können wir auch schon uns die Kontraste und damit die Mittelwertsvergleiche wiedergeben lassen. Was heißt hier Mittelwertsvergleiche? Die Mittelwerte sind hier natürlich die mittlere Wahrscheinlichkeit infiziert zu sein. Wir adjustieren hier einmal die $p$-Werte für multiple Vergleiche nach Bonferroni, damit du auch mal die Optionen siehst.
+
 ```{r}
 em_obj %>% 
   contrast(method = "pairwise", adjust = "bonferroni")
 ```
+
+Wir sehen also, dass es einen prozentualen Unterschied zwischen `frail - (pre-frail)` von -3% gibt. Daher ist die mittlere Wahrscheinlichkeit von `pre-frail` größer als die von `frail`. Den Zusammenhang sehen wir auch weiter oben in der Ausgabe von `emmeans`. Dort haben wir eine mittlere Infektionswahrscheinlichkeit von 66.8% für `frail` und eine mittlere Infektionswahrscheinlichkeit von 70.6% für `pre-frail`. Keiner der Vergleiche ist signifikant. Beachte, dass jeder Vergleich immer einen unterschiedlichen Standardfehler zugewiesen bekommt um die Varianzheterogenität zu berücksichtigen.
+
+Jetzt lassen wir uns nochmal das unadjustierte *compact letter display* wiedergeben. Aber auch in dem unadjustierten Fall finden wir keine signifikanten Unterschiede.
 
 ```{r}
 em_obj %>%
   cld(Letters = letters, adjust = "none")
 ```
 
+Am Ende möchte ich hier nochmal einen Spieldatensatz `toy_tbl` erstellen indem ich wiederum drei Gruppen miteinander vergleiche. Ich tue mal so als würden wir uns hier zwei Pestizide und eine Kontrolle anschauen. Unser Outcome ist dann, ob wir eine Infektion vorliegen haben oder das Pestizid alles umgebracht hat. Damit haben wir dann unser Outcome `infected` definiert. Wir bauen uns die Daten so, dass 80% der Beobachtungen in der Kontrolle infiziert sind. In den beiden Behandlungsgruppen sind jeweils 50% und 30% der Beobachtungen nach der Behandlung noch infiziert. Wir haben jeweils zwölf Pflanzen `n_grp` beobachtet. Das sind wirklich wenige Beobachtungen für einen $0/1$ Endpunkt.
+
 ```{r}
-n_grp <- 10
+n_grp <- 12
 toy_tbl <- tibble(trt = gl(3, n_grp, labels = c("ctrl", "roundUp", "killAll")),
-                  infected = c(rbinom(n_grp, 1, 0.8), rbinom(n_grp, 1, 0.5), rbinom(n_grp, 1, 0.3)))
-
-toy_tbl
+                  infected = c(rbinom(n_grp, 1, 0.8), rbinom(n_grp, 1, 0.5), rbinom(n_grp, 1, 0.2)))
 ```
 
-```{r}
-fit <- lm(infected ~ trt, data = toy_tbl)
-fit
-```
+Jetzt bauen wir uns wieder unser Modell zusammen.
 
 ```{r}
-check_heteroscedasticity(fit)
+toy_fit <- lm(infected ~ trt, data = toy_tbl)
+toy_fit
 ```
 
-```{r}
-coeftest(fit, vcov. = vcovHC, type = "HC1")
-```
+Wie du sehen kannst, treffen wir die voreingestellten Infektionswahrscheinlichkeiten nur einigermaßen. Wir wollen für die Kontrolle 80% und erhalten 83.3%. Für `roundUp` haben wir 50% gewählt und erhalten $83.3 - 41.67 = 41.63$. Auch bei `killAll` sieht es ähnlich aus, wir wollen 20% und erhalten `$83.3 - 58.33 = 24.97$`. Wir haben aber auch echt wenige Beobachtungen. Auf der anderen Seite ist es dann für ein agrarwissenschaftliches Experiment gra nicht mal so wenig.
+
+Und hier sehen wir dann auch gleich das Problem mit der Funktion `check_heteroscedasticity()`. Wegen der geringen Fallzahl sagt die Funktion, dass alles okay ist mit den Varianzen und wir keine Varianzheterogenität vorliegen haben.
 
 ```{r}
-em_obj <- fit %>% 
+check_heteroscedasticity(toy_fit)
+```
+
+Wenn wir uns aber mal die @fig-toy-1 anschauen sehen wir, dass wir auf keinen Fall Varianzhomogenität vorliegen haben. Die geringe Fallzahl von zwölf Beobachtungen je Gruppe ist zu klein, damit die Funktion `check_heteroscedasticity()` eine signifikanten Abweichung finden kann. Deshalb schaue ich mir immer die Abbildungen an.
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-toy-1
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 10
+#| fig-cap: "Überprüfung der Varianzhomogeniutät des Modells `toy_fit` mit der Funktion `check_model()`. Wir sehen hier eine klare Varianzheterogenität in dem Modell."
+
+check_model(toy_fit, check = c("homogeneity", "normality"))
+```
+
+Wir können hier auch den `coeftest()` für Varianzheterogenität rechnen, aber wir sind ja hier an den Gruppenvergleichen interessiert, so dass wir dann gleich zu `emmeans` weitergehen.
+
+```{r}
+coeftest(toy_fit, vcov. = vcovHC, type = "HC1")
+```
+
+Wie schon oben gezeigt, können wir dann einfach `emmeans()` nutzen um die Gruppenvergleiche zu rechnen. Auch hier müssen wir einmal angeben, dass wir einen paarweisen Vergleich rechnen wollen. Wir wollen alle Gruppen miteinander vergleichen. Dann noch die Option `vcov. = sandwich::vcovHAC` gewählt um für heterogene Varianzen zu adjustieren.
+
+```{r}
+em_obj <- toy_fit %>% 
   emmeans(~ trt, method = "pairwise", vcov. = sandwich::vcovHAC)
+em_obj 
 ```
+
+Auch hier sehen wir die mittlere Wahrscheinlichkeit infiziert zu sein in der Spalte `emmean`. Die Standardfehler `SE` sind für jede Gruppe unterschiedlich, die Adjustierung für die Varianzheterogenität hat geklappt. Dann kannst du noch die paarweisen Gruppenvergleiche über einen Kontrasttest dir wiedergeben lassen.
 
 ```{r}
 em_obj %>% 
   contrast(method = "pairwise", adjust = "none")
 ```
 
+Oder aber du nutzt das *compact letter display*.
+
 ```{r}
 em_obj %>%
   cld(Letters = letters, adjust = "none")
 ```
+
+Da die Fallzahl sehr gerng ist, können wir am Ende nur zeigen, dass sich die Kontrolle von der Behandlung `killAll` unterscheidet. Hätten wir mehr Fallzahl, dann könnten wir sicherlich auch zeigen, dass der Unterschied zwischen der Kontrolle zu der Behandlung `roundUp` in eine signifikante Richtung geht. So klein ist der Unterschied zwischen Kontrolle und `roundUp` mit 41.7% ja nicht.
