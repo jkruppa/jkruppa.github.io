@@ -19,7 +19,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, sandwich, lmtest, emmeans, multcomp,
+pacman::p_load(tidyverse, magrittr, sandwich, lmtest, 
+               emmeans, multcomp, see,
                performance, broom, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
@@ -38,8 +39,7 @@ In diesem Kapitel nutzen wir die infizierten Ferkel als Beispieldatensatz. Wir h
 #| message: false
 
 pig_tbl <- read_excel("data/infected_pigs.xlsx") %>% 
-  select(infected, crp, sex, age, frailty)
-
+  select(infected, crp, sex, age, frailty) 
 ```
 
 Schauen wir uns nochmal einen Ausschnitt der Daten in der @tbl-lpm-pigs an.
@@ -70,14 +70,14 @@ Den theoretischen Hintergrund belassen wir hier nur kurz. Die Idee sehen wir dan
 #| fig-align: center
 #| fig-height: 3
 #| fig-width: 5
-#| fig-cap: "Visualisierung des Zusammenhangs zwischen dem Infektionsstatus und der Aktivität der Ferkel."
+#| fig-cap: "Visualisierung des Zusammenhangs zwischen dem Infektionsstatus und den Entzündungswerten der Ferkel."
 
 ggplot(pig_tbl, aes(x = crp, y = infected)) +
   theme_bw() +
   geom_point() 
 ```
 
-Tja und dann rechnen wir einfach eine Gaussian linear Regression mit der Funktion `lm()`. Es ergibt sich dann eine gerade Linie, wie wir sie in der @fig-lpm-activity-02 sehen. Da wir aber mi unserem Infektionsstatus auf $0/1$ begrenzt sind, aber eine Gerade nicht, haben wir das Problem, dass wir in diesem Fall den Infektionsstatus für CRP-Werte größer als 22 überschätzen.
+Tja und dann rechnen wir einfach eine Gaussian linear Regression mit der Funktion `lm()`. Es ergibt sich dann eine gerade Linie, wie wir sie in der @fig-lpm-activity-02 sehen. Da wir aber mi unserem Infektionsstatus auf $0/1$ begrenzt sind, aber eine Gerade nicht, haben wir das Problem, dass wir in diesem Fall den Infektionsstatus für CRP-Werte größer als 22 überschätzen. Ich meine mit überschätzen dann auch wirklich Werte zu erhalten, die es dann gar nicht geben kann. Es kann keinen Infektionsstatus über *ja* geben.
 
 ```{r}
 #| echo: true
@@ -86,7 +86,7 @@ Tja und dann rechnen wir einfach eine Gaussian linear Regression mit der Funktio
 #| fig-align: center
 #| fig-height: 3
 #| fig-width: 5
-#| fig-cap: "Visualisierung des Zusammenhangs zwischen dem Infektionsstatus und der Aktivität der Ferkel."
+#| fig-cap: "Visualisierung des Zusammenhangs zwischen dem Infektionsstatus und den Entzündungswerten der Ferkel ergänzt um Gerade aus der Gaussian linearen Regression."
 
 ggplot(pig_tbl, aes(x = crp, y = infected)) +
   theme_bw() +
@@ -96,35 +96,60 @@ ggplot(pig_tbl, aes(x = crp, y = infected)) +
 
 ## Modellierung
 
+Dann können wir schon das *probability model* anpassen. Dazu nehmen wir die Funktion `lm()`, die wir auch für unsere Gaussian linearen Regression unter der Annahme eines normalverteilten Outocmes $y$ nutzen. Wichtig ist hier, dass wir auf keinen Fall unseren Infektionsstatus `infected` als einen Faktor übergeben. Der Infektionsstatus `infected` muss numerisch sein.
+
 ```{r}
 lm_fit <- lm(infected ~ crp + age + sex + frailty, data = pig_tbl)
+```
+
+Schauen wir uns aber gleich mal die Modellausgabe an. Wie immer, du kannst alle Zahlen und Spalten in eine Funktion stecken und am Ende kommt dann was raus. Woher soll auch die Funktion wissen, dass es sich um einen Faktor handelt oder eine numerische Variable?
+
+```{r}
 lm_fit %>% 
   summary
 ```
 
+Neben der sehr schlechten Modellgüte, die wir am Bestimmtheitsmaß $R^2$ mit 0.24 erkennen, sind aber die Residuen nach den deskriptiven Maßzahlen einigermaßen okay. Wir werden aber gleich noch sehen, dass die Maßzahlen hier auch trügen können. Was ist den nun das Tolle am *probability model*? Wir können die Effektschätzer `Estimate` direkt als prozentuale Veränderung interpretieren. Das heißt, wir können sagen, dass pro Einheit `crp` die Wahrscheinlichkeit infiziert zu sein um 16.2087% ansteigt. Das ist natürlich eine sehr schöne Eigenschaft. Nur leider gibt es da meistens dann doch ein Problem. Dafür schauen wir uns einmal die Spannweite der vorhergesagten Werte an.
+
+```{r}
+lm_fit %>% 
+  predict() %>% 
+  range() %>% 
+  round(2)
+```
+
+Wie du siehst, kriegen wir Werte größer als Eins und kleiner als Null aus dem Modell raus. Das macht jetzt aber recht wenig Sinn. Wir können die Werte aus `predict()` als Wahrscheinlichkeit infiziert zu sein interpretieren. Da unsere Ferkel aber nur gesund oder krank sein können, machen negative Werte der Wahrscheinlichkeit infiziert zu sein keinen Sinn. Auch Werte größer als Eins können wir nur sehr schwer interpretieren.
+
 ## Varianzheterogenität
 
-Heteroskedastizität, auch Varianzheterogenität oder Heteroskedastie, bedeutet in der Statistik, dass die Varianz der Störterme nicht konstant ist.
+Wenn du das *probability model* durchführst, dann hast du in den meisten Fällen das Problem der Heteroskedastizität, auch Varianzheterogenität genannt. Oder in anderen Worten, die Residuen als Fehler unseres Modell sind nicht gleichmäßig mit gleich großen Werten verteilt um die Gerade. Gut, dass klingt jetzt etwas sperrig, hier einmal die @fig-lpm-var-hetero um es besser zu verstehen.
+
+```{r}
+#| echo: false
+#| message: false
+#| label: fig-lpm-var-hetero
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "Varianzheterogenität oder Heteroskedastizität in den Daten. Die Abstände der Punkte zu der Geraden, die Residuen, werden immer größer. Wir haben keinen konstanten oder homogenen Fehler."
+
+var_hetro_tbl <- tibble(x = seq(3, 20, by = 0.05),
+                        y = 100 * x + rnorm(length(x), 0, x^2))
+
+ggplot(var_hetro_tbl, aes(x, y)) +
+  theme_bw() +
+  geom_point2() +
+  stat_smooth(method = "lm", se = FALSE)
+
+```
+
+Für unser Modell `lm_fit` von oben können wir auch gleich die Funktion `check_heteroscedasticity()` aus dem R Paket `performance` nutzen um zu Überprüfen ob wir Varianzheterogenität vorliegen haben. Aber Achtung, ich wäre hier sehr vorsichtig, wenn die Funktion sagt, dass wir keine Varianzheterogenität vorliegen haben.
 
 ```{r}
 check_heteroscedasticity(lm_fit)
 ```
 
-```{r}
-#| echo: true
-#| message: false
-#| label: fig-lpm-01a
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "Ausgabe ausgewählter Modelgüteplots der Funktion `check_model()`."
-
-lm_fit %>% 
-  augment() %>% 
-  ggplot(aes(x = .fitted, y = .resid^2)) +
-  theme_bw() +
-  geom_point()
-```
+Neben der Funktion `check_heteroscedasticity()` gibt es auch die Möglichkeit über `check_model()` sich die Varianzen und damit die Residuen einmal anzuschauen. Die visuelle Überprüfung ist auf jeden Fall Pflicht. Und wie du in der @fig-lpm-02 siehst, sind die Varianzen weder homogen noch irgendwie normalverteilt. Wir gehen also von Varianzheterogenität aus. Damit liegen wir in Linie mit der Funktion `check_heteroscedasticity()`, aber das muss nicht immer unbedingt sein. Besonders bei kleiner Fallzahl, kann es vorkommen, dass `check_heteroscedasticity()` eine Varianzheterogenität übersieht.
 
 ```{r}
 #| echo: true
@@ -133,30 +158,59 @@ lm_fit %>%
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 10
-#| fig-cap: "Ausgabe ausgewählter Modelgüteplots der Funktion `check_model()`."
+#| fig-cap: "Überprüfung der Varianzhomogeniutät des Modells `lm_fit` mit der Funktion `check_model()`. Wir sehen hier eine klare Varianzheterogenität in dem Modell."
 
 check_model(lm_fit, check = c("homogeneity", "normality"))
 ```
 
+Jetzt kann man sich fragen, warum sind denn da so Bögen drin? Das kommt von den Abständen der Punkte auf den beiden Ebenen. Die Gerade läuft ja durch einen Bereich in dem keine Beobachtungen sind. Daher ist am Anfang der Abstand zu einer der beiden Ebenen, entweder der Null oder der Eins, minimal und erhöht sich dann langsam. Weil ja nicht alle Beobachtungen alle bei Null sind springen die Abstände von klein zu groß. In @fig-lpm-01a siehst du nochmal den Zusammenhang. Unsere angepasste Gerade steigt ja an, wie du in @fig-lpm-activity-02 siehst. Daher sind die Abstände zu den Null Werten am Anfang sehr klein und stiegen dann an. Sobald die erste Beobachtung mit einem Infektionsstatus von Eins auftaucht, springt der Abstand natürlich sofort nach oben. Werte größer als Eins dürfte es auf der x-Achse gar nicht geben, den dort werden dann Werte größer als Eins geschätzt.
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-lpm-01a
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "Etwas andere Darstellung der angepassten Werte `.fitted` und der Residuen `.resid` aus dem Modell `lm_fit`. Die Punkte sind nach dem Infektionsstatus eingefärbt."
+
+lm_fit %>% 
+  augment() %>% 
+  ggplot(aes(x = .fitted, y = .resid^2, color = as_factor(infected))) +
+  theme_bw() +
+  geom_point() +
+  labs(x = "Angepasste Werte", y = "Residuen", color = "Infected") +
+  scale_color_okabeito()
+```
+
 ## Interpretation des Modells
+
+Wir haben ja schon einmal weiter oben in das Modell geschaut und eine Interpretation vorgenommen. Wir erinnern uns, wir können die Effektschätzer `Estimate` aus einem *probability model* direkt als prozentuale Veränderung interpretieren. Das heißt, wir können sagen, dass pro Einheit `crp` die Wahrscheinlichkeit infiziert zu sein um 16.2087% ansteigt. Das ist natürlich eine sehr schöne Eigenschaft. Dann haben wir auch noch gleich die Richtung mit drin, wenn wir also negative Effekte haben, dann senkt die Variable das Risiko pro Einheit um den prozentualen Wert. Bei kategoriellen Variablen haben wir dann den Unterschied zu der nicht vorhandenen Gruppe. Daher sind männliche Ferkel um 5% *weniger* infiziert als weibliche Ferkel. Leider geht der t-Test, der die $p$-Werte produztiert, von homogenen Varianzen aus. Die haben wir aber nicht vorliegen.
 
 ```{r}
 lm_fit %>% 
   summary() %>% 
-  pluck("coefficients") 
+  pluck("coefficients") %>% 
+  round(4)
 ```
+
+Deshalb müssen wir nochmal ran. Wir können die Funktion `coeftest()` aus dem R Paket `lmtest` zusammen mit den R Paket `sandwich` nutzen um unsere Modellanpassung für die Varianzheterogenität zu adjustieren. Wir ändern also die Spalte `Strd. Error`. Es gibt aber sehr viele Möglichkeiten `type` die Varianz anzupassen. Das ist ein eigenes Kapitel worum wir uns hier nicht scheren. Wir nehmen mehr oder minder den Standard mit `HC1`.
 
 ```{r}
 lm_fit %>% 
-  coeftest(vcov. = vcovHC, type = "HC1")
+  coeftest(vcov. = vcovHC, type = "HC1") %>% 
+  round(4) %>% 
+  tidy()
 ```
+
+Wir schauen also als erstes auf den Standardfehler und sehen, dass unsere Gaussian lineare Regression (OLS) den Standardfehler als zu hoch geschätzt hat. Größer Standardfehler bedeutet kleinere Teststatistik und damit dann auch weniger signifikante $p$-Werte. In der @tbl-lpm-comp siehst du nochmal die beiden Spalten der Standardfehler nebeneinander. Unser Sandwich-Schätzer (HC1) liefert da die besseren Fehlerterme, die eher der Realität der Varianzheterogenität entsprechen. Wir brauchen die adjustierten Standardfehler aber nur, wenn wir eine statistischen Test rechnen wollen und den $p$-Wert für die Bewertung der Signifikanz brauchen.
 
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
 #| label: tbl-lpm-comp
-#| tbl-cap: "foo"
+#| tbl-cap: "Vergleich der Standardfehler der Gaussian linear Regression mit der Annahme der homogenen Varianzen (OLS) und die Adjusterung der Fehler mit dem Sandwich-Schätzer (HC1)."
 
 bind_cols(names(coef(lm_fit))) %>% 
   bind_cols(lm_fit %>% 
@@ -174,6 +228,10 @@ bind_cols(names(coef(lm_fit))) %>%
 ```
 
 ## Gruppenvergleich
+
+Häufig ist es ja so, dass wir das Modell nur schätzen um dann einen Gruppenvergleich zu rechnen. Das heißt, dass es uns interessiert, ob es einen Unterschied zwischen den Leveln eines Faktors gegeben dem Outcome $y$ gibt. Wir machen den Gurppenvergleich jetzt einmal an der Gebrechlichkeit `frailty` einmal durch. Wir habe die drei Gruppen `frail`, `pre-frail` und `robust` vorliegen. Danach schauen wir uns nochmal die prinzipielle Idee des Gruppenvergleichs auf mittleren Wahrscheinlichkeiten infiziert zu sein an.
+
+Eigentlich ist es recht einfach. Wir nehmen wieder unser lineares Modell, was wir oben schon angepasst haben. Wir schicken dann das Modell in die Funktion `emmeans()` um die Gruppenvergleiche zu rechnen. Jetzt müssen wir nur zwei Dinge noch machen. Zum einen wollen wir alle paarweisen Vergleiche zwischen den drei Leveln von dem Faktor `frailty` rechnen, deshalb setzen wir `method = "pairwise"`. Dann müssen wir noch dafür sorgen, dass wir nicht homogene Varianzen schätzen. Deshalb setzen wir die Option `vcov. = sandwich::vcovHAC`. Damit wählen wir aus dem Paket `sabdwich` den Sandwichschätzer `vcovHAC`. Wenn du das Paket `sandwich` schon geladen hast, dann musst due das Peket nicht mit Doppelpunkt vor die Funktion des Sandwich-Schätzers setzen.
 
 ```{r}
 em_obj <- lm_fit %>% 
