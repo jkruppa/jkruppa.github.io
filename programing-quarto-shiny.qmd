@@ -341,44 +341,71 @@ co2_tbl %>%
 
 ```{r}
 #| eval: false
-library(shiny)
+pacman::p_load(shiny, tidyverse, magrittr, readxl, 
+               janitor, see, directlabels,
+               conflicted)
+conflicts_prefer(dplyr::filter)
+
+## read in the need data
+co2_tbl <- read_csv("annual-co-emissions-by-region.csv") %>% 
+  clean_names()
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
-
-    # Application title
-    titlePanel("Old Faithful Geyser Data"),
-
-    # Sidebar with a slider input for number of bins 
-    sidebarLayout(
-        sidebarPanel(
-            sliderInput("bins",
-                        "Number of bins:",
-                        min = 1,
-                        max = 50,
-                        value = 30)
-        ),
-
-        # Show a plot of the generated distribution
-        mainPanel(
-           plotOutput("distPlot")
-        )
+  
+  # Application title
+  titlePanel("Global emissions have not yet peaked"),
+  
+  # Sidebar with a slider input for number of bins 
+  sidebarLayout(
+    sidebarPanel(
+      sliderInput("years",
+                  "Shown years:",
+                  min = 1750,
+                  max = 2021,
+                  step = 25,
+                  value = c(1750, 2021)),
+      
+      selectInput("method", "Method for line:",
+                  c("Linear" = "lm",
+                    "Loess" = "loess",
+                    "Gam" = "gam")),
+      
+      radioButtons("se", 
+                   "Standard deviation:",
+                   c("Yes" = "yes",
+                     "No" = "no")),
+      
+    ),
+    # Show a plot of the generated distribution
+    mainPanel(
+      plotOutput("line_plot")
     )
+  )
 )
+
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
+  
+  output$line_plot <- renderPlot({
 
-    output$distPlot <- renderPlot({
-        # generate bins based on input$bins from ui.R
-        x    <- faithful[, 2]
-        bins <- seq(min(x), max(x), length.out = input$bins + 1)
-
-        # draw the histogram with the specified number of bins
-        hist(x, breaks = bins, col = 'darkgray', border = 'white',
-             xlab = 'Waiting time to next eruption (in mins)',
-             main = 'Histogram of waiting times')
-    })
+    se_flag <- switch(input$se,
+                      yes = TRUE,
+                      no = FALSE)
+    # ggplot from above with the options from `input`
+    co2_tbl %>% 
+      filter(entity %in% c("World", "Europe", "China", "Africa")) %>% 
+      filter(year >= input$years[1] & year <= input$years[2]) %>% 
+      ggplot(aes(year, annual_co2_emissions, color = entity)) +
+      theme_bw() +
+      geom_line() +
+      stat_smooth(method = input$method, se = se_flag) +
+      theme(legend.position = "none") +
+      scale_x_continuous(expand = c(0, 30), breaks = c(seq(1750, 2021, by = 25), 2021)) +
+      geom_dl(aes(label = entity), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.8))
+    
+  })
 }
 
 # Run the application 
