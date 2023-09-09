@@ -107,13 +107,11 @@ subgraph ide1 ["~/Documents/GitHub/shiny/Hello_Shiny"]
     
 ```
 
-Wenn du den folgenden Kasten einmal mit den Pfeil aufklappst, denn siehst du den Inhalt der `app.R` für unsere Shiny App `Hello_Shiny`. Einfach über die Zahlen am rechten Rand fahren um meine Kommentare zu lesen. Du musst immer das Paket `shiny` laden und natürlich die anderen R Pakete die du dann verwenden willst. Faktisch ist ja eine Shiny App nichts anderes als ein R Skript. Daher hier jetzt kein tieferer Text mehr, den der Code ist ja annotiert.
-
-::: {.callout-caution icon="false" appearance="simple" collapse="true"}
-## app.R
+Im Folgenden siehst du den Inhalt der `app.R` für unsere Shiny App `Hello_Shiny`. Einfach über die Zahlen am rechten Rand fahren um meine Kommentare zu lesen. Du musst immer das Paket `shiny` laden und natürlich die anderen R Pakete die du dann verwenden willst. Faktisch ist ja eine Shiny App nichts anderes als ein R Skript. Daher hier jetzt kein tieferer Text mehr, den der Code ist ja annotiert.
 
 ```{r}
 #| eval: false
+#| label: hello
 library(shiny)
 
 # Define UI for application that draws a histogram
@@ -168,7 +166,6 @@ shinyApp(ui = ui, server = server)  # <10>
 8.  Hier wird dynamisch der Wert aus dem `input$bins` verwendet.
 9.  Das Histogramm wird dynamisch mit sich ändernden Werten für `input$bins` generiert.
 10. Die eigentliche Funktion, um eine Shiny App zu starten.
-:::
 
 Die @fig-quarto-shiny-05 zeigt dir, wie du die Shiny App starten kannst. Zum einen über Button `> Run App` direkt aus dem R Studio heraus. Dann öffnet sich ein anderes Fenster und R friert ein. Du kannst während eine Shiny App läuft nicht in R programmieren. Beende dafür erst die Shiny App durch das schließen des Fensters. Die zweite Möglichkeit ist, die Shiny App zu veröffentlichen. Die Veröffentlichung findet auf <https://www.shinyapps.io/> statt und du musst dich dort erst anmelden. Dann kannst du dein RStudio über einen Tocken mit der Webseite verbinden. Es gibt einen kostenlosen Account, der eine sehr begrenzte Laufzeit der Apps erlaubt. Daher immer die Shiny Apps auf dem Dashboard von <https://www.shinyapps.io/> stoppen und auf `Sleeping` setzen. Das Schöne ist jetzt, dass du über einen Browser weltweit auf die Shiny App zugreifen kannst.
 
@@ -303,8 +300,6 @@ Am Ende ist es wie bei jedem Best practice, es kommt auf dich an und wie du prog
 
 ## Our World in Data
 
-![](images/caution.png){fig-align="center" width="50%"}
-
 Am Ende wollen wir uns nochmal ein echtes Beispiel mit großen Daten anschauen. Deshalb bin ich zur Webseite [Our World in Data](https://ourworldindata.org/) gegangen und habe mir als Beispiel die Daten zum Thema [Global emissions have not yet peaked](https://ourworldindata.org/co2-and-greenhouse-gas-emissions#global-emissions-have-not-yet-peaked) heruntergeladen. Die Datei heißt `annual-co-emissions-by-region.csv` und wurde von mir nur etwas bearbeitet. Oh, was für ein Segen hier dann `clean_names()` aus dem R Paket `janitor` ist. Wir bauen jetzt hier erstmal die statische Abbildung in `ggplot` unn überlegen, was wir alles machen *könnten*. Dann geht es weiter mit der Shiny App.
 
 ```{r}
@@ -354,55 +349,55 @@ co2_tbl %>%
 Was könnten wir jetzt in einer Shiny App dynamisch ändern? Ich habe mir da drei Dinge überlegt.
 
 1.  Wir ändern die Auswahl an Jahren. Also die Spannbreite der Jahre, die wir uns auf der x-Achse anschauen wollen. Das können wir über die Funktion `filter()` in dem `server` abbilden, indem wir einfach einen Bereich an Jahren filtern. In der `ui` brauchen wir dann einen Schiebregeler, der uns die Auswahl ermöglicht.
-2.  Wir können über die Funktion `stat_smooth()` noch eine Grade anpassen, die nicht durch alle Messpunkte läuft. Wir wollen also einen Smoother anpassen. Da gibt es aber mehrere Arten von. Deshalb wäre es schön zwischen `lm`, `loess` und `gam` wählen zu können. Wir brauchen hier also ein Dropdownmenü in der `ui`, was uns die Auswahl erlaubt.
+2.  Wir können über die Funktion `stat_smooth()` noch eine Gerade anpassen, die nicht durch alle Messpunkte läuft. Wir wollen also einen Smoother anpassen. Da gibt es aber mehrere Arten von. Deshalb wäre es schön zwischen `lm`, `loess` und `gam` wählen zu können. Wir brauchen hier also ein Dropdownmenü in der `ui`, was uns die Auswahl erlaubt.
 3.  Wir können in `stat_smooth` einen Standardfehler als Bereich einblenden lassen. Dafür müssen wir die Option `se = TRUE` setzen. Da können wir uns dann einen Button in der `ui` erstellen, der den Standardfehler einblendet oder ausblendet.
 
 Im Folgenden siehst du dann einmal die annotierte `app.R`, die dir dann die Shiny App in der @fig-quarto-shiny-07 erstellt. Das Ganze geht natürlich noch viel schöner und besser, aber hier will ich einmal das Prinzip zeigen.
 
-::: {.callout-caution icon="false" appearance="simple" collapse="true"}
-## app.R
-
 ```{r}
 #| eval: false
-pacman::p_load(shiny, tidyverse, magrittr, readxl, 
-               janitor, see, directlabels,
+#| echo: true
+#| label: co2
+
+pacman::p_load(shiny, tidyverse, magrittr, readxl,                   
+               janitor, see, directlabels,                          
                conflicted)
 conflicts_prefer(dplyr::filter)
 
-## read in the need data
+## read in the need data  
 co2_tbl <- read_csv("annual-co-emissions-by-region.csv") %>%  # <1>
-  clean_names()
+  clean_names()                                               # <1>   
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
   
   # Application title
-  titlePanel("Global emissions have not yet peaked"), # <2>
+  titlePanel("Global emissions have not yet peaked"), 
   
   # Sidebar with a slider input for number of bins 
   sidebarLayout(
     sidebarPanel( 
-      sliderInput("years", # <3>
-                  "Shown years:",
-                  min = 1750,
-                  max = 2021,
-                  step = 25,
-                  value = c(1750, 2021)),
+      sliderInput("years",  # <2>
+                  "Shown years:", # <2>
+                  min = 1750, # <2>
+                  max = 2021, # <2>
+                  step = 25, # <2>
+                  value = c(1750, 2021)), # <2>
       
-      selectInput("method", "Method for line:", # <4>
-                  c("Linear" = "lm",
-                    "Loess" = "loess",
-                    "Gam" = "gam")),
+      selectInput("method", "Method for line:",  # <3>
+                  c("Linear" = "lm", # <3>
+                    "Loess" = "loess", # <3>
+                    "Gam" = "gam")), # <3>
       
-      radioButtons("se",  # <5>
-                   "Standard deviation:",
-                   c("Yes" = "yes",
-                     "No" = "no")),
+      radioButtons("se",   # <4>
+                   "Standard deviation:", # <4>
+                   c("Yes" = "yes", # <4>
+                     "No" = "no")), # <4>
       
     ),
     # Show a plot of the generated distribution
     mainPanel(
-      plotOutput("line_plot") # <6>
+      plotOutput("line_plot")  # <5>
     )
   )
 )
@@ -413,20 +408,23 @@ server <- function(input, output) {
   
   output$line_plot <- renderPlot({
 
-    se_flag <- switch(input$se,
-                      yes = TRUE,
-                      no = FALSE)
+    se_flag <- switch(input$se, # <6>
+                      yes = TRUE, # <6>
+                      no = FALSE) # <6>
     # ggplot from above with the options from `input`
     co2_tbl %>% 
       filter(entity %in% c("World", "Europe", "China", "Africa")) %>% 
-      filter(year >= input$years[1] & year <= input$years[2]) %>% 
+      filter(year >= input$years[1] & year <= input$years[2]) %>% # <7>
       ggplot(aes(year, annual_co2_emissions, color = entity)) +
       theme_bw() +
       geom_line() +
-      stat_smooth(method = input$method, se = se_flag) +
+      stat_smooth(method = input$method, se = se_flag) + # <8>
       theme(legend.position = "none") +
-      scale_x_continuous(expand = c(0, 30), breaks = c(seq(1750, 2021, by = 25), 2021)) +
-      geom_dl(aes(label = entity), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.8))
+      scale_x_continuous(expand = c(0, 30), 
+                         breaks = c(seq(1750, 2021, by = 25), 2021)) +
+      geom_dl(aes(label = entity), 
+              method = list(dl.trans(x = x + 0.2), 
+                            "last.points", cex = 0.8))
     
   })
 }
@@ -436,11 +434,14 @@ shinyApp(ui = ui, server = server)
 ```
 
 1.  Die Daten `annual-co-emissions-by-region.csv` im gleichen Ordner werden geladen.
-2.  Ein neuer Titel wird gesetzt.
-3.  Der Slider für die Jahre wird erstellt. Wir wollen immer in 25 Jahre Schritten weitergehen.
-4.  Das Dropdownmenü wird gesetzt. Wir haben hier die drei Methoden `lm`, `loess` und `gam` voreingestellt.
-5.  Der Button für den Standardfehler ja/nein für den Smoother in der Abbildung.
-6.  Unser Plot aus dem `server` wird dann `line_plot` heißen und wird hier wiedergeben.
-:::
+2.  Der Slider für die Jahre wird erstellt. Wir wollen immer in 25 Jahre Schritten weitergehen.
+3.  Das Dropdownmenü wird gesetzt. Wir haben hier die drei Methoden `lm`, `loess` und `gam` voreingestellt.
+4.  Der Button für den Standardfehler ja/nein für den Smoother in der Abbildung.
+5.  Unser Plot aus dem `server` wird dann `line_plot` heißen und wird hier wiedergeben.
+6.  Der `input$se` wird in `TRUE` oder `FALSE` aufgelöst. Brauchen wir gleich bei `se = se_flag`.
+7.  Wir filtern nach der unteren Grenze des Schiebers `input$years[1]` und der oberen Grenze es Schiebers `input$years[2]`
+8.  Wir generieren die Gerade nach der Methode `input$method` und entscheiden, ob wir einen Standardfehler einzeichnen wollen `TRUE/FALSE`.
+
+Wie schon oben geschrieben, erhalten wir am Ende die Shiny App in der @fig-quarto-shiny-07. Ich habe hier die Jahre von 1900 bis 2021 gewählt und mit als Methode für Gerade dann Loess ausgewählt. Ich wollte mir zwar den Standardfehler einzeichnen lassen, aber die Methode Loess gibt keinen Fehler zurück. Deshalb dann hier auch kein Standardfehler. Wenn du dir die Methode Linear anschaust, wirst du dann einen Bereich für den Standardfehler eingezeichnet bekommen.
 
 ![Ausgabe der `co2_emissons` Shiny App. Etwas sinnlos eine dynamische App durch einen Screenschots darzustellen . Aber so sieht dann diese etwas komplexere App aus.](images/quarto_shiny_07.png){#fig-quarto-shiny-07 fig-align="center" width="100%"}
