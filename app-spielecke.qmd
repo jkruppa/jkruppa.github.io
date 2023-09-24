@@ -201,4 +201,86 @@ Auch unterrichte ich weniger Informatik als [Computational statistics](https://e
 
 [Girls who code](https://girlswhocode.com/)
 
+## Ideen zu Freiheitsgraden, die eigentlich nichts zur Sache tun
+
+In einem kleinen Exkurs wollen wir einmal überlegen, warum wir verschiedene Freiheitsgrade für die Testverteilungen brauchen. Zuerst gehen wir davon aus, dass die Mittelwerte der Sprungweite der Hunde- und Katzenflöhe gleich sind $\bar{y}_{cat} = \bar{y}_{dog} = (8.13 + 4.74)/2 = 6.43$. Wir wollen die Verteilung der Teststatistik unter der Nullhypothese für den Freiheitsgrad $df_1 = n_{cat} + n_{dog} -2 = 6$ und somit für die beiden Gruppengrößen $n_{cat} = n_{dog} = 4$ sowie den Freiheitsgrad $df_2 = n_{cat} + n_{dog} -2 = 18$ und somit den entsprechenden Gruppengrößen $n_{cat} = n_{dog} = 10$ einmal herleiten.
+
+Daher nehmen wir einmal hier an, dass die Mittelwerte aus der gleichen Normalverteilung kommen. Wir machen uns es hier etwas einfacher, damit du den Ablauf besser verstehst. Wir ziehen also einmal vier und einmal zehn Sprungweiten jeweils für die Hunde- und Katzenflöhe aus einer Normalverteilung mit $\mathcal{N}(6.43, 2.0)$. Das ganze wiederholen wir dann für jeweils zehn Hunde- und Katzenflöhe. Wir nutzen dafür die Funktion `rnorm()`. Anschließend berechnen wir die Teststatistik. Diesen Schritt wiederholen wir eintausend Mal.
+
+Im Folgenden berechnen wir eintausend Mal die Teststatistik, wenn die Nullhypothese gilt, für jeweils vier Hunde- und Katzenflöhe. Wir haben damit einen Freiheitsgrad von $df_1 = 6$.
+
+```{r}
+T_n4_vec <- map_dbl(1:1000, function(...){
+  dog_vec <- rnorm(n = 4, mean = 6.43, sd = 2.0)
+  cat_vec <- rnorm(n = 4, mean = 6.43, sd = 2.0)
+  s_p <- (sd(cat_vec) + sd(dog_vec))/2 
+  T_calc <- (mean(cat_vec) - mean(dog_vec))/(s_p * sqrt(2/4)) 
+  return(T_calc)  
+}) %>% round(2)
+```
+
+Und das ganze nochmal für jeweils zehn Hunde- und Katzenflöhe. Wir haben damit einen Freiheitsgrad von $df_2 = 18$.
+
+```{r}
+T_n10_vec <- map_dbl(1:1000, function(...){
+  dog_vec <- rnorm(n = 10, mean = 6.43, sd = 2.0)
+  cat_vec <- rnorm(n = 10, mean = 6.43, sd = 2.0)
+  s_p <- (sd(cat_vec) + sd(dog_vec))/2 
+  T_calc <- (mean(cat_vec) - mean(dog_vec))/(s_p * sqrt(2/10)) 
+  return(T_calc)  
+}) %>% round(2)
+```
+
+Schauen wir uns einmal die Spannweite der Teststatistiken mit einer niedrigen Fallzahl an. Darüber hinaus wollen wir wissen, wie viele Teststatistiken gibt es, die unsere Teststatistik $T_{calc} = 3.14$ vom obigen Beispiel übersteigen.
+
+```{r}
+T_n4_vec %>% range()
+```
+
+Wir schauen jetzt einmal, wie viele der tausend Teststatistiken den jetzt unseren kritischen Wert übersteigen.
+
+```{r}
+sum(T_n4_vec > 3.14)
+```
+
+Im Gegensatz dazu dann die Spannweite der Teststatistiken mit einer höheren Fallzahl an. Auch hier wollen wir wissen, wie viele Teststatistiken es gibt, die unsere Teststatistik $T_{calc} = 3.14$ vom obigen Beispiel übersteigen.
+
+```{r}
+T_n10_vec %>% range()
+```
+
+Wir schauen jetzt auch hier einmal, wie viele der tausend Teststatistiken den jetzt unseren kritischen Wert übersteigen. Wenn wir alles richtig gemacht haben, dann sollten wir hier weniger
+
+```{r}
+sum(T_n10_vec > 3.14)
+```
+
+In @fig-test-df-1 sehen wir die Verteilung der berechneten eintausend Verteilungen nochmal als ein Histogramm dargestellt. Wiederum sehen wir, dass unsere berechnete Teststatistik $T_{calc} = 3.14$,dargestellt als gestrichelte Linie, sehr weit rechts am Rand der Verteilung liegt.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-test-df-1
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 7
+#| fig-cap: "Histogramm der 1000 gerechneten Teststaistiken $T_{calc} = 3.14$, wenn die $H_0$ war wäre und somit kein Unterschied zwischen den Mittelwerten der Sprungweiten der Hunde- und Katzenflöhe vorliegen würde."
+
+n_compare_tbl <- tibble(n4 = T_n4_vec,
+                        n10 = T_n10_vec) %>% 
+  gather()
+
+ggplot(n_compare_tbl, aes(x = value, fill = key)) +
+  theme_bw() +
+  labs(x = "Teststatistik", y = "Anzahl") +
+  geom_density(alpha = 0.4) +
+  geom_vline(xintercept = 3.47, color = "black", size = 1, linetype = 2) +
+  geom_vline(xintercept = qt(c(0.025, 0.975), df = 4 + 4 - 2, lower.tail = FALSE), 
+             color = cbbPalette[3], linewidth = 1) +
+  geom_vline(xintercept = qt(c(0.025, 0.975), df = 10 + 10 - 2, lower.tail = FALSE), 
+             color = cbbPalette[2], linewidth = 1) +
+  scale_fill_manual(values = cbbPalette[2:3])
+```
+
 ## Referenzen {.unnumbered}
