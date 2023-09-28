@@ -1,0 +1,577 @@
+# Formeln
+
+![](images/caution.png){fig-align="center" width="50%"}
+
+```{r}
+
+shoot_length_tbl <- cutting_tbl %>% 
+  filter(outcome == "shoot")
+
+fit <- lmer(rsp ~ trt + block +(1 | week), data = shoot_length_tbl) 
+
+fit %>% model_performance()
+
+fit %>% 
+  emmeans(specs = ~ trt) %>% 
+  contrast(method = "pairwise", adjust = "bonferroni")
+
+```
+
+## Classification
+
+https://medium.com/greyatom/a-quick-guide-to-boosting-in-ml-acf7c1585cb5
+
+https://towardsdatascience.com/boosting-algorithms-explained-d38f56ef3f30
+
+https://howtolearnmachinelearning.com/articles/boosting-in-machine-learning/
+
+https://parsnip.tidymodels.org/ https://rsample.tidymodels.org/
+
+R Paket `tune`
+
+R Paket `yardstick`
+
+https://rsample.tidymodels.org/articles/Applications/Recipes_and_rsample.html
+
+https://www.tmwr.org/resampling.html
+
+https://en.wikipedia.org/wiki/Confusion_matrix
+
+## mixed model stuff
+
+https://stats.stackexchange.com/questions/228800/crossed-vs-nested-random-effects-how-do-they-differ-and-how-are-they-specified
+
+https://www.statology.org/nested-anova-in-r/
+
+https://strengejacke.github.io/ggeffects/ https://strengejacke.github.io/ggeffects/articles/introduction_marginal_effects.html
+
+https://vincentarelbundock.github.io/marginaleffects/ https://vincentarelbundock.github.io/modelsummary/
+
+## An Introduction to Directed Acyclic Graphs
+
+https://cran.r-project.org/web/packages/ggdag/vignettes/intro-to-dags.html
+
+http://www.dagitty.net/
+
+## Von Salatqualität
+
+```{r}
+
+def <- defData(varname = "var1", formula = "0.1;0.2;0.4;0.2;0.1;0;0;0;0", dist = "categorical") %>% 
+  defData(varname = "var2", formula = "0.1;0.2;0.4;0.2;0.1;0;0;0;0", dist = "categorical") %>% 
+  defData(varname = "var3", formula = "0;0;0;0;0.1;0.2;0.4;0.2;0.1", dist = "categorical") %>% 
+  defData(varname = "var4", formula = "0.1;0.2;0.4;0.2;0.1;0;0;0;0", dist = "categorical") %>% 
+  defData(varname = "var5", formula = "0;0;0;0.1;0.2;0.4;0.2;0.1;0", dist = "categorical") %>% 
+  defData(varname = "var6", formula = "0;0.1;0.2;0.4;0.2;0.1;0;0;0", dist = "categorical") %>% 
+  defData(varname = "var7", formula = "0;0;0;0.1;0.3;0.3;0.3;0;0", dist = "categorical") %>% 
+  defData(varname = "var8", formula = "0.1;0.2;0.4;0.2;0.1;0;0;0;0", dist = "categorical") %>% 
+  defData(varname = "var9", formula = "0;0.1;0.1;0.1;0.2;0.1;0.2;0.2;0", dist = "categorical") 
+
+salad_tbl <- genData(rpois(1, 90), def) %>% 
+  select(-id) 
+
+ggplot(salad_tbl %>% gather, aes(key, value, fill = key)) +
+  geom_boxplot() +
+  ylim(c(1,9))
+
+```
+
+```{r}
+#| eval: false
+
+t_vec <- map_dbl(1:1000, function(...){
+  y1 <- rnorm(10, 5, 1)
+  y2 <- rnorm(10, 5, 1)
+  t.test(y1, y2)$statistic
+})
+  
+ggplot(tibble(t_vec), aes(x = t_vec)) +
+  geom_histogram()
+
+```
+
+https://cran.r-project.org/web/packages/broom/vignettes/broom_and_dplyr.html
+
+## GEE
+
+https://data.library.virginia.edu/getting-started-with-generalized-estimating-equations/ https://statistikguru.de/lexikon/generalized-estimating-equations-gee.html
+
+```{r}
+#| eval: false
+
+chicken_tbl %>% 
+  mutate(grp = as_factor(cut_number(age, 4))) %>% 
+  group_by(grp) %>% 
+  nest() %>% 
+  mutate(lm_fit = map(data, ~lm(log(weight) ~ log(age), data = .x)),
+         tidied = map(lm_fit, tidy)) %>% 
+  unnest(c(tidied))
+
+pred_tbl <- tibble(age = 1:10,
+                   weight = predict(fit, newdata = tibble(age)))
+
+
+
+
+```
+
+```{r}
+library(report)
+```
+
+## Data experiment
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: foo
+#| label: fig-mixed-10
+
+ggplot(dragons_tbl, aes(x = body_length, y = test_score, colour = site)) +
+  facet_wrap(~mountain_range, nrow=3) +
+  theme_bw() +
+  geom_point() +
+  geom_line(data = cbind(dragons_tbl, pred = predict(lmer_2_fit)), aes(y = pred)) +
+  theme(legend.position = "none") +
+  scale_color_okabeito() 
+```
+
+https://easystats.github.io/parameters/articles/demean.html#a-visual-example
+
+```{r}
+set.seed(123)
+n <- 5
+b <- seq(1, 1.5, length.out = 5)
+x <- seq(2, 2 * n, 2)
+
+
+factor_tbl <- tibble(x = map2(1:5, 6:10, seq, 0.5) %>%  flatten_dbl(),
+       expertise = factor(rep(1:5, each = 11), labels = c("very slow", "slow", "average", "fast", "very fast"))) 
+
+model_mat <- factor_tbl %>% 
+  model_matrix(~ x + expertise) %>% 
+  as.matrix
+
+
+foo <- factor_tbl %>% 
+  mutate(rsp_eff = as.numeric(model_mat %*% c(30, -1.5, 2, 2, 2, 2)),
+         rsp = rsp_eff + rnorm(n(), 0, 2)) %>% 
+  group_by(x) %>% 
+  mutate(x = rev(15 - (x + 1.5 * as.numeric(expertise)))) %>% 
+  ungroup()
+
+ggplot(foo, aes(x, rsp, color = expertise)) +
+  geom_point()
+
+
+map2(1:2, 3:4, seq, 0.5) %>%  flatten_dbl()
+
+pmap(list(1:2, 3:4), seq, 0.5) %>%  flatten_dbl()
+
+expand_grid(expertise = 1:5, x = seq(1, 5, 0.5)) 
+
+set.seed(1)
+dd <- data.frame(id = rep(c(1,2), c(3,5)),
+                 x = rnorm(8), 
+                 d = rep(c(0.3, 0.5), c(3,5)))
+
+
+dd %>% 
+    nest(x) %>% 
+    mutate(scale_d = scale(d)) %>% 
+    unnest()
+
+```
+
+```{r}
+#| eval: false
+
+set.seed(123)
+n <- 5
+b <- seq(1, 1.5, length.out = 5)
+x <- seq(2, 2 * n, 2)
+
+d <- do.call(rbind, lapply(1:n, function(i) {
+  data.frame(
+    x = seq(1, n, by = .2),
+    y = 2 * x[i] + b[i] * seq(1, n, by = .2), #+ rnorm(21),
+    grp = as.factor(2 * i)
+  )
+}))
+
+d
+
+d <- d %>%
+  group_by(grp) %>%
+  mutate(x = rev(15 - (x + 1.5 * as.numeric(grp)))) %>%
+  ungroup()
+
+labs <- c("very slow", "slow", "average", "fast", "very fast")
+levels(d$grp) <- rev(labs)
+
+ggplot(d, aes(x,y, color = grp)) +
+  geom_point()
+
+foo <- cbind(d, datawizard::demean(d, c("x", "y"), group = "grp")) 
+
+foo %>% 
+  select(matches(c("x")), grp) %>% 
+  mutate(foo = x_between + x_within) %>% 
+  pull(x_between) %>% 
+  unique
+
+foo %>% 
+  group_by(grp) %>% 
+  dplyr::summarise(base::mean(y))
+
+d <- cbind(d, datawizard::demean(d, c("x", "y"), group = "grp"))
+
+d
+
+
+
+
+```
+
+Im Folgenden schauen wir uns noch komplexere Daten in @tbl-imp-complex-long an. Das Datenbeispiel ist im Wide Format mit einem Behandlungsfaktor `treatment` einem Clusterfaktor `block` sowie mehreren Messwiederholungen zu unterschiedichen Zeitpunkten `t_1` bis `t_6` angelegt.
+
+```{r}
+#| echo: false
+#| label: tbl-imp-complex-long
+#| tbl-cap: Komplexeres Datenbeispiel im Wide Format mit einem Behandlungsfaktor `treatment` einem Clusterfaktor `block` sowie mehreren Messwiederholungen zu unterschiedichen Zeitpunkten `t_1` bis `t_6`.
+
+data_tbl <- tibble(treatment = gl(4, 4, labels = c("A", "B", "C", "D")),
+                   block = rep(1:4, 4),
+                   t_1 = round(rnorm(16, 15, 2), 2),
+                   t_2 = round(rnorm(16, 15, 2), 2),
+                   t_3 = round(rnorm(16, 17, 2), 2),
+                   t_4 = round(rnorm(16, 17, 2), 2),
+                   t_5 = round(rnorm(16, 18, 2), 2),
+                   t_6 = round(rnorm(16, 18, 2), 2))
+data_tbl %>% 
+  kable(align = "c", "pipe")
+
+```
+
+Im Folgenden Codeblock sehen wir, wie die Funktion `gather()` die Daten in Tabelle @tbl-imp-complex-long in ein Long Format umwandelt. Die Funktion fasst die Messwiederholungen der Spalten `t_1` bis `t_6` zusammen, in dem die Werte alle in der Spalte `drymatter` untereinander geklebt werden. Die Spalten `treatment` und `block` werden dann sechs Mal wiederholt untereinander geklebt.
+
+```{r}
+data_tbl %>% 
+  gather(key = "time_point", value = "drymatter", t_1:t_6) %>% 
+  arrange(treatment, block)
+```
+
+https://stackoverflow.com/questions/70864332/wrong-letters-of-anovatukey-with-multcompview-package-and-multcompletters4-func
+
+https://www.rdocumentation.org/packages/multcompView/versions/0.1-8/topics/multcompLetters
+
+```{r}
+a.lda <- tibble::tribble(
+     ~Fold,               ~Var,      ~Val,
+   "Fold1",    "ohne_Sampling", 0.6732673,
+   "Fold2",    "ohne_Sampling", 0.7227723,
+   "Fold3",    "ohne_Sampling",      0.71,
+   "Fold4",    "ohne_Sampling", 0.6633663,
+   "Fold5",    "ohne_Sampling", 0.7128713,
+   "Fold1", "mit_Downsampling", 0.8390805,
+   "Fold2", "mit_Downsampling", 0.8181818,
+   "Fold3", "mit_Downsampling", 0.7586207,
+   "Fold4", "mit_Downsampling", 0.8295455,
+   "Fold5", "mit_Downsampling",     0.875,
+   "Fold1",   "mit_Upsampling", 0.7192982,
+   "Fold2",   "mit_Upsampling", 0.7105263,
+   "Fold3",   "mit_Upsampling", 0.6842105,
+   "Fold4",   "mit_Upsampling", 0.7105263,
+   "Fold5",   "mit_Upsampling", 0.7017544,
+   "Fold1",       "Gewichtung", 0.6732673,
+   "Fold2",       "Gewichtung", 0.7227723,
+   "Fold3",       "Gewichtung",      0.71,
+   "Fold4",       "Gewichtung", 0.6633663,
+   "Fold5",       "Gewichtung", 0.7128713
+  )
+
+
+library(tidyverse)
+library(dlookr)
+library(emmeans)
+library(multcomp)
+library(multcompView)
+library(scales)
+
+# data summary ------------------------------------------------------------
+a.sd.lda <- a.lda %>%
+  group_by(Var) %>%
+  dlookr::describe(Val) %>%
+  ungroup()
+
+# compact letter display --------------------------------------------------
+emmcld <- lm(Val ~ Var, data = a.lda) %>%
+  emmeans(~ Var) %>%
+  cld(Letters = letters, adjust = "sidak")
+
+
+experiment <- data.frame(treatments = gl(11, 20, labels = c("dtl", "ctrl", "treat1", 
+              "treat2", "treatA2", "treatB", "treatB2",
+              "treatC", "treatD", "treatA1", "treatX")),
+              y = c(rnorm(20, 10, 5), rnorm(20, 20, 5), rnorm(20, 22, 5), rnorm(20, 24, 5),
+               rnorm(20, 35, 5), rnorm(20, 37, 5), rnorm(20, 40, 5), rnorm(20, 43, 5),
+               rnorm(20, 45, 5), rnorm(20, 60, 5), rnorm(20, 60, 5)))
+exp_tukey <- ç(exp_aov <- aov(y  ~ treatments, data = experiment))
+exp_letters1 <- multcompLetters(exp_tukey$treatments[,4])
+exp_letters1
+
+exp_letters1 %>% plot
+
+emmcld <- lm(y  ~ treatments, data = experiment) %>%
+  emmeans(~ treatments) %>%
+  cld(Letters = letters, adjust = "sidak")
+emmcld 
+
+
+library(rstatix)
+
+fit_1 <- games_howell_test(y  ~ treatments, data = experiment) 
+
+p_vals <- fit_1 %>% pull(p.adj)
+names(p_vals) <- str_c(fit_1$group1, "-", fit_1$group2)
+
+
+multcompLetters(p_vals) %>% plot
+
+foo$LetterMatrix %*% c(letters[1:6])
+
+str(foo)
+
+dif4 <- c(.1, .02, .03, 1)
+names(dif4) <- c("A-B", "A-C", "B-C", "A-D")
+(mcL4 <- multcompLetters(dif4, Letters=LETTERS))
+# Standard plot
+# }
+# NOT RUN {
+# Requires (grid)
+mcL4.1 <- plot(mcL4, label.groups=0.05)
+# Redo using "at" = list 
+plot(mcL4, label.groups=0.05, at=mcL4.1)
+
+# With bold face and larger font 
+plot(mcL4, label.groups=0.05,
+     fontsize=28, fontface="bold")
+
+# Horizontal rather than vertical 
+plot(mcL4, horizontal=TRUE, label.groups=0.05)
+# }
+# NOT RUN {
+# Same as boxes rather than letters 
+plot(mcL4, label.groups=0.05, type="b")
+plot(mcL4, horizontal=TRUE, label.groups=0.05,
+     type="b")
+
+```
+
+## Kaplan Meier Curves
+
+https://towardsdatascience.com/kaplan-meier-curves-c5768e349479
+
+https://yuzar-blog.netlify.app/posts/2021-01-03-survival-analysis-1-a-gentle-introduction-into-kaplan-meier-curves/
+
+## ANCOVA
+
+https://www.datanovia.com/en/lessons/mixed-anova-in-r/
+
+## Multiple lineare Regression
+
+https://stats.stackexchange.com/questions/232465/how-to-compare-models-on-the-basis-of-aic
+
+```{r}
+
+sim_tbl <- tibble(dog = rnorm(100, 10, 2),
+                  cat = rnorm(100, 15, 2),
+                  fox = rnorm(100, 20, 2)) %>% 
+  gather(animal, jump_length) %>% 
+  mutate(animal = as_factor(animal))
+
+lm(jump_length ~ animal, data = sim_tbl)
+
+model.matrix(jump_length ~ animal, data = sim_tbl)
+```
+
+## Schlangen Beispiel
+
+Modell matrix?
+
+## Abhänigige Daten vs. unabhänige Daten
+
+[R Package tidymodels](https://tidymodels.tidymodels.org/)
+
+[R Paket ggeffects](https://strengejacke.github.io/ggeffects/index.html)
+
+## Variable Inflation Faktor
+
+## Schlangen Beispiel
+
+## Model Matrix
+
+### Gruppenvergleiche mit `multcomp` theoretisch
+
+![](images/caution.png){fig-align="center" width="50%"}
+
+Die Teststatistiken sind miteinander korreliert.
+
+Tukey Kontrast (all-pair)
+
+```{r}
+contrMat(n = c(7, 7, 7), type = "Tukey")
+```
+
+Dunnett Kontrast (many-to-one)
+
+```{r}
+contrMat(n = c(7, 7, 7), type = "Dunnett", base = 1)
+```
+
+### Gruppenvergleiche mit `emmeans` theoretisch
+
+![](images/caution.png){fig-align="center" width="50%"}
+
+https://stats.stackexchange.com/questions/404168/multcomp-vs-emmeans-for-multiple-comparisons#:\~:text=As%20I%20understand%20it%20(e.g.,values%20and%20short%20confidence%20intervals.
+
+?emmeans::emm
+
+## Prädiktives Modell in R
+
+```{r}
+# weight_tbl <- tibble(weight = c(10.98, 12.2, 11.7, 8.32, 9.12))
+
+# predict(fit_1, newdata = weight_tbl)
+```
+
+[R Package performance](https://easystats.github.io/effectsize/articles/effectsize.html)
+
+[R Package effectsize](https://easystats.github.io/performance/index.html)
+
+## Verzerrung oder Bias
+
+Wenn ein statistischer Test ein falsches Ergebnis liefert, weil die Daten nicht die Voraussetzungen des statistischen Tests erfüllt haben.
+
+**Hundeffloh Beispiel in groß!!!** @dormann2013parametrische @hurlbert1984pseudoreplication
+
+## Robust
+
+Wir sagen, dass ein statistischer Test *robust* ist, wenn wir meinen, dass Annahmen an die Daten falsch sein können und der statistsiche Test dennoch unverzerrte Ergebnisse liefert.
+
+## Balancierte Daten
+
+Wir haben balancierte Daten vorliegen, wenn in jeder Gruppe gleich viele Beobachtungen sind.
+
+$$
+n_{dog} = n_{cat} = n_{fox}
+$$
+
+Ein unbalanziertes Design heißt, dass wir nicht in jeder Gruppe die gleiche Anzahl an Beobachtungen vorliegen haben.
+
+$$
+n_{dog} \neq n_{cat} \neq n_{fox}
+$$
+
+Wir reden von balanziertem Design und meinen dmit die Behandlungsgruppe oder den Faktor mit den zu vergleichenden Leveln. Natürlich kann es über den gesamten Datensatz Faktoren mit unterschiedlichen Belegungen an Beobachtungen geben.
+
+## Äquivalenztest -- Test auf Abwesenheit eines Effekts
+
+http://www.regorz-statistik.de/inhalte/aequivalenztest.html
+
+https://cran.rstudio.com/web/packages/TOSTER/vignettes/IntroductionToTOSTER.html
+
+https://easystats.github.io/parameters/reference/equivalence_test.lm.html
+
+## `ggpubr`
+
+```{r}
+#| message: false
+#| echo: false
+#| label: fig-anova-exp-4
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Zusammenhang von Histogramm und Densityplot an der Anzahl der Flöhe auf 39 Hunden."
+
+ggplot(data_tbl, aes(x = animal, y = jump_length, color = animal)) + 
+  geom_boxplot() +
+  ##scale_colour_manual(values = par$cbbPalette) +
+  theme(legend.position="none") +
+  theme_bw() +
+  theme(legend.position="none") +
+  ylab("") + xlab("") 
+```
+
+## Die Wichtigkeit des t-Tests
+
+$$
+\text{Teststatistik} = \cfrac{\text{Signal}}{\text{Noise}}
+$$
+
+Als Ausblick sei hier einmal die lineare Regression auf den Daten gerechnet.
+
+```{r}
+lm(jump_length ~ animal, 
+       data = data_tbl) %>% 
+  summary() 
+```
+
+Zum einen finden wir hier unseren Effekt von $8.13 - 4.74 = 3.39$ bei `animalcat` und `Estimate` sowie unsere gepoolte Varianz $s_p = `r sd_pool`$ als `Residual standard error` wieder.
+
+## Palmer Penguins
+
+[Palmer Penguins](https://allisonhorst.github.io/palmerpenguins/index.html)
+
+**Diese Seite ist eine Sammelseite für Formeln und Ideen**
+
+## Gummibärchen
+
+Die beiden Datensätze aus @sec-example-1 und @sec-example-2 sind klein. Wir schauen uns nur wenige Beobachtungen an. Du könntest sagen, dass eigentlich Statistik nicht so notwendig ist, da du ja Unterschiede oder Gleichheit schon an den Daten siehst. In dem Gummibärchendatensatz aus XX schauen wir uns sehr viel mehr Beoachtungen an. Mehrere hundert Studierende haben an dem Datensatz schon mitgewirkt, so dass der Datensatz ziemlich groß ist. So einfach lassen sich nun keine Schlüsse mehr ziehen.
+
+$$
+Pr\left(\left.\cfrac{\Delta_{y_1,\, y_2}}{s_{y_1,\,y_2} \cdot \sqrt{2/n_g}}\right| \Delta_{y_1,\,y_2}=0\right)
+$$
+
+$$
+\left[
+(\bar{y}_1-\bar{y}_2) - 
+T_{\left( 1-\tfrac{\alpha}{2} \right)} \cdot \frac {s_p}{\sqrt{n}}; \;
+(\bar{y}_1-\bar{y}_2) + 
+T_{\left( 1-\tfrac{\alpha}{2} \right)} \cdot \frac {s_p}{\sqrt{n}};
+\right]
+$$
+
+## Fischer vs. Neyman-Pearson
+
+**Wahrscheinlichkeit - Tea drinking Lady ergänzen**
+
+$$
+Pr(T|H_0)
+$$
+
+$$
+Pr(T_{calc}|H_0)
+$$
+
+$$
+Pr\left(\left.T_{calc}=\cfrac{\bar{y}_1-\bar{y}_2}{s_{y_1,\,y_2} \cdot \sqrt{2/n_g}}\right| H_0{:}\; \bar{y}_1-\bar{y}_2=0\right)
+$$
+
+$$
+Pr\left(\left.T_{calc}\right| \Delta_{y_1,\,y_2}=0\right)
+$$
+
+$$
+\text{Pr}(D | H_0)
+$$
+
+::: callout-tip
+## Prinzip des statistischen Testens III - Das 95% Konfidenzintervall
+
+Du findest auf YouTube [Prinzip des statistischen Testens III - Das 95% Konfidenzintervall]() als Video. Ich werde zwar alles nochmal hier als Text aufschreiben, aber manchmal ist das Sehen und Hören dann einfacher.
+:::
