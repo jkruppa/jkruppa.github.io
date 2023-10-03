@@ -28,7 +28,7 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
-In diesem Kapitel nutzen wir
+In diesem Kapitel nutzen wir CSH-Datei-Erweiterung ist ein Datenformat als Photoshop-Datei
 
 ```{r}
 #| message: false
@@ -62,12 +62,12 @@ Nächster Datensatz
 #| message: false
 #| warning: false
 
-temp_tbl <- read_excel("data/temperatur_salad.xlsx") %>% 
+salad_tbl <- read_excel("data/temperatur_salad.xlsx") %>% 
   clean_names() %>% 
   mutate_if(is.numeric, round, 2)
 ```
 
-`r nrow(temp_tbl)`
+`r nrow(salad_tbl)`
 
 @tbl-time-temp
 
@@ -79,12 +79,12 @@ temp_tbl <- read_excel("data/temperatur_salad.xlsx") %>%
 #| tbl-cap: "Auszug"
 #| column: page
 
-raw_temp_tbl <- temp_tbl %>% 
+raw_salad_tbl <- salad_tbl %>% 
   mutate_all(as.character)
 
-rbind(head(raw_temp_tbl , n = 4),
-      rep("...", times = ncol(raw_temp_tbl)),
-      tail(raw_temp_tbl, n = 4)) %>% 
+rbind(head(raw_salad_tbl , n = 4),
+      rep("...", times = ncol(raw_salad_tbl)),
+      tail(raw_salad_tbl, n = 4)) %>% 
   kable(align = "c", "pipe")
 ```
 
@@ -126,6 +126,8 @@ Wichtig ist, dass wir das richtige Datumsformat haben. Siehe dazu auch das Kapit
 
 [Date Formats in R](https://www.r-bloggers.com/2013/08/date-formats-in-r/)
 
+### Die CSH-Daten
+
 ```{r}
 csh_tbl <- csh_tbl %>% 
   mutate(day = as.Date(str_pad(day, 4, pad = "0", side = "left"), format = "%m%d"))
@@ -136,20 +138,30 @@ csh_tbl %>%
   head(4)
 ```
 
+### Die Salatdaten
+
 ```{r}
-#| eval: false
-time_long_tbl <- time_tbl %>% 
+salad_long_tbl <- salad_tbl %>% 
   mutate(uhrzeit = format(uhrzeit, format = "%H:%M:%S"),
          datum = format(datum, format = "%Y-%m-%d"),
          datum = ymd(datum) + hms(uhrzeit)) %>% 
-  pivot_longer(x2_messw:last_col(),
+  select(-uhrzeit) %>% 
+  pivot_longer(nord_messw:last_col(),
                names_sep = "_",
-               names_to = c("wdh", "type"),
-               values_to = "temp") %>% 
-  mutate(wdh = str_replace(wdh, "^x", ""))
+               names_to = c("location", "type"),
+               values_to = "temp") 
+```
+
+### Die Wetterstationsdaten
+
+```{r}
+station_tbl <- station_tbl %>% 
+  mutate(datum_uhrzeit = as_datetime(datum_uhrzeit))
 ```
 
 ## Visualisierung
+
+### Die CSH Daten
 
 ```{r}
 #| message: false
@@ -259,7 +271,7 @@ Wenn wir oben `n = 1000` in der Funktion `stat_smooth()` gesetzt hätten, dann h
 #| label: fig-time-csh-4
 #| fig-align: center
 #| fig-height: 5
-#| fig-width: 7
+#| fig-width: 6
 #| fig-cap: "Eigenwerte für die beiden Datensätze."
 ribbon_tbl %>% 
   pivot_longer(cols = Uelzen:Wiese,
@@ -269,6 +281,44 @@ ribbon_tbl %>%
   theme_bw() +
   scale_color_okabeito() +
   geom_point()
+```
+
+### Salat Daten
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-time-salad-1
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Eigenwerte für die beiden Datensätze."
+salad_long_tbl %>% 
+  ggplot(aes(datum, temp, color = type)) +
+  theme_bw() +
+  scale_color_okabeito() +
+  geom_line() +
+  facet_wrap(~ location)
+```
+
+### Die Wetterstationsdaten
+
+```{r}
+#| message: false
+#| eval: false
+#| echo: true
+#| warning: false
+#| label: fig-time-station-1
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Eigenwerte für die beiden Datensätze."
+station_tbl %>% 
+  ggplot(aes(datum_uhrzeit, temp_boden_durch)) +
+  theme_bw() +
+  scale_color_okabeito() +
+  geom_line() 
 ```
 
 ## Links
