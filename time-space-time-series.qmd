@@ -20,7 +20,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, janitor, conflicted)
+pacman::p_load(tidyverse, magrittr, janitor, see,
+               lubridate, conflicted)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -87,19 +88,6 @@ rbind(head(raw_temp_tbl , n = 4),
   kable(align = "c", "pipe")
 ```
 
-```{r}
-#| eval: false
-time_long_tbl <- time_tbl %>% 
-  mutate(uhrzeit = format(uhrzeit, format = "%H:%M:%S"),
-         datum = format(datum, format = "%Y-%m-%d"),
-         datum = ymd(datum) + hms(uhrzeit)) %>% 
-  pivot_longer(x2_messw:last_col(),
-               names_sep = "_",
-               names_to = c("wdh", "type"),
-               values_to = "temp") %>% 
-  mutate(wdh = str_replace(wdh, "^x", ""))
-```
-
 Nächster Datensatz
 
 ```{r}
@@ -130,6 +118,134 @@ rbind(head(raw_station_tbl , n = 4),
       rep("...", times = ncol(raw_station_tbl)),
       tail(raw_station_tbl, n = 4)) %>% 
   kable(align = "c", "pipe")
+```
+
+## Das Datumsformat
+
+Wichtig ist, dass wir das richtige Datumsformat haben. Siehe dazu auch das Kapitel [Zeit und Datum](#sec-time-date)
+
+[Date Formats in R](https://www.r-bloggers.com/2013/08/date-formats-in-r/)
+
+```{r}
+csh_tbl <- csh_tbl %>% 
+  mutate(day = as.Date(str_pad(day, 4, pad = "0", side = "left"), format = "%m%d"))
+```
+
+```{r}
+csh_tbl %>% 
+  head(4)
+```
+
+```{r}
+#| eval: false
+time_long_tbl <- time_tbl %>% 
+  mutate(uhrzeit = format(uhrzeit, format = "%H:%M:%S"),
+         datum = format(datum, format = "%Y-%m-%d"),
+         datum = ymd(datum) + hms(uhrzeit)) %>% 
+  pivot_longer(x2_messw:last_col(),
+               names_sep = "_",
+               names_to = c("wdh", "type"),
+               values_to = "temp") %>% 
+  mutate(wdh = str_replace(wdh, "^x", ""))
+```
+
+## Visualisierung
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-time-csh-1
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 7
+#| fig-cap: "Eigenwerte für die beiden Datensätze."
+
+csh_tbl %>% 
+  ggplot(aes(day, g_tm_plot, color = parzelle)) +
+  theme_bw() +
+  geom_point() +
+  stat_smooth(se = FALSE) +
+  scale_color_okabeito() 
+
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-time-csh-2
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 7
+#| fig-cap: "Eigenwerte für die beiden Datensätze."
+
+p_csh <- csh_tbl %>% 
+  ggplot() +
+  theme_bw() +
+  scale_color_okabeito() +
+  stat_smooth(aes(day, g_tm_plot, color = parzelle), se = FALSE)
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+p_csh_str <- ggplot_build(p_csh)
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+ribbon_tbl <- p_csh_str %>% 
+  pluck("data", 1) %>% 
+  as_tibble() %>% 
+  select(x, y, group) %>% 
+  mutate(group = factor(group, labels = c("Uelzen", "Wiese"))) %>% 
+  split(.$group) %>% 
+  bind_cols() %>% 
+  clean_names() %>% 
+  select(x = x_1, Uelzen = y_2, Wiese = y_5) %>%  # <1>
+  mutate(x = as_date(x, origin = lubridate::origin)) # <2>
+```
+
+1.  Die `y_2` Werte sind die Werte aus Uelzen und die `y_5` Werte von der Wiese.
+2.  Die `x`-Werte sind noch das Datum in numerischer Form aus `ggplot()`. Hier wieder zurück ins `yyyy-mm-dd` Format.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-time-csh-3
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Eigenwerte für die beiden Datensätze."
+#| fig-subcap: 
+#|   - "Tierdaten `animals_df`"
+#|   - "Kreaturendaten `std_creature_df`"
+#| layout-nrow: 1
+#| column: page
+
+p_csh + 
+  geom_ribbon(data = ribbon_tbl, aes(x = x, ymin = Wiese, ymax = Uelzen),
+                    fill = "grey", alpha = 0.4) +
+  ylim(10, 120)
+
+p_csh + 
+  geom_ribbon(data = ribbon_tbl, aes(x = x, ymin = Wiese, ymax = Uelzen),
+                    fill = "grey", alpha = 0.4) +
+  geom_point(aes(day, g_tm_plot, color = parzelle)) +
+  ylim(10, 120)
+
+```
+
+```{r}
+ribbon_tbl %>% 
+  mutate(diff = Uelzen - Wiese) %>% 
+  pull(diff) %>% 
+  sum()
 ```
 
 ## Links
