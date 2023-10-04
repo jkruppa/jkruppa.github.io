@@ -349,6 +349,68 @@ m750 %>%
 
 splits <- initial_time_split(m750, prop = 0.9)
 
+model_fit_arima_no_boost <- arima_reg() %>%
+    set_engine(engine = "auto_arima") %>%
+    fit(value ~ date, data = training(splits))
+
+# Model 3: ets ----
+model_fit_ets <- exp_smoothing() %>%
+    set_engine(engine = "ets") %>%
+    fit(value ~ date, data = training(splits))
+
+# Model 5: lm ----
+model_fit_lm <- linear_reg() %>%
+    set_engine("lm") %>%
+    fit(value ~ as.numeric(date) + factor(month(date, label = TRUE), ordered = FALSE),
+        data = training(splits))
+
+models_tbl <- modeltime_table(
+    model_fit_arima_no_boost,
+    model_fit_ets,
+    model_fit_lm
+)
+
+calibration_tbl <- models_tbl %>%
+    modeltime_calibrate(new_data = testing(splits))
+
+
+calibration_tbl %>%
+    modeltime_forecast(
+        new_data    = testing(splits),
+        actual_data = m750
+    ) %>%
+    plot_modeltime_forecast(
+      .legend_max_width = 25, # For mobile screens
+      .interactive      = interactive
+    )
+```
+
+```{r}
+calibration_tbl %>%
+    modeltime_accuracy() %>%
+    table_modeltime_accuracy(
+        .interactive = interactive
+    )
+
+```
+
+-   MAE - Mean absolute error, mae()
+-   MAPE - Mean absolute percentage error, mape()
+-   MASE - Mean absolute scaled error, mase()
+-   SMAPE - Symmetric mean absolute percentage error, smape()
+-   RMSE - Root mean squared error, rmse()
+-   RSQ - R-squared, rsq()
+
+```{r}
+refit_tbl <- calibration_tbl %>%
+    modeltime_refit(data = m750)
+
+refit_tbl %>%
+    modeltime_forecast(h = "3 years", actual_data = m750) %>%
+    plot_modeltime_forecast(
+      .legend_max_width = 25, # For mobile screens
+      .interactive      = interactive
+    )
 ```
 
 ## Links
