@@ -46,7 +46,10 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 pacman::p_load(tidyverse, magrittr, readxl, ggmosaic, 
-               janitor, see, patchwork, latex2exp)
+               janitor, see, patchwork, latex2exp,
+               conflicted)
+conflicts_prefer(dplyr::summarise)
+conflicts_prefer(dplyr::filter)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -564,11 +567,16 @@ Auf der Seite des [R Paket patchwork](https://patchwork.data-imaginist.com/artic
 
 ## Zerforschen
 
-![](images/caution.png){fig-align="center" width="50%"}
+Am Ende des Kapitels wollen wir hier nochmal Abbildungen von Postern aus der Hochschule Osnabrück nachbauen. Ich habe die Fotos so aufgenommen, dass hier nicht direkt klar wird worum es geht. Natürlich lassen sich die Poster dann wiederfinden, aber nicht alle Poster bleiben ja auch ewig hängen. Hier geht es also darum mal zu lernen, wie so Abbildungen aufgebaut sind und wie wir die Abbildungen dann in `ggplot` nachbauen können. Ich finde es immer schön hier nochmal die Abbildungen in Excel mit den wirklich *schöneren* Abbildungen aus R zu vergleichen.
 
-### Ein einfache Barplot
+::: {.callout-note collapse="true"}
+## Ein einfacher Barplot
 
-![Ursprüngliche Abbildung, die nachgebaut werden soll.](images/eda/zerforschen_barplot_simple.png){#fig-ur-barplot fig-align="center" width="80%"}
+Fangen wir mit der @fig-ur-barplot einmal an. Wir haben hier ein Säulendiagramm mit *Compact letter display* vorliegen. Daher brauchen wir eigentlich gar nicht so viele Zahlen. Für jede der vier Behandlungen jeweils einmal einen Mittelwert für die Höhe der Säule sowie einmal die Standardabweichung. Die Standardabweichung addieren und subtrahieren wir dann jeweils von dem Mittelwert und schon haben wir die Fehlerbalken.
+
+![Ursprüngliche Abbildung, die nachgebaut werden soll. Ein simples Säulendiagramm mit sehr für Farbblinde ungünstigen Farben. Es sind die Mittelwerte sowie die Standardabweichung durch die Fehlerbalken dargestellt.](images/eda/zerforschen_barplot_simple.png){#fig-ur-barplot fig-align="center" width="80%"}
+
+Als erstes brauchen wir die Daten. Die Daten habe ich mir in dem Datensatz `zerforschen_barplot_simple.xlsx` selber ausgedacht. Ich habe einfach die @fig-ur-barplot genommen und den Mittelwert abgeschätzt. Dann habe ich die vier Werte alle um den Mittelwert streuen lassen. Dabei habe ich darauf geachtet, dass die Streuung dann in der letzten Behandlung am größten ist. Da wir beim Einlesen keine Umlaute oder sonstige Leerzeichen wollen, habe ich alles sehr simple aufgeschrieben und dann in R in der Funktion `factor()` richtig über die Option `levels` sortiert und über die Option `labels` sauber beschrieben. Dann passt auch die Sortierung der $x$-Achse.
 
 ```{r}
 barplot_tbl <- read_excel("data/zerforschen_barplot_simple.xlsx") %>% 
@@ -582,6 +590,8 @@ barplot_tbl <- read_excel("data/zerforschen_barplot_simple.xlsx") %>%
 barplot_tbl 
 ```
 
+Jetzt brauchen wir noch die Mittelwerte und die Standardabweichung für jede der vier Behandlungen. Den Code kennst du schon von oben wo wir die Barplots für die Sprungweiten der Hunde- und Katzenflöhe gebaut haben. Hier habe ich dann den Code entsprechen der Daten `barplot_tbl` angepasst. Wir haben ja als Gruppierungsvariabel `trt` vorliegen und wollen die Mittelwerte und die Standardabweichung für die Variable `nitrat` berechnen.
+
 ```{r}
 stat_tbl <- barplot_tbl %>% 
   group_by(trt) %>% 
@@ -590,47 +600,66 @@ stat_tbl <- barplot_tbl %>%
 stat_tbl
 ```
 
+Und dann haben wir auch schon die @fig-ggplot-zerforschen-barplot-simple erstellt. Ja vielleicht passen die Standardabweichungen nicht so richtig, da könnte man nochmal an den Daten speilen und die Werte solange ändern, bis es besser passt. Du hast aber jetzt eine Idee, wie der Aufbau funktioniert.
+
 ```{r}
-#| fig-width: 5
-#| fig-height: 4
-#| fig-cap: "In `{ggplot}` nachgebaute Abbildung."
+#| message: false
+#| echo: true
+#| warning: false
 #| label: fig-ggplot-zerforschen-barplot-simple
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "Die Abbildung des Säulendiagramms in `ggplot` nachgebaut."
+
 ggplot(data = stat_tbl, aes(x = trt, y = mean,
                             fill = trt)) +
   theme_bw() +
-  geom_bar(stat = "identity") +
-  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd),
-                width = 0.2) +
+  geom_bar(stat = "identity") + # <1>
+  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd), #<2>
+                width = 0.2) + #<2>
   labs(x = "", 
        y = "Nitrat-Konzentration \n im Tannensaft [mg/L]") +
   ylim(0, 250) +
-  theme(legend.position = "none") + # top, bottom
-  scale_fill_okabeito() +
+  theme(legend.position = "none") + 
+  scale_fill_okabeito() + #<3>
   annotate("text", 
            x = c(1.05, 2.05, 3.05, 4.05), 
            y = stat_tbl$mean + stat_tbl$sd + 8, 
            label = c("b", "b", "a", "c"))
 ```
 
+1.  Hier werden die Säulen des Säulendiagramms erstellt.
+2.  Hier werden die Fehlerbalken erstellt. Die Option `width` steuert wie breit die Fehlerbalken sind.
+3.  Hier wird eine Farbpalette für farbblinde Personen geladen.
+
+Am Ende kannst du dann folgenden Code noch hinter deine Abbildung ausführen um dann deine Abbildung als `*.png`-Datei zu speichern. Dann hast du die Abbildung super nachgebaut und sie sieht auch wirklich besser aus.
+
 ```{r}
 #| eval: false
 ggsave("my_ggplot_barplot.png", width = 5, height = 3)
 ```
+:::
 
-### Eine nicht-lineare Regression
+::: {.callout-note collapse="true"}
+## Eine nicht-lineare Regression
 
-https://stackoverflow.com/questions/67034852/create-line-and-curve-line-user-defined-values
+![](images/caution.png){fig-align="center" width="50%"}
 
-![Ursprüngliche Abbildung, die nachgebaut werden soll.](images/eda/zerforschen_regression.jpeg){#fig-ur-barplot fig-align="center" width="80%"}
+@fig-ur-regression
+
+![Ursprüngliche Abbildung, die nachgebaut werden soll.](images/eda/zerforschen_regression.jpeg){#fig-ur-regression fig-align="center" width="80%"}
 
 ```{r}
 func_tbl <- tibble(iodine = c(0, 0.25, 0.5, 0.75, 1, 2),
                    content = c(0, 100, 150, 200, 300, 400))
 ```
 
+Das `\(x){}` ist die Kurzschreibweise `function(x){}`
+
 ```{r}
-ki_func <- function(x) {-104 * x^2 + 445 * x}
-kio3_func <- function(x) {-117 * x^2 + 374 * x}
+ki_func <- \(x) {-104 * x^2 + 445 * x}
+kio3_func <- \(x) {-117 * x^2 + 374 * x}
 ```
 
 ```{r}
@@ -666,6 +695,16 @@ regression_tbl
 
 ```{r}
 #| message: false
+#| warning: false
+stat_tbl <- regression_tbl %>% 
+  group_by(type, iodine) %>% 
+  summarise(mean = mean(content),
+            sd = sd(content))
+stat_tbl
+```
+
+```{r}
+#| message: false
 #| echo: true
 #| warning: false
 #| label: fig-ggplot-zerforschen-regression-2
@@ -674,14 +713,54 @@ regression_tbl
 #| fig-width: 6
 #| fig-cap: "In `{ggplot}` nachgebaute Abbildung."
 
-
-ggplot(data = regression_tbl, aes(x = iodine, y = content,
-                                  color = type)) +
+ggplot(data = stat_tbl, aes(x = iodine, y = mean,
+                            color = type)) +
   theme_bw() +
   geom_line(stat = 'function', fun = ki_func, color = cbbPalette[2], linetype = 'dashed') +
   geom_line(stat = 'function', fun = kio3_func, color = cbbPalette[3], linetype = 'dashed') +
   geom_point() +
-  scale_color_okabeito()
+  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd), 
+                width = 0.03) +
+  annotate("rect", xmin = 0, xmax = 2, ymin = 50, ymax = 100,
+           alpha = 0.2, fill = cbbPalette[6]) +
+  scale_y_continuous(breaks = c(0, 150, 300, 450, 600), limits = c(0, 600)) +
+  scale_color_okabeito() +
+  annotate("text", x = 1.525, y = 150, label = "Target range", hjust = 0,
+           size = 5) + 
+  geom_curve(aes(x = 1.5, y = 150, xend = 1.25, yend = 105), 
+             colour = "#555555", 
+             size = 0.5, 
+             curvature = 0.2,
+             arrow = arrow(length = unit(0.03, "npc"))) +
+  theme(legend.position = c(0.11, 0.8),
+        legend.box.background = element_rect(color = "black"),
+        legend.box.margin = margin(t = 1, l = 1)) +
+  labs(color = "Iodine")
 ```
+
+Und dann zum Abschluss nochmal die [nicht-lineare Regression](#sec-non-linear) um zu schauen welche Koeffizienten der Regression wir erhalten würden.
+
+::: panel-tabset
+## Nicht-lineare Regression für $KI$
+
+```{r}
+nls(content ~ b1 * iodine^2 + b2 * iodine, data = filter(regression_tbl, type == "KI"), 
+    start = c(b1 = 1, b2 = 1)) %>% 
+  parameters::model_parameters() %>% 
+  select(Parameter, Coefficient)
+```
+
+## Nicht-lineare Regression für $KIO_3$
+
+```{r}
+nls(content ~ b1 * iodine^2 + b2 * iodine, data = filter(regression_tbl, type == "KIO3"), 
+    start = c(b1 = 1, b2 = 1)) %>% 
+  parameters::model_parameters() %>% 
+  select(Parameter, Coefficient)
+```
+:::
+
+Und dann wären wir schon fertig
+:::
 
 ## Referenzen {.unnumbered}
