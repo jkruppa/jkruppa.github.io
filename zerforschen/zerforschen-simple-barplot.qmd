@@ -1,0 +1,67 @@
+Fangen wir mit der @fig-ur-barplot einmal an. Wir haben hier ein Säulendiagramm mit *Compact letter display* vorliegen. Daher brauchen wir eigentlich gar nicht so viele Zahlen. Für jede der vier Behandlungen jeweils einmal einen Mittelwert für die Höhe der Säule sowie einmal die Standardabweichung. Die Standardabweichung addieren und subtrahieren wir dann jeweils von dem Mittelwert und schon haben wir die Fehlerbalken.
+
+![Ursprüngliche Abbildung, die nachgebaut werden soll. Ein simples Säulendiagramm mit sehr für Farbblinde ungünstigen Farben. Es sind die Mittelwerte sowie die Standardabweichung durch die Fehlerbalken dargestellt.](images/eda/zerforschen_barplot_simple.png){#fig-ur-barplot fig-align="center" width="80%"}
+
+Als erstes brauchen wir die Daten. Die Daten habe ich mir in dem Datensatz `zerforschen_barplot_simple.xlsx` selber ausgedacht. Ich habe einfach die @fig-ur-barplot genommen und den Mittelwert abgeschätzt. Dann habe ich die vier Werte alle um den Mittelwert streuen lassen. Dabei habe ich darauf geachtet, dass die Streuung dann in der letzten Behandlung am größten ist. Da wir beim Einlesen keine Umlaute oder sonstige Leerzeichen wollen, habe ich alles sehr simple aufgeschrieben und dann in R in der Funktion `factor()` richtig über die Option `levels` sortiert und über die Option `labels` sauber beschrieben. Dann passt auch die Sortierung der $x$-Achse.
+
+```{r}
+barplot_tbl <- read_excel("data/zerforschen_barplot_simple.xlsx") %>% 
+  mutate(trt = factor(trt, 
+                      levels = c("water", "rqflex", 
+                                 "nitra", "laqua"),
+                      labels = c("Wasserdestilation",
+                                 "RQflex Nitra",
+                                 "Nitrachek",
+                                 "Laqua Nitrat")))
+barplot_tbl 
+```
+
+Jetzt brauchen wir noch die Mittelwerte und die Standardabweichung für jede der vier Behandlungen. Den Code kennst du schon von oben wo wir die Barplots für die Sprungweiten der Hunde- und Katzenflöhe gebaut haben. Hier habe ich dann den Code entsprechen der Daten `barplot_tbl` angepasst. Wir haben ja als Gruppierungsvariabel `trt` vorliegen und wollen die Mittelwerte und die Standardabweichung für die Variable `nitrat` berechnen.
+
+```{r}
+stat_tbl <- barplot_tbl %>% 
+  group_by(trt) %>% 
+  summarise(mean = mean(nitrat),
+            sd = sd(nitrat))
+stat_tbl
+```
+
+Und dann haben wir auch schon die @fig-ggplot-zerforschen-barplot-simple erstellt. Ja vielleicht passen die Standardabweichungen nicht so richtig, da könnte man nochmal an den Daten speilen und die Werte solange ändern, bis es besser passt. Du hast aber jetzt eine Idee, wie der Aufbau funktioniert.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-zerforschen-barplot-simple
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "Die Abbildung des Säulendiagramms in `ggplot` nachgebaut."
+
+ggplot(data = stat_tbl, aes(x = trt, y = mean,
+                            fill = trt)) +
+  theme_bw() +
+  geom_bar(stat = "identity") + # <1>
+  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd), #<2>
+                width = 0.2) + #<2>
+  labs(x = "", 
+       y = "Nitrat-Konzentration \n im Tannensaft [mg/L]") +
+  ylim(0, 250) +
+  theme(legend.position = "none") + 
+  scale_fill_okabeito() + #<3>
+  annotate("text", 
+           x = c(1.05, 2.05, 3.05, 4.05), 
+           y = stat_tbl$mean + stat_tbl$sd + 8, 
+           label = c("b", "b", "a", "c"))
+```
+
+1.  Hier werden die Säulen des Säulendiagramms erstellt.
+2.  Hier werden die Fehlerbalken erstellt. Die Option `width` steuert wie breit die Fehlerbalken sind.
+3.  Hier wird eine Farbpalette für farbblinde Personen geladen.
+
+Am Ende kannst du dann folgenden Code noch hinter deine Abbildung ausführen um dann deine Abbildung als `*.png`-Datei zu speichern. Dann hast du die Abbildung super nachgebaut und sie sieht auch wirklich besser aus.
+
+```{r}
+#| eval: false
+ggsave("my_ggplot_barplot.png", width = 5, height = 3)
+```
