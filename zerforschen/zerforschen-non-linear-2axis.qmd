@@ -1,0 +1,84 @@
+![Ursprüngliche Abbildung, die nachgebaut werden soll. Zwei nicht-lineare Regession](images/eda/zerforschen_regression_02.png){#fig-ur-regression-02 fig-align="center" width="80%"}
+
+[Specify a secondary axis](https://ggplot2.tidyverse.org/reference/sec_axis.html)
+
+```{r}
+tree_tbl <- tibble(ph = c(3.8, 4.3, 4.4, 4.8, 5.2, 5.3, 5.4, 5.6, 5.8),
+                   boden = c(12.1, 6.0, 5.0, 1, 1, 0.8, 0, 0, 0),
+                   nadel = c(12.0, 7.0, 12, 10, 5, 6, 5, 8, 6))
+```
+
+::: panel-tabset
+## Nicht-lineare Regression für Boden
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+
+fit <- nls(boden ~ b1 * exp(ph*b2), data = tree_tbl, 
+           start = c(b1 = 1, b2 = 0)) 
+
+fit %>% 
+  parameters::model_parameters() %>% 
+  select(Parameter, Coefficient)
+
+performance::r2(fit)
+```
+
+## Nicht-lineare Regression für Nadeln
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+
+fit <- nls(nadel ~ b1 * exp(ph*b2), data = tree_tbl, 
+           start = c(b1 = 1, b2 = 0)) 
+
+fit %>% 
+  parameters::model_parameters() %>% 
+  select(Parameter, Coefficient)
+
+performance::r2(fit)
+```
+:::
+
+```{r}
+nadel_func <- \(x) {49.20*exp(-0.38*x)}
+boden_func <- \(x) {10496.50*exp(-1.77*x)}
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-zerforschen-regression-2-1
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "Einmal die komplexe Abbildung der nicht-linearen Regression in `ggplot` nachgebaut. Am Ende wurde es dann doch noch eine Legende und keien Beschriftung."
+
+ggplot() +
+  theme_bw() +
+  geom_point(data = tree_tbl, aes(x = ph, y = boden), color = cbbPalette[7]) +
+  geom_point(data = tree_tbl, aes(x = ph, y = nadel), color = cbbPalette[4]) +
+  geom_function(fun = boden_func, color = cbbPalette[7]) +
+  geom_function(fun = nadel_func, color = cbbPalette[4]) +
+
+  scale_y_continuous(sec.axis = sec_axis(~ . * 600/15, name = "Al-Gehalt Nadeln\n [mg/kg TM]",
+                                         breaks = c(0, 150, 300, 450, 600)),
+                     limits = c(0, 15),
+                     breaks = c(0, 3, 6, 9, 12, 15),
+                     name = "Al-Gehalt Boden\n [mg/kg TM]") +
+  xlim(3.5, 6) +
+  annotate("text", x = c(4.25, 4.5), y = c(2, 12.5), hjust = "left",
+           label = c("Boden", "Nadeln"), color = cbbPalette[c(7, 4)], size = 6) +
+  labs(x = "pH-Wert des Bodens") +
+  annotate("text", x = 3.75, y = 0.4, hjust = "left",
+           label = TeX(r"($y = 10496.50 \cdot e^{-1.77\cdot x}\; R^2 = 0.974$)"), 
+           color = cbbPalette[7]) + 
+  annotate("text", x = 4.25, y = 11, hjust = "left", 
+           label = TeX(r"($y = 49.20 \cdot e^{-0.38\cdot x}\; R^2 = 0.543$)"), 
+           color = cbbPalette[4]) 
+```
