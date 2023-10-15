@@ -1,0 +1,189 @@
+![Ursprüngliche Abbildung, die nachgebaut werden soll. Zwei nicht-lineare .](images/eda/zerforschen_regression_linear.jpg){#fig-ur-regression-03 fig-align="center" width="100%"}
+
+```{r}
+regression_tbl <- read_excel("data/zerforschen_regression_linear.xlsx") %>% 
+  mutate(type = factor(type, labels = c("Basil", "Oregano")))
+regression_tbl 
+```
+
+::: panel-tabset
+## Lineare Regression für Basilikum
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+
+fit <- lm(unwashed ~ washed, data = filter(regression_tbl, type == "Basil"))
+
+fit %>% 
+  parameters::model_parameters() %>% 
+  select(Parameter, Coefficient)
+
+performance::r2(fit)
+```
+
+## Lineare Regression für Oregano
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+
+fit <- lm(unwashed ~ washed, data = filter(regression_tbl, type == "Oregano"))
+
+fit %>% 
+  parameters::model_parameters() %>% 
+  select(Parameter, Coefficient)
+
+performance::r2(fit)
+```
+:::
+
+```{r}
+basil_func <- \(x){2.10 + 1.00 * x}
+oregano_func <- \(x){8.17 + 0.99 * x}
+```
+
+::: panel-tabset
+## Zwei Abbildungen
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-zerforschen-regression-3a
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Einmal die komplexe Abbildung der nicht-linearen Regression in `ggplot` nachgebaut. Am Ende wurde es dann doch noch eine Legende und keine Beschriftung."
+
+filter(regression_tbl, type == "Basil") %>% 
+  ggplot(aes(x = washed, y = unwashed, color = type)) +
+  theme_bw() +
+  geom_function(fun = basil_func, color = cbbPalette[2], linetype = 'dashed') + 
+  geom_point(color = cbbPalette[2]) +
+  facet_wrap(~ type) +
+  scale_x_continuous(name = TeX(r"(Iodine content in \textbf{unwashed} herbs $[\mu g\, l \, (100 g\, FM)^{-1}]$)"),
+                     breaks = seq(0, 600, 150)) +
+  scale_y_continuous(name = TeX(r"(Iodine content in \textbf{washed} herbs $[\mu g\, l \, (100 g\, FM)^{-1}]$)"),
+                     breaks = seq(0, 600, 150)) +
+  theme(legend.position = "none") +
+  annotate("text", x = 150, y = 100, hjust = "left", color = cbbPalette[2], 
+           label = TeX(r"($y = 2.10 + 1.00 \cdot x;\; R^2 = 0.99$)")) 
+ 
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-zerforschen-regression-3b
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Einmal die komplexe Abbildung der nicht-linearen Regression in `ggplot` nachgebaut. Am Ende wurde es dann doch noch eine Legende und keine Beschriftung."
+
+filter(regression_tbl, type == "Oregano") %>% 
+  ggplot(aes(x = washed, y = unwashed, color = type)) +
+  theme_bw() +
+  geom_function(fun = oregano_func, color = cbbPalette[3], linetype = 'dashed') + 
+  geom_point(color = cbbPalette[3]) +
+  facet_wrap(~ type) +
+  scale_x_continuous(name = TeX(r"(Iodine content in \textbf{unwashed} herbs $[\mu g\, l \, (100 g\, FM)^{-1}]$)"),
+                     breaks = seq(0, 900, 150)) +
+  scale_y_continuous(name = TeX(r"(Iodine content in \textbf{washed} herbs $[\mu g\, l \, (100 g\, FM)^{-1}]$)"),
+                     breaks = seq(0, 900, 150)) +
+  theme(legend.position = "none") +
+  annotate("text", x = 150, y = 100, hjust = "left", color = cbbPalette[3], 
+           label = TeX(r"($y = 8.17 + 0.99 \cdot x;\; R^2 = 0.99$)")) 
+ 
+```
+
+## Mit `facet_wrap()`
+
+Wir brauchen hier das R Paket `grid`
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-zerforschen-regression-3c
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "Einmal die komplexe Abbildung der nicht-linearen Regression in `ggplot` nachgebaut. Am Ende wurde es dann doch noch eine Legende und keine Beschriftung."
+
+ggplot(data = regression_tbl, aes(x = washed, y = unwashed,
+                                  color = type)) +
+  theme_bw() +
+  scale_color_okabeito() +
+  geom_function(data = filter(regression_tbl, type == "Basil"),
+                fun = basil_func, color = cbbPalette[2], linetype = 'dashed') + 
+  geom_function(data = filter(regression_tbl, type == "Oregano"),
+                fun = oregano_func, color = cbbPalette[3], linetype = 'dashed') + 
+  geom_point() +
+  facet_wrap(~ type) +
+  scale_x_continuous(name = TeX(r"(Iodine content in \textbf{unwashed} herbs $[\mu g\, l \, (100 g\, FM)^{-1}]$)"),
+                     breaks = seq(0, 900, 150)) +
+  scale_y_continuous(name = TeX(r"(Iodine content in \textbf{washed} herbs $[\mu g\, l \, (100 g\, FM)^{-1}]$)"),
+                     breaks = seq(0, 900, 150)) +
+  theme(legend.position = "none") 
+ 
+grid::grid.text(TeX(r"($y = 2.10 + 1.00 \cdot x;\; R^2 = 0.99$)"), 
+                x = 0.2, y = 0.2, just = "left", gp = grid::gpar(col = cbbPalette[2]))
+grid::grid.text(TeX(r"($y = 8.17 + 0.99 \cdot x;\; R^2 = 0.99$)"), 
+                x = 0.65, y = 0.2, just = "left", gp = grid::gpar(col = cbbPalette[3]))
+```
+
+## Mit `patchwork`
+
+```{r}
+p_template <- ggplot(regression_tbl, aes(x = washed, y = unwashed,
+                                         color = type)) +
+  theme_bw() +
+  geom_point() +
+  scale_x_continuous(name = "",
+                     breaks = seq(0, 900, 150), limits = c(0, 900)) +
+  scale_y_continuous(name = TeX(r"(Iodine content in \textbf{washed} herbs $[\mu g\, l \, (100 g\, FM)^{-1}]$)"),
+                     breaks = seq(0, 900, 150), limits = c(0, 900)) +
+  theme(legend.position = "none")
+```
+
+```{r}
+p_basil <- p_template %+%
+  filter(regression_tbl, type == "Basil") +
+  scale_color_okabeito(order = 1) +
+  geom_function(fun = basil_func, color = cbbPalette[2], 
+                linetype = 'dashed') +
+  annotate("text", x = 150, y = 100, hjust = "left", color = cbbPalette[2], 
+           label = TeX(r"($y = 2.10 + 1.00 \cdot x;\; R^2 = 0.99$)")) +
+  ggtitle("Basil")
+```
+
+```{r}
+p_oregano <- p_template %+%
+  filter(regression_tbl, type == "Oregano") +
+  scale_color_okabeito(order = 2) +
+  geom_function(fun = oregano_func, color = cbbPalette[3], 
+                linetype = 'dashed') +
+  theme(axis.title.y = element_blank()) +
+  annotate("text", x = 150, y = 100, hjust = "left", color = cbbPalette[3], 
+           label = TeX(r"($y = 8.17 + 0.99 \cdot x;\; R^2 = 0.99$)")) +
+  ggtitle("Oregano")
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-zerforschen-regression-3d
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "Einmal die komplexe Abbildung der nicht-linearen Regression in `ggplot` nachgebaut. Am Ende wurde es dann doch noch eine Legende und keine Beschriftung."
+p_basil + p_oregano
+grid::grid.draw(grid::textGrob(TeX(r"(Iodine content in \textbf{unwashed} herbs $[\mu g\, l \, (100 g\, FM)^{-1}]$)"), 
+                               y = 0.04))
+```
+:::
