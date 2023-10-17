@@ -27,6 +27,9 @@ stat_tbl
 
 Und dann geht es auch schon los. Wir müssen am Anfang einmal `scale_x_discrete()` setzen, damit wir gleich den Zielbereich ganz hinten zeichnen können. Sonst ist der blaue Bereich im Vordergrund. Dann färben wir auch mal die Balken anders ein. Muss ja auch mal sein. Auch nutzen wir die Funktion `geom_text()` um das *compact letter display* gut zu setzten. Die $y$-Position berechnet sich aus dem Mittelwert plus Standardabweichung innerhalb des `geom_text()`. Leider haben wir nur einen Balken bei der Kontrolle, deshalb hier nachträglich der Buchstabe mit `annotate()`.
 
+::: panel-tabset
+## Barplot
+
 ```{r}
 #| message: false
 #| echo: true
@@ -66,6 +69,59 @@ ggplot(data = stat_tbl, aes(x = time, y = mean,
             position = position_dodge(width = 0.9), vjust = -0.25) + 
   annotate("text", x = 0.77, y = 15, label = "a") 
 ```
+
+## Boxplot
+
+Für die Boxplost brauchen wir dann noch ein Objekt mehr. Um das *compacte letter dislay* an die richtige Position zu setzen brauchen wir noch eine $y$-Position. Ich nehme hier dann das 90% Quantile. Das 90% Quantile sollte dann auf jeden Fall über die Schnurrhaare raus reichen. Wir nutzen dann den Datensatz `letter_pos_tbl` in dem `geom_text()` um die Buchstaben richtig zu setzen.
+
+```{r}
+#| message: false
+#| warning: false
+letter_pos_tbl <- barplot_tbl %>% 
+  group_by(time, type) %>% 
+  summarise(quant_90 = quantile(iodine, probs = c(0.90)))
+letter_pos_tbl
+```
+
+Und dann müssen wir nur noch das `geom_bar()` und `geom_errorbar()` entfernen und durch das `geom_boxplot()` ersetzen. Dann haben wir auch schon unsere wunderbaren Boxplots. Das Problem sind natürlich die wenigen Beobachtungen, deshalb sehen die Boxplots teilweise etwas wild aus. Beachte auch das wir die Orginaldaten nutzen und nicht die zusammengefassten Daten.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-zerforschen-barplot-2fac-target-box
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "Die Abbildung des Säulendiagramms in `ggplot` als Boxplot nachgebaut. Wir nutzen das `geom_text()` um noch besser unser *compact letter display* zu setzen, dafür müssen wir usn aber nochmal ein Positionsdatensatz bauen."
+
+ggplot(data = barplot_tbl, aes(x = time, y = iodine,
+                               fill = type)) +
+  theme_bw() +
+  scale_x_discrete() +
+  annotate("rect", xmin = 0.25, xmax = 5.75, ymin = 50, ymax = 100, 
+           alpha = 0.2, fill = "darkblue") +                        
+  annotate("text", x = 0.5, y = 75, hjust = "left", label = "Target area") + 
+  geom_boxplot(position = position_dodge(width = 0.9, preserve = "single")) +
+  scale_fill_manual(name = "Type", values = c("darkgreen", "darkblue")) + 
+  theme(legend.position = c(0.1, 0.8),
+        legend.title = element_blank(), 
+        legend.spacing.y = unit(0, "mm"), 
+        panel.border = element_rect(colour = "black", fill=NA),
+        axis.text = element_text(colour = 1, size = 12),
+        legend.background = element_blank(),
+        legend.box.background = element_rect(colour = "black")) +
+  labs(x = "Time of application [time of day]",
+       y =  expression(Iodine~content~"["*mu*g~I~100*g^'-1'~f*.*m*.*"]")) +
+  scale_y_continuous(breaks = c(0, 50, 100, 150, 200),
+                     limits = c(0, 200)) +
+  geom_text(data = letter_pos_tbl, 
+            aes(label = c("", "b", "bc", "bc", "d", "bc", "d", "bc", "c"), 
+                y = quant_90 + 5),  
+            position = position_dodge(width = 0.9), vjust = -0.25) + 
+  annotate("text", x = 0.77, y = 15, label = "a") 
+```
+:::
 
 Am Ende kannst du dann folgenden Code noch hinter deinen `ggplot` Code ausführen um dann deine Abbildung als `*.png`-Datei zu speichern. Dann hast du die Abbildung super nachgebaut und sie sieht auch wirklich besser aus.
 
