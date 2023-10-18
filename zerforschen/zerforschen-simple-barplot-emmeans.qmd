@@ -1,0 +1,109 @@
+In diesem Zerforschenbeispiel wollen wir uns einen einfaktoriellen Barplot oder Säulendiagramm anschauen. Daher fangen wir mit der folgenden Abbildung einmal an. Wir haben hier ein Säulendiagramm mit *Compact letter display* vorliegen. Daher brauchen wir eigentlich gar nicht so viele Zahlen. Für jede der vier Behandlungen jeweils einmal einen Mittelwert für die Höhe der Säule sowie einmal die Standardabweichung. Die Standardabweichung addieren und subtrahieren wir dann jeweils von dem Mittelwert und schon haben wir die Fehlerbalken. Für eine detaillierte Betrachtung der Erstellung der Abbildung schauen einmal in das Kapitel zum [Barplot oder Balkendiagramm oder Säulendiagramm](#sec-eda-barplot).
+
+![Ursprüngliche Abbildung, die nachgebaut werden soll. Ein simples Säulendiagramm mit sehr für Farbblinde ungünstigen Farben. Es sind die Mittelwerte sowie die Standardabweichung durch die Fehlerbalken dargestellt.](images/eda/zerforschen_barplot_simple.png){#fig-ur-barplot fig-align="center" width="100%"}
+
+Als erstes brauchen wir die Daten. Die Daten habe ich mir in dem Datensatz `zerforschen_barplot_simple.xlsx` selber ausgedacht. Ich habe einfach die obige Abbildung genommen und den Mittelwert abgeschätzt. Dann habe ich die vier Werte alle um den Mittelwert streuen lassen. Dabei habe ich darauf geachtet, dass die Streuung dann in der letzten Behandlung am größten ist.
+
+```{r}
+barplot_tbl <- read_excel("data/zerforschen_barplot_simple.xlsx") %>% 
+  mutate(trt = factor(trt, 
+                      levels = c("water", "rqflex", 
+                                 "nitra", "laqua"),
+                      labels = c("Wasserdestilation",
+                                 "RQflex Nitra",
+                                 "Nitrachek",
+                                 "Laqua Nitrat")))
+barplot_tbl 
+```
+
+::: {.panel-tabset group="zerforschen-emmeans-barplot-1fac"}
+## Varianzhomogenität
+
+```{r}
+emmeans_homogen_tbl <- lm(nitrat ~ trt, data = barplot_tbl) %>%
+  emmeans(~ trt) %>%
+  cld(Letters = letters, adjust = "none") %>% 
+  as_tibble() %>% 
+  mutate(.group = str_trim(.group))
+emmeans_homogen_tbl
+```
+
+## Varianzheterogenität
+
+```{r}
+emmeans_hetrogen_tbl <- gls(nitrat ~ trt, data = barplot_tbl, 
+                            weights = varIdent(form =  ~ 1 | trt))%>%
+  emmeans(~ trt) %>%
+  cld(Letters = letters, adjust = "none") %>% 
+  as_tibble() %>% 
+  mutate(.group = str_trim(.group))
+emmeans_hetrogen_tbl
+```
+:::
+
+Und dann haben wir auch schon die @fig-ggplot-zerforschen-barplot-simple erstellt. Ja vielleicht passen die Standardabweichungen nicht so richtig, da könnte man nochmal an den Daten speilen und die Werte solange ändern, bis es besser passt. Du hast aber jetzt eine Idee, wie der Aufbau funktioniert.
+
+$$
+SE = \cfrac{s}{\sqrt{n}} 
+$$
+
+Dann einfach $SE$ mal der $\sqrt{n}$ rechnen.
+
+::: {.panel-tabset group="zerforschen-emmeans-barplot-1fac"}
+## Varianzhomogenität
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-zerforschen-barplot-simple-emmeans-1
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "Die Abbildung des Säulendiagramms in `ggplot` nachgebaut."
+
+ggplot(data = emmeans_homogen_tbl, aes(x = trt, y = emmean, fill = trt)) +
+  theme_bw() +
+  geom_bar(stat = "identity") + 
+  geom_errorbar(aes(ymin = emmean-SE, ymax = emmean+SE), 
+                width = 0.2) + 
+  labs(x = "", 
+       y = "Nitrat-Konzentration \n im Tannensaft [mg/L]") +
+  ylim(0, 250) +
+  theme(legend.position = "none") + 
+  scale_fill_okabeito() + 
+  geom_text(aes(label = .group, y = emmean + SE + 10))
+```
+
+## Varianzheterogenität
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-zerforschen-barplot-simple-emmeans-2
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "Die Abbildung des Säulendiagramms in `ggplot` nachgebaut."
+
+ggplot(data = emmeans_hetrogen_tbl, aes(x = trt, y = emmean, fill = trt)) +
+  theme_bw() +
+  geom_bar(stat = "identity") + 
+  geom_errorbar(aes(ymin = emmean-SE, ymax = emmean+SE), 
+                width = 0.2) + 
+  labs(x = "", 
+       y = "Nitrat-Konzentration \n im Tannensaft [mg/L]") +
+  ylim(0, 250) +
+  theme(legend.position = "none") + 
+  scale_fill_okabeito() + 
+  geom_text(aes(label = .group, y = emmean + SE + 10))
+```
+:::
+
+Am Ende kannst du dann folgenden Code noch hinter deinen `ggplot` Code ausführen um dann deine Abbildung als `*.png`-Datei zu speichern. Dann hast du die Abbildung super nachgebaut und sie sieht auch wirklich besser aus.
+
+```{r}
+#| eval: false
+ggsave("my_ggplot_barplot.png", width = 5, height = 3)
+```

@@ -1,0 +1,75 @@
+In diesem Zerforschenbeispiel wollen wir uns einen zweifaktoriellen Barplot oder Säulendiagramm anschauen. Wir haben hier ein Säulendiagramm mit *compact letter display* vorliegen. Daher brauchen wir eigentlich gar nicht so viele Zahlen. Für jede der vier Zeitpunkte und der Kontrolle jeweils einmal einen Mittelwert für die Höhe der Säule sowie einmal die Standardabweichung. Die Standardabweichung addieren und subtrahieren wir dann jeweils von dem Mittelwert und schon haben wir die Fehlerbalken. Für eine detaillierte Betrachtung der Erstellung der Abbildung schauen einmal in das Kapitel zum [Barplot oder Balkendiagramm oder Säulendiagramm](#sec-eda-barplot).
+
+![Ursprüngliche Abbildung, die nachgebaut werden soll. Ein Barplot mit zwei Faktoren Zeit und die Iodine Form.](images/eda/zerforschen_barplot_2fac.png){#fig-ur-barplot-02 fig-align="center" width="100%"}
+
+Als erstes brauchen wir die Daten. Die Daten habe ich mir in dem Datensatz `zerforschen_barplot_2fac_target.xlsx` selber ausgedacht. Ich habe einfach die obige Abbildung genommen und den Mittelwert abgeschätzt. Dann habe ich die drei Werte alle um den Mittelwert streuen lassen.
+
+```{r}
+barplot_tbl <- read_excel("data/zerforschen_barplot_2fac_target.xlsx") %>% 
+  mutate(time = factor(time, 
+                       levels = c("ctrl", "7", "11", "15", "19"),
+                       labels = c("Contr.", "07:00", "11:00", "15:00", "19:00")),
+         type = as_factor(type))
+barplot_tbl 
+```
+
+Jetzt brauchen wir noch die Mittelwerte und die Standardabweichung für jede der vier Behandlungen. Hier nur kurz, den Code kennst du schon aus anderen Zerforschenbeispielen zu den Barplots.
+
+```{r}
+#| message: false
+#| warning: false
+stat_tbl <- barplot_tbl %>% 
+  group_by(time, type) %>% 
+  summarise(mean = mean(iodine),
+            sd = sd(iodine))
+stat_tbl
+```
+
+Und dann geht es auch schon los. Wir müssen am Anfang einmal `scale_x_discrete()` setzen, damit wir gleich den Zielbereich ganz hinten zeichnen können. Sonst ist der blaue Bereich im Vordergrund. Dann färben wir auch mal die Balken anders ein. Muss ja auch mal sein. Auch nutzen wir die Funktion `geom_text()` um das *compact letter display* gut zu setzten. Die $y$-Position berechnet sich aus dem Mittelwert plus Standardabweichung innerhalb des `geom_text()`. Leider haben wir nur einen Balken bei der Kontrolle, deshalb hier nachträglich der Buchstabe mit `annotate()`.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-zerforschen-barplot-2fac-target
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "Die Abbildung des Säulendiagramms in `ggplot` nachgebaut. Wir nutzen das `geom_text()` um noch besser unser *compact letter display* zu setzen."
+
+ggplot(data = stat_tbl, aes(x = time, y = mean,
+                               fill = type)) +
+  theme_bw() +
+  scale_x_discrete() +
+  annotate("rect", xmin = 0.25, xmax = 5.75, ymin = 50, ymax = 100, 
+           alpha = 0.2, fill = "darkblue") +                        
+  annotate("text", x = 0.5, y = 75, hjust = "left", label = "Target area") + 
+  geom_bar(stat = "identity", 
+           position = position_dodge(width = 0.9, preserve = "single")) +
+  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd),
+                width = 0.2,  
+                position = position_dodge(width = 0.9, preserve = "single")) +
+  scale_fill_manual(name = "Type", values = c("darkgreen", "darkblue")) + 
+  theme(legend.position = c(0.1, 0.8),
+        legend.title = element_blank(), 
+        legend.spacing.y = unit(0, "mm"), 
+        panel.border = element_rect(colour = "black", fill=NA),
+        axis.text = element_text(colour = 1, size = 12),
+        legend.background = element_blank(),
+        legend.box.background = element_rect(colour = "black")) +
+  labs(x = "Time of application [time of day]",
+       y =  expression(Iodine~content~"["*mu*g~I~100*g^'-1'~f*.*m*.*"]")) +
+  scale_y_continuous(breaks = c(0, 50, 100, 150, 200),
+                     limits = c(0, 200)) +
+  geom_text(aes(label = c("", "b", "bc", "bc", "d", "bc", "d", "bc", "c"), 
+                y = mean + sd + 2),  
+            position = position_dodge(width = 0.9), vjust = -0.25) + 
+  annotate("text", x = 0.77, y = 15, label = "a") 
+```
+
+Am Ende kannst du dann folgenden Code noch hinter deinen `ggplot` Code ausführen um dann deine Abbildung als `*.png`-Datei zu speichern. Dann hast du die Abbildung super nachgebaut und sie sieht auch wirklich besser aus.
+
+```{r}
+#| eval: false
+ggsave("my_ggplot_barplot.png", width = 5, height = 3)
+```
