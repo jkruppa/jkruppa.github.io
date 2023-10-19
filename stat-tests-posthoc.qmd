@@ -251,89 +251,6 @@ p + stat_pvalue_manual(stat_test_obj, label = "p.adj", y.position = c(10, 13, 16
 
 ```
 
-## Gruppenvergleich mit dem `multcomp` Paket {#sec-posthoc-multcomp}
-
-Wir drehen hier einmal die Erklärung um. Wir machen erst die Anwendung in R und sollte dich dann noch mehr über die statistischen Hintergründe der Funktionen interessieren, folgt ein Abschnitt noch zur Theorie. Du wirst die Funktionen aus `multcomp` vermutlich in deiner Abschlussarbeit brauchen. Häufig werden multiple Gruppenvergleiche in Abschlussarbeiten gerechnet.
-
-### Gruppenvergleiche mit `multcomp` in R
-
-::: column-margin
-Die Ausgabe von `multcomp` können über die Funktion `tidy()` aufgeräumt werden. Mehr dazu unter der [Hilfeseite von `tidy`() zu multcomp](https://broom.tidymodels.org/reference/tidy.glht.html).
-:::
-
-Als erstes brauchen wir ein lineares Modell für die Verwendung von `multcomp`. Normalerweise verenden wir das gleiche Modell, was wir schon in der ANOVA verwendet haben. Wir nutzen hier ein simples lineares Modell mit nur einem Faktor. Im Prinzip kann das Modell auch größer sein, davon schauen wir uns dann später im Verlauf des Kapitels noch welche an.
-
-```{r}
-fit_1 <- lm(jump_length ~ animal, data = fac1_tbl)
-```
-
-Wir haben das Objeckt `fit_1` mit der Funktion `lm()` erstellt. Im Modell sind jetzt alle Mittelwerte und die entsprechenden Varianzen geschätzt worden. Mit `summary(fit_1)` kannst du dir gerne das Modell auch nochmal anschauen.
-
-::: column-margin
-Wenn wir keinen *all-pair* Vergleich rechnen wollen, dann können wir auch einen *many-to-one* Vergleich mit dem `Dunnett` Kontrast rechnen.
-:::
-
-Im Anschluß nutzen wir die Funktion `glht()` um den multiplen vergleich zu rechnen. Als erstes musst du wissen, dass wenn wir *alle* Vergleiche rechnen wollen, wir einen *all-pair* Vergleich rechnen. In der Statistik heißt dieser Typ von Vergleich `Tukey`. Wir wollen jetzt als für den Faktor `animal` einen multiplen `Tukey`-Vergleich rechnen. Nichts anders sagt `mcp(animal = "Tukey")` aus, dabei steht `mcp` für *multiple comparison procedure*. Mit dem hinteren Teil der Funktion weiß jetzt die Funktion `glht()` was gerechnet werden soll. Wir müssen jetzt der Funktion nur noch mitgeben auf was der multiple vergleich gerehcnet werden soll, mit dem Objekt `fit_1`. Wir speichern die Ausgabe der Funktion in `comp_1_obj`.
-
-```{r}
-comp_1_obj <- glht(fit_1, linfct = mcp(animal = "Tukey")) 
-```
-
-Mit dem Objekt `comp_1_fit` können wir noch nicht soviel anfangen. Der Inhalt ist etwas durcheinander und wir wollen noch die Konfidenzintervalle haben. Daher pipen wir `comp_1_fit` erstmal in die Funktion `tidy()` und alssen mit der Option `conf.int = TRUE` die simultanen 95% Konfidenzintervalle berechnen. Dann nutzen wir die Funktion `select()` um die wichtigen Spalten zu selektieren. Abschließend mutieren wir noch alle numerischen Spalten in dem wir auf die dritte Kommastelle runden. Wir speichern alles in das Objekt `res_1_obj`.
-
-```{r}
-#| message: false
-res_1_obj <- comp_1_obj %>% 
-  tidy(conf.int = TRUE) %>% 
-  select(contrast, estimate, adj.p.value, 
-         conf.low, conf.high) %>% 
-  mutate_if(is.numeric, round, 3)
-```
-
-Wir lassen uns dann den Inhalt von dem Objekt `res_1_obj` ausgeben.
-
-```{r}
-res_1_obj
-```
-
-Wir erhalten ein `tibble()` mit fünf Spalten. Zum einen den `contrast`, der den Vergleich widerspiegelt. Wir vergleichen im ersten Kontrast die Katzen- mit den Hundeflöhen, wobei wir `cat - dog` rechnen. Also wirklich der Mittelwert der Sprungweite der Katzenflöhe *minus* den Mittelwert der Sprungweite der Hundeflöhe rechnen. In der Spalte `estimate` sehen wir den Mittelwertsunterschied. Der Mittelwertsunterschied ist in der *Richtung* nicht ohne den Kontrast zu interpretieren. Danach erhalten wir die adjustierten $p$-Wert sowie die simultanen 95% Konfidenzintervalle.
-
-Wir können die Nullhypothese ablehnen für den Vergleiche`cat - dog` mit einem p-Wert von $0.006$ sowie für den Vergleich $fox - cat$ mit einem p-Wert von $0.001$. Beide p-Werte liegen unter dem Signifikanzniveau von $\alpha$ gleich 5%.
-
-Wenn es die unadjustierten $p$-Werte sein sollen, dann müssen wir nochmal das `glht`-Objekt in die Funktion `summary()` stecken und dann die Option `test = adjusted("none")` wählen. Dann können wir weiter machen wie gewohnt.
-
-```{r}
-#| message: false
-#| warning: false
-summary(comp_1_obj, test = adjusted("none")) %>% 
-  tidy() 
-```
-
-In @fig-multcomp-1 sind die simultanen und damit adjustierten 95% Konfidenzintervalle nochmal in einem `ggplot` visualisiert. Die Kontraste und die Position hängen von dem Faktorlevel ab. Mit der Funktion `factor()` kannst du die Sortierung der Level einem Faktor ändern und somit auch Position auf den Achsen.
-
-```{r}
-#| message: false
-#| warning: false
-#| echo: true
-#| fig-align: center
-#| fig-height: 3
-#| fig-width: 5
-#| fig-cap: Simultane 95% Konfidenzintervalle für den paarweisen Vergleich der Sprungweiten in [cm] der Hunde-, Katzen- und Fuchsflöhe.
-#| label: fig-multcomp-1
-
-  ggplot(res_1_obj, aes(contrast, y=estimate, 
-                        ymin=conf.low, ymax=conf.high)) +
-    geom_hline(yintercept=0, linetype="11", colour="grey60") +
-    geom_errorbar(width=0.1) + 
-    geom_point() +
-    coord_flip() +
-    theme_classic()
-```
-
-Die Entscheidung gegen die Nullhypothese anhand der simultanen 95% Konfidenzintervalle ist inhaltlich gleich, wie die Entscheidung anhand der p-Werte. Wir entscheiden gegen die Nullhypothese, wenn die 0 nicht mit im Konfindenzintervall enthalten ist. Wir wählen hier die 0 zur Entscheidung gegen die Nullhypothese, weil wir einen Mittelwertsvergleich rechnen.
-
-Für den Vergleich `fox -dog` ist die 0 im 95% Konfidenzintervall, wir können daher die Nullhypothese nicht ablehnen. Das 95% Konfidenzintervall ist nicht signifikant. Bei dem Vergleich `fox - cat` sowie dem Vergleich `cat - dog` ist jeweils die 0 nicht im 95% Konfidenzintervall enthalten. Beide 95% Konfidenzintervalle sind signifikant, wir können die Nullhypothese ablehnen.
-
 ## Gruppenvergleich mit dem `emmeans` Paket {#sec-posthoc-emmeans}
 
 Im Folgenden wollen wir uns mit einem anderen R Paket beschäftigen was auch multiple Vergleiche rechnen kann. In diesem Kapitel nutzen wir das R Paket `emmeans`. Im Prinzip kann `emmeans` das Gleiche wir das R Paket `multcomp`. Beide Pakete rechnen dir einen multipen Vergleich. Das Paket `emmeans` kann noch mit *nested comparisons* umgehen. Deshlb hier nochmal die Vorstellung von `emmeans`. Du kannst aber für eine simple Auswertung mit nur einem Faktor beide Pakete verwenden.
@@ -548,7 +465,90 @@ Besonders mit den 95% Konfiendezintervallen sehen wir nochmal den Interaktionsef
     theme_classic()
 ```
 
-## Gruppenvergleich unter Varianzheterogenität
+## Gruppenvergleich mit dem `multcomp` Paket {#sec-posthoc-multcomp}
+
+Wir drehen hier einmal die Erklärung um. Wir machen erst die Anwendung in R und sollte dich dann noch mehr über die statistischen Hintergründe der Funktionen interessieren, folgt ein Abschnitt noch zur Theorie. Du wirst die Funktionen aus `multcomp` vermutlich in deiner Abschlussarbeit brauchen. Häufig werden multiple Gruppenvergleiche in Abschlussarbeiten gerechnet.
+
+### Gruppenvergleiche mit `multcomp` in R
+
+::: column-margin
+Die Ausgabe von `multcomp` können über die Funktion `tidy()` aufgeräumt werden. Mehr dazu unter der [Hilfeseite von `tidy`() zu multcomp](https://broom.tidymodels.org/reference/tidy.glht.html).
+:::
+
+Als erstes brauchen wir ein lineares Modell für die Verwendung von `multcomp`. Normalerweise verenden wir das gleiche Modell, was wir schon in der ANOVA verwendet haben. Wir nutzen hier ein simples lineares Modell mit nur einem Faktor. Im Prinzip kann das Modell auch größer sein, davon schauen wir uns dann später im Verlauf des Kapitels noch welche an.
+
+```{r}
+fit_1 <- lm(jump_length ~ animal, data = fac1_tbl)
+```
+
+Wir haben das Objeckt `fit_1` mit der Funktion `lm()` erstellt. Im Modell sind jetzt alle Mittelwerte und die entsprechenden Varianzen geschätzt worden. Mit `summary(fit_1)` kannst du dir gerne das Modell auch nochmal anschauen.
+
+::: column-margin
+Wenn wir keinen *all-pair* Vergleich rechnen wollen, dann können wir auch einen *many-to-one* Vergleich mit dem `Dunnett` Kontrast rechnen.
+:::
+
+Im Anschluß nutzen wir die Funktion `glht()` um den multiplen vergleich zu rechnen. Als erstes musst du wissen, dass wenn wir *alle* Vergleiche rechnen wollen, wir einen *all-pair* Vergleich rechnen. In der Statistik heißt dieser Typ von Vergleich `Tukey`. Wir wollen jetzt als für den Faktor `animal` einen multiplen `Tukey`-Vergleich rechnen. Nichts anders sagt `mcp(animal = "Tukey")` aus, dabei steht `mcp` für *multiple comparison procedure*. Mit dem hinteren Teil der Funktion weiß jetzt die Funktion `glht()` was gerechnet werden soll. Wir müssen jetzt der Funktion nur noch mitgeben auf was der multiple vergleich gerehcnet werden soll, mit dem Objekt `fit_1`. Wir speichern die Ausgabe der Funktion in `comp_1_obj`.
+
+```{r}
+comp_1_obj <- glht(fit_1, linfct = mcp(animal = "Tukey")) 
+```
+
+Mit dem Objekt `comp_1_fit` können wir noch nicht soviel anfangen. Der Inhalt ist etwas durcheinander und wir wollen noch die Konfidenzintervalle haben. Daher pipen wir `comp_1_fit` erstmal in die Funktion `tidy()` und alssen mit der Option `conf.int = TRUE` die simultanen 95% Konfidenzintervalle berechnen. Dann nutzen wir die Funktion `select()` um die wichtigen Spalten zu selektieren. Abschließend mutieren wir noch alle numerischen Spalten in dem wir auf die dritte Kommastelle runden. Wir speichern alles in das Objekt `res_1_obj`.
+
+```{r}
+#| message: false
+res_1_obj <- comp_1_obj %>% 
+  tidy(conf.int = TRUE) %>% 
+  select(contrast, estimate, adj.p.value, 
+         conf.low, conf.high) %>% 
+  mutate_if(is.numeric, round, 3)
+```
+
+Wir lassen uns dann den Inhalt von dem Objekt `res_1_obj` ausgeben.
+
+```{r}
+res_1_obj
+```
+
+Wir erhalten ein `tibble()` mit fünf Spalten. Zum einen den `contrast`, der den Vergleich widerspiegelt. Wir vergleichen im ersten Kontrast die Katzen- mit den Hundeflöhen, wobei wir `cat - dog` rechnen. Also wirklich der Mittelwert der Sprungweite der Katzenflöhe *minus* den Mittelwert der Sprungweite der Hundeflöhe rechnen. In der Spalte `estimate` sehen wir den Mittelwertsunterschied. Der Mittelwertsunterschied ist in der *Richtung* nicht ohne den Kontrast zu interpretieren. Danach erhalten wir die adjustierten $p$-Wert sowie die simultanen 95% Konfidenzintervalle.
+
+Wir können die Nullhypothese ablehnen für den Vergleiche`cat - dog` mit einem p-Wert von $0.006$ sowie für den Vergleich $fox - cat$ mit einem p-Wert von $0.001$. Beide p-Werte liegen unter dem Signifikanzniveau von $\alpha$ gleich 5%.
+
+Wenn es die unadjustierten $p$-Werte sein sollen, dann müssen wir nochmal das `glht`-Objekt in die Funktion `summary()` stecken und dann die Option `test = adjusted("none")` wählen. Dann können wir weiter machen wie gewohnt.
+
+```{r}
+#| message: false
+#| warning: false
+summary(comp_1_obj, test = adjusted("none")) %>% 
+  tidy() 
+```
+
+In @fig-multcomp-1 sind die simultanen und damit adjustierten 95% Konfidenzintervalle nochmal in einem `ggplot` visualisiert. Die Kontraste und die Position hängen von dem Faktorlevel ab. Mit der Funktion `factor()` kannst du die Sortierung der Level einem Faktor ändern und somit auch Position auf den Achsen.
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 5
+#| fig-cap: Simultane 95% Konfidenzintervalle für den paarweisen Vergleich der Sprungweiten in [cm] der Hunde-, Katzen- und Fuchsflöhe.
+#| label: fig-multcomp-1
+
+  ggplot(res_1_obj, aes(contrast, y=estimate, 
+                        ymin=conf.low, ymax=conf.high)) +
+    geom_hline(yintercept=0, linetype="11", colour="grey60") +
+    geom_errorbar(width=0.1) + 
+    geom_point() +
+    coord_flip() +
+    theme_classic()
+```
+
+Die Entscheidung gegen die Nullhypothese anhand der simultanen 95% Konfidenzintervalle ist inhaltlich gleich, wie die Entscheidung anhand der p-Werte. Wir entscheiden gegen die Nullhypothese, wenn die 0 nicht mit im Konfindenzintervall enthalten ist. Wir wählen hier die 0 zur Entscheidung gegen die Nullhypothese, weil wir einen Mittelwertsvergleich rechnen.
+
+Für den Vergleich `fox -dog` ist die 0 im 95% Konfidenzintervall, wir können daher die Nullhypothese nicht ablehnen. Das 95% Konfidenzintervall ist nicht signifikant. Bei dem Vergleich `fox - cat` sowie dem Vergleich `cat - dog` ist jeweils die 0 nicht im 95% Konfidenzintervall enthalten. Beide 95% Konfidenzintervalle sind signifikant, wir können die Nullhypothese ablehnen.
+
+## Gruppenvergleich unter Varianzheterogenität {#sec-posthoc-var-heterogen}
 
 Bis jetzt sind wir von Varianzhomogenität über alle Gruppen in unserer Behandlung ausgegangen. Oder aber konkret auf unser Beispiel, die Tierarten haben alle die gleiche Varianz. Jetzt gibt es aber häufiger mal den Fall, da können oder wollen wir nicht an Varianzhomogenität über alle Gruppen glauben. Deshalb gibt es hier noch Alternativen, von denen ich ein paar Vorstellen werde.
 
@@ -772,6 +772,67 @@ pairwise.t.test(fac1_tbl$jump_length, fac1_tbl$animal,
 
 Als Ergebnis erhalten wir, dass Hund- und Fuchsflöhe gleich weit springen, beide teilen sich den gleichen Buchstaben. Katzenflöhe springen unterschiedlich zu Hunden- und Fuchsflöhen. Das Vorgehen ändert sich dann nicht, wenn wir eine andere Funktion wie `pairwise.wilcox.test()` nehmen.
 
+### ... für das Paket `emmeans`
+
+In dem Paket `emmeans` ist das *compact letter display* ebenfalls implementiert und wir müssen nicht die Funktion `multcompLetters()` nutzen. Durch die direkte Implementierung ist es etwas einfacher sich das *compact letter display* anzeigen zu lassen. Das Problem ist dann später sich die Buchstaben zu extrahieren um die @fig-boxplot-cld-3 zu ergänzen. Wir nutzen in `emmeans` die Funktion `cld()` um das *compact letter display* zu erstellen.
+
+```{r}
+emmeans_cld <- lm(rsp  ~ trt, data = data_tbl) %>%
+  emmeans(~ trt) %>%
+  cld(Letters = letters, adjust = "bonferroni")
+```
+
+Wir erhalten dann die etwas besser sortierte Ausgabe für die Behandlungen wieder.
+
+```{r}
+emmeans_cld 
+```
+
+Wie die Ausgabe von `cld()` richtig anmerkt, können *compact letter display* irreführend sein weil sie eben **Nicht**-Unterschiede anstatt von signifikanten Unterschieden anzeigen. Zum Anderen sehen wir aber auch, dass wir 36 statistische Tests gerechnet haben und somit zu einem Signifikanzniveau von $\cfrac{\alpha}{k} = \cfrac{0.05}{36} \approx 0.0014$ testen. Wir brauchen also schon sehr große Unterschiede oder aber eine sehr kleine Streuung um hier signifikante Effekte nachweisen zu können.
+
+In @tbl-mean-to-letter-emmeans sehen wir das Ergebnis des *compact letter display* nochmal mit den Mittelwerten der Behandlungslevel zusammen dargestellt. Wir sehen wieder, dass sich `pos_crtl` von allen anderen Behandlungen unterscheidet, deshalb hat nur die Behandlung `pos_crtl` den Buchstaben `a`. Die Mittelwerte vom `neg_ctrl`, `treat_A` und `treat_B` sind nahezu gleich, also damit nicht signifikant. Deshalb erhalten diese Behandlungslevel ein `b`. Wir gehen so alle Vergleiche einmal durch.
+
+| Behandlung | Mittelwert |     |     |     |     |     |     |
+|:----------:|:----------:|:---:|:---:|:---:|:---:|:---:|:---:|
+|  pos_crtl  |     10     |  a  |     |     |     |     |     |
+|  neg_ctrl  |     20     |     |  b  |     |     |     |     |
+|  treat_A   |     22     |     |  b  |     |     |     |     |
+|  treat_B   |     24     |     |  b  |     |     |     |     |
+|  treat_C   |     35     |     |     |  c  |     |     |     |
+|  treat_D   |     37     |     |     |  c  |  d  |     |     |
+|  treat_E   |     40     |     |     |     |  d  |  e  |     |
+|  treat_F   |     43     |     |     |     |     |  e  |     |
+|  treat_G   |     45     |     |     |     |     |     |  f  |
+
+: Kombination der Level der Behandlungen und deren Mittelwerte zur Generieung sowie dem *compact letter display* generiert aus den adjustierten $p$-Werten aus `emmeans`. Gleiche Buchstaben bedeuten *kein* signifikanter Unterschied. {#tbl-mean-to-letter-emmeans}
+
+Abschließend können wir die Buchstaben aus dem *compact letter display* noch in die @fig-boxplot-cld-3 ergänzen. Hier müssen wir etwas mehr machen um die Buchstaben aus dem Objekt `emmeans_cld` zu bekommen. Du kannst dann noch die y-Position anpassen wenn du möchtest.
+
+```{r}
+#| message: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: Boxplot der Beispieldaten zusammen mit den *compact letter display*.
+#| label: fig-boxplot-cld-3
+
+letters_tbl <- emmeans_cld %>% 
+  tidy %>% 
+  select(trt, label = .group) %>% 
+  mutate(rsp = 0)
+
+ggplot(data_tbl, aes(x = trt, y = rsp, 
+                     fill = trt)) +
+  theme_bw() +
+  geom_boxplot() +
+  scale_fill_okabeito() +
+  geom_jitter(width = 0.15, alpha = 0.5) + 
+  geom_text(data = letters_tbl, 
+            aes(x = trt , y = rsp, label = label)) +
+  theme(legend.position = "none")
+```
+
 ### ... für das Paket `multcomp`
 
 Wir schauen uns zuerst einmal die Implementierung des *compact letter display* in dem Paket `multcomp` an. Wir nutzen die Funktion `multcompLetters()` aus dem Paket `multcompView` um uns das *compact letter display* wiedergeben zu lassen. Davor müssen wir noch einige Schritte an Sortierung und Umbenennung durchführen. Das hat den Grund, dass die Funktion `multcompLetters()` *nur* einen benannten Vektor mit $p$-Werten akzeptiert. Das heist wir müssen aus der Funktion `glht()` die adjustierten $p$-Werte extrahieren und dann einen Vektor der Vergleiche bzw. Kontraste in der Form `A-B` bauen. Also ohne Leerzeichen und in der Beschreibung der Level der Behandlung `trt`. Die Funktion `pull()` erlaubt uns einen Spalte als Vektor aus einem `tibble()` zu ziehen und dann nach der Spalte `contrast` zu benennen.
@@ -833,67 +894,6 @@ Wir können dann die Buchstaben auch in den Boxplot ergaänzen. Die y-Position k
 
 letters_tbl <- multcomp_cld$Letters %>% 
   enframe("trt", "label") %>% 
-  mutate(rsp = 0)
-
-ggplot(data_tbl, aes(x = trt, y = rsp, 
-                     fill = trt)) +
-  theme_bw() +
-  geom_boxplot() +
-  scale_fill_okabeito() +
-  geom_jitter(width = 0.15, alpha = 0.5) + 
-  geom_text(data = letters_tbl, 
-            aes(x = trt , y = rsp, label = label)) +
-  theme(legend.position = "none")
-```
-
-### ... für das Paket `emmeans`
-
-In dem Paket `emmeans` ist das *compact letter display* ebenfalls implementiert und wir müssen nicht die Funktion `multcompLetters()` nutzen. Durch die direkte Implementierung ist es etwas einfacher sich das *compact letter display* anzeigen zu lassen. Das Problem ist dann später sich die Buchstaben zu extrahieren um die @fig-boxplot-cld-3 zu ergänzen. Wir nutzen in `emmeans` die Funktion `cld()` um das *compact letter display* zu erstellen.
-
-```{r}
-emmeans_cld <- lm(rsp  ~ trt, data = data_tbl) %>%
-  emmeans(~ trt) %>%
-  cld(Letters = letters, adjust = "bonferroni")
-```
-
-Wir erhalten dann die etwas besser sortierte Ausgabe für die Behandlungen wieder.
-
-```{r}
-emmeans_cld 
-```
-
-Wie die Ausgabe von `cld()` richtig anmerkt, können *compact letter display* irreführend sein weil sie eben **Nicht**-Unterschiede anstatt von signifikanten Unterschieden anzeigen. Zum Anderen sehen wir aber auch, dass wir 36 statistische Tests gerechnet haben und somit zu einem Signifikanzniveau von $\cfrac{\alpha}{k} = \cfrac{0.05}{36} \approx 0.0014$ testen. Wir brauchen also schon sehr große Unterschiede oder aber eine sehr kleine Streuung um hier signifikante Effekte nachweisen zu können.
-
-In @tbl-mean-to-letter-emmeans sehen wir das Ergebnis des *compact letter display* nochmal mit den Mittelwerten der Behandlungslevel zusammen dargestellt. Wir sehen wieder, dass sich `pos_crtl` von allen anderen Behandlungen unterscheidet, deshalb hat nur die Behandlung `pos_crtl` den Buchstaben `a`. Die Mittelwerte vom `neg_ctrl`, `treat_A` und `treat_B` sind nahezu gleich, also damit nicht signifikant. Deshalb erhalten diese Behandlungslevel ein `b`. Wir gehen so alle Vergleiche einmal durch.
-
-| Behandlung | Mittelwert |     |     |     |     |     |     |
-|:----------:|:----------:|:---:|:---:|:---:|:---:|:---:|:---:|
-|  pos_crtl  |     10     |  a  |     |     |     |     |     |
-|  neg_ctrl  |     20     |     |  b  |     |     |     |     |
-|  treat_A   |     22     |     |  b  |     |     |     |     |
-|  treat_B   |     24     |     |  b  |     |     |     |     |
-|  treat_C   |     35     |     |     |  c  |     |     |     |
-|  treat_D   |     37     |     |     |  c  |  d  |     |     |
-|  treat_E   |     40     |     |     |     |  d  |  e  |     |
-|  treat_F   |     43     |     |     |     |     |  e  |     |
-|  treat_G   |     45     |     |     |     |     |     |  f  |
-
-: Kombination der Level der Behandlungen und deren Mittelwerte zur Generieung sowie dem *compact letter display* generiert aus den adjustierten $p$-Werten aus `emmeans`. Gleiche Buchstaben bedeuten *kein* signifikanter Unterschied. {#tbl-mean-to-letter-emmeans}
-
-Abschließend können wir die Buchstaben aus dem *compact letter display* noch in die @fig-boxplot-cld-3 ergänzen. Hier müssen wir etwas mehr machen um die Buchstaben aus dem Objekt `emmeans_cld` zu bekommen. Du kannst dann noch die y-Position anpassen wenn du möchtest.
-
-```{r}
-#| message: false
-#| echo: true
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 6
-#| fig-cap: Boxplot der Beispieldaten zusammen mit den *compact letter display*.
-#| label: fig-boxplot-cld-3
-
-letters_tbl <- emmeans_cld %>% 
-  tidy %>% 
-  select(trt, label = .group) %>% 
   mutate(rsp = 0)
 
 ggplot(data_tbl, aes(x = trt, y = rsp, 

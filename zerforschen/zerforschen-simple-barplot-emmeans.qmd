@@ -42,25 +42,41 @@ emmeans_homogen_tbl
 
 In dem Objekt `emmeans_homogen_tbl` ist jetzt alles enthalten für unsere Barplots mit dem *compact letter display*. Wie dir vielleicht auffällt sind alle Standardfehler und damit alle Standardabweichungen für alle Gruppen gleich, das war ja auch unsere Annahme mit der Varianzhomogenität.
 
-## Varianzheterogenität
+## Varianzheterogenität (`gls`)
 
-Hier gehen wir nicht weiter auf die Funktionen ein, bitte schaue dann einmal in dem Abschnitt zu [Gruppenvergleich mit dem `emmeans` Paket](#sec-posthoc-emmeans). Wir entfernen aber noch die Leerzeichen bei den Buchstaben mit der Funktion `str_trim()`.
+Hier gehen wir nicht weiter auf die Funktionen ein, bitte schaue dann einmal in dem Abschnitt zu [Gruppenvergleich mit dem `emmeans` Paket](#sec-posthoc-emmeans) und natürlich in den Abschnitt zu dem [Gruppenvergleich unter Varianzheterogenität](#sec-posthoc-var-heterogen). Wir entfernen aber noch die Leerzeichen bei den Buchstaben mit der Funktion `str_trim()`.
 
 ```{r}
-emmeans_hetrogen_tbl <- gls(nitrat ~ trt, data = barplot_tbl, 
-                            weights = varIdent(form =  ~ 1 | trt))%>%
+emmeans_hetrogen_gls_tbl <- gls(nitrat ~ trt, data = barplot_tbl, 
+                            weights = varIdent(form =  ~ 1 | trt)) %>%
   emmeans(~ trt) %>%
   cld(Letters = letters, adjust = "none") %>% 
   as_tibble() %>% 
   mutate(.group = str_trim(.group),
          sd = SE * sqrt(4)) 
-emmeans_hetrogen_tbl
+emmeans_hetrogen_gls_tbl
 ```
 
-In dem Objekt `emmeans_hetrogen_tbl` ist jetzt alles enthalten für unsere Barplots mit dem *compact letter display*. In diesem Fall hier sind die Standardfehler und damit auch die Standardabweichungen nicht alle gleich, wir haben ja für jede Gruppe eine eigene Standardabweichung angenommen. Die Varianzen sollten ja auch heterogen sein.
+In dem Objekt `emmeans_hetrogen_gls_tbl` ist jetzt alles enthalten für unsere Barplots mit dem *compact letter display*. In diesem Fall hier sind die Standardfehler und damit auch die Standardabweichungen nicht alle gleich, wir haben ja für jede Gruppe eine eigene Standardabweichung angenommen. Die Varianzen sollten ja auch heterogen sein.
+
+## Varianzheterogenität (`vcovHAC`)
+
+Hier gehen wir nicht weiter auf die Funktionen ein, bitte schaue dann einmal in dem Abschnitt zu [Gruppenvergleich mit dem `emmeans` Paket](#sec-posthoc-emmeans) und natürlich in den Abschnitt zu dem [Gruppenvergleich unter Varianzheterogenität](#sec-posthoc-var-heterogen). Wir entfernen aber noch die Leerzeichen bei den Buchstaben mit der Funktion `str_trim()`.
+
+```{r}
+emmeans_hetrogen_vcov_tbl <- lm(nitrat ~ trt, data = barplot_tbl) %>%
+  emmeans(~ trt, vcov. = sandwich::vcovHAC) %>%
+  cld(Letters = letters, adjust = "none") %>% 
+  as_tibble() %>% 
+  mutate(.group = str_trim(.group),
+         sd = SE * sqrt(4)) 
+emmeans_hetrogen_vcov_tbl
+```
+
+In dem Objekt `emmeans_hetrogen_vcov_tbl` ist jetzt alles enthalten für unsere Barplots mit dem *compact letter display*. In diesem Fall hier sind die Standardfehler und damit auch die Standardabweichungen nicht alle gleich, wir haben ja für jede Gruppe eine eigene Standardabweichung angenommen. Die Varianzen sollten ja auch heterogen sein.
 :::
 
-Und dann haben wir auch schon die Abbildungen hier erstellt. Ja vielleicht passen die Standardabweichungen nicht so richtig, da könnte man nochmal an den Daten spielen und die Werte solange ändern, bis es besser passt. Du hast aber jetzt eine Idee, wie der Aufbau funktioniert. Die beiden Tabs zeigen dir dann die Abbildungen für die beiden Annahmen der Varianzhomogenität oder Varianzheterogenität. Der Code ist der gleiche für beide Abbildungen, die Daten `emmeans_homogen_tbl` oder `emmeans_hetrogen_tbl` sind das Ausschlaggebende.
+Und dann haben wir auch schon die Abbildungen hier erstellt. Ja vielleicht passen die Standardabweichungen nicht so richtig, da könnte man nochmal an den Daten spielen und die Werte solange ändern, bis es besser passt. Du hast aber jetzt eine Idee, wie der Aufbau funktioniert. Die beiden Tabs zeigen dir dann die Abbildungen für die beiden Annahmen der Varianzhomogenität oder Varianzheterogenität. Der Code ist der gleiche für die drei Abbildungen, die Daten `emmeans_homogen_tbl` oder `emmeans_hetrogen_gls_tbl` ober `emmeans_hetrogen_vcov_tbl` sind das Ausschlaggebende.
 
 ::: {.panel-tabset group="zerforschen-emmeans-barplot-1fac"}
 ## Varianzhomogenität
@@ -88,7 +104,7 @@ ggplot(data = emmeans_homogen_tbl, aes(x = trt, y = emmean, fill = trt)) +
   geom_text(aes(label = .group, y = emmean + sd + 10))
 ```
 
-## Varianzheterogenität
+## Varianzheterogenität (`gls`)
 
 ```{r}
 #| message: false
@@ -98,9 +114,34 @@ ggplot(data = emmeans_homogen_tbl, aes(x = trt, y = emmean, fill = trt)) +
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 5
-#| fig-cap: "Die Abbildung des Säulendiagramms in `ggplot` nachgebaut mit den Informationen aus der Funktion `emmeans()`. Das *compact letter display* wird dann über das *geom_text()* gesetzt."
+#| fig-cap: "Die Abbildung des Säulendiagramms in `ggplot` nachgebaut mit den Informationen aus der Funktion `emmeans()`. Das *compact letter display* wird dann über das *geom_text()* gesetzt. Die Varianzheterogenität nach der Funktion `gls()` im obigen Modell berücksichtigt."
 
-ggplot(data = emmeans_hetrogen_tbl, aes(x = trt, y = emmean, fill = trt)) +
+ggplot(data = emmeans_hetrogen_gls_tbl, aes(x = trt, y = emmean, fill = trt)) +
+  theme_bw() +
+  geom_bar(stat = "identity") + 
+  geom_errorbar(aes(ymin = emmean-sd, ymax = emmean+sd), 
+                width = 0.2) + 
+  labs(x = "", 
+       y = "Nitrat-Konzentration \n im Tannensaft [mg/L]") +
+  ylim(0, 250) +
+  theme(legend.position = "none") + 
+  scale_fill_okabeito() + 
+  geom_text(aes(label = .group, y = emmean + sd + 10))
+```
+
+## Varianzheterogenität (`vcovHAC`)
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-zerforschen-barplot-simple-emmeans-3
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "Die Abbildung des Säulendiagramms in `ggplot` nachgebaut mit den Informationen aus der Funktion `emmeans()`. Das *compact letter display* wird dann über das *geom_text()* gesetzt. Die Varianzheterogenität nach der Funktion `sandwich::vcovHAC` im obigen Modell berücksichtigt."
+
+ggplot(data = emmeans_hetrogen_vcov_tbl, aes(x = trt, y = emmean, fill = trt)) +
   theme_bw() +
   geom_bar(stat = "identity") + 
   geom_errorbar(aes(ymin = emmean-sd, ymax = emmean+sd), 
