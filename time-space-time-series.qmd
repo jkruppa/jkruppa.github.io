@@ -21,7 +21,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, janitor, see,
-               lubridate, conflicted)
+               lubridate, plotly, conflicted)
 conflicts_prefer(dplyr::filter)
 ```
 
@@ -74,7 +74,7 @@ In der @tbl-time-temp siehst du einmal die `r nrow(salad_tbl)` automatisch erfas
 #| message: false
 #| warning: false
 #| label: tbl-time-temp
-#| tbl-cap: "Auszug"
+#| tbl-cap: "Auszug aus den Daten zur auromatischen Erfassung von Klimadaten im Feld für Kopfsalat."
 #| column: page
 
 raw_salad_tbl <- salad_tbl %>% 
@@ -86,7 +86,7 @@ rbind(head(raw_salad_tbl , n = 4),
   kable(align = "c", "pipe")
 ```
 
-Am Ende wollen wir uns dann nochmal Daten einer Wetterstation in Hagebüchen an. Auch hier haben wir wieder sehr viele Daten vorliegen und wir müssen uns überlegen, welche der Daten wir nutzen wollen.
+Am Ende wollen wir uns dann nochmal Daten einer Wetterstation in Hagebüchen an. Auch hier haben wir wieder sehr viele Daten vorliegen und wir müssen uns überlegen, welche der Daten wir nutzen wollen. Aus Gründen der Machbarkeit wähle ich die Spalte `temp_boden_durch` und `solar_mv` aus, die wir uns dann später anschauen wollen. Sonst wird mir das zu groß und unübersichtlich.
 
 ```{r}
 #| message: false
@@ -94,18 +94,18 @@ Am Ende wollen wir uns dann nochmal Daten einer Wetterstation in Hagebüchen an.
 
 station_tbl <- read_excel("data/Wetterstation_Hagebüchen.xlsx") %>% 
   clean_names() %>% 
+  select(datum_uhrzeit, temp_boden_durch, solar_mv) %>% 
   mutate_if(is.numeric, round, 2)
 ```
 
-Auch hier haben wir in der @tbl-time-station gut `r nrow(station_tbl)` einzelne Messungen vorliegen. Das ist dann auch unserer größter Datensatz von Klimadaten.
+Auch hier haben wir in der @tbl-time-station gut `r nrow(station_tbl)` einzelne Messungen vorliegen. Das ist dann auch unserer größter Datensatz von Klimadaten. Wir werden die Daten dann aber sehr anschaulich einmal in einer Übersicht darstellen.
 
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
 #| label: tbl-time-station
-#| tbl-cap: "Auszug"
-#| column: page
+#| tbl-cap: "Auszug aus den Daten zur Wetterstation in Hagebüchen."
 
 raw_station_tbl <- station_tbl %>% 
   mutate_all(as.character)
@@ -168,10 +168,6 @@ station_tbl <- station_tbl %>%
          second = second(datum_uhrzeit),
          format_hour = paste(hour, minute, second, sep = ":"))
 ```
-
-ggplot to plotly?
-
-[Getting Started with Plotly in ggplot2](https://plotly.com/ggplot2/getting-started/)
 
 ## Visualisierung
 
@@ -341,14 +337,46 @@ salad_long_tbl %>%
 #| fig-height: 5
 #| fig-width: 6
 #| fig-cap: "Eigenwerte für die beiden Datensätze."
-station_tbl %>% 
+p <- station_tbl %>% 
   ggplot(aes(datum_uhrzeit, temp_boden_durch)) +
   theme_bw() +
   scale_color_okabeito() +
   geom_line() 
+p
 ```
 
-Nachdem wir ordentlich an den Daten geschraubt haben können wir jetzt in @fig-weather-station-hage die zwei Konturplots sehen. Wir mussten noch das Spektrum der Farben einmal drehen, damit es auch mit den Temperaturfarben passt und wir haben noch ein paar Hilfslinien miteingezeichnet. Sie dazu auch [Isoplethendiagramm für Münster & Osnabrück](https://jkruppa.github.io/application/example-analysis-01.html) im *Skript zu beispielhaften Anwendung*.
+ggplot to plotly?
+
+[Getting Started with Plotly in ggplot2](https://plotly.com/ggplot2/getting-started/)
+
+```{r}
+ggplotly(p)
+```
+
+Nachdem wir ordentlich an den Daten geschraubt haben können wir jetzt in @fig-weather-station-hage die drei Konturplots sehen. Wir mussten noch das Spektrum der Farben einmal drehen, damit es auch mit den Temperaturfarben passt und wir haben noch ein paar Hilfslinien miteingezeichnet. Sie dazu auch [Isoplethendiagramm für Münster & Osnabrück](https://jkruppa.github.io/application/example-analysis-01.html) im *Skript zu beispielhaften Anwendung*.
+
+Im Folgenden spiele ich mit den Funktionen `geom_contour_filled()` und `geom_contour()` rum um zum einen die Flächen und dann die Ränder des Isoplethendiagramms zu erhalten. Die Färbung ergibt sich dann aus der Funktion `scale_fill_brewer()`. Da wir hier exakt dreizehn Farben zu Verfügung haben, habe ich dann auch entschieden dreizehn Konturen zu zeichnen. Sonst musst du mehr Farben definieren, damit du auch mehr Flächen einfärben kannst.
+
+Darüber hinaus habe ich mich auch entschieden hier mit einem Template in `ggplot` zu arbeiten, damit ich nciht so viel Code produziere. Ich baue mir im Prinzip einmal einen leeren Plot ohne die Funktion `aes()`. Die Definition was auf die $x$-Achse kommt und was auf die $y$-Achse mache ich dann später.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+
+p <- ggplot(station_tbl) +
+  theme_minimal() +
+  geom_contour_filled(bins = 13) +
+  scale_fill_brewer(palette = "Spectral", direction = -1) +
+  scale_x_continuous(breaks = 1:12) +
+  geom_vline(xintercept = 4:9, alpha = 0.9, linetype = 2) +
+  geom_hline(yintercept = c(4, 8, 12, 16, 20, 24), 
+             alpha = 0.9, linetype = 2) +
+  labs(x = "Monat", y = "Stunde", fill = "Temperatur [°C]")
+
+```
+
+Wir können mit dem Operator `%+%` zu einem bestehenden `ggplot` neue Daten hinzufügen. Dann können wir auch wie gewohnt neue Optionen anpassen.
 
 ```{r}
 #| message: false
@@ -360,34 +388,28 @@ Nachdem wir ordentlich an den Daten geschraubt haben können wir jetzt in @fig-w
 #| fig-width: 6
 #| fig-cap: "Konturplot der verschiedenen Temperaturen der Wetterstation in Hagebüchen in den Monaten April bis Mitte September. Die Temperaturen wurden jede Stunde einmal erfasst. Dargestellt sind die Durchschnittstemperaturen."
 #| fig-subcap: 
-#|   - "Temperaturen der Wetterstation über den Tag."
-#|   - "Temperaturen der Wetterstation über den Monat."
+#|   - "Durchschnittstemperaturen der Wetterstation über den Tag."
+#|   - "Durchschnittstemperaturen der Wetterstation über den Monat."
+#|   - "Solare Leistung über den Tag."
 #| layout-nrow: 1
 #| column: page
 
-ggplot(station_tbl, aes(month, hour, z = temp_boden_durch)) +
-  theme_minimal() +
-  geom_contour_filled(bins = 13) +
+p %+%
+  aes(month, hour, z = temp_boden_durch) +
   geom_contour(binwidth = 2, color = "black") +
-  scale_fill_brewer(palette = "Spectral", direction = -1) +
-  scale_x_continuous(breaks = 1:12) +
   scale_y_continuous(limits = c(1, 24), breaks = c(4, 8, 12, 16, 20, 24)) +
-  geom_vline(xintercept = 4:9, alpha = 0.9, linetype = 2) +
-  geom_hline(yintercept = c(4, 8, 12, 16, 20, 24), 
-             alpha = 0.9, linetype = 2) +
   labs(x = "Monat", y = "Stunde", fill = "Temperatur [°C]")
 
-
-ggplot(station_tbl, aes(month, day, z = temp_boden_durch)) +
-  theme_minimal() +
-  geom_contour_filled(bins = 13) +
+p %+%
+  aes(month, day, z = temp_boden_durch) +
   geom_contour(binwidth = 2, color = "black") +
-  scale_fill_brewer(palette = "Spectral", direction = -1) +
-  scale_x_continuous(breaks = 1:12) +
-  geom_vline(xintercept = 4:9, alpha = 0.9, linetype = 2) +
-  geom_hline(yintercept = c(5, 10, 15, 20, 25, 30), 
-             alpha = 0.9, linetype = 2) +
+  scale_y_continuous(limits = c(1, 30), breaks = c(5, 10, 15, 10, 25, 30)) +
   labs(x = "Monat", y = "Tag", fill = "Temperatur [°C]")
+
+p %+%
+  aes(month, hour, z = solar_mv) +
+  scale_y_continuous(limits = c(1, 24), breaks = c(4, 8, 12, 16, 20, 24)) +
+  labs(x = "Monat", y = "Stunde", fill = "Solar [MV]")
 
 ```
 
