@@ -14,8 +14,24 @@ In diesem Kapitel wollen wir uns mit Zeitreihen (eng. *time series*) beschäftig
 
 Wenn du noch mehr lesen willst, dann kann ich dir folgende Literatur empfehlen. @robert2006time liefert eine gute Übersicht über die Anwendung in R, ist aber schon etwas älter. Das Gleiche gilt dann auch für das Buch von @chan2008time und @cowpertwait2009introductory. Dennoch bilden alle drei Bücher die Grundlagen der Analysen von Zeitreihen super ab. Für eine Abschlussarbeit sollten die Quellen also allemal reichen.
 
+Wenn es um Daten geht, dann gibt es natürlich eine Reihe von möglichen Quellen. Wenn es sehr viele Daten seinen sollen, die meistens einen zeitlichen Bezug haben, dann empfehle ich die Webseite [Our World in Data](https://ourworldindata.org/). Dort gibt es so viele zeitliche Verläufe, da eigentlich alles dort als zeitlicher Verlauf dargestellt wird. Schau doch einfach dort mal rein.
+
+::: {.callout-tip collapse="false"}
+## Weitere Tutorien für die Analyse von Zeitreihen
+
+Wir immer kann ein Kapitel hier nicht das umfangreiche Analysieren von Zeitreihen abarbeiten. Daher auch wie in anderen Kapiteln schon eine Liste von Literatur und Links, die mich für dieses Kapitel hier inspiriert haben. Nicht alles habe ich genutzt, aber vielleicht ist für dich was dabei, was dir dann mehr konkret hilft als dieses Kapitel.
+
+-   [Welcome to a Little Book of R for Time Series!](https://a-little-book-of-r-for-time-series.readthedocs.io/en/latest/)
+-   [14 Time Series Analysis](https://rc2e.com/timeseriesanalysis)
+-   [Timeseries analysis in R](https://www.r-bloggers.com/2021/04/timeseries-analysis-in-r/)
+-   [timetk for R](https://business-science.github.io/timetk/)
+-   [Analysing Time Series Data -- Modelling, Forecasting And Data Formatting In R](https://ourcodingclub.github.io/tutorials/time/)
+:::
+
+Ich habe mich auch wieder bemüht ein Beispiel für eine Zeitreihe zu finden, die ich als Abbildung einmal zerforschen kann. Damit sich hier nicht so viel verdoppelt, schaue auch einmal gerne in das Kapitel zur Visualisierung von Daten rein, dort sammle ich alle Beispiele zum Zerforschen. Hier also eine Abbildung, bei der es um eine Zeitreihe und der Trächtigkeit von Kühen geht.
+
 ::: {.callout-caution collapse="true"}
-## Zerforschen: Zeitlicher Verlauf von Trächtigkeit
+## Zerforschen: Zeitlicher Verlauf von einem Laborwert zur Trächtigkeit
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
@@ -28,7 +44,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, janitor, see,
+pacman::p_load(tidyverse, magrittr, janitor, see, readxl,
                lubridate, plotly, conflicted)
 conflicts_prefer(dplyr::filter)
 ```
@@ -83,7 +99,6 @@ In der @tbl-time-temp siehst du einmal die `r nrow(salad_tbl)` automatisch erfas
 #| warning: false
 #| label: tbl-time-temp
 #| tbl-cap: "Auszug aus den Daten zur auromatischen Erfassung von Klimadaten im Feld für Kopfsalat."
-#| column: page
 
 raw_salad_tbl <- salad_tbl %>% 
   mutate_all(as.character)
@@ -124,7 +139,7 @@ rbind(head(raw_station_tbl , n = 4),
   kable(align = "c", "pipe")
 ```
 
-Damit hätten wir uns eine Reihe von Datensätzen angeschaut. Sicherlich gibt es noch mehr, aber diese Auswahl erlaubt es uns gleich einmal die häufigsten Fragen rund um Zeitreihen einmal anzuschauen.
+Damit hätten wir uns eine Reihe von Datensätzen angeschaut. Sicherlich gibt es noch mehr, aber diese Auswahl erlaubt es uns gleich einmal die häufigsten Fragen rund um Zeitreihen einmal anzuschauen. Bitte beachte, dass es natürlich noch andere Formen von Zeitreihen und damit Datensätzen gibt. In dem folgenden Kasten findest du nochmal eine Anregung zu Klimadaten aus deiner Region.
 
 ::: callout-tip
 ## Mehr Wetter- und Klimadaten aus deiner Region!
@@ -134,21 +149,31 @@ Du kannst gerne die [entgeltfreien Informationen auf der DWD-Website](https://ww
 
 ## Das Datumsformat
 
-Wichtig ist, dass wir das richtige Datumsformat haben. Siehe dazu auch das Kapitel [Zeit und Datum](#sec-time-date)
+Wenn wir von Zeitreihen sprechen dann sprechen wir auch von dem Datumsformat. Es ist eigentlich immer einer ewige Qual Daten in das richtige Zeitformat zu kriegen. Deshalb hier vorab einmal die folgende Abbildung, die nochmal die Wirrnisse des Datumsformat gut aufzeigt.
 
-[Date Formats in R](https://www.r-bloggers.com/2013/08/date-formats-in-r/)
+![Quelle: https://xkcd.com/](https://imgs.xkcd.com/comics/iso_8601.png){fig-align="center" width="70%"}
+
+Wichtig ist, dass wir das richtige Datumsformat haben. Siehe dazu auch das Kapitel [Zeit und Datum](#sec-time-date). Das einzig richtige Datumsformat ist und bleibt eben `Jahr-Monat-Tag`. Häufig ist eben dann doch anders, so dass wir uns etwas strecken müssen um unser Format in das richtige Format zu überführen. Bitte beachte aber, dass du auf jeden Fall einheitlich dein Datum einträgst. Am besten auch immer zusammen mit dem Jahr, dass macht vieles einfacher. Wie immer gibt es auch noch das Tutorium zu [Date Formats in R](https://www.r-bloggers.com/2013/08/date-formats-in-r/) und natürlich das R Paket `lubridate` mit dem Einstieg [Do more with dates and times in R](https://lubridate.tidyverse.org/articles/lubridate.html).
+
+Wir werden uns jetzt einmal am Beispiel die Transformation der Datumsformate in den jeweiligen Daten anschauen. Je nach Datensatz müssen wir da mehr oder weniger machen. Auch hier, wenn du weniger Arbeit möchtest, dann achte auf eine einheitliche Form der Datumsangabe.
 
 ### Die CSH-Daten
+
+Das Datum in den CSH-Daten leidet unter zwei Besonderheiten. Zum einen fehlt das Jahr und zum anderen die Null vor der Zahl. Wir haben nämlich für den 28. April die Datumsangabe `428` in der Spalte `day`. Das hat zur Folge, dass Excel die Spalte als Zahl erkennt und keine vorangestellten Nullen erlaubt. Wir brauchen aber einen String und den Monat als zweistellig mit `04` für den Monat April. Deshalb nutzen wir die Funktion `str_pad()` um eine `0` an die linke Seite zu kleben, wenn der Wert in der Spalte kleiner als vier Zeichen lang ist. Somit würde der 1. Oktober mit `1001` so bleiben, aber der 1. September mit `901` zu `0901`. Dann nutzen wir die Funktion `as.Date()` um aus unserem Sting dann ein Datum zu machen. Das Format ist hier dann `%m%d` und somit Monat und Tag ohne ein Trennzeichen.
 
 ```{r}
 csh_tbl <- csh_tbl %>% 
   mutate(day = as.Date(str_pad(day, 4, pad = "0", side = "left"), format = "%m%d"))
 ```
 
+Und dann erhalten wir auch schon folgenden Datensatz mit dem korrekten Datumsformat mit dem wir dann weiterarbeiten werden.
+
 ```{r}
 csh_tbl %>% 
   head(4)
 ```
+
+Wie du siehst, wird dann automatisch das aktuelle Jahr gesetzt. Das heißt, da ich dieses Text hier im Jahr `r year(Sys.Date())` schreibe, erscheint natürlich auch eine `r year(Sys.Date())` vor dem Monat und Tag. Hier musst du dann schauen, ob das Jahr wirklich von Interesse ist oder du es dann später nochmal anpasst. Wir lassen jetzt erstmal alles so stehen. Es ist immer einfacher das Datum dann sauber in Excel zu setzen, als sich dann hier nochmal einen Abzubrechen, denn du bist ja keine Informatiker der eine generelle Lösung sucht sondern hast ja nur einen Datensatz vorliegen. Das wäre jedenfalls mein Tipp um es schneller hinzukriegen.
 
 ### Die Salatdaten
 
@@ -520,17 +545,5 @@ refit_tbl %>%
       .interactive      = interactive
     )
 ```
-
-## Links
-
-[Welcome to a Little Book of R for Time Series!](https://a-little-book-of-r-for-time-series.readthedocs.io/en/latest/)
-
-[14 Time Series Analysis](https://rc2e.com/timeseriesanalysis)
-
-[Timeseries analysis in R](https://www.r-bloggers.com/2021/04/timeseries-analysis-in-r/)
-
-[timetk for R](https://business-science.github.io/timetk/)
-
-[Analysing Time Series Data -- Modelling, Forecasting And Data Formatting In R](https://ourcodingclub.github.io/tutorials/time/)
 
 ## Referenzen {.unnumbered}
