@@ -149,7 +149,7 @@ Du kannst gerne die [entgeltfreien Informationen auf der DWD-Website](https://ww
 
 ## Das Datumsformat
 
-Wenn wir von Zeitreihen sprechen dann sprechen wir auch von dem Datumsformat. Es ist eigentlich immer einer ewige Qual Daten in das richtige Zeitformat zu kriegen. Deshalb hier vorab einmal die folgende Abbildung, die nochmal die Wirrnisse des Datumsformat gut aufzeigt.
+Wenn wir von Zeitreihen sprechen dann sprechen wir auch von dem Datumsformat. Eine Zeitreihe ohne eine richtig formatierte Datumsspalte macht ja auch überhaupt keinen Sinn. Es ist eigentlich immer einer ewige Qual Daten in das richtige Zeitformat zu kriegen. Deshalb hier vorab einmal die folgende Abbildung, die nochmal die Wirrnisse des Datumsformat gut aufzeigt.
 
 ![Quelle: https://xkcd.com/](https://imgs.xkcd.com/comics/iso_8601.png){fig-align="center" width="70%"}
 
@@ -177,21 +177,45 @@ Wie du siehst, wird dann automatisch das aktuelle Jahr gesetzt. Das heißt, da i
 
 ### Die Salatdaten
 
+Bei den Salatdaten haben wir ein anderes Problem vorliegen. Wir haben einmal eine Datumsspalte und dann noch eine Spalte mit der Uhrzeit. Da wir aber keine reine Uhrzeitspalte haben können, wurde noch das Datum `1899-12-31` als default ergänzt. Das macht natürlich so überhaupt keinen Sinn. Deshalb müssen wir dann einmal die Uhrzeit als korrektes Uhrzeit-Format umwandeln und dann die Spalte `datum` in ein Datum-Format. Dann können wir die beiden Spalten *addieren* und schon haben wir eine Datumsspalte mit der entsprechenden Uhrzeit.
+
 ```{r}
-salad_long_tbl <- salad_tbl %>% 
+salad_datetime_tbl <- salad_tbl %>% 
   mutate(uhrzeit = format(uhrzeit, format = "%H:%M:%S"),
          datum = format(datum, format = "%Y-%m-%d"),
          datum = ymd(datum) + hms(uhrzeit)) %>% 
-  select(-uhrzeit) %>% 
+  select(-uhrzeit) 
+```
+
+Im Folgenden siehst du einmal das Ergebnis unserer Umfaormung. Wir haben jetzt eine Spalte mit dem Datum und der Uhrzeit vorliegen, so wir das auch wollen und dann auch abbilden können.
+
+```{r}
+salad_datetime_tbl %>% 
+  head(4)
+```
+
+Da wir später noch für die Visualisierung die einzelnen Spalten `freiland_messw` bis `freiland_max` einmal darstellen wollen, bauen wir uns nochmal mit `pivot_longer()` einen entsprechenden Datensatz, der uns diese Art der Visualiserung dann auch möglich macht.
+
+```{r}
+salad_long_tbl <- salad_datetime_tbl %>% 
   pivot_longer(freiland_messw:last_col(),
                names_sep = "_",
                names_to = c("location", "type"),
                values_to = "temp") 
 ```
 
-Nochmal zusammenfassn für die Tage?
+Wie du nun siehst, haben wir nur noch eine Spalte `temp` mit unseren Messwerten der Temperatur. Der Rest an Informationen ist dann alles in anderen Spalten untergebracht. Mit diesem Datensatz können wir dann auch in `ggplot` gut arbeiten.
+
+```{r}
+salad_long_tbl %>% 
+  head(4)
+```
+
+Wie du aber auch schon hier siehst sind die Werte für den Messwert, den Minimalwert und den Maximalwert faktisch identisch. Diese geringe Abweichung werden wir dann auch nur schwerlich schön in einer Abbildung zeigen können. Ich würde dann die Min/Max-Werte rausschmeißen und mich nur auf die Messwerte in diesem Fall konzentrieren.
 
 ### Die Wetterstationsdaten
+
+Zu guter Letzt noch die Daten zu der Wetterstation. Hier haben wir das Problem, dass wir dann aus der Spalte mit den Informationen zu dem Datum und der Zeit noch einzelne Informationen extrahieren wollen. Wir wollen die Stunde oder den Tag haben. Dafür nutzen wir nun Funktionen wie `day()` oder `month()` aus dem R Paket `lubridate` um uns diese Informationen zu extrahieren. Wir können uns so auch die Uhrzeit wieder zusammenbauen, indem wir die Stunde, Minute und dann die Sekunden herausziehen.
 
 ```{r}
 station_tbl <- station_tbl %>% 
@@ -203,6 +227,8 @@ station_tbl <- station_tbl %>%
          second = second(datum_uhrzeit),
          format_hour = paste(hour, minute, second, sep = ":"))
 ```
+
+Damit haben wir auch den letzten Datensatz so umgebaut, dass wir eine Spalte haben in der das Datum sauber kodiert ist. Sonst macht ja eine Zeitreihe keinen Sinn, wenn die Zeit nicht stimmt. Damit können wir uns dann auch der Visualisierung der Wetterstationsdaten zuwenden.
 
 ## Visualisierung
 
