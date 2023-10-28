@@ -49,7 +49,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, janitor, see, readxl,
-               lubridate, plotly, conflicted)
+               lubridate, plotly, zoo, timetk, conflicted)
 conflicts_prefer(dplyr::filter)
 ```
 
@@ -143,13 +143,64 @@ rbind(head(raw_station_tbl , n = 4),
   kable(align = "c", "pipe")
 ```
 
-Damit hätten wir uns eine Reihe von Datensätzen angeschaut. Sicherlich gibt es noch mehr, aber diese Auswahl erlaubt es uns gleich einmal die häufigsten Fragen rund um Zeitreihen einmal anzuschauen. Bitte beachte, dass es natürlich noch andere Formen von Zeitreihen und damit Datensätzen gibt. In dem folgenden Kasten findest du nochmal eine Anregung zu Klimadaten aus deiner Region.
+Damit hätten wir uns eine Reihe von landwirtschaftlichen Datensätzen angeschaut. Sicherlich gibt es noch mehr, aber diese Auswahl erlaubt es uns gleich einmal die häufigsten Fragen rund um Zeitreihen in den Agrarwissenschaften einmal anzuschauen. Bitte beachte, dass es natürlich noch andere Formen von Zeitreihen und damit Datensätzen gibt. Deshalb gleich noch ein Datensatz, der künstlich ist und damit eine eher perfekte Zeitreihe repräsentiert. In dem folgenden Kasten findest du darüber hinaus nochmal eine Anregung zu Klimadaten aus deiner Region.
 
 ::: callout-tip
 ## Mehr Wetter- und Klimadaten aus deiner Region!
 
 Du kannst gerne die [entgeltfreien Informationen auf der DWD-Website](https://www.dwd-shop.de/index.php/default/kostenfreie-informationen.html) nutzen um mehr Informationen zu dem Klima und deiner Region zu erhalten. Wir finden dort auf der Seite die [Klimadaten für Deutschland](https://www.dwd.de/DE/leistungen/klimadatendeutschland/klimadatendeutschland.html#buehneTop) und natürlich auch die Daten für Münster/Osnabrück. Sie dazu auch [Isoplethendiagramm für Münster & Osnabrück](https://jkruppa.github.io/application/example-analysis-01.html) im *Skript zu beispielhaften Anwendung*. Ich habe mir dort flux die Tageswerte runtergeladen und noch ein wenig den Header der txt-Datei angepasst. Du findest die Datei [`day_values_osnabrueck.txt`](https://github.com/jkruppa/jkruppa.github.io/tree/master/data) wie immer auf meiner GitHub Seite. Du musst dir für andere Orte die Daten nur entsprechend zusammenbauen. Am Ende brauchen wir noch die [Informationen zu den Tages- und Monatswerten](https://www.dwd.de/DE/leistungen/klimadatendeutschland/beschreibung_tagesmonatswerte.html) damit wir auch verstehen, was wir uns da von der DWD runtergeladen haben.
 :::
+
+Der folgende Datensatz zu der Milchleistung von Kühen stammt aus dem Tutorium [Analysing Time Series Data -- Modelling, Forecasting And Data Formatting In R](https://ourcodingclub.github.io/tutorials/time/). Wir haben hier ein idealisierten Datensatz vorliegen, so dass wir uns nicht mit dem Datumsformat quälen müssen. Der Datensatz wurde auch für die Analysen künstlich erstellt. Daher ist die milchleistung auch nicht als echt anzusehen. Wir haben es hier im Prinzip mit simulierten Daten zu tun.
+
+```{r}
+#| message: false
+#| warning: false
+milk_tbl <- read_csv("data/monthly_milk.csv") 
+```
+
+In der @tbl-time-milk siehst du nochmal einen Auszug aus den Milchdaten. An jedem Tag haben wir die Milchleistung für eine Kuh aufgetragen. Ich würde hier davon ausgehen, dass es sich um die mittlere Leistung handelt. In Wirklichkeit sind die Daten vermutlich etwas komplizierter und wir haben nicht nur eine Leistungsbewertung pro Tag für eine Kuh. Aber für diese Übersicht soll es reichen.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-time-milk
+#| tbl-cap: "Auszug aus den Daten zu der Milchleistung von Kühen."
+
+raw_milk_tbl <- milk_tbl %>% 
+  mutate_all(as.character)
+
+rbind(head(raw_milk_tbl , n = 4),
+      rep("...", times = ncol(raw_milk_tbl)),
+      tail(raw_milk_tbl, n = 4)) %>% 
+  kable(align = "c", "pipe")
+```
+
+Abschließend dann nochmal etwas idealisierte Daten zu einer Zeitreihe, damit wir auch einige der komplexeren Funktionen später nutzen können. Teilweise sind unsere landwirtschaftlichen Daten nicht lang genug erhoben worden. In dem R Paket `timetk` findet sich der künstliche Datensatz `m4_monthly`. Hier schauen wir uns den Datensatz zu dem M4 Wettbewerb an. Die [Makridakis-Wettbewerbe](https://mofc.unic.ac.cy/m4/) (eng. *M Competitions*) sind eine Reihe von offenen Wettbewerben, die von dem Prognoseforscher Prof. Spyros Makridakis organisiert und geleitet werden, um die Genauigkeit verschiedener Prognosemethoden zu bewerten und zu vergleichen. Deshalb sind die folgenden Daten eher als eine Simulation anzusehen denn als echte Daten. Dennoch basiert der Datensatz auf Daten, die auch in echt beobachtet werden könnten. Wir nehmen hier aber nur die `M750` Daten.
+
+```{r}
+m750_tbl <- m4_monthly %>% 
+  filter(id == "M750")
+```
+
+In der @tbl-time-m4 siehst du einen Auszug aus den Daten. Die Zahlen und das Datum sind eigentlich biologisch uninteressant, wir nutzen diese Zahlen und Werte nur um die Modelle später anzuwenden und zu testen. Daher haben die Werte keine echte biologische Bedeutung. Das Schöne hier ist, dass unser Datum schon das richtige Format hat, so dass wir uns hier nicht weiter um die Daten kümmern müssen.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-time-m4
+#| tbl-cap: "Auszug aus den Daten zum M4 Wettbewerb und der ID M750."
+
+raw_m750_tbl <- m750_tbl %>% 
+  mutate_all(as.character)
+
+rbind(head(raw_m750_tbl , n = 4),
+      rep("...", times = ncol(raw_m750_tbl)),
+      tail(raw_m750_tbl, n = 4)) %>% 
+  kable(align = "c", "pipe")
+```
 
 ## Das Datumsformat
 
@@ -282,7 +333,7 @@ csh_tbl %>%
 
 In dem nächsten Abschnitt wollen wir dann einmal die Fläche zwischen den Linien bestimmen und schauen, ob wir hier wirklich einen Unterschied vorliegen haben. Wenn du mehr Linien oder Gruppen hast, dann musst du dann immer die Fläche zwischen zwei Linien berechnen bist du alle Kombinationen durch hast.
 
-### Salat Daten
+### Die Salat Daten
 
 Die Salatdaten schauen wir uns jetzt einmal in der @fig-time-salad-1 als statische Abbildungen in `ggplot` an. Besonders in der @fig-time-salad-1-1 siehtst du dann wegen den geringen Unterschieden der Temperaturen fast nichts auf der Abbildung. Dafür hilft es dann auch in der @fig-time-salad-1-2 einmal die Temperaturen aufzuteilen. Jetzt haben wir alle Temperaturen einmal als Vergleich vorliegen. Aber auch hier können wir schlecht die Werte an einem Datum ablesen und direkt vergleichen. Hier hilft dann gleich `plotly` weiter.
 
@@ -373,7 +424,7 @@ ggplotly(p)
 
 Wir können uns jetzt in @fig-weather-station-hage die drei Konturplots ansehen. Wichtig ist natürlich hier, dass wir vorher die Tage und den Monat aus dem Datum extrahiert haben. Jetzt geht es aber los mit dem Bauen der Konturplots. Wir mussten noch das Spektrum der Farben einmal drehen, damit es auch mit den Temperaturfarben passt und wir haben noch ein paar Hilfslinien mit eingezeichnet. Sie dazu auch meine Auswertung zum [Isoplethendiagramm für Münster & Osnabrück](https://jkruppa.github.io/application/example-analysis-01.html) im *Skript zu beispielhaften Anwendung* als ein anderes Beispiel mit DWD Daten. Wenn du die Daten aus deiner Region runterlädst, kannst du dir auch ähnliche Abbildungen bauen.
 
-Im Folgenden spiele ich mit den Funktionen `geom_contour_filled()` und `geom_contour()` rum um zum einen die Flächen und dann die Ränder des Isoplethendiagramms zu erhalten. Die Färbung ergibt sich dann aus der Funktion `scale_fill_brewer()`. Da wir hier exakt dreizehn Farben zu Verfügung haben, habe ich dann auch entschieden dreizehn Konturen zu zeichnen. Sonst musst du mehr Farben definieren, damit du auch mehr Flächen einfärben kannst. Darüber hinaus habe ich mich auch entschieden hier mit einem Template in `ggplot` zu arbeiten, damit ich nciht so viel Code produziere. Ich baue mir im Prinzip einmal einen leeren Plot ohne die Funktion `aes()`. Die Definition was auf die $x$-Achse kommt und was auf die $y$-Achse mache ich dann später.
+Im Folgenden spiele ich mit den Funktionen `geom_contour_filled()` und `geom_contour()` rum um zum einen die Flächen und dann die Ränder des Isoplethendiagramms zu erhalten. Die Färbung ergibt sich dann aus der Funktion `scale_fill_brewer()`. Da wir hier exakt dreizehn Farben zu Verfügung haben, habe ich dann auch entschieden dreizehn Konturen zu zeichnen. Sonst musst du mehr Farben definieren, damit du auch mehr Flächen einfärben kannst. Teilweise musst du hier etwas mit den Optionen spielen, bis du bei deinen Daten dann eine gute Einteilung der Farben gefunden hast. Hier helfen dir dann die Optionen `binwidth` und `bins` weiter. Darüber hinaus habe ich mich auch entschieden hier mit einem Template in `ggplot` zu arbeiten, damit ich nicht so viel Code produziere. Ich baue mir im Prinzip einmal einen leeren Plot ohne die Funktion `aes()`. Die Definition was auf die $x$-Achse kommt und was auf die $y$-Achse mache ich dann später.
 
 ```{r}
 #| message: false
@@ -429,7 +480,112 @@ p %+%
 
 ```
 
+### Die Milchdaten
+
+Um die Milchdaten in der @fig-time-milk-1 darzustellen nutzen wir die Funktion `plot_time_series()` aus dem R Paket `timetk`. Eigentlich ist es ein Zusammenschluss von `ggplot` und `plotly`. Wenn du die Option `.interactive = TRUE` wie ich setzt, dann bekommst du einen semi-interaktiven Plot durch `plotly` wiedergegeben. Mehr Informationen erhälst du dann auf der Hilfeseite von `timetk` zu [Visualizing Time Series](https://business-science.github.io/timetk/articles/TK04_Plotting_Time_Series.html). Wie immer wenn du so generische Funktionen nutzt, musst du schauen, ob dir die Abbildung so gefällt. Du verlierst hier etwas Flexibilität und erhälst dafür aber schneller deine Abbildungen.
+
+Wir erkennen ganz gut, dass wir hier einen Effekt der Session haben oder aber der Jahreszeit. Wir haben zyklische Peaks der Milchleistung über das Jahr verteilt. Gegen Ende unserer Zeitreihe sehen wir aber eine Art Plateau der Milchleistung. In der folgenden Analyse wollen wir einmal schauen, ob wir die zukünftige Milchleistung anhand der bisherigen Daten vorhersagen können.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-time-milk-1
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "Die Darstellung der Milchdaten durch das R Paket `timetk` und der Funktion `plot_time_series()`, die durch die Option `.interactive = TRUE` intern dann `plotly` aufruft."
+milk_tbl %>%
+  plot_time_series(month, milk_prod_per_cow_kg, .interactive = TRUE)
+```
+
+### Die M4 Daten
+
+In der @fig-time-m4-1 siehst du einmal die M4 Daten dargestellt. Wir konzentrieren uns hier auf die Subgruppe `m750`. Auch hier nutzen wir jetzt einmal aus Gründen des Platzes einmal die schnelle Funktion `plot_time_series()` aus dem R Paket `timetk`. Wir haben hier in unseren M4 Daten auch einen zyklischen Verlauf über die Jahre mit verschiedenen Plateaus vorliegen. Auch hier wollen wir einmal schauen, ob wir dann eine Vorhersage über die zukünftigen Werte erhalten können.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-time-m4-1
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "Die Darstellung der `m750` Daten durch das R Paket `timetk` und der Funktion `plot_time_series()`, die durch die Option `.interactive = TRUE` intern dann `plotly` aufruft."
+
+m750_tbl %>%
+  plot_time_series(date, value, .interactive = TRUE)
+```
+
 ## Analyse von Zeitreihen
+
+Bis jetzt haben wir uns die Visualisierung von Zeitreihen angeschaut. Häufig reicht die Visualisierung auch aus, wenn es um die Darstellung von Temperaturverläufen in einer Abschlussarbeit geht. Häufig wollen wir dann aber doch irgendwie eine statistische Analyse auf der Zeitreihe rechnen. Deshalb habe ich hier mal angefangen Beispiele zu Auswertungen von Zeitreihen zu sammeln und vorzustellen. Hauptsächlich nehme ich natürlich die drei Datensätze von weiter oben im Kapitel.
+
+Stationarität (eng. *Stationarity*)
+
+:   Eine gängige Annahme bei vielen Zeitreihenverfahren ist, dass die Daten stationär sind. Ein stationärer Prozess hat die Eigenschaft, dass sich der Mittelwert, die Varianz und die Autokorrelationsstruktur im Laufe der Zeit nicht ändern.
+
+### Das R Paket `zoo` und `ts` (schnelle & einfache Analysen)
+
+```{r}
+
+m750_ts <- m750_tbl %$%
+  ts(value, date, deltat = 1/12) 
+
+decomp <- decompose(m750_ts)
+
+plot(decomp$figure,
+     type = 'b',
+     xlab = 'Month',
+     ylab = 'Seasonality Index',
+     col = 'blue',
+     las = 2)
+
+plot(decomp)
+
+
+library(forecast)
+model <- auto.arima(m750_ts)
+
+f <- forecast(model, 48)
+
+library(ggplot2)
+autoplot(f)
+```
+
+Rollender Mittelwert und Co.
+
+Das R Paket `zoo` hat die Funktion `rollmean()` sowie `rollmax()` und `rollsum()`. Es gibt aber noch eine Reihe weiterer Funktionen. Du musst hier einfach mal die Hilfeseite `?rollmean()` für mehr Informationen aufrufen.
+
+```{r}
+#| message: false
+#| warning: false
+
+rollmean_tbl<- csh_tbl %$%
+  zoo(g_tm_plot, day) %>% 
+  rollmean(k = 7) %>% 
+  tk_tbl()
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-time-ts-1
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "foo."
+
+csh_tbl %$%
+  ts(g_tm_plot, day) %>% 
+  acf(main = 'Correlogram')
+
+```
+
+### Das R Paket `tktime` (komplexe Analysen)
+
+[timetk for R](https://business-science.github.io/timetk/)
 
 ### Vergleich zweier zeitlicher Verläufe
 
