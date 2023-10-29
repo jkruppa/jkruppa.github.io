@@ -55,9 +55,12 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, janitor, see, readxl,
+               xgboost, tidymodels, modeltime, 
                lubridate, plotly, zoo, timetk, xts,
                conflicted)
 conflicts_prefer(dplyr::filter)
+conflicts_prefer(magrittr::set_names)
+conflicts_prefer(plyr::mutate)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -502,6 +505,10 @@ Autokorrelation
 
 :   Hier Definition
 
+ARIMA Modell
+
+:   Wir nutzen zur Analyse von Zeitreihen das ARIMA Modell (abk. *autoregressive integrated moving average*, deu. *autoregressiver gleitender Durchschnitt*). Das ARIMA Modell ist dabei eine Erweiterung schon existierender Modelle und wird sehr häufig für die Analyse von Zeitreihen genutzt. Als wichtigste Anwendung gilt die kurzfristige Vorhersage. Das ARIMA Modell besitzt einen autoregressiven Teil (AR-Modell) und einen gleitenden Mittelwertbeitrag (MA-Modell). Das ARIMA Modell erfordern eigentlich stationäre Zeitreihen. Eine stationäre Zeitreihe bedeutet, dass sich die Randbedingungen einer Zeitreihe nicht verändern. Die zugrundeliegende Verteilungsfunktion der gemessenen Werte über die Zeitreihe muss zeitlich konstant sein. Das heißt konkret, dass die Mittelwerte und die Varianz zu jeder Zeit gleich sind. Gewisse Trends lassen sich durch ein ARIMA Modell herausfiltern.
+
 $$
 AR = 
 \begin{pmatrix}
@@ -514,17 +521,45 @@ AR =
 $$
 
 ```{r}
-# Simulate an AR model with 0.5 slope
-x <- arima.sim(model = list(ar = 0.5), n = 100)
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-time-ar-1
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 8
+#| fig-cap: "AR(0); AR(1) mit AR-Parameter 0.3; AR(1) mit AR-Parameter 0.9; AR(2) mit AR-Parameter 0.3 und 0.3; und AR(2) mit AR-Parameter 0.9 und -0.8."
 
-# Simulate an AR model with 0.9 slope
-y <- arima.sim(model = list(ar = 0.9), n = 100)
+set.seed(202318080)
 
-# Simulate an AR model with -0.75 slope
-z <- arima.sim(model = list(ar = -0.75), n = 100)
+plot_tbl <- map(lst(0.01, 0.3, 0.9, c(0.3, 0.3), c(0.2, 0.7)), \(x) {
+  arima.sim(model = list(ar = x), n = 100) %>% 
+    as_tibble() 
+}) %>% 
+  bind_cols() %>% 
+  set_names(c("AR(0) 0", "AR(1) 0.3", "AR(1) 0.9", "AR(2) 0.3; 0.3", "AR(2) 0.9; -0.8")) %>% 
+  mutate(index = 1:100) %>% 
+  pivot_longer(cols = matches("AR"),
+               values_to = "value",
+               names_to = "key") %>% 
+  mutate(key = as_factor(key))
 
-# Plot your simulated data
-plot.ts(cbind(x, y, z))
+ggplot(plot_tbl, aes(index, value, fill = key)) +
+  theme_bw() +
+  facet_wrap(~ key, nrow = 5, strip.position="right") + 
+  geom_line() +
+  geom_hline(yintercept = 0) +
+  geom_ribbon(aes(ymin = ifelse(value <= 0, value, 0), 
+                  ymax = ifelse(value >= 0, value, 0)), 
+              alpha=0.5) +
+  scale_fill_okabeito() +
+  ylim(-5, 5) +
+  labs(x = "", y = "") +
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        legend.position = "none", 
+        strip.text = element_text(size = 10))
+
 ```
 
 ### Das R Paket `zoo` und `ts` (schnelle & einfache Analysen)
@@ -701,83 +736,123 @@ ribbon_tbl %>%
   geom_point()
 ```
 
-### Modeltime tutorial
+### Vorhersagen mit `modeltime`
+
+Am Ende hier nochmal eine Möglichkeit sehr effizient Zeitreihen zu modellieren und eine Vorhersage für zukünftige Verläufe zu machen. Ich empfehle hier die Hilfeseite [Getting Started with Modeltime](https://business-science.github.io/modeltime/articles/getting-started-with-modeltime.html). Auf der Seite erfährst du dann die Grundlagen für die Anwendung von dem R Paket `modeltime`. Hier kannst du dann tief in den Kaninchenbau reingehen. Neben dem R Paket `modeltime` findest du im Ökosystem `modeltime` noch andere spannende R Pakete, die dir weitere und vertiefende Modellierungen zur Vorhersage erlauben. Wenn dir die Begriffe zu der Vorhersage und der Klassifikation etwas komisch vorkommen, dann kannst du in dem Kapitel [Grundlagen der Klassifikation](#sec-class-basic) reinschauen und nachlesen wo du dann noch Lücken hast. Ich gehe hier dann nicht mehr so tief auf die einzelnen Punkte ein, sondern führe hier eher grob durch den Code.
 
 ```{r}
-pacman::p_load(xgboost, tidymodels, modeltime, timetk)
+#| warning: false
+#| message: false
+splits <- initial_time_split(milk_tbl, prop = 0.9)
+```
 
-# This toggles plots from plotly (interactive) to ggplot (static)
-interactive <- FALSE
-
-# Data
-m750 <- m4_monthly %>% filter(id == "M750")
-
-m750 %>%
-  plot_time_series(date, value, .interactive = interactive)
-
-splits <- initial_time_split(m750, prop = 0.9)
-
+```{r}
+#| cache: true
+#| warning: false
+#| message: false
 model_fit_arima_no_boost <- arima_reg() %>%
     set_engine(engine = "auto_arima") %>%
-    fit(value ~ date, data = training(splits))
+    fit(milk_prod_per_cow_kg ~ month, data = training(splits))
+```
 
-# Model 3: ets ----
+```{r}
+#| warning: false
+#| message: false
 model_fit_ets <- exp_smoothing() %>%
     set_engine(engine = "ets") %>%
-    fit(value ~ date, data = training(splits))
+    fit(milk_prod_per_cow_kg ~ month, data = training(splits))
+```
 
-# Model 5: lm ----
+```{r}
+#| warning: false
+#| message: false
 model_fit_lm <- linear_reg() %>%
     set_engine("lm") %>%
-    fit(value ~ as.numeric(date) + factor(month(date, label = TRUE), ordered = FALSE),
+    fit(milk_prod_per_cow_kg ~ as.numeric(month) + factor(month(month, label = TRUE), ordered = FALSE),
         data = training(splits))
+```
 
+```{r}
+#| warning: false
+#| message: false
 models_tbl <- modeltime_table(
     model_fit_arima_no_boost,
     model_fit_ets,
     model_fit_lm
 )
+```
 
+```{r}
+#| warning: false
+#| message: false
 calibration_tbl <- models_tbl %>%
     modeltime_calibrate(new_data = testing(splits))
+```
 
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-time-modeltime-1
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Eigenwerte für die beiden Datensätze."
 
 calibration_tbl %>%
     modeltime_forecast(
         new_data    = testing(splits),
-        actual_data = m750
+        actual_data = milk_tbl
     ) %>%
     plot_modeltime_forecast(
       .legend_max_width = 25, # For mobile screens
-      .interactive      = interactive
+      .interactive      = FALSE
     )
 ```
 
 ```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: tbl-time-modeltime-1
+#| tbl-cap: "Eigenwerte für die beiden Datensätze."
+
 calibration_tbl %>%
     modeltime_accuracy() %>%
     table_modeltime_accuracy(
-        .interactive = interactive
+        .interactive = FALSE
     )
 
 ```
 
--   MAE - Mean absolute error, mae()
--   MAPE - Mean absolute percentage error, mape()
--   MASE - Mean absolute scaled error, mase()
--   SMAPE - Symmetric mean absolute percentage error, smape()
--   RMSE - Root mean squared error, rmse()
--   RSQ - R-squared, rsq()
+-   MAE - Mean absolute error, [`mae()`](https://yardstick.tidymodels.org/reference/mae.html)
+-   MAPE - Mean absolute percentage error, [`mape()`](https://yardstick.tidymodels.org/reference/mape.html)
+-   MASE - Mean absolute scaled error, [`mase()`](https://yardstick.tidymodels.org/reference/mase.html)
+-   SMAPE - Symmetric mean absolute percentage error, [`smape()`](https://yardstick.tidymodels.org/reference/smape.html)
+-   RMSE - Root mean squared error, [`rmse()`](https://yardstick.tidymodels.org/reference/rmse.html)
+-   RSQ - R-squared, [`rsq()`](https://yardstick.tidymodels.org/reference/rsq.html)
 
 ```{r}
+#| warning: false
+#| message: false
 refit_tbl <- calibration_tbl %>%
-    modeltime_refit(data = m750)
+    modeltime_refit(data = milk_tbl)
+```
 
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-time-modeltime-2
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Eigenwerte für die beiden Datensätze."
 refit_tbl %>%
-    modeltime_forecast(h = "3 years", actual_data = m750) %>%
+    modeltime_forecast(h = "3 years", actual_data = milk_tbl) %>%
     plot_modeltime_forecast(
       .legend_max_width = 25, # For mobile screens
-      .interactive      = interactive
+      .interactive      = FALSE
     )
 ```
 
