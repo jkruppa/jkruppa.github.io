@@ -55,7 +55,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, janitor, see, readxl,
-               xgboost, tidymodels, modeltime, 
+               xgboost, tidymodels, modeltime, forecast,
                lubridate, plotly, zoo, timetk, xts,
                conflicted)
 conflicts_prefer(dplyr::filter)
@@ -197,9 +197,11 @@ Wichtig ist, dass wir das richtige Datumsformat haben. Siehe bitte dazu auch das
 
 Wir werden uns jetzt einmal am Beispiel die Transformation der Datumsformate in den jeweiligen Daten anschauen. Je nach Datensatz müssen wir da mehr oder weniger machen. Auch hier, wenn du weniger Arbeit möchtest, dann achte auf eine einheitliche Form der Datumsangabe
 
-::: callout-important \## Konvertierung von verschiedenen Datumsformaten in R
+::: callout-important
+## Konvertierung von verschiedenen Datumsformaten in R
 
-Das R Paket `timetk` liefert dankenswerterweise Funktionen für die Konvertierung von verschiedenen Zeitformaten in R. Deshalb schaue einmal in die Hilfeseite [Time Series Class Conversion -- Between ts, xts, zoo, and tbl](https://business-science.github.io/timetk/articles/TK00_Time_Series_Coercion.html#introduction) und dann dort speziell der Abschnitt [Conversion Methods](https://business-science.github.io/timetk/articles/TK00_Time_Series_Coercion.html#conversion-methods). Leider ist Zeit in R wirklich relativ. :::.
+Das R Paket `timetk` liefert dankenswerterweise Funktionen für die Konvertierung von verschiedenen Zeitformaten in R. Deshalb schaue einmal in die Hilfeseite [Time Series Class Conversion -- Between ts, xts, zoo, and tbl](https://business-science.github.io/timetk/articles/TK00_Time_Series_Coercion.html#introduction) und dann dort speziell der Abschnitt [Conversion Methods](https://business-science.github.io/timetk/articles/TK00_Time_Series_Coercion.html#conversion-methods). Leider ist Zeit in R wirklich relativ.
+:::
 
 ### Die CSH-Daten
 
@@ -473,7 +475,7 @@ p %+%
 
 Um die Milchdaten in der @fig-time-milk-1 darzustellen nutzen wir die Funktion `plot_time_series()` aus dem R Paket `timetk`. Eigentlich ist es ein Zusammenschluss von `ggplot` und `plotly`. Wenn du die Option `.interactive = TRUE` wie ich setzt, dann bekommst du einen semi-interaktiven Plot durch `plotly` wiedergegeben. Mehr Informationen erhälst du dann auf der Hilfeseite von `timetk` zu [Visualizing Time Series](https://business-science.github.io/timetk/articles/TK04_Plotting_Time_Series.html). Wie immer wenn du so generische Funktionen nutzt, musst du schauen, ob dir die Abbildung so gefällt. Du verlierst hier etwas Flexibilität und erhälst dafür aber schneller deine Abbildungen.
 
-Wir erkennen ganz gut, dass wir hier einen Effekt der Session haben oder aber der Jahreszeit. Wir haben zyklische Peaks der Milchleistung über das Jahr verteilt. Gegen Ende unserer Zeitreihe sehen wir aber eine Art Plateau der Milchleistung. In der folgenden Analyse wollen wir einmal schauen, ob wir die zukünftige Milchleistung anhand der bisherigen Daten vorhersagen können.
+Wir erkennen ganz gut, dass wir hier einen Effekt der Saison oder aber der Jahreszeit haben. Wir haben zyklische Peaks der Milchleistung über das Jahr verteilt. Gegen Ende unserer Zeitreihe sehen wir aber eine Art Plateau der Milchleistung. In der folgenden Analyse wollen wir einmal schauen, ob wir die zukünftige Milchleistung anhand der bisherigen Daten vorhersagen können.
 
 ```{r}
 #| message: false
@@ -564,7 +566,7 @@ ggplot(plot_tbl, aes(index, value, fill = key)) +
 
 ### Das R Paket `zoo` und `ts` (schnelle & einfache Analysen)
 
-Leider ist das Zeitformat `ts` etwas quälend.
+Wir schauen uns hier als erstes die Standardvariante in R an. Das heißt, wir nehmen die einfachen Funktionen, die in R implementiert sind und rechnen damit eine Zeitreihenanalyse. Damit haben wir dann einige Nachteile, da wir uns die Funktionen dann eventuell nochmal aus Paketen zusammensuchen müssen. Dafür ist es aber schön kleinteilig und du kannst die Analysen Schritt für Schritt durchführen. Wenn dir das zu Kleinteillig oder aber veraltet ist, dann schaue gleich weiter unten in den Abschnitten zu den R Paketen `tktime` und `modeltime` nach. Beide Pakete sind die Antwort auf eine Analyse von Zeitreihen im `tidyverse`.
 
 ::: callout-important
 ## Konvertierung von verschiedenen Datumsformaten in R
@@ -572,41 +574,36 @@ Leider ist das Zeitformat `ts` etwas quälend.
 Das R Paket `timetk` liefert dankenswerterweise Funktionen für die Konvertierung von verschiedenen Zeitformaten in R. Deshalb schaue einmal in die Hilfeseite [Time Series Class Conversion -- Between ts, xts, zoo, and tbl](https://business-science.github.io/timetk/articles/TK00_Time_Series_Coercion.html#introduction) und dann dort speziell der Abschnitt [Conversion Methods](https://business-science.github.io/timetk/articles/TK00_Time_Series_Coercion.html#conversion-methods). Leider ist Zeit in R wirklich relativ.
 :::
 
-Dennoch basieren viele Tutorien auf diesem Format, deshalb hier auch einmal die Erklärung dafür. Dann gibt es mit dem R Paket `zoo` noch ein Palette an nützlichen Funktionen, wenn du nicht so viel machen willst. Mit so viel meine ich, dass du eher an einem rollenden Mittelwert oder aber der rollenden Summe interessiert bist. Dann macht das R Paket `zoo` sehr viel Sinn. Einen Überblick liefert hier auch [Reading Time Series Data](https://a-little-book-of-r-for-time-series.readthedocs.io/en/latest/src/timeseries.html#reading-time-series-data).
+Leider ist das Zeitformat `ts` etwas quälend. Dennoch basieren viele Tutorien auf diesem Format, deshalb hier auch einmal die Erklärung dafür. Es ist aber auch verständlich, denn das Format ist sozusagen der eingebaute Standard in R. Standard heißt hier aber nicht toll, sondern eher veraltet aus den 90zigern. Dann gibt es mit dem R Paket `zoo` noch ein Palette an nützlichen Funktionen, wenn du nicht so viel machen willst. Mit so viel meine ich, dass du eher an einem rollenden Mittelwert oder aber der rollenden Summe interessiert bist. Dann macht das R Paket `zoo` sehr viel Sinn. Einen Überblick liefert hier auch das Tutorium [Reading Time Series Data](https://a-little-book-of-r-for-time-series.readthedocs.io/en/latest/src/timeseries.html#reading-time-series-data).
+
+Als aller erstes brauchen wir einen Datensatz, der auch eine *echte* Zeitreihe über mehrere zeitliche Zyklen enthält. Das ist dann meistens die Herausvorderung so eine Zeitreihe in einer Abschlussarbeit zu erzeugen. In ein paar Monaten einen zyklischen Verlauf zu finden ist schon eine echte Leistung. Deshalb nehmen wir hier als Beispiel einmal unsere künstlichen Daten zur Milchleistung von Kühen. Wie du in der @fig-time-milk-1 klar erkennen kannst, haben wir hier Zyklen über die einzelnen Jahre hinweg. Wir wollen jetzt modellieren und vorhersagen, wie die zukünftigen Zyklen aussehen könnten. Wenn du solche Daten nicht vorliegen hast, dann kannst du noch andere Dinge tun, aber das kommt gleich in den folgenden Abschnitten.
 
 ```{r}
-
-
 milk_ts <- milk_tbl %$%
-  ts(milk_prod_per_cow_kg, start = 1962, end = 1975, frequency = 12) 
-
-
-decomp <- decompose(milk_ts)
-
-plot(decomp)
-
-
-library(forecast)
-model <- auto.arima(milk_ts)
-
-f <- forecast(model, 24)
-
-library(ggplot2)
-autoplot(f)
+  tk_ts(milk_prod_per_cow_kg, start = 1962, end = 1975, frequency = 12)
 ```
 
-Rollender Mittelwert und Co.
-
-Das R Paket `zoo` hat die Funktion `rollmean()` sowie `rollmax()` und `rollsum()`. Es gibt aber noch eine Reihe weiterer Funktionen. Du musst hier einfach mal die Hilfeseite `?rollmean()` für mehr Informationen aufrufen.
+```{r}
+decomp <- decompose(milk_ts)
+```
 
 ```{r}
-#| message: false
-#| warning: false
+plot(decomp)
+```
 
-rollmean_tbl<- csh_tbl %$%
-  zoo(g_tm_plot, day) %>% 
-  rollmean(k = 7) %>% 
-  tk_tbl()
+```{r}
+#| cache: true
+#| warning: false
+#| message: false
+milk_arima_obj <- auto.arima(milk_ts)
+```
+
+```{r}
+f <- forecast(milk_arima_obj, 24)
+```
+
+```{r}
+autoplot(f)
 ```
 
 ```{r}
@@ -625,6 +622,79 @@ milk_ts %>%
 milk_ts %>% 
   pacf(main = 'Partial Correlogram' )
 
+```
+
+Rollender Mittelwert und Co.
+
+Das R Paket `zoo` hat die Funktion `rollmean()` sowie `rollmax()` und `rollsum()`. Es gibt aber noch eine Reihe weiterer Funktionen. Du musst hier einfach mal die Hilfeseite `?rollmean()` für mehr Informationen aufrufen.
+
+::: panel-tabset
+## `rollmean()`
+
+```{r}
+roll_mean_tbl <- salad_long_tbl %>% 
+  split(.$type) %>% 
+  map(~zoo(.x$temp, .x$datum)) %>% 
+  map(~rollmean(.x, k = 29)) %>% 
+  map(tk_tbl) %>% 
+  bind_rows(.id = "type")
+```
+
+## `rollmax()`
+
+```{r}
+roll_max_tbl <- salad_long_tbl %>% 
+  split(.$type) %>% 
+  map(~zoo(.x$temp, .x$datum)) %>% 
+  map(~rollmax(.x, k = 29)) %>% 
+  map(tk_tbl) %>% 
+  bind_rows(.id = "type")
+```
+
+## `rollsum()`
+
+```{r}
+roll_sum_tbl <- salad_long_tbl %>% 
+  split(.$type) %>% 
+  map(~zoo(.x$temp, .x$datum)) %>% 
+  map(~rollsum(.x, k = 29)) %>% 
+  map(tk_tbl) %>% 
+  bind_rows(.id = "type")
+```
+:::
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-time-salad-roll-1
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Eigenwerte für die beiden Datensätze."
+#| fig-subcap: 
+#|   - "Tierdaten `animals_df`"
+#|   - "Kreaturendaten `std_creature_df`"
+#|   - "Kreaturendaten `std_creature_df` foo"
+#| layout-nrow: 1
+#| column: page
+
+p_mean <- ggplot(roll_mean_tbl, aes(index, value, color = type)) +
+  theme_bw() +
+  geom_point2() +
+  stat_smooth(se = FALSE) +
+  scale_color_okabeito() 
+p_mean +
+  ylim(0, 40)
+
+p_mean %+%
+  roll_max_tbl +
+  ylim(0, 40)
+
+p_mean %+%
+  roll_sum_tbl +
+  scale_y_log10()
+ 
 ```
 
 ### Das R Paket `tktime` (komplexe Analysen)
