@@ -576,57 +576,9 @@ Das R Paket `timetk` liefert dankenswerterweise Funktionen für die Konvertierun
 
 Leider ist das Zeitformat `ts` etwas quälend. Dennoch basieren viele Tutorien auf diesem Format, deshalb hier auch einmal die Erklärung dafür. Es ist aber auch verständlich, denn das Format ist sozusagen der eingebaute Standard in R. Standard heißt hier aber nicht toll, sondern eher veraltet aus den 90zigern. Dann gibt es mit dem R Paket `zoo` noch ein Palette an nützlichen Funktionen, wenn du nicht so viel machen willst. Mit so viel meine ich, dass du eher an einem rollenden Mittelwert oder aber der rollenden Summe interessiert bist. Dann macht das R Paket `zoo` sehr viel Sinn. Einen Überblick liefert hier auch das Tutorium [Reading Time Series Data](https://a-little-book-of-r-for-time-series.readthedocs.io/en/latest/src/timeseries.html#reading-time-series-data).
 
-Als aller erstes brauchen wir einen Datensatz, der auch eine *echte* Zeitreihe über mehrere zeitliche Zyklen enthält. Das ist dann meistens die Herausvorderung so eine Zeitreihe in einer Abschlussarbeit zu erzeugen. In ein paar Monaten einen zyklischen Verlauf zu finden ist schon eine echte Leistung. Deshalb nehmen wir hier als Beispiel einmal unsere künstlichen Daten zur Milchleistung von Kühen. Wie du in der @fig-time-milk-1 klar erkennen kannst, haben wir hier Zyklen über die einzelnen Jahre hinweg. Wir wollen jetzt modellieren und vorhersagen, wie die zukünftigen Zyklen aussehen könnten. Wenn du solche Daten nicht vorliegen hast, dann kannst du noch andere Dinge tun, aber das kommt gleich in den folgenden Abschnitten.
+#### Rollender Mittelwert und Co. {.unnumbered}
 
-```{r}
-milk_ts <- milk_tbl %$%
-  tk_ts(milk_prod_per_cow_kg, start = 1962, end = 1975, frequency = 12)
-```
-
-```{r}
-decomp <- decompose(milk_ts)
-```
-
-```{r}
-plot(decomp)
-```
-
-```{r}
-#| cache: true
-#| warning: false
-#| message: false
-milk_arima_obj <- auto.arima(milk_ts)
-```
-
-```{r}
-f <- forecast(milk_arima_obj, 24)
-```
-
-```{r}
-autoplot(f)
-```
-
-```{r}
-#| message: false
-#| echo: true
-#| warning: false
-#| label: fig-time-ts-1
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 7
-#| fig-cap: "foo."
-
-milk_ts %>% 
-  acf(main = 'Correlogram')
-
-milk_ts %>% 
-  pacf(main = 'Partial Correlogram' )
-
-```
-
-Rollender Mittelwert und Co.
-
-Das R Paket `zoo` hat die Funktion `rollmean()` sowie `rollmax()` und `rollsum()`. Es gibt aber noch eine Reihe weiterer Funktionen. Du musst hier einfach mal die Hilfeseite `?rollmean()` für mehr Informationen aufrufen.
+Wenn wir viele Datenpunkte über die Zeit messen, dann hilft es manchmal die Spitzen und Täler aus den Daten durch eine rollende statistische Maßzahl zusammenzufassen. Das R Paket `zoo` hat die Funktion `rollmean()` sowie `rollmax()` und `rollsum()`. Es gibt aber noch eine Reihe weiterer Funktionen. Du musst hier einfach mal die Hilfeseite `?rollmean()` für mehr Informationen aufrufen. Mit den Funktionen können wir für ein Zeitintervall $k$ den Mittelwert bzw. der anderen Maßzahlen berechnen. In unserem Fall habe ich einmal das rollende Monatsintervall genommen. Du kannst aber auch andere Zeiten für $k$ einsetzen und überlegen welcher Wert besser zu deinen Daten passt. Hier einmal die Berechnung für das rollende Mittel, das rollende Maximum und die rollende Summe. In allen drei Fällen nutzen wir die Funktion `split()` und `map()` um effizient unseren Code auszuführen.
 
 ::: panel-tabset
 ## `rollmean()`
@@ -663,6 +615,20 @@ roll_sum_tbl <- salad_long_tbl %>%
 ```
 :::
 
+In der @fig-time-salad-roll-1 siehst du einmal das Ergebnis der drei rollenden Maßzahlen. Im Folgenden habe ich zuerst den `ggplot` für das rollende Mittel erstellt und dann über den Operator `%+%` die beiden anderen Datensätze zu dem rollenden Maximum un der rollenden Summe ersetzt. Die rollende Summe habe ich noch auf der $\log$-transformierten $y$-Achse dargestellt.
+
+```{r}
+p_mean <- ggplot(roll_mean_tbl, aes(index, value, color = type)) +
+  theme_bw() +
+  geom_point2() +
+  stat_smooth(se = FALSE) +
+  labs(x = "Datum", y = "Rollende statistische Maßzahl", 
+       color = "Type") +
+  scale_color_okabeito() 
+```
+
+Wir sehen in der folgenden Abbildung, dass sich die Messtypen dann doch nicht so stark in durch die rollenden Maßzahlen unterscheiden. Wir haben ja schon in der Orginalabbildung das Problem gehabt, dass sich die Werte sehr stark ähneln. Das scheint auch über 29 Tage der Fall zu ein. Was man besser sieht, ist das wellenförmige Ansteigen der Temperatur über die gemessene Zeit. Wir hatten also immer mal wieder etwas kältere Phasen, die von wärmeren Phasen abgelöst wurden.
+
 ```{r}
 #| message: false
 #| echo: true
@@ -671,19 +637,14 @@ roll_sum_tbl <- salad_long_tbl %>%
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
-#| fig-cap: "Eigenwerte für die beiden Datensätze."
+#| fig-cap: "Darstellung der rollenden Mittelwerte, maximalen Werte sowie aufsummierten Werte über 29 Tage. Die aufsummierten Werte sind auf logarithmischen Skala dargestellt. Gegenüber der orginalen Abbildung sehen wir schon etwas mehr Ordnung. Die drei Arten der Messung unterscheiden sich aber weiterhin kaum."
 #| fig-subcap: 
-#|   - "Tierdaten `animals_df`"
-#|   - "Kreaturendaten `std_creature_df`"
-#|   - "Kreaturendaten `std_creature_df` foo"
+#|   - "Rollender Mittelwert."
+#|   - "Rollendes Maximum."
+#|   - "Rollende Summe"
 #| layout-nrow: 1
 #| column: page
 
-p_mean <- ggplot(roll_mean_tbl, aes(index, value, color = type)) +
-  theme_bw() +
-  geom_point2() +
-  stat_smooth(se = FALSE) +
-  scale_color_okabeito() 
 p_mean +
   ylim(0, 40)
 
@@ -696,10 +657,6 @@ p_mean %+%
   scale_y_log10()
  
 ```
-
-### Das R Paket `tktime` (komplexe Analysen)
-
-[timetk for R](https://business-science.github.io/timetk/)
 
 ### Vergleich zweier zeitlicher Verläufe
 
@@ -805,6 +762,60 @@ ribbon_tbl %>%
   scale_color_okabeito() +
   geom_point()
 ```
+
+#### Vorhersage von Milchleistung {.unnumbered}
+
+Wenn wir eine Vorhersage auf einem zeitlichen verlauf rechnen wollen, dann brauchen wir als aller erstes einen Datensatz, der auch eine *echte* Zeitreihe über mehrere zeitliche Zyklen enthält. Das ist dann meistens die Herausforderung so eine Zeitreihe in einer Abschlussarbeit zu erzeugen. In ein paar Monaten einen zyklischen Verlauf zu finden ist schon eine echte Leistung. Deshalb nehmen wir hier als Beispiel einmal unsere künstlichen Daten zur Milchleistung von Kühen. Wie du in der @fig-time-milk-1 klar erkennen kannst, haben wir hier Zyklen über die einzelnen Jahre hinweg. Wir wollen jetzt modellieren und vorhersagen, wie die zukünftigen Zyklen aussehen könnten. Wenn du solche Daten nicht vorliegen hast, dann kannst du noch andere Dinge tun, aber das kommt gleich in den folgenden Abschnitten.
+
+```{r}
+milk_ts <- milk_tbl %$%
+  tk_ts(milk_prod_per_cow_kg, start = 1962, end = 1975, frequency = 12)
+```
+
+```{r}
+decomp <- decompose(milk_ts)
+```
+
+```{r}
+plot(decomp)
+```
+
+```{r}
+#| cache: true
+#| warning: false
+#| message: false
+milk_arima_obj <- auto.arima(milk_ts)
+```
+
+```{r}
+f <- forecast(milk_arima_obj, 24)
+```
+
+```{r}
+autoplot(f)
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-time-ts-1
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "foo."
+
+milk_ts %>% 
+  acf(main = 'Correlogram')
+
+milk_ts %>% 
+  pacf(main = 'Partial Correlogram' )
+
+```
+
+### Das R Paket `tktime` (komplexe Analysen)
+
+[timetk for R](https://business-science.github.io/timetk/)
 
 ### Vorhersagen mit `modeltime`
 
