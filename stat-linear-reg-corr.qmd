@@ -259,13 +259,34 @@ corrplot.mixed(cor_mat)
 
 Es gibt noch eine Vielzahl an weiteren Möglichkeiten in den Optionen von der Funktion `corr.mixed()`. Hier hilft dann die Hilfeseite der Funktion oder aber die [Hilfeseite zum Paket](https://cran.r-project.org/web/packages/corrplot/vignettes/corrplot-intro.html).
 
+Eine weitere Möglichkeit kontinuierliche Daten darzustellen ist das R Paket `{GGally}` mit der Funktion `ggpairs()`. Hier können wir die paarweisen Zusammenhänge von Variablen, also den Spalten, darstellen. Prinzipiell geht es auch mit kategorialen Variablen, aber wir konzentrieren uns hier nur auf die numerischen. Im Folgenden wählen wir also nur die numerischen Spalten in unseren Gummibärchendaten einmal aus und nutzen die slektierten Daten dann einmal in der Funktion `ggpairs()`.
+
 ```{r}
 corr_gummi_tbl <- corr_gummi_tbl %>% 
   select_if(is.numeric)
 ```
 
+Der `ggpairs`-Plot baut sich als eine MAtrix auf, in der jede Variable mit jeder anderen Variable verglichen wird. Damit ergibt sich auf der Diagonalen ein Selbstvergleich und die obere Hälfte und untere Hälfte der Matrix beinhalten die gleichen Informationen. Hier setzt dann `ggpairs()` an und erlaubt in jede der drei Bereiche, obere Hälfte (`upper`), der Diagonalen (`diag`) sowie der unteren Hälfte (`lower`), eigene Abbildungen oder Maßzahlen für die Vergleiche der Variablen zu verwenden. In der @fig-corrplot-pairs-0 siehst du die Standardausgabe der Funktion `ggpairs()` auf einen Datensatz. Auf der unteren Hälfte ist der Scatterplot mit den einzelnen Beobachtungen, in der Diagonalen die Dichte der Variablen sowie im oberen Bereich die Korrelation zwischen den Variablen angegeben. Die Korrelation wurde auch noch einen statistischen Test unterworfen, so dass wir hier auch Sternchen für die Signifikanz bekommen.
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-corrplot-pairs-0
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 6
+#| fig-cap: "Unmodifizierte Abbildung aus `ggpairs()` mit allen paarweisen Vergleichen der numerischen Variablen. Auf der unteren Hälfte ist der Scatterplot, in der Diagonalen die Dichte der Variablen sowie im oberen Bereich die Korrelation zwischen den Variablen angegeben."
+ggpairs(corr_gummi_tbl) +
+  theme_bw()
+```
+
+Die Standardabbildung ist okay, wenn du mal in die Daten schauen willst. Aber eigentlich sind wir an einer schöneren Abbildung interessiert. Wie immer, was ist schon schön, aber ich zeige dir einmal, wie du die Abbildungen in den jeweiligen Bereichen ändern kannst. Bei `{GGally}` hilft mir eigentlich immer am besten den konkreten Sachverhalt zu googlen, den ich ändern will. Wenn es zu viel wird, dann hilft es mehr sich die Abbildungen dann doch selber zu bauen und über `{patachwork}` zusammenzukleben. Es geht halt nicht beides, schnell und flexibel. In den folgenden Tabs findest du jeweils eine Funktion, die den oberen, diagonalen und unteren Bereich modifiziert. Die Funktion rufen wir dann in der Funktion `ggpairs()` auf.
+
 ::: panel-tabset
 ## Upper
+
+Wir wollen in den oberen Bereich die Korrelation haben, aber ohen die Sternchen und ohne das Wort `Corr:`. Deshalb müssen wir uns hier nochmal die Korrelationsfunktion selber nachbauen.
 
 ```{r}
 #| message: false
@@ -286,6 +307,8 @@ cor_func <- function(data, mapping, method, symbol, ...){
 
 ## Diag
 
+Auf der Diagonalen wollen wir die Desnityplots haben. Die sind auch so da, aber ich färbe die Plots hier nochmal rot ein. Einfach damot du siehst, was man machen kann.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -296,6 +319,8 @@ diag_fun <- function(data, mapping) {
 ```
 
 ## Lower
+
+In dem unteren Bereich wollen wir die Punkte etwas kleiner haben, deshalb das `feom_point2()` aus dem R Paket `{see}`. Dann möchte ich noch die Regressionsgrade einmal zeichnen. Auch hier geht dann mehr, wenn du `loess` oder aber den Standardfehler sehen willst.
 
 ```{r}
 #| message: false
@@ -309,6 +334,8 @@ lower_fun <- function(data, mapping) {
 ```
 :::
 
+Und dann sammeln wir alles ein und bauen uns die @fig-corrplot-pairs-1. Wir machen uns es hier etwas einfacher und schreiben gleich das Symbol $\rho$ als ASCII-Zeichen, da sparen wir etwas nerven. Ansonsten siehst du wie durch die Optionen `upper =`, `diag =` und `lower =` die obigen Funktionen zugewiesen werden und damit dann die einzelnen Bereiche individuell gebaut werden. Wichtig finde ich noch die Möglichkeit, die Seitennamen der Abbildung dann hier in der Funktion über `columnLabels =` sauber zu benennen.
+
 ```{r}
 #| echo: true
 #| message: false
@@ -317,16 +344,17 @@ lower_fun <- function(data, mapping) {
 #| fig-align: center
 #| fig-height: 6
 #| fig-width: 6
-#| fig-cap: "Fen."
+#| fig-cap: "Modifizierte Abbildung aus `ggpairs()` mit allen paarweisen Vergleichen der numerischen Variablen. Auf der unteren Hälfte ist der Scatterplot zusammen mit der Regressionsgrade aus `stat_smooth()`, in der Diagonalen die eingefärbte Dichte der Variablen sowie im oberen Bereich die Korrelation zwischen den Variablen ohne die Signifikanz und der Überschrift `Corr:` sondern mit $\\rho$ angegeben."
 ggpairs(corr_gummi_tbl, 
-        upper = list(continuous = wrap(cor_func,
-                  method = 'pearson', symbol = expression('\u03C1 ='))),
-        lower = list(continuous = wrap(lower_fun)),
+        upper = list(continuous = wrap(cor_func, method = 'pearson', symbol = expression('\u03C1 ='))),
         diag = list(continuous = wrap(diag_fun)),
+        lower = list(continuous = wrap(lower_fun)),
         columnLabels = c("Anzahl Bärchen", "Anzahl Farben", 
                          "Alter", "Größe", "Semester")) +
   theme_bw()
 ```
+
+Hier hilft es dann auch mal mit den Themes `theme_minimal()` oder `theme_void()`. In der @fig-corrplot-pairs-2 habe ich die Labels durch die Funktion `axisLabels = "internal"` auf die Diagonale gesetzt. Dann musst du entweder die Namen kürzer machen oder aber den Plot größer. Ich habe mich hier für kürzere Namen entschieden. Dementsprechenden spiele einfach mal mit den Möglichkeiten, bis du eine gute Abbildung für dich gefunden hast.
 
 ```{r}
 #| echo: true
@@ -334,14 +362,14 @@ ggpairs(corr_gummi_tbl,
 #| warning: false
 #| label: fig-corrplot-pairs-2
 #| fig-align: center
-#| fig-height: 6
-#| fig-width: 6
-#| fig-cap: "Farn."
+#| fig-height: 9
+#| fig-width: 9
+#| fig-cap: "Modifizierte Abbildung aus `ggpairs()` mit allen paarweisen Vergleichen der numerischen Variablen. Hier einmal mit internen Achsenbeschrfitungen und zur Abwechselung dem Theme `theme_minimal()`."
 ggpairs(corr_gummi_tbl, 
         lower = list(continuous = wrap(lower_fun)),
-        columnLabels = c("Anzahl Bärchen", "Anzahl Farben", 
+        columnLabels = c("Bärchen", "Farben", 
                          "Alter", "Größe", "Semester"),
-        axisLabels="internal") +
-  theme_bw()
+        axisLabels = "internal") +
+  theme_minimal()
 
 ```
