@@ -1,5 +1,7 @@
 ```{r echo = FALSE}
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, openxlsx)
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
 # Zeitreihen (eng. *time series*) {#sec-time-series}
@@ -57,7 +59,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, janitor, see, readxl,
                xgboost, tidymodels, modeltime, forecast,
                lubridate, plotly, zoo, timetk, xts,
-               conflicted)
+               corrplot, conflicted)
 conflicts_prefer(dplyr::filter)
 conflicts_prefer(magrittr::set_names)
 conflicts_prefer(plyr::mutate)
@@ -511,6 +513,108 @@ ARIMA Modell
 
 :   Wir nutzen zur Analyse von Zeitreihen das ARIMA Modell (abk. *autoregressive integrated moving average*, deu. *autoregressiver gleitender Durchschnitt*). Das ARIMA Modell ist dabei eine Erweiterung schon existierender Modelle und wird sehr häufig für die Analyse von Zeitreihen genutzt. Als wichtigste Anwendung gilt die kurzfristige Vorhersage. Das ARIMA Modell besitzt einen autoregressiven Teil (AR-Modell) und einen gleitenden Mittelwertbeitrag (MA-Modell). Das ARIMA Modell erfordern eigentlich stationäre Zeitreihen. Eine stationäre Zeitreihe bedeutet, dass sich die Randbedingungen einer Zeitreihe nicht verändern. Die zugrundeliegende Verteilungsfunktion der gemessenen Werte über die Zeitreihe muss zeitlich konstant sein. Das heißt konkret, dass die Mittelwerte und die Varianz zu jeder Zeit gleich sind. Gewisse Trends lassen sich durch ein ARIMA Modell herausfiltern.
 
+Lag
+
+```{r}
+erupt <- c(78, 74, 68, 76, 80, 84, 50, 93, 55, 76, 58, 74, 75, 80, 56, 80, 69, 57,
+           90, 42, 91, 51, 79, 53, 82, 51, 76, 82, 84, 53, 86, 51, 85, 45, 88, 51,
+           80, 49, 82, 75, 73, 67, 68, 86, 72, 75, 75, 66, 84, 70, 79, 60, 86, 71,
+           67, 81, 76, 83, 76, 55, 73, 56, 83, 57, 71, 72, 77, 55, 75, 73, 70, 83,
+           50, 95, 51, 82, 54, 83, 51, 80, 78, 81, 53, 89, 44, 78, 61, 73, 75, 73,
+           76, 55, 86, 48, 77, 73, 70, 88, 75, 83, 61, 78, 61, 81, 51, 80, 79)
+```
+
+[What is lag in a time series?](https://math.stackexchange.com/questions/2548314/what-is-lag-in-a-time-serie)
+
+```{r}
+erupt_l1 <- dplyr::lag(erupt, 1)
+```
+
+```{r}
+erupt_tbl <- tibble(erupt, 
+                    erupt_l1 = dplyr::lag(erupt, 1),
+                    erupt_l2 = dplyr::lag(erupt, 2),
+                    erupt_l3 = dplyr::lag(erupt, 3))
+
+erupt_long_tbl <- erupt_tbl %>% 
+  gather()
+```
+
+::: panel-tabset
+## Lag 1
+
+```{r}
+lm(erupt_l1 ~ erupt, erupt_tbl) %>% 
+  coef()
+```
+
+## Lag 2
+
+```{r}
+lm(erupt_l2 ~ erupt, erupt_tbl) %>% 
+  coef()
+```
+:::
+
+```{r}
+cor_erupt_mat <- cor(erupt_tbl, use = "complete.obs")
+
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-time-corrplot-1
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "corplot."
+corrplot.mixed(cor_erupt_mat, upper = "ellipse")
+
+
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-time-lag
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Afoo"
+#| fig-subcap: 
+#|   - "Rollender Mittelwert."
+#|   - "Rollendes Maximum."
+#| layout-nrow: 1
+erupt_tbl %>% 
+  ggplot(aes(erupt, erupt_l1)) +
+  theme_bw() +
+  geom_point2(color = cbbPalette[7]) +
+  geom_function(fun = \(x){119.49 - 0.68 * x}, 
+                color = cbbPalette[7]) +
+  annotate("text", x = 50, y = 60, label = "r = -0.69", size = 6)
+
+erupt_tbl %>% 
+  ggplot(aes(erupt, erupt_l2)) +
+  theme_bw() +
+  geom_point2(color = cbbPalette[6]) +
+  geom_function(fun = \(x){31.81 + 0.55 * x}, 
+                color = cbbPalette[6]) +
+  annotate("text", x = 50, y = 90, label = "r = 0.55", size = 6)
+
+```
+
+[Time Series as Features](https://www.kaggle.com/code/ryanholbrook/time-series-as-features)
+
+[Time series forecasting](https://medium.com/analytics-vidhya/time-series-forecasting-d611fa8ae6ca)
+
+```{r}
+#| eval: false
+dplyr::lag(eruption, 1)
+```
+
 $$
 AR = 
 \begin{pmatrix}
@@ -660,6 +764,94 @@ p_temp  %+%
  
 ```
 
+#### Vorhersage von Milchleistung {.unnumbered}
+
+Wenn wir eine Vorhersage auf einem zeitlichen Verlauf rechnen wollen, dann brauchen wir als aller erstes einen Datensatz, der auch eine *echte* Zeitreihe über mehrere zeitliche Zyklen enthält. Das ist dann meistens die Herausforderung so eine Zeitreihe in einer Abschlussarbeit zu erzeugen. In ein paar Monaten einen zyklischen Verlauf zu finden ist schon eine echte Leistung. Deshalb nehmen wir hier als Beispiel einmal unsere künstlichen Daten zur Milchleistung von Kühen. Wie du in der obigen @fig-time-milk-1 klar erkennen kannst, haben wir hier Zyklen über die einzelnen Jahre hinweg. Es liegt ein stetiger, zyklischer Anstieg der Milchleistung über die beobachteten Jahre vor. Wir wollen jetzt den Verlauf modellieren und einen zukünftigen Verlauf vorhersagen. Oder andersherum, wie die zukünftigen Zyklen aussehen könnten.
+
+In diesem Beispiel nutzen wir das R Paket `{zoo}` und die Funktion `ts()` für die Standardimplemetierung von Zeitreihen in R. Das hat immer ein paar Nachteile, da wir hier die veralteten Speicherformen für eine Zeitreihe nutzen. Auf der anderen Seite sind viele Tutorien im Internet noch genau auf diese Funktionen ausgerichtet. Deshalb auch hier einmal die Erklärung der etwas älteren Funktionen. Später schauen wir dann auch die neuere Implementierung in dem R Paket `{tktime}` einmal an. Wir wandeln also erstmal unsere Milchdaten mit der Funktion `tk_ts()` in ein `ts`-Zeitobjekt um. Dafür müssen wir angeben von wann bis wann die Jahre laufen und wie viele Beobachtungen jedes Jahr hat. Glücklicherweise müssen nicht alle Jahre gefüllt werden und die Funktion erlaubt auch einen anderen Startmonat als `Jan`. Wie du gleich siehst, dann haben wir eine Art Matrix als Ausgabe.
+
+```{r}
+milk_ts <- milk_tbl %$%
+  tk_ts(milk_prod_per_cow_kg, start = 1962, end = 1975, frequency = 12)
+milk_ts
+```
+
+In der folgenden @fig-time-ts-3 siehst du die Zeitverzögerung (eng. *lag*).
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-time-ts-3
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "foo."
+
+milk_ts %>% 
+  acf(main = 'Correlogram')
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-time-ts-4
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "foo."
+
+milk_ts %>% 
+  pacf(main = 'Partial Correlogram' )
+
+```
+
+```{r}
+decomp <- decompose(milk_ts)
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-time-ts-1
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "foo."
+plot(decomp)
+```
+
+```{r}
+#| cache: true
+#| warning: false
+#| message: false
+#| label: arima_milk
+milk_arima_obj <- auto.arima(milk_ts)
+```
+
+```{r}
+arima_mdl <- forecast(milk_arima_obj, 24)
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-time-ts-2
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "foo."
+
+autoplot(arima_mdl) +
+  theme_bw()
+
+
+
+```
+
 ### Vergleich von Zeitreihen
 
 Unsere Dronenüberflugdaten sind etwas besondere Daten, wenn wir uns Zeitreihen anschauen. Wir haben zwar auch einen zeitlichen Verlauf auf der $x$-Achse, aber der Zeitrahmen ist mit unter einem Jahr zu klein um einen zyklischen Verlauf zu beobachten. Wir wollen hier auch etwas anderes erreichen. Uns interessieren die einzelnen Beobachtungen nicht, wir wollen die angepasste Graden durch die Punktewolken vergleichen. In der @fig-time-csh-2 siehst du nochmal die angepassten Kurven ohne die einzelnen Messpunkte. Eigentlich rechnen wir hier einen Gruppenvergleich über die Zeit. Spannende Sache, die wollen wir uns dann mal genauer ansehen. Wir werden hier aber keinen statistischen Test rechnen, sondern nur ausrechnen in wie weit sich die beiden Parzellen numerisch im Ertrag unterscheiden.
@@ -783,58 +975,6 @@ ribbon_tbl %>%
 
 Damit habe ich hier einmal gezeigt, wie du zwei Kurven deskriptiv miteinander vergleichst und die Differenz als Fläche zwischen den Kurven berechnest. Die Prozedur lässt sich einfach auch auf mehr Kurven erweitern, wenn du als mehr als zwei Parzellen vorliegen hättest. Wie immer, wenn es hier mehr Bedarf gibt, dann würde ich mir die Sachlage nochmal tiefer anschauen.
 
-#### Vorhersage von Milchleistung {.unnumbered}
-
-Wenn wir eine Vorhersage auf einem zeitlichen Verlauf rechnen wollen, dann brauchen wir als aller erstes einen Datensatz, der auch eine *echte* Zeitreihe über mehrere zeitliche Zyklen enthält. Das ist dann meistens die Herausforderung so eine Zeitreihe in einer Abschlussarbeit zu erzeugen. In ein paar Monaten einen zyklischen Verlauf zu finden ist schon eine echte Leistung. Deshalb nehmen wir hier als Beispiel einmal unsere künstlichen Daten zur Milchleistung von Kühen. Wie du in der obigen @fig-time-milk-1 klar erkennen kannst, haben wir hier Zyklen über die einzelnen Jahre hinweg. Es liegt ein stetiger, zyklischer Anstieg der Milchleistung über die beobachteten Jahre vor. Wir wollen jetzt den Verlauf modellieren und einen zukünftigen Verlauf vorhersagen. Oder andersherum, wie die zukünftigen Zyklen aussehen könnten.
-
-In diesem Beispiel nutzen wir das R Paket `{zoo}` und die Funktion `ts()` für die Standardimplemetierung von Zeitreihen in R. Das hat immer ein paar Nachteile, da wir hier die veralteten Speicherformen für eine Zeitreihe nutzen. Auf der anderen Seite sind viele Tutorien im Internet noch genau auf diese Funktionen ausgerichtet. Deshalb auch hier einmal die Erklärung der etwas ältereren Funktionen. Später schauen wir dann auch die neuere Implementierung in dem R Paket `{tktime}` einmal an.
-
-```{r}
-milk_ts <- milk_tbl %$%
-  tk_ts(milk_prod_per_cow_kg, start = 1962, end = 1975, frequency = 12)
-```
-
-```{r}
-decomp <- decompose(milk_ts)
-```
-
-```{r}
-plot(decomp)
-```
-
-```{r}
-#| cache: true
-#| warning: false
-#| message: false
-milk_arima_obj <- auto.arima(milk_ts)
-```
-
-```{r}
-f <- forecast(milk_arima_obj, 24)
-```
-
-```{r}
-autoplot(f)
-```
-
-```{r}
-#| message: false
-#| echo: true
-#| warning: false
-#| label: fig-time-ts-1
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 7
-#| fig-cap: "foo."
-
-milk_ts %>% 
-  acf(main = 'Correlogram')
-
-milk_ts %>% 
-  pacf(main = 'Partial Correlogram' )
-
-```
-
 ### Komplexere Analysen mit `tktime`
 
 [timetk for R](https://business-science.github.io/timetk/)
@@ -853,6 +993,7 @@ splits <- initial_time_split(milk_tbl, prop = 0.9)
 #| cache: true
 #| warning: false
 #| message: false
+#| label: arima_modeltime
 model_fit_arima_no_boost <- arima_reg() %>%
     set_engine(engine = "auto_arima") %>%
     fit(milk_prod_per_cow_kg ~ month, data = training(splits))
