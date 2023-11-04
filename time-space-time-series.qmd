@@ -59,7 +59,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, janitor, see, readxl,
                xgboost, tidymodels, modeltime, forecast,
                lubridate, plotly, zoo, timetk, xts,
-               corrplot, conflicted)
+               corrplot, GGally, conflicted)
 conflicts_prefer(dplyr::filter)
 conflicts_prefer(magrittr::set_names)
 conflicts_prefer(plyr::mutate)
@@ -557,25 +557,6 @@ lm(erupt_l2 ~ erupt, erupt_tbl) %>%
 :::
 
 ```{r}
-cor_erupt_mat <- cor(erupt_tbl, use = "complete.obs")
-
-```
-
-```{r}
-#| message: false
-#| echo: false
-#| warning: false
-#| label: fig-time-corrplot-1
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "corplot."
-corrplot.mixed(cor_erupt_mat, upper = "ellipse")
-
-
-```
-
-```{r}
 #| message: false
 #| echo: false
 #| warning: false
@@ -603,6 +584,58 @@ erupt_tbl %>%
   geom_function(fun = \(x){31.81 + 0.55 * x}, 
                 color = cbbPalette[6]) +
   annotate("text", x = 50, y = 90, label = "r = 0.55", size = 6)
+
+```
+
+```{r}
+cor_erupt_mat <- cor(erupt_tbl, use = "complete.obs")
+
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-time-corrplot-1
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "corplot."
+#| fig-subcap: 
+#|   - "Rollender Mittelwert."
+#|   - "Rollendes Maximum."
+#| layout-nrow: 1
+#| column: page
+
+
+cor_func <- function(data, mapping, method, symbol, ...){
+  x <- eval_data_col(data, mapping$x)
+  y <- eval_data_col(data, mapping$y)
+  corr <- cor(x, y, method=method, use='complete.obs')
+  ggally_text(
+    label = paste(symbol, as.character(round(corr, 2))), 
+    mapping = aes(),
+    xP = 0.5, yP = 0.5,
+    color = 'black', size = 6
+  ) 
+}
+
+lower_fun <- function(data, mapping) {
+  ggplot(data = data, mapping = mapping) +
+    geom_point2(alpha = 0.7) + 
+    geom_smooth(method = "lm", formula = y ~ x, se = FALSE)
+}
+
+ggpairs(erupt_tbl, 
+        upper = list(continuous = wrap(cor_func, method = 'pearson', 
+                                       symbol = expression('\u03C1 ='))),
+        lower = list(continuous = wrap(lower_fun)),
+        columnLabels = c("Original", "Lag 1", "Lag 2", "Lag 3"),
+        axisLabels = "internal") +
+  theme_bw()
+
+corrplot.mixed(cor_erupt_mat, upper = "ellipse")
+
 
 ```
 
