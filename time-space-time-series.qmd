@@ -533,6 +533,8 @@ erupt <- c(78, 74, 68, 76, 80, 84, 50, 93, 55, 76, 58, 74, 75, 80, 56, 80, 69, 5
 
 Was ist nun ein Lag? Ein Lag ist einfach nur eine Verschiebung der Daten um einen Wert. Wir schauen uns also für Lag 1 die Werte ohne den ersten Wert an. Bei dem Lag 2 löschen wir die ersten beiden Werte. Und dann ist schon fast klar was wir bei dem Lag 3 machen, wir löschen die ersten drei Werte. Wenn wir dann dennoch die paarweise Korrelation berechnen, dann berechnen wir nicht die Korrelation mit sich selber, das wäre bei Lag 0, sondern eben die Korrelation mit sich selbst verschoben um den Lag. Deshalb nennt sich das dann auch Autokorrelation.
 
+Dann berechnen wir einmal mit der Funktion `lag` aus dem R Paket `{dplyr}` die Lags 1, 2, und 3. Alle Lags packen wir dann mit den originalen Daten zusammen in einen Datensatz und haben somit auch gleich einen Vergleich.
+
 ```{r}
 erupt_tbl <- tibble(erupt, 
                     erupt_l1 = dplyr::lag(erupt, 1),
@@ -540,6 +542,8 @@ erupt_tbl <- tibble(erupt,
                     erupt_l3 = dplyr::lag(erupt, 3))
 erupt_tbl
 ```
+
+Wie du siehst, haben wir immer eine Verschiebung um einen Wert. Daher können wir jetzt trotzdem eine lineare Regression auf die verschiedenen Lags und den originalen Daten rechnen. Dabei fleigen natürlich alle Zeilen aus den Daten wo wir einen fehlenden Wert haben, aber das ist ja dann auch gewünscht. In den folgenden Tabs kannst du einmal sehen, wie ich für verschiedene Lags die lineare Regression gerechnet habe. Nichts anderes ist dann auch ein AR-Modell. Wir berechnen über die lineare Regression die Korrelation für jedes Lag zu den originalen Daten.
 
 ::: panel-tabset
 ## Lag 1
@@ -563,6 +567,8 @@ lm(erupt_l3 ~ erupt, erupt_tbl) %>%
   coef()
 ```
 :::
+
+In der @fig-time-lag siehst du nochmal die verschobenen Daten auf der $y$-Achse und die originalen Daten auf der $x$-Achse. Durch die Verschiebung ändert sich immer die Punktewolke und damit dann auch die Regression sowie die berechnete Korrelation als "Steigung der Geraden". Die Idee ist eben, einen Zyklus in den Eruptionen zu finden. Wenn wir also immer kurz/lang Wartezeiten hätten, dann würde sich auch immer die Korrelation ändern, wenn wir um einen Wert verschieben. Das trifft natürlich nur zu, wenn es eben der Rhythmus um *einen* Zeitpunkt verschoben ist. Häufig ist aber nicht *ein* Zeitpunkt sondern een *zwei* oder mehr. Das müssen wir dann durch eine Modellierung herausfinden.
 
 ```{r}
 #| message: false
@@ -608,12 +614,7 @@ erupt_tbl %>%
 
 ```
 
-```{r}
-cor_erupt_mat <- cor(erupt_tbl, use = "complete.obs")
-
-```
-
-Wenn du mehr über die Visualisierung der Korrelation erfahren möchtest, dann besuche das [Kapitel zur Korrelation](#sec-linear-corr-visu).
+Bevor wir aber mit der Modellierung von Zeitreihen beginnen, hier nochmal die vollständige Korrelationsmatrix für alle Lags und den originalen Daten. Ich habe den Zusammenhang einmal in der @fig-time-corrplot-1 dargestellt. Wenn du mehr über die Visualisierung der Korrelation erfahren möchtest, dann besuche das [Kapitel zur Korrelation](#sec-linear-corr-visu). Hier sehen wir dann gut, wie mit jedem Schritt im Lag die Korrelation im Vorzeichen flippt. Ein Zeichen, dass wir es hier mit einer zyklischen Zeitreihe zu tun haben und wir etwas in den Daten entdecken könnten.
 
 ```{r}
 #| message: false
@@ -623,7 +624,7 @@ Wenn du mehr über die Visualisierung der Korrelation erfahren möchtest, dann b
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "corplot."
+#| fig-cap: "Korrealtion zwischen den originalen Daten und den Lags. Im unteren Bereich des Korrelationsplot sind die Scatterplost mit der Regressionsgraden eingezeichnet. Im oberen Bereich finden sich die berechneten Korrelationskoeffizienten $\\rho$ für die paarweisen Vergleiche."
 
 cor_func <- function(data, mapping, method, symbol, ...){
   x <- eval_data_col(data, mapping$x)
@@ -652,13 +653,15 @@ ggpairs(erupt_tbl,
   theme_bw()
 ```
 
+Das war jetzt die händische Darstellung. Wir können uns die Autokorrelation auch über eine Zeitreihe anschauen. Wir nutzen hier die etwas primitive Funktion `acf()`, da nur die "alten" Funktionen nur mit einem Vektor von Zeiten klar kommen. Eigentlich brauchen wir ja zu jedem Wert ein Datum. Das haben wir hier aber nicht, deshalb müssen wir hier zu der alten Implementierung greifen.
+
 ```{r}
 erupt_ts <- tk_ts(erupt)
 ```
 
 In der Abbildung @fig-time-correlogram-1 sehen wir die Autokorrelation zwischen den Orginaldaten des Geysirs und den entsprechenden Korrelationen zu den Lags 1 bis 5. Wenn du nochmal weiter oben schaust, dann haben wir für die Korrelationen von den Orginaldaten zu den entsprechenden Lags folgende Korrelationen berechnet. Wir hatten eine Korrelation von $\rho = -0.68$ zu Lag 1, eine Korrelation von $\rho = 0.55$ zu Lag 2 und ein $\rho = -0.43$ zum Lag 3 beobachtet. Die Korrelationen findest du dann als Striche auch in der Abbildung wieder.
 
-Nun ist es aber so, dass natürlich die Lags untereinander auch korreliert sind. Diese Korrelation untereinander wollen wir dann einmal raus rechnen, so dass wir nur die partielle Korrelation haben, die zu den jeweiligen Lags gehört. Dabei entsteht natürlich eine Ordnung. Das Lag 1 wird vermutlich die meiste Korrelation erklären und dann folgen die anderen Lags. Deshalb nennen wir diese Art der Korrelation auch *partial* Autokorrelation. Du siehst die Anteile der partiellen Korrelation zu den jeweiligen Lags dann in der @fig-time-correlogram-2. Wir werden dann später bei `{tktime}` eine bessere Art und Weise sehen die Abbildungen zu erstellen. Zum Verstehen sind die Abbildungen gut, aber schön sind die Abbilungen nicht.
+Nun ist es aber so, dass natürlich die Lags untereinander auch korreliert sind. Diese Korrelation untereinander wollen wir dann einmal raus rechnen, so dass wir nur die partielle Korrelation haben, die zu den jeweiligen Lags gehört. Dabei entsteht natürlich eine Ordnung. Das Lag 1 wird vermutlich die meiste Korrelation erklären und dann folgen die anderen Lags. Deshalb nennen wir diese Art der Korrelation auch *partial* Autokorrelation. Du siehst die Anteile der partiellen Korrelation zu den jeweiligen Lags dann in der @fig-time-correlogram-2. Wir werden dann später bei `{tktime}` eine bessere Art und Weise sehen die Abbildungen zu erstellen. Zum Verstehen sind die Abbildungen gut, aber schön sind die Abbildungen nicht.
 
 ```{r}
 #| message: false
@@ -728,9 +731,9 @@ ggplot(plot_tbl, aes(index, value, fill = key)) +
 
 [Time series forecasting](https://medium.com/analytics-vidhya/time-series-forecasting-d611fa8ae6ca)
 
-### Einfache Analysen mit `zoo` und `ts`
+### Einfache Analysen
 
-Wir schauen uns hier als erstes die Standardvariante in R an. Das heißt, wir nehmen die einfachen Funktionen, die in R implementiert sind und rechnen damit eine Zeitreihenanalyse. Damit haben wir dann einige Nachteile, da wir uns die Funktionen dann eventuell nochmal aus Paketen zusammensuchen müssen. Dafür ist es aber schön kleinteilig und du kannst die Analysen Schritt für Schritt durchführen. Wenn dir das zu Kleinteillig oder aber veraltet ist, dann schaue gleich weiter unten in den Abschnitten zu den R Paketen `{tktime}` und `{modeltime}` nach. Beide Pakete sind die Antwort auf eine Analyse von Zeitreihen im `tidyverse`.
+Wir schauen uns hier als erstes die Standardvariante in R an. Das heißt, wir nehmen die einfachen Funktionen, die in R implementiert sind und rechnen damit eine Zeitreihenanalyse. Damit haben wir dann einige Nachteile, da wir uns die Funktionen dann eventuell nochmal aus Paketen zusammensuchen müssen. Dafür ist es aber schön kleinteilig und du kannst die Analysen Schritt für Schritt durchführen. Wenn dir das zu kleinteilig oder aber veraltet ist, dann schaue gleich weiter unten in den Abschnitten zu den R Paketen `{tktime}` und `{modeltime}` nach. Beide Pakete sind die Antwort auf eine Analyse von Zeitreihen im `{tidyverse}`.
 
 ::: callout-important
 ## Konvertierung von verschiedenen Datumsformaten in R
@@ -1061,15 +1064,15 @@ ribbon_tbl %>%
 
 Damit habe ich hier einmal gezeigt, wie du zwei Kurven deskriptiv miteinander vergleichst und die Differenz als Fläche zwischen den Kurven berechnest. Die Prozedur lässt sich einfach auch auf mehr Kurven erweitern, wenn du als mehr als zwei Parzellen vorliegen hättest. Wie immer, wenn es hier mehr Bedarf gibt, dann würde ich mir die Sachlage nochmal tiefer anschauen.
 
-### Komplexere Analysen mit `tktime`
+### Komplexere Analysen mit `{tktime}`
 
-[timetk for R](https://business-science.github.io/timetk/)
+[{timetk}](https://business-science.github.io/timetk/)
 
-### Vorhersagen mit `fable`
+### Vorhersagen mit `{fable}` und `{feasts}`
 
-[fable](https://fable.tidyverts.org/articles/fable.html)
+[{fable}](https://fable.tidyverts.org/articles/fable.html) [{feasts}](https://feasts.tidyverts.org/index.html)
 
-### Vorhersagen mit `modeltime`
+### Vorhersagen mit `{modeltime}`
 
 Am Ende hier nochmal eine Möglichkeit sehr effizient Zeitreihen zu modellieren und eine Vorhersage für zukünftige Verläufe zu machen. Ich empfehle hier die Hilfeseite [Getting Started with Modeltime](https://business-science.github.io/modeltime/articles/getting-started-with-modeltime.html). Auf der Seite erfährst du dann die Grundlagen für die Anwendung von dem R Paket `{modeltime}`. Hier kannst du dann tief in den Kaninchenbau reingehen. Neben dem R Paket `{modeltime}` findest du im Ökosystem `{modeltime}` noch andere spannende R Pakete, die dir weitere und vertiefende Modellierungen zur Vorhersage erlauben. Wenn dir die Begriffe zu der Vorhersage und der Klassifikation etwas komisch vorkommen, dann kannst du in dem Kapitel [Grundlagen der Klassifikation](#sec-class-basic) reinschauen und nachlesen wo du dann noch Lücken hast. Ich gehe hier dann nicht mehr so tief auf die einzelnen Punkte ein, sondern führe hier eher grob durch den Code.
 
