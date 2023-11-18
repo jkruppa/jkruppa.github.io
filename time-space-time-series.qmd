@@ -20,17 +20,38 @@ Die Analyse von Zeitreihen kann sehr quälend sein, wenn dein [Datumsformat nich
 
 In diesem Kapitel wollen wir uns mit Zeitreihen (eng. *time series*) beschäftigen. Was ja auch irgendwie zu erwarten war, denn so heißt ja auch das Kapitel hier. Wir haben ganz einfach auf der $x$-Achse einer potenziellen Visualisierung die Zeit dargestellt. Wir wollen dann auswerten, ob es über den zeitlichen Verlauf einen Trend gibt oder wir ein gutes Modell für den Verlauf der Beobachtungen anpassen können. Es kann auch sein, dass wir zwei zeitliche Verläufe miteinander vergleichen wollen. Dabei haben wir dann aber meistens nicht einen super simplen Verlauf, sondern Spitzen oder Täler in den Daten, so dass wir hier die Daten entsprechend glätten (eng. *to smooth*) müssen.
 
-Was sollst du lesen, wenn du mehr wissen willst als hier in dem Kapitel steht? Ich würde dir [Forecasting: Principles and Practice](https://otexts.com/fpp3/) als erstes empfehlen. Du hast hier sogar YouTube Videos für die wichtigsten Inhalte. Dann würde ich [STAT 510: Applied Time Series Analysis](https://online.stat.psu.edu/stat510/) als umfangreichen, theoretischen Hintergrund empfehlen. R Pakete gibt es dann mit `{tktime}`, `{fable}` und `{modeltime}` einige zur Auswahl. Ich werde hier aber auch alle drei pakete einmal vorstellen und diskutieren.
+In der @fig-time-intro sehen wir eine typische Zeitreihe, die in der klassischen Analyse von Zeitreihen erwartet wird. Mit erwartet wird miente ich, dass wir hier einen Messwert über eine längere Zeit beobachten und wir dabei eine zyklische Abfolge der Messwerte über die Zeit sehen. Wenn wir nicht lange genug etwas beobachten, dann können wir so ein zyklisches Verhalten nicht erkennen. Wenn wir nur über einen sehr kurzen Zeitraum die Temperatur messen, dann werden wir kaum in der Lage sein, ein Muster zu erkennen. Dann müssen wir uns eventuell überlegen unsere Zeitreihe anders auszuwerten oder aber nur als Abbildung darzustellen. Bei Zeitreihen geht es also zum einen um die Vorhersage zukünftiger Ereignisse anhand schon gemessener Werte der Zeitreihe oder aber um die Darstellung und den Vergleich von zeitlichen Verläufen. Wir werden uns beide Fälle einmal anschauen. Deshalb sind es hier auch recht viele Beispiele geworden.
 
-Bei Zeitreihen geht es also zum einen um die Vorhersage zukünftiger Ereignisse anhand schon gemessener Werte der Zeitreihe oder aber um die Darstellung und den Vergleich von zeitlichen Verläufen. Wir werden uns beide Fälle einmal anschauen. Deshalb sind es hier auch recht viele Beispiele geworden.
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-time-intro
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 7
+#| fig-cap: "Eine Zeitreihe, wie sie in der klassischen Analyse von Zeitreihen erwartet wird. Wir haben über einen längeren Zeitraum ein zyklisches Verhalten von Messwerten vorliegen. Nicht immer liegt so eine Form der Zeitreihe vor. Häufig ist der Zeitraum zu kurz gewählt."
+tibble(erupt = c(78, 74, 68, 76, 80, 84, 50, 93, 55, 76, 58, 74, 75, 80, 56, 80, 69, 57,
+           90, 42, 91, 51, 79, 53, 82, 51, 76, 82, 84, 53, 86, 51, 85, 45, 88, 51,
+           80, 49, 82, 75, 73, 67, 68, 86, 72, 75, 75, 66, 84, 70, 79, 60, 86, 71,
+           67, 81, 76, 83, 76, 55, 73, 56, 83, 57, 71, 72, 77, 55, 75, 73, 70, 83,
+           50, 95, 51, 82, 54, 83, 51, 80, 78, 81, 53, 89, 44, 78, 61, 73, 75, 73,
+           76, 55, 86, 48, 77, 73, 70, 88, 75, 83, 61, 78, 61, 81, 51, 80, 79),
+       day = 1:length(erupt)) %>% 
+  ggplot(aes(day, erupt)) +
+  geom_point() +
+  geom_line() +
+  labs(x = "Zeitpunkte", y = "Messwerte") +
+  theme_bw()
+```
 
-Wenn du noch mehr lesen willst, dann kann ich dir folgende Literatur empfehlen. @robert2006time liefert eine gute Übersicht über die Anwendung in R, ist aber schon etwas älter. Das Gleiche gilt dann auch für das Buch von @chan2008time und @cowpertwait2009introductory. Dennoch bilden alle drei Bücher die Grundlagen der Analysen von Zeitreihen super ab. Für eine Abschlussarbeit sollten die Quellen also allemal reichen. Mehr geht natürlich immer deshalb kann ich dir da noch die Übersicht auf dem [Big Book of R -- Time Series Analysis and Forecasting](https://www.bigbookofr.com/time-series-analysis-and-forecasting) empfehlen. Dort findest du dann noch mehr frei verfügbare Litertaur.
+Was sollst du lesen, wenn du mehr wissen willst als hier in dem Kapitel steht? Besonders hier gilt, über Zeitreihen wurden und werden Bücher geschrieben. So tiefgreifend kann ich hier nicht die Zusammenhänge darstellen. Aber vermutlich so, dass du dann in anderen Büchern weiterlesen kannst. Ich würde dir [Forecasting: Principles and Practice](https://otexts.com/fpp3/) als erstes Buch empfehlen. Du hast hier sogar YouTube Videos für die wichtigsten Inhalte. Dann würde ich den Kurs [STAT 510: Applied Time Series Analysis](https://online.stat.psu.edu/stat510/) als umfangreichen, theoretischen Hintergrund empfehlen. Du findest dort auch teilweise R Code etwas in den Skript vergraben. Es gibt reichlich R Pakete, die ich teilweise tiefer vorstellen werden. Mit den R Paketen `{tktime}`, `{fable}` und `{modeltime}` gibt es neben den built-in Paketen einiges zur Auswahl. Ich werde hier aber auch alle drei Pakete einmal vorstellen und diskutieren. Mehr geht natürlich immer deshalb kann ich dir da noch die Übersicht auf dem [Big Book of R -- Time Series Analysis and Forecasting](https://www.bigbookofr.com/time-series-analysis-and-forecasting) empfehlen. Dort findest du dann noch mehr frei verfügbare Literatur und auch das ein oder andere R Paket, was genau in der entsprechenden Litertaur genutzt und besprochen wird. Wenn du noch mehr lesen willst, dann kann ich dir folgende Literatur empfehlen. @robert2006time liefert eine gute Übersicht über die Anwendung in R, ist aber schon etwas älter. Das Gleiche gilt dann auch für das Buch von @chan2008time und @cowpertwait2009introductory. Dennoch bilden alle drei Bücher die Grundlagen der Analysen von Zeitreihen super ab. Für eine Abschlussarbeit sollten die Quellen also allemal reichen.
 
 Wenn es um Zeitreihen geht, dann ist die Formatierung der Spalte mit dem Datum eigentlich so ziemlich das aufwendigste. In dem Kapitel [Zeit und Datum](#sec-time-date) findest du dann nochmal mehr Informationen dazu. Achte bitte darauf, dass du eine einheitlich formatierte Datumsspalte hast, die sich nicht im Laufe der Zeilen ändert. Wenn das der Fall ist, dann musst du meist händisch nochmal die Daten anpassen und das ist meistens sehr aufwendig.
 
 Wenn es um Daten geht, dann gibt es natürlich eine Reihe von möglichen Quellen. Wenn es sehr viele Daten seinen sollen, die meistens einen zeitlichen Bezug haben, dann empfehle ich die Webseite [Our World in Data](https://ourworldindata.org/). Dort gibt es so viele zeitliche Verläufe, da eigentlich alles dort als zeitlicher Verlauf dargestellt wird. Schau doch einfach dort mal rein.
 
-::: {.callout-tip collapse="true"}
+::: {.callout-tip collapse="false"}
 ## Weitere Tutorien für die Analyse von Zeitreihen
 
 Wir immer kann ein Kapitel hier nicht das umfangreiche Analysieren von Zeitreihen abarbeiten. Daher auch wie in anderen Kapiteln schon eine Liste von Literatur und Links, die mich für dieses Kapitel hier inspiriert haben. Nicht alles habe ich genutzt, aber vielleicht ist für dich was dabei, was dir dann mehr konkret hilft als dieses Kapitel.
@@ -53,6 +74,34 @@ Ich habe mich auch wieder bemüht ein Beispiel für eine Zeitreihe zu finden, di
 {{< include zerforschen/zerforschen-time-series-cow.qmd >}}
 :::
 
+::: {.callout-caution collapse="true"}
+## Zerforschen: Zeitlicher Verlauf von Kühen
+
+![](images/caution.png){fig-align="center" width="50%"}
+
+```{r}
+cow_tbl <- read_excel("data/time_series_cows.xlsx") %>% 
+  mutate(time = as.Date(time))
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-time-zerforschen-cow-milk-1
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 9
+#| fig-cap: "Eine Zeitreihe."
+cow_tbl %>% 
+  ggplot(aes(time, milk_kgtag)) +
+  theme_bw() +
+  geom_line() + 
+  scale_x_date(date_breaks = "months" , date_labels = "%b") +
+  labs(x = "", y = "Milchleistung [kg/d]")
+```
+:::
+
 ## Genutzte R Pakete
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
@@ -66,6 +115,7 @@ pacman::p_load(tidyverse, magrittr, janitor, see, readxl,
 conflicts_prefer(dplyr::filter)
 conflicts_prefer(magrittr::set_names)
 conflicts_prefer(plyr::mutate)
+conflicts_prefer(dplyr::slice)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
