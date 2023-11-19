@@ -4,6 +4,10 @@ pacman::p_load(tidyverse, magrittr, janitor, see, readxl,
                xgboost, tidymodels, modeltime, forecast,
                lubridate, plotly, zoo, timetk, xts,
                corrplot, GGally, conflicted)
+conflicts_prefer(dplyr::filter)
+conflicts_prefer(magrittr::set_names)
+conflicts_prefer(plyr::mutate)
+conflicts_prefer(dplyr::slice)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
@@ -47,6 +51,7 @@ tibble(erupt = c(78, 74, 68, 76, 80, 84, 50, 93, 55, 76, 58, 74, 75, 80, 56, 80,
   geom_line() +
   labs(x = "Zeitpunkte", y = "Messwerte") +
   theme_bw()
+
 ```
 
 Was sollst du lesen, wenn du mehr wissen willst als hier in dem Kapitel steht? Besonders hier gilt, über Zeitreihen wurden und werden Bücher geschrieben. So tiefgreifend kann ich hier nicht die Zusammenhänge darstellen. Aber vermutlich so, dass du dann in anderen Büchern weiterlesen kannst. Ich würde dir [Forecasting: Principles and Practice](https://otexts.com/fpp3/) als erstes Buch empfehlen. Du hast hier sogar YouTube Videos für die wichtigsten Inhalte. Dann würde ich den Kurs [STAT 510: Applied Time Series Analysis](https://online.stat.psu.edu/stat510/) als umfangreichen, theoretischen Hintergrund empfehlen. Du findest dort auch teilweise R Code etwas in den Skript vergraben. Es gibt reichlich R Pakete, die ich teilweise tiefer vorstellen werden. Mit den R Paketen `{tktime}`, `{fable}` und `{modeltime}` gibt es neben den built-in Paketen einiges zur Auswahl. Ich werde hier aber auch alle drei Pakete einmal vorstellen und diskutieren. Mehr geht natürlich immer deshalb kann ich dir da noch die Übersicht auf dem [Big Book of R -- Time Series Analysis and Forecasting](https://www.bigbookofr.com/time-series-analysis-and-forecasting) empfehlen. Dort findest du dann noch mehr frei verfügbare Literatur und auch das ein oder andere R Paket, was genau in der entsprechenden Litertaur genutzt und besprochen wird. Wenn du noch mehr lesen willst, dann kann ich dir folgende Literatur empfehlen. @robert2006time liefert eine gute Übersicht über die Anwendung in R, ist aber schon etwas älter. Das Gleiche gilt dann auch für das Buch von @chan2008time und @cowpertwait2009introductory. Dennoch bilden alle drei Bücher die Grundlagen der Analysen von Zeitreihen super ab. Für eine Abschlussarbeit sollten die Quellen also allemal reichen.
@@ -87,7 +92,8 @@ Dieses Zerforschenbeipsiel ist etwas anders, denn wir haben hier Daten vorliegen
 
 ```{r}
 cow_tbl <- read_excel("data/time_series_cows.xlsx") %>% 
-  mutate(time = as.Date(time))
+  mutate(time = as.Date(time)) %>% 
+  filter(time >= "2020-01-01" & time < "2022-01-01")
 ```
 
 ```{r}
@@ -101,6 +107,7 @@ cow_tbl <- read_excel("data/time_series_cows.xlsx") %>%
 #| fig-cap: "Eine Zeitreihe."
 cow_tbl %>% 
   ggplot(aes(time, milk_kgtag)) +
+  geom_line() +
   theme_bw() +
   scale_x_date(date_breaks = "months" , date_labels = "%b") +
   labs(x = "", y = "Milchleistung [kg/d]") 
@@ -553,14 +560,26 @@ milk_tbl %>%
 
 ## Analysen von Zeitreihen
 
-Bis jetzt haben wir uns die Visualisierung von Zeitreihen angeschaut. Häufig reicht die Visualisierung auch aus, wenn es um die Darstellung von Temperaturverläufen in einer Abschlussarbeit geht. Darüber hinaus wollen wir dann aber doch irgendwie eine statistische Analyse auf der Zeitreihe rechnen. Deshalb habe ich hier mal angefangen Beispiele zu Auswertungen von Zeitreihen zu sammeln und vorzustellen. Hauptsächlich nehme ich natürlich die drei Datensätze von weiter oben im Kapitel. Da die drei Datensätze zwar echte Daten aus dem agrarwissenschaftlichen Kontext repräsentieren, genügen die Datensätze dann doch nicht immer einer klassischen Zeitreihenanalye. Deshalb findest du auch hier in dem Abschnitt immer mal wieder einen neuen Beispieldatensatz zur Demonstration.
+Bis jetzt haben wir uns die Visualisierung von Zeitreihen angeschaut. Häufig reicht die Visualisierung auch aus, wenn es um die Darstellung von Temperaturverläufen in einer Abschlussarbeit geht. Darüber hinaus wollen wir dann aber doch irgendwie eine statistische Analyse auf der Zeitreihe rechnen. Deshalb habe ich hier mal angefangen Beispiele zu Auswertungen von Zeitreihen zu sammeln und vorzustellen. Hauptsächlich nehme ich natürlich die drei Datensätze von weiter oben im Kapitel. Da die drei Datensätze zwar echte Daten aus dem agrarwissenschaftlichen Kontext repräsentieren, genügen die Datensätze dann doch nicht immer einer klassischen Zeitreihenanalyse. Deshalb findest du auch hier in dem Abschnitt immer mal wieder einen neuen Beispieldatensatz zur Demonstration.
 
--   Du findest im Abschnitt [Vergleich zweier Zeitreihen](#sec-time-two-compare), den Vergleich zweier Zeitreihen über den gesamten Verlauf der Zeitreihe. Dich interessiert hier nicht, ob die eine Zeitreihe eine verschobene Zeitreihe der anderen ist, sondern ob sich die Werte von $y_1$ und $y_2$ gegeben einem Zeitpunkt $t$ unterscheiden.
--   [Einfache Glättungen mit Mittelwert und Co.](#sec-time-roll-mean)
+Wir beginnen also erstmal nicht so typische Analysen von Zeitreihen. Danach schauen wir uns dann die klassische Zeitreihenanalyse einmal an. Dafür brauchen wir dann auch die klassischen Daten einer Zeitreihe.
+
+-   Du findest im Abschnitt [einfache Glättungen](#sec-time-roll-mean) verschiedene Beispiele für die Glättung von Zeitreihen durch Mittelwert, Median oder aber auch der Summe. Du könntest auch `stat_smooth()` aus `{ggplot}` verwenden, aber hier zeige ich dir noch ein paar differenzierte Möglichkeiten.
+-   Du findest im Abschnitt [Vergleich von Zeitreihen](#sec-time-two-compare), den Vergleich zweier Zeitreihen über den gesamten Verlauf der Zeitreihe. Dich interessiert hier nicht, ob die eine Zeitreihe eine verschobene Zeitreihe der anderen ist, sondern ob sich die Werte von $y_1$ und $y_2$ gegeben einem Zeitpunkt $t$ unterscheiden.
+
+Im Anschluss an die beiden Abschnitte findest du dann nochmal die Vorhersage von zukünftigen zeitlichen Verläufen. Weil es dann hier wirklich etwas mehr Auswahl an Möglichkeiten gibt, habe ich die Vorhersage einmal für die verschiedenen R Pakete aufgeteilt.
+
+### Einfache Glättungen {#sec-time-roll-mean}
+
+{{< include time-space/time-space-roll-mean.qmd >}}
+
+### Vergleich von Zeitreihen {#sec-time-two-compare}
+
+{{< include time-space/time-space-time-compare.qmd >}}
 
 ### Definitionen und Überblick
 
-In dem folgenden Abschnitt möchte ich gerne einmal einen Überblick über die wichtigsten Begriffe in der Analyse von Zeitreihen geben. Teilweise sind es etwas speziellere Begriffe, so dass ich hier erstmal etwas zu den Begriffen schreibe und dann die einzelnen Begriffe nochmal tiefer erkläre. Als vertiefenden Einstieg kann ich hier auch das Buch "Forecasting: principles and practice" von @hyndman2018forecasting empfehlen. Hier gibt es dann auch eine [Webseite mit Videos zu dem Buch](https://otexts.com/fpp3/). Denn so ausführlich kann ich das Thema Zeitreihenanalyse dann doch nicht in einem Kapitel bearbeiten.
+In dem folgenden Abschnitt möchte ich gerne einmal einen Überblick über die wichtigsten Begriffe in der Analyse von Zeitreihen geben. Jetzt geht es also los mit der "richtigen" Zeitreihenanalyse. Teilweise sind es etwas speziellere Begriffe, so dass ich hier erstmal etwas zu den Begriffen schreibe und dann die einzelnen Begriffe nochmal tiefer erkläre. Als vertiefenden Einstieg kann ich hier auch das Buch "Forecasting: principles and practice" von @hyndman2018forecasting empfehlen. Hier gibt es dann auch eine [Webseite mit Videos zu dem Buch](https://otexts.com/fpp3/). Denn so ausführlich kann ich das Thema Zeitreihenanalyse dann doch nicht in einem Kapitel bearbeiten.
 
 Stationarität (eng. *stationarity*)
 
@@ -601,6 +620,30 @@ erupt <- c(78, 74, 68, 76, 80, 84, 50, 93, 55, 76, 58, 74, 75, 80, 56, 80, 69, 5
            67, 81, 76, 83, 76, 55, 73, 56, 83, 57, 71, 72, 77, 55, 75, 73, 70, 83,
            50, 95, 51, 82, 54, 83, 51, 80, 78, 81, 53, 89, 44, 78, 61, 73, 75, 73,
            76, 55, 86, 48, 77, 73, 70, 88, 75, 83, 61, 78, 61, 81, 51, 80, 79)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-time-intro-2
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 7
+#| fig-cap: "Eine Zeitreihe, wie sie in der klassischen Analyse von Zeitreihen erwartet wird. Wir haben über einen längeren Zeitraum ein zyklisches Verhalten von Messwerten vorliegen. Nicht immer liegt so eine Form der Zeitreihe vor. Häufig ist der Zeitraum zu kurz gewählt."
+tibble(erupt = c(78, 74, 68, 76, 80, 84, 50, 93, 55, 76, 58, 74, 75, 80, 56, 80, 69, 57,
+           90, 42, 91, 51, 79, 53, 82, 51, 76, 82, 84, 53, 86, 51, 85, 45, 88, 51,
+           80, 49, 82, 75, 73, 67, 68, 86, 72, 75, 75, 66, 84, 70, 79, 60, 86, 71,
+           67, 81, 76, 83, 76, 55, 73, 56, 83, 57, 71, 72, 77, 55, 75, 73, 70, 83,
+           50, 95, 51, 82, 54, 83, 51, 80, 78, 81, 53, 89, 44, 78, 61, 73, 75, 73,
+           76, 55, 86, 48, 77, 73, 70, 88, 75, 83, 61, 78, 61, 81, 51, 80, 79),
+       day = 1:length(erupt)) %>% 
+  ggplot(aes(day, erupt)) +
+  geom_point() +
+  geom_line() +
+  labs(x = "Zeitpunkte", y = "Messwerte") +
+  theme_bw()
+
 ```
 
 Was ist nun ein Lag? Ein Lag ist einfach nur eine Verschiebung der Daten um einen Wert. Wir schauen uns also für Lag 1 die Werte ohne den ersten Wert an. Bei dem Lag 2 löschen wir die ersten beiden Werte. Und dann ist schon fast klar was wir bei dem Lag 3 machen, wir löschen die ersten drei Werte. Wenn wir dann dennoch die paarweise Korrelation berechnen, dann berechnen wir nicht die Korrelation mit sich selber, das wäre bei Lag 0, sondern eben die Korrelation mit sich selbst verschoben um den Lag. Deshalb nennt sich das dann auch Autokorrelation.
@@ -811,15 +854,9 @@ ggplot(plot_tbl, aes(index, value, fill = key)) +
 
 [Time series forecasting](https://medium.com/analytics-vidhya/time-series-forecasting-d611fa8ae6ca)
 
-### Einfache Glättungen {#sec-time-roll-mean}
+## Vorhersagen mit...
 
-{{< include time-space/time-space-roll-mean.qmd >}}
-
-### Vergleich von Zeitreihen {#sec-time-two-compare}
-
-{{< include time-space/time-space-time-compare.qmd >}}
-
-### Vorhersagen mit `{ts}` und `{zoo}`
+### ...`{ts}` und `{zoo}`
 
 Eigentlich ist `{ts}` kein eigens Paket sondern die bulit-in Lösung von R, aber ich möchte hier dann doch `{ts}` als Paket schreiben, damit hier mehr Ordnung drin ist.
 
@@ -935,15 +972,15 @@ autoplot(arima_mdl) +
 
 ```
 
-### Komplexere Analysen mit `{tktime}`
+### ... `{tktime}`
 
 [{timetk}](https://business-science.github.io/timetk/)
 
-### Vorhersagen mit `{fable}` und `{feasts}`
+### ... `{fable}` und `{feasts}`
 
 [{fable}](https://fable.tidyverts.org/articles/fable.html) [{feasts}](https://feasts.tidyverts.org/index.html)
 
-### Vorhersagen mit `{modeltime}`
+### ... `{modeltime}`
 
 Am Ende hier nochmal eine Möglichkeit sehr effizient Zeitreihen zu modellieren und eine Vorhersage für zukünftige Verläufe zu machen. Ich empfehle hier die Hilfeseite [Getting Started with Modeltime](https://business-science.github.io/modeltime/articles/getting-started-with-modeltime.html). Auf der Seite erfährst du dann die Grundlagen für die Anwendung von dem R Paket `{modeltime}`. Hier kannst du dann tief in den Kaninchenbau reingehen. Neben dem R Paket `{modeltime}` findest du im Ökosystem `{modeltime}` noch andere spannende R Pakete, die dir weitere und vertiefende Modellierungen zur Vorhersage erlauben. Wenn dir die Begriffe zu der Vorhersage und der Klassifikation etwas komisch vorkommen, dann kannst du in dem Kapitel [Grundlagen der Klassifikation](#sec-class-basic) reinschauen und nachlesen wo du dann noch Lücken hast. Ich gehe hier dann nicht mehr so tief auf die einzelnen Punkte ein, sondern führe hier eher grob durch den Code.
 
