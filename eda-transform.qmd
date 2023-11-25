@@ -18,8 +18,10 @@ Im ersten Fall wollen wir meist unsere Daten $log$-Transformieren um aus einem *
 
 Wir wollen uns nun die Verfahren zur Transformation von Daten in den folgenden Abschnitten einmal näher anschauen.
 
-::: column-margin
-Ich verweise hier auch nochmal auf das tolle Tutorial von Matus Seci auf dem [Coding Club](https://ourcodingclub.github.io/tutorials/data-scaling/)
+::: callout-tip
+## Tutorien für das Transaformieren von Daten
+
+Ich verweise hier auch nochmal auf das tolle Tutorium von Matus Seci auf dem [Coding Club - Transforming and scaling data: Understand the fundamental concepts of manipulating data distributions for modelling and visualization](https://ourcodingclub.github.io/tutorials/data-scaling/). Du findest auch dort mehr Informationen zu der Rücktransformation und der Anwendung von Transformationen auf einen komplexeren Datensatz.
 :::
 
 ## Genutzte R Pakete
@@ -31,7 +33,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| warning: false
 #| echo: true
 
-pacman::p_load(tidyverse, magrittr, scales, see, conflicted)
+pacman::p_load(tidyverse, magrittr, scales, see, MASS, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("extract", "magrittr")
@@ -173,6 +175,53 @@ ggplot(sqrt_tbl, aes(sqrt_hatch_time)) +
   geom_histogram(fill = cbbPalette[3], color = "black") +
   theme_bw() +
   labs(x = expression("Zeit bis zum Schlüpfen in" ~ sqrt(h)), y = "Anzahl")
+```
+
+## Box-Cox Transformation
+
+Die Box-Cox-Transformation ist ein statistisches Verfahren zur Umwandlung von nicht normalverteilten Daten in eine Normalverteilung. Die Transformation ist nicht so einfach wie die logarithmische Transformation oder die Quadratwurzeltransformation und erfordert etwas mehr Erklärung. Beginnen wir zunächst die Gleichung zu verstehen, die die Transformation beschreibt. Die grundsätzliche Idee ist, dass wir unser $y$ als Outcome mit einem $\lambda$-Exponenten transformieren. Die Frage ist jetzt, welches $\lambda$ produziert die besten normalverteilten Daten? Wenn wir ein $\lambda$ von Null finden sollten, dann rechnen wir einfach eine $\log$-Transformation. Die Idee ist also recht simpel.
+
+$$
+y(\lambda)=\left\{\begin{matrix} \dfrac{y^{\lambda}-1} {\lambda} & \quad  \mathrm{f\ddot ur\;\;}\lambda \ne 0 \\[10pt] \log(y) &\quad  \mathrm{f\ddot ur\;\;}\lambda = 0\end{matrix}\right.
+$$
+
+Wir werden natürlich jetzt nicht händisch alle möglichen $\lambda$ durchprobieren bis wir das beste $\lambda$ gefunden haben. Dafür gibt es die Funktion `boxcox` aus dem R Paket `{MASS}`, die ein lineares Modell benötigt. Daher bauen wir usn erst unser lineares Modell und dann stecken wir das Modell in die Funktion `boxcox()`.
+
+```{r}
+jump_mod <- lm(jump_length ~ 1, data = data_tbl)
+```
+
+Jetzt einmal die Funktion `boxcox()` ausführen und danach das $\lambda$ extrahieren. Hier ist es etwas umständlicher, da das $\lambda$ in der Ausgabe der Funktion etwas vergraben ist. Dafür ist das R Paket `{MASS}` einfach nicht mehr das jüngste Paket und hat keine so guten Funktionen zum Erhalten von wichtigen Parametern. Ich möchte die Abbildung nicht haben, daher die Option `plotit = FALSE`.
+
+```{r}
+bc_obj <- boxcox(jump_mod, plotit = FALSE)
+lambda <- bc_obj$x[which.max(bc_obj$y)]
+lambda
+```
+
+Wir erhalten also ein $\lambda$ von `r lambda` wieder. Dieses $\lambda$ können wir dann nutzen um unsere Daten nach Box-Cox zu transformieren. Dafür übersetzen wir dann die obige Matheformel einmal in R Code.
+
+```{r}
+data_tbl <- data_tbl %>%
+  mutate(jump_boxcox = ((jump_length ^ lambda - 1)/lambda))
+```
+
+In der @fig-boxcox-ggplot sehen wir dann einmal das Ergebnis der Transformation. Sieht gar nicht mal so schlecht aus und noch besser als die reine $\log$-Transformation. Wie immer musst du aber auch hier rumprobieren, was dann am besten einer Normalverteilung folgt.
+
+```{r}
+#| message: false
+#| echo: true
+#| label: fig-boxcox-ggplot
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Histogramm der Box-Cox transfomierten Daten in `ggplot` dargestellt."
+ggplot(data = data_tbl) +
+  theme_bw() +
+  geom_histogram(aes(x = jump_boxcox), alpha = 0.9,
+                 fill = cbbPalette[3], color = "black") +
+  labs(x = 'Box-Cox transformierte Sprungweiten', y = 'Anzahl')
+
 ```
 
 ## Standardisierung

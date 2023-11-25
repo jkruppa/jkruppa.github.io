@@ -696,8 +696,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#daten" id="toc-daten" class="nav-link" data-scroll-target="#daten"><span class="header-section-number">18.2</span> Daten</a></li>
   <li><a href="#log-transformation" id="toc-log-transformation" class="nav-link" data-scroll-target="#log-transformation"><span class="header-section-number">18.3</span> <span class="math inline">\(log\)</span>-Transformation</a></li>
   <li><a href="#quadratwurzel-transformationen" id="toc-quadratwurzel-transformationen" class="nav-link" data-scroll-target="#quadratwurzel-transformationen"><span class="header-section-number">18.4</span> Quadratwurzel-Transformationen</a></li>
-  <li><a href="#standardisierung" id="toc-standardisierung" class="nav-link" data-scroll-target="#standardisierung"><span class="header-section-number">18.5</span> Standardisierung</a></li>
-  <li><a href="#normalisierung" id="toc-normalisierung" class="nav-link" data-scroll-target="#normalisierung"><span class="header-section-number">18.6</span> Normalisierung</a></li>
+  <li><a href="#box-cox-transformation" id="toc-box-cox-transformation" class="nav-link" data-scroll-target="#box-cox-transformation"><span class="header-section-number">18.5</span> Box-Cox Transformation</a></li>
+  <li><a href="#standardisierung" id="toc-standardisierung" class="nav-link" data-scroll-target="#standardisierung"><span class="header-section-number">18.6</span> Standardisierung</a></li>
+  <li><a href="#normalisierung" id="toc-normalisierung" class="nav-link" data-scroll-target="#normalisierung"><span class="header-section-number">18.7</span> Normalisierung</a></li>
   </ul>
 </nav>
     </div>
@@ -721,7 +722,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 </header>
 
-<p><em>Letzte Änderung am 30. October 2023 um 10:23:20</em></p>
+<p><em>Letzte Änderung am 24. November 2023 um 21:17:02</em></p>
 <blockquote class="blockquote">
 <p><em>“It’s morphin’ time! I never get tired of that! Now, go, go Power Rangers!” — Power Rangers morphing phrase</em></p>
 </blockquote>
@@ -733,14 +734,24 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </ol>
 <p>Im ersten Fall wollen wir meist unsere Daten <span class="math inline">\(log\)</span>-Transformieren um aus einem <em>nicht</em>-normalverteilten Outcome <span class="math inline">\(y\)</span> ein <span class="math inline">\(log\)</span>-normalverteiltes <span class="math inline">\(y\)</span> zu erschaffen. Im zweiten Fall wollen wir unsere Daten Standardisieren oder Normalisieren. Wir brauchen normalisierte Daten später beim Klassifizieren im Rahmen von maschinellen Lernverfahren. Bitte beachte auch, dass die Transformationen hier eher für kleine Datensätze geeignet sind. Im <a href="classification-pre-processing.html">Kapitel zur Klassifikation</a> gehe ich nochmal auf die Automatisierung über mehrere Variablen ein. Wenn du also einen großen Datensatz hast, den du vielleicht oft bearbeiten musst, dann mag dir dort mehr geholfen sein.</p>
 <p>Wir wollen uns nun die Verfahren zur Transformation von Daten in den folgenden Abschnitten einmal näher anschauen.</p>
-
-<div class="no-row-height column-margin column-container"><div class="">
-<p>Ich verweise hier auch nochmal auf das tolle Tutorial von Matus Seci auf dem <a href="https://ourcodingclub.github.io/tutorials/data-scaling/">Coding Club</a></p>
-</div></div><section id="genutzte-r-pakete" class="level2" data-number="18.1">
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Tutorien für das Transaformieren von Daten
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Ich verweise hier auch nochmal auf das tolle Tutorium von Matus Seci auf dem <a href="https://ourcodingclub.github.io/tutorials/data-scaling/">Coding Club - Transforming and scaling data: Understand the fundamental concepts of manipulating data distributions for modelling and visualization</a>. Du findest auch dort mehr Informationen zu der Rücktransformation und der Anwendung von Transformationen auf einen komplexeren Datensatz.</p>
+</div>
+</div>
+<section id="genutzte-r-pakete" class="level2" data-number="18.1">
 <h2 data-number="18.1" class="anchored" data-anchor-id="genutzte-r-pakete"><span class="header-section-number">18.1</span> Genutzte R Pakete</h2>
 <p>Wir wollen folgende R Pakete in diesem Kapitel nutzen.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(tidyverse, magrittr, scales, see, conflicted)</span>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(tidyverse, magrittr, scales, see, MASS, conflicted)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">conflict_prefer</span>(<span class="st">"select"</span>, <span class="st">"dplyr"</span>)</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">conflict_prefer</span>(<span class="st">"filter"</span>, <span class="st">"dplyr"</span>)</span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">conflict_prefer</span>(<span class="st">"extract"</span>, <span class="st">"magrittr"</span>)</span>
@@ -853,15 +864,15 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <dl class="code-annotation-container-hidden code-annotation-container-grid">
 <dt data-target-cell="annotated-cell-4" data-target-annotation="1">1</dt>
 <dd>
-<span data-code-annotation="1" data-code-cell="annotated-cell-4" data-code-lines="6">Hier wird die <span class="math inline">\(x\)</span>-Achse einmal auf die <span class="math inline">\(\log\)</span>-Skala gestellt und die <code>breaks</code> entsprechend angepasst.</span>
+<span data-code-lines="6" data-code-cell="annotated-cell-4" data-code-annotation="1">Hier wird die <span class="math inline">\(x\)</span>-Achse einmal auf die <span class="math inline">\(\log\)</span>-Skala gestellt und die <code>breaks</code> entsprechend angepasst.</span>
 </dd>
 <dt data-target-cell="annotated-cell-4" data-target-annotation="2">2</dt>
 <dd>
-<span data-code-annotation="2" data-code-cell="annotated-cell-4" data-code-lines="7">Wir ergänzen noch die richtige Schreibweise.</span>
+<span data-code-lines="7" data-code-cell="annotated-cell-4" data-code-annotation="2">Wir ergänzen noch die richtige Schreibweise.</span>
 </dd>
 <dt data-target-cell="annotated-cell-4" data-target-annotation="3">3</dt>
 <dd>
-<span data-code-annotation="3" data-code-cell="annotated-cell-4" data-code-lines="8">Die Ticks werden auch richtig gezeichnet. Du kannst mit <code>l</code> auch auf der <span class="math inline">\(y\)</span>-Achse <span class="math inline">\(\log\)</span>-Ticks anzeigen lassen.</span>
+<span data-code-lines="8" data-code-cell="annotated-cell-4" data-code-annotation="3">Die Ticks werden auch richtig gezeichnet. Du kannst mit <code>l</code> auch auf der <span class="math inline">\(y\)</span>-Achse <span class="math inline">\(\log\)</span>-Ticks anzeigen lassen.</span>
 </dd>
 </dl>
 </div>
@@ -908,19 +919,60 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </figure>
 </div>
 </section>
-<section id="standardisierung" class="level2 page-columns page-full" data-number="18.5">
-<h2 data-number="18.5" class="anchored" data-anchor-id="standardisierung"><span class="header-section-number">18.5</span> Standardisierung</h2>
+<section id="box-cox-transformation" class="level2" data-number="18.5">
+<h2 data-number="18.5" class="anchored" data-anchor-id="box-cox-transformation"><span class="header-section-number">18.5</span> Box-Cox Transformation</h2>
+<p>Die Box-Cox-Transformation ist ein statistisches Verfahren zur Umwandlung von nicht normalverteilten Daten in eine Normalverteilung. Die Transformation ist nicht so einfach wie die logarithmische Transformation oder die Quadratwurzeltransformation und erfordert etwas mehr Erklärung. Beginnen wir zunächst die Gleichung zu verstehen, die die Transformation beschreibt. Die grundsätzliche Idee ist, dass wir unser <span class="math inline">\(y\)</span> als Outcome mit einem <span class="math inline">\(\lambda\)</span>-Exponenten transformieren. Die Frage ist jetzt, welches <span class="math inline">\(\lambda\)</span> produziert die besten normalverteilten Daten? Wenn wir ein <span class="math inline">\(\lambda\)</span> von Null finden sollten, dann rechnen wir einfach eine <span class="math inline">\(\log\)</span>-Transformation. Die Idee ist also recht simpel.</p>
+<p><span class="math display">\[
+y(\lambda)=\left\{\begin{matrix} \dfrac{y^{\lambda}-1} {\lambda} &amp; \quad  \mathrm{f\ddot ur\;\;}\lambda \ne 0 \\[10pt] \log(y) &amp;\quad  \mathrm{f\ddot ur\;\;}\lambda = 0\end{matrix}\right.
+\]</span></p>
+<p>Wir werden natürlich jetzt nicht händisch alle möglichen <span class="math inline">\(\lambda\)</span> durchprobieren bis wir das beste <span class="math inline">\(\lambda\)</span> gefunden haben. Dafür gibt es die Funktion <code>boxcox</code> aus dem R Paket <code>{MASS}</code>, die ein lineares Modell benötigt. Daher bauen wir usn erst unser lineares Modell und dann stecken wir das Modell in die Funktion <code>boxcox()</code>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>jump_mod <span class="ot">&lt;-</span> <span class="fu">lm</span>(jump_length <span class="sc">~</span> <span class="dv">1</span>, <span class="at">data =</span> data_tbl)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Jetzt einmal die Funktion <code>boxcox()</code> ausführen und danach das <span class="math inline">\(\lambda\)</span> extrahieren. Hier ist es etwas umständlicher, da das <span class="math inline">\(\lambda\)</span> in der Ausgabe der Funktion etwas vergraben ist. Dafür ist das R Paket <code>{MASS}</code> einfach nicht mehr das jüngste Paket und hat keine so guten Funktionen zum Erhalten von wichtigen Parametern. Ich möchte die Abbildung nicht haben, daher die Option <code>plotit = FALSE</code>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>bc_obj <span class="ot">&lt;-</span> <span class="fu">boxcox</span>(jump_mod, <span class="at">plotit =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>lambda <span class="ot">&lt;-</span> bc_obj<span class="sc">$</span>x[<span class="fu">which.max</span>(bc_obj<span class="sc">$</span>y)]</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>lambda</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.9</code></pre>
+</div>
+</div>
+<p>Wir erhalten also ein <span class="math inline">\(\lambda\)</span> von 0.9 wieder. Dieses <span class="math inline">\(\lambda\)</span> können wir dann nutzen um unsere Daten nach Box-Cox zu transformieren. Dafür übersetzen wir dann die obige Matheformel einmal in R Code.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>data_tbl <span class="ot">&lt;-</span> data_tbl <span class="sc">%&gt;%</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">jump_boxcox =</span> ((jump_length <span class="sc">^</span> lambda <span class="sc">-</span> <span class="dv">1</span>)<span class="sc">/</span>lambda))</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>In der <a href="#fig-boxcox-ggplot">Abbildung&nbsp;<span>18.4</span></a> sehen wir dann einmal das Ergebnis der Transformation. Sieht gar nicht mal so schlecht aus und noch besser als die reine <span class="math inline">\(\log\)</span>-Transformation. Wie immer musst du aber auch hier rumprobieren, was dann am besten einer Normalverteilung folgt.</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="at">data =</span> data_tbl) <span class="sc">+</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="fu">aes</span>(<span class="at">x =</span> jump_boxcox), <span class="at">alpha =</span> <span class="fl">0.9</span>,</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>                 <span class="at">fill =</span> cbbPalette[<span class="dv">3</span>], <span class="at">color =</span> <span class="st">"black"</span>) <span class="sc">+</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">'Box-Cox transformierte Sprungweiten'</span>, <span class="at">y =</span> <span class="st">'Anzahl'</span>)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div id="fig-boxcox-ggplot" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="eda-transform_files/figure-html/fig-boxcox-ggplot-1.png" class="img-fluid figure-img" width="480"></p>
+<figcaption class="figure-caption">Abbildung&nbsp;18.4— Histogramm der Box-Cox transfomierten Daten in <code>ggplot</code> dargestellt.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="standardisierung" class="level2 page-columns page-full" data-number="18.6">
+<h2 data-number="18.6" class="anchored" data-anchor-id="standardisierung"><span class="header-section-number">18.6</span> Standardisierung</h2>
 <p>Die Standardisierung wird auch <span class="math inline">\(z\)</span>-Transformation genannt. In dem Fall der Standardisierung schieben wir die Daten auf den Ursprung, in dem wir von jedem Datenpunkt <span class="math inline">\(y_i\)</span> den Mittelwert <span class="math inline">\(\bar{y}\)</span> abziehen. Dann setzen wir noch die Standardabweichung auf Eins in dem wir durch die Standardabweichung <span class="math inline">\(y_s\)</span> teilen. Unser standardisiertes <span class="math inline">\(y\)</span> ist nun standard normalverteilt mit <span class="math inline">\(\mathcal{N(0,1)}\)</span>. Wir nutzen für die Standardisierung folgende Formel.</p>
 <p><span class="math display">\[
 y_z = \cfrac{y_i - \bar{y}}{s_y}
 \]</span></p>
 <p>In R können wir für die Standardisierung die Funktion <code>scale()</code> verwenden. Wir müssen auch nichts weiter in den Optionen von <code>scale()</code> angeben. Die Standardwerte der Funktion sind so eingestellt, dass eine Standardnormalverteilung berechnet wird. Wir können auch die Funktion <code>transform()</code> aus dem R Paket <code>dlookr</code> verwenden.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>scale_tbl <span class="ot">&lt;-</span> data_tbl <span class="sc">%&gt;%</span> </span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">scale_jump_length =</span> <span class="fu">scale</span>(jump_length),</span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>         <span class="at">scale_jump_length_2 =</span> <span class="fu">transform</span>(jump_length, <span class="st">"zscore"</span>))</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>scale_tbl <span class="ot">&lt;-</span> data_tbl <span class="sc">%&gt;%</span> </span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">scale_jump_length =</span> <span class="fu">scale</span>(jump_length),</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>         <span class="at">scale_jump_length_2 =</span> <span class="fu">transform</span>(jump_length, <span class="st">"zscore"</span>))</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>In <a href="#fig-log-scale-3-1">Abbildung&nbsp;<span>18.4 (a)</span></a> sehen wir nochmal die nicht transformierten, rohen Daten. Wir haben in diesem Beispiel die normalvertielte Variable <code>jump_length</code> gewählt. Der Mittelwert von <code>jump_length</code> ist 20.51 und die Standardabweichung ist 3.77. Ziehen wir nun von jedem Wert von <code>jump_length</code> den Mittelwert mit 19.3 ab, so haben wir einen neuen Schwerpunkt bei Null. Teilen wir dann jede Zahl durch 3.36 so haben wir eine reduzierte Spannweite der Verteilung. Es ergibt sich die <a href="#fig-log-scale-3-2">Abbildung&nbsp;<span>18.4 (b)</span></a> als Standardnormalverteilung. Die Zahlen der auf der x-Achse haben jetzt aber keine Bedeutung mehr. Wie können die Sprungweite auf der <span class="math inline">\(z\)</span>-Skala nicht mehr biologisch interpretieren.</p>
+<p>In <a href="#fig-log-scale-3-1">Abbildung&nbsp;<span>18.5 (a)</span></a> sehen wir nochmal die nicht transformierten, rohen Daten. Wir haben in diesem Beispiel die normalvertielte Variable <code>jump_length</code> gewählt. Der Mittelwert von <code>jump_length</code> ist 20.51 und die Standardabweichung ist 3.77. Ziehen wir nun von jedem Wert von <code>jump_length</code> den Mittelwert mit 19.3 ab, so haben wir einen neuen Schwerpunkt bei Null. Teilen wir dann jede Zahl durch 3.36 so haben wir eine reduzierte Spannweite der Verteilung. Es ergibt sich die <a href="#fig-log-scale-3-2">Abbildung&nbsp;<span>18.5 (b)</span></a> als Standardnormalverteilung. Die Zahlen der auf der x-Achse haben jetzt aber keine Bedeutung mehr. Wie können die Sprungweite auf der <span class="math inline">\(z\)</span>-Skala nicht mehr biologisch interpretieren.</p>
 <div id="fig-log-scale-3" class="cell column-page quarto-layout-panel">
 <figure class="figure">
 <div class="quarto-layout-row quarto-layout-valign-top">
@@ -941,12 +993,12 @@ y_z = \cfrac{y_i - \bar{y}}{s_y}
 </div>
 </div>
 </div>
-<p></p><figcaption class="figure-caption">Abbildung&nbsp;18.4— Histogramm der nicht transfomierten und transformierten Daten.</figcaption><p></p>
+<p></p><figcaption class="figure-caption">Abbildung&nbsp;18.5— Histogramm der nicht transfomierten und transformierten Daten.</figcaption><p></p>
 </figure>
 </div>
 </section>
-<section id="normalisierung" class="level2 page-columns page-full" data-number="18.6">
-<h2 data-number="18.6" class="anchored" data-anchor-id="normalisierung"><span class="header-section-number">18.6</span> Normalisierung</h2>
+<section id="normalisierung" class="level2 page-columns page-full" data-number="18.7">
+<h2 data-number="18.7" class="anchored" data-anchor-id="normalisierung"><span class="header-section-number">18.7</span> Normalisierung</h2>
 <p>Abschließend wollen wir uns nochmal die Normalisierung anschauen. In diesem Fall wollen wir die Daten so transformieren, dass die Daten nur noch in der Spannweite 0 bis 1 vorkommen. Egal wie die Einheiten vorher waren, alle Variablen haben jetzt nur noch eine Ausprägung von 0 bis 1. Das ist besonders wichtig wenn wir viele Variablen haben und anhand der Variablen eine Vorhersage machen wollen. Uns interessieren die Werte in den Variablen an sich nicht, sondern wir wollen ein Outcome vorhersagen. Wir brauchen die Normalisierung später für das maschinelle Lernen und die Klassifikation. Die Formel für die Normalisierung lautet wie folgt.</p>
 <p><span class="math display">\[
 y_n = \cfrac{y_i - \min(y)}{\max(y) - \min(y)}
@@ -954,12 +1006,12 @@ y_n = \cfrac{y_i - \min(y)}{\max(y) - \min(y)}
 <p>In R gibt es die Normalisierungsfunktion nicht direkt. Wir könnten hier ein extra Paket laden, aber bei so einer simplen Formel können wir auch gleich die Berechnung in der Funktion <code>mutate()</code> machen. Wir müssen nur etwas mit den Klammern aufpassen. Wir können auch die Funktion <code>transform()</code> aus dem R Paket <code>dlookr</code> verwenden.</p>
 <div class="column-page">
 <div class="cell">
-<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>norm_tbl <span class="ot">&lt;-</span> data_tbl <span class="sc">%&gt;%</span> </span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">norm_jump_length =</span> (jump_length <span class="sc">-</span> <span class="fu">min</span>(jump_length))<span class="sc">/</span>(<span class="fu">max</span>(jump_length) <span class="sc">-</span> <span class="fu">min</span>(jump_length)),</span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>         <span class="at">norm_jump_length_2 =</span> <span class="fu">transform</span>(jump_length, <span class="st">"minmax"</span>))</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>norm_tbl <span class="ot">&lt;-</span> data_tbl <span class="sc">%&gt;%</span> </span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">norm_jump_length =</span> (jump_length <span class="sc">-</span> <span class="fu">min</span>(jump_length))<span class="sc">/</span>(<span class="fu">max</span>(jump_length) <span class="sc">-</span> <span class="fu">min</span>(jump_length)),</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>         <span class="at">norm_jump_length_2 =</span> <span class="fu">transform</span>(jump_length, <span class="st">"minmax"</span>))</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </div>
-<p>In <a href="#fig-log-scale-4-1">Abbildung&nbsp;<span>18.5 (a)</span></a> sehen wir nochmal die nicht transformierten, rohen Daten. In <a href="#fig-log-scale-4-2">Abbildung&nbsp;<span>18.5 (b)</span></a> sehen wir die normalisierten Daten. Hier fällt dann auf, dass die normalisierten Sprungweiten nur noch Werte zwischen Null und Eins annehmen. Die Zahlen der auf der x-Achse haben jetzt aber keine Bedeutung mehr. Wie können die normalisierten Sprungweiten nicht mehr biologisch interpretieren.</p>
+<p>In <a href="#fig-log-scale-4-1">Abbildung&nbsp;<span>18.6 (a)</span></a> sehen wir nochmal die nicht transformierten, rohen Daten. In <a href="#fig-log-scale-4-2">Abbildung&nbsp;<span>18.6 (b)</span></a> sehen wir die normalisierten Daten. Hier fällt dann auf, dass die normalisierten Sprungweiten nur noch Werte zwischen Null und Eins annehmen. Die Zahlen der auf der x-Achse haben jetzt aber keine Bedeutung mehr. Wie können die normalisierten Sprungweiten nicht mehr biologisch interpretieren.</p>
 <div id="fig-log-scale-4" class="cell column-page quarto-layout-panel">
 <figure class="figure">
 <div class="quarto-layout-row quarto-layout-valign-top">
@@ -980,7 +1032,7 @@ y_n = \cfrac{y_i - \min(y)}{\max(y) - \min(y)}
 </div>
 </div>
 </div>
-<p></p><figcaption class="figure-caption">Abbildung&nbsp;18.5— Histogramm der nicht transfomierten und transformierten Daten.</figcaption><p></p>
+<p></p><figcaption class="figure-caption">Abbildung&nbsp;18.6— Histogramm der nicht transfomierten und transformierten Daten.</figcaption><p></p>
 </figure>
 </div>
 
