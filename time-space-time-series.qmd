@@ -264,33 +264,33 @@ Dann berechnen wir einmal mit der Funktion `lag` aus dem R Paket `{dplyr}` die L
 
 ```{r}
 erupt_tbl <- tibble(erupt, 
-                    erupt_l1 = dplyr::lag(erupt, 1),
-                    erupt_l2 = dplyr::lag(erupt, 2),
-                    erupt_l3 = dplyr::lag(erupt, 3))
+                    erupt_p1 = dplyr::lag(erupt, 1),
+                    erupt_p2 = dplyr::lag(erupt, 2),
+                    erupt_p3 = dplyr::lag(erupt, 3))
 erupt_tbl
 ```
 
 Wie du siehst, haben wir immer eine Verschiebung um einen Wert. Daher können wir jetzt trotzdem eine lineare Regression auf die verschiedenen Lags und den originalen Daten rechnen. Dabei fleigen natürlich alle Zeilen aus den Daten wo wir einen fehlenden Wert haben, aber das ist ja dann auch gewünscht. In den folgenden Tabs kannst du einmal sehen, wie ich für verschiedene Lags die lineare Regression gerechnet habe. Nichts anderes ist dann auch ein AR-Modell. Wir berechnen über die lineare Regression die Korrelation für jedes Lag zu den originalen Daten.
 
 ::: panel-tabset
-## Lag 1
+## Lag 1 oder p(1)
 
 ```{r}
-lm(erupt_l1 ~ erupt, erupt_tbl) %>% 
+lm(erupt_p1 ~ erupt, erupt_tbl) %>% 
   coef()
 ```
 
-## Lag 2
+## Lag 2 oder p(2)
 
 ```{r}
-lm(erupt_l2 ~ erupt, erupt_tbl) %>% 
+lm(erupt_p2 ~ erupt, erupt_tbl) %>% 
   coef()
 ```
 
-## Lag 3
+## Lag 3 oder p(3)
 
 ```{r}
-lm(erupt_l3 ~ erupt, erupt_tbl) %>% 
+lm(erupt_p3 ~ erupt, erupt_tbl) %>% 
   coef()
 ```
 :::
@@ -307,13 +307,13 @@ In der @fig-time-lag siehst du nochmal die verschobenen Daten auf der $y$-Achse 
 #| fig-width: 4
 #| fig-cap: "Dastellung der orginalen Eruptionszeiten des Old Faithful Geysirs sowie die entsprechenden Daten für die Lag 1 bis 3. Die Regressiongleichung wurde für alle Zusammenhänge ergänzt."
 #| fig-subcap: 
-#|   - "Lag 1 vs. Orginal Eruptionszeiten."
-#|   - "Lag 2 vs. Orginal Eruptionszeiten."
-#|   - "Lag 3 vs. Orginal Eruptionszeiten."
+#|   - "p(1) vs. Orginal Eruptionszeiten."
+#|   - "p(2) vs. Orginal Eruptionszeiten."
+#|   - "p(3) vs. Orginal Eruptionszeiten."
 #| layout-nrow: 1
 
 erupt_tbl %>% 
-  ggplot(aes(erupt, erupt_l1)) +
+  ggplot(aes(erupt, erupt_p1)) +
   theme_bw() +
   geom_point2(color = cbbPalette[7]) +
   geom_function(fun = \(x){119.49 - 0.68 * x}, 
@@ -322,7 +322,7 @@ erupt_tbl %>%
   labs(x = "Orginal Eruptionszeiten", y =  "Lag 1 Eruptionszeiten")
 
 erupt_tbl %>% 
-  ggplot(aes(erupt, erupt_l2)) +
+  ggplot(aes(erupt, erupt_p2)) +
   theme_bw() +
   geom_point2(color = cbbPalette[6]) +
   geom_function(fun = \(x){31.81 + 0.55 * x}, 
@@ -331,7 +331,7 @@ erupt_tbl %>%
   labs(x = "Orginal Eruptionszeiten", y =  "Lag 2 Eruptionszeiten")
 
 erupt_tbl %>% 
-  ggplot(aes(erupt, erupt_l3)) +
+  ggplot(aes(erupt, erupt_p3)) +
   theme_bw() +
   geom_point2(color = cbbPalette[2]) +
   geom_function(fun = \(x){101.28 - 0.42 * x}, 
@@ -341,7 +341,7 @@ erupt_tbl %>%
 
 ```
 
-Bevor wir aber mit der Modellierung von Zeitreihen beginnen, hier nochmal die vollständige Korrelationsmatrix für alle Lags und den originalen Daten. Ich habe den Zusammenhang einmal in der @fig-time-corrplot-1 dargestellt. Wenn du mehr über die Visualisierung der Korrelation erfahren möchtest, dann besuche das [Kapitel zur Korrelation](#sec-linear-corr-visu). Hier sehen wir dann gut, wie mit jedem Schritt im Lag die Korrelation im Vorzeichen flippt. Ein Zeichen, dass wir es hier mit einer zyklischen Zeitreihe zu tun haben und wir etwas in den Daten entdecken könnten.
+Bevor wir aber mit der Modellierung von Zeitreihen beginnen, hier nochmal die vollständige Korrelationsmatrix für alle Lags $p$ und den originalen Daten. Ich habe den Zusammenhang einmal in der @fig-time-corrplot-1 dargestellt. Wenn du mehr über die Visualisierung der Korrelation erfahren möchtest, dann besuche das [Kapitel zur Korrelation](#sec-linear-corr-visu). Hier sehen wir dann gut, wie mit jedem Schritt im Lag die Korrelation im Vorzeichen flippt. Ein Zeichen, dass wir es hier mit einer zyklischen Zeitreihe zu tun haben und wir etwas in den Daten entdecken könnten.
 
 ```{r}
 #| message: false
@@ -351,7 +351,7 @@ Bevor wir aber mit der Modellierung von Zeitreihen beginnen, hier nochmal die vo
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "Korrealtion zwischen den originalen Daten und den Lags. Im unteren Bereich des Korrelationsplot sind die Scatterplost mit der Regressionsgraden eingezeichnet. Im oberen Bereich finden sich die berechneten Korrelationskoeffizienten $\\rho$ für die paarweisen Vergleiche."
+#| fig-cap: "Korrelation zwischen den originalen Daten und den Lags, auch als $p$ bezeichnet. Im unteren Bereich des Korrelationsplot sind die Scatterplost mit der Regressionsgraden eingezeichnet. Im oberen Bereich finden sich die berechneten Korrelationskoeffizienten $\\rho$ für die paarweisen Vergleiche."
 
 cor_func <- function(data, mapping, method, symbol, ...){
   x <- eval_data_col(data, mapping$x)
@@ -375,7 +375,7 @@ ggpairs(erupt_tbl,
         upper = list(continuous = wrap(cor_func, method = 'pearson', 
                                        symbol = expression('\u03C1 ='))),
         lower = list(continuous = wrap(lower_fun)),
-        columnLabels = c("Original", "Lag 1", "Lag 2", "Lag 3"),
+        columnLabels = c("Original", "p(1)", "p(2)", "p(3)"),
         axisLabels = "internal") +
   theme_bw()
 ```
@@ -462,6 +462,69 @@ ggplot(plot_tbl, aes(index, value, fill = key)) +
 
 ```
 
+::: panel-tabset
+## Orginal
+
+```{r}
+erupt[1:10]
+```
+
+## Differenz 1
+
+```{r}
+diff(erupt[1:10], differences = 1)
+```
+
+## Differenz 2
+
+```{r}
+diff(erupt[1:10], differences = 2)
+```
+:::
+
+```{r}
+diff_tbl <- tibble(erupt,
+                   erupt_d1 = c(NA, diff(erupt, 1)),
+                   erupt_d2 = c(NA, NA, diff(erupt, 2)))
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-time-diff-1
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Korrelation zwischen den originalen Daten und den Lags. Im unteren Bereich des Korrelationsplot sind die Scatterplost mit der Regressionsgraden eingezeichnet. Im oberen Bereich finden sich die berechneten Korrelationskoeffizienten $\\rho$ für die paarweisen Vergleiche."
+
+cor_func <- function(data, mapping, method, symbol, ...){
+  x <- eval_data_col(data, mapping$x)
+  y <- eval_data_col(data, mapping$y)
+  corr <- cor(x, y, method=method, use='complete.obs')
+  ggally_text(
+    label = paste(symbol, as.character(round(corr, 2))), 
+    mapping = aes(),
+    xP = 0.5, yP = 0.5,
+    color = 'black', size = 6
+  ) 
+}
+
+lower_fun <- function(data, mapping) {
+  ggplot(data = data, mapping = mapping) +
+    geom_point2(alpha = 0.7) + 
+    geom_smooth(method = "lm", formula = y ~ x, se = FALSE)
+}
+
+ggpairs(diff_tbl, 
+        upper = list(continuous = wrap(cor_func, method = 'pearson', 
+                                       symbol = expression('\u03C1 ='))),
+        lower = list(continuous = wrap(lower_fun)),
+        columnLabels = c("Original", "d(1)", "d(2)"),
+        axisLabels = "internal") +
+  theme_bw()
+```
+
 [Time Series as Features](https://www.kaggle.com/code/ryanholbrook/time-series-as-features)
 
 [Time series forecasting](https://medium.com/analytics-vidhya/time-series-forecasting-d611fa8ae6ca)
@@ -487,26 +550,6 @@ Ein ARIMA Modell setzt sich aus drei Komponenten wie folgt zusammen.
 1)  Dem verwendeten Lag $p$ der Zeitreihe (eng. *autoregressiv model* oder AR-Modell), die wir für die Berechnung der Autokorrelation der Zeitreihe nutzen.
 2)  Der verwendeten Differenz $d$, mit der wir unsere Zeitreihe anpassen.
 3)  Der laufenden Durchschnitt $q$ (eng. *moving average model* oder MA-Modell). Hiermit ist nicht das glättende Mittel gemeint. Wir modellieren hier etwas anderes.
-
-::: panel-tabset
-## Orginal
-
-```{r}
-erupt[1:10]
-```
-
-## Differenz 1
-
-```{r}
-diff(erupt[1:10], differences = 1)
-```
-
-## Differenz 2
-
-```{r}
-diff(erupt[1:10], differences = 2)
-```
-:::
 
 In der folgenden @fig-time-ts-3 siehst du die Zeitverzögerung (eng. *lag*).
 
