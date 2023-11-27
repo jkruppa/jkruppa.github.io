@@ -220,19 +220,43 @@ milk_tbl %>%
 
 ## Analysen von Zeitreihen
 
-Bis jetzt haben wir uns die Visualisierung von Zeitreihen angeschaut. Häufig reicht die Visualisierung auch aus, wenn es um die Darstellung von Temperaturverläufen in einer Abschlussarbeit geht.
+Bis jetzt haben wir uns die Visualisierung von Zeitreihen angeschaut. Häufig reicht die Visualisierung auch aus, wenn es um die Darstellung von Temperaturverläufen in einer Abschlussarbeit geht. Wir gehen jetzt aber einen Schritt weiter und wollen unsere Zeitreihe einmal statistisch Analysieren. Die Zeitreihenanalyse oder auch Zeitreihenprognose ist die Verwendung eines Modells zur Vorhersage künftiger Werte auf der Grundlage zuvor beobachteter Werte. Für dich bedeutet dies, dass Prognosen darüber erstellt werden, wie sich solche Zeitreihen in der Zukunft entwickeln werden. Wie in vielen anderen Tutorien auch, werde ich mir hier mal die zwei häufigsten Modelle anschauen: Auto-Regression (AR) und gleitender Durchschnitt (MA) und deren Kombination als ARIMA Modell.
+
+<https://rpubs.com/JSHAH/481706> und [https://medium.com/\@vaibhav1403/ar-model-vs-ma-model-427ee28587a](https://medium.com/@vaibhav1403/ar-model-vs-ma-model-427ee28587a){.uri}
 
 ### Definitionen und Überblick
 
-In dem folgenden Abschnitt möchte ich gerne einmal einen Überblick über die wichtigsten Begriffe in der Analyse von Zeitreihen geben. Jetzt geht es also los mit der "richtigen" Zeitreihenanalyse. Teilweise sind es etwas speziellere Begriffe, so dass ich hier erstmal etwas zu den Begriffen schreibe und dann die einzelnen Begriffe nochmal tiefer erkläre. Als vertiefenden Einstieg kann ich hier auch das Buch "Forecasting: principles and practice" von @hyndman2018forecasting empfehlen. Hier gibt es dann auch eine [Webseite mit Videos zu dem Buch](https://otexts.com/fpp3/). Denn so ausführlich kann ich das Thema Zeitreihenanalyse dann doch nicht in einem Kapitel bearbeiten.
+In dem folgenden Abschnitt möchte ich gerne einmal einen Überblick über die wichtigsten Begriffe in der Analyse von Zeitreihen geben. Jetzt geht es also los mit der "richtigen" Zeitreihenanalyse. Teilweise sind es etwas speziellere Begriffe, so dass ich hier erstmal etwas zu den Begriffen schreibe und dann die einzelnen Begriffe nochmal tiefer erkläre. Als vertiefenden Einstieg kann ich hier auch das Buch "Forecasting: principles and practice" von @hyndman2018forecasting empfehlen. Hier gibt es dann auch eine [Webseite mit Videos zu dem Buch](https://otexts.com/fpp3/).
 
 Stationarität (eng. *stationarity*)
 
-:   Eine gängige Annahme bei vielen Zeitreihenverfahren ist, dass die Daten stationär sind. Das klingt etwas seltsam, denn eigentlich soll sich doch was über die Zeit *verändern*. Wie kann dann eine Vorbedingung an Zeitreihen sein, dass Zeitreihen stationär sind? Ein stationärer Prozess hat die Eigenschaft, dass sich der Mittelwert, die Varianz und die Autokorrelationsstruktur im Laufe der Zeit nicht ändern. Wir sprechen hier also von statistischen Eigenschaften über den Zeitverlauf.
+:   Eine gängige Annahme bei vielen Zeitreihenverfahren ist, dass die Daten stationär sind. Das klingt etwas seltsam, denn eigentlich soll sich doch was über die Zeit *verändern*. Wie kann dann eine Vorbedingung an Zeitreihen sein, dass Zeitreihen stationär sind? Solange die Zeitreihe nicht stationär ist, können wir kein Zeitreihenmodell erstellen. Insbesondere sind AR oder MA nicht auf nicht-stationäre Reihen anwendbar. Es gibt drei grundlegende Kriterien, damit eine Reihe als stationäre Reihe eingestuft wird:
+
+1.  Der Mittelwert der Reihe darf keine Funktion der Zeit sein, sondern muss konstant sein. Zeitpunkte in der Zukunft haben keine größeren Werte.
+2.  Die Varianz der Reihe sollte keine Funktion der Zeit sein. Diese Eigenschaft wird als Homoskedastizität bezeichnet. Die Varianz steigt nicht mit der Zeit an.
+3.  Die Kovarianz des $i$-ten Messwerts und des ($i + m$)-ten Messwert sollte keine Funktion der Zeit sein. Die Zeitpunkte untereinander zeigen nur eine eingeschränkte Korrelation.
+
+Ein stationärer Prozess hat die Eigenschaft, dass sich der Mittelwert, die Varianz und die Autokorrelationsstruktur im Laufe der Zeit nicht ändern. Wir sprechen hier also von statistischen Eigenschaften über den Zeitverlauf.
+
+Lag (deu. *Zeitverzögerung*)
+
+:   Mit eng. *lag* ist im Wesentlichen eine Verzögerung gemeint. Das Konzept des Lag ist zentral für das Verständnis der Zeitreihenanalyse. Betrachte dafür eine Folge von Zeitpunkten. Bei einem Lag von 1 vergleichst du die Zeitreihe $t$ mit einer verzögerten Zeitreihe $t-1$. Du verschiebst die Zeitreihe um einen Zeitpunkt, bevor du sie mit sich selbst vergleichst. So gehst du dann für gesamte Länge der Zeitreihe vor. Wir haben nun eine Autokorrelationsfunktion für das Lag 1 vorliegen. Wenn wir also eine Zeitreihe $t$ vorliegen haben und das Lag 1 berechnen sollen, dann entfernen wir die erste Beobachtung und haben eine $t-1$ *gelaggte* Zeitreihe. Wenn $t$ für heute steht und wir wöchentliche Werte haben, dann steht $t-1$ für die letzte Woche. $y_{t-1}$ stellt also den Wert dar, der vor einer Woche aufgezeichnet wurde. Wenn du das Lag 2 berechnest, dann entfernst du die ersten beiden Zeitpunkte aus den Daten.
+
+Differenz
+
+:   Die Differenz zwischen zwei Zeitpunkten in einer Zeitreihe wird auch häufig benötigt. Dabei wird häufig auch von der Ordnung (eng. *order*) geschrieben. Die Ordnugn gibt nur an, die wievielte Differenz wir berechnet haben. Klingt wild, ist aber bnnichts anders als immer wieder die Differenz zwischen Zahlen zu berechnen. Die Differenz 1. Ordnung $d(1)$ zwischen den Zahlen $y = {2, 6, 7}$ ist $d(1) = {4, 1}$. Die Differenz 2. Ordnung $d(2)$ ist dann nur noch die Differenz in der 1. Ordnung und damit $d(2) = 3$.
 
 Autokorrelation
 
-:   Wenn wir Zeitreihen $t_1$ und $t_2$ vorliegen haben, so zeigt die Korrelation $\rho(t_1, t_2)$, wie sehr sich die zwei Zeitreihen ähneln. Die Autokorrelation beschreibt, wie ähnlich die Zeitreihe $t_1$ sich selbst ist. Damit beschreibt die Autokorrelation die inhärente Ähnlichkeit einer Zeitreihe. Anhand der Werte der Autokorrelationsfunktion können wir erkennen, wie stark sie mit sich selbst korreliert. Bei jeder Zeitreihe ist die Korrelation bei Lag/Delay = 0 perfekt, da man dieselben Werte miteinander vergleicht. Wenn du deine Zeitreihe verschiebst, wirst du feststellen, dass die Korrelationswerte abnehmen. Wenn die Zeitreihe aus völlig zufälligen Werten besteht, gibt es nur eine Korrelation bei lag = 0, aber keine Korrelation überall sonst. Bei den meisten Datensätzen/Zeitreihen ist dies nicht der Fall, da die Werte im Laufe der Zeit abnehmen und somit eine gewisse Korrelation bei niedrigen Lag-Werten besteht.Damit kann die Autokorrelationsfunktion die Frequenzkomponenten einer Zeitreihe aufzeigen.
+:   Wenn wir die Zeitreihen $t_1$ und $t_2$ vorliegen haben, so zeigt die normale Korrelation $\rho(t_1, t_2)$, wie sehr sich die *zwei* Zeitreihen ähneln. Die Autokorrelation hingegen beschreibt, wie ähnlich die Zeitreihe $t_1$ oder $t_2$ *sich selbst* ist. Damit beschreibt die Autokorrelation die inhärente Ähnlichkeit einer Zeitreihe $t$. Anhand der Werte der Autokorrelationsfunktion können wir erkennen, wie stark sie mit sich selbst korreliert. Dafür nutzen wir ein sogenanntes Lag (deu. *Verzögerung*) um aus einer Zeitreihe $t$ eine zweite Zeitreihe zu bauen. Bei jeder Zeitreihe ist die Korrelation bei einem Lag von 0 perfekt, da man dieselben Werte miteinander vergleicht. Wenn du nun eine Zeitreihe verschiebst, wirst du feststellen, dass die Korrelationswerte zwischen den Lags abnehmen. Wenn die Zeitreihe aus völlig zufälligen Werten besteht, gibt es nur eine Korrelation bei Lag gleich 0, aber keine Korrelation überall sonst. Bei den meisten Zeitreihen ist dies nicht der Fall, da die Werte im Laufe der Zeit abnehmen und somit eine gewisse Korrelation bei niedrigen Lag-Werten besteht. Damit kann die Autokorrelationsfunktion die Frequenzkomponenten einer Zeitreihe aufzeigen.
+
+AR Modell
+
+:   Das AR-Modell setzt den aktuellen Wert der Reihe in Beziehung zu ihren vergangenen Werten. Es geht davon aus, dass die Vergangenheitswerte in einem linearen Verhältnis zum aktuellen Wert stehen.
+
+MA Modell
+
+:   Das MA-Modell setzt den aktuellen Wert der Reihe mit dem weißen Rauschen oder den Fehlertermen der Vergangenheit in Beziehung. Es erfasst die Schocks oder unerwarteten Ereignisse der Vergangenheit, die sich noch immer auf die Reihe auswirken.
 
 ARIMA Modell
 
@@ -241,14 +265,6 @@ ARIMA Modell
 Exponential smoothing
 
 :   Alternative zu ARIMA https://otexts.com/fpp3/expsmooth.html
-
-Lag (deu. *Zeitverzögerung*)
-
-:   Mit eng. *lag* ist im Wesentlichen eine Verzögerung gemeint. Betrachte eine Folge von Zeitpunkten. Bei einem Lag von 1 vergleichst du die Zeitreihe mit einer verzögerten Zeitreihe. Du verschiebst die Zeitreihe um 1 Wert, bevor du sie mit sich selbst vergleichst. So gehst du dann für gesamte Länge der Zeitreihe vor. Wir haben nun eine Autokorrelationsfunktion für das Lag 1 vorliegen. Wenn wir also eine Zeitreihe $t$ vorliegen haben und das Lag 1 berechnen sollen, dann entfernen wir die erste Beobachtung und haben eine $t-1$ *gelaggte* Zeitreihe.
-
-Differenz
-
-:   Die Differenz zwischen zwei Zeitpunkten in einer Zeitreihe wird auch häufig benötigt. Dabei wird häufig auch von der Ordnung (eng. *order*) geschrieben. Die Ordnugn gibt nur an, die wievielte Differenz wir berechnet haben. Klingt wild, ist aber bnnichts anders als immer wieder die Differenz zwischen Zahlen zu berechnen. Die Differenz 1. Ordnung $d(1)$ zwischen den Zahlen $y = {2, 6, 7}$ ist $d(1) = {4, 1}$. Die Differenz 2. Ordnung $d(2)$ ist dann nur noch die Differenz in der 1. Ordnung und damit $d(2) = 3$.
 
 Cross Correlation Functions and Lagged Regressions
 
@@ -498,24 +514,6 @@ diff_tbl <- tibble(erupt,
 #| fig-width: 5
 #| fig-cap: "Korrelation zwischen den originalen Daten und den Lags. Im unteren Bereich des Korrelationsplot sind die Scatterplost mit der Regressionsgraden eingezeichnet. Im oberen Bereich finden sich die berechneten Korrelationskoeffizienten $\\rho$ für die paarweisen Vergleiche."
 
-cor_func <- function(data, mapping, method, symbol, ...){
-  x <- eval_data_col(data, mapping$x)
-  y <- eval_data_col(data, mapping$y)
-  corr <- cor(x, y, method=method, use='complete.obs')
-  ggally_text(
-    label = paste(symbol, as.character(round(corr, 2))), 
-    mapping = aes(),
-    xP = 0.5, yP = 0.5,
-    color = 'black', size = 6
-  ) 
-}
-
-lower_fun <- function(data, mapping) {
-  ggplot(data = data, mapping = mapping) +
-    geom_point2(alpha = 0.7) + 
-    geom_smooth(method = "lm", formula = y ~ x, se = FALSE)
-}
-
 ggpairs(diff_tbl, 
         upper = list(continuous = wrap(cor_func, method = 'pearson', 
                                        symbol = expression('\u03C1 ='))),
@@ -528,6 +526,71 @@ ggpairs(diff_tbl,
 [Time Series as Features](https://www.kaggle.com/code/ryanholbrook/time-series-as-features)
 
 [Time series forecasting](https://medium.com/analytics-vidhya/time-series-forecasting-d611fa8ae6ca)
+
+```{r}
+ma_tbl <- tibble(erupt, 
+                 time = 1:length(erupt))
+```
+
+::: panel-tabset
+## Laufender Durchschnitt 1 oder q(1)
+
+```{r}
+resid_ma_1 <- lm(erupt ~ time, ma_tbl) %>% 
+  resid()
+ma_tbl <- ma_tbl %>% 
+  bind_cols(ma_1 = resid_ma_1)
+```
+
+## Laufender Durchschnitt 2 oder q(2)
+
+```{r}
+resid_ma_2 <- lm(ma_1 ~ time, ma_tbl) %>% 
+  resid()
+ma_tbl <- ma_tbl %>% 
+  bind_cols(ma_2 = resid_ma_2)
+```
+
+## Laufender Durchschnitt 3 oder q(3)
+
+```{r}
+resid_ma_3 <- lm(ma_2 ~ time, ma_tbl) %>% 
+  resid()
+ma_tbl <- ma_tbl %>% 
+  bind_cols(ma_3 = resid_ma_3)
+```
+:::
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-time-ma-1
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Korrelation zwischen den originalen Daten und den Lags. Im unteren Bereich des Korrelationsplot sind die Scatterplost mit der Regressionsgraden eingezeichnet. Im oberen Bereich finden sich die berechneten Korrelationskoeffizienten $\\rho$ für die paarweisen Vergleiche."
+
+ggpairs(ma_tbl[,-2], 
+        upper = list(continuous = wrap(cor_func, method = 'pearson', 
+                                       symbol = expression('\u03C1 ='))),
+        lower = list(continuous = wrap(lower_fun)),
+        columnLabels = c("Original", "q(1)", "q(2)", "q(3)"),
+        axisLabels = "internal") +
+  theme_bw()
+```
+
+The coefficient ϕ1 is a numeric constant by which we multiply the lagged variable (Xt-1). You can interpret it as the part of the previous value which remains in the future. It's good to note that these coefficients should always be between -1 and 1.
+
+Let me explain why.
+
+If the absolute value of the coefficient is greater than 1, then over time, it would blow up immeasurably.
+
+This idea can seem confusing at first. So let's take a look at a mathematical example.
+
+Say, we have a time-series with 1000 observations and ϕ1 = 1.3 and C=0.
+
+Then, X2 = 0 + 1.3 X1
 
 ## Vorhersagen mit...
 
