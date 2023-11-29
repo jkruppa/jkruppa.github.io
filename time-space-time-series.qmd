@@ -216,6 +216,7 @@ Wir erkennen ganz gut, dass wir hier einen Effekt der Saison oder aber der Jahre
 #| fig-cap: "Die Darstellung der Milchdaten durch das R Paket `{timetk}` und der Funktion `plot_time_series()`, die durch die Option `.interactive = TRUE` intern dann `{plotly}` aufruft."
 milk_tbl %>%
   plot_time_series(month, milk_prod_per_cow_kg, .interactive = TRUE)
+
 ```
 
 ## Analysen von Zeitreihen
@@ -223,6 +224,8 @@ milk_tbl %>%
 Bis jetzt haben wir uns die Visualisierung von Zeitreihen angeschaut. Häufig reicht die Visualisierung auch aus, wenn es um die Darstellung von Temperaturverläufen in einer Abschlussarbeit geht. Wir gehen jetzt aber einen Schritt weiter und wollen unsere Zeitreihe einmal statistisch Analysieren. Die Zeitreihenanalyse oder auch Zeitreihenprognose ist die Verwendung eines Modells zur Vorhersage künftiger Werte auf der Grundlage zuvor beobachteter Werte. Für dich bedeutet dies, dass Prognosen darüber erstellt werden, wie sich solche Zeitreihen in der Zukunft entwickeln werden. Wie in vielen anderen Tutorien auch, werde ich mir hier mal die zwei häufigsten Modelle anschauen: Auto-Regression (AR) und gleitender Durchschnitt (MA) und deren Kombination als ARIMA Modell.
 
 <https://rpubs.com/JSHAH/481706> und [https://medium.com/\@vaibhav1403/ar-model-vs-ma-model-427ee28587a](https://medium.com/@vaibhav1403/ar-model-vs-ma-model-427ee28587a){.uri}
+
+und <https://towardsdatascience.com/time-series-analysis-with-auto-arima-in-r-2b220b20e8ab>
 
 ### Definitionen und Überblick
 
@@ -523,62 +526,32 @@ ggpairs(diff_tbl,
   theme_bw()
 ```
 
-[Time Series as Features](https://www.kaggle.com/code/ryanholbrook/time-series-as-features)
-
-[Time series forecasting](https://medium.com/analytics-vidhya/time-series-forecasting-d611fa8ae6ca)
-
-```{r}
-ma_tbl <- tibble(erupt, 
-                 time = 1:length(erupt))
-```
-
-::: panel-tabset
-## Laufender Durchschnitt 1 oder q(1)
-
-```{r}
-resid_ma_1 <- lm(erupt ~ time, ma_tbl) %>% 
-  resid()
-ma_tbl <- ma_tbl %>% 
-  bind_cols(ma_1 = resid_ma_1)
-```
-
-## Laufender Durchschnitt 2 oder q(2)
-
-```{r}
-resid_ma_2 <- lm(ma_1 ~ time, ma_tbl) %>% 
-  resid()
-ma_tbl <- ma_tbl %>% 
-  bind_cols(ma_2 = resid_ma_2)
-```
-
-## Laufender Durchschnitt 3 oder q(3)
-
-```{r}
-resid_ma_3 <- lm(ma_2 ~ time, ma_tbl) %>% 
-  resid()
-ma_tbl <- ma_tbl %>% 
-  bind_cols(ma_3 = resid_ma_3)
-```
-:::
-
 ```{r}
 #| message: false
 #| echo: false
 #| warning: false
-#| label: fig-time-ma-1
+#| label: fig-time-diff-milk-1
 #| fig-align: center
-#| fig-height: 5
+#| fig-height: 3
 #| fig-width: 5
-#| fig-cap: "Korrelation zwischen den originalen Daten und den Lags. Im unteren Bereich des Korrelationsplot sind die Scatterplost mit der Regressionsgraden eingezeichnet. Im oberen Bereich finden sich die berechneten Korrelationskoeffizienten $\\rho$ für die paarweisen Vergleiche."
+#| fig-cap: "Stationäre Abbildungen der CO$_2$-Daten sowie der Milchdaten nach der Differenzbildung mit $d(1)$. Wir sehen, dass wir einen stationären Verlauf erreichen."
+#| fig-subcap: 
+#|   - "CO$_2$ Daten."
+#|   - "Milch Daten."
+#| layout-nrow: 1
 
-ggpairs(ma_tbl[,-2], 
-        upper = list(continuous = wrap(cor_func, method = 'pearson', 
-                                       symbol = expression('\u03C1 ='))),
-        lower = list(continuous = wrap(lower_fun)),
-        columnLabels = c("Original", "q(1)", "q(2)", "q(3)"),
-        axisLabels = "internal") +
-  theme_bw()
+co2_monthly_tbl %>% 
+  mutate(diff = c(NA, diff(average, 1))) %>% 
+  plot_time_series(date, diff, .interactive = TRUE) 
+
+milk_tbl %>% 
+  mutate(diff = c(NA, diff(milk_prod_per_cow_kg, 1))) %>% 
+  plot_time_series(month, diff, .interactive = TRUE)
 ```
+
+[Time Series as Features](https://www.kaggle.com/code/ryanholbrook/time-series-as-features)
+
+[Time series forecasting](https://medium.com/analytics-vidhya/time-series-forecasting-d611fa8ae6ca)
 
 The coefficient ϕ1 is a numeric constant by which we multiply the lagged variable (Xt-1). You can interpret it as the part of the previous value which remains in the future. It's good to note that these coefficients should always be between -1 and 1.
 
@@ -606,6 +579,20 @@ In diesem Beispiel nutzen wir das R Paket `{zoo}` und die Funktion `ts()` für d
 milk_ts <- milk_tbl %$%
   tk_ts(milk_prod_per_cow_kg, start = 1962, end = 1975, frequency = 12)
 milk_ts
+```
+
+```{r}
+#| eval: false
+co2_monthly_ts <- co2_monthly_tbl  %$%
+  tk_ts(average, start = c(1958, 3), end = 2023, frequency = 12)
+
+co2_month_arima_obj <- auto.arima(co2_monthly_ts)
+
+arima_mdl <- forecast(co2_month_arima_obj, 12*6)
+
+autoplot(arima_mdl) +
+  theme_bw()
+
 ```
 
 Ein ARIMA Modell setzt sich aus drei Komponenten wie folgt zusammen.
