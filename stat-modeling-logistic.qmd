@@ -32,19 +32,19 @@ $$
 
 Wir können in dem Modell auch Faktoren $f$ haben, aber es geht hier nicht um einen Gruppenvergleich. Das ist ganz wichtig. Wenn du einen Gruppenvergleich rechnen willst, dann musst du in @sec-posthoc nochmal nachlesen, wir du dann das Modell weiterverwendest.
 
-## Genutzte R Pakete für das Kapitel
+## Genutzte R Pakete
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom,
-               parameters, performance, gtsummary,
-               tidymodels, cutpointr)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
-conflict_prefer("extract", "magrittr")
+               parameters, performance, gtsummary, see,
+               tidymodels, cutpointr, emmeans, multcomp,
+               conflicted)
+conflicts_prefer(yardstick::accuracy)
+conflicts_prefer(dplyr::select)
+conflicts_prefer(magrittr::extract)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
@@ -53,7 +53,7 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
-In diesem Kapitel nutzen wir die infizierten Ferkel als Beispieldatensatz. Wir haben in dem Datensatz über vierhundert Ferkel untersucht und festgehalten, ob die Ferkel infiziert sind ($1$, ja) oder nicht infiziert ($0$, nein). Wir haben daneben noch eine ganze Reihe von *Risiko*faktoren erhoben. Hier sieht man mal wieder wie wirr die Sprache der Statistik ist. Weil wir rausfinden wollen welche Variable das Risiko für die Infektion erhöht, nennen wir diese Variablen Risikofaktoren. Obwohl die Variablen gar keine kategorialen Spalten sin bzw. nicht alle. So ist das dann in der Statistik, ein verwirrender Begriff jagt den Nächsten.
+In diesem Kapitel nutzen wir die infizierten Ferkel als Beispieldatensatz. Wir haben in dem Datensatz über vierhundert Ferkel untersucht und festgehalten, ob die Ferkel infiziert sind ($1$, ja) oder nicht infiziert ($0$, nein). Wir haben daneben noch eine ganze Reihe von *Risiko*faktoren erhoben. Hier sieht man mal wieder wie wirr die Sprache der Statistik ist. Weil wir rausfinden wollen welche Variable das Risiko für die Infektion erhöht, nennen wir diese Variablen Risikofaktoren. Obwohl die Variablen gar keine kategorialen Spalten sind bzw. nicht alle. So ist das dann in der Statistik, ein verwirrender Begriff jagt den Nächsten.
 
 ```{r}
 pig_tbl <- read_excel("data/infected_pigs.xlsx") 
@@ -176,7 +176,7 @@ check_model(log_fit, colors = cbbPalette[6:8],
 
 ## Interpretation des Modells
 
-Zu Interpretation schauen wir uns wie immer nicht die rohe Ausgabe an, sondern lassen uns die Ausgabe mit der Funktion `model_parameters()` aus dem R Paket `parameters` wiedergeben. Wir müssen noch die Option `exponentiate = TRUE` wählen, damit unsere Koeffizienten nicht als $\log$-Odds sondern als Odds wiedergeben werden. Korrekterweise erhalten wir die Odds ratio wieder was wir auch als $OR$ angegeben.
+Zu Interpretation schauen wir uns wie immer nicht die rohe Ausgabe an, sondern lassen uns die Ausgabe mit der Funktion `model_parameters()` aus dem R Paket `{parameters}` wiedergeben. Wir müssen noch die Option `exponentiate = TRUE` wählen, damit unsere Koeffizienten nicht als $\log$-Odds sondern als Odds wiedergeben werden. Korrekterweise erhalten wir die Odds ratio wieder was wir auch als $OR$ angegeben.
 
 ```{r}
 #| message: false
@@ -205,7 +205,7 @@ Kommen wir nochmal zu den gänigen Tabellen für die Zusammenfassung eines Ergeb
 pig_tbl %>% tbl_summary(by = infected) %>% add_p() %>% as_flex_table()
 ```
 
-In @tbl-tbl-uni-logreg siehst du nochmal für eine Auswahl an Variablen die simplen logistischen Regressionen gerechnet. Du müsst also nicht jede simple logistische Regression selber rechnen, sondern kannst auch die Funktion `tbl_uvregression()` verwenden. Das R Paket `tbl_summary` erlaubt weitreichende Formatierungsmöglichkeiten. Am bestes schaust du einmal im Tutorial [Tutorial: tbl_regression](https://www.danieldsjoberg.com/gtsummary/articles/tbl_regression.html) selber nach was du brauchst oder anpassen willst.
+In @tbl-tbl-uni-logreg siehst du nochmal für eine Auswahl an Variablen die simplen logistischen Regressionen gerechnet. Du müsst also nicht jede simple logistische Regression selber rechnen, sondern kannst auch die Funktion `tbl_uvregression()` verwenden. Das R Paket `{tbl_summary}` erlaubt weitreichende Formatierungsmöglichkeiten. Am bestes schaust du einmal im Tutorial [Tutorial: tbl_regression](https://www.danieldsjoberg.com/gtsummary/articles/tbl_regression.html) selber nach was du brauchst oder anpassen willst.
 
 ```{r}
 #| message: false
@@ -224,7 +224,7 @@ pig_tbl%>%
   ) %>% as_flex_table()
 ```
 
-nun gibt es viele Möglichkeiten sich die logistische Regression wiedergeben zu lassen In @tbl-tbl-regression-logreg siehst du nochmal die Möglichkeit, die dir das R Paket `tbl_summary()` bietet. Am Ende ist es dann eine reine Geschmacksfrage, wie wir die Daten dann aufarbeiten wollen.
+nun gibt es viele Möglichkeiten sich die logistische Regression wiedergeben zu lassen In @tbl-tbl-regression-logreg siehst du nochmal die Möglichkeit, die dir das R Paket `{tbl_summary}` bietet. Am Ende ist es dann eine reine Geschmacksfrage, wie wir die Daten dann aufarbeiten wollen.
 
 ```{r}
 #| message: false
@@ -282,7 +282,7 @@ Nun haben wir das Kapitel zur logistischen Regression fast abgeschlossen. Was no
 
 Manchmal ist es so, dass wir eine logistsiche Regression rechnen wollen. Wir fragen nicht, wie ist unser $y$ verteilt und was für eine Regression können wir dann rechnen? Sondern wir wollen mit der logistischen Regression durch die Wand. Wenn wir das wollen, dann können wir unser $y$ dichotomisieren. Das heißt, wir machen aus einer Variable, die mehr als zwei Level hat einen Faktor mit zwei Leveln. Dafür stehen uns verschiedene Möglichkeiten offen.
 
-In dem R Paket `dplyr` haben wir mit der Funktion `recode()` die Möglichkeit eine Variable von `alt = neu` umzukodieren. Dabei müssen wir natürlich darauf achten, dass wir die alten Level der Variable richtig schreiben und bei der neuen Level nur zwei Namen eintragen. Dann sind wir auch schon durch mit der Umbenennung.
+In dem R Paket `{dplyr}` haben wir mit der Funktion `recode()` die Möglichkeit eine Variable von `alt = neu` umzukodieren. Dabei müssen wir natürlich darauf achten, dass wir die alten Level der Variable richtig schreiben und bei der neuen Level nur zwei Namen eintragen. Dann sind wir auch schon durch mit der Umbenennung.
 
 ```{r}
 pig_tbl %>% 
@@ -305,11 +305,7 @@ mutate(frailty = case_when(frailty == "robust" ~ "robust",
 
 Häufig haben wir auch den Fall, dass wir keine kontinuierlichen $x$ in unseren Daten wollen. Alles soll sich in Faktoren verwandeln, so dass wir immer eine 2x2 Tafel haben. Wenn es sein muss, liefert hier `cutpointr()` die Lösung für dieses Problem. Wir müssen dafür zum einen unser kontinuierliches $x$ angeben und dann mit `class` unser binäres $y$. Wir erhalten dann für unser $y$ den bestmöglichen Split für unser $x$. Im Beispiel wollen wir einmal die Variable `crp` für unser Outcome `infected` in zwei Gruppen aufteilen. Wir wollen eigentlich immer zwei Gruppen, da wir dann in dem Setting eines $\mathcal{X}^2$-Test und einer einfacheren Interpretation von dem $OR$ sind.
 
-Wir immer haben wir eine große Bandbreite an Optionen, wie wir den besten Split unseres $x$ kriegen wollen. Ich gehe hier mit den Default-Werten. Damit kommt man eigentlich recht weit. Ich möchte gerne die Summe der Sensivität und der Spezifität `sum_sens_spec` über alle möglichen Cutpoints maximieren `maximize_metric`. Der Cutpoint mit der maximalen Summe an Sensivität und der Spezifität wird mir dann wiedergegeben.
-
-::: column-margin
-Natürlich hat das R Paket `cutpoint` noch viel mehr Optionen. Mehr gibt es in [An introduction to cutpointr](https://cran.r-project.org/web/packages/cutpointr/vignettes/cutpointr.html).
-:::
+Wir immer haben wir eine große Bandbreite an Optionen, wie wir den besten Split unseres $x$ kriegen wollen. Ich gehe hier mit den Default-Werten. Damit kommt man eigentlich recht weit. Ich möchte gerne die Summe der Sensivität und der Spezifität `sum_sens_spec` über alle möglichen Cutpoints maximieren `maximize_metric`. Der Cutpoint mit der maximalen Summe an Sensivität und der Spezifität wird mir dann wiedergegeben. Natürlich hat das R Paket `{cutpoint}` noch viel mehr Optionen. Mehr gibt es in [An introduction to cutpointr](https://cran.r-project.org/web/packages/cutpointr/vignettes/cutpointr.html).
 
 ```{r}
 #| message: false
@@ -357,7 +353,7 @@ Damit haben wir uns dann auch mit dem Problem der Dichotomisierung in der logist
 
 ## Prädiktion
 
-Da wir später in dem @sec-class-basic die logistische Regression auch als Vergleich zu maschinellen Lernverfahren in der Klassifikation nutzen werden gehen wir hier auch die Prädiktion einmal für die logistische Regression durch. Wir wollen also eine Klassifikation, also eine Vorhersage, für das Outcome `infected` mit einer logistischen Regression rechnen. Wir nutzen dazu die Möglichkeiten des R Pakets `tidymodels` wodurch wir einfacher ein Modell bauen und eine Klassifikation rechnen können. Unsere Fragestellung ist, ob wir mit unseren Einflussvariablen den Infektionsstatus vorhersagen können. Das heißt wir wollen ein Modell bauen mit dem wir *zukünftige* Ferkel als potenziell krank oder gesund anhand unser erhobenen Daten einordnen bzw. klassifizieren können.
+Da wir später in dem @sec-class-basic die logistische Regression auch als Vergleich zu maschinellen Lernverfahren in der Klassifikation nutzen werden gehen wir hier auch die Prädiktion einmal für die logistische Regression durch. Wir wollen also eine Klassifikation, also eine Vorhersage, für das Outcome `infected` mit einer logistischen Regression rechnen. Wir nutzen dazu die Möglichkeiten des R Pakets `{tidymodels}` wodurch wir einfacher ein Modell bauen und eine Klassifikation rechnen können. Unsere Fragestellung ist, ob wir mit unseren Einflussvariablen den Infektionsstatus vorhersagen können. Das heißt wir wollen ein Modell bauen mit dem wir *zukünftige* Ferkel als potenziell krank oder gesund anhand unser erhobenen Daten einordnen bzw. klassifizieren können.
 
 ::: column-margin
 Mehr zu Rezepten (eng. *recipes*) kannst du im @sec-class-basic zu den Grundlagen des maschinellen Lernens erfahren.
@@ -444,5 +440,255 @@ pig_aug %>%
 ```
 
 Der beste Wert wäre hier eine AUC von $1$ und damit eine perfekte Vorhersage. Der schlechteste Wert wäre eine AUC von $0.5$ und damit eine nahezu zufällige Zuordnung des Infeketionsstatus zu den Ferkeln von unserem Modell. Mit einer AUC von $0.83$ können wir aber schon gut leben. Immerhin haben wir kaum am Modell rumgeschraubt bzw. ein Tuning betrieben. Wenn du mehr über Tuning und der Optimierung von Modellen zu Klassifikation wissen willst, dan musst du im @sec-class-basic zu den maschinellen Lernverfahren anfangen zu lesen.
+
+## Gruppenvergleich {#sec-mult-comp-log-reg}
+
+Häufig ist es ja so, dass wir das Modell nur schätzen um dann einen Gruppenvergleich zu rechnen. Das heißt, dass es uns interessiert, ob es einen Unterschied zwischen den Leveln eines Faktors gegeben dem Outcome $y$ gibt. Wir machen den Gruppenvergleich jetzt einmal an der Gebrechlichkeit `frailty` durch. Wir habe die drei Gruppen `frail`, `pre-frail` und `robust` vorliegen. Wir wollen jetzt wissen, ob es einen Unterschied zwischen den Gruppen hinsichtlich dem Infektionsstatus von den Ferkeln gibt.
+
+Wenn du gerade hierher gesprungen bist, nochmal das simple Modell für unseren Gruppenvergleich. Wir haben hier nur einen Faktor `frailty` mit in dem Modell. Am Ende des Abschnitts findest du dann noch ein Beispiel mit zwei Faktoren zu beschädigten Mais nach der Ernte.
+
+```{r}
+#| message: false
+#| warning: false
+log_fit <- glm(infected ~ frailty, data = pig_tbl, family = binomial)
+```
+
+Eigentlich ist es recht einfach. Wir rechnen jetzt als erstes die ANOVA. Hier müssen wir dann einmal den Test angeben, der gerechnet werden soll um die p-Werte zu erhalten. Dann nutze ich noch die Funktion `model_parameters()` um eine schönere Ausgabe zu erhalten.
+
+```{r}
+#| message: false
+#| warning: false
+
+log_fit %>% 
+  anova(test = "Chisq") %>% 
+  model_parameters(drop = "NULL")
+```
+
+Wir sehen, dass die Gebrechlichkeit der Ferkel keinen signifikanten Einfluss auf den Infektionsstatus hat. Dennoch rechnen wir einmal den Gruppenvergleich. Immerhin geht es hier ja auch um die Demonstration.
+
+Im folgenden nutzen wir das R Paket `{emmeans}` wie folgt. Wenn wir die Wahrscheinlichkeiten wiedergeben haben wollen, dann nutzen wir die Option `regrid = "response"`. In unserem `emmeans`-Objekt stehen jetzt die Wahrscheinlichkeiten infiziert zu sein für das jeweilige Level von `frailty`. Wenn wir aber später die *Odds ratio* benötigen, dann müssen wir die Option `type = "response"` verwenden. Erstere Option nutze ich später um direkt aus der `emmeans` Ausgabe ein Säulendiagramm zu erstellen. Auf dem ersten Blick sind beide Ausgaben gleich, aber im Hintergrund werden andere Optionen gesetzt, so dass in folgenden Berechnungen dann was anderes herauskommt.
+
+::: panel-tabset
+## Option `regrid = "response"`
+
+Mit dieser Option erhalten wir dann ein `emmeans`-Objekt in dem die Wahrscheinlichkeiten `prob` hinterlegt sind. Diese Art der Berechnung eignet sich besonders, wenn später ein *compact letter dislay* visualisiert werden soll.
+
+```{r}
+#| message: false
+#| warning: false
+em_prob_obj <- log_fit %>% 
+  emmeans(~ frailty, regrid = "response")
+em_prob_obj
+```
+
+## Option `type = "response"`
+
+Mit dieser Option bereiten wir dann die Berechnung von *Odds ratios* vor. Wir wollen dann auf der ursprünglichen Skala rechnen und nicht auf der Linkfunktion. Wenn du also *Odds ratios* haben willst, dann musst du diese Option wählen.
+
+```{r}
+#| message: false
+#| warning: false
+em_odds_obj <- log_fit %>% 
+  emmeans(~ frailty, type = "response")
+em_odds_obj
+```
+:::
+
+Wenn du un an den *Odds ratios* und den p-Werten interessiert bist, dann kannst du den Gruppenvergleich mit der Funktion `contrast()` rechnen. Wir wollen hier alle paarweisen Vergleiche rechnen. Wie immer kannst du auch die Adjustierung anpassen, wenn du möchtest.
+
+```{r}
+#| message: false
+#| warning: false
+em_odds_obj %>% 
+  contrast(method = "pairwise", adjust = "bonferroni")
+```
+
+Wir sehen also, dass wir auch hier keine signifikanten Unterschiede vorliegen haben. Jetzt lassen wir uns nochmal das unadjustierte *compact letter display* wiedergeben. Aber auch in dem unadjustierten Fall finden wir keine signifikanten Unterschiede.
+
+```{r}
+#| message: false
+#| warning: false
+em_odds_obj %>%
+  cld(Letters = letters, adjust = "none")
+```
+
+Am Ende möchte ich hier nochmal einen Spieldatensatz `infected_tbl` erstellen indem ich wiederum drei Gruppen miteinander vergleiche. Ich tue mal so als würden wir uns hier zwei Pestizide und eine Kontrolle anschauen. Unser Outcome ist dann, ob wir eine Infektion vorliegen haben oder das Pestizid alles umgebracht hat. Damit haben wir dann unser Outcome `infected` definiert. Wir bauen uns die Daten so, dass $80%$ der Beobachtungen in der Kontrolle infiziert sind. In den beiden Behandlungsgruppen sind jeweils $50%$ und $30%$ der Beobachtungen nach der Behandlung noch infiziert. Wir haben jeweils zwanzig Pflanzen `n_grp` beobachtet. Das sind wirklich wenige Beobachtungen für einen $0/1$ Endpunkt, aber es sollte hier reichen. Dann habe ich noch einen Seed gesetzt, damit auch immer die gleichen Zahlen generiert werden.
+
+```{r}
+#| message: false
+#| warning: false
+
+set.seed(20231201)
+n_grp <- 20
+infected_tbl <- tibble(trt = gl(3, n_grp, labels = c("ctrl", "roundUp", "killAll")),
+                       infected = c(rbinom(n_grp, 1, 0.8), 
+                                    rbinom(n_grp, 1, 0.5), 
+                                    rbinom(n_grp, 1, 0.2)))
+```
+
+Jetzt bauen wir uns wieder unser logistisches Modell zusammen, dass kennst du ja schon. Vorher wollen wir aber nochmal in die Daten schauen. Unser Datensatz hat ja nur ein Outcome und eine Behandlung als Faktor mit drei Leveln bzw. Gruppen. Wir können jetzt einmal nachvollziehen woher die Werte in einer `{emmeans}`-Ausgabe eigentlich kommen. Schauen wir uns dazu erstmal die Tabelle mit den Infektionen zugeordnet zu den Behandlungen an.
+
+```{r}
+infected_tbl %$% 
+  table(trt, infected) 
+```
+
+Jetzt berechnen wir einmal die Anteile der Infektionen in den jeweiligen Behandlungen. Wir würden ja erwarten, dass wir $80%$, $50%$ und $20%$ vorfinden, aber da wir nur ein kleinen Fallzahl simuliert haben, ergibt sich natürlich eine Abweichung. Wir finden nämlich in den Daten für *ctrl* gleich $15/20 = 0.75$, für *roundUp* gleich $8/20 = 0.4$ und für *killAll* gleich $4/20 = 0.2$ anteilig Infektionen. Finden wir diese Zahlen auch in `{emmeans}` wieder?
+
+Als erstes bauen wir uns wieder ein Modell der logistischen Regression.
+
+```{r}
+#| message: false
+#| warning: false
+infected_log_fit <- glm(infected ~ trt, data = infected_tbl, family = "binomial")
+```
+
+Dann stecken wir das Modell einmal in `emmeans()` und schauen uns die Ausgabe an und nutzen die Option `regrid = "response"` um uns Wahrscheinlichkeiten wiedergeben zu lassen.
+
+```{r}
+#| message: false
+#| warning: false
+infected_log_fit  %>% 
+  emmeans(~ trt, regrid = "response") 
+```
+
+Und tatsächlich, wir finden die gleichen Anteile in der Ausgabe wieder, wie wir auch in unseren Daten vorab aus der Tabelle berechnet haben. Wir erhalten also den Anteil der 1-sen in einem Outcome aus der Funktion `emmeans()` wieder. Der Anteil an 1-sen ist ja auch nichts anderes als der Mittelwert des Outcomes für die Spalte.
+
+Im nächsten Schritt wollen wir einmal die *Odds ratios* verstehen. Dafür erstmal den Aufruf in `emmeans()` und dann schauen wir einmal in die Ausgabe. Wir wollen jetzt die *Odds ratios* einmal händisch berechnen.
+
+```{r}
+#| message: false
+#| warning: false
+infected_log_fit %>% 
+  emmeans(~ trt, type = "response") %>% 
+  pairs()
+```
+
+Wir wissen ja die Anteile der 1-sen in der Kontrollgruppe *ctrl* mit $0.75$ sowie den Anteil an 1-sen in der Behandlungsgruppe *roundUp* mit $0.4$. Wir haben die Werte ja oben in der Tabelle bestimmt. Jetzt können wir die *Odds* mit $Odds = p/(1-p)$ für die beiden Gruppen berechnen und dann den Quotienten als *Odds ratio* berechnen.
+
+$$
+ctrl/roundUp = \cfrac{0.75}{0.25}/\cfrac{0.4}{0.6} = 4.5
+$$
+
+Wie wir sehen, passen die Zahlen. Wir können jetzt auch für die Behandlungsgruppe *killAll* mit einem Anteil an 1-sen von $0.2$ weitermachen. Auch hier berechnen wir erst die *Odds* und dann den Quotienten aus den beiden *Odds*.
+
+$$
+ctrl/killAll = \cfrac{0.75}{0.25}/\cfrac{0.2}{0.8} = 12
+$$
+
+Dann nochmal als Überprüfung den letzten Wert für den Vergleich von *roundUp* zu *killAll*.
+
+$$
+roundUp/killAll = \cfrac{0.4}{0.6}/\cfrac{0.2}{0.8} = 2.67
+$$
+
+Nun könntest du einwenden, dass *Odds ratios* nicht so einfach zu interpretieren sind und du eigentlich nur wissen willst um welchen Faktor *mehr* oder *weniger* Infizierte es in einer Gruppe gibt. Also kein Chancenverhältnis sondern eben einfach ein Wahrscheinlichkeitsverhältnis. Du willst also sagen, dass in der Kontrollgruppe x-fach mehr oder weniger infizierte Beobachtungen auftauchen. Damit willst du die Wahrscheinlichkeiten aus der Tabelle weiter oben in ein Verhätnis setzen. Daher willst du folgende Zusammenhänge berechnen.
+
+$$
+\cfrac{ctrl}{roundUp} = \cfrac{0.75}{0.4} = 1.88 
+$$
+
+$$
+\cfrac{ctrl}{killAll} = \cfrac{0.75}{0.2} = 3.75 
+$$
+
+$$
+\cfrac{roundUp}{killAll} = \cfrac{0.4}{0.2} = 2.00 
+$$
+
+Wir können also sagen, dass wir in der Kontrolle ungefähr 1.88 mal mehr Infizierte haben als in der Behandlung *roundUp*. Oder aber, dass wir in der Kontrolle 3.75 mal mehr Infizierte haben als in der Behandlung *killAll* Um solche Zahlen zu berechnen, nutzen wir die Poisson Regression auf unseren $0/1$-Daten. Dafür müssen wir einmal die Option `family = "poisson"` setzen.
+
+```{r}
+#| message: false
+#| warning: false
+infected_pois_fit <- glm(infected ~ trt, data = infected_tbl, family = "poisson")
+```
+
+Dann können wir auch schon die Funktion `emmeans()` anwenden, um uns einmal die Wahrscheinlichkeitsverhältnisse als `ratio` wiedergeben zu lassen. Wie immer kannst du natürlich den Fit auch erstmal in ein eigenes Objekt stecken und dann noch andere Funktionen in `{emmeans}` nutzen. Wie du gleich siehst, haben wir aber auch hier keine signifikanten Unterschiede zwischen den Gruppen.
+
+```{r}
+#| message: false
+#| warning: false
+infected_pois_fit %>% 
+  emmeans(~ trt, type = "response") %>% 
+  pairs()
+```
+
+Damit sind wir einmal mit unserem Gruppenvergleich für die logistische Regression auf einem $0/1$ Outcome durch. In dem Kapitel zu den [Multiple Vergleichen oder Post-hoc Tests](#sec-posthoc) findest du dann noch mehr Inspirationen für die Nutzung von `{emmeans}`. Hier war es dann die Anwendung auf binäre Outcomes zusammen mit einem Faktor. Wenn du dir das Ganze nochmal an einem Beispiel für zwei Faktoren anschauen möchtest, dann findest du im folgenden Kasten ein Beispiel für die Auswertung von Beschädigungen an Mais nach verschiedenen Ernteverfahren und Zeitpunkten.
+
+::: callout-tip
+## Anwendungsbeispiel: Zweifaktorieller Gruppenvergleich für Maisernte
+
+Im folgenden Beispiel schauen wir uns nochmal ein praktische Auswertung von einem agrarwissenschaftlichen Beispiel mit Mais an. Wir haben uns in diesem Experiment verschiedene Arten `trt` von Ernteverfahren von Mais angeschaut. Dann haben wir nach vier Zeitpunkten bestimmt, ob der Mais durch das Ernteverfahren nachträglich beschädigt war. Die Beschädigung selber wurde dann etwas komplizierter mit einem Labortest festgestellt, aber wir schauen uns nur die Ausprägung ja/nein also $1/0$ als Outcome an. Durch einen Fehler im Labor müssen wir eine Kombination für den letzten Tag und der dritten Behandlung entfernen.
+
+```{r}
+maize_tbl <- read_excel("data/maize_rate.xlsx") %>% 
+   mutate(damaged = ifelse(time == "5d" & trt == 3, NA, damaged),
+          trt = factor(trt, labels = c("wenig", "mittel", "viel")))
+```
+
+Dann können wir auch schon die logistische Regression mit `glm()` rechnen. Auch hier wieder darauf achten, dass wir dann als Option `family = binomial` wählen und unser Outcome `infected` als Faktor kodiert ist.
+
+```{r}
+maize_fit <- glm(damaged ~ trt + time + trt:time, data = maize_tbl, family = binomial) 
+```
+
+In den beiden folgenden Tabs findest du dann einmal das Ergebnis für die ANOVA und einmal für den Gruppenvergleich mit dem R Paket `{emmeans}`. Bitte beachte, dass die ANOVA für ein `glm()`-Objekt nicht ganz gleich wie für ein `lm()`-Objekt ist. Du kannst aber die ANOVA erstmal ganz normal interpretieren, nur haben wir hier nicht die Möglichkeit ein $\eta^2$ zu bestimmen. Dann nutzen wir `{emmeans}` für den Gruppenvergleich.
+
+::: panel-tabset
+## ANOVA mit `anova()`
+
+Wir rechnen hier einmal die ANOVA und nutzen den $\mathcal{X}^2$-Test für die Ermittelung der p-Werte. Wir müssen hier einen Test auswählen, da per Standardeinstellung kein Test gerechnet wird. Wir machen dann die Ausageb nochmal schöner und fertig sind wir.
+
+```{r}
+maize_fit %>% 
+  anova(test = "Chisq") %>% 
+  model_parameters(drop = "NULL")
+```
+
+Wir sehen, dass der Effekt für die Behandlung und die Zeit signifikant sind. Wir haben aber keine Interaktion vorliegen. Daher können wir dann die Analyse gemeinsam über alle Zeitpunkte rechnen.
+
+## Gruppenvergleich mit `emmeans()`
+
+Im Folgenden rechnen wir einmal über alle Faktorkombinationen von `trt` und `time` einen Gruppenvergleich. Dafür nutzen wir die Opition `trt * time`. Wenn du die Analyse *getrennt* für die Zeitpunkte durchführen willst, dann nutze die Option `trt | time`. Wir wollen die Wahrscheinlichkeiten für das Auftreten einer Beschädigung von wiedergegeben bekommen, deshalb die Option `regrid = "response`. Dann adjustieren wir noch nach Bonferroni und sind fertig.
+
+```{r}
+emm_obj <- maize_fit %>% 
+  emmeans(~ trt * time, regrid = "response") %>%
+  cld(Letters = letters, adjust = "bonferroni")
+emm_obj
+```
+
+Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. Dann können wir auch das *compact letter display* anhand der Abbildung interpretieren.
+:::
+
+In der @fig-log-mod-prob-maize siehst du das Ergebnis der Auswertung in einem Säulendiagramm. Hier unbedingt `SE` als den Standardfehler für die Fehlerbalken nutzen, da wir sonst Fehlerbalken größer und kleiner als $0/1$ erhalten, wenn wir die Standardabweichung nutzen würden. Wir sehen einen klaren Effekt der Behandlung `viel`. Schade, dass wir dann nach 5 Tagen leider keine Auswertung für die dritte Behandlung vorliegen haben. Aber sowas passiert dann unter echten Bedingungen mal schnell.
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-log-mod-prob-maize
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "Säulendigramm der Anteile des beschädigten Mais aus einer logistischen Regression. Das `glm()`-Modell berechnet die Wahrscheinlichkeiten in jeder Faktorkombination, was dann die Anteile des beschädigten Mais entspricht. Das *compact letter display* wird dann in `{emmeans}` generiert."
+
+emm_obj %>% 
+  as_tibble() %>% 
+  ggplot(aes(x = time, y = prob, fill = trt)) +
+  theme_bw() + 
+  labs(y = "Anteil beschädigter Mais", x = "Stunden nach Ernte",
+       fill = "Behandlung") +
+  geom_bar(stat = "identity", 
+           position = position_dodge(width = 0.9, preserve = "single")) +
+  geom_text(aes(label = .group, y = prob + SE + 0.01),  
+            position = position_dodge(width = 0.9), vjust = -0.25) +
+  geom_errorbar(aes(ymin = prob-SE, ymax = prob+SE),
+                width = 0.2,  
+                position = position_dodge(width = 0.9, preserve = "single")) +
+  scale_fill_okabeito()
+```
+:::
 
 ## Referenzen {.unnumbered}
