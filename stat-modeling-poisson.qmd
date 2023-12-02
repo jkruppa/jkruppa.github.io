@@ -44,7 +44,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom,
                parameters, performance, MASS, pscl, see,
-               modelsummary, scales)
+               modelsummary, scales, emmeans, multcomp,
+               conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -56,11 +57,7 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
-Im folgenden schauen wir uns ein Datenbeispiel mit Hechten an. Es handelt sich um langnasige Hechte in nordamerikanischen Flüssen. Wir haben uns insgesamt $n = 68$ Flüsse einmal angesehen und dort die Anzahl an Hechten gezählt. Im Weiteren haben wir dann noch andere Flussparameter erhoben und fragen uns nun, welche dieser Parameter einen Einfluss auf die Anzahl an Hechten in den Flussarmen haben. In @sec-example-longnose findest du nochmal mehr Informationen zu den Daten. Wir entfernen hier die Informationen zu den Flüssen, die brauchen wir in dieser Analyse nicht.
-
-::: column-margin
-Die Daten zu den langnasigen Hechten stammt von [Salvatore S. Mangiafico - An R Companion for the Handbook of Biological Statistics](https://rcompanion.org/rcompanion/e_05.html).
-:::
+Im folgenden schauen wir uns ein Datenbeispiel mit Hechten an. Es handelt sich um langnasige Hechte in nordamerikanischen Flüssen. Wir haben uns insgesamt $n = 68$ Flüsse einmal angesehen und dort die Anzahl an Hechten gezählt. Im Weiteren haben wir dann noch andere Flussparameter erhoben und fragen uns nun, welche dieser Parameter einen Einfluss auf die Anzahl an Hechten in den Flussarmen haben. In @sec-example-longnose findest du nochmal mehr Informationen zu den Daten. Wir entfernen hier die Informationen zu den Flüssen, die brauchen wir in dieser Analyse nicht. Die Daten zu den langnasigen Hechten stammt von [Salvatore S. Mangiafico - An R Companion for the Handbook of Biological Statistics](https://rcompanion.org/rcompanion/e_05.html). Besuche gerne mal seine Webseite, dort findest du auch andere tolle Beispiele zu statistischen Analysen.
 
 ```{r}
 #| message: false
@@ -189,7 +186,7 @@ negativebinomial_fit %>% model_parameters()
 ```
 
 ::: column-margin
-Wie immer gibt es reichtlich Tipps & Tricks welches Modell du nun nehmen solltest. [How to deal with overdispersion in Poisson regression: quasi-likelihood, negative binomial GLM, or subject-level random effect?](https://stats.stackexchange.com/questions/201903/how-to-deal-with-overdispersion-in-poisson-regression-quasi-likelihood-negativ/332250#332250) und das Tutorial [Modeling Count Data](https://online.stat.psu.edu/stat504/lesson/9/9.2-0). Auch ich mus immer wieder schauen, was am besten konkret in der Anwendung passen könnte und würde.
+Wie immer gibt es reichlich Tipps & Tricks welches Modell du nun nehmen solltest. [How to deal with overdispersion in Poisson regression: quasi-likelihood, negative binomial GLM, or subject-level random effect?](https://stats.stackexchange.com/questions/201903/how-to-deal-with-overdispersion-in-poisson-regression-quasi-likelihood-negativ/332250#332250) und das Tutorial [Modeling Count Data](https://online.stat.psu.edu/stat504/lesson/9/9.2-0). Auch ich mus immer wieder schauen, was am besten konkret in der Anwendung passen könnte und würde.
 :::
 
 Welches Modell nun das beste Modell ist, ist schwer zu sagen. Wenn du Overdisperion vorliegen hast, dann ist natürlich nur das Quasi-Poissonmodell oder das negative Binomialmodell möglich. Welche der beiden dann das bessere ist, hängt wieder von der Fragestellung ab. Allgemein gesprochen ist das Quasi-Poissonmodell *besser* wenn dich die Zusammenhänge von $y$ zu $x$ am meisten interessieren. Und das ist in unserem Fall hier die Sachlage. Daher gehen wir mit den Quasi-Poissonmdell dann weiter.
@@ -319,12 +316,12 @@ Schauen wir uns die Effekte der Poissonregression einmal an und versuchen die Er
 -   `(Intercept)` beschreibt den Intercept der Poissonregression. Wenn wir mehr als eine simple Regression vorliegen haben, wie in diesem Fall, dann ist der Intercept schwer zu interpretieren. Wir konzentrieren uns auf die Effekte der anderen Variablen.
 -   `area`, beschreibt den Effekt der Fläche. Steigt die Fläche um ein Quadratmeter an, so erhöht sich die *Anzahl an Fischen* um den $1.00001$. Daher würde man hier eher sagen, erhöht sich die Fläche um jeweils 1000qm so erhöht sich die *Anzahl an Fischen* um den Faktor $1.1$. Dann haben wir auch einen besser zu interpretierenden Effektschätzer. Die Signifikanz bleibt hier davon unbetroffen.
 -   `do2`, beschreibt den Partzialdruck des Sauerstoffs. Steigt dieser um eine Einheit an, so sehen wie eine Erhöhung der *Anzahl an Fischen* um den Faktor $1.25$. Der Effekt ist gerade *nicht* signifikant.
--   `maxdepth`, beschreibt die maximale Tiefe. Je tiefer ein Fluß, desto mehr Hechte werden wir beobachten. Der Effekt von $1.01$ pro Meter Tiefe ist signifikant.
+-   `maxdepth`, beschreibt die maximale Tiefe. Je tiefer ein Fluss, desto mehr Hechte werden wir beobachten. Der Effekt von $1.01$ pro Meter Tiefe ist signifikant.
 -   `no3`, beschreibt den Anteil an Nitrat in den Flüssen. Je mehr Nitrat desto signifiant mehr Hechte werden wir beobachten. Hier steigt der Faktor auch um $1.20$.
--   `so4`, beschreibt den Schwefelgehalt und mit steigenden Schwefelgehalt nimmt die *Anzahl an Fischen* leicht ab. Der Effekt ist aber überhauot nicht signifikant.
--   `temp`, beschreibt die Temperatur der Flüsse. Mit steigender Tempertaur erwarten wir mehr Hechte zu beobachten. Der Effekt von $1.08$ Fischen pro Grad Erhöhung ist signifikant.
+-   `so4`, beschreibt den Schwefelgehalt und mit steigenden Schwefelgehalt nimmt die *Anzahl an Fischen* leicht ab. Der Effekt ist aber überhaupt nicht signifikant.
+-   `temp`, beschreibt die Temperatur der Flüsse. Mit steigender Temperatur erwarten wir mehr Hechte zu beobachten. Der Effekt von $1.08$ Fischen pro Grad Erhöhung ist signifikant.
 
-Was nehmen wir aus der Poissonregression zu den langnasigen Hechten mit? Zum einen haben die Fläche, die Tiefe und der Nitratgehalt einen signifikanten Einfluss auf die Anzahl an Hechten. Auch führt eine höhere Temperatur zu mehr gefundenen Hechten. Die erhöhte Temperatur steht etwas im Widerspuch zu dem Sauerstoffpartizaldruck. Denn je höher die Temperatur desto weniger Sauerstoff wird in dem Wasser gelöst sein. Auch scheint die Oberfläche mit der Tiefe korreliert. Allgemein scheinen Hechte große Flüße zu mögen. Hier bietet sich also noch eine Variablenselektion oder eine Untersuchung auf Ausreißer an um solche Effekte nochmal gesondert zu betrachten.
+Was nehmen wir aus der Poissonregression zu den langnasigen Hechten mit? Zum einen haben die Fläche, die Tiefe und der Nitratgehalt einen signifikanten Einfluss auf die Anzahl an Hechten. Auch führt eine höhere Temperatur zu mehr gefundenen Hechten. Die erhöhte Temperatur steht etwas im Widerspuch zu dem Sauerstoffpartizaldruck. Denn je höher die Temperatur desto weniger Sauerstoff wird in dem Wasser gelöst sein. Auch scheint die Oberfläche mit der Tiefe korreliert. Allgemein scheinen Hechte große Flüsse zu mögen. Hier bietet sich also noch eine Variablenselektion oder eine Untersuchung auf Ausreißer an um solche Effekte nochmal gesondert zu betrachten.
 
 ## Zeroinflation
 
@@ -541,5 +538,224 @@ ggplot(newdata_tbl, aes(x = rain, y = lizard, colour = grp, group = grp)) +
 ```
 
 Wir erkennen, dass mit der Erhöhung der Feuchtigkeit die Anzahl an aufgefundenen Eidechsen sinkt. Der Effekt ist nicht mehr so stark, wenn es schon einmal geregnet hat. Ebenso macht es einen Unterschied, ob wir nahe einer Siedlung sind oder nicht. Grundsätzlich finden wir immer mehr Eidechsen in geschützten Habitaten als in offenen Habitaten.
+
+## Gruppenvergleich {#sec-mult-comp-pois-reg}
+
+Häufig ist es ja so, dass wir das Modell für die Poisson Regression nur schätzen um dann einen Gruppenvergleich zu rechnen. Das heißt, dass es uns interessiert, ob es einen Unterschied zwischen den Leveln eines Faktors gegeben dem Outcome $y$ gibt. Da wir hier in unserem Beispiel zu den Flusshechten keine Gruppe drin haben, zeige ich dir das Prinzip einmal an einem ausgedachten Datensatz. Wir nehmen hier einen Datensatz zu Katzen-, Hunde- und Fuchsflöhen. Dabei erstellen wir uns einen Datensatz mit mittleren Anzahlen an Flöhen pro Tierart. Ich habe jetzt eine mittlere Flohanzahl von $10$ Flöhen bei den Katzen, eine mittlere Anzahl von $30$ Flöhen bei den Hunden und eine mittlere Anzahl von $10$ Flöhen bei den Füchsen gewählt. Wir generieren uns jeweils $20$ Beobachtungen je Tierart. Damit haben wir dann einen Datensatz zusammen, den wir nutzen können um einmal die Ergebnisse eines Gruppenvergleiches mit Zähldaten zu verstehen.
+
+```{r}
+set.seed(20231202)
+n_rep <- 20
+flea_count_tbl <- tibble(animal = gl(3, n_rep, labels = c("cat", "dog", "fox")),
+                         count = round(c(rnorm(n_rep, 20, 1), 
+                                         rnorm(n_rep, 30, 1), 
+                                         rnorm(n_rep, 10, 1))))
+```
+
+Wenn du gerade hierher gesprungen bist, nochmal das simple Modell für unseren Gruppenvergleich unter einer Poisson Regression. Wir haben hier nur einen Faktor `animal` mit in dem Modell. Am Ende des Abschnitts findest du dann noch ein Beispiel mit zwei Faktoren zu Thripsen auf Apfelbäumen. Wir modellieren hier eigentlich nicht die Zähldaten an sich, sondern die Raten. Du wirst das aber gleich bei der Ausgabe von `emmeans()` sehen.
+
+```{r}
+pois_fit <- glm(count ~ animal, data = flea_count_tbl, family = "poisson") 
+```
+
+Eigentlich ist es recht einfach, wie wir anfangen. Wir rechnen jetzt als erstes die ANOVA. Hier müssen wir dann einmal den Test angeben, der gerechnet werden soll um die p-Werte zu erhalten. Dann nutze ich noch die Funktion `model_parameters()` um eine schönere Ausgabe zu erhalten.
+
+```{r}
+#| message: false
+#| warning: false
+
+pois_fit %>% 
+  anova(test = "Chisq") %>% 
+  model_parameters(drop = "NULL")
+```
+
+Im folgenden nutzen wir das R Paket `{emmeans}` wie folgt. Wenn wir die Wahrscheinlichkeiten wiedergeben haben wollen, dann nutzen wir die Option `regrid = "response"`. In unserem `emmeans`-Objekt stehen jetzt die Wahrscheinlichkeiten infiziert zu sein für das jeweilige Level von `frailty`. Wenn wir aber später die *Odds ratio* benötigen, dann müssen wir die Option `type = "response"` verwenden. Erstere Option nutze ich später um direkt aus der `emmeans` Ausgabe ein Säulendiagramm zu erstellen. Auf dem ersten Blick sind beide Ausgaben gleich, aber im Hintergrund werden andere Optionen gesetzt, so dass in folgenden Berechnungen dann was anderes herauskommt.
+
+```{r}
+emm_obj <- pois_fit %>% 
+  emmeans(~ animal, type = "response")
+emm_obj
+```
+
+```{r}
+flea_count_tbl %>% 
+  group_by(animal) %>% 
+  summarise(mean_count = mean(count))
+```
+
+```{r}
+emm_obj %>% 
+  pairs()
+```
+
+$$
+\cfrac{cat}{dog} = \cfrac{20.1}{30.1} = 0.67 
+$$
+
+$$
+\cfrac{cat}{fox} = \cfrac{20.1}{10.2} = 1.97 
+$$
+
+$$
+\cfrac{dog}{fox} = \cfrac{30.1}{10.2} = 2.95 
+$$
+
+```{r}
+#| message: false
+#| warning: false
+emm_obj %>%
+  cld(Letters = letters, adjust = "none")
+```
+
+::: callout-note
+## Offset
+
+: Ein Wort zum Offset
+
+["Exposure" and offset](https://en.wikipedia.org/wiki/Poisson_regression#.22Exposure.22_and_offset)
+
+[When to use an offset in a Poisson regression?](https://stats.stackexchange.com/questions/11182/when-to-use-an-offset-in-a-poisson-regression)
+
+[Models with offsets](https://cran.r-project.org/web/packages/emmeans/vignettes/sophisticated.html#offsets)
+
+```{r}
+
+
+ins <- tibble(n = c(500, 1200, 100, 400, 500, 300),
+              size = factor(rep(1:3,2), labels = c("S","M","L")),
+              age = gl(2, 3),
+              claims = c(42, 37, 1, 101, 73, 14))
+ins.glm <- glm(claims ~ size + age + offset(log(n)), 
+               data = ins, family = "poisson")
+```
+
+```{r}
+ref_grid(ins.glm)
+```
+
+```{r}
+EMM <- emmeans(ins.glm, "size", type = "response")
+```
+
+```{r}
+EMM@grid
+```
+
+$log(500)$ ist $6.21$
+:::
+
+Damit sind wir einmal mit unserem Gruppenvergleich für die Poisson Regression auf Zähldaten durch. In dem Kapitel zu den [Multiple Vergleichen oder Post-hoc Tests](#sec-posthoc) findest du dann noch mehr Inspirationen für die Nutzung von `{emmeans}`. Hier war es dann die Anwendung auf Zähldaten zusammen mit einem Faktor. Wenn du dir das Ganze nochmal an einem Beispiel für zwei Faktoren anschauen möchtest, dann findest du im folgenden Kasten ein Beispiel für die Auswertung von Thripsen auf Apfelbäumen nach Gabe verschiedener Dosen eines Insektizids und Zeitpunkten.
+
+::: callout-tip
+## Anwendungsbeispiel: Zweifaktorieller Gruppenvergleich für Thripsenbefall
+
+Im folgenden Beispiel schauen wir uns nochmal ein praktische Auswertung von einem agrarwissenschaftlichen Beispiel mit jungen Apfelbäumen an. Wir haben uns in diesem Experiment verschiedene Dosen `trt` von einem Insektizid aufgebracht sowie verschiedene Startanzahlen von Raubmilben als biologische Alternative untersucht. Dann haben wir noch fünf Zeitpunkte bestimmt, an denen wir die Anzahl an Thripsen auf den Blättern gezählt haben. Wir haben nicht die Blätter per se gezählt sondern Fallen waagerecht aufgestellt. Dann haben wir geschaut, wie viele Thripsen wir über `above` und unter `below` von den Fallen gefunden haben. In unserem Fall beschränken wir uns auf die obere Anzahl an Thripsen und schauen uns auch nur die Behandlung mit dem Insektizid an.
+
+```{r}
+insects_tbl <- read_excel("data/insects_count.xlsx") %>% 
+  mutate(timepoint = factor(timepoint, labels = c("1 Tag", "4 Tag", "7 Tag", "11 Tag", "14 Tag")),
+         rep = as_factor(rep),
+         trt = as_factor(trt)) %>%
+  select(timepoint, trt, thripse = thripse_above) %>% 
+  filter(trt %in% c("10ml", "30ml", "60ml"))
+```
+
+Dann können wir auch schon die Poisson Regression mit `glm()` rechnen. Auch hier wieder darauf achten, dass wir dann als Option `family = poisson` oder `family = quasipoisson` wählen. Es hängt jetzt davon ab, ob du in deinen Daten Overdispersion vorliegen hast oder nicht. In den beiden folgenden Tabs, rechne ich dann mal beide Modelle.
+
+::: panel-tabset
+## `family = poisson`
+
+```{r}
+insects_poisson_fit <- glm(thripse ~ trt + timepoint + trt:timepoint, 
+                           data = insects_tbl, 
+                           family = poisson) 
+```
+
+```{r}
+insects_poisson_fit %>% 
+  summary()
+```
+
+```{r}
+insects_poisson_fit %>% check_overdispersion()
+```
+
+## `family = quasipoisson`
+
+```{r}
+insects_quasipoisson_fit <- glm(thripse ~ trt + timepoint + trt:timepoint, 
+                                data = insects_tbl, 
+                                family = quasipoisson) 
+```
+
+```{r}
+insects_quasipoisson_fit %>% 
+  summary()
+```
+:::
+
+In den beiden folgenden Tabs findest du dann einmal das Ergebnis für die ANOVA und einmal für den Gruppenvergleich mit dem R Paket `{emmeans}`. Bitte beachte, dass die ANOVA für ein `glm()`-Objekt nicht ganz gleich wie für ein `lm()`-Objekt ist. Du kannst aber die ANOVA erstmal ganz normal interpretieren, nur haben wir hier nicht die Möglichkeit ein $\eta^2$ zu bestimmen. Dann nutzen wir `{emmeans}` für den Gruppenvergleich. Weil wir Overdispersion festgestellt haben, nutzen wir das Objekt `insects_quasipoisson_fit` mit der Berücksichtigung der Overdispersion.
+
+::: panel-tabset
+## ANOVA mit `anova()`
+
+Wir rechnen hier einmal die ANOVA und nutzen den $\mathcal{X}^2$-Test für die Ermittelung der p-Werte. Wir müssen hier einen Test auswählen, da per Standardeinstellung kein Test gerechnet wird. Wir machen dann die Ausageb nochmal schöner und fertig sind wir.
+
+```{r}
+insects_quasipoisson_fit %>% 
+  anova(test = "Chisq") %>% 
+  model_parameters(drop = "NULL")
+```
+
+Wir sehen, dass der Effekt für die Behandlung und die Zeit signifikant sind. Wir haben aber keine Interaktion vorliegen. Daher können wir dann die Analyse gemeinsam über alle Zeitpunkte rechnen.
+
+## Gruppenvergleich mit `emmeans()`
+
+Im Folgenden rechnen wir einmal über alle Faktorkombinationen von `trt` und `time` einen Gruppenvergleich. Dafür nutzen wir die Opition `trt * time`. Wenn du die Analyse *getrennt* für die Zeitpunkte durchführen willst, dann nutze die Option `trt | time`. Wir wollen die Wahrscheinlichkeiten für das Auftreten einer Beschädigung von wiedergegeben bekommen, deshalb die Option `regrid = "response`. Dann adjustieren wir noch nach Bonferroni und sind fertig.
+
+```{r}
+emm_obj <- insects_quasipoisson_fit %>% 
+  emmeans(~ trt * timepoint, regrid = "response") %>%
+  cld(Letters = letters, adjust = "bonferroni")
+emm_obj
+```
+
+Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. Dann können wir auch das *compact letter display* anhand der Abbildung interpretieren.
+:::
+
+```{r}
+insects_tbl %>% 
+  group_by(trt, timepoint) %>% 
+  summarise(mean = round(mean(thripse), 2)) 
+```
+
+In der @fig-log-mod-pois-insect siehst du das Ergebnis der Auswertung in einem Säulendiagramm. Hier unbedingt `SE` als den Standardfehler für die Fehlerbalken nutzen, da wir sonst Fehlerbalken größer und kleiner als $0/1$ erhalten, wenn wir die Standardabweichung nutzen würden. Wir sehen einen klaren Effekt der Behandlung `viel`. Schade, dass wir dann nach 5 Tagen leider keine Auswertung für die dritte Behandlung vorliegen haben. Aber sowas passiert dann unter echten Bedingungen mal schnell.
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-log-mod-pois-insect
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "Säulendigramm der mitleren Zahl der Thripsen aus einer Poisson Regression. Das `glm()`-Modell berechnet die mittlere Anzahl in jeder Faktorkombination. Das *compact letter display* wird dann in `{emmeans}` generiert."
+
+emm_obj %>% 
+  as_tibble() %>% 
+  ggplot(aes(x = timepoint, y = rate, fill = trt)) +
+  theme_bw() + 
+  labs(y = "Mittlere Anzahl an Thripsen", x = "Messzeitpunkte der Zählungen",
+       fill = "Dosis") +
+  geom_bar(stat = "identity", 
+           position = position_dodge(width = 0.9, preserve = "single")) +
+  geom_text(aes(label = .group, y = rate + SE + 0.01),  
+            position = position_dodge(width = 0.9), vjust = -0.25) +
+  geom_errorbar(aes(ymin = rate-SE, ymax = rate+SE),
+                width = 0.2,  
+                position = position_dodge(width = 0.9, preserve = "single")) +
+  scale_fill_okabeito()
+```
+:::
 
 ## Referenzen {.unnumbered}
