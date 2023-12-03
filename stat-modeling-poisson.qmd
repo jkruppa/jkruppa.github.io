@@ -193,7 +193,7 @@ Welches Modell nun das beste Modell ist, ist schwer zu sagen. Wenn du Overdisper
 
 ## Performance des Modells
 
-In diesem kurzen Abschnitt wollen wir uns einmal anschauen, ob das Modell neben der Overdispersion auch sonst aus statistischer Sicht in Ordnung ist. Wir wollen ja mit dem Modell aus dem Fit `quasipoisson_fit` weitermachen. Also schauen wir uns einmal das pseudo-$R^2$ für die Poissonregression an. Da wir es mit einem GLM zu tun haben, ist das $R^2$ mit vorsicht zu genießen. In einer Gaussianregression können wir das $R^2$ als Anteil der erklärten Varianz durch das Modell interpretieren. Im Falle von GLM's müssen wir hier vorsichtiger sein. In GLM's gibt es ja keine Varianz sondern eine Deviance.
+In diesem kurzen Abschnitt wollen wir uns einmal anschauen, ob das Modell neben der Overdispersion auch sonst aus statistischer Sicht in Ordnung ist. Wir wollen ja mit dem Modell aus dem Fit `quasipoisson_fit` weitermachen. Also schauen wir uns einmal das pseudo-$R^2$ für die Poissonregression an. Da wir es mit einem GLM zu tun haben, ist das $R^2$ mit Vorsicht zu genießen. In einer Gaussianregression können wir das $R^2$ als Anteil der erklärten Varianz durch das Modell interpretieren. Im Falle von GLM's müssen wir hier vorsichtiger sein. In GLM's gibt es ja keine Varianz sondern eine Deviance.
 
 ```{r}
 r2_efron(quasipoisson_fit)
@@ -619,39 +619,36 @@ emm_obj %>%
   cld(Letters = letters, adjust = "none")
 ```
 
+Auch hier sehen wir, dass sich alle drei Gruppen signifikant unterschieden, keine der Tierarten teilt sich einen Buchstaben, so dass wir hier von einem Unterschied zwischen den mittleren Anzahlen an Flöhen auf den drei Tierarten ausgehen können.
+
 ::: callout-note
-## Offset
+## Offset in einer Poisson Regression
 
-["Exposure" and offset](https://en.wikipedia.org/wiki/Poisson_regression#.22Exposure.22_and_offset)
+Bei einem geplanten Experiment zählen wir meist in festgelegten Zeiteinheiten oder aber unser $n$ ist vorgeben. Jetzt kann es aber sein, dass wir nicht mit festen Zeitintervallen oder aber einer Fallzahl zählen. Beispielsweise können wir die Anzahl der Baumarten in einem Wald zählen: Ereignisse (eng. *event*) wären Baumbeobachtungen, die Exposition (eng. *exposure*) wäre eine Flächeneinheit und die Rate wäre die Anzahl der Arten pro Flächeneinheit. Wir können die Sterberaten in geografischen Gebieten als die Anzahl der Todesfälle geteilt durch die Personenjahre modellieren. Allgemeiner ausgedrückt können Ereignisraten als Ereignisse pro Zeiteinheit berechnet werden, wobei das Beobachtungsfenster für jede Einheit variieren kann. In diesen Beispielen ist die Exposition jeweils eine Einheit Fläche, Personenjahre und Zeiteinheit. So sollten beispielsweise sechs Fälle innerhalb eines Jahres nicht den gleichen Wert haben wie sechs Fälle innerhalb von 10 Jahren. In der Poisson-Regression wird dies als *Offset* behandelt. Mehr dazu dann gerne im Wikipediartikel zu ["Exposure" and offset](https://en.wikipedia.org/wiki/Poisson_regression#.22Exposure.22_and_offset) oder aber die Antwort [When to use an offset in a Poisson regression?](https://stats.stackexchange.com/questions/11182/when-to-use-an-offset-in-a-poisson-regression).
 
-[When to use an offset in a Poisson regression?](https://stats.stackexchange.com/questions/11182/when-to-use-an-offset-in-a-poisson-regression)
-
-[Models with offsets](https://cran.r-project.org/web/packages/emmeans/vignettes/sophisticated.html#offsets)
+In `{emmeans}` können wir [Modelle mit Offset](https://cran.r-project.org/web/packages/emmeans/vignettes/sophisticated.html#offsets) relativ einfach modellieren. Dazu nutzen wir die Funktion `offset()` in unserem `glm()` Modell. Aber zuerst einmal ein Spieldatensatz. Wir haben wir unseren Faktor Tierart und dann aber noch das Alter als Faktor mit zwei Stufen. Wir haben jetzt aber nicht immer die glecihe Anzahl an Hunden und Katzen sowie Füchsen ausgezählt. Unsere Anzahl an Flöhen basiert also auf einer anderen $n$ Anzahl. Die Anzahl $n$ modellieren wir dann als `offset()`.
 
 ```{r}
-
-
-ins <- tibble(n = c(500, 1200, 100, 400, 500, 300),
-              size = factor(rep(1:3,2), labels = c("S","M","L")),
-              age = gl(2, 3),
-              claims = c(42, 37, 1, 101, 73, 14))
-ins.glm <- glm(claims ~ size + age + offset(log(n)), 
-               data = ins, family = "poisson")
+toy_count_tbl <- tibble(n = c(500, 1200, 100, 400, 500, 300),
+                        animal = factor(rep(1:3,2), labels = c("cat","dog","fox")),
+                        age = gl(2, 3),
+                        count = c(42, 37, 1, 101, 73, 14))
 ```
+
+Wir nehmen die Anzahl an ausgezählten Tieren dann als Offset mit Logarithmus in das Modell. Deshalb steht dann da auch `log(n)` im Offset.
 
 ```{r}
-ref_grid(ins.glm)
+toy_count_fit <- glm(count ~ animal + age + offset(log(n)), 
+                     data = toy_count_tbl, family = "poisson")
 ```
+
+Dann können wir uns einmal das Modell anschauen, wie `{emmeans}` den Vergleich rechnen würde.
 
 ```{r}
-EMM <- emmeans(ins.glm, "size", type = "response")
+ref_grid(toy_count_fit)
 ```
 
-```{r}
-EMM@grid
-```
-
-$log(500)$ ist $6.21$
+Der Offset ist also grob $log(500) \approx 5.97$. Das stimmt numerisch nicht hundertprozentig, hat aber noch mit einer internen Korrektur zu tun, die uns hier aber nicht weiter interessiert. Das Modell können wir dann wie gewohnt in `emmeans()` stecken und dann weiter rechnen. In dem Modell wird dann berücksichtigt, dass sich die Anzahlen für das *Exposure*, also dem Nenner der Raten, unterscheiden.
 :::
 
 Damit sind wir einmal mit unserem Gruppenvergleich für die Poisson Regression auf Zähldaten durch. In dem Kapitel zu den [Multiple Vergleichen oder Post-hoc Tests](#sec-posthoc) findest du dann noch mehr Inspirationen für die Nutzung von `{emmeans}`. Hier war es dann die Anwendung auf Zähldaten zusammen mit einem Faktor. Wenn du dir das Ganze nochmal an einem Beispiel für zwei Faktoren anschauen möchtest, dann findest du im folgenden Kasten ein Beispiel für die Auswertung von Thripsen auf Apfelbäumen nach Gabe verschiedener Dosen eines Insektizids und Zeitpunkten.
@@ -718,6 +715,10 @@ insects_quasipoisson_fit %>%
 ```
 
 Wir sehen, dass der Effekt für die Behandlung und die Zeit signifikant sind. Wir haben aber keine Interaktion vorliegen. Daher können wir dann die Analyse gemeinsam über alle Zeitpunkte rechnen.
+
+```{r}
+insects_quasipoisson_fit %>%  r2_efron()
+```
 
 ## Gruppenvergleich mit `emmeans()`
 
