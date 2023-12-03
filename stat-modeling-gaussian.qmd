@@ -30,9 +30,10 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, conflicted, broom,
+pacman::p_load(tidyverse, magrittr, broom,
                see, performance, scales, parameters,
-               olsrr, readxl, car, gtsummary)
+               olsrr, readxl, car, gtsummary, emmeans,
+               multcomp, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -165,9 +166,144 @@ Schauen wir uns die einzelnen Zeilen aus der Ausgabe einmal in Ruhe an. Wir sind
 
 Das war eine Wand an Text für die Interpretation des Modells. Was können wir zusammenfassend mitnehmen? Wir haben drei signifikante Einflussfaktoren auf den Ertrag an Kichererbsen gefunden. Zum einen ist weniger Regen signifikant besser als viel Regen. Wir brauchen mehr Nitrat im Boden. Im Weiteren ist ein sandiger Boden besser als ein fetter Boden. Am Ende müssen wir noch schauen, was die nicht signifikanten Ergebnisse uns für *Hinweise* geben. Der Ort der Messung ist relativ unbedeutend. Es scheint aber so zu sein, dass im Norden mehr Ertrag zu erhalten ist. Hier müsste man einmal schauen, welche Betriebe hier vorliegen und wie die Bodenbeschaffenheit dort war. Im Weiteren sehen wir, dass anscheinend ein Abstand zum Wald vorteilhaft für den Ertrag ist. Hier könnte Wildfraß ein Problem gewesen sein oder aber zu viel Schatten. Auch hier muss man nochmal auf das Feld und schauen, was das konkrete Problem sein könnte. Hier endet die Statistik dann.
 
-## Und weiter?
+## Gruppenvergleich {#sec-mult-comp-gaussian-reg}
 
-Nach einer Gaussian Regression wollen wir dann häufig noch mit dem Modell weiter rechnen. Wir haben dann meist die Wahl zwischen zwei folgenden Fällen.
+Häufig ist es ja so, dass wir das Modell für die Gaussian Regression nur schätzen um dann einen Gruppenvergleich zu rechnen. Das heißt, dass es uns interessiert, ob es einen Unterschied zwischen den Leveln eines Faktors gegeben dem Outcome $y$ gibt. Wir nehmen hier einen ausgedachten Datensatz zu Katzen-, Hunde- und Fuchsflöhen. Dabei erstellen wir uns einen Datensatz mit mittleren Gewicht an Flöhen pro Tierart. Ich habe jetzt ein mittleres Gewicht von $20mg$ bei den Katzenflöhen, eine mittleres Gewicht von $30mg$ bei den Hundeflöhen und ein mittleres Gewicht von $10mg$ bei den Fuchsflöhen gewählt. Wir generieren uns jeweils $20$ Beobachtungen je Tierart. Damit haben wir dann einen Datensatz zusammen, den wir nutzen können um einmal die Ergebnisse eines Gruppenvergleiches zu verstehen.
 
-1)  Wir wollen eine [mehrfaktorielle ANOVA](#sec-anova) oder eine [mehrfaktorielle ANCOVA](#sec-ancova). Je nachdem wie viele Fakoteren $f$ oder Covariaten $c$ wir in den Daten haben.
-2)  Wir wollen eine [Posthoc Analyse](#sec-posthoc) rechnen und die Level eines Faktores gegeben den anderen Variablen in dem Datensatz miteiander vergleichen. Wir rechnen also einen klassischen Mittelwertsvergleich.
+```{r}
+set.seed(20231202)
+n_rep <- 20
+flea_weight_tbl <- tibble(animal = gl(3, n_rep, labels = c("cat", "dog", "fox")),
+                         weight = c(rnorm(n_rep, 20, 1), 
+                                         rnorm(n_rep, 30, 1), 
+                                         rnorm(n_rep, 10, 1)))
+```
+
+Wenn du gerade hierher gesprungen bist, nochmal das simple Modell für unseren Gruppenvergleich unter einer Gaussian Regression. Wir haben hier nur einen Faktor `animal` mit in dem Modell. Am Ende des Abschnitts findest du dann noch ein Beispiel mit drei Faktoren zu Gewicht von Brokkoli.
+
+```{r}
+lm_fit <- lm(weight ~ animal, data = flea_weight_tbl) 
+```
+
+Eigentlich ist es recht einfach, wie wir anfangen. Wir rechnen jetzt als erstes die ANOVA. Hier müssen wir dann einmal den Test angeben, der gerechnet werden soll um die p-Werte zu erhalten. Dann nutze ich noch die Funktion `model_parameters()` um eine schönere Ausgabe zu erhalten.
+
+```{r}
+#| message: false
+#| warning: false
+
+lm_fit %>% 
+  anova() %>% 
+  model_parameters(drop = "NULL")
+```
+
+Im folgenden nutzen wir das R Paket `{emmeans}` wie folgt. Wenn wir die mittleren Anzahlen benötigen, dann müssen wir die Option `type = "response"` verwenden. Sonst würdest du Werte auf der Link-Skala wiederbekommen, die dir hier nicht helfen. Ich nutze später die `emmeans` Ausgabe um ein Säulendiagramm mit den mittleren Anzahlen zu erstellen. Wir du gleich sehen wirst, werden wir aber nicht die Anzahlen vergleichen sondern die *Raten* in den jeweiligen Gruppen.
+
+```{r}
+emm_obj <- lm_fit %>% 
+  emmeans(~ animal)
+emm_obj
+```
+
+Jetzt steht hier zwar `rate` aber was ist das denn nun? Dafür berechnen wir mal die Mittelwerte der Anzahlen für die drei Tierarten über die Funktion `summarise()`. Dann vergleichen wir einmal die Ausgaben und schauen, was wir in `emmeans()` berechnet haben.
+
+Wenn du die mittleren Anzahlen pro Tierart jetzt für jede Tierart testen willst, dann erhälst du aber keinen Mittelwertsunterschied der Anzahlen, sondern eine *Rate*. Rechnen wir aber erstmal den paarweisen Vergleich und schauen uns dann an, was wir erhalten haben. Wir kriegen am Ende wiederum einen Vergleich von Wahrscheinlichkeiten, aber eben hier von *Raten*. Wie immer, es kommt darauf an, was du willst. Hier einmal die paarweisen Vergleiche, darunter dann gleich das *compact letter display*.
+
+```{r}
+emm_obj %>% 
+  pairs(adjust = "bonferroni")
+```
+
+Und fast am Ende können wir uns auch das *compact letter display* erstellen. Auch hier nutzen wir wieder die Funktion `cld()` aus dem R Paket `{multcomp}`. Hier erhälst du dann die Information über die mittlere Anzahl der jeweiligen Tierarten und ob sich die mittlere Anzahl unterscheidet. Ich nutze dann die Ausgabe von `emmeans()` um mir dann direkt das Säulendiagramm mit den Fehlerbalken und dem *compact letter display* zu erstellen. Mehr dazu dann im Kasten weiter unten zu dem Bespiel zu Thripsenanzahl auf Apfelbäumen.
+
+```{r}
+#| message: false
+#| warning: false
+emm_obj %>%
+  cld(Letters = letters, adjust = "none")
+```
+
+Auch hier sehen wir, dass sich alle drei Gruppen signifikant unterschieden, keine der Tierarten teilt sich einen Buchstaben, so dass wir hier von einem Unterschied zwischen den mittleren Anzahlen an Flöhen auf den drei Tierarten ausgehen können.
+
+Damit sind wir einmal mit unserem Gruppenvergleich für die Poisson Regression auf Zähldaten durch. In dem Kapitel zu den [Multiple Vergleichen oder Post-hoc Tests](#sec-posthoc) findest du dann noch mehr Inspirationen für die Nutzung von `{emmeans}`. Hier war es dann die Anwendung auf Zähldaten zusammen mit einem Faktor. Wenn du dir das Ganze nochmal an einem Beispiel für zwei Faktoren anschauen möchtest, dann findest du im folgenden Kasten ein Beispiel für die Auswertung von Thripsen auf Apfelbäumen nach Gabe verschiedener Dosen eines Insektizids und Zeitpunkten.
+
+::: callout-tip
+## Anwendungsbeispiel: Dreifaktorieller Gruppenvergleich für das Gewicht
+
+Im folgenden Beispiel schauen wir uns nochmal ein praktische Auswertung von einem agrarwissenschaftlichen Beispiel mit jungen Apfelbäumen an. Wir haben uns in diesem Experiment verschiedene Dosen `trt` von einem Insektizid aufgebracht sowie verschiedene Startanzahlen von Raubmilben als biologische Alternative untersucht. Dann haben wir noch fünf Zeitpunkte bestimmt, an denen wir die Anzahl an Thripsen auf den Blättern gezählt haben. Wir haben nicht die Blätter per se gezählt sondern Fallen waagerecht aufgestellt. Dann haben wir geschaut, wie viele Thripsen wir über `above` und unter `below` von den Fallen gefunden haben. In unserem Fall beschränken wir uns auf die obere Anzahl an Thripsen und schauen uns auch nur die Behandlung mit dem Insektizid an.
+
+```{r}
+broc_tbl <- read_excel("data/broccoli_weight.xlsx") %>% 
+  mutate(fert_time = factor(fert_time, levels = c("none", "early", "late")),
+         fert_amount = as_factor(fert_amount),
+         block = as_factor(block)) %>%
+  select(-stem_hollowness) 
+```
+
+Dann können wir auch schon die Gaussian Regression mit `lm()` rechnen.
+
+```{r}
+lm_fit <- lm(weight ~ fert_time + fert_amount + fert_time:fert_amount + block, 
+             data = broc_tbl) 
+```
+
+Bevor wir uns das Modell mit `summary()` überhaupt anschauen, wollen wir erstmal überprüfen, ob wir überhaupt Overdispersion vorliegen haben. Wenn ja, dann können wir uns die `summary()` hier gleich sparen. Also einmal geguckt, was die Overdispersion macht.
+
+Ich habe mich gerade in den obigen Tabs für eine Quasipoisson Regression entschieden, da wir Overdispersion vorliegen haben. Damit mache ich dann mit dem `insects_quasipoisson_fit` Modell weiter. In den beiden folgenden Tabs findest du dann einmal das Ergebnis für die ANOVA und einmal für den Gruppenvergleich mit dem R Paket `{emmeans}`. Bitte beachte, dass die ANOVA für ein `glm()`-Objekt nicht ganz gleich wie für ein `lm()`-Objekt ist. Du kannst aber die ANOVA erstmal ganz normal interpretieren, nur haben wir hier nicht die Möglichkeit ein $\eta^2$ zu bestimmen. Dann nutzen wir `{emmeans}` für den Gruppenvergleich. Nochmal, weil wir Overdispersion festgestellt haben, nutzen wir das Objekt `insects_quasipoisson_fit` mit der Berücksichtigung der Overdispersion.
+
+::: panel-tabset
+## ANOVA mit `anova()`
+
+Wir rechnen hier einmal die ANOVA und nutzen den $\mathcal{X}^2$-Test für die Ermittelung der p-Werte. Wir müssen hier einen Test auswählen, da per Standardeinstellung kein Test gerechnet wird. Wir machen dann die Ausageb nochmal schöner und fertig sind wir.
+
+```{r}
+lm_fit %>% 
+  anova() %>% 
+  model_parameters(drop = "NULL")
+```
+
+Wir sehen, dass der Effekt für die Behandlung signifikant ist, jedoch die Zeit und die Interaktion keinen signifikanten Einfluss haben. Wir haben aber also keine Interaktion vorliegen. Daher können wir dann die Analyse gemeinsam über alle Zeitpunkte rechnen.
+
+## Gruppenvergleich mit `emmeans()`
+
+Im Folgenden rechnen wir einmal über alle Faktorkombinationen von `trt` und `timepoint` einen Gruppenvergleich. Dafür nutzen wir die Opition `trt * time`. Wenn du die Analyse *getrennt* für die Zeitpunkte durchführen willst, dann nutze die Option `trt | time`. Wir wollen die Wahrscheinlichkeiten für das Auftreten einer Beschädigung von wiedergegeben bekommen, deshalb die Option `regrid = "response`. Dann adjustieren wir noch nach Bonferroni und sind fertig.
+
+```{r}
+emm_obj <- lm_fit %>% 
+  emmeans(~ fert_time * fert_amount) %>%
+  cld(Letters = letters, adjust = "bonferroni")
+emm_obj
+```
+
+Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. Die `rate` stellt die mittlere Anzahl an Thripsen je Faktorkombination dar. Dann können wir auch das *compact letter display* anhand der Abbildung interpretieren.
+:::
+
+In der @fig-log-mod-pois-insect siehst du das Ergebnis der Auswertung in einem Säulendiagramm. Hier unbedingt `SE` als den Standardfehler für die Fehlerbalken nutzen, da wir sonst Fehlerbalken größer und kleiner als $0$ erhalten, wenn wir die Standardabweichung nutzen würden. Das ist in unserem Fall nicht so das Problem, aber wenn du eher kleine Anzahlen zählst, kann das schnell zu Werten kleiner Null führen. Wir sehen einen klaren Effekt der Behandlung `60ml`. Die Zeit hat keinen Effekt, was ja schon aus der ANOVA klar war, die Säulen sehen für jeden Zeitpunkt vollkommen gleich aus. Gut etwas Unterschied ist ja immer.
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-log-mod-pois-insect
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "Säulendigramm der mitleren Zahl der Thripsen aus einer Gaussian Regression. Das `lm()`-Modell berechnet das mittler Gewicht des Brokkoli in jeder Faktorkombination. Das *compact letter display* wird dann in `{emmeans}` generiert. Wir nutzen hier den Standardfehler, da die Standardabweichung mit der großen Fallzahl rießig wäre. Wir haben noch ein Mindestgewicht von 500g ergänzt."
+
+emm_obj %>% 
+  as_tibble() %>% 
+  ggplot(aes(x = fert_time, y = emmean, fill = fert_amount)) +
+  theme_bw() + 
+  labs(y = "Mittleres Gewicht [g] des Brokkoli", x = "Düngezeitpunkt",
+       fill = "Düngemenge [mg/l]") +
+  scale_y_continuous(breaks = seq(0, 500, by = 100)) +
+  geom_hline(yintercept = 500, size = 0.75, linetype = 2) +
+  geom_bar(stat = "identity", 
+           position = position_dodge(width = 0.9, preserve = "single")) +
+  geom_text(aes(label = .group, y = emmean + SE + 0.01),  
+            position = position_dodge(width = 0.9), vjust = -0.25) +
+  geom_errorbar(aes(ymin = emmean-SE, ymax = emmean+SE),
+                width = 0.2,  
+                position = position_dodge(width = 0.9, preserve = "single")) +
+  scale_fill_okabeito()
+```
+:::
