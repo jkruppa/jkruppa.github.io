@@ -569,7 +569,7 @@ pois_fit %>%
   model_parameters(drop = "NULL")
 ```
 
-Im folgenden nutzen wir das R Paket `{emmeans}` wie folgt. Wenn wir die Wahrscheinlichkeiten wiedergeben haben wollen, dann nutzen wir die Option `regrid = "response"`. In unserem `emmeans`-Objekt stehen jetzt die Wahrscheinlichkeiten infiziert zu sein für das jeweilige Level von `frailty`. Wenn wir aber später die *Odds ratio* benötigen, dann müssen wir die Option `type = "response"` verwenden. Erstere Option nutze ich später um direkt aus der `emmeans` Ausgabe ein Säulendiagramm zu erstellen. Auf dem ersten Blick sind beide Ausgaben gleich, aber im Hintergrund werden andere Optionen gesetzt, so dass in folgenden Berechnungen dann was anderes herauskommt.
+Im folgenden nutzen wir das R Paket `{emmeans}` wie folgt. Wenn wir die mittleren Anzahlen benötigen, dann müssen wir die Option `type = "response"` verwenden. Sonst würdest du Werte auf der Link-Skala wiederbekommen, die dir hier nicht helfen. Ich nutze später die `emmeans` Ausgabe um ein Säulendiagramm mit den mittleren Anzahlen zu erstellen. Wir du gleich sehen wirst, werden wir aber nicht die Anzahlen vergleichen sondern die *Raten* in den jeweiligen Gruppen.
 
 ```{r}
 emm_obj <- pois_fit %>% 
@@ -577,16 +577,24 @@ emm_obj <- pois_fit %>%
 emm_obj
 ```
 
+Jetzt steht hier zwar `rate` aber was ist das denn nun? Dafür berechnen wir mal die Mittelwerte der Anzahlen für die drei Tierarten über die Funktion `summarise()`. Dann vergleichen wir einmal die Ausgaben und schauen, was wir in `emmeans()` berechnet haben.
+
 ```{r}
 flea_count_tbl %>% 
   group_by(animal) %>% 
   summarise(mean_count = mean(count))
 ```
 
+Wunderbar, es sind die Mittelwerte der Anzahlen, die in der Spalte `rate` in der Ausgabe von `emmeans()` stehen. Damit können wir dann arbeiten und die Ausgabe nutzen um ein Säulendigramm zu erstellen. Bitte schaue für die Umsetzung in das Beispiel am Ende des Abschnitts. Da zeige ich dir dann wie du ein Säulendigramm zu den Anzahlen von Thripsen auf Apfelbäumen erstellst.
+
+Wenn du die mittleren Anzahlen pro Tierart jetzt für jede Tierart testen willst, dann erhälst du aber keinen Mittelwertsunterschied der Anzahlen, sondern eine *Rate*. Rechnen wir aber erstmal den paarweisen Vergleich und schauen uns dann an, was wir erhalten haben. Wir kriegen am Ende wiederum einen Vergleich von Wahrscheinlichkeiten, aber eben hier von *Raten*. Wie immer, es kommt darauf an, was du willst. Hier einmal die paarweisen Vergleiche, darunter dann gleich das *compact letter display*.
+
 ```{r}
 emm_obj %>% 
-  pairs()
+  pairs(adjust = "bonferroni")
 ```
+
+Okay, jetzt haben wir statt Raten also eine *Ratio*, also ein Verhältnis von Raten. Das schauen wir uns doch gleich mal in dem Beispiel an. Wir rechnen also einmal die mittlere Anzahl für jede Tierart durch die entsprechende andere mittlere Anzahl der anderen Tierart. Wir erhalten also folgende *Ratios* der mittleren Anzahlen.
 
 $$
 \cfrac{cat}{dog} = \cfrac{20.1}{30.1} = 0.67 
@@ -600,6 +608,10 @@ $$
 \cfrac{dog}{fox} = \cfrac{30.1}{10.2} = 2.95 
 $$
 
+Wie interpretieren wir jetzt die *Ratios*? Eigentlich ist das intuitiver als man auf den ersten Blick denkt. Wir haben zum Beispiel fast doppelt so viele Flöhe bei Katzen wie bei Füchsen. Die Anzahl von Hundeflöhen ist fast dreimal so hoch wie die Anzahl an Fuchsflöhen. Wir haben fast nur halb so viele Flöhe auf Katzen gefunden als bei den Hunden. Damit können wir dann schon arbeiten und eine Aussage treffen.
+
+Und fast am Ende können wir uns auch das *compact letter display* erstellen. Auch hier nutzen wir wieder die Funktion `cld()` aus dem R Paket `{multcomp}`. Hier erhälst du dann die Information über die mittlere Anzahl der jeweiligen Tierarten und ob sich die mittlere Anzahl unterscheidet. Ich nutze dann die Ausgabe von `emmeans()` um mir dann direkt das Säulendiagramm mit den Fehlerbalken und dem *compact letter display* zu erstellen. Mehr dazu dann im Kasten weiter unten zu dem Bespiel zu Thripsenanzahl auf Apfelbäumen.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -609,8 +621,6 @@ emm_obj %>%
 
 ::: callout-note
 ## Offset
-
-: Ein Wort zum Offset
 
 ["Exposure" and offset](https://en.wikipedia.org/wiki/Poisson_regression#.22Exposure.22_and_offset)
 
@@ -724,6 +734,8 @@ Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. 
 :::
 
 ```{r}
+#| message: false
+#| warning: false
 insects_tbl %>% 
   group_by(trt, timepoint) %>% 
   summarise(mean = round(mean(thripse), 2)) 
