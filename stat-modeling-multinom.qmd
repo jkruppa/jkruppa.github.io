@@ -20,8 +20,6 @@ Ich gehe hier nicht auf die Theorie hinter der multinomialen / ordinalen logisti
 
 ## Annahmen an die Daten
 
-[Unser gemessenes Outcome $y$ folgt einer Multinomialverteilung.]{.aside}
-
 Im folgenden Kapitel zu der multinomialen / ordinalen logistischen linearen Regression gehen wir davon aus, dass die Daten in der vorliegenden Form *ideal* sind. Das heißt wir haben weder fehlende Werte vorliegen, noch haben wir mögliche Ausreißer in den Daten. Auch wollen wir keine Variablen selektieren. Wir nehmen alles was wir haben mit ins Modell. Sollte eine oder mehre Bedingungen nicht zutreffen, dann schaue dir einfach die folgenden Kapitel an.
 
 -   Wenn du fehlende Werte in deinen Daten vorliegen hast, dann schaue bitte nochmal in das @sec-missing zu Imputation von fehlenden Werten.
@@ -42,11 +40,11 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, conflicted, broom,
+pacman::p_load(tidyverse, magrittr, broom,
                parameters, performance, gtsummary,
                ordinal, janitor, MASS, nnet, flextable,
                emmeans, multcomp, ordinal, see, scales,
-               janitor)
+               janitor, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -187,15 +185,61 @@ ologit_fit %>%
 
 Wi es im gazen Kapitel schon durchscheint, die Interpreation der $OR$ aus einer ordinalen Regression ist nicht einfach, geschweige den intuitiv. Was wir haben ist der Trend. Wir haben unser Outcome von *robust* zu *frail* sortiert und damit von *gut* nach *schlecht*. Wir können so die Richtung der Variablen in unserem Modell interpretieren. Das heißt, dass männliche Ferkel eher von einer Gebrechlichkeit betroffen sind als weibliche Ferkel. Oder wir sagen, dass ein ansteigender CRP Wert führt zu weniger Gebrechlichkeit. Auf diesem Niveau lassen sich die $OR$ einer ordinalen Regression gut interpretieren.
 
-## Cumulative Link Models (CLM) für ordinale Daten
+## Gruppenvergleich {#sec-mult-comp-ord-reg}
 
-Jetzt kommen wir nochmal zu dem Fall, dass wir Boniturdaten vorliegen habe. Das heißt, wir bauen uns flux wieder einen Datensatz mit drei Blöcken mit jeweils drei Wiederholungen. Wir haben Weizen angepflanzt und bonitieren die Weizenpflanzen nach der Likert Skala. Dabei bedeutet dann eine 1 ein schlechte Note und eine 9 die best mögliche Note. Wir hätten natürlich hier auch einen Kurskal-Wallis-Test rechnen können und dann im Anschluss einen paarweisen Wilcoxon Test. Nun modellieren wir hier aber die Boniturnoten mal mit einer ordinalen Regression und rechnen den anschließenden Gruppenvergleich dann mit dem R Paket `emmeans`.
+![](images/caution.png){fig-align="center" width="50%"}
 
-::: column-margin
+In diesem Abschnitt wollen Gurppenvergleich mit dem *Cumulative Link Models (CLM)* für ordinale Daten rechnen.
+
+Jetzt kommen wir nochmal zu dem Fall, dass wir Boniturdaten vorliegen habe. Das heißt, wir bauen uns flux wieder einen Datensatz mit drei Blöcken mit jeweils drei Wiederholungen. Wir haben Weizen angepflanzt und bonitieren die Weizenpflanzen nach der Likert Skala. Dabei bedeutet dann eine 1 ein schlechte Note und eine 9 die bestmögliche Note. Wir hätten natürlich hier auch einen Kurskal-Wallis-Test rechnen können und dann im Anschluss einen paarweisen Wilcoxon Test. Nun modellieren wir hier aber die Boniturnoten mal mit einer ordinalen Regression und rechnen den anschließenden Gruppenvergleich dann mit dem R Paket `emmeans`.
+
 Wir finden auch ein Tutorial zu [Introduction to Cumulative Link Models (CLM) for Ordinal Data](https://rcompanion.org/handbook/G_01.html).
-:::
 
-Unser Datensatz `grade_tbl` enthält den Faktor `block` mit drei Levels sowie den Faktor `variety` mit fünf Leveln. Jedes Level repränsentiert dabei eine Weizensorte.
+Unser Datensatz `grade_tbl` enthält den Faktor `block` mit drei Levels sowie den Faktor `variety` mit fünf Leveln. Jedes Level repräsentiert dabei eine Weizensorte. Wichtig ist hier, dass wir die Noten als *geordneten* Faktor mit der Funktion `ordered` erstellen. Nur dann haben die Noten eine Ordnung und die folgenden Funktionen erkennen dann auch die Spalte `grade_ord` als eine ordinale Spalte mit Noten.
+
+[Ordinal models with {emmeans}](https://cran.r-project.org/web/packages/emmeans/vignettes/sophisticated.html#ordinal)
+
+```{r}
+#| message: false
+#| warning: false
+
+set.seed(20231201)
+n_grp <- 20
+grade_tbl <- tibble(trt = gl(3, n_grp, labels = c("cat", "dog", "fox")),
+                    likert = c(sample(1:5, size = n_grp, replace = TRUE, prob = c(0.2, 0.5, 0.2, 0.1, 0.0)),
+                               sample(1:5, size = n_grp, replace = TRUE, prob = c(0.1, 0.2, 0.5, 0.2, 0.0)),
+                               sample(1:5, size = n_grp, replace = TRUE, prob = c(0.0, 0.0, 0.2, 0.5, 0.3)))) %>% 
+  mutate(likert_ord = ordered(likert))
+```
+
+```{r}
+grade_tbl$likert_ord[1:5]
+```
+
+```{r}
+grade_tbl %>% 
+  group_by(trt) %>% 
+  summarise(mean(likert))
+```
+
+```{r}
+clm_fit <- clm(likert_ord ~ trt, data = grade_tbl,
+               threshold = "symmetric")
+```
+
+```{r}
+anova(clm_fit)
+```
+
+```{r}
+emm_obj <- clm_fit %>% 
+  emmeans(~ trt, mode = "mean.class")
+```
+
+```{r}
+emm_obj %>% 
+  cld(Letters = letters)
+```
 
 ```{r}
 #| message: false
@@ -224,7 +268,7 @@ In @fig-clm-dot sehen wir einmal die Daten als Dotplot dargestellt. Auf der x-Ac
 #| message: false
 #| label: fig-clm-dot
 #| fig-align: center
-#| fig-height: 5
+#| fig-height: 4
 #| fig-width: 6
 #| fig-cap: "Dotplot des Datenbeispiels für die Bonitur von fünf Weizensorten."
 
@@ -246,15 +290,6 @@ clm_fit <- clm(grade_ord ~ variety + block, data = grade_tbl,
                threshold = "symmetric")
 ```
 
-Wir können uns dann den Fit des Modells wieder in der Funktion `model_parameters()` einmal anschauen. Wir *brauchen* aber die Ausgabe nicht weiter. Wir werden Koeffizienten des Modells jetzt verwenden um die Gruppenvergleiche zu rechnen. Ich habe hier einmal die $OR$ über die Option `exponentiate = TRUE` mir ausgeben lassen. Leider sind die $OR$ so alleine nicht zu interpretieren.
-
-```{r}
-#| message: false
-#| warning: false
-clm_fit %>% 
-  model_parameters(exponentiate = TRUE)
-```
-
 Es ist auch möglich auf dem Modellfit eine ANOVA zu rechnen. Wir machen das hier einmal, aber wir erwaten natürlich einen signifikanten Effekt von der Sorte. Die Signifikanz konnten wir ja schon oben im Dortplot sehen.
 
 ```{r}
@@ -269,7 +304,7 @@ Ich hatte ja eben geschrieben, dass wir die Effektschätzer nicht nutzen. Wir k�
 #| message: false
 #| warning: false
 clm_fit %>% 
-  emmeans(~ variety) %>% 
+  emmeans(~ variety, mode = "mean.class") %>% 
   cld(Letters = letters) %>% 
   arrange(variety)
 ```
@@ -279,11 +314,99 @@ Wir erinnern uns, gleiche Buchstaben heißen *kein* Unterschied zwischen den Wei
 ```{r}
 grade_tbl %>% 
   group_by(variety) %>% 
-  summarise(median(grade)) %>% 
-  mutate(cld = c("a", "  c", " b ", "a  ", " b "))
+  summarise(median = median(grade),
+            mean = mean(grade)) %>% 
+  mutate(cld = c("a  ", "  c", " b ", "a  ", " b "))
 ```
 
 Du könntest dir auch die Buchstaben des *compact letter display* aus einem Objekt ziehen und nicht händisch übertragen. Ich habe mir hier aber einen Schritt gespart.
+
+::: callout-tip
+## Anwendungsbeispiel: Dreifaktorieller Gruppenvergleich für das Gewicht
+
+Im folgenden Beispiel schauen wir uns nochmal ein praktische Auswertung von einem agrarwissenschaftlichen Beispiel mit Brokkoli an. Wir haben uns in diesem Experiment verschiedene Dosen `fert_amount` von einem Dünger aufgebracht sowie verschiedene Zeitpunkte der Düngung `fert_time` berücksichtigt. Auch hier haben wir einige Besonderheiten in den Daten, da nicht jede Faktorkombination vorliegt. Wir ignorieren aber diese Probleme und rechnen einfach stumpf unseren Gruppenvergleich.
+
+```{r}
+broc_tbl <- read_excel("data/broccoli_weight.xlsx") %>% 
+  mutate(fert_time = factor(fert_time, levels = c("none", "early", "late")),
+         fert_amount = as_factor(fert_amount),
+         block = as_factor(block),
+         stem_hollowness = ordered(stem_hollowness)) %>%
+  filter(fert_time == "early") %>% 
+  select(fert_time, fert_amount, block, stem_hollowness) %>% 
+  droplevels() %>% 
+  na.omit()
+```
+
+[tabyls: a tidy, fully-featured approach to counting things](https://cran.r-project.org/web/packages/janitor/vignettes/tabyls.html)
+
+```{r}
+broc_tbl %>% 
+  tabyl(stem_hollowness, fert_amount) 
+```
+
+Dann können wir auch schon die Gaussian Regression mit `lm()` rechnen.
+
+```{r}
+clm_fit <- clm(stem_hollowness ~ fert_amount, 
+               data = broc_tbl, threshold = "symmetric")
+```
+
+Jetzt rechnen wir in den beiden folgenden Tabs einmal die ANOVA und dann auch den multiplen Gruppenvergleich mit `{emmeans}`. Da wir hier normalveteilte Daten haben, können wir dann einfach die Standardverfahren nehmen. Eventuell müssten wir bei dem Gruppenvergleich mit `emmeans()` nochmal für Varianzheterogenität adjustieren, aber da erfährst du dann mehr in dem Kapitel zu den [Multiple Vergleichen oder Post-hoc Tests](#sec-posthoc).
+
+::: panel-tabset
+## ANOVA mit `anova()`
+
+Wir rechnen hier einmal die ANOVA und nutzen den $\mathcal{X}^2$-Test für die Ermittelung der p-Werte. Wir müssen hier einen Test auswählen, da per Standardeinstellung kein Test gerechnet wird. Wir machen dann die Ausgabe nochmal schöner und fertig sind wir.
+
+```{r}
+clm_fit %>% 
+  anova() %>% 
+  model_parameters()
+```
+
+Wir sehen, dass der Effekt der Düngerzeit und die Menge des Düngers signifikant ist, jedoch wir keinen signifikanten Einfluss durch die Interaktion haben. Wir haben aber also keine Interaktion vorliegen. Leider ist auch der Block signifikant, so dass wir eigentlich nicht über den Block mitteln sollten. Wir rechnen trotzdem die Analyse gemittelt über die Blöcke. Wenn du hier mehr erfahren möchtest, dann schaue dir das Beispiel hier nochmal im Kapitel zu dem [linearen gemischten Modellen](#sec-mixed) an.
+
+## Gruppenvergleich mit `emmeans()`
+
+Im Folgenden rechnen wir einmal über alle Faktorkombinationen von `fert_time` und `fert_amount` einen Gruppenvergleich. Dafür nutzen wir die Opition `fert_time * fert_amount`. Wenn du die Analyse *getrennt* für die Menge und den Zeitpunkt durchführen willst, dann nutze die Option `fert_time | fert_amount`. Dann adjustieren wir noch nach Bonferroni und sind fertig.
+
+```{r}
+emm_obj <- clm_fit %>% 
+  emmeans(~ fert_amount, mode = "mean.class") %>%
+  cld(Letters = letters, adjust = "bonferroni")
+emm_obj
+```
+
+Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. Die `emmean` stellt den mittleren Gewicht des Brokkoli je Faktorkombination dar gemittelt über alle Blöcke. Das Mitteln über die Blöcke ist eher fragwürdig, da wir ja einen Effekt der Blöcke in der ANOVA gefunden hatten. Hier schauen wir dann nochmal auf das Beispiel im Kapitel zu den [linearen gemischten Modellen](#sec-mixed). Dann können wir zum Abschluss auch das *compact letter display* anhand der Abbildung interpretieren.
+:::
+
+In der @fig-log-mod-gaussian-broc siehst du das Ergebnis der Auswertung in einem Säulendiagramm. Wir sehen einen klaren Effekt der Düngezeitpunkte sowie der Düngermenge auf das Gewicht von Brokkoli. Wenn wir ein mittleres Gewicht von $500g$ für den Handel erreichen wollen, dann erhalten wir das Zielgewicht nur bei einer Düngemenge von $300mg/l$. Hier stellt sich dann die Frage, ob wir bei $225mg/l$ und einem frühen Zeitpunkt der Düngung nicht auch genug Brokkoli erhalten. Das Ziel ist es ja eigentlich in einen Zielbereich zu kommen. Die Köpfe sollen ja nicht zu schwer und auch nicht zu leicht sein. Aber diese Frage und andere Fragen der biologischen Anwendung lassen wir dann hier einmal offen, denn das Beispiel soll ja nur ein Beispiel sein.
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-log-mod-gaussian-broc
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: "Säulendigramm der mitleren Brokkoligewichte aus einer Gaussian Regression. Das `lm()`-Modell berechnet das mittler Gewicht des Brokkoli in jeder Faktorkombination. Das *compact letter display* wird dann in `{emmeans}` generiert. Wir nutzen hier den Standardfehler, da die Standardabweichung mit der großen Fallzahl rießig wäre. Wir haben noch ein Mindestgewicht von 500g ergänzt."
+
+emm_obj %>% 
+  as_tibble() %>% 
+  ggplot(aes(x = fert_amount, y = mean.class, fill = fert_amount)) +
+  theme_bw() + 
+  labs(y = "Mittlere Boniturnote", x = "Düngemenge [mg/l]",
+       fill = "Düngemenge [mg/l]") +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = .group, y = mean.class + SE + 0.01), vjust = -0.25) +
+  geom_errorbar(aes(ymin = mean.class-SE, ymax = mean.class+SE),
+                width = 0.2) +
+  scale_fill_okabeito() +
+  theme(legend.position = "none")
+```
+:::
 
 ## Multinomiale logistische Regression {#sec-multinom}
 
