@@ -89,7 +89,7 @@ Das wären dann die Daten, die wir für unsere Modelle dann brauchen. Schauen wi
 
 ## Ordinale logistische Regression {#sec-ordinal}
 
-Es gibt sicherlich einiges an Paketen in R um eine ordinale Regression durchzuführen. Ich nutze gerne die Funktion `polr` aus dem R Paket `MASS`. Daneben gibt es auch noch das R Paket `ordinal` mit der Funktion `clm()`, die wir dann noch im Anschluss besprechen werden. Ich nutze jetzt erstmal die Funktion `polr`, da wir hier noch eine externe Referenz haben, die uns noch detailliertere Informationen liefern kann.
+Es gibt sicherlich einiges an Paketen in R um eine ordinale Regression durchzuführen. Ich nutze gerne die Funktion `polr()` aus dem R Paket `{MASS}`. Daneben gibt es auch noch das R Paket `{ordina}l` mit der Funktion `clm()`, die wir dann noch im Anschluss besprechen werden. Ich nutze jetzt erstmal die Funktion `polr()`, da wir hier noch eine externe Referenz haben, die uns noch detailliertere Informationen liefern kann.
 
 ::: column-margin
 Ich verweise gerne hier auf das tolle Tutorium [Ordinal Logistic Regression \| R Data Analysis Examples](https://stats.oarc.ucla.edu/r/dae/ordinal-logistic-regression/). Hier erfährst du noch mehr über die Analyse der ordinalen logistischen Regression.
@@ -187,17 +187,9 @@ Wi es im gazen Kapitel schon durchscheint, die Interpreation der $OR$ aus einer 
 
 ## Gruppenvergleich {#sec-mult-comp-ord-reg}
 
-![](images/caution.png){fig-align="center" width="50%"}
+In diesem Abschnitt wollen wir Gruppenvergleich mit dem *Cumulative Link Models (CLM)* für ordinale Daten rechnen. Oder andersherum, wir haben Boniturdaten vorliegen und wollen hierfür einen multipen Vergleich rechnen. Mehr zu dem Modell findest du im Tutorium zu [Introduction to Cumulative Link Models (CLM) for Ordinal Data](https://rcompanion.org/handbook/G_01.html). Wir konzentrieren uns hier direkt auf die Auswertung an einem Spieldatensatz. Daran können wir dann einfacher erkennen, was bei einem Vergleich rauskommt, wenn wir wissen was wir reingesteckt haben. Wenn du mehr zu dem Thema lesen willst, dann hilft eventuell auch die Hilfeseite zu [Ordinal models with {emmeans}](https://cran.r-project.org/web/packages/emmeans/vignettes/sophisticated.html#ordinal). Ich muss aber sagen, dass die Seite etwas theoretisch ist.
 
-In diesem Abschnitt wollen Gurppenvergleich mit dem *Cumulative Link Models (CLM)* für ordinale Daten rechnen.
-
-Jetzt kommen wir nochmal zu dem Fall, dass wir Boniturdaten vorliegen habe. Das heißt, wir bauen uns flux wieder einen Datensatz mit drei Blöcken mit jeweils drei Wiederholungen. Wir haben Weizen angepflanzt und bonitieren die Weizenpflanzen nach der Likert Skala. Dabei bedeutet dann eine 1 ein schlechte Note und eine 9 die bestmögliche Note. Wir hätten natürlich hier auch einen Kurskal-Wallis-Test rechnen können und dann im Anschluss einen paarweisen Wilcoxon Test. Nun modellieren wir hier aber die Boniturnoten mal mit einer ordinalen Regression und rechnen den anschließenden Gruppenvergleich dann mit dem R Paket `emmeans`.
-
-Wir finden auch ein Tutorial zu [Introduction to Cumulative Link Models (CLM) for Ordinal Data](https://rcompanion.org/handbook/G_01.html).
-
-Unser Datensatz `grade_tbl` enthält den Faktor `block` mit drei Levels sowie den Faktor `variety` mit fünf Leveln. Jedes Level repräsentiert dabei eine Weizensorte. Wichtig ist hier, dass wir die Noten als *geordneten* Faktor mit der Funktion `ordered` erstellen. Nur dann haben die Noten eine Ordnung und die folgenden Funktionen erkennen dann auch die Spalte `grade_ord` als eine ordinale Spalte mit Noten.
-
-[Ordinal models with {emmeans}](https://cran.r-project.org/web/packages/emmeans/vignettes/sophisticated.html#ordinal)
+Wir bauen uns jetzt einen Spieldatensatz mit zwanzig Boniturnoten für drei Tierarten. Ich nehme hier nur fünf Notenschritte, da sonst die Sachlage sehr unübersichtlich wird. Im Prinzip generieren wir uns mit der Funktion `sample` nach vorgegeben Wahrscheinlichkeiten für jede Note zwanzig Boniturnoten für jede Tierart. Dabei haben Katzen eine niedrigere Note als Hunde und die Hunde haben schlechtere Noten als die Füchse. Am Ende brauchen wir dann noch einen geordneten Faktor `likert_ord` damit wir die ordinale Regression rechnen können. Die ursprünglichen Noten behalte ich als numerisch um die Daten besser in `{ggplot}` abbilden zu können.
 
 ```{r}
 #| message: false
@@ -212,9 +204,7 @@ grade_tbl <- tibble(trt = gl(3, n_grp, labels = c("cat", "dog", "fox")),
   mutate(likert_ord = ordered(likert))
 ```
 
-```{r}
-grade_tbl$likert_ord[1:5]
-```
+Dann berechnen wir einmal die mittleren Boniturnoten für die drei Tierarten. Wir sehen, dass wir ziemlich gerade Durchschnittsnoten haben.
 
 ```{r}
 grade_tbl %>% 
@@ -222,24 +212,36 @@ grade_tbl %>%
   summarise(mean(likert))
 ```
 
+Jetzt können wir die Daten auch schon in die ordinale Regression mit `clm()` stecken. Da die Noten alle den gleichen Abstand zueinander haben, nutzen wir die Option `threshold = "symmetric"`. Wir brauchen hier die Ausgabe der Moelldierung gar nicht weiter im Detail. Wir nutzen den Fit dann gleich in der ANOVA und `{emmeans}` für den Gruppenvergleich der mittleren Boniturnoten.
+
 ```{r}
 clm_fit <- clm(likert_ord ~ trt, data = grade_tbl,
                threshold = "symmetric")
 ```
 
+Die ANOVA funktioniert wie gewohnt. Wir müssen hier auch nichts anpassen, wir kriegen einfach so unsere p-Werte geliefert. Wir haben einen signifikanten Effekt der Tierarten, was ja auch zu erwarten war. Die Boniturnoten unterscheiden sich zwischen Katzen, Hunden und Füchsen.
+
 ```{r}
 anova(clm_fit)
 ```
+
+Dann können wir auch schon den multipen Gruppenvergleich rechnen. Da wir die mittleren Boniturnoten wiedergegeben haben wollen, nutzen wir die Option `mode = "mean.class"`. Sonst würden wir andere Werte erhalten, die dann wirklich schwer zu interpretieren sind. Wie du siehst, sind es die gleichen Werte die wir auch oben für unsere Mittelwerte über die Boniturnoten berechnet haben.
 
 ```{r}
 emm_obj <- clm_fit %>% 
   emmeans(~ trt, mode = "mean.class")
 ```
 
+Dann können wir uns auch schon das *compact letter display* wiedergeben lassen. Auch hier gibt es keine Überraschung, die drei Tierarten unterscheiden sich. Mit der Ausgabe könnten wir dann auch gleich ein Säulendigramm erstellen, aber das zeige ich gleich mal in dem zweiten Beispiel für zwei Faktoren und der Bonitur von Weizen.
+
 ```{r}
 emm_obj %>% 
   cld(Letters = letters)
 ```
+
+In unserem zweiten Beispiel schauen wir uns einen zweifaktoriellen Datensatz einmal an. Wir haben Weizen angepflanzt und bonitieren die Weizenpflanzen nach der Likert Skala. Dabei bedeutet dann eine 1 ein schlechte Note und eine 9 die bestmögliche Note. Wir hätten natürlich hier auch einen Kurskal-Wallis-Test rechnen können und dann im Anschluss einen paarweisen Wilcoxon Test. Nun modellieren wir hier aber die Boniturnoten mal mit einer ordinalen Regression und rechnen den anschließenden Gruppenvergleich dann mit dem R Paket `{emmeans}`.
+
+Unser Datensatz `grade_tbl` enthält den Faktor `block` mit drei Levels sowie den Faktor `variety` mit fünf Leveln. Jedes Level repräsentiert dabei eine Weizensorte. Wichtig ist hier, dass wir die Noten als *geordneten* Faktor mit der Funktion `ordered` erstellen. Nur dann haben die Noten eine Ordnung und die folgenden Funktionen erkennen dann auch die Spalte `grade_ord` als eine ordinale Spalte mit Noten.
 
 ```{r}
 #| message: false
@@ -255,10 +257,10 @@ grade_tbl <- tibble(block = rep(c("I", "II", "III"), each = 3),
 
 ```
 
-Wir schauen uns nochmal den Datensatz an und sehen, dass wir einmal die Spalte `grade` als numerische Spalte vorliegen haben udn einmal als geordneten Faktor. Wir brauchen die numerische Spalte um die Daten besser in `ggplot()` darstellen zu können.
+Wir schauen uns nochmal den Datensatz an und sehen, dass wir einmal die Spalte `grade` als numerische Spalte vorliegen haben und einmal als geordneten Faktor. Wir brauchen die numerische Spalte um die Daten besser in `ggplot()` darstellen zu können.
 
 ```{r}
-grade_tbl
+grade_tbl %>% head(4)
 ```
 
 In @fig-clm-dot sehen wir einmal die Daten als Dotplot dargestellt. Auf der x-Achse sind die Weizensorten und auf der y-Achse die Boniturnoten. Ich habe noch die zusätzlichen Linien für jede einzelne Note mit eingezeichnet.
@@ -281,16 +283,16 @@ ggplot(grade_tbl, aes(variety, grade, fill = block)) +
 
 ```
 
-Jetzt können wir schon die Funktion `clm()` aus dem R Paket `ordinal` verwenden um die ordinale Regression zu rechnen. Wir haben in dem Paket `ordinal` noch weitere Modelle zu Verfügung mit denen wir auch komplexere Designs bis hin zu linearen gemischten Modellen für eine ordinale Regresssion rechnen können. Da wir mit Boniturnoten als Outcome arbeiten setzen wir auch die Option `threshold = "symmetric"`. Damit teilen wir der Funktion `clm()` mit, dass wir es mit einer symmetrischen Notenskala zu tun haben. Wenn du das nicht hast, dass kannst du die Option auch of `"flexible"` stellen. Dann wird eine nicht symmetrische Verteilung des Outcomes angenommen.
+Jetzt können wir schon die Funktion `clm()` aus dem R Paket `{ordinal}` verwenden um die ordinale Regression zu rechnen. Wir haben in dem R Paket `{ordinal}` noch weitere Modelle zu Verfügung mit denen wir auch komplexere Designs bis hin zu linearen gemischten Modellen für eine ordinale Regresssion rechnen können. Da wir mit Boniturnoten als Outcome arbeiten setzen wir auch die Option `threshold = "symmetric"`. Damit teilen wir der Funktion `clm()` mit, dass wir es mit einer symmetrischen Notenskala zu tun haben. Wenn du das nicht hast, dass kannst du die Option auch of `"flexible"` stellen. Dann wird eine nicht symmetrische Verteilung des Outcomes angenommen.
 
 ```{r}
 #| message: false
 #| warning: false
-clm_fit <- clm(grade_ord ~ variety + block, data = grade_tbl,
+clm_fit <- clm(grade_ord ~ variety + block + variety:block, data = grade_tbl,
                threshold = "symmetric")
 ```
 
-Es ist auch möglich auf dem Modellfit eine ANOVA zu rechnen. Wir machen das hier einmal, aber wir erwaten natürlich einen signifikanten Effekt von der Sorte. Die Signifikanz konnten wir ja schon oben im Dortplot sehen.
+Es ist auch möglich auf dem Modellfit eine ANOVA zu rechnen. Wir machen das hier einmal, aber wir erwarten natürlich einen signifikanten Effekt von der Sorte. Die Signifikanz konnten wir ja schon oben im Dotplot sehen.
 
 ```{r}
 #| message: false
@@ -298,33 +300,50 @@ Es ist auch möglich auf dem Modellfit eine ANOVA zu rechnen. Wir machen das hie
 anova(clm_fit)
 ```
 
-Ich hatte ja eben geschrieben, dass wir die Effektschätzer nicht nutzen. Wir können mit den $OR$ aus dem Modell nichts anfangen. Stattdessen nutzen wir die Schätzer der *link*-Funktion, also die Log Odds, um den paarweisen Gruppenvergleich zu rechnen. Wir nutzen dafür die Funktion `emmeans()` und lassen uns das *compact letter display* über die Funktion `cld()` wiedergeben. Ich habe dann noch die Ausgabe einmal nach den Sorten sortiert und nicht nach dem *compact letter display*. Dadurch lassen sich die Buchstaben besser zum Dotplot vergleichen.
+Jetzt nutzen wir wieder den Modellfit für unseren Gruppenvergleich in `{emmeans}`. Wir nutzen dafür wieder die Funktion `emmeans()` und lassen uns das *compact letter display* über die Funktion `cld()` wiedergeben. Da wir hier eigentlich keinen signifikanten Effekt der Blöcke vorliegen haben, könnten wir auch einfach die Option `~ variety` nutzen und den Block weglassen. Dann wäre auch die Ausgabe mit den *compact letter display* etwas übersichtlicher. Ich habe dann noch die Ausgabe einmal nach den Sorten sortiert und nicht nach dem *compact letter display* um hier etwas mehr Übersicht zu erhalten.
 
 ```{r}
 #| message: false
 #| warning: false
-clm_fit %>% 
-  emmeans(~ variety, mode = "mean.class") %>% 
+emm_obj <- clm_fit %>% 
+  emmeans(~ variety * block, mode = "mean.class") %>% 
   cld(Letters = letters) %>% 
   arrange(variety)
+emm_obj
 ```
 
-Wir erinnern uns, gleiche Buchstaben heißen *kein* Unterschied zwischen den Weizensorten. Damit ist die Weizensorte A gleich der Weizensorte D. Die Weizensorte C ist gleich der Weizensorte E. Am Ende unterscheidet sich die Weizensorte B von allen anderen Sorten. Wir können aber die Werte in der Spalte `emmean` nicht als Notenunterschied interpretieren. Dafür müssen wir dann den Median für die Gruppen berechnen. Wir können dann das *compact letter display* händisch ergänzen.
+In der @fig-log-mod-ordinal-weizen siehst du dann einmal die Ausgabe des multipen Gruppenvergleichs visualisiert. Hier wäre es dann schon fast sinnvoll über die Blöcke zu mitteln und daher den Block aus dem Modell zu nehmen. Der Block hat keinen Effekt und sorgt aber für noch mehr Vergleiche, die gerechnet werden müssen. Du kannst dann ja oben nochmal die Funktion `emmeans()` anpassen und gemittelt über alle Blöcke mit der Option `~ variety` rechnen. Die Funktion `str_trim()` entfernt dann noch die Leerzeichen von dem *compact letter display* und zentriert damit alles schön.
 
 ```{r}
-grade_tbl %>% 
-  group_by(variety) %>% 
-  summarise(median = median(grade),
-            mean = mean(grade)) %>% 
-  mutate(cld = c("a  ", "  c", " b ", "a  ", " b "))
-```
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-log-mod-ordinal-weizen
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "Säulendigramm der mittleren Boniturnote des Weizen aus einer ordinalen Regression. Das *compact letter display* wird dann in `{emmeans}` generiert. Teilweise kommt das *compact letter display* an seine visuellen Grenzen. Hier wäre es dann schon fast sinnvoll über die Blöcke zu mitteln und daher den Block aus dem Modell zu nehmen."
 
-Du könntest dir auch die Buchstaben des *compact letter display* aus einem Objekt ziehen und nicht händisch übertragen. Ich habe mir hier aber einen Schritt gespart.
+emm_obj %>% 
+  as_tibble() %>% 
+  ggplot(aes(x = variety, y = mean.class, fill = block)) +
+  theme_bw() + 
+  labs(y = "Mittlere Boniturnote", x = "Sorte",
+       fill = "Block") +
+  geom_bar(stat = "identity", 
+           position = position_dodge(width = 0.9, preserve = "single")) +
+  geom_text(aes(label = str_trim(.group), y = mean.class + SE + 0.01),  
+            position = position_dodge(width = 0.9), vjust = -0.25) +
+  geom_errorbar(aes(ymin = mean.class-SE, ymax = mean.class+SE),
+                width = 0.2,  
+                position = position_dodge(width = 0.9, preserve = "single")) +
+  scale_fill_okabeito()
+```
 
 ::: callout-tip
 ## Anwendungsbeispiel: Gruppenvergleich für eine Bonitur
 
-Im folgenden Beispiel schauen wir uns nochmal ein praktische Auswertung von einem agrarwissenschaftlichen Beispiel mit Brokkoli an. Wir haben uns in diesem Experiment verschiedene Dosen `fert_amount` von einem Dünger aufgebracht sowie verschiedene Zeitpunkte der Düngung `fert_time` berücksichtigt. Auch hier haben wir einige Besonderheiten in den Daten, da nicht jede Faktorkombination vorliegt. Wir ignorieren aber diese Probleme und rechnen einfach stumpf unseren Gruppenvergleich.
+Im folgenden Beispiel schauen wir uns nochmal ein praktische Auswertung von einem agrarwissenschaftlichen Beispiel mit Brokkoli an. Wir haben uns in diesem Experiment verschiedene Dosen `fert_amount` von einem Dünger aufgebracht sowie verschiedene Zeitpunkte der Düngung `fert_time` berücksichtigt. Ziel ist es die Boniturnoten für den Stamm von Brokkoli miteinander zu vergleichen. Auch hier haben wir einige Besonderheiten in den Daten, da nicht jede Faktorkombination vorliegt. Wir ignorieren aber diese Probleme und rechnen einfach stumpf unseren Gruppenvergleich. Wir müssen aber ein paar Anpassungen durchführen. Unsere Noten müssen ein geordneter Faktor sein, daher nutzen wir die Funktion `ordered`. Darüber hinaus schmeißen wir die Düngerzeit `early` aus den Daten, da wir zu dem Zeitpunkt keine hohlen Stämme bonitiert haben.
 
 ```{r}
 broc_tbl <- read_excel("data/broccoli_weight.xlsx") %>% 
@@ -339,12 +358,14 @@ broc_tbl <- read_excel("data/broccoli_weight.xlsx") %>%
   na.omit()
 ```
 
-[tabyls: a tidy, fully-featured approach to counting things](https://cran.r-project.org/web/packages/janitor/vignettes/tabyls.html)
+Im Folgenden einmal die Tabelle mit `tabyl` aus dem R Paket `{janitor}`. Mehr dazu auf der Hilfeseite zu [tabyls: a tidy, fully-featured approach to counting things](https://cran.r-project.org/web/packages/janitor/vignettes/tabyls.html). Wir sehen, dass wir kaum schlechte Noten erhalten. Fast alle Brokkoliköpfe haben eine 1 erhalten, was für intakte Köpfe ohne einen hohlen Stamm spricht.
 
 ```{r}
 broc_tbl %>% 
   tabyl(stem_hollowness, fert_amount) 
 ```
+
+Die Tabelle sehen wir dann auch nochmal in der @fig-clm-broc-violin als Violinplot visualisiert. Wir sehen hier nochmal sehr drastisch, dass wir kaum Noten großer als Eins in den Daten vorliegen haben.
 
 ```{r}
 #| echo: true
@@ -353,7 +374,7 @@ broc_tbl %>%
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 4
-#| fig-cap: "Dotplot des Datenbeispiels für die Bonitur von fünf Weizensorten."
+#| fig-cap: "Violinplot der Boniturnoten der Brokkolistämme. Klar ist die sehr schiefe Verteilung der Boniturnoten zu erkennen."
 
 ggplot(broc_tbl, aes(fert_amount, stem_hollowness_num, fill = fert_amount)) +
   theme_bw() +
@@ -364,14 +385,14 @@ ggplot(broc_tbl, aes(fert_amount, stem_hollowness_num, fill = fert_amount)) +
 
 ```
 
-Dann können wir auch schon die Gaussian Regression mit `lm()` rechnen.
+Wir rechnen jetzt natürlich trotzdem eine ordinale Regression mit der Funktion `clm()`. Wir setzen die Option `theshold = "symmetric"` da wir davon ausgehen, dass unsere Noten alle den gleichen Abstand zueinander haben.
 
 ```{r}
 clm_fit <- clm(stem_hollowness ~ fert_amount, 
                data = broc_tbl, threshold = "symmetric")
 ```
 
-Jetzt rechnen wir in den beiden folgenden Tabs einmal die ANOVA und dann auch den multiplen Gruppenvergleich mit `{emmeans}`. Da wir hier normalveteilte Daten haben, können wir dann einfach die Standardverfahren nehmen. Eventuell müssten wir bei dem Gruppenvergleich mit `emmeans()` nochmal für Varianzheterogenität adjustieren, aber da erfährst du dann mehr in dem Kapitel zu den [Multiple Vergleichen oder Post-hoc Tests](#sec-posthoc).
+Jetzt rechnen wir in den beiden folgenden Tabs einmal die ANOVA und dann auch den multiplen Gruppenvergleich mit `{emmeans}`. Da wir hier ordinale Daten haben, können wir dann nicht einfach die Standardverfahren nehmen. Wir entscheiden uns dann für den Standardfehler bei der Darstellung.
 
 ::: panel-tabset
 ## ANOVA mit `anova()`
@@ -384,7 +405,7 @@ clm_fit %>%
   model_parameters()
 ```
 
-Wir sehen, dass der Effekt der Düngerzeit und die Menge des Düngers signifikant ist, jedoch wir keinen signifikanten Einfluss durch die Interaktion haben. Wir haben aber also keine Interaktion vorliegen. Leider ist auch der Block signifikant, so dass wir eigentlich nicht über den Block mitteln sollten. Wir rechnen trotzdem die Analyse gemittelt über die Blöcke. Wenn du hier mehr erfahren möchtest, dann schaue dir das Beispiel hier nochmal im Kapitel zu dem [linearen gemischten Modellen](#sec-mixed) an.
+Wir sehen, dass der die Menge des Düngers signifikant ist. Wir haben nicht mehr Faktoren in dem Modell gehabt, so dass wir hier auch keine weiteren Aussagen tätigen können.
 
 ## Gruppenvergleich mit `emmeans()`
 
@@ -398,9 +419,17 @@ emm_obj
 ```
 
 Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. Die `mean.class` stellt den mittleren Noten des Brokkoli für die Menge der Düngung dar. Wir nutzen dann auch hier die Standardfehler für die Abbildungen, da wir sonst schnelle Werte kleiner 0 und größer 9 erhalten. Dann können wir zum Abschluss auch das *compact letter display* anhand der Abbildung interpretieren.
+
+Gerade in diesem Beispiel bietet es sich an, dass wir explizit *mindestens* einen Noten*punkt*unterschied vorliegen haben wollen, damit wir von einem relevanten Unterschied sprechen können. Die Funktion `cld()` erlaubt es ein $\Delta$ zu definieren, dass mindestens überschritten sein muss, damit wir einen Unterschied feststellen. Alles was in dem Bereich $\pm\Delta$ liegt, gilt dann als gleich auch wenn es sonst signifikant wäre. Deshalb setzen wir die Option `delta = 1` um sicherzustellen, dass nur *relevante* Unterschiede auch als solche angezeigt werden. Daher haben wir nach der Anpassung auch keine signifikanten Unterschiede mehr. Alle Gruppen sind gleich.
+
+```{r}
+clm_fit %>% 
+  emmeans(~ fert_amount, mode = "mean.class") %>%
+  cld(Letters = letters, adjust = "bonferroni", delta = 1)
+```
 :::
 
-In der @fig-log-mod-ordinal-broc siehst du das Ergebnis der Auswertung in einem Säulendiagramm.
+In der @fig-log-mod-ordinal-broc siehst du das Ergebnis der Auswertung in einem Säulendiagramm. Zwar sind die mittleren Boniturnoten signifikant unterschiedlich, aber ist der Effekt auf der vollen Boniturnotenskala kaum zu sehen. Wir haben es hier mit knapp einer Notenstufe Unterschied zu tun und das ist wirklich wenig. Daher wäre hier mal der Fall, dass wir einen signifikanten aber nicht relevanten Unterschied vorliegen haben.
 
 ```{r}
 #| echo: true
@@ -410,10 +439,10 @@ In der @fig-log-mod-ordinal-broc siehst du das Ergebnis der Auswertung in einem 
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 4
-#| fig-cap: "Säulendigramm der mitleren Brokkoligewichte aus einer Gaussian Regression. Das `lm()`-Modell berechnet das mittler Gewicht des Brokkoli in jeder Faktorkombination. Das *compact letter display* wird dann in `{emmeans}` generiert. Wir nutzen hier den Standardfehler, da die Standardabweichung mit der großen Fallzahl rießig wäre. Wir haben noch ein Mindestgewicht von 500g ergänzt."
+#| fig-cap: "Säulendigramm der mittleren Boniturnote des Brokkoli aus einer ordinalen Regression. Das `clm()`-Modell berechnet das mittlere Boniturnote für den Faktor `fert_amount`. Das *compact letter display* wird dann in `{emmeans}` generiert. Wir nutzen hier den Standardfehler, da die Standardabweichung mit der großen Fallzahl rießig wäre."
 #| fig-subcap: 
-#|   - "Reduzierte $y$ Notenskala."
-#|   - "Volle $y$ Notenskala."
+#|   - "Reduzierte Boniturskala."
+#|   - "Volle Boniturskala."
 #| layout-nrow: 1
 
 emm_obj %>% 
@@ -423,7 +452,7 @@ emm_obj %>%
   labs(y = "Mittlere Boniturnote", x = "Düngemenge [mg/l]",
        fill = "Düngemenge [mg/l]") +
   geom_bar(stat = "identity") +
-  geom_text(aes(label = .group, y = mean.class + SE + 0.01), vjust = -0.25) +
+  geom_text(aes(label = str_trim(.group), y = mean.class + SE + 0.01), vjust = -0.25) +
   geom_errorbar(aes(ymin = mean.class-SE, ymax = mean.class+SE),
                 width = 0.2) +
   scale_fill_okabeito() +
@@ -437,7 +466,7 @@ emm_obj %>%
   labs(y = "Mittlere Boniturnote", x = "Düngemenge [mg/l]",
        fill = "Düngemenge [mg/l]") +
   geom_bar(stat = "identity") +
-  geom_text(aes(label = .group, y = mean.class + SE + 0.01), vjust = -0.25) +
+  geom_text(aes(label = str_trim(.group), y = mean.class + SE + 0.01), vjust = -0.25) +
   geom_errorbar(aes(ymin = mean.class-SE, ymax = mean.class+SE),
                 width = 0.2) +
   scale_fill_okabeito() +
@@ -525,9 +554,7 @@ Schauen wir uns erstmal an, wie sich die Daten über die drei Kategorien in unse
 pig_tbl$frailty_fac %>% tabyl
 ```
 
-Wir haben nicht so viele Beobachtungen in der Kategorie `frail`. Wir könnten also auch die beiden Faktorlevel `pre-frail` und `frail` zusammenlegen.
-
-[Das R Paket `forcats` liefert sehr viele Funktion, die dir helfen Faktoren zu kodieren und zu ändern]{.aside}
+Wir haben nicht so viele Beobachtungen in der Kategorie `frail`. Wir könnten also auch die beiden Faktorlevel `pre-frail` und `frail` zusammenlegen. Das R Paket `{forcats}` liefert sehr viele Funktion, die dir helfen Faktoren zu kodieren und zu ändern.
 
 ```{r}
 pig_tbl$frailty_fac %>% 
