@@ -245,11 +245,11 @@ emm_obj %>%
 #| message: false
 #| warning: false
 grade_tbl <- tibble(block = rep(c("I", "II", "III"), each = 3),
-                    A = c(2,3,4,3,3,2,4,2,1),
-                    B = c(7,9,8,9,7,8,9,6,7),
-                    C = c(6,5,5,7,5,6,4,7,6),
-                    D = c(2,3,1,2,1,1,2,2,1),
-                    E = c(4,3,7,5,6,4,5,7,5)) %>%
+                    A = c(2, 3, 4, 3, 3, 2, 4, 2, 1),
+                    B = c(7, 9, 8, 9, 7, 8, 9, 6, 7),
+                    C = c(6, 5, 5, 7, 5, 6, 4, 7, 6),
+                    D = c(2, 3, 1, 2, 1, 1, 2, 2, 1),
+                    E = c(4, 3, 7, 5, 6, 4, 5, 7, 5)) %>%
   gather(key = variety, value = grade, A:E) %>% 
   mutate(grade_ord = ordered(grade))
 
@@ -322,7 +322,7 @@ grade_tbl %>%
 Du könntest dir auch die Buchstaben des *compact letter display* aus einem Objekt ziehen und nicht händisch übertragen. Ich habe mir hier aber einen Schritt gespart.
 
 ::: callout-tip
-## Anwendungsbeispiel: Dreifaktorieller Gruppenvergleich für das Gewicht
+## Anwendungsbeispiel: Gruppenvergleich für eine Bonitur
 
 Im folgenden Beispiel schauen wir uns nochmal ein praktische Auswertung von einem agrarwissenschaftlichen Beispiel mit Brokkoli an. Wir haben uns in diesem Experiment verschiedene Dosen `fert_amount` von einem Dünger aufgebracht sowie verschiedene Zeitpunkte der Düngung `fert_time` berücksichtigt. Auch hier haben wir einige Besonderheiten in den Daten, da nicht jede Faktorkombination vorliegt. Wir ignorieren aber diese Probleme und rechnen einfach stumpf unseren Gruppenvergleich.
 
@@ -331,9 +331,10 @@ broc_tbl <- read_excel("data/broccoli_weight.xlsx") %>%
   mutate(fert_time = factor(fert_time, levels = c("none", "early", "late")),
          fert_amount = as_factor(fert_amount),
          block = as_factor(block),
+         stem_hollowness_num = stem_hollowness,
          stem_hollowness = ordered(stem_hollowness)) %>%
   filter(fert_time == "early") %>% 
-  select(fert_time, fert_amount, block, stem_hollowness) %>% 
+  select(fert_time, fert_amount, block, stem_hollowness, stem_hollowness_num) %>% 
   droplevels() %>% 
   na.omit()
 ```
@@ -343,6 +344,24 @@ broc_tbl <- read_excel("data/broccoli_weight.xlsx") %>%
 ```{r}
 broc_tbl %>% 
   tabyl(stem_hollowness, fert_amount) 
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-clm-broc-violin
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: "Dotplot des Datenbeispiels für die Bonitur von fünf Weizensorten."
+
+ggplot(broc_tbl, aes(fert_amount, stem_hollowness_num, fill = fert_amount)) +
+  theme_bw() +
+  geom_violin() +
+  scale_y_continuous(breaks = 1:9, limits = c(1,9)) +
+  scale_fill_okabeito() +
+  theme(legend.position = "none")
+
 ```
 
 Dann können wir auch schon die Gaussian Regression mit `lm()` rechnen.
@@ -369,7 +388,7 @@ Wir sehen, dass der Effekt der Düngerzeit und die Menge des Düngers signifikan
 
 ## Gruppenvergleich mit `emmeans()`
 
-Im Folgenden rechnen wir einmal über alle Faktorkombinationen von `fert_time` und `fert_amount` einen Gruppenvergleich. Dafür nutzen wir die Opition `fert_time * fert_amount`. Wenn du die Analyse *getrennt* für die Menge und den Zeitpunkt durchführen willst, dann nutze die Option `fert_time | fert_amount`. Dann adjustieren wir noch nach Bonferroni und sind fertig.
+Im Folgenden rechnen wir einmal für den Faktor `fert_amount` einen Gruppenvergleich. Wir setzen hier die Option `mean.class` damit wir dann die mittleren Noten wiedergegeben bekommen. Mit den mittleren Noten können wir dann ein Säulendiagramm erstellen. Dann adjustieren wir noch nach Bonferroni und sind fertig.
 
 ```{r}
 emm_obj <- clm_fit %>% 
@@ -378,20 +397,24 @@ emm_obj <- clm_fit %>%
 emm_obj
 ```
 
-Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. Die `emmean` stellt den mittleren Gewicht des Brokkoli je Faktorkombination dar gemittelt über alle Blöcke. Das Mitteln über die Blöcke ist eher fragwürdig, da wir ja einen Effekt der Blöcke in der ANOVA gefunden hatten. Hier schauen wir dann nochmal auf das Beispiel im Kapitel zu den [linearen gemischten Modellen](#sec-mixed). Dann können wir zum Abschluss auch das *compact letter display* anhand der Abbildung interpretieren.
+Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. Die `mean.class` stellt den mittleren Noten des Brokkoli für die Menge der Düngung dar. Wir nutzen dann auch hier die Standardfehler für die Abbildungen, da wir sonst schnelle Werte kleiner 0 und größer 9 erhalten. Dann können wir zum Abschluss auch das *compact letter display* anhand der Abbildung interpretieren.
 :::
 
-In der @fig-log-mod-gaussian-broc siehst du das Ergebnis der Auswertung in einem Säulendiagramm. Wir sehen einen klaren Effekt der Düngezeitpunkte sowie der Düngermenge auf das Gewicht von Brokkoli. Wenn wir ein mittleres Gewicht von $500g$ für den Handel erreichen wollen, dann erhalten wir das Zielgewicht nur bei einer Düngemenge von $300mg/l$. Hier stellt sich dann die Frage, ob wir bei $225mg/l$ und einem frühen Zeitpunkt der Düngung nicht auch genug Brokkoli erhalten. Das Ziel ist es ja eigentlich in einen Zielbereich zu kommen. Die Köpfe sollen ja nicht zu schwer und auch nicht zu leicht sein. Aber diese Frage und andere Fragen der biologischen Anwendung lassen wir dann hier einmal offen, denn das Beispiel soll ja nur ein Beispiel sein.
+In der @fig-log-mod-ordinal-broc siehst du das Ergebnis der Auswertung in einem Säulendiagramm.
 
 ```{r}
 #| echo: true
 #| warning: false
 #| message: false
-#| label: fig-log-mod-gaussian-broc
+#| label: fig-log-mod-ordinal-broc
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 4
 #| fig-cap: "Säulendigramm der mitleren Brokkoligewichte aus einer Gaussian Regression. Das `lm()`-Modell berechnet das mittler Gewicht des Brokkoli in jeder Faktorkombination. Das *compact letter display* wird dann in `{emmeans}` generiert. Wir nutzen hier den Standardfehler, da die Standardabweichung mit der großen Fallzahl rießig wäre. Wir haben noch ein Mindestgewicht von 500g ergänzt."
+#| fig-subcap: 
+#|   - "Reduzierte $y$ Notenskala."
+#|   - "Volle $y$ Notenskala."
+#| layout-nrow: 1
 
 emm_obj %>% 
   as_tibble() %>% 
@@ -404,7 +427,22 @@ emm_obj %>%
   geom_errorbar(aes(ymin = mean.class-SE, ymax = mean.class+SE),
                 width = 0.2) +
   scale_fill_okabeito() +
-  theme(legend.position = "none")
+  theme(legend.position = "none") +
+  scale_y_continuous(breaks = c(0, 0.5, 1.0, 1.5, 2.0), limits = c(0, 2))
+
+emm_obj %>% 
+  as_tibble() %>% 
+  ggplot(aes(x = fert_amount, y = mean.class, fill = fert_amount)) +
+  theme_bw() + 
+  labs(y = "Mittlere Boniturnote", x = "Düngemenge [mg/l]",
+       fill = "Düngemenge [mg/l]") +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = .group, y = mean.class + SE + 0.01), vjust = -0.25) +
+  geom_errorbar(aes(ymin = mean.class-SE, ymax = mean.class+SE),
+                width = 0.2) +
+  scale_fill_okabeito() +
+  theme(legend.position = "none") +
+  scale_y_continuous(breaks = 0:9, limits = c(0,9))
 ```
 :::
 
