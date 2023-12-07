@@ -482,6 +482,11 @@ dtStudent %>%
 ```{r}
 lmer_fit <- lmer(test ~ trtGrp + (1|idSchool) + (1|idClass), data = dtStudent) 
 
+lmer_fit2 <- lmer(test ~ trtGrp + (1|idClass/idSchool), data = dtStudent) 
+
+compare_performance(lmer_fit, lmer_fit2, rank = TRUE)
+
+
 lmer_fit %>% 
   model_performance()
 
@@ -508,107 +513,6 @@ lm_fit %>%
 lm_fit %>% anova
 ```
 :::
-
-Was machen wir jetzt noch zum Schluss? Wir machen noch einen paarweisen Vergleich über alle Level der Variable `body_length_cat`. Ich will hier nochmal zeigen, wie du einen multiplen Vergleich mit einem gemischten Modell in R rechnen kannst. Wir nutzen hier dann das R Paket `{emmeans}` um das *compact letter display* nutzen zu können.
-
-Als erstes nutzen wir die Funktion `emmeans()` um die multiplen Vergleich über alle Level des Faktors `body_length_cat` zurechnen.
-
-```{r}
-res_lmer <- lmer_2_fit %>% 
-  emmeans(~ body_length_cat) 
-```
-
-Im Weiteren nutzen wir jetzt das Objekt `res_lmer` um die Vergleiche zu rechnen und zu asjustieren. Wir nutzen die Bonferroni Methode für die Adjustierung der $p$-Werte.
-
-```{r}
-res_lmer %>% 
-  contrast(method = "pairwise", adjust = "bonferroni") 
-```
-
-Wenn wir an dem *compact letter display* interessiert sind, dann müsen wir die Funktion `cld()` nutzen. Was wir brauchen, hängt dann immer davon ab, was wir zeigen wollen und was die Fragestellung ist.
-
-```{r}
-#| message: false
-#| warning: false
-res_lmer_cld <- res_lmer %>% 
-  cld(adjust = "bonferroni", Letters = letters) %>% 
-  tidy() %>% 
-  select(body_length_cat, estimate, conf.low, conf.high, .group) %>% 
-  mutate(across(where(is.numeric), round, 2))
-
-res_lmer_cld 
-```
-
-An dem *compact letter display* sehen wir schon, dass es keinen Unterschied zwischen den Gruppen bzw. Leveln des Faktors `body_length_cat` gibt. Wir sehen bei allen Leveln ein `a`. Wir haben keine signifikante Unterschiede.
-
-In @fig-cld-lmer siehst du nochmal die Daten zusammen mit dem *compact letter display* dargestellt.
-
-```{r}
-#| message: false
-#| echo: true
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 6
-#| fig-cap: Scatterplot der Körperlängen zusammen mit den 95% Konfidenzintervall und dem *compact letter display*.
-#| label: fig-cld-lmer
-
-ggplot() +
-  theme_bw() +
-  geom_point(data = dragons_tbl, aes(x = body_length_cat, y = test_score)) +
-  geom_text(data = res_lmer_cld, 
-            aes(x = body_length_cat , y = estimate, label = .group),
-            position = position_nudge(x = 0.2), color = "red") +
-  geom_errorbar(data = res_lmer_cld,
-                aes(ymin = conf.low, ymax = conf.high, x = body_length_cat),
-                color = "red", width = 0.1,
-                position = position_nudge(x = 0.1)) +
-  geom_point(data = res_lmer_cld, 
-             aes(x = body_length_cat , y = estimate),
-             position = position_nudge(x = 0.1), color = "red") +
-  scale_color_okabeito() +
-  labs(x = "Körperlänge in Kategorien", y = "Testscore", 
-       caption = "Schwarze Punkte stellen Rohdaten dar.
-       Rote Punkte und Fehlerbalken stellen bereinigte Mittelwerte mit 95% Konfidenzgrenzen pro Behandlung dar.
-       Mittelwerte, mit einem gemeinsamen Buchstaben, sind nicht signifikant unterschiedlich.")
-
-```
-
-Manchmal wollen wir auch die 95% Konfidenzintervalle anzeigen, dann müssen wir wiederum die Funktion `contrast()` nutzen. Wir lassen uns auch hier die adjustoerten $p$-Werte wiedergeben. Wir nutzen dann das Objekt `res_lmer_tbl` um die 95% Konfidenzintervalle zu plotten.
-
-```{r}
-res_lmer_tbl <- res_lmer %>% 
-  contrast(method = "pairwise") %>% 
-  tidy(conf.int = TRUE) %>% 
-  mutate(p.value = pvalue(adj.p.value),
-         across(where(is.numeric), round, 2)) %>% 
-  select(contrast, estimate, p.value,
-         conf.low, conf.high) 
-
-res_lmer_tbl
-```
-
-In @fig-emmeans-lmer-ci sehen wir die 95% Konfidenzintervalle für alle paarweisen Vergleiche der Körperlängen.
-
-```{r}
-#| message: false
-#| warning: false
-#| echo: true
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: Abbildung der 95% Konfidenzintervallefür alle paarweisen Vergleiche der Körperlängen.
-#| label: fig-emmeans-lmer-ci
-
-ggplot(res_lmer_tbl, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high)) +
-  geom_hline(yintercept=0, linetype="11", colour="grey60") +
-  geom_errorbar(width=0.1) + 
-  geom_point() +
-  coord_flip() +
-  theme_bw()  +
-  labs(x = "Vergleich", y = "Mittelwertsunterschied des Gewichtes [kg/ha]",
-       caption = "Schwarze Punkte stellen die bereinigten Mittelwertsunterschiede mit 95% Konfidenzgrenzen dar.
-       Enthält ein 95% Konfidenzintervalle die 0 ist es nicht signifikant unterschiedlich.")
-```
 
 ::: callout-tip
 ## Anwendungsbeispiel: Dreifaktorieller Gruppenvergleich für das Gewicht
