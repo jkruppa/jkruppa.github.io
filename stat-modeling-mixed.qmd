@@ -32,9 +32,10 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, conflicted, broom, see,
-               multcomp, emmeans, lme4, broom.mixed,
-               parameters, ggridges, scales, performance)
+pacman::p_load(tidyverse, magrittr, broom, see, simstudy,
+               multcomp, emmeans, lme4, broom.mixed, readxl,
+               parameters, ggridges, scales, performance, 
+               conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 ```
@@ -402,7 +403,113 @@ In diesem Beispiel wäre sogar eine multiple lineare Regression das beste Modell
 
 ## Gruppenvergleich {#sec-mult-comp-lmer-reg}
 
-Was machen wir jetzt noch zum Schluß? Wir machen noch einen paarweisen Vergleich über alle Level der Variable `body_length_cat`. Ich will hier nochmal zeigen, wie du einen multiplen Vergleich mit einem gemischten Modell in R rechnen kannst. Wir nutzen hier dann das R Paket `{emmeans}` um das *compact letter display* nutzen zu können.
+![](images/caution.png){fig-align="center" width="50%"}
+
+text
+
+`{simstudy}`
+
+```{r}
+
+gen.school <- defData(varname = "nClasses", dist = "nonrandom", formula = 3,
+    id = "idSchool")
+gen.school <- defData(gen.school, varname = "s0", dist = "normal", formula = 0, variance = 3)
+```
+
+```{r}
+set.seed(282721)
+
+dtSchool <- genData(9, gen.school)
+dtSchool <- trtAssign(dtSchool, n = 3)
+
+dtSchool
+```
+
+text
+
+```{r}
+gen.class <- defDataAdd(varname = "nStudents", dist = "noZeroPoisson", formula = 20)
+gen.class <- defDataAdd(gen.class, varname = "c0", dist = "normal", formula = 0, variance = 2)
+```
+
+```{r}
+dtClass <- genCluster(dtSchool, "idSchool", numIndsVar = "nClasses", level1ID = "idClass")
+dtClass <- addColumns(gen.class, dtClass)
+
+head(dtClass, 10)
+```
+
+text
+
+```{r}
+gen.student <- defDataAdd(varname = "Male", dist = "binary",
+    formula = 0.5)
+gen.student <- defDataAdd(gen.student, varname = "age", dist = "uniform",
+    formula = "9.5; 10.5")
+gen.student <- defDataAdd(gen.student, varname = "test", dist = "normal",
+    formula = "50 - 5*Male + s0 + c0 + 8 * trtGrp", variance = 2)
+dtStudent <- genCluster(dtClass, cLevelVar = "idClass", numIndsVar = "nStudents",
+    level1ID = "idChild")
+
+dtStudent <- addColumns(gen.student, dtStudent) %>% 
+  mutate(idClass = as_factor(idClass),
+         idSchool = as_factor(idSchool),
+         trtGrp = as_factor(trtGrp)) 
+```
+
+```{r}
+dtStudent %>% 
+  mutate(idClass = as_factor(idClass),
+         idSchool = as_factor(idSchool),
+         trtGrp = as_factor(trtGrp)) %>% 
+  ggplot(aes(idClass, test, fill = idSchool, linetype = trtGrp, color = trtGrp)) +
+  theme_bw() +
+  geom_boxplot()
+
+
+dtStudent %>% 
+  mutate(idClass = as_factor(idClass),
+         idSchool = as_factor(idSchool),
+         trtGrp = as_factor(trtGrp)) %>% 
+  ggplot(aes(trtGrp, test, fill = idSchool, group = idClass)) +
+  theme_bw() +
+  geom_boxplot()
+```
+
+::: panel-tabset
+## `lmer`
+
+```{r}
+lmer_fit <- lmer(test ~ trtGrp + (1|idSchool) + (1|idClass), data = dtStudent) 
+
+lmer_fit %>% 
+  model_performance()
+
+lmer_fit %>% 
+  emmeans(~ trtGrp) %>% 
+  pairs()
+
+lmer_fit %>% anova
+
+```
+
+## `lm`
+
+```{r}
+lm_fit <- lm(test ~ trtGrp + idSchool + idClass, data = dtStudent) 
+
+lm_fit %>% 
+  model_performance()
+
+lm_fit %>% 
+  emmeans(~ trtGrp) %>% 
+  pairs()
+
+lm_fit %>% anova
+```
+:::
+
+Was machen wir jetzt noch zum Schluss? Wir machen noch einen paarweisen Vergleich über alle Level der Variable `body_length_cat`. Ich will hier nochmal zeigen, wie du einen multiplen Vergleich mit einem gemischten Modell in R rechnen kannst. Wir nutzen hier dann das R Paket `{emmeans}` um das *compact letter display* nutzen zu können.
 
 Als erstes nutzen wir die Funktion `emmeans()` um die multiplen Vergleich über alle Level des Faktors `body_length_cat` zurechnen.
 
@@ -502,5 +609,198 @@ ggplot(res_lmer_tbl, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high)) +
        caption = "Schwarze Punkte stellen die bereinigten Mittelwertsunterschiede mit 95% Konfidenzgrenzen dar.
        Enthält ein 95% Konfidenzintervalle die 0 ist es nicht signifikant unterschiedlich.")
 ```
+
+::: callout-tip
+## Anwendungsbeispiel: Dreifaktorieller Gruppenvergleich für das Gewicht
+
+Im folgenden Beispiel schauen wir uns nochmal ein praktische Auswertung von einem agrarwissenschaftlichen Beispiel mit Brokkoli an. Wir haben uns in diesem Experiment verschiedene Dosen `fert_amount` von einem Dünger aufgebracht sowie verschiedene Zeitpunkte der Düngung `fert_time` berücksichtigt. Auch hier haben wir einige Besonderheiten in den Daten, da nicht jede Faktorkombination vorliegt. Wir ignorieren aber diese Probleme und rechnen einfach stumpf unseren Gruppenvergleich.
+
+```{r}
+broc_tbl <- read_excel("data/broccoli_weight.xlsx") %>% 
+  mutate(fert_time = factor(fert_time, levels = c("none", "early", "late")),
+         fert_amount = as_factor(fert_amount),
+         block = as_factor(block)) %>%
+  select(-stem_hollowness) 
+```
+
+Dann können wir auch schon die Gaussian Regression mit `lm()` rechnen.
+
+```{r}
+lm_fit <- lm(weight ~ fert_time + fert_amount + fert_time:fert_amount + block, 
+             data = broc_tbl) 
+```
+
+Jetzt rechnen wir in den beiden folgenden Tabs einmal die ANOVA und dann auch den multiplen Gruppenvergleich mit `{emmeans}`. Da wir hier normalveteilte Daten haben, können wir dann einfach die Standardverfahren nehmen. Eventuell müssten wir bei dem Gruppenvergleich mit `emmeans()` nochmal für Varianzheterogenität adjustieren, aber da erfährst du dann mehr in dem Kapitel zu den [Multiple Vergleichen oder Post-hoc Tests](#sec-posthoc).
+
+::: panel-tabset
+## ANOVA mit `anova()`
+
+Wir rechnen hier einmal die ANOVA und nutzen den $\mathcal{X}^2$-Test für die Ermittelung der p-Werte. Wir müssen hier einen Test auswählen, da per Standardeinstellung kein Test gerechnet wird. Wir machen dann die Ausgabe nochmal schöner und fertig sind wir.
+
+```{r}
+lm_fit %>% 
+  anova() %>% 
+  model_parameters()
+```
+
+Wir sehen, dass der Effekt der Düngerzeit und die Menge des Düngers signifikant ist, jedoch wir keinen signifikanten Einfluss durch die Interaktion haben. Wir haben aber also keine Interaktion vorliegen. Leider ist auch der Block signifikant, so dass wir eigentlich nicht über den Block mitteln sollten. Wir rechnen trotzdem die Analyse gemittelt über die Blöcke. Wenn du hier mehr erfahren möchtest, dann schaue dir das Beispiel hier nochmal im Kapitel zu dem [linearen gemischten Modellen](#sec-mixed) an.
+
+## Gruppenvergleich mit `emmeans()`
+
+Im Folgenden rechnen wir einmal über alle Faktorkombinationen von `fert_time` und `fert_amount` einen Gruppenvergleich. Dafür nutzen wir die Option `fert_time * fert_amount`. Wenn du die Analyse *getrennt* für die Menge und den Zeitpunkt durchführen willst, dann nutze die Option `fert_time | fert_amount`. Dann adjustieren wir noch nach Bonferroni und sind fertig.
+
+```{r}
+emm_obj <- lm_fit %>% 
+  emmeans(~ fert_time * fert_amount) %>%
+  cld(Letters = letters, adjust = "bonferroni")
+emm_obj
+```
+
+Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. Die `emmean` stellt den mittleren Gewicht des Brokkoli je Faktorkombination dar gemittelt über alle Blöcke. Das Mitteln über die Blöcke ist eher fragwürdig, da wir ja einen Effekt der Blöcke in der ANOVA gefunden hatten. Hier schauen wir dann nochmal auf das Beispiel im Kapitel zu den [linearen gemischten Modellen](#sec-mixed). Dann können wir zum Abschluss auch das *compact letter display* anhand der Abbildung interpretieren.
+:::
+
+In der @fig-log-mod-gaussian-broc siehst du das Ergebnis der Auswertung in einem Säulendiagramm. Wir sehen einen klaren Effekt der Düngezeitpunkte sowie der Düngermenge auf das Gewicht von Brokkoli. Wenn wir ein mittleres Gewicht von $500g$ für den Handel erreichen wollen, dann erhalten wir das Zielgewicht nur bei einer Düngemenge von $300mg/l$. Hier stellt sich dann die Frage, ob wir bei $225mg/l$ und einem frühen Zeitpunkt der Düngung nicht auch genug Brokkoli erhalten. Das Ziel ist es ja eigentlich in einen Zielbereich zu kommen. Die Köpfe sollen ja nicht zu schwer und auch nicht zu leicht sein. Aber diese Frage und andere Fragen der biologischen Anwendung lassen wir dann hier einmal offen, denn das Beispiel soll ja nur ein Beispiel sein.
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-log-mod-gaussian-broc
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "Säulendigramm der mittleren Brokkoligewichte aus einer Gaussian Regression. Das `lm()`-Modell berechnet das mittler Gewicht des Brokkoli in jeder Faktorkombination. Das *compact letter display* wird dann in `{emmeans}` generiert. Wir nutzen hier den Standardfehler, da die Standardabweichung mit der großen Fallzahl rießig wäre. Wir haben noch ein Mindestgewicht von 500g ergänzt."
+
+emm_obj %>% 
+  as_tibble() %>% 
+  ggplot(aes(x = fert_time, y = emmean, fill = fert_amount)) +
+  theme_bw() + 
+  labs(y = "Mittleres Gewicht [g] des Brokkoli", x = "Düngezeitpunkt",
+       fill = "Düngemenge [mg/l]") +
+  scale_y_continuous(breaks = seq(0, 500, by = 100)) +
+  geom_hline(yintercept = 500, size = 0.75, linetype = 2) +
+  geom_bar(stat = "identity", 
+           position = position_dodge(width = 0.9, preserve = "single")) +
+  geom_text(aes(label = .group, y = emmean + SE + 0.01),  
+            position = position_dodge(width = 0.9), vjust = -0.25) +
+  geom_errorbar(aes(ymin = emmean-SE, ymax = emmean+SE),
+                width = 0.2,  
+                position = position_dodge(width = 0.9, preserve = "single")) +
+  scale_fill_okabeito()
+```
+:::
+
+::: callout-tip
+## Anwendungsbeispiel: Dreifaktorieller Gruppenvergleich für Thripsenbefall
+
+Im folgenden Beispiel schauen wir uns nochmal ein praktische Auswertung von einem agrarwissenschaftlichen Beispiel mit jungen Apfelbäumen an. Wir haben uns in diesem Experiment verschiedene Dosen `trt` von einem Insektizid aufgebracht sowie verschiedene Startanzahlen von Raubmilben als biologische Alternative untersucht. Dann haben wir noch fünf Zeitpunkte bestimmt, an denen wir die Anzahl an Thripsen auf den Blättern gezählt haben. Wir haben nicht die Blätter per se gezählt sondern Fallen waagerecht aufgestellt. Dann haben wir geschaut, wie viele Thripsen wir über `above` und unter `below` von den Fallen gefunden haben. In unserem Fall beschränken wir uns auf die obere Anzahl an Thripsen und schauen uns auch nur die Behandlung mit dem Insektizid an.
+
+```{r}
+insects_tbl <- read_excel("data/insects_count.xlsx") %>% 
+  mutate(timepoint = factor(timepoint, labels = c("1 Tag", "4 Tag", "7 Tag", "11 Tag", "14 Tag")),
+         rep = as_factor(rep),
+         trt = as_factor(trt)) %>%
+  select(timepoint, trt, rep, thripse = thripse_above, mite = mite_above) %>% 
+  filter(trt %in% c("10ml", "30ml", "60ml"))
+```
+
+Dann können wir auch schon die Poisson Regression mit `glm()` rechnen. Auch hier wieder darauf achten, dass wir dann als Option `family = poisson` oder `family = quasipoisson` wählen. Es hängt jetzt davon ab, ob du in deinen Daten Overdispersion vorliegen hast oder nicht. In den beiden folgenden Tabs, rechne ich dann mal beide Modelle.
+
+::: panel-tabset
+## `family = poisson`
+
+Als Erstes rechnen wir eine normale Poisson Regression und schauen einmal, ob wir Overdispersion vorliegen haben. Wenn wir Overdispersion vorliegen haben, dann können wir keine Poisson Regression rechnen, sondern müssen auf eine Quasipoisson Regression ausweichen. Das ist aber sehr einfach, wie du im anderen Tab sehen wirst.
+
+```{r}
+insects_poisson_fit <- glm(thripse ~ trt + timepoint + trt:timepoint, 
+                           data = insects_tbl, 
+                           family = poisson) 
+```
+
+Bevor wir uns das Modell mit `summary()` überhaupt anschauen, wollen wir erstmal überprüfen, ob wir überhaupt Overdispersion vorliegen haben. Wenn ja, dann können wir uns die `summary()` hier gleich sparen. Also einmal geguckt, was die Overdispersion macht.
+
+```{r}
+insects_poisson_fit %>% check_overdispersion()
+```
+
+Wir haben sehr starke Overdispersion vorliegen und gehen daher rüber in den anderen Tab und rechnen eine Quasipoisson Regression. Nur wenn du keine Overdispersion vorliegen hast, dann kannst du eine eine Poisson Regression rechnen.
+
+## `family = quasipoisson`
+
+Entweder hast du in deinen Daten eine Overdispersion gefunden oder aber du meinst, es wäre besser gleich eine Quasipoisson zu rechnen. Beides ist vollkommen in Ordnung. Ich rechne meistens immer eine Quasipoisson und schaue dann nur, ob die Overdispersion sehr groß war. In den seltensten Fällen hast du eine Overdispersion vorliegen, die eher klein ist. Daher mache ich erst die Lösung und schaue, ob das Problem dann da war.
+
+```{r}
+insects_quasipoisson_fit <- glm(thripse ~ trt + timepoint + trt:timepoint, 
+                                data = insects_tbl, 
+                                family = quasipoisson) 
+```
+
+Du kannst in der `summary()` Ausgabe direkt sehen, ob du Overdispersion vorliegen hast. Du musst nur relativ weit unten schauen, was zu dem `Dispersion parameter` in den Klammern geschrieben ist. Wenn da eine Zahl größer als 1 drin steht, dann hast du Overdispersion.
+
+```{r}
+insects_quasipoisson_fit %>% 
+  summary()
+```
+
+Wir haben hier auf jeden Fall Overdispersion vorliegen. Daher nutze ich dann auch das Modell hier mit der Annahme an eine Quasipoissonverteilung. Dann stimmt es auch mit unseren Varianzen und wir produzieren nicht zufällig zu viele signifikante Ergebnisse, die es dann gar nicht gibt.
+:::
+
+Ich habe mich gerade in den obigen Tabs für eine Quasipoisson Regression entschieden, da wir Overdispersion vorliegen haben. Damit mache ich dann mit dem `insects_quasipoisson_fit` Modell weiter. In den beiden folgenden Tabs findest du dann einmal das Ergebnis für die ANOVA und einmal für den Gruppenvergleich mit dem R Paket `{emmeans}`. Bitte beachte, dass die ANOVA für ein `glm()`-Objekt nicht ganz gleich wie für ein `lm()`-Objekt ist. Du kannst aber die ANOVA erstmal ganz normal interpretieren, nur haben wir hier nicht die Möglichkeit ein $\eta^2$ zu bestimmen. Dann nutzen wir `{emmeans}` für den Gruppenvergleich. Nochmal, weil wir Overdispersion festgestellt haben, nutzen wir das Objekt `insects_quasipoisson_fit` mit der Berücksichtigung der Overdispersion.
+
+::: panel-tabset
+## ANOVA mit `anova()`
+
+Wir rechnen hier einmal die ANOVA und nutzen den $\mathcal{X}^2$-Test für die Ermittelung der p-Werte. Wir müssen hier einen Test auswählen, da per Standardeinstellung kein Test gerechnet wird. Wir machen dann die Ausageb nochmal schöner und fertig sind wir.
+
+```{r}
+insects_quasipoisson_fit %>% 
+  anova(test = "Chisq") %>% 
+  model_parameters(drop = "NULL")
+```
+
+Wir sehen, dass der Effekt für die Behandlung signifikant ist, jedoch die Zeit und die Interaktion keinen signifikanten Einfluss haben. Wir haben aber also keine Interaktion vorliegen. Daher können wir dann die Analyse gemeinsam über alle Zeitpunkte rechnen.
+
+## Gruppenvergleich mit `emmeans()`
+
+Im Folgenden rechnen wir einmal über alle Faktorkombinationen von `trt` und `timepoint` einen Gruppenvergleich. Dafür nutzen wir die Opition `trt * timepoint`. Wenn du die Analyse *getrennt* für die Zeitpunkte durchführen willst, dann nutze die Option `trt | timepoint`. Wir wollen die Wahrscheinlichkeiten für das Auftreten einer Beschädigung von wiedergegeben bekommen, deshalb die Option `regrid = "response`. Dann adjustieren wir noch nach Bonferroni und sind fertig.
+
+```{r}
+emm_obj <- insects_quasipoisson_fit %>% 
+  emmeans(~ trt * timepoint, regrid = "response") %>%
+  cld(Letters = letters, adjust = "bonferroni")
+emm_obj
+```
+
+Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. Die `rate` stellt die mittlere Anzahl an Thripsen je Faktorkombination dar. Dann können wir auch das *compact letter display* anhand der Abbildung interpretieren.
+:::
+
+In der @fig-log-mod-pois-insect siehst du das Ergebnis der Auswertung in einem Säulendiagramm. Hier unbedingt `SE` als den Standardfehler für die Fehlerbalken nutzen, da wir sonst Fehlerbalken größer und kleiner als $0$ erhalten, wenn wir die Standardabweichung nutzen würden. Das ist in unserem Fall nicht so das Problem, aber wenn du eher kleine Anzahlen zählst, kann das schnell zu Werten kleiner Null führen. Wir sehen einen klaren Effekt der Behandlung `60ml`. Die Zeit hat keinen Effekt, was ja schon aus der ANOVA klar war, die Säulen sehen für jeden Zeitpunkt vollkommen gleich aus. Gut etwas Unterschied ist ja immer.
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-log-mod-pois-insect
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "Säulendigramm der mitleren Zahl der Thripsen aus einer Poisson Regression. Das `glm()`-Modell berechnet die mittlere Anzahl in jeder Faktorkombination. Das *compact letter display* wird dann in `{emmeans}` generiert."
+
+emm_obj %>% 
+  as_tibble() %>% 
+  ggplot(aes(x = timepoint, y = rate, fill = trt)) +
+  theme_bw() + 
+  labs(y = "Mittlere Anzahl an Thripsen", x = "Messzeitpunkte der Zählungen",
+       fill = "Dosis") +
+  geom_bar(stat = "identity", 
+           position = position_dodge(width = 0.9, preserve = "single")) +
+  geom_text(aes(label = .group, y = rate + SE + 0.01),  
+            position = position_dodge(width = 0.9), vjust = -0.25) +
+  geom_errorbar(aes(ymin = rate-SE, ymax = rate+SE),
+                width = 0.2,  
+                position = position_dodge(width = 0.9, preserve = "single")) +
+  scale_fill_okabeito()
+```
+:::
 
 ## Referenzen {.unnumbered}
