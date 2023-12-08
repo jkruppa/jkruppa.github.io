@@ -14,7 +14,36 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, simstudy)
 Du findest auf YouTube [Lineare gemischte Modelle](https://youtu.be/54ba9cn3MeY) als Video Reihe. Ich werde zwar alles nochmal hier als Text aufschreiben, aber manchmal ist das Sehen und Hören dann einfacher.
 :::
 
-Dieses Kapitel basiert auf dem tollen [Tutorium von Gabriela K Hajduk](https://ourcodingclub.github.io/tutorials/mixed-models/). Die Daten und Inhalte wurden von mir teilweise gekürzt sowie inhaltlich angepasst. Ideen und weitere Erklärungen sind auch beim [Tutorium von Sara Stoudt](https://rlbarter.github.io/Practical-Statistics/2017/03/03/fixed-mixed-and-random-effects/) zu finden. Als Literatur ist vor allem dann das sehr ausführliche Buch von @zuur2009mixed zu empfehlen.
+In diesem Kapitel vollen wir die Grundzüge der lineare gemischten Modell (eng. *linear mixed models*, abk. *lmm*) zu versuchen zu verstehen. Wir immer, es gibt dazu auch hervorragende Literatur wie das sehr ausführliche Buch von @zuur2009mixed. Dabei basieren Teile dieses Kapitel auf dem tollen [Tutorium von Gabriela K Hajduk](https://ourcodingclub.github.io/tutorials/mixed-models/). Die Daten und Inhalte wurden von mir teilweise gekürzt sowie inhaltlich angepasst. Ideen und weitere Erklärungen sind auch beim [Tutorium von Sara Stoudt](https://rlbarter.github.io/Practical-Statistics/2017/03/03/fixed-mixed-and-random-effects/) zu finden. Ich kann eben nicht alles auf einmal hier abdecken. Als weiteres Tutorium für die Auswertung von linearen gemischten Modellen und allgemein dem Modellieren von agarwissenschaftlichen Daten kann ich die Seite [Data Science for Agriculture in R](https://schmidtpaul.github.io/dsfair_quarto/) sehr empfehlen.
+
+Fangen wir also einmal an zu verstehen, wie eigentlich ein Experiment aussehen muss, damit wir ein lineares gemischtes Modell rechnen wollen. Wir haben häufig in den Agarwissenschaften Faktoren als unser $x$ vorliegen. Für das $y$ können aber jeden Messwert abbilden. Dafür gibt es dann die Funktion `glmer()`, die das Äquivalent zu der Funktion `glm()` ist. Wir haben also folgendes, mehrfaktorielles Modell vorliegen.
+
+$$
+y \sim f_1 + f_2 + f_3 + f_4
+$$
+
+Und eigentlich haben wir ja gar nicht vier *gleichwertige* Faktoren vorliegen, sondern meistens unsere Behandlungsfaktor $f_1$ und $f_2$ an dem wir interessiert sind und dann noch bis zu zwei weitere Faktoren $f_3$ und $f_4$, die eine weitere Gruppierung repräsentieren. Wir können auch noch mehr Faktoren vorliegen haben, aber ich empfehle ein Design immer auf maximal vier Faktoren zu begrenzen. Unsere beiden Faktoren $f_3$ und $f_4$ beschreiben jetzt aber nicht noch mehr Behandlungen sondern stellen ein Feld, einen Block oder aber einen Stall dar. Wir haben es also mit Faktoren für eine "Position" zu tun. Die Position kann auch eine zeitliche Komponente sein. Deshalb schreiben wir etwas allgemeiner für die Faktoren $f_3$ und $f_4$ dann als Blockfaktor $b_1$ und $b_2$. Wie schon erwähnt es handelt sich nicht ausschließlich um Blöcke, es können auch andere Positionen in Raum und Zeit sein. Es geht immer mehr und manchmal braucht man auch mehr Faktoren, aber in unserem Kontext hier würde ich anraten sich auf eher auf drei Faktoren zu begrenzen. Also entweder zwei Behandlungsfaktoren und ein Positionsfaktor oder aber ein Behandlungsfaktor und zwei Positionsfaktoren. Damit können wir wie folgt unser Modell schreiben.
+
+$$
+y \sim f_1 + f_2 + b_1 + b_2
+$$
+
+Als wäre das nicht kompliziert genug, haben wir meistens auch noch verschachtelte (eng. *nested*) Daten vorliegen. Damit meine ich, dass wir den Faktor $b_1$ in jedem Level des Faktors $b_2$ vorliegen haben. Wir können eben verschiedene Standorte als Faktor $b_2$ betrachten und an jedem der Standorte haben wir Blöcke $b_1$ vorliegen. Mehr dazu findest du dann auch in dem Kapitel [Versuchsplanung in R](#sec-experimental-design-r)
+
+```{mermaid}
+%%| label: fig-mermaid-r-mixed-01
+%%| fig-width: 6
+%%| fig-cap: "Beispiel für drei Faktoren und deren Abhänigigkeitsstruktur untereinander. Die Behandlungen sind in den Tischen genested und die Tische in den Gewächshäusern."
+flowchart LR
+    C(Behandlungen):::factor --- D(((nested))) --> E(Tische):::factor --- F(((nested))) --> G(Gewächshäuser):::factor
+    classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
+```
+
+Okay, das ist jetzt bis hierher sehr abstrakt. Machen wir das mal konkret mit einem Beispiel mit drei Behandlungen gegen Blattläuse auf jeweils vier Tischen in drei Gewächshäusern. Pro Behandlung nehmen wir fünf Pflanzen. Damit ergibt sich folgendes Schema mit den jeweiligen Anzahlen darübergeschrieben.
+
+$$
+\overbrace{\mbox{Gewächshauser}}^{n_g = 3} \xrightarrow[alle]{beinhaltet} \underbrace{\mbox{Tische}}_{n_t = 4} \xrightarrow[alle]{beinhaltet} \overbrace{\mbox{Behandlungen}}^{n_b = 3} \xrightarrow[alle]{beinhaltet} \underbrace{\mbox{Beobachtungen}}_{n_w = 5}
+$$
 
 ## Annahmen an die Daten
 
@@ -410,68 +439,58 @@ text
 `{simstudy}`
 
 ```{r}
-
-gen.school <- defData(varname = "nClasses", dist = "nonrandom", formula = 3,
-    id = "idSchool")
-gen.school <- defData(gen.school, varname = "s0", dist = "normal", formula = 0, variance = 3)
+gen_school <- defData(varname = "n_classes", dist = "nonrandom", formula = 3,
+    id = "id_school")
+gen_school <- defData(gen_school, varname = "s0", dist = "normal", formula = 0, variance = 3)
 ```
 
 ```{r}
 set.seed(282721)
 
-dtSchool <- genData(9, gen.school)
-dtSchool <- trtAssign(dtSchool, n = 3)
+dt_school <- genData(9, gen_school)
+dt_school <- trtAssign(dt_school, n = 3, grpName = "trt")
 
-dtSchool
+dt_school
 ```
 
 text
 
 ```{r}
-gen.class <- defDataAdd(varname = "nStudents", dist = "noZeroPoisson", formula = 20)
-gen.class <- defDataAdd(gen.class, varname = "c0", dist = "normal", formula = 0, variance = 2)
+gen_class <- defDataAdd(varname = "n_students", dist = "nonrandom", formula = 20)
+gen_class <- defDataAdd(gen_class, varname = "c0", dist = "normal", formula = 0, variance = 2)
 ```
 
 ```{r}
-dtClass <- genCluster(dtSchool, "idSchool", numIndsVar = "nClasses", level1ID = "idClass")
-dtClass <- addColumns(gen.class, dtClass)
+dt_class <- genCluster(dt_school, "id_school", numIndsVar = "n_classes", level1ID = "id_class")
+dt_class <- addColumns(gen_class, dt_class)
 
-head(dtClass, 10)
+head(dt_class, 10)
 ```
 
 text
 
 ```{r}
-gen.student <- defDataAdd(varname = "Male", dist = "binary",
-    formula = 0.5)
-gen.student <- defDataAdd(gen.student, varname = "age", dist = "uniform",
-    formula = "9.5; 10.5")
-gen.student <- defDataAdd(gen.student, varname = "test", dist = "normal",
-    formula = "50 - 5*Male + s0 + c0 + 8 * trtGrp", variance = 2)
-dtStudent <- genCluster(dtClass, cLevelVar = "idClass", numIndsVar = "nStudents",
-    level1ID = "idChild")
 
-dtStudent <- addColumns(gen.student, dtStudent) %>% 
-  mutate(idClass = as_factor(idClass),
-         idSchool = as_factor(idSchool),
-         trtGrp = as_factor(trtGrp)) 
+gen_student <- defDataAdd(varname = "test", dist = "normal",
+                          formula = "50 + s0 + c0 + 8 * trt", variance = 2)
+dt_student <- genCluster(dt_class, cLevelVar = "id_class", numIndsVar = "n_students",
+    level1ID = "id_child")
+
+dt_student <- addColumns(gen_student, dt_student) %>% 
+  mutate(id_class = as_factor(id_class),
+         id_school = as_factor(id_school),
+         trt = as_factor(trt)) 
 ```
 
 ```{r}
-dtStudent %>% 
-  mutate(idClass = as_factor(idClass),
-         idSchool = as_factor(idSchool),
-         trtGrp = as_factor(trtGrp)) %>% 
-  ggplot(aes(idClass, test, fill = idSchool, linetype = trtGrp, color = trtGrp)) +
+dt_student %>% 
+  ggplot(aes(id_class, test, fill = id_school, linetype = trt, color = trt)) +
   theme_bw() +
   geom_boxplot()
 
 
-dtStudent %>% 
-  mutate(idClass = as_factor(idClass),
-         idSchool = as_factor(idSchool),
-         trtGrp = as_factor(trtGrp)) %>% 
-  ggplot(aes(trtGrp, test, fill = idSchool, group = idClass)) +
+dt_student %>% 
+  ggplot(aes(trt, test, fill = id_school, group = id_class)) +
   theme_bw() +
   geom_boxplot()
 ```
@@ -480,9 +499,9 @@ dtStudent %>%
 ## `lmer`
 
 ```{r}
-lmer_fit <- lmer(test ~ trtGrp + (1|idSchool) + (1|idClass), data = dtStudent) 
+lmer_fit <- lmer(test ~ trt + (1|id_school) + (1|id_class), data = dt_student) 
 
-lmer_fit2 <- lmer(test ~ trtGrp + (1|idClass/idSchool), data = dtStudent) 
+lmer_fit2 <- lmer(test ~ trt + (1|id_class/id_school), data = dt_student) 
 
 compare_performance(lmer_fit, lmer_fit2, rank = TRUE)
 
@@ -491,7 +510,7 @@ lmer_fit %>%
   model_performance()
 
 lmer_fit %>% 
-  emmeans(~ trtGrp) %>% 
+  emmeans(~ trt) %>% 
   pairs()
 
 lmer_fit %>% anova
@@ -501,13 +520,13 @@ lmer_fit %>% anova
 ## `lm`
 
 ```{r}
-lm_fit <- lm(test ~ trtGrp + idSchool + idClass, data = dtStudent) 
+lm_fit <- lm(test ~ trt + id_school + id_class, data = dt_student) 
 
 lm_fit %>% 
   model_performance()
 
 lm_fit %>% 
-  emmeans(~ trtGrp) %>% 
+  emmeans(~ trt) %>% 
   pairs()
 
 lm_fit %>% anova
