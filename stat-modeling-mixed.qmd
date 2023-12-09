@@ -14,9 +14,7 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, simstudy)
 Du findest auf YouTube [Lineare gemischte Modelle](https://youtu.be/54ba9cn3MeY) als Video Reihe. Ich werde zwar alles nochmal hier als Text aufschreiben, aber manchmal ist das Sehen und Hören dann einfacher.
 :::
 
-In diesem Kapitel vollen wir die Grundzüge der lineare gemischten Modell (eng. *linear mixed models*, abk. *lmm*) zu versuchen zu verstehen. Wir immer, es gibt dazu auch hervorragende Literatur wie das sehr ausführliche Buch von @zuur2009mixed. Dabei basieren Teile dieses Kapitel auf dem tollen [Tutorium von Gabriela K Hajduk](https://ourcodingclub.github.io/tutorials/mixed-models/). Die Daten und Inhalte wurden von mir teilweise gekürzt sowie inhaltlich angepasst. Ideen und weitere Erklärungen sind auch beim [Tutorium von Sara Stoudt](https://rlbarter.github.io/Practical-Statistics/2017/03/03/fixed-mixed-and-random-effects/) zu finden. Ich kann eben nicht alles auf einmal hier abdecken. Als weiteres Tutorium für die Auswertung von linearen gemischten Modellen und allgemein dem Modellieren von agarwissenschaftlichen Daten kann ich die Seite [Data Science for Agriculture in R](https://schmidtpaul.github.io/dsfair_quarto/) sehr empfehlen.
-
-Fangen wir also einmal an zu verstehen, wie eigentlich ein Experiment aussehen muss, damit wir ein lineares gemischtes Modell rechnen wollen. Wir haben häufig in den Agarwissenschaften Faktoren als unser $x$ vorliegen. Für das $y$ können aber jeden Messwert abbilden. Dafür gibt es dann die Funktion `glmer()`, die das Äquivalent zu der Funktion `glm()` ist. Wir haben also folgendes, mehrfaktorielles Modell vorliegen.
+In diesem Kapitel vollen wir die Grundzüge der lineare gemischten Modell (eng. *linear mixed models*, abk. *lmm*) zu versuchen zu verstehen. Wir immer, es gibt dazu auch hervorragende Literatur wie das sehr ausführliche Buch von @zuur2009mixed. Fangen wir also einmal an zu verstehen, wie eigentlich ein Experiment aussehen muss, damit wir ein lineares gemischtes Modell rechnen wollen. Wir haben häufig in den Agarwissenschaften Faktoren als unser $x$ vorliegen. Für das $y$ können aber jeden Messwert abbilden. Dafür gibt es dann die Funktion `glmer()`, die das Äquivalent zu der Funktion `glm()` ist. Wir haben also folgendes, mehrfaktorielles Modell vorliegen.
 
 $$
 y \sim f_1 + f_2 + f_3 + f_4
@@ -28,22 +26,59 @@ $$
 y \sim f_1 + f_2 + b_1 + b_2
 $$
 
-Als wäre das nicht kompliziert genug, haben wir meistens auch noch verschachtelte (eng. *nested*) Daten vorliegen. Damit meine ich, dass wir den Faktor $b_1$ in jedem Level des Faktors $b_2$ vorliegen haben. Wir können eben verschiedene Standorte als Faktor $b_2$ betrachten und an jedem der Standorte haben wir Blöcke $b_1$ vorliegen. Mehr dazu findest du dann auch in dem Kapitel [Versuchsplanung in R](#sec-experimental-design-r)
+Als wäre das nicht kompliziert genug, haben wir meistens auch noch verschachtelte (eng. *nested*) Daten vorliegen. Damit meine ich, dass wir den Faktor $b_1$ in jedem Level des Faktors $b_2$ vorliegen haben. Wir können eben verschiedene Standorte als Faktor $b_2$ betrachten und an jedem der Standorte haben wir Blöcke $b_1$ vorliegen. Mehr dazu findest du dann auch in dem Kapitel [Versuchsplanung in R](#sec-experimental-design-r) und gleich nochmal weiter unten im Text.
+
+Was ist nun das Besondere an einem linearen gemischten Modell? Wie der Name schon sagt, haben wir irgendwas gemischt. Glücklicherweise mischen wir nur zwei Dinge miteinander. Wir mischen hier feste Effekte (eng. *fixed effect*) und zufällige Effekte (eng. *random effect*) miteinander. Bis jetzt kennst du eigentlich nur feste Effekte. Immer wenn wir ein Modell gebaut haben, dann haben wir das Modell mit festen Effekten gebaut. Wir haben dabei Fakotoren als feste Effekte modelliert. Was ist also nun der Unterschied zwischen der Wahl einen Faktor als festen Effekt oder zufälligen Effekt anzusehen? Zuerst ist dies eine Modellierungsentscheidung. Wir müssen uns also zwischen Arten von Modellen unterscheiden. Daher können wir auch verschiedene Modelle mit unterschiedlichen Anzahlen an Faktoren bauen und dann diese Modelle vergleichen. Welcher Faktor jetzt als fester Effekt und welcher als zufälliher Effekt gilt, liegt dabei an uns.
+
+Die Idee hinter dem Modell mit **festen Effekten** ist, dass die beobachteten Effektgrößen von Block zu Block variieren können, was aber nur auf den Varianz der Blöcke zurückzuführen ist. In Wirklichkeit sind die wahren Effektgrößen alle gleich: Sie sind fix. Alle Blöcke haben den gleichen Mittelwert und variieren nur in der Varianz. Wir sehen aber diesen wahren Mittelwert nicht, da sich alle Blöcke eben immer leicht unterscheiden. Mehr dazu auch in [The Fixed-Effect Model](https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/pooling-es.html#fem))
+
+Das Modell der **zufälligen Effekte** geht davon aus, dass es nicht nur eine wahre Effektgröße gibt, sondern eine Verteilung der wahren Effektgrößen. Jeder unserer Blöcke kann also einen anderen wahren Mittelwert haben. Das Ziel des Modells mit zufälligen Effekten ist es daher nicht, die eine wahre Effektgröße aller Blöcke zu schätzen, sondern den Mittelwert der Verteilung der wahren Effekte. Mehr dazu auch in [The Random-Effect Model](https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/pooling-es.html#rem))
+
+Dabei verbinden die gemischten Modelle die Vorteile eines Modells mit festen Effekt sowie eines Modells mit zufälligen Effekten. Lineare gemischte Modelle schätzen nun die subjektspezifischen Auswirkungen (eng. *subject-specific*) auf die Varianz eines Versuches. Dabei kommt es häufig darauf an unter welchen Umständen eine Beobachtung gemessen wurde. Stehen die Pflanze zusammen auf einem Feld? Sind die Ferkel alle Nachkommen einer Sau? Daher erweitern wir unser lineare Modell um einen zufälligen Effekt $z$ und schreiben wie folgt.
+
+$$
+y \sim f_1 + 1|z_1
+$$
+
+Wir schreiben in R den Term für da zufällige Modell in der Form $z_0|z_1$. Meist setzen wir den Intercept $z_0$ für den zufälligen Effekt auf `1`. Wenn wir darstellen wollen, das ein zufälliger Faktor in einem anderen zufälligen Fakotr genestet ist, dann schreiben wir `1|z_1/z_2`.
+
+$$
+y \sim f_1 + 1|z_1/z_2
+$$
+
+Das heißt, dass der zufällige Blockfaktor $z_1$ in den zufälligen Blockfaktor $z_2$ genestet ist. Das klingt jetzt etwas schräg, also einmal ein Beispiel. Wir haben eine Schule, dann sind die Schulklassen dieser Schule in der Schule genestet. Es gibt diese spezifischen Klassen mit den Schülern schlichtweg nicht in anderen Schulen. Wir sagen genestet (eng. *nested*), wenn wir sagen wollen, dass ein Faktor in einen anderen Faktor verschränkt ist. Die Klassen einer Schule sind in der Schule genestet.
+
+In der @fig-mermaid-r-mixed-01 siehst du einmal exemplarisch die Darstellung eines experimentellen Designs mit drei Faktoren. Die Behandlung ist dabei ein fester Effekt und die beiden Faktoren für die Tische und die Gewächshäuser sind zufällige Effekte. Damit wir in der Folge nicht immer so sehr durcheinanderkommen, habe ich die festen Effekt als blau Kästen und die zufälligen Effekte als orange Kästen gesetzt.
 
 ```{mermaid}
 %%| label: fig-mermaid-r-mixed-01
 %%| fig-width: 6
-%%| fig-cap: "Beispiel für drei Faktoren und deren Abhänigigkeitsstruktur untereinander. Die Behandlungen sind in den Tischen genested und die Tische in den Gewächshäusern."
+%%| fig-cap: "Beispiel für drei Faktoren und deren Abhänigigkeitsstruktur untereinander. Die Behandlungen sind in den Tischen genested und die Tische in den Gewächshäusern. Die festen Effekte sind als blaue Kästen und die zufälligen als orange Kästen eingefärbt."
 flowchart LR
-    C(Behandlungen):::factor --- D(((nested))) --> E(Tische):::factor --- F(((nested))) --> G(Gewächshäuser):::factor
-    classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
+    C(Behandlungen):::fixed --- D(((nested))) --> E(Tische):::random --- F(((nested))) --> G(Gewächshäuser):::random
+    classDef fixed fill:#56B4E9,stroke:#333,stroke-width:0.75px
+    classDef random fill:#E69F00,stroke:#333,stroke-width:0.75px
 ```
 
-Okay, das ist jetzt bis hierher sehr abstrakt. Machen wir das mal konkret mit einem Beispiel mit drei Behandlungen gegen Blattläuse auf jeweils vier Tischen in drei Gewächshäusern. Pro Behandlung nehmen wir fünf Pflanzen. Damit ergibt sich folgendes Schema mit den jeweiligen Anzahlen darübergeschrieben.
+Okay, das ist jetzt bis hierher sehr abstrakt. Machen wir das mal konkret mit einem Beispiel mit drei Behandlungen gegen Blattläuse auf jeweils vier Tischen in drei Gewächshäusern. Pro Behandlung nehmen wir fünf Pflanzen. Damit ergibt sich folgendes Schema der Abhängigkeiten mit den jeweiligen Anzahlen.
 
 $$
 \overbrace{\mbox{Gewächshauser}}^{n_g = 3} \xrightarrow[alle]{beinhaltet} \underbrace{\mbox{Tische}}_{n_t = 4} \xrightarrow[alle]{beinhaltet} \overbrace{\mbox{Behandlungen}}^{n_b = 3} \xrightarrow[alle]{beinhaltet} \underbrace{\mbox{Beobachtungen}}_{n_w = 5}
 $$
+
+Wie du an dem obigen Beispiel sehen kannst, kommen wir bei linearen gemischten Modellen sehr schnell auf sehr große Fallzahlen. Wir haben im obigen, kleinen Beispiel alleine schon eine Fallzahl von $n_{gesamt} = 3 \times 4 \times 3 \times 5 = 180$ Pflanzen. Und damit ist eigentlich unser Beispiel sehr klein gewählt. Eigentlich brauchen wir für einen zufälligen Effekt als Daumenregel immer mehr als fünf Level für eine gute Modellschätzung.
+
+::: callout-tip
+## Weitere Tutorien zu gemischten Modellen
+
+Wie immer und natürlich im Besonderen bei linearen gemischten Modellen, gibt es eine Reihe von tollen Hilfen. Daher hier einmal eine lose Sammlung an Ideen und Tutorien, die mir geholfen haben dieses Kapitel hier zu schreiben. Fast jede Quelle hat dann nochmal Referezen zu weiteren Informationen und Hilfen.
+
+-   [GLMM FAQ -- Ben Bolker and others](https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#should-i-treat-factor-xxx-as-fixed-or-random) ist meine Anlaufstelle, wenn ich mal was nachlesen muss. Eine sehr hilfreiche und umfangreiche Sammlung.
+-   [Mixed Models with R -- Getting started with random effects](https://m-clark.github.io/mixed-models-with-R/) ist ein freies Buch, was ich auch immer mal wieder anschaue, wenn ich Fragen rund um das gemischte Modell habe. Dies ist hier nur ein Kapitel mit einer Zusammenfassung und eben kein ganzes Buch.
+-   Teile dieses Kapitel auf dem tollen [Tutorium von Gabriela K Hajduk](https://ourcodingclub.github.io/tutorials/mixed-models/). Die Daten und Inhalte wurden von mir teilweise gekürzt sowie inhaltlich angepasst. Auch hier findest du sehr viel mehr Informationen und dann auch Links zu weiteren Quellen.
+-   Ideen und weitere Erklärungen sind auch beim [Tutorium von Sara Stoudt](https://rlbarter.github.io/Practical-Statistics/2017/03/03/fixed-mixed-and-random-effects/) zu finden. Hier musst du dich aber mehr Einarbeiten, da der Artikel etwas mehr mathematisch aufgebaut ist.
+-   Als weiteres Tutorium für die Auswertung von linearen gemischten Modellen und allgemein dem Modellieren von agarwissenschaftlichen Daten kann ich die Seite [Data Science for Agriculture in R](https://schmidtpaul.github.io/dsfair_quarto/) sehr empfehlen. Dort findest du dann auch die Anwebdung der R Pakete aus diesem Kapitel.
+:::
 
 ## Annahmen an die Daten
 
@@ -67,15 +102,29 @@ pacman::p_load(tidyverse, magrittr, broom, see, simstudy,
                conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
 
 ## Daten
 
-In diesem fiktiven Datenbeispiel wollen wir uns die Testscores eines Intelligentest bei $N = 480$ Drachen anschauen. Wir sind dafür an acht Berge gefahren und haben die dortigen Drachen an den drei Flanken des Berges getestet. Daher hat der Faktor `mountain_range` acht Level mit Bavarian, Ligurian, Emmental, Central, Maritime, Southern, Julian, und Sarntal. Die drei Flanken des Berges bilden wir im Faktor `site` mit den Leveln north, east und south ab. In @fig-mountain-site sehen wir eine Skizze für drei Berge mit den jeweiligen Flanken, wo gemessen wurde.
+In diesem fiktiven Datenbeispiel wollen wir uns die Testscores eines Intelligentest bei $N = 480$ Drachen anschauen. Wir sind dafür an acht Berge gefahren und haben die dortigen Drachen an den drei Flanken des Berges getestet. Daher hat der Faktor `mountain` acht Level mit Bavarian, Ligurian, Emmental, Central, Maritime, Southern, Julian, und Sarntal. Die drei Flanken des Berges bilden wir im Faktor `site` mit den Leveln north, east und south ab. In @fig-mountain-site sehen wir eine Skizze für drei Berge mit den jeweiligen Flanken, wo gemessen wurde.
 
-![Beispiel für drei der acht Berge mit *Bavarian*, *Central* und *Julian*. Auf jeden der acht Berge wurden an drei Seiten *north*, *east* und *south* die Testscores der dort lebenden Drachen erhoben.](images/mountain.png){#fig-mountain-site fig-align="center" width="90%"}
+![Beispiel für drei der acht Berge mit *Bavarian*, *Central* und *Julian*. Auf jeden der acht Berge wurden an drei Seiten *north*, *east* und *south* die Testscores der dort lebenden Drachen erhoben. Die dort lebenden Drachen wurden dann in fünf Gruppen nach der Körperlänge eingeteilt.](images/mountain.png){#fig-mountain-site fig-align="center" width="90%"}
+
+Damit haben wir dann folgende Struktur der Faktoren vorliegen.
+
+```{mermaid}
+%%| label: fig-mermaid-r-mixed-dragon
+%%| fig-width: 6
+%%| fig-cap: "In unseren Drachendaten leben die einzelnen Drachen auf einer der drei Seiten `site` eines Berges `mountain`. Daher sind die Drachen mit ihrem Faktor `body_length_cat` in dem Faktor `site` genestet. Der Faktor `site` ist dann wiederum in jedem Faktor `mountain` genestet."
+flowchart LR
+    C(dragons):::fixed --- D(((nested))) --> E(site):::random --- F(((nested))) --> G(mountain):::random
+    classDef fixed fill:#56B4E9,stroke:#333,stroke-width:0.75px
+    classDef random fill:#E69F00,stroke:#333,stroke-width:0.75px
+```
 
 Die Daten liegen in dem Datensatz `dragons.csv` ab. Wir müssen aber noch einen Faktor `body_length_cat` bilden in dem wir die `body_length` der einzelnen Drachen in Kategorien umwandeln. Wir wollen später noch Gruppenvergleiche rechnen und brauchen daher einen Faktor mit Leveln. Daher nutzen wir die Funktion `case_when()` um einen Faktor mit fünf Größenkategorien zu bilden. Danach müssen wir wie immer noch die `character` Spalten in die entsprechenden Faktoren umwandeln.
 
@@ -90,7 +139,7 @@ dragons_tbl <- read.csv2("data/dragons.csv") %>%
                      body_length >= 200 & body_length < 220 ~ "large",
                      body_length >= 220 ~ "gigantic"),
          body_length_cat = as_factor(body_length_cat),
-         mountain_range = as_factor(mountain_range),
+         mountain = as_factor(mountain),
          site = factor(site, labels = c("north", "east", "south"))) %>% 
   select(test_score, body_length, body_length_cat, everything())
 
@@ -107,7 +156,7 @@ Es ergibt sich dann der Datensatz wie in @tbl-dragon gezeigt. Wir belassen die K
 
 dragons_raw_tbl <- dragons_tbl %>% 
   mutate(body_length_cat = as.character(body_length_cat),
-         mountain_range = as.character(mountain_range),
+         mountain = as.character(mountain),
          site = as.character(site))
 
 rbind(head(dragons_raw_tbl, n = 4),
@@ -155,51 +204,6 @@ ggplot(dragons_tbl, aes(y = body_length_cat, x = test_score, fill = body_length_
 Natürlich können wir uns hier noch weitere Abbildungen erstellen, aber hier soll es erstmal reichen. Wir sehen, dass der Testscore einer Normalverteilung folgt und dass die Varianzen vermutlich homogen sind, da die Histogramme ungefähr gleich breit sind. Ja, ein wenig unterscheiden sich die Verteilungen, aber so gravierend ist es erstmal nicht.
 
 ## Modellierung
-
-Im Folgenden wollen wir uns verschiedene statistische Modelle anschauen um uns dem linearen gemischten Modell einmal anzunähern. Dabei beginnen wir mit einem simplen Gaussian lineare Modell mit einem Faktor $f_1$:
-
-$$
-y \sim f_1
-$$
-
-Wir haben also nur einen Faktor in unserem Modell vorliegen und ignorieren die restlichen in den Daten vorhandenen Variablen.
-
-Als zweites Modell betrachten wir eine multiples Gaussian lineares Modell mit einem Faktor $f_1$ und einem Blockfaktor $b_1$:
-
-$$
-y \sim f_1 + b_1
-$$
-
-Jetzt erweitern wir das Modell nochmal um einen Block oder auch Clustereffekt. Das heißt, wir haben alle Beobachtungen nicht auf einem Feld oder in einem Stall durchgeführt, sondern an mehreren Orten.
-
-Der eigentliche Bruch kommt jetzt. Wie wollen wir den Effekt des Blocks betrachten? Hier entscheidet sich, ob wir den Block als festen Effekt (eng. *fixed effect*) oder als zufälligen Effekt (eng. *random effect*) ausweisen wollen. Zuerst ist dies eine Modellierungsentscheidung. Wir müssen uns also zwischen zwei Modellen entscheiden. Daher können wir auch beide Arten bauen und dann Modelle vergleichen. Machen wir dann auch am Ende des Kapitels.
-
-Die Idee hinter dem Modell mit **festen Effekten** ist, dass die beobachteten Effektgrößen von Block zu Block variieren können, was aber nur auf den Stichprobenfehler $\epsilon$ zurückzuführen ist. In Wirklichkeit sind die wahren Effektgrößen alle gleich: Sie sind fix. (siehe auch [The Fixed-Effect Model](https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/pooling-es.html#fem))
-
-Das Modell der **zufälligen Effekte** geht davon aus, dass es nicht nur eine wahre Effektgröße gibt, sondern eine Verteilung der wahren Effektgrößen. Das Ziel des Modells mit zufälligen Effekten ist es daher nicht, die eine wahre Effektgröße aller Studien zu schätzen, sondern den Mittelwert der Verteilung der wahren Effekte. (siehe auch [The Random-Effect Model](https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/pooling-es.html#rem))
-
-Lineare gemischte Modelle schätzen die subjektspezifischen Auswirkungen (eng. *subject-specific*). Betrachten wir dabei die folgenden zwei Szenarien nach @allison2009fixed:
-
--   *Szenario 1:* Du bist ein Arzt. Du möchtest wissen, um wie viel ein Cholesterinmedikament die Wahrscheinlichkeit eines Herzinfarkts bei deinem Patienten senkt.
--   *Szenario 2:* Du bist ein staatlicher Gesundheitsbeamter. Du möchtest wissen, wie sich die Zahl der Menschen, die an einem Herzinfarkt sterben, verändern würde, wenn alle Menschen in der Risikogruppe das Cholesterinmedikament einnehmen würden.
-
-Im ersten Szenario wollen wir die subjektspezifischen (eng. *subject-specific*) Chancen wissen. Im zweiten Fall sind wir an der Vorhersage für die gesamte Bevölkerung interessiert. Lineare gemischte Modelle können uns Schätzungen für das erste, aber nicht für das zweite Szenario liefern.
-
-Daher kommt jetzt als drittes Model ein multiples Gaussian lineares gemischtes Modell mit einem festen Faktor $f_1$ und einem zufälligen Blockfaktor $z_1$:
-
-$$
-y \sim f_1 + 1|z_1
-$$
-
-Wir schreiben in R den Term für da zufällige Modell in der Form $z_0|z_1$. Meist setzen wir den Intercept $z_0$ für den zufälligen Effekt auf `1`.
-
-Abschießend schauen wir uns noch ein multiples Gaussian lineares gemischtes Modell mit einem festen Faktor $f_1$ und einem zufälligen Blockfaktor $z_2$ genested in einem einem zufälligen Blockfaktor $z_1$:
-
-$$
-y \sim f_1 + 1|z_1/z_2
-$$
-
-Das heißt, dass der zufällige Blockfaktor $z_2$ in den zufälligen Blockfaktor $z_1$ genested ist. Das heist, die Faktorlevel des Blockfaktors $z_2$ finden sich jeweils nur in jeweils einem der Faktorlevel des Blocks $z_1$. Das klingt jetzt etwas schräg, also einmal ein Beispiel. Wir haben eine Schule, dann sind die Schulklassen dieser Schule in der Schule genested. Es gibt diese spezifischen Klassen mit den Schülern schlichtweg nicht in anderen Schulen. Wir sagen *nested*, wenn wir meinen, dass ein Faktor in einen anderen Faktor verschränkt ist. Die Klassen einer Schule sind in der Schule genested.
 
 Bevor wir jetzt mit dem Modellieren beginnen, müssen wir noch kurz in einem QQ-Plot schauen, ob unser Ourcome `testscore` auch ungefähr normalverteilt ist. @fig-mixed-6 zeigt den QQ-Plot des Testscores. Wir sehen, dass der Hauptteil der Beobachtungen auf der Geraden liegt und wir nehmen daher an, dass der Testscore zumindest approximativ normalverteilt ist. Wir können also mit einem gaussian linearen gemischten Modell weitermachen.
 
@@ -250,17 +254,17 @@ ggplot(dragons_tbl, aes(x = body_length_cat, y = test_score, fill = body_length_
   scale_fill_okabeito() 
 ```
 
-Nun haben wir aber nicht nur die Körpergrößen gemessen sondern auch auf welchem Berg wir die jeweiligen Drachen gefunden haben. Nun könnte es sein, dass der Berg einen viel größeren Einfluss auf die Inteliegenz hat als die Drachenkörpergröße. Wir könnten einen Confoundereffekt durch die Berge vorliegen haben. Ergänzen wir also das Modell um den Faktor `mountain_range` und erhalten das Modell `lm_mountain_fit`.
+Nun haben wir aber nicht nur die Körpergrößen gemessen sondern auch auf welchem Berg wir die jeweiligen Drachen gefunden haben. Nun könnte es sein, dass der Berg einen viel größeren Einfluss auf die Inteliegenz hat als die Drachenkörpergröße. Wir könnten einen Confoundereffekt durch die Berge vorliegen haben. Ergänzen wir also das Modell um den Faktor `mountain` und erhalten das Modell `lm_mountain_fit`.
 
 ```{r}
 #| message: false
 #| warning: false
 
-lm_mountain_fit <- lm(test_score ~ body_length_cat + mountain_range, data = dragons_tbl)
+lm_mountain_fit <- lm(test_score ~ body_length_cat + mountain, data = dragons_tbl)
 lm_mountain_fit %>% model_parameters()
 ```
 
-Wie wir sehen, werden nun die Körpergrößen der Drachen nicht mehr als signifikant ausgegeben. Die Effekte der Körpergröße auf den Testscore sind auch viel kleiner geworden, wenn wir die `mountain_range` mit in das Modell nehmen. Anscheinend hat der Berg auf dem wir den Drachen getroffen haben einen viel größeren Einfluss auf die Intelligenz als die Körpergröße. Wir können uns den Zusammenhang zwischen dem Testscore und dem Berg auch in der @fig-mixed-4 einmal anschauen.
+Wie wir sehen, werden nun die Körpergrößen der Drachen nicht mehr als signifikant ausgegeben. Die Effekte der Körpergröße auf den Testscore sind auch viel kleiner geworden, wenn wir die `mountain` mit in das Modell nehmen. Anscheinend hat der Berg auf dem wir den Drachen getroffen haben einen viel größeren Einfluss auf die Intelligenz als die Körpergröße. Wir können uns den Zusammenhang zwischen dem Testscore und dem Berg auch in der @fig-mixed-4 einmal anschauen.
 
 Eigentlich würden wir erwarten, dass es keinen Effekt der Berge auf den Testscore der Drachen gibt. Es müsste eigentlich egal sein, wo wir einen Drachen befragen, wenn wir nur an der Körpergröße und dem Testscore interessiert sind. Wir sehen jedoch in der @fig-mixed-4 einen klaren Unterschied zwischen den Bergen im Bezug auf den Testscore.
 
@@ -274,7 +278,7 @@ Eigentlich würden wir erwarten, dass es keinen Effekt der Berge auf den Testsco
 #| fig-cap: Boxplots der einzelnen Testscores aufgeteilt nach dem Berg der Befragung.
 #| label: fig-mixed-4
 
-ggplot(dragons_tbl, aes(mountain_range, test_score, fill = mountain_range)) +
+ggplot(dragons_tbl, aes(mountain, test_score, fill = mountain)) +
   geom_boxplot() +
   theme_bw() +
   theme(legend.position = "none") +
@@ -293,7 +297,7 @@ In der @fig-mixed-5 sehen wir den Zusammenhang von Testscore und der Körpergrö
 #| fig-cap: Boxplots der einzelnen Testscores aufgeteilt nach dem Berg der Befragung und der Körpergröße.
 #| label: fig-mixed-5
 
-ggplot(dragons_tbl, aes(x = body_length_cat, y = test_score, fill = mountain_range)) +
+ggplot(dragons_tbl, aes(x = body_length_cat, y = test_score, fill = mountain)) +
   geom_boxplot(position = position_dodge(preserve = "single")) +
   theme_bw() +
   scale_fill_okabeito() +
@@ -312,30 +316,30 @@ Der Zusammenhang wird vielleicht in @fig-mixed-7 nochmal klarer. Hier schauen wi
 #| fig-cap: Boxplots der einzelnen Testscores aufgeteilt nach dem Berg der Befragung und der Körpergröße in getrennten Subplots.
 #| label: fig-mixed-7
 
-ggplot(dragons_tbl, aes(x = body_length_cat, y = test_score, fill = mountain_range)) +
+ggplot(dragons_tbl, aes(x = body_length_cat, y = test_score, fill = mountain)) +
   geom_boxplot(position = position_dodge(preserve = "single")) +
   theme_bw() +
   scale_fill_okabeito() +
   labs(fill = "Mountain") +
   theme(legend.position = "none") +
-  facet_wrap(~ mountain_range) 
+  facet_wrap(~ mountain) 
 ```
 
 Schauen wir uns nun einmal ein lineares gemischtes Modell an. Wir nutzen daszu das R Paket `{lme4}`. Wir haben auch noch andere Pakete zur Aswahl, aber wir nutzen hier erstmal das gängiste Paket. Um ein lineares gemischtes Modell in R zu schätzen nutzen wir die Funktion `lmer()`. Die Funktion `lmer()` nimmt an, dass das Outcome `test_score` normalverteilt ist. Wir haben diese Annahme ja weiter oben in dem QQ-Plot überprüft.
 
 In einem lineare gemischten Modell müssen wir die *festen* Effekte sowie die *zufälligen* Effekte definieren. Die festen Effekte werden ganz normal wie wir es gewohnt sind in das Modell eingegeben. Die zufälligen Effkete schreiben wir in eine Klammer in der Form `(1|)`.
 
-Wir schreiben `(1|moutain_range)` und definieren damit die Variable `mountain_range` als zufälligen Effekt im Modell. Wir schreiben `1|` vor `mountain_range`, da wir für jeden Berg die gleiche Steigung von Körperlänge und Testscore annehmen. Wir können dann später noch das Model komplizierter aufbauen und jedem Berg eine eigene Steigung erlauben. Bauen wir uns jetzt erstmal ein lineares gemischtes Modell mit einem festen Effekt `body_length_cat` und einem zufälligen Effekt `(1|mountain_range)`.
+Wir schreiben `(1|moutain_range)` und definieren damit die Variable `mountain` als zufälligen Effekt im Modell. Wir schreiben `1|` vor `mountain`, da wir für jeden Berg die gleiche Steigung von Körperlänge und Testscore annehmen. Wir können dann später noch das Model komplizierter aufbauen und jedem Berg eine eigene Steigung erlauben. Bauen wir uns jetzt erstmal ein lineares gemischtes Modell mit einem festen Effekt `body_length_cat` und einem zufälligen Effekt `(1|mountain)`.
 
 ```{r}
 #| message: false
 #| warning: false
 
-lmer_1_fit <- lmer(test_score ~ body_length_cat + (1 | mountain_range), data = dragons_tbl)
+lmer_1_fit <- lmer(test_score ~ body_length_cat + (1 | mountain), data = dragons_tbl)
 lmer_1_fit %>% model_parameters()
 ```
 
-Unser Model sieht etwas aufgeräumter aus. Als feste Effekte haben wir nur noch die Körperlänge `body_length_cat` und die dazugehörigen Koeffizienten des Modells. Unsere Variable `mountain_range` verschwindet dann in den zufälligen Effekten. Die Funktion `summary` liefert uns den gesamten Ausdruck, der etwas überwältigend ist. Vieles brauchen wir auch nicht davon.
+Unser Model sieht etwas aufgeräumter aus. Als feste Effekte haben wir nur noch die Körperlänge `body_length_cat` und die dazugehörigen Koeffizienten des Modells. Unsere Variable `mountain` verschwindet dann in den zufälligen Effekten. Die Funktion `summary` liefert uns den gesamten Ausdruck, der etwas überwältigend ist. Vieles brauchen wir auch nicht davon.
 
 ```{r}
 #| message: false
@@ -353,7 +357,7 @@ Was wir extrahieren wollen ist die Information von den zufälligen Effekten. Wir
 print(VarCorr(lmer_1_fit), comp = "Variance")
 ```
 
-Wieviel Varianz erklären nun die Berge? Wir können die erklärte Varianz der zufälligen Effekte einfach berechnen. Wir vergleichen die erklärte Varianz von `mountain_range` mit der gesamten Varianz. Die gesamte Varianz ist die Varianz aller zufälligen Effekte plus der residualen Vamrianz. Wir erhalten dann $R^2_{random} = 339.7/(339.7 + 223.8) \approx 0.60$. Wir sehen, dass ca. 60% der Varianz in unseren Daten von der Variable `mountain_range` verursacht wird.
+Wieviel Varianz erklären nun die Berge? Wir können die erklärte Varianz der zufälligen Effekte einfach berechnen. Wir vergleichen die erklärte Varianz von `mountain` mit der gesamten Varianz. Die gesamte Varianz ist die Varianz aller zufälligen Effekte plus der residualen Varianz. Wir erhalten dann $R^2_{random} = 339.7/(339.7 + 223.8) \approx 0.60$. Wir sehen, dass ca. 60% der Varianz in unseren Daten von der Variable `mountain` verursacht wird.
 
 Wir können die Funktion `model_performance()` nutzen um mehr über den Fit des Modells zu erfahren. Das `R2 (cond.)` ist faktisch das gleiche wie wir gerade oben berechnet haben. Wir benötigen also nicht immer den Ausdruck der zufälligen Effekte. Wir können auch die Informationen aus der Funktion `model_performance()` nehmen.
 
@@ -391,13 +395,13 @@ ggplot(tibble(.resid = resid(lmer_1_fit)), aes(sample = .resid)) +
   theme_bw()
 ```
 
-Wir haben noch eine Variable in unseren Daten ignoriert. Wir haben uns bis jetzt nicht die Variabl `site` angeschaut. Auf jedem Berg haben wir die Drachen noch auf verschiedenen Flanken des Berges `site` befragt. Das heißt, wir haben die Variable `site`, die in der Variable `mountain_site` genestet ist. Wir schreiben daher ein neues Modell und nutzen die Schreibweise `(1|mountain_range/site)` um zu beschreiben, dass `site` immer zusamen in einem Berg vorkommt. Schaue dir dazu nochmal die Abbidlung ganz zu Beginn dieses Kapitels an um die Zusammenhänge nochmal visualisiert zu bekommen.
+Wir haben noch eine Variable in unseren Daten ignoriert. Wir haben uns bis jetzt nicht die Variabl `site` angeschaut. Auf jedem Berg haben wir die Drachen noch auf verschiedenen Flanken des Berges `site` befragt. Das heißt, wir haben die Variable `site`, die in der Variable `mountain_site` genestet ist. Wir schreiben daher ein neues Modell und nutzen die Schreibweise `(1|mountain/site)` um zu beschreiben, dass `site` immer zusamen in einem Berg vorkommt. Schaue dir dazu nochmal die Abbidlung ganz zu Beginn dieses Kapitels an um die Zusammenhänge nochmal visualisiert zu bekommen.
 
 ```{r}
 #| message: false
 #| warning: false
 
-lmer_2_fit <- lmer(test_score ~ body_length_cat + (1|mountain_range/site), data = dragons_tbl) 
+lmer_2_fit <- lmer(test_score ~ body_length_cat + (1|mountain/site), data = dragons_tbl) 
 lmer_2_fit %>% model_parameters()
 ```
 
@@ -415,9 +419,9 @@ Wir sehen, dass sich die erklärte varianz leicht erhöht hat. Die $R^2_{random}
 Wie können wir nun unsere vier Modelle miteinander vergleichen? Wir haben ja folgende Modelle vorliegen:
 
 -   Das simple lineare Modell `lm_simple_fit` mit `test_score ~ body_length_cat`.
--   Das multiple lineare Modell `lm_mountain_fit` mit `test_score ~ body_length_cat + mountain_range`.
+-   Das multiple lineare Modell `lm_mountain_fit` mit `test_score ~ body_length_cat + mountain`.
 -   Das gemischte lineare Modell `lmer_1_fit` mit `test_score ~ body_length_cat + (1|mountin_range)`.
--   Das genestete gemischte lineare Modell `lmer_2_fit` mit `test_score ~ body_length_cat + (1|mountain_range/site)`.
+-   Das genestete gemischte lineare Modell `lmer_2_fit` mit `test_score ~ body_length_cat + (1|mountain/site)`.
 
 Um die Modelle miteinander zu vergleichen können wir die Funktion `compare_performance()` nutzen. Wir erhalten mit der Option `rank = TRUE` auch eine Sortierung der Modelle wieder. Das beste Modell steht dann ganz oben.
 
@@ -456,7 +460,7 @@ dt_school
 text
 
 ```{r}
-gen_class <- defDataAdd(varname = "n_students", dist = "nonrandom", formula = 20)
+gen_class <- defDataAdd(varname = "n_students", dist = "nonrandom", formula = 5)
 gen_class <- defDataAdd(gen_class, varname = "c0", dist = "normal", formula = 0, variance = 2)
 ```
 
@@ -464,13 +468,15 @@ gen_class <- defDataAdd(gen_class, varname = "c0", dist = "normal", formula = 0,
 dt_class <- genCluster(dt_school, "id_school", numIndsVar = "n_classes", level1ID = "id_class")
 dt_class <- addColumns(gen_class, dt_class)
 
-head(dt_class, 10)
+dt_class %<>% 
+  add_column(trt_new = rep(1:3, 9))
+
+head(dt_class)
 ```
 
 text
 
 ```{r}
-
 gen_student <- defDataAdd(varname = "test", dist = "normal",
                           formula = "50 + s0 + c0 + 8 * trt", variance = 2)
 dt_student <- genCluster(dt_class, cLevelVar = "id_class", numIndsVar = "n_students",
@@ -479,7 +485,127 @@ dt_student <- genCluster(dt_class, cLevelVar = "id_class", numIndsVar = "n_stude
 dt_student <- addColumns(gen_student, dt_student) %>% 
   mutate(id_class = as_factor(id_class),
          id_school = as_factor(id_school),
-         trt = as_factor(trt)) 
+         trt = as_factor(trt),
+         trt_new = as_factor(trt_new))
+```
+
+::: {.callout-caution collapse="true"}
+## Generierung von Daten: 1 fester Effekt und 2 zufällige Effekte
+
+```{r}
+n_school <- 9
+n_class_per_school <- 3
+n_trt <- 3
+n_reps <- 20
+```
+:::
+
+@tbl-mixed-simple-2fac
+
+| school | $\boldsymbol{eff_{school}}$ | class | $\boldsymbol{eff_{class}}$ | trt | $\boldsymbol{eff_{trt}}$ | reps |
+|:------:|:---------------------------:|:-----:|:--------------------------:|:---:|:------------------------:|:----:|
+|   1    |           $0.23$            |   1   |          $-0.14$           |  1  |           $10$           |  1   |
+|   1    |           $0.23$            |   1   |          $-0.14$           |  1  |           $10$           |  2   |
+|   1    |           $0.23$            |   1   |          $-0.14$           |  2  |           $5$            |  1   |
+|   1    |           $0.23$            |   1   |          $-0.14$           |  2  |           $5$            |  2   |
+|   1    |           $0.23$            |   2   |           $0.21$           |  1  |           $10$           |  1   |
+|   1    |           $0.23$            |   2   |           $0.21$           |  1  |           $10$           |  2   |
+|   1    |           $0.23$            |   2   |           $0.21$           |  2  |           $5$            |  1   |
+|   1    |           $0.23$            |   2   |           $0.21$           |  2  |           $5$            |  2   |
+|   2    |           $0.71$            |   3   |          $-0.83$           |  1  |           $10$           |  1   |
+|   2    |           $0.71$            |   3   |          $-0.83$           |  1  |           $10$           |  2   |
+|   2    |           $0.71$            |   3   |          $-0.83$           |  2  |           $5$            |  1   |
+|   2    |           $0.71$            |   3   |          $-0.83$           |  2  |           $5$            |  2   |
+|   2    |           $0.71$            |   4   |           $0.59$           |  1  |           $10$           |  1   |
+|   2    |           $0.71$            |   4   |           $0.59$           |  1  |           $10$           |  2   |
+|   2    |           $0.71$            |   4   |           $0.59$           |  2  |           $5$            |  1   |
+|   2    |           $0.71$            |   4   |           $0.59$           |  2  |           $5$            |  2   |
+
+: Kurzform eines dreifaktoriellen Datensatzes mit zwei zufälligen Effekten für `school` und `class` sowie einem Bahandlungsfaktor `trt`. Die zufälligen Effekte sind normalverteilt mit $\mathcal{N}(0, s^2)$. Pro Behandlung haben wir dann nur zwei Wiederholungen. Dennoch erreichen wir eine Fallzahl von sechzehn Beobachtungen. {#tbl-mixed-simple-2fac}
+
+```{r}
+#| eval: false
+n_s <- 9
+s_tbl <- tibble(s_id = 1:n_s,
+                s_0 = rnorm(n_s, 0, 2)) %>% 
+  add_column(trt = rep(1:3, 3)) %>% 
+  expand_grid(c_per_s = 1:3)
+
+foo <- tibble(s_id = 1:n_s,
+       s_0 = rnorm(n_s, 0, 2)) %>% 
+  add_column(trt = rep(1:3, 3),
+             t_eff = rep(c(10, -10, 30), 3)) %>% 
+  expand_grid(c_per_s = 1:3) %>% 
+  mutate(c_id = 1:27,
+         c_0 = rnorm(27, 0, 5)) %>% 
+  expand_grid(reps = 1:20) %>% 
+  mutate(test = 50 + s_0 + c_0 + t_eff + rnorm(n(), 0, 2),
+         s_id = as_factor(s_id),
+         c_id = as_factor(c_id),
+         trt = as_factor(trt))
+
+foo %>% 
+  ggplot(aes(trt, test, fill = s_id, group = c_id)) +
+  theme_bw() +
+  geom_boxplot() 
+
+lmer_fit <- lmer(test ~ trt + (1|s_id) + (1|c_id), data = foo) 
+
+lmer_fit %>% 
+  emmeans(~ trt) %>% 
+  pairs()
+
+```
+
+```{r}
+#| eval: false
+expand_grid(tibble(s_id = 1:n_s,
+                   s_0 = rnorm(n_s, 0, 2)),
+            tibble(trt = 1:3,
+                   trt_eff = c(10, -5, 20))) 
+
+
+
+final_data <- s_tbl %>% 
+  mutate(c_id = 1:27,
+         c_0 = rnorm(27, 0, 5)) %>% 
+  expand_grid(reps = 1:20) %>% 
+  mutate(test = 50 + s_0 + c_0 + 10 * trt + rnorm(n(), 0, 2),
+         s_id = as_factor(s_id),
+         c_id = as_factor(c_id),
+         trt = as_factor(trt))
+
+final_data %>% 
+  ggplot(aes(trt, test, fill = s_id, group = c_id)) +
+  theme_bw() +
+  geom_boxplot() 
+```
+
+```{r}
+#| eval: false
+n_s <- 9
+s_tbl <- tibble(s_id = 1:n_s,
+                s_0 = rnorm(n_s, 0, 2)) %>% 
+  add_column(trt = rep(1:3, 3)) 
+
+c_tbl <- tibble(c_id = 1:3,
+                c_0 = rnorm(3, 0, 5))
+
+
+final_data <- s_tbl %>% 
+  expand_grid(c_tbl,
+              reps = 1:20) %>% 
+  mutate(test = 50 + s_0 + c_0 + 8 * trt + rnorm(n(), 0, 2),
+         s_id = as_factor(s_id),
+         c_id = as_factor(c_id),
+         trt = as_factor(trt))
+
+final_data %>% 
+  ggplot(aes(trt, test, fill = c_id)) +
+  theme_bw() +
+  geom_boxplot() +
+  facet_wrap(~s_id)
+
 ```
 
 ```{r}
