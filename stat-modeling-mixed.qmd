@@ -17,16 +17,12 @@ Du findest auf YouTube [Lineare gemischte Modelle](https://youtu.be/54ba9cn3MeY)
 In diesem Kapitel vollen wir die Grundzüge der lineare gemischten Modell (eng. *linear mixed models*, abk. *lmm*) zu versuchen zu verstehen. Wir immer, es gibt dazu auch hervorragende Literatur wie das sehr ausführliche Buch von @zuur2009mixed. Fangen wir also einmal an zu verstehen, wie eigentlich ein Experiment aussehen muss, damit wir ein lineares gemischtes Modell rechnen wollen. Wir haben häufig in den Agarwissenschaften Faktoren als unser $x$ vorliegen. Für das $y$ können aber jeden Messwert abbilden. Dafür gibt es dann die Funktion `glmer()`, die das Äquivalent zu der Funktion `glm()` ist. Wir haben also folgendes, mehrfaktorielles Modell vorliegen.
 
 $$
-y \sim f_1 + f_2 + f_3 + f_4
+y \sim f_1 + f_2 + z_1 + z_2
 $$
 
-Und eigentlich haben wir ja gar nicht vier *gleichwertige* Faktoren vorliegen, sondern meistens unsere Behandlungsfaktor $f_1$ und $f_2$ an dem wir interessiert sind und dann noch bis zu zwei weitere Faktoren $f_3$ und $f_4$, die eine weitere Gruppierung repräsentieren. Wir können auch noch mehr Faktoren vorliegen haben, aber ich empfehle ein Design immer auf maximal vier Faktoren zu begrenzen. Unsere beiden Faktoren $f_3$ und $f_4$ beschreiben jetzt aber nicht noch mehr Behandlungen sondern stellen ein Feld, einen Block oder aber einen Stall dar. Wir haben es also mit Faktoren für eine "Position" zu tun. Die Position kann auch eine zeitliche Komponente sein. Deshalb schreiben wir etwas allgemeiner für die Faktoren $f_3$ und $f_4$ dann als Blockfaktor $b_1$ und $b_2$. Wie schon erwähnt es handelt sich nicht ausschließlich um Blöcke, es können auch andere Positionen in Raum und Zeit sein. Es geht immer mehr und manchmal braucht man auch mehr Faktoren, aber in unserem Kontext hier würde ich anraten sich auf eher auf drei Faktoren zu begrenzen. Also entweder zwei Behandlungsfaktoren und ein Positionsfaktor oder aber ein Behandlungsfaktor und zwei Positionsfaktoren. Damit können wir wie folgt unser Modell schreiben.
+Und eigentlich haben wir ja gar nicht vier *gleichwertige* Faktoren vorliegen, sondern meistens unsere Behandlungsfaktor $f_1$ und $f_2$ an dem wir interessiert sind und dann noch bis zu zwei weitere Faktoren $z_1$ und $z_2$, die eine weitere Gruppierung repräsentieren. Wir können auch noch mehr Faktoren vorliegen haben, aber ich empfehle ein Design immer auf maximal vier Faktoren zu begrenzen. Unsere beiden Faktoren $z_1$ und $z_2$ beschreiben jetzt aber nicht noch mehr Behandlungen sondern stellen ein Feld, einen Block oder aber einen Stall dar. Wir haben es also mit Faktoren für eine "Position" zu tun. Die Position kann auch eine zeitliche Komponente sein. Deshalb schreiben wir etwas allgemeiner für die Faktoren $z_1$ und $z_2$ auch als "zufällige" Effekte. Wie schon erwähnt es handelt sich nicht ausschließlich um Blöcke, es können auch andere Positionen in Raum und Zeit sein. Es geht immer mehr und manchmal braucht man auch mehr Faktoren, aber in unserem Kontext hier würde ich anraten sich auf eher auf drei Faktoren zu begrenzen. Also entweder zwei Behandlungsfaktoren $f_1$ sowie $f_2$ und ein Positionsfaktor $z_1$ oder aber ein Behandlungsfaktor $f_1$ und zwei Positionsfaktoren $z_1$ sowie $z_2$.
 
-$$
-y \sim f_1 + f_2 + b_1 + b_2
-$$
-
-Als wäre das nicht kompliziert genug, haben wir meistens auch noch verschachtelte (eng. *nested*) Daten vorliegen. Damit meine ich, dass wir den Faktor $b_1$ in jedem Level des Faktors $b_2$ vorliegen haben. Wir können eben verschiedene Standorte als Faktor $b_2$ betrachten und an jedem der Standorte haben wir Blöcke $b_1$ vorliegen. Mehr dazu findest du dann auch in dem Kapitel [Versuchsplanung in R](#sec-experimental-design-r) und gleich nochmal weiter unten im Text.
+Als wäre das nicht kompliziert genug, haben wir meistens auch noch verschachtelte (eng. *nested*) Daten vorliegen. Damit meine ich, dass wir den Faktor $z_1$ in jedem Level des Faktors $z_2$ vorliegen haben. Wir können eben verschiedene Standorte als Faktor $z_2$ betrachten und an jedem der Standorte haben wir Blöcke $z_1$ vorliegen. Mehr dazu findest du dann auch in dem Kapitel [Versuchsplanung in R](#sec-experimental-design-r) und gleich nochmal weiter unten im Text.
 
 Was ist nun das Besondere an einem linearen gemischten Modell? Wie der Name schon sagt, haben wir irgendwas gemischt. Glücklicherweise mischen wir nur zwei Dinge miteinander. Wir mischen hier feste Effekte (eng. *fixed effect*) und zufällige Effekte (eng. *random effect*) miteinander. Bis jetzt kennst du eigentlich nur feste Effekte. Immer wenn wir ein Modell gebaut haben, dann haben wir das Modell mit festen Effekten gebaut. Wir haben dabei Fakotoren als feste Effekte modelliert. Was ist also nun der Unterschied zwischen der Wahl einen Faktor als festen Effekt oder zufälligen Effekt anzusehen? Zuerst ist dies eine Modellierungsentscheidung. Wir müssen uns also zwischen Arten von Modellen unterscheiden. Daher können wir auch verschiedene Modelle mit unterschiedlichen Anzahlen an Faktoren bauen und dann diese Modelle vergleichen. Welcher Faktor jetzt als fester Effekt und welcher als zufälliher Effekt gilt, liegt dabei an uns.
 
@@ -105,10 +101,11 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, broom, see, simstudy,
                multcomp, emmeans, lme4, broom.mixed, readxl,
                parameters, ggridges, scales, performance, 
-               ggdist, gghalves, systemfonts,
+               ggdist, gghalves, systemfonts, glmmTMB, lmerTest,
                conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
+conflicts_prefer(lme4::lmer)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 theme_set(theme_minimal(base_size = 12))
@@ -271,6 +268,9 @@ rbind(head(school_raw_tbl, n = 4),
 
 @tbl-mixed-simple-2fac
 
+::: {.callout-note collapse="true"}
+## Einfachst möglicher Datensatz (3-faktoriell)
+
 | school | $\boldsymbol{eff_{school}}$ | class | $\boldsymbol{eff_{class}}$ | trt | $\boldsymbol{eff_{trt}}$ | reps |
 |:------:|:---------------------------:|:-----:|:--------------------------:|:---:|:------------------------:|:----:|
 |   1    |           $0.23$            |   1   |          $-0.14$           |  1  |           $10$           |  1   |
@@ -291,6 +291,7 @@ rbind(head(school_raw_tbl, n = 4),
 |   2    |           $0.71$            |   4   |           $0.59$           |  2  |           $5$            |  2   |
 
 : Kurzform eines dreifaktoriellen Datensatzes mit zwei zufälligen Effekten für `school` und `class` sowie einem Bahandlungsfaktor `trt`. Die zufälligen Effekte sind normalverteilt mit $\mathcal{N}(0, s^2)$. Pro Behandlung haben wir dann nur zwei Wiederholungen. Dennoch erreichen wir eine Fallzahl von sechzehn Beobachtungen. {#tbl-mixed-simple-2fac}
+:::
 
 ## Visualisierung
 
@@ -392,17 +393,31 @@ ggplot(dragons_tbl, aes(y = body_length_cat, x = test_score, fill = body_length_
 
 Natürlich können wir uns hier noch weitere Abbildungen erstellen, aber hier soll es erstmal reichen. Wir sehen, dass der Testscore einer Normalverteilung folgt und dass die Varianzen vermutlich homogen sind, da die Histogramme ungefähr gleich breit sind. Ja, ein wenig unterscheiden sich die Verteilungen, aber so gravierend ist es erstmal nicht.
 
-## Mitteln über die einzelnen Beobachtungen
-
-Wir mitteln über den Block oder der Klasse
-
 ## Modellierung
 
 ::: callout-important
 ## Mindestanzahl an Leveln für einen zufälligen Effekt
 
-Wir brauchen mindestens 5 bis 6 Level für einen Faktor, den wir als zufälligen Effekt deklarieren. Das würde hier aber leider das Beispiel sehr komplex machen...
+Wir brauchen mindestens 5 bis 6 Level für einen Faktor, den wir als zufälligen Effekt deklarieren. Das würde hier aber leider die Beispiele sehr komplex machen... deshalb hier mit weniger Leveln und dafür dann nicht so guten Ergebnissen.
 :::
+
+@bates2014fitting hat das [R Paket `{lme4}`](https://cran.r-project.org/web/packages/lme4/vignettes/lmer.pdf) entwickelt, welches uns erlaubt lineare gemischte Modelle in R anzuwenden. Es gibt noch das ältere R Paket `{nlme}` was aber nicht mehr für lineare gemischte Modelle genutzt wird. Wir nutzen aber gerne die Funktion `gls()` aus dem R Paket `{nlme}`, wenn wir eine lineare Regression mit heterogenen Varianzen rechnen wollen.
+
+[R Paket `{glmmTMB}`](https://glmmtmb.github.io/glmmTMB/index.html)
+
+| Formula                         | Bedeutung                                                                                                                    |
+|---------------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| $(1\; |\; g)$                   | Zufälliger $y$-Achsenabschnitt mit festen Mittelwert (eng. *Random intercept with fixed mean*)                               |
+| $(1\; |\; g_1/g_2)$             | Der $y$-Achsenabschnitt variiert in $g_1$ und $g_2$ innerhalb von $g_1$ (eng. *Intercept varying among g1 and g2 within g1*) |
+| $(1\; |\; g_1) + (1\; |\; g_2)$ | Der $y$-Achsenabschnitt variiert zwischen $g_1$ und $g_2$ (eng. *Intercept varying among g1 and g2*)                         |
+| $x + (x\; |\; g)$               | Korrelierter zufälliger $y$-Achsenabschnitt und Steigung (eng. *Correlated random intercept and slope*)                      |
+| $x + (x\; ||\; g)$              | Unkorrelierter zufälliger $y$-Achsenabschnitt und Steigung (eng. *Uncorrelated random intercept and slope*)                  |
+
+: Bedeutung der Formelschreibweise der zufälligen Effekte in einem linearen gemischten Modell in `{lmer}`. Mehr zu der Bedeutung dann in der Veröffentlichung von @bates2014fitting.
+
+### Mitteln über die einzelnen Beobachtungen
+
+Wir mitteln über den Block oder der Klasse
 
 Bevor wir jetzt mit dem Modellieren beginnen, müssen wir noch kurz in einem QQ-Plot schauen, ob unser Ourcome `testscore` auch ungefähr normalverteilt ist. @fig-mixed-6 zeigt den QQ-Plot des Testscores. Wir sehen, dass der Hauptteil der Beobachtungen auf der Geraden liegt und wir nehmen daher an, dass der Testscore zumindest approximativ normalverteilt ist. Wir können also mit einem gaussian linearen gemischten Modell weitermachen.
 
@@ -836,12 +851,21 @@ broc_tbl <- read_excel("data/broccoli_weight.xlsx") %>%
   select(-stem_hollowness) 
 ```
 
-Dann können wir auch schon die Gaussian Regression mit `lm()` rechnen.
+Wir nutze hier dann die Hilfe des R Pakets `{lmerTest}`
 
 ```{r}
-lm_fit <- lm(weight ~ fert_time + fert_amount + fert_time:fert_amount + block, 
-             data = broc_tbl) 
+#| warning: false
+#| message: false
+lmer_fit <- lmerTest::lmer(weight ~ fert_time + fert_amount + fert_time:fert_amount + (1 | block), 
+                           data = broc_tbl) 
 ```
+
+```{r}
+lmer_fit %>% 
+  model_performance()
+```
+
+Wir erhalten hier einen Fehler, aber wir haben ja auch nicht alle Faktorkombinationen in den Daten mit Werten vorliegen. Hier hätten wir etwas mehr sauber machen sollen.
 
 Jetzt rechnen wir in den beiden folgenden Tabs einmal die ANOVA und dann auch den multiplen Gruppenvergleich mit `{emmeans}`. Da wir hier normalveteilte Daten haben, können wir dann einfach die Standardverfahren nehmen. Eventuell müssten wir bei dem Gruppenvergleich mit `emmeans()` nochmal für Varianzheterogenität adjustieren, aber da erfährst du dann mehr in dem Kapitel zu den [Multiple Vergleichen oder Post-hoc Tests](#sec-posthoc).
 
@@ -850,8 +874,12 @@ Jetzt rechnen wir in den beiden folgenden Tabs einmal die ANOVA und dann auch de
 
 Wir rechnen hier einmal die ANOVA und nutzen den $\mathcal{X}^2$-Test für die Ermittelung der p-Werte. Wir müssen hier einen Test auswählen, da per Standardeinstellung kein Test gerechnet wird. Wir machen dann die Ausgabe nochmal schöner und fertig sind wir.
 
+Wir nutze hier dann die Hilfe des R Pakets `{lmerTest}`
+
 ```{r}
-lm_fit %>% 
+#| warning: false
+#| message: false
+lmer_fit %>% 
   anova() %>% 
   model_parameters()
 ```
@@ -863,7 +891,7 @@ Wir sehen, dass der Effekt der Düngerzeit und die Menge des Düngers signifikan
 Im Folgenden rechnen wir einmal über alle Faktorkombinationen von `fert_time` und `fert_amount` einen Gruppenvergleich. Dafür nutzen wir die Option `fert_time * fert_amount`. Wenn du die Analyse *getrennt* für die Menge und den Zeitpunkt durchführen willst, dann nutze die Option `fert_time | fert_amount`. Dann adjustieren wir noch nach Bonferroni und sind fertig.
 
 ```{r}
-emm_obj <- lm_fit %>% 
+emm_obj <- lmer_fit %>% 
   emmeans(~ fert_time * fert_amount) %>%
   cld(Letters = letters, adjust = "bonferroni")
 emm_obj
@@ -904,7 +932,7 @@ emm_obj %>%
 :::
 
 ::: callout-tip
-## Anwendungsbeispiel: Dreifaktorieller Gruppenvergleich für Thripsenbefall
+## Anwendungsbeispiel: Gruppenvergleich für Thripsenbefall (3-faktoriell)
 
 Im folgenden Beispiel schauen wir uns nochmal ein praktische Auswertung von einem agrarwissenschaftlichen Beispiel mit jungen Apfelbäumen an. Wir haben uns in diesem Experiment verschiedene Dosen `trt` von einem Insektizid aufgebracht sowie verschiedene Startanzahlen von Raubmilben als biologische Alternative untersucht. Dann haben wir noch fünf Zeitpunkte bestimmt, an denen wir die Anzahl an Thripsen auf den Blättern gezählt haben. Wir haben nicht die Blätter per se gezählt sondern Fallen waagerecht aufgestellt. Dann haben wir geschaut, wie viele Thripsen wir über `above` und unter `below` von den Fallen gefunden haben. In unserem Fall beschränken wir uns auf die obere Anzahl an Thripsen und schauen uns auch nur die Behandlung mit dem Insektizid an.
 
@@ -920,14 +948,14 @@ insects_tbl <- read_excel("data/insects_count.xlsx") %>%
 Dann können wir auch schon die Poisson Regression mit `glm()` rechnen. Auch hier wieder darauf achten, dass wir dann als Option `family = poisson` oder `family = quasipoisson` wählen. Es hängt jetzt davon ab, ob du in deinen Daten Overdispersion vorliegen hast oder nicht. In den beiden folgenden Tabs, rechne ich dann mal beide Modelle.
 
 ::: panel-tabset
-## `family = poisson`
+## `glmer()` mit `family = poisson`
 
 Als Erstes rechnen wir eine normale Poisson Regression und schauen einmal, ob wir Overdispersion vorliegen haben. Wenn wir Overdispersion vorliegen haben, dann können wir keine Poisson Regression rechnen, sondern müssen auf eine Quasipoisson Regression ausweichen. Das ist aber sehr einfach, wie du im anderen Tab sehen wirst.
 
 ```{r}
-insects_poisson_fit <- glm(thripse ~ trt + timepoint + trt:timepoint, 
-                           data = insects_tbl, 
-                           family = poisson) 
+insects_poisson_fit <- glmer(thripse ~ trt + timepoint + trt:timepoint + (1 | rep), 
+                             data = insects_tbl, 
+                             family = poisson) 
 ```
 
 Bevor wir uns das Modell mit `summary()` überhaupt anschauen, wollen wir erstmal überprüfen, ob wir überhaupt Overdispersion vorliegen haben. Wenn ja, dann können wir uns die `summary()` hier gleich sparen. Also einmal geguckt, was die Overdispersion macht.
@@ -938,14 +966,16 @@ insects_poisson_fit %>% check_overdispersion()
 
 Wir haben sehr starke Overdispersion vorliegen und gehen daher rüber in den anderen Tab und rechnen eine Quasipoisson Regression. Nur wenn du keine Overdispersion vorliegen hast, dann kannst du eine eine Poisson Regression rechnen.
 
-## `family = quasipoisson`
+## `glmmTMB()` mit `family = nbinom1`
+
+Da wir in `{lme4}` keine Quasipoissonverteilung auswählen können, nutzen wir das [R Paket `{glmmTMB}`](https://glmmtmb.github.io/glmmTMB/index.html) mit der Verteilungsfamilie `nbinom1`, was einer Parametrisierung einer Quasipoissonverteilung entspricht.
 
 Entweder hast du in deinen Daten eine Overdispersion gefunden oder aber du meinst, es wäre besser gleich eine Quasipoisson zu rechnen. Beides ist vollkommen in Ordnung. Ich rechne meistens immer eine Quasipoisson und schaue dann nur, ob die Overdispersion sehr groß war. In den seltensten Fällen hast du eine Overdispersion vorliegen, die eher klein ist. Daher mache ich erst die Lösung und schaue, ob das Problem dann da war.
 
 ```{r}
-insects_quasipoisson_fit <- glm(thripse ~ trt + timepoint + trt:timepoint, 
-                                data = insects_tbl, 
-                                family = quasipoisson) 
+insects_quasipoisson_fit <- glmmTMB(thripse ~ trt + timepoint + trt:timepoint + (1|rep), 
+                                    data = insects_tbl,
+                                    family = nbinom1) 
 ```
 
 Du kannst in der `summary()` Ausgabe direkt sehen, ob du Overdispersion vorliegen hast. Du musst nur relativ weit unten schauen, was zu dem `Dispersion parameter` in den Klammern geschrieben ist. Wenn da eine Zahl größer als 1 drin steht, dann hast du Overdispersion.
@@ -960,32 +990,18 @@ Wir haben hier auf jeden Fall Overdispersion vorliegen. Daher nutze ich dann auc
 
 Ich habe mich gerade in den obigen Tabs für eine Quasipoisson Regression entschieden, da wir Overdispersion vorliegen haben. Damit mache ich dann mit dem `insects_quasipoisson_fit` Modell weiter. In den beiden folgenden Tabs findest du dann einmal das Ergebnis für die ANOVA und einmal für den Gruppenvergleich mit dem R Paket `{emmeans}`. Bitte beachte, dass die ANOVA für ein `glm()`-Objekt nicht ganz gleich wie für ein `lm()`-Objekt ist. Du kannst aber die ANOVA erstmal ganz normal interpretieren, nur haben wir hier nicht die Möglichkeit ein $\eta^2$ zu bestimmen. Dann nutzen wir `{emmeans}` für den Gruppenvergleich. Nochmal, weil wir Overdispersion festgestellt haben, nutzen wir das Objekt `insects_quasipoisson_fit` mit der Berücksichtigung der Overdispersion.
 
-::: panel-tabset
-## ANOVA mit `anova()`
-
-Wir rechnen hier einmal die ANOVA und nutzen den $\mathcal{X}^2$-Test für die Ermittelung der p-Werte. Wir müssen hier einen Test auswählen, da per Standardeinstellung kein Test gerechnet wird. Wir machen dann die Ausageb nochmal schöner und fertig sind wir.
-
-```{r}
-insects_quasipoisson_fit %>% 
-  anova(test = "Chisq") %>% 
-  model_parameters(drop = "NULL")
-```
-
-Wir sehen, dass der Effekt für die Behandlung signifikant ist, jedoch die Zeit und die Interaktion keinen signifikanten Einfluss haben. Wir haben aber also keine Interaktion vorliegen. Daher können wir dann die Analyse gemeinsam über alle Zeitpunkte rechnen.
-
-## Gruppenvergleich mit `emmeans()`
-
 Im Folgenden rechnen wir einmal über alle Faktorkombinationen von `trt` und `timepoint` einen Gruppenvergleich. Dafür nutzen wir die Opition `trt * timepoint`. Wenn du die Analyse *getrennt* für die Zeitpunkte durchführen willst, dann nutze die Option `trt | timepoint`. Wir wollen die Wahrscheinlichkeiten für das Auftreten einer Beschädigung von wiedergegeben bekommen, deshalb die Option `regrid = "response`. Dann adjustieren wir noch nach Bonferroni und sind fertig.
 
 ```{r}
 emm_obj <- insects_quasipoisson_fit %>% 
-  emmeans(~ trt * timepoint, regrid = "response") %>%
+  emmeans(~ trt * timepoint, type = "response") %>%
   cld(Letters = letters, adjust = "bonferroni")
 emm_obj
 ```
 
 Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. Die `rate` stellt die mittlere Anzahl an Thripsen je Faktorkombination dar. Dann können wir auch das *compact letter display* anhand der Abbildung interpretieren.
-:::
+
+`str_trim()`
 
 In der @fig-log-mod-pois-insect siehst du das Ergebnis der Auswertung in einem Säulendiagramm. Hier unbedingt `SE` als den Standardfehler für die Fehlerbalken nutzen, da wir sonst Fehlerbalken größer und kleiner als $0$ erhalten, wenn wir die Standardabweichung nutzen würden. Das ist in unserem Fall nicht so das Problem, aber wenn du eher kleine Anzahlen zählst, kann das schnell zu Werten kleiner Null führen. Wir sehen einen klaren Effekt der Behandlung `60ml`. Die Zeit hat keinen Effekt, was ja schon aus der ANOVA klar war, die Säulen sehen für jeden Zeitpunkt vollkommen gleich aus. Gut etwas Unterschied ist ja immer.
 
@@ -1001,15 +1017,15 @@ In der @fig-log-mod-pois-insect siehst du das Ergebnis der Auswertung in einem S
 
 emm_obj %>% 
   as_tibble() %>% 
-  ggplot(aes(x = timepoint, y = rate, fill = trt)) +
+  ggplot(aes(x = timepoint, y = response, fill = trt)) +
   theme_bw() + 
   labs(y = "Mittlere Anzahl an Thripsen", x = "Messzeitpunkte der Zählungen",
        fill = "Dosis") +
-  geom_bar(stat = "identity", 
+  geom_bar(stat = "identity", width = 0.8, 
            position = position_dodge(width = 0.9, preserve = "single")) +
-  geom_text(aes(label = .group, y = rate + SE + 0.01),  
+  geom_text(aes(label = str_trim(.group), y = response + SE + 1), size = 3,  
             position = position_dodge(width = 0.9), vjust = -0.25) +
-  geom_errorbar(aes(ymin = rate-SE, ymax = rate+SE),
+  geom_errorbar(aes(ymin = response-SE, ymax = response+SE),
                 width = 0.2,  
                 position = position_dodge(width = 0.9, preserve = "single")) +
   scale_fill_okabeito()
