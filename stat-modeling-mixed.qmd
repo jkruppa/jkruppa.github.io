@@ -105,11 +105,13 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, broom, see, simstudy,
                multcomp, emmeans, lme4, broom.mixed, readxl,
                parameters, ggridges, scales, performance, 
+               ggdist, gghalves, systemfonts,
                conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+theme_set(theme_minimal(base_size = 12))
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -187,42 +189,56 @@ flowchart LR
 Aus Gründen der Einfachheit haben wir immer ein balanciertes Design vorliegen. Wir haben also immer in allen Faktorkombinationen die gleiche Anzahl an Beobachtungen `n_reps` vorliegen. In der Anwendung mag es Unterschiede geben, so hat eine Sau sicherlich nicht immer exakt zwölf Ferkel, aber in unseren Beispielen macht es keinen Unterschied. Balanciert oder unbalanciert ist bei gemischten Modellen eher nachrangig wichtig.
 
 ```{r}
-#| eval: false
-
 # set seed
-set.seed(20231210)
+set.seed(20231208)
 # sample sizes
 n_school <- 9
 n_class_per_school <- 3
 n_class <- n_school * n_class_per_school
 n_trt <- 3
 n_reps <- 20
-# effects and variance
-var_school <- 10
-var_class <- 5
+# effects and standard deviation
+sd_school <- 10
+sd_class <- 5
+sd_error <- 2
 eff_trt <- c(frontal = 10,
              flipped = -10,
              hyflex = 30)
+```
 
-# generate data
-school_tbl <- tibble(s_id = 1:n_s,
-       s_0 = rnorm(n_s, 0, var_school)) %>% 
+Dann können wir uns schon das Grid für die Daten erstellen.
+
+```{r}
+school_grid_tbl <- tibble(s_id = 1:n_school,
+       s_0 = rnorm(n_school, 0, sd_school)) %>% 
   add_column(trt = rep(1:n_trt, n_trt),
              t_eff = rep(eff_trt, n_trt)) %>% 
   expand_grid(c_per_s = 1:n_class_per_school) %>%
   mutate(c_id = 1:n_class,
-         c_0 = rnorm(n_class, 0, var_class)) %>% 
-  expand_grid(reps = 1:n_reps) %>% 
-  mutate(test = round(50 + s_0 + c_0 + t_eff + rnorm(n(), 0, 2), 2),
+         c_0 = rnorm(n_class, 0, sd_class)) %>% 
+  expand_grid(reps = 1:n_reps)
+```
+
+Jetzt noch den Testscore simulieren.
+
+```{r}
+school_tbl <- school_grid_tbl %>% 
+  arrange(trt) %>% 
+  mutate(test = round(50 + s_0 + c_0 + t_eff + rnorm(n(), 0, sd_error), 2),
          s_id = factor(s_id, labels = c("Springfield School", "Jacksonville High", "Franklin Country", 
                                         "Clinton Christian", "Arlington Academy", "Georgetown High", 
                                         "Greenville School", "Bristol Country", "Dover Tech Center")),
          c_id = as_factor(c_id),
          c_per_s = factor(c_per_s, labels = c("1a", "1b", "1c")),
-         trt = factor(trt, labels = c("Frontal", "Flipped classroom", "HyFlex"))) %>% 
-  select(school_id = s_id, class_in_school_id = c_per_s, class_id = c_id, trt, test)
+         trt = factor(trt, labels = c("Frontal", "Flipped classroom", "HyFlex"))) 
+```
 
-write_xlsx(school_tbl, "data/school_testing.xlsx")
+Und die Daten schreiben
+
+```{r}
+school_tbl %>% 
+  select(school_id = s_id, class_in_school_id = c_per_s, class_id = c_id, trt, test) %>% 
+  write_xlsx("data/school_testing.xlsx")
 ```
 :::
 
@@ -277,6 +293,66 @@ rbind(head(school_raw_tbl, n = 4),
 : Kurzform eines dreifaktoriellen Datensatzes mit zwei zufälligen Effekten für `school` und `class` sowie einem Bahandlungsfaktor `trt`. Die zufälligen Effekte sind normalverteilt mit $\mathcal{N}(0, s^2)$. Pro Behandlung haben wir dann nur zwei Wiederholungen. Dennoch erreichen wir eine Fallzahl von sechzehn Beobachtungen. {#tbl-mixed-simple-2fac}
 
 ## Visualisierung
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: Histogramm des Testscores über alle Datenpunkte zur Überprüfung der Annahme der Normalverteilung. Wir sehen eine approximative Normalverteilung des Testscores.
+#| label: fig-mixed-school-1
+
+ggplot(school_tbl, aes(x = trt, y = test, color = school_id)) + 
+  stat_halfeye(adjust = 0.5, width = 0.4, .width = 0, 
+    justification = -0.3, point_colour = NA) + 
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_dots(side = "left", justification = 1.12, binwidth = .25) +
+  coord_cartesian(xlim = c(1.2, 2.9), clip = "off") +
+  labs(x = "", y = "Testscore", color = "Schule") +
+  scale_color_okabeito() +
+  theme(legend.position = "top") +
+  guides(color=guide_legend(nrow = 3, byrow = FALSE))
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: Histogramm des Testscores über alle Datenpunkte zur Überprüfung der Annahme der Normalverteilung. Wir sehen eine approximative Normalverteilung des Testscores.
+#| label: fig-mixed-school-3
+
+ggplot(school_tbl, aes(x = trt, y = test, color = class_in_school_id)) +
+  stat_halfeye(adjust = 0.5, width = 0.4, .width = 0, 
+    justification = -0.3, point_colour = NA) + 
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_dots(side = "left", justification = 1.12, binwidth = .25) +
+  coord_cartesian(xlim = c(1.2, 2.9), clip = "off") +
+  labs(x = "", y = "Testscore", color = "Lehrformat") +
+  scale_color_okabeito() +
+  theme(legend.position = "top")
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: Histogramm des Testscores über alle Datenpunkte zur Überprüfung der Annahme der Normalverteilung. Wir sehen eine approximative Normalverteilung des Testscores.
+#| label: fig-mixed-school-2
+
+ggplot(school_tbl, aes(x = class_id, y = test, fill = trt)) +
+  geom_boxplot() +
+  labs(x = "Individuelle Klassen ID", y = "Testscore", fill = "Lehrformat") +
+  scale_fill_okabeito() +
+  theme(legend.position = "top")
+```
 
 Bevor wir mit dem Modellieren beginnen, wollen wir erstmal visuell überprüfen, ob unser Outcome $y$ mit dem Testscore auch normalverteilt ist. Wir benötigen für das *klassische* lineare gemischte Modell ein normalverteiltes Outcome $y$. In @fig-mixed-1 sehen wir das Histogramm der Verteilung des Testscores für alle $N = 480$ Drachen.
 
