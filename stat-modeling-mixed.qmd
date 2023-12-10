@@ -1,5 +1,5 @@
 ```{r echo = FALSE}
-pacman::p_load(tidyverse, readxl, knitr, kableExtra, simstudy)
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, simstudy, writexl)
 ```
 
 # Lineare gemischte Modelle {#sec-mixed}
@@ -79,6 +79,7 @@ Wie immer und natürlich im Besonderen bei linearen gemischten Modellen, gibt es
 -   Ideen und weitere Erklärungen sind auch beim [Tutorium von Sara Stoudt](https://rlbarter.github.io/Practical-Statistics/2017/03/03/fixed-mixed-and-random-effects/) zu finden. Hier musst du dich aber mehr Einarbeiten, da der Artikel etwas mehr mathematisch aufgebaut ist.
 -   Als weiteres Tutorium für die Auswertung von linearen gemischten Modellen und allgemein dem Modellieren von agarwissenschaftlichen Daten kann ich die Seite [Data Science for Agriculture in R](https://schmidtpaul.github.io/dsfair_quarto/) sehr empfehlen. Dort findest du dann auch die Anwebdung der R Pakete aus diesem Kapitel.
 -   [Introduction to `{broom.mixed}`](https://cran.r-project.org/web/packages/broom.mixed/vignettes/broom_mixed_intro.html) hilft dabei die Ausgaben der verschiedenen R Pakte, die es zu gemischten Modellen gibt zu vereinheitlichen. Wir erhalten dann immer die gleiche `tidy()`-Ausgabe und nicht immer was anderes von den Funktionen wiedergegeben.
+-   [Linear Models and Mixed Models with R](https://bodo-winter.net/tutorials.html) sind zwei PDF Dateien von @winter2013linear in denen er nochmal sehr schön erklärt wie lineare gemischte Modelle in R funktionieren.
 :::
 
 ## Dump of ideas (remove me)
@@ -115,6 +116,8 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
+### Von Drachen auf Bergen
+
 In diesem fiktiven Datenbeispiel wollen wir uns die Testscores eines Intelligentest bei $N = 480$ Drachen anschauen. Wir sind dafür an acht Berge gefahren und haben die dortigen Drachen an den drei Flanken des Berges getestet. Daher hat der Faktor `mountain` acht Level mit Bavarian, Ligurian, Emmental, Central, Maritime, Southern, Julian, und Sarntal. Die drei Flanken des Berges bilden wir im Faktor `site` mit den Leveln north, east und south ab. In @fig-mountain-site sehen wir eine Skizze für drei Berge mit den jeweiligen Flanken, wo gemessen wurde.
 
 ![Beispiel für drei der acht Berge mit *Bavarian*, *Central* und *Julian*. Auf jeden der acht Berge wurden an drei Seiten *north*, *east* und *south* die Testscores der dort lebenden Drachen erhoben. Die dort lebenden Drachen wurden dann in fünf Gruppen nach der Körperlänge eingeteilt.](images/mountain.png){#fig-mountain-site fig-align="center" width="90%"}
@@ -131,23 +134,13 @@ flowchart LR
     classDef random fill:#E69F00,stroke:#333,stroke-width:0.75px
 ```
 
-Die Daten liegen in dem Datensatz `dragons.csv` ab. Wir müssen aber noch einen Faktor `body_length_cat` bilden in dem wir die `body_length` der einzelnen Drachen in Kategorien umwandeln. Wir wollen später noch Gruppenvergleiche rechnen und brauchen daher einen Faktor mit Leveln. Daher nutzen wir die Funktion `case_when()` um einen Faktor mit fünf Größenkategorien zu bilden. Danach müssen wir wie immer noch die `character` Spalten in die entsprechenden Faktoren umwandeln.
+Die Daten liegen in dem Datensatz `dragons.xlsx` ab.
 
 ```{r}
-
-dragons_tbl <- read.csv2("data/dragons.csv") %>% 
-  as_tibble() %>% 
-  mutate(body_length_cat = 
-           case_when(body_length < 170 ~ "tiny",
-                     body_length >= 170 & body_length < 180 ~ "small",
-                     body_length >= 180 & body_length < 200 ~ "medium",
-                     body_length >= 200 & body_length < 220 ~ "large",
-                     body_length >= 220 ~ "gigantic"),
-         body_length_cat = as_factor(body_length_cat),
+dragons_tbl <- read_excel("data/dragons.xlsx") %>% 
+  mutate(body_length_cat = as_factor(body_length_cat),
          mountain = as_factor(mountain),
-         site = factor(site, labels = c("north", "east", "south"))) %>% 
-  select(test_score, body_length, body_length_cat, everything())
-
+         site = factor(site, labels = c("north", "east", "south"))) 
 ```
 
 Es ergibt sich dann der Datensatz wie in @tbl-dragon gezeigt. Wir belassen die Körperlänge der Drachen in der kontinuierlichen Form nochmal mit in den Daten.
@@ -170,7 +163,122 @@ rbind(head(dragons_raw_tbl, n = 4),
   kable(align = "c", "pipe")
 ```
 
-Bevor wir mit dem Modellieren beginnen, wollen wir erstmal visuell überprüfen, ob unser Outcome $y$ mit dem Testscore auch normalverteilt ist. Wir benötigen für das *klaissche* lineare gemischte Modell ein normalverteiltes Outcome $y$. In @fig-mixed-1 sehen wir das Histogramm der Verteilung des Testscores für alle $N = 480$ Drachen.
+### Von Schülern in Schulen
+
+Beispiel mit den Simpsons
+
+Erstklässler
+
+Flipped Classroom HyperFlex
+
+```{mermaid}
+%%| label: fig-mermaid-r-mixed-dragon
+%%| fig-width: 6
+%%| fig-cap: "In unseren Schuldaten haben wir verschiedene Schulen `school` und Klassen `class` mit zwei innovativen Lehrmethoden unterrichtet. Eine Kontrollgruppe soll die Ergebnisse eines Leistungstests absichern. Daher sind die Lehrmethoden `trt` in dem Faktor `class` genestet. Der Faktor `class` ist dann wiederum in jedem Faktor `school` genestet."
+flowchart LR
+    C(trt):::fixed --- D(((nested))) --> E(class):::random --- F(((nested))) --> G(school):::random
+    classDef fixed fill:#56B4E9,stroke:#333,stroke-width:0.75px
+    classDef random fill:#E69F00,stroke:#333,stroke-width:0.75px
+```
+
+::: {.callout-caution collapse="true"}
+## Generierung von Schuldaten (3-faktoriell)
+
+Aus Gründen der Einfachheit haben wir immer ein balanciertes Design vorliegen. Wir haben also immer in allen Faktorkombinationen die gleiche Anzahl an Beobachtungen `n_reps` vorliegen. In der Anwendung mag es Unterschiede geben, so hat eine Sau sicherlich nicht immer exakt zwölf Ferkel, aber in unseren Beispielen macht es keinen Unterschied. Balanciert oder unbalanciert ist bei gemischten Modellen eher nachrangig wichtig.
+
+```{r}
+#| eval: false
+
+# set seed
+set.seed(20231210)
+# sample sizes
+n_school <- 9
+n_class_per_school <- 3
+n_class <- n_school * n_class_per_school
+n_trt <- 3
+n_reps <- 20
+# effects and variance
+var_school <- 10
+var_class <- 5
+eff_trt <- c(frontal = 10,
+             flipped = -10,
+             hyflex = 30)
+
+# generate data
+school_tbl <- tibble(s_id = 1:n_s,
+       s_0 = rnorm(n_s, 0, var_school)) %>% 
+  add_column(trt = rep(1:n_trt, n_trt),
+             t_eff = rep(eff_trt, n_trt)) %>% 
+  expand_grid(c_per_s = 1:n_class_per_school) %>%
+  mutate(c_id = 1:n_class,
+         c_0 = rnorm(n_class, 0, var_class)) %>% 
+  expand_grid(reps = 1:n_reps) %>% 
+  mutate(test = round(50 + s_0 + c_0 + t_eff + rnorm(n(), 0, 2), 2),
+         s_id = factor(s_id, labels = c("Springfield School", "Jacksonville High", "Franklin Country", 
+                                        "Clinton Christian", "Arlington Academy", "Georgetown High", 
+                                        "Greenville School", "Bristol Country", "Dover Tech Center")),
+         c_id = as_factor(c_id),
+         c_per_s = factor(c_per_s, labels = c("1a", "1b", "1c")),
+         trt = factor(trt, labels = c("Frontal", "Flipped classroom", "HyFlex"))) %>% 
+  select(school_id = s_id, class_in_school_id = c_per_s, class_id = c_id, trt, test)
+
+write_xlsx(school_tbl, "data/school_testing.xlsx")
+```
+:::
+
+Die Daten liegen in dem Datensatz `school_testing.xlsx` ab.
+
+```{r}
+school_tbl <- read_excel("data/school_testing.xlsx") %>% 
+  mutate(school_id = as_factor(school_id),
+         class_in_school_id = as_factor(class_in_school_id),
+         class_id = as_factor(class_id),
+         trt = as_factor(trt)) 
+```
+
+Es ergibt sich dann der Datensatz wie in @tbl-dragon gezeigt. Wir belassen die Körperlänge der Drachen in der kontinuierlichen Form nochmal mit in den Daten.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-school
+#| tbl-cap: Datensatz der Testscores für die Drachen auf verschiedenen Bergen und dort an verschiedenen Flanken der Berge.
+
+school_raw_tbl <- read_excel("data/school_testing.xlsx") 
+
+rbind(head(school_raw_tbl, n = 4),
+      rep("...", times = ncol(school_raw_tbl)),
+      tail(school_raw_tbl, n = 4)) %>% 
+  kable(align = "c", "pipe")
+```
+
+@tbl-mixed-simple-2fac
+
+| school | $\boldsymbol{eff_{school}}$ | class | $\boldsymbol{eff_{class}}$ | trt | $\boldsymbol{eff_{trt}}$ | reps |
+|:------:|:---------------------------:|:-----:|:--------------------------:|:---:|:------------------------:|:----:|
+|   1    |           $0.23$            |   1   |          $-0.14$           |  1  |           $10$           |  1   |
+|   1    |           $0.23$            |   1   |          $-0.14$           |  1  |           $10$           |  2   |
+|   1    |           $0.23$            |   1   |          $-0.14$           |  2  |           $5$            |  1   |
+|   1    |           $0.23$            |   1   |          $-0.14$           |  2  |           $5$            |  2   |
+|   1    |           $0.23$            |   2   |           $0.21$           |  1  |           $10$           |  1   |
+|   1    |           $0.23$            |   2   |           $0.21$           |  1  |           $10$           |  2   |
+|   1    |           $0.23$            |   2   |           $0.21$           |  2  |           $5$            |  1   |
+|   1    |           $0.23$            |   2   |           $0.21$           |  2  |           $5$            |  2   |
+|   2    |           $0.71$            |   3   |          $-0.83$           |  1  |           $10$           |  1   |
+|   2    |           $0.71$            |   3   |          $-0.83$           |  1  |           $10$           |  2   |
+|   2    |           $0.71$            |   3   |          $-0.83$           |  2  |           $5$            |  1   |
+|   2    |           $0.71$            |   3   |          $-0.83$           |  2  |           $5$            |  2   |
+|   2    |           $0.71$            |   4   |           $0.59$           |  1  |           $10$           |  1   |
+|   2    |           $0.71$            |   4   |           $0.59$           |  1  |           $10$           |  2   |
+|   2    |           $0.71$            |   4   |           $0.59$           |  2  |           $5$            |  1   |
+|   2    |           $0.71$            |   4   |           $0.59$           |  2  |           $5$            |  2   |
+
+: Kurzform eines dreifaktoriellen Datensatzes mit zwei zufälligen Effekten für `school` und `class` sowie einem Bahandlungsfaktor `trt`. Die zufälligen Effekte sind normalverteilt mit $\mathcal{N}(0, s^2)$. Pro Behandlung haben wir dann nur zwei Wiederholungen. Dennoch erreichen wir eine Fallzahl von sechzehn Beobachtungen. {#tbl-mixed-simple-2fac}
+
+## Visualisierung
+
+Bevor wir mit dem Modellieren beginnen, wollen wir erstmal visuell überprüfen, ob unser Outcome $y$ mit dem Testscore auch normalverteilt ist. Wir benötigen für das *klassische* lineare gemischte Modell ein normalverteiltes Outcome $y$. In @fig-mixed-1 sehen wir das Histogramm der Verteilung des Testscores für alle $N = 480$ Drachen.
 
 ```{r}
 #| message: false
@@ -207,6 +315,10 @@ ggplot(dragons_tbl, aes(y = body_length_cat, x = test_score, fill = body_length_
 ```
 
 Natürlich können wir uns hier noch weitere Abbildungen erstellen, aber hier soll es erstmal reichen. Wir sehen, dass der Testscore einer Normalverteilung folgt und dass die Varianzen vermutlich homogen sind, da die Histogramme ungefähr gleich breit sind. Ja, ein wenig unterscheiden sich die Verteilungen, aber so gravierend ist es erstmal nicht.
+
+## Mitteln über die einzelnen Beobachtungen
+
+Wir mitteln über den Block oder der Klasse
 
 ## Modellierung
 
@@ -385,7 +497,6 @@ In der Abbildung @fig-mixed-8 schauen wir uns nochmal an, ob wir das Modell auch
 #|   - "Residualplot"
 #|   - "QQ-Plot"
 #| layout-nrow: 1
-#| column: page
 
 augment(lmer_1_fit) %>% 
   ggplot(aes(x = .fitted, y = .resid)) + 
@@ -493,42 +604,6 @@ dt_student <- addColumns(gen_student, dt_student) %>%
          trt = as_factor(trt),
          trt_new = as_factor(trt_new))
 ```
-
-::: {.callout-caution collapse="true"}
-## Generierung von Daten: 1 fester Effekt und 2 zufällige Effekte
-
-Aus Gründen der Einfachheit haben wir immer ein balanciertes Design vorliegen. Wir haben also immer in allen Faktorkombinationen die gleiche Anzahl an Beobachtungen `n_reps` vorliegen. In der Anwendung mag es Unterschiede geben, so hat eine Sau sicherlich nicht immer exakt zwölf Ferkel, aber in unseren Beispielen macht es keinen Unterschied. Balanciert oder unbalanciert ist bei gemischten Modellen eher nachrangig wichtig.
-
-```{r}
-n_school <- 9
-n_class_per_school <- 3
-n_trt <- 3
-n_reps <- 20
-```
-:::
-
-@tbl-mixed-simple-2fac
-
-| school | $\boldsymbol{eff_{school}}$ | class | $\boldsymbol{eff_{class}}$ | trt | $\boldsymbol{eff_{trt}}$ | reps |
-|:------:|:---------------------------:|:-----:|:--------------------------:|:---:|:------------------------:|:----:|
-|   1    |           $0.23$            |   1   |          $-0.14$           |  1  |           $10$           |  1   |
-|   1    |           $0.23$            |   1   |          $-0.14$           |  1  |           $10$           |  2   |
-|   1    |           $0.23$            |   1   |          $-0.14$           |  2  |           $5$            |  1   |
-|   1    |           $0.23$            |   1   |          $-0.14$           |  2  |           $5$            |  2   |
-|   1    |           $0.23$            |   2   |           $0.21$           |  1  |           $10$           |  1   |
-|   1    |           $0.23$            |   2   |           $0.21$           |  1  |           $10$           |  2   |
-|   1    |           $0.23$            |   2   |           $0.21$           |  2  |           $5$            |  1   |
-|   1    |           $0.23$            |   2   |           $0.21$           |  2  |           $5$            |  2   |
-|   2    |           $0.71$            |   3   |          $-0.83$           |  1  |           $10$           |  1   |
-|   2    |           $0.71$            |   3   |          $-0.83$           |  1  |           $10$           |  2   |
-|   2    |           $0.71$            |   3   |          $-0.83$           |  2  |           $5$            |  1   |
-|   2    |           $0.71$            |   3   |          $-0.83$           |  2  |           $5$            |  2   |
-|   2    |           $0.71$            |   4   |           $0.59$           |  1  |           $10$           |  1   |
-|   2    |           $0.71$            |   4   |           $0.59$           |  1  |           $10$           |  2   |
-|   2    |           $0.71$            |   4   |           $0.59$           |  2  |           $5$            |  1   |
-|   2    |           $0.71$            |   4   |           $0.59$           |  2  |           $5$            |  2   |
-
-: Kurzform eines dreifaktoriellen Datensatzes mit zwei zufälligen Effekten für `school` und `class` sowie einem Bahandlungsfaktor `trt`. Die zufälligen Effekte sind normalverteilt mit $\mathcal{N}(0, s^2)$. Pro Behandlung haben wir dann nur zwei Wiederholungen. Dennoch erreichen wir eine Fallzahl von sechzehn Beobachtungen. {#tbl-mixed-simple-2fac}
 
 ```{r}
 #| eval: false
