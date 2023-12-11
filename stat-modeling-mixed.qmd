@@ -8,12 +8,6 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, simstudy, writexl)
 
 > *"Wer die Arbeit kennt und sich nicht drückt, der ist verrückt." --- Tick, Trick und Track*
 
-::: callout-tip
-## Einführung in die linearen gemischten Modelle per Video
-
-Du findest auf YouTube [Lineare gemischte Modelle](https://youtu.be/54ba9cn3MeY) als Video Reihe. Ich werde zwar alles nochmal hier als Text aufschreiben, aber manchmal ist das Sehen und Hören dann einfacher.
-:::
-
 In diesem Kapitel vollen wir die Grundzüge der lineare gemischten Modell (eng. *linear mixed models*, abk. *lmm*) zu versuchen zu verstehen. Wir immer, es gibt dazu auch hervorragende Literatur wie das sehr ausführliche Buch von @zuur2009mixed. Fangen wir also einmal an zu verstehen, wie eigentlich ein Experiment aussehen muss, damit wir ein lineares gemischtes Modell rechnen wollen. Wir haben häufig in den Agarwissenschaften Faktoren als unser $x$ vorliegen. Für das $y$ können aber jeden Messwert abbilden. Dafür gibt es dann die Funktion `glmer()`, die das Äquivalent zu der Funktion `glm()` ist. Wir haben also folgendes, mehrfaktorielles Modell vorliegen.
 
 $$
@@ -108,7 +102,138 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
-### Von Drachen auf Bergen
+Als erstes Beispiel nehmen wir einen Datensatz zu den Testergebnissen von Schülern an amerikanischen Schulen. Jetzt ist das kein Beispiel, welches du vielleicht in einem biologischen oder agrarwissenschaftlichen Umfeld erwarten würdest. Ich mache das aber hier bewusst, da wir uns alle sehr gut die Abhängigkeiten von Schülerleistungen von der jeweiligen Klasse und dem Standort der Schule vorstellen können. Jedem wird klar sein, dass ein Testergebnis aus einer Klausur *nicht* unabhängig davon ist, auf welche Schule der Schüler geht oder in welcher Klasse er unterrichtet wird. Schüler in einer gemeinsamen Klasse oder Schule werden sich ähnlicher sein als Schüler in unterschiedlichen Klassen oder Schulen.
+
+In der @fig-mermaid-r-mixed-school siehst du einmal das Abhängigkeitsverhältnis in unserem Schuldatenbeispiel. Wir wenden in den verschiedenen Klassen als Behandlung `trt` eines von drei Lehrmethoden *Frontal*, *Flipped Classroom* oder *HyperFlex* an. Dabei wird natürlich eine ganze Klasse nach der entsprechenden Lehrmethode unterrichtet. Pro Schule finden sich drei Klassen und eine Klasse ist dann in einer der neun Schulen genestet.
+
+```{mermaid}
+%%| label: fig-mermaid-r-mixed-school
+%%| fig-width: 6
+%%| fig-cap: "In unseren Schuldaten haben wir verschiedene Schulen `school` und Klassen `class` mit zwei innovativen Lehrmethoden unterrichtet. Eine Kontrollgruppe soll die Ergebnisse eines Leistungstests absichern. Daher sind die Lehrmethoden `trt` in dem Faktor `class` genestet. Der Faktor `class` ist dann wiederum in jedem Faktor `school` genestet."
+flowchart LR
+    C(trt):::fixed --- D(((nested))) --> E(class):::random --- F(((nested))) --> G(school):::random
+    classDef fixed fill:#56B4E9,stroke:#333,stroke-width:0.75px
+    classDef random fill:#E69F00,stroke:#333,stroke-width:0.75px
+```
+
+In dem folgenden Kasten werden einmal die Schuldaten simuliert. Daher können wir dann einmal nachvollziehen, welche Werte wir jeweils für die Effekte der Schule, der Klasse und der Lehrform gesetzt haben. Du kannst den Kasten gerne überspringen und dann einfach mit der Visualisierung und Auswertung der Daten weitermachen.
+
+::: {.callout-caution collapse="true"}
+## Generierung von Schuldaten (3-faktoriell)
+
+Warum sollte man Daten simulieren? Reichen da nicht echte Daten? Wir können an den simulierten Daten die Werte zurückverfolgen, wir wir bei der Erstellung voreingestellt haben. Damit können wir dann auch bewerten, wie gut die statistischen Methoden funktioniert haben. Wir machen es uns aber auch etwas einfacher und bauen uns kein kompliziertes Beispiel. Umfangreich ist es nur, da Daten für ein gemischtes Modell eben auch umfangreich *sind*.
+
+Aus Gründen der Einfachheit haben wir immer ein balanciertes Design vorliegen. Wir haben also immer in allen Faktorkombinationen die gleiche Anzahl an Beobachtungen `n_reps` vorliegen. In der Anwendung mag es Unterschiede geben, so hat eine Sau sicherlich nicht immer exakt zwölf Ferkel, aber in unseren Beispielen macht es keinen Unterschied. Balanciert oder unbalanciert ist bei gemischten Modellen eher nachrangig wichtig. Das [R Paket `{simstudy}`](https://kgoldfeld.github.io/simstudy/articles/clustered.html) erlaubt die Simulation von komplexeren Gruppenstrukturen mit auch unbalancierten Daten.
+
+Im Folgenden setze ich einmal Werte für die Schulanzahl, Klassenzahl pro Schule sowie die Anzahl an Behandlungen. Dann müssen wir noch definieren wie viele Schüler dann pro Klasse zu finden sind. Wenn wir das haben, dann können wir auch die Effekte der Klassen, Schulen und der Lehrformate festlegen. Dabei sind die Effekt der zufälligen Effekte der Klassen und Schule dann die zusätzliche Varianz abgebildet durch die Standardabweichungen.
+
+```{r}
+# set seed
+set.seed(20231208)
+# sample sizes
+n_school <- 9
+n_class_per_school <- 3
+n_class <- n_school * n_class_per_school
+n_trt <- 3
+n_reps <- 20
+# effects and standard deviation
+sd_school <- 10
+sd_class <- 5
+sd_error <- 2
+eff_trt <- c(frontal = 10,
+             flipped = -10,
+             hyflex = 30)
+```
+
+Dann können wir uns schon das Grid für die Daten erstellen. Dabei müssen wir dann mehrfach `expand_grid()` nutzen um erst die Schulen zu erschaffen, dann die Lehrformate den Schulen zuordnen und dann die Klassen pro Schule erschaffen. Ende müssen wir noch den Datensatz mit der Anzahl an Schülern pro Klasse erweitern. Dann beschreibt jede Zeile genau einen Schüler. Neben der Zuordnung jedes einzelnen Schülern zu einem Lehrformat, Klasse und Schule, müssen wir noch die Effekte $s_0$, $c_0$ und $t_{eff}$, die jeder Schüler durch eben jene Zuordnung erhält, ergänzen.
+
+```{r}
+school_grid_tbl <- tibble(s_id = 1:n_school,
+                          s_0 = rnorm(n_school, 0, sd_school)) %>% 
+  add_column(trt = rep(1:n_trt, n_trt),
+             t_eff = rep(eff_trt, n_trt)) %>% 
+  expand_grid(c_per_s = 1:n_class_per_school) %>%
+  mutate(c_id = 1:n_class,
+         c_0 = rnorm(n_class, 0, sd_class)) %>% 
+  expand_grid(reps = 1:n_reps)
+```
+
+Jetzt können wir unseren Testscore berechnen, der sich aus den einzelnen Effekten der Schule $s_0$, der Klasse $c_0$ sowie dem Lehrformat $t_{eff}$ ergibt, berechnen. Am Ende addieren wir auf jeden Wert noch einen Fehler und runden die Werte des Tests auf zwei Stellen. Dann bauen wir uns noch die Faktorlevel für die Schulen, Klassen und dem Lehrformat.
+
+```{r}
+school_tbl <- school_grid_tbl %>% 
+  arrange(trt) %>% 
+  mutate(test = round(50 + s_0 + c_0 + t_eff + rnorm(n(), 0, sd_error), 2),
+         s_id = factor(s_id, labels = c("Springfield School", "Jacksonville High", "Franklin Country", 
+                                        "Clinton Christian", "Arlington Academy", "Georgetown High", 
+                                        "Greenville School", "Bristol Country", "Dover Tech Center")),
+         c_id = as_factor(c_id),
+         c_per_s = factor(c_per_s, labels = c("1a", "1b", "1c")),
+         trt = factor(trt, labels = c("Frontal", "Flipped classroom", "HyFlex"))) 
+```
+
+Dann schreiben wir die Daten noch in eine Exceldatei `school_testing.xlsx` und können diese dann im weiteren Verlauf der Analyse nutzen. Auch hier passen wir etwas die Namen der Spalten an, damit die Spalten etwas mehr Aussagekraft haben.
+
+```{r}
+school_tbl %>% 
+  select(school_id = s_id, class_in_school_id = c_per_s, class_id = c_id, trt, test) %>% 
+  write_xlsx("data/school_testing.xlsx")
+```
+:::
+
+Die Schuldaten liegen dann in dem Datensatz `school_testing.xlsx` vor. Wir müssen hier dann nur noch die Faktoren bilden, damit wir dann auch die Visualisierungen sauber hinkriegen.
+
+```{r}
+school_tbl <- read_excel("data/school_testing.xlsx") %>% 
+  mutate(school_id = as_factor(school_id),
+         class_in_school_id = as_factor(class_in_school_id),
+         class_id = as_factor(class_id),
+         trt = as_factor(trt)) 
+```
+
+Es ergibt sich dann der Datensatz der Schuldaten wie in @tbl-school gekürzt gezeigt.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-school
+#| tbl-cap: "Datensatz der Testscores für die Schüler an verschiedenen Schulen und Klassen. Die Schüler wurden in den Klassen jewiels mit einem von drei Lehrformaten unterrichtet. Die Klassen und Schulen sind die zufälligen Effekte. Das Lehrformat ist der feste Effekt."
+
+school_raw_tbl <- read_excel("data/school_testing.xlsx") 
+
+rbind(head(school_raw_tbl, n = 4),
+      rep("...", times = ncol(school_raw_tbl)),
+      tail(school_raw_tbl, n = 4)) %>% 
+  kable(align = "c", "pipe")
+```
+
+In der @tbl-mixed-simple-2fac im folgenden Kasten findest du den *einfachst möglichen* Datensatz für nur zwei Schülern pro Klasse sowie insgesamt nur zwei Klassen für zwei Schulen. Damit kannst du dir einmal denn Aufbau visualisieren und sihest auch einmal wie sich die Effekte der Klassen, Schule und Lehrformat für jeden der sechszehn Schüler zusammensatzt. Jede Zeiel repräsentiert ja einen Schüler.
+
+::: {.callout-note collapse="true"}
+## Einfachst möglicher Schulfatensatz (3-faktoriell)
+
+| school | $\boldsymbol{eff_{school}}$ | class | $\boldsymbol{eff_{class}}$ | trt | $\boldsymbol{eff_{trt}}$ | reps |
+|:------:|:---------------------------:|:-----:|:--------------------------:|:---:|:------------------------:|:----:|
+|   1    |           $0.23$            |   1   |          $-0.14$           |  1  |           $10$           |  1   |
+|   1    |           $0.23$            |   1   |          $-0.14$           |  1  |           $10$           |  2   |
+|   1    |           $0.23$            |   1   |          $-0.14$           |  2  |           $5$            |  1   |
+|   1    |           $0.23$            |   1   |          $-0.14$           |  2  |           $5$            |  2   |
+|   1    |           $0.23$            |   2   |           $0.21$           |  1  |           $10$           |  1   |
+|   1    |           $0.23$            |   2   |           $0.21$           |  1  |           $10$           |  2   |
+|   1    |           $0.23$            |   2   |           $0.21$           |  2  |           $5$            |  1   |
+|   1    |           $0.23$            |   2   |           $0.21$           |  2  |           $5$            |  2   |
+|   2    |           $0.71$            |   3   |          $-0.83$           |  1  |           $10$           |  1   |
+|   2    |           $0.71$            |   3   |          $-0.83$           |  1  |           $10$           |  2   |
+|   2    |           $0.71$            |   3   |          $-0.83$           |  2  |           $5$            |  1   |
+|   2    |           $0.71$            |   3   |          $-0.83$           |  2  |           $5$            |  2   |
+|   2    |           $0.71$            |   4   |           $0.59$           |  1  |           $10$           |  1   |
+|   2    |           $0.71$            |   4   |           $0.59$           |  1  |           $10$           |  2   |
+|   2    |           $0.71$            |   4   |           $0.59$           |  2  |           $5$            |  1   |
+|   2    |           $0.71$            |   4   |           $0.59$           |  2  |           $5$            |  2   |
+
+: Kurzform eines dreifaktoriellen Datensatzes mit zwei zufälligen Effekten für `school` und `class` sowie einem Bahandlungsfaktor `trt`. Die zufälligen Effekte sind normalverteilt mit $\mathcal{N}(0, s^2)$. Pro Behandlung haben wir dann nur zwei Wiederholungen. Dennoch erreichen wir eine Fallzahl von sechzehn Beobachtungen daher Schülern. {#tbl-mixed-simple-2fac}
+:::
 
 In diesem fiktiven Datenbeispiel wollen wir uns die Testscores eines Intelligentest bei $N = 480$ Drachen anschauen. Wir sind dafür an acht Berge gefahren und haben die dortigen Drachen an den drei Flanken des Berges getestet. Daher hat der Faktor `mountain` acht Level mit Bavarian, Ligurian, Emmental, Central, Maritime, Southern, Julian, und Sarntal. Die drei Flanken des Berges bilden wir im Faktor `site` mit den Leveln north, east und south ab. In @fig-mountain-site sehen wir eine Skizze für drei Berge mit den jeweiligen Flanken, wo gemessen wurde.
 
@@ -154,137 +279,6 @@ rbind(head(dragons_raw_tbl, n = 4),
       tail(dragons_raw_tbl, n = 4)) %>% 
   kable(align = "c", "pipe")
 ```
-
-### Von Schülern in Schulen
-
-Beispiel mit den Simpsons
-
-Erstklässler
-
-Flipped Classroom HyperFlex
-
-```{mermaid}
-%%| label: fig-mermaid-r-mixed-dragon
-%%| fig-width: 6
-%%| fig-cap: "In unseren Schuldaten haben wir verschiedene Schulen `school` und Klassen `class` mit zwei innovativen Lehrmethoden unterrichtet. Eine Kontrollgruppe soll die Ergebnisse eines Leistungstests absichern. Daher sind die Lehrmethoden `trt` in dem Faktor `class` genestet. Der Faktor `class` ist dann wiederum in jedem Faktor `school` genestet."
-flowchart LR
-    C(trt):::fixed --- D(((nested))) --> E(class):::random --- F(((nested))) --> G(school):::random
-    classDef fixed fill:#56B4E9,stroke:#333,stroke-width:0.75px
-    classDef random fill:#E69F00,stroke:#333,stroke-width:0.75px
-```
-
-::: {.callout-caution collapse="true"}
-## Generierung von Schuldaten (3-faktoriell)
-
-Aus Gründen der Einfachheit haben wir immer ein balanciertes Design vorliegen. Wir haben also immer in allen Faktorkombinationen die gleiche Anzahl an Beobachtungen `n_reps` vorliegen. In der Anwendung mag es Unterschiede geben, so hat eine Sau sicherlich nicht immer exakt zwölf Ferkel, aber in unseren Beispielen macht es keinen Unterschied. Balanciert oder unbalanciert ist bei gemischten Modellen eher nachrangig wichtig. Das [R Paket `{simstudy}`](https://kgoldfeld.github.io/simstudy/articles/clustered.html) erlaubt die Simulation von komplexeren Gruppenstrukturen mit auch unbalancierten Daten.
-
-```{r}
-# set seed
-set.seed(20231208)
-# sample sizes
-n_school <- 9
-n_class_per_school <- 3
-n_class <- n_school * n_class_per_school
-n_trt <- 3
-n_reps <- 20
-# effects and standard deviation
-sd_school <- 10
-sd_class <- 5
-sd_error <- 2
-eff_trt <- c(frontal = 10,
-             flipped = -10,
-             hyflex = 30)
-```
-
-Dann können wir uns schon das Grid für die Daten erstellen.
-
-```{r}
-school_grid_tbl <- tibble(s_id = 1:n_school,
-       s_0 = rnorm(n_school, 0, sd_school)) %>% 
-  add_column(trt = rep(1:n_trt, n_trt),
-             t_eff = rep(eff_trt, n_trt)) %>% 
-  expand_grid(c_per_s = 1:n_class_per_school) %>%
-  mutate(c_id = 1:n_class,
-         c_0 = rnorm(n_class, 0, sd_class)) %>% 
-  expand_grid(reps = 1:n_reps)
-```
-
-Jetzt noch den Testscore simulieren.
-
-```{r}
-school_tbl <- school_grid_tbl %>% 
-  arrange(trt) %>% 
-  mutate(test = round(50 + s_0 + c_0 + t_eff + rnorm(n(), 0, sd_error), 2),
-         s_id = factor(s_id, labels = c("Springfield School", "Jacksonville High", "Franklin Country", 
-                                        "Clinton Christian", "Arlington Academy", "Georgetown High", 
-                                        "Greenville School", "Bristol Country", "Dover Tech Center")),
-         c_id = as_factor(c_id),
-         c_per_s = factor(c_per_s, labels = c("1a", "1b", "1c")),
-         trt = factor(trt, labels = c("Frontal", "Flipped classroom", "HyFlex"))) 
-```
-
-Und die Daten schreiben
-
-```{r}
-school_tbl %>% 
-  select(school_id = s_id, class_in_school_id = c_per_s, class_id = c_id, trt, test) %>% 
-  write_xlsx("data/school_testing.xlsx")
-```
-:::
-
-Die Daten liegen in dem Datensatz `school_testing.xlsx` ab.
-
-```{r}
-school_tbl <- read_excel("data/school_testing.xlsx") %>% 
-  mutate(school_id = as_factor(school_id),
-         class_in_school_id = as_factor(class_in_school_id),
-         class_id = as_factor(class_id),
-         trt = as_factor(trt)) 
-```
-
-Es ergibt sich dann der Datensatz wie in @tbl-dragon gezeigt. Wir belassen die Körperlänge der Drachen in der kontinuierlichen Form nochmal mit in den Daten.
-
-```{r}
-#| echo: false
-#| message: false
-#| warning: false
-#| label: tbl-school
-#| tbl-cap: Datensatz der Testscores für die Drachen auf verschiedenen Bergen und dort an verschiedenen Flanken der Berge.
-
-school_raw_tbl <- read_excel("data/school_testing.xlsx") 
-
-rbind(head(school_raw_tbl, n = 4),
-      rep("...", times = ncol(school_raw_tbl)),
-      tail(school_raw_tbl, n = 4)) %>% 
-  kable(align = "c", "pipe")
-```
-
-@tbl-mixed-simple-2fac
-
-::: {.callout-note collapse="true"}
-## Einfachst möglicher Datensatz (3-faktoriell)
-
-| school | $\boldsymbol{eff_{school}}$ | class | $\boldsymbol{eff_{class}}$ | trt | $\boldsymbol{eff_{trt}}$ | reps |
-|:------:|:---------------------------:|:-----:|:--------------------------:|:---:|:------------------------:|:----:|
-|   1    |           $0.23$            |   1   |          $-0.14$           |  1  |           $10$           |  1   |
-|   1    |           $0.23$            |   1   |          $-0.14$           |  1  |           $10$           |  2   |
-|   1    |           $0.23$            |   1   |          $-0.14$           |  2  |           $5$            |  1   |
-|   1    |           $0.23$            |   1   |          $-0.14$           |  2  |           $5$            |  2   |
-|   1    |           $0.23$            |   2   |           $0.21$           |  1  |           $10$           |  1   |
-|   1    |           $0.23$            |   2   |           $0.21$           |  1  |           $10$           |  2   |
-|   1    |           $0.23$            |   2   |           $0.21$           |  2  |           $5$            |  1   |
-|   1    |           $0.23$            |   2   |           $0.21$           |  2  |           $5$            |  2   |
-|   2    |           $0.71$            |   3   |          $-0.83$           |  1  |           $10$           |  1   |
-|   2    |           $0.71$            |   3   |          $-0.83$           |  1  |           $10$           |  2   |
-|   2    |           $0.71$            |   3   |          $-0.83$           |  2  |           $5$            |  1   |
-|   2    |           $0.71$            |   3   |          $-0.83$           |  2  |           $5$            |  2   |
-|   2    |           $0.71$            |   4   |           $0.59$           |  1  |           $10$           |  1   |
-|   2    |           $0.71$            |   4   |           $0.59$           |  1  |           $10$           |  2   |
-|   2    |           $0.71$            |   4   |           $0.59$           |  2  |           $5$            |  1   |
-|   2    |           $0.71$            |   4   |           $0.59$           |  2  |           $5$            |  2   |
-
-: Kurzform eines dreifaktoriellen Datensatzes mit zwei zufälligen Effekten für `school` und `class` sowie einem Bahandlungsfaktor `trt`. Die zufälligen Effekte sind normalverteilt mit $\mathcal{N}(0, s^2)$. Pro Behandlung haben wir dann nur zwei Wiederholungen. Dennoch erreichen wir eine Fallzahl von sechzehn Beobachtungen. {#tbl-mixed-simple-2fac}
-:::
 
 In der folgenden Box findest du noch mehr Daten und experimentelle Designs aus dem [R Paket `{agridat}`](https://kwstat.github.io/agridat/reference/index.html).
 
