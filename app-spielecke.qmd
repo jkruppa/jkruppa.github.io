@@ -76,6 +76,157 @@ ggplot() +
 
 ```
 
+```{r}
+#| eval: false
+gen_school <- defData(varname = "n_classes", dist = "nonrandom", formula = 3,
+    id = "id_school")
+gen_school <- defData(gen_school, varname = "s0", dist = "normal", formula = 0, variance = 3)
+```
+
+```{r}
+#| eval: false
+set.seed(282721)
+
+dt_school <- genData(9, gen_school)
+dt_school <- trtAssign(dt_school, n = 3, grpName = "trt")
+
+dt_school
+```
+
+text
+
+```{r}
+#| eval: false
+gen_class <- defDataAdd(varname = "n_students", dist = "nonrandom", formula = 5)
+gen_class <- defDataAdd(gen_class, varname = "c0", dist = "normal", formula = 0, variance = 2)
+```
+
+```{r}
+#| eval: false
+dt_class <- genCluster(dt_school, "id_school", numIndsVar = "n_classes", level1ID = "id_class")
+dt_class <- addColumns(gen_class, dt_class)
+
+dt_class %<>% 
+  add_column(trt_new = rep(1:3, 9))
+
+head(dt_class)
+```
+
+text
+
+```{r}
+#| eval: false
+gen_student <- defDataAdd(varname = "test", dist = "normal",
+                          formula = "50 + s0 + c0 + 8 * trt", variance = 2)
+dt_student <- genCluster(dt_class, cLevelVar = "id_class", numIndsVar = "n_students",
+    level1ID = "id_child")
+
+dt_student <- addColumns(gen_student, dt_student) %>% 
+  mutate(id_class = as_factor(id_class),
+         id_school = as_factor(id_school),
+         trt = as_factor(trt),
+         trt_new = as_factor(trt_new))
+```
+
+```{r}
+#| eval: false
+n_s <- 9
+s_tbl <- tibble(s_id = 1:n_s,
+                s_0 = rnorm(n_s, 0, 2)) %>% 
+  add_column(trt = rep(1:3, 3)) %>% 
+  expand_grid(c_per_s = 1:3)
+
+foo <- tibble(s_id = 1:n_s,
+       s_0 = rnorm(n_s, 0, 2)) %>% 
+  add_column(trt = rep(1:3, 3),
+             t_eff = rep(c(10, -10, 30), 3)) %>% 
+  expand_grid(c_per_s = 1:3) %>% 
+  mutate(c_id = 1:27,
+         c_0 = rnorm(27, 0, 5)) %>% 
+  expand_grid(reps = 1:20) %>% 
+  mutate(test = 50 + s_0 + c_0 + t_eff + rnorm(n(), 0, 2),
+         s_id = as_factor(s_id),
+         c_id = as_factor(c_id),
+         trt = as_factor(trt))
+
+foo %>% 
+  ggplot(aes(trt, test, fill = s_id, group = c_id)) +
+  theme_bw() +
+  geom_boxplot() 
+
+lmer_fit <- lmer(test ~ trt + (1|s_id) + (1|c_id), data = foo) 
+
+lmer_fit %>% 
+  emmeans(~ trt) %>% 
+  pairs()
+
+```
+
+```{r}
+#| eval: false
+expand_grid(tibble(s_id = 1:n_s,
+                   s_0 = rnorm(n_s, 0, 2)),
+            tibble(trt = 1:3,
+                   trt_eff = c(10, -5, 20))) 
+
+
+
+final_data <- s_tbl %>% 
+  mutate(c_id = 1:27,
+         c_0 = rnorm(27, 0, 5)) %>% 
+  expand_grid(reps = 1:20) %>% 
+  mutate(test = 50 + s_0 + c_0 + 10 * trt + rnorm(n(), 0, 2),
+         s_id = as_factor(s_id),
+         c_id = as_factor(c_id),
+         trt = as_factor(trt))
+
+final_data %>% 
+  ggplot(aes(trt, test, fill = s_id, group = c_id)) +
+  theme_bw() +
+  geom_boxplot() 
+```
+
+```{r}
+#| eval: false
+n_s <- 9
+s_tbl <- tibble(s_id = 1:n_s,
+                s_0 = rnorm(n_s, 0, 2)) %>% 
+  add_column(trt = rep(1:3, 3)) 
+
+c_tbl <- tibble(c_id = 1:3,
+                c_0 = rnorm(3, 0, 5))
+
+
+final_data <- s_tbl %>% 
+  expand_grid(c_tbl,
+              reps = 1:20) %>% 
+  mutate(test = 50 + s_0 + c_0 + 8 * trt + rnorm(n(), 0, 2),
+         s_id = as_factor(s_id),
+         c_id = as_factor(c_id),
+         trt = as_factor(trt))
+
+final_data %>% 
+  ggplot(aes(trt, test, fill = c_id)) +
+  theme_bw() +
+  geom_boxplot() +
+  facet_wrap(~s_id)
+
+```
+
+```{r}
+#| eval: false
+dt_student %>% 
+  ggplot(aes(id_class, test, fill = id_school, linetype = trt, color = trt)) +
+  theme_bw() +
+  geom_boxplot()
+
+
+dt_student %>% 
+  ggplot(aes(trt, test, fill = id_school, group = id_class)) +
+  theme_bw() +
+  geom_boxplot()
+```
+
 ### Latent Class Analysis {.unnumbered}
 
 Wie immer gibt es eine Reihe von Tutorien auf denen dieser Abschnitt aufbaut. Zum einen wirf einfach mal einen Blick in das Tutorium [Latent Class Analysis Using R](https://pop.princeton.edu/events/2020/latent-class-analysis-using-r). Eine leider etwas veraltete Übersicht über mögliche R Pakete liefert [Ways to do Latent Class Analysis in R](https://maksimrudnev.com/2016/12/28/latent-class-analysis-in-r/). Ich habe da immer mal quer geschaut und mich dann für die Pakete hier entschieden. Es gibt sicherlich noch andere Möglichkeiten eine *latent class analysis* zu rechnen.
