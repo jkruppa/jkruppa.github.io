@@ -235,13 +235,17 @@ In der @tbl-mixed-simple-2fac im folgenden Kasten findest du den *einfachst mög
 : Kurzform eines dreifaktoriellen Datensatzes mit zwei zufälligen Effekten für `school` und `class` sowie einem Bahandlungsfaktor `trt`. Die zufälligen Effekte sind normalverteilt mit $\mathcal{N}(0, s^2)$. Pro Behandlung haben wir dann nur zwei Wiederholungen. Dennoch erreichen wir eine Fallzahl von sechzehn Beobachtungen daher Schülern. {#tbl-mixed-simple-2fac}
 :::
 
-Dann einmal den Klassiker schlechthin als *das* [Split-plot experiment of oats](https://kwstat.github.io/agridat/reference/yates.oats.html) aus dem R Paket `{agridat}`. Warum ist es der Klassiker? Weil es im Prinzip das erste Split plot Experiment war. Deshalb ist es nicht schlechter als andere. ich nutze es hier, weil es gut funktioniert und wir uns einmal eine Auswertung eines komplexeren Datensatzes mit einem linearen gemischten Modell anschauen können.
+Dann einmal den Datenklassiker `yates.oats` schlechthin als *das* [Split-plot experiment of oats](https://kwstat.github.io/agridat/reference/yates.oats.html) aus dem R Paket `{agridat}`. Warum ist es der Klassiker? Weil es im Prinzip das erste Split plot Experiment war. Deshalb ist es nicht schlechter als andere. Ich nutze es hier, weil es gut funktioniert und wir uns einmal eine Auswertung eines komplexeren Datensatzes mit einem linearen gemischten Modell anschauen können. Wir haben insgesamt die mittleren Ertragswerte von Hafer für 72 Parzellen vorliegen. Im weiteren haben wir zwei Behandlungsfaktoren mit der Stickstoffgabe `nitro` und der Sorte `gen`. Da wir ein Split plot Experiment vorliegen haben, brauchen wir natürlich die Reihen- und Spaltenpositionen sowie die Information über den Block. Alle drei Positionsfaktoren werden wir dann versuchen als zufällige Effekte in das gemischte Modell zu nehmen.
 
 ```{r}
 data(yates.oats)
 oats_tbl <- yates.oats %>% 
   as_tibble() %>% 
-  mutate(nitro = as_factor(nitro))
+  mutate(nitro = as_factor(nitro),
+         row = as_factor(row),
+         col = as_factor(col)) %>% 
+  expand_grid(plant_id = 1:12) %>% 
+  mutate(plant_yield = rnorm(n(), yield, 2))
 ```
 
 ```{r}
@@ -249,7 +253,7 @@ oats_tbl <- yates.oats %>%
 #| message: false
 #| warning: false
 #| label: tbl-yates
-#| tbl-cap: "Datensatz der Testscores für die Schüler an verschiedenen Schulen und Klassen. Die Schüler wurden in den Klassen jewiels mit einem von drei Lehrformaten unterrichtet. Die Klassen und Schulen sind die zufälligen Effekte. Das Lehrformat ist der feste Effekt."
+#| tbl-cap: "Haferdatensatz im Split plot Design für zwei Behandlungsfaktoren `nitro` und `gen` sowie drei Positionsfaktoren `row`, `col` und `block`. Wir schauen uns hier nur das Outcome Haferertrag `yield` an."
 
 yates_raw_tbl <- yates.oats %>% 
   mutate(gen = as.character(gen),
@@ -258,6 +262,33 @@ yates_raw_tbl <- yates.oats %>%
 rbind(head(yates_raw_tbl, n = 4),
       rep("...", times = ncol(yates_raw_tbl)),
       tail(yates_raw_tbl, n = 4)) %>% 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+data(ycochran.wireworms)
+wireworms_tbl <- cochran.wireworms %>% 
+  as_tibble() %>% 
+  mutate(trt = as_factor(trt),
+         col = as_factor(col),
+         row = as_factor(row)) %>% 
+  expand_grid(worm_id = 1:10) %>% 
+  mutate(count_worms = rpois(n(), worms))
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-worms
+#| tbl-cap: "dfdf."
+
+worm_raw_tbl <- cochran.wireworms %>% 
+  mutate(trt = as.character(trt))
+
+rbind(head(worm_raw_tbl, n = 4),
+      rep("...", times = ncol(yates_raw_tbl)),
+      tail(worm_raw_tbl, n = 4)) %>% 
   kable(align = "c", "pipe")
 ```
 
@@ -281,9 +312,11 @@ Es gibt natürlich noch mehr Datensätze, die du dann mit einem gemischten Model
 
 ## Visualisierung
 
+Und dann bringen wir in den folgenden Abbildungen mal verschiedene Abbildungen zusammen mit dem [R Paket`{gghalves}`](https://erocoar.github.io/gghalves/). Wir können mit `{gghalves}` halbe Plots erstellen und diese dann miteinander kombinieren. Damit packen wir dann in die Mitte Boxplots. Links von den Boxplots zeichnen wir die einzelnen Beobachtungen als Punkte mit `stat_dots()` und die Verteilung der einzelnen Beobachtungen zeichnen wir mit dem [R Paket `{ggdist}`](https://mjskay.github.io/ggdist/). Das Tutorium [Visualizing Distributions with Raincloud Plots](https://www.cedricscherer.com/2021/06/06/visualizing-distributions-with-raincloud-plots-and-how-to-create-them-with-ggplot2/) liefert dann noch mehr Anleitungen für noch mehr Varianten. Wie du aber schon am R Code siehst, ist das eine etwas komplexere Abbildung geworden.
+
 ```{r}
 gg_half_template <- ggplot() +
-  stat_halfeye(adjust = 0.5, width = 0.4, .width = 0, 
+  stat_halfeye(width = 0.4, adjust = 0.8,  
                justification = -0.3, point_colour = NA) + 
   geom_boxplot(width = 0.15, outlier.shape = NA) +
   stat_dots(side = "left", justification = 1.12, binwidth = .25) +
@@ -306,7 +339,7 @@ gg_half_template %+%
   school_tbl + 
   aes(x = trt, y = test, color = school_id) +
   labs(x = "Lehrformat", y = "Testscore", color = "Schule") +
-  guides(color=guide_legend(nrow = 3, byrow = FALSE))
+  guides(color = guide_legend(nrow = 3, byrow = FALSE))
 
 ```
 
@@ -324,7 +357,7 @@ gg_half_template %+%
   school_tbl + 
   aes(x = trt, y = test, color = class_in_school_id) +
   labs(x = "Lehrformat", y = "Testscore", color = "Schule") +
-  guides(color=guide_legend(nrow = 3, byrow = FALSE))
+  guides(color = guide_legend(nrow = 3, byrow = FALSE))
 
 ```
 
@@ -356,7 +389,7 @@ ggplot(school_tbl, aes(x = class_id, y = test, fill = trt)) +
 #| label: fig-mixed-desplot-yates
 
 desplot(oats_tbl, block ~ col*row, 
-        out1 = block, num = nitro, col = gen,
+        num = nitro, col = gen,
         cex = 1, aspect = 5/3,
         main = "")
 ```
@@ -373,9 +406,9 @@ desplot(oats_tbl, block ~ col*row,
 
 gg_half_template %+%
   oats_tbl + 
-  aes(x = gen, y = yield, color = block) +
+  aes(x = gen, y = plant_yield, color = block) +
   labs(x = "Genetische Linie", y = "Ertrag", color = "Block") +
-  guides(color=guide_legend(nrow = 1, byrow = FALSE))
+  guides(color = guide_legend(nrow = 1, byrow = FALSE))
 ```
 
 ```{r}
@@ -390,9 +423,51 @@ gg_half_template %+%
 
 gg_half_template %+%
   oats_tbl + 
-  aes(x = nitro, y = yield, color = block) +
+  aes(x = nitro, y = plant_yield, color = block) +
   labs(x = "Stickstoffkonzentration", y = "Ertrag", color = "Block") +
-  guides(color=guide_legend(nrow = 1, byrow = FALSE))
+  guides(color = guide_legend(nrow = 1, byrow = FALSE))
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 5.5
+#| fig-width: 7
+#| fig-cap: Histogramm des Testscores über alle Datenpunkte zur Überprüfung der Annahme der Normalverteilung. Wir sehen eine approximative Normalverteilung des Testscores.
+#| label: fig-mixed-desplot-wireworms
+desplot(wireworms_tbl, trt ~ col * row,
+        text = trt, cex = 1, show.key = FALSE,
+        main = "")
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 5.5
+#| fig-width: 7
+#| fig-cap: Histogramm des Testscores über alle Datenpunkte zur Überprüfung der Annahme der Normalverteilung. Wir sehen eine approximative Normalverteilung des Testscores.
+#| label: fig-mixed-wireworm-1
+#| fig-subcap: 
+#|   - "Spalte (`col`)"
+#|   - "Reihe (`row`)"
+#| layout-nrow: 1
+#| column: page
+
+gg_half_template %+%
+  wireworms_tbl + 
+  aes(x = trt, y = count_worms, color = col) +
+  labs(x = "Insektizidbehandlung", y = "Anzahl Würmer", color = "Spalte (col)") +
+  guides(color = guide_legend(nrow = 1, byrow = FALSE)) 
+
+gg_half_template %+%
+  wireworms_tbl + 
+  aes(x = trt, y = count_worms, color = row) +
+  labs(x = "Insektizidbehandlung", y = "Anzahl Würmer", color = "Reihe (row)") +
+  guides(color = guide_legend(nrow = 1, byrow = FALSE)) 
 ```
 
 ## Modellierung
@@ -406,6 +481,8 @@ Wir brauchen mindestens 5 bis 6 Level für einen Faktor, den wir als zufälligen
 @bates2014fitting hat das [R Paket `{lme4}`](https://cran.r-project.org/web/packages/lme4/vignettes/lmer.pdf) entwickelt, welches uns erlaubt lineare gemischte Modelle in R anzuwenden. Es gibt noch das ältere R Paket `{nlme}` was aber nicht mehr für lineare gemischte Modelle genutzt wird. Wir nutzen aber gerne die Funktion `gls()` aus dem R Paket `{nlme}`, wenn wir eine lineare Regression mit heterogenen Varianzen rechnen wollen.
 
 [R Paket `{glmmTMB}`](https://glmmtmb.github.io/glmmTMB/index.html) und dann noch [Covariance structures with glmmTMB](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html)
+
+Damit wir dann auch Overdispersion in einer Poissonregression berücksichtigen können nutzen wir den gleichen "Trick" wie in [Covariance structures for the error term with glmmTMB - a workaround](https://schmidtpaul.github.io/MMFAIR/glmmtmbdispformula0.html)
 
 [R Paket `{mixedup}`](https://m-clark.github.io/mixedup/)
 
@@ -421,7 +498,23 @@ Wir brauchen mindestens 5 bis 6 Level für einen Faktor, den wir als zufälligen
 
 : Bedeutung der Formelschreibweise der zufälligen Effekte in einem linearen gemischten Modell in `{lmer}`. Mehr zu der Bedeutung dann in der Veröffentlichung von @bates2014fitting.
 
-### Mitteln über die einzelnen Beobachtungen
+### Mitteln
+
+Wir mitteln über einen zufälligen Effekt um die individuelle Varianz zu entfernen.
+
+### ... mit dem R Paket `{lme4}`
+
+@bates2014fitting hat das [R Paket `{lme4}`](https://cran.r-project.org/web/packages/lme4/vignettes/lmer.pdf) entwickelt, welches uns erlaubt lineare gemischte Modelle in R anzuwenden. Es gibt noch das ältere R Paket `{nlme}` was aber nicht mehr für lineare gemischte Modelle genutzt wird. Wir nutzen aber gerne die Funktion `gls()` aus dem R Paket `{nlme}`, wenn wir eine lineare Regression mit heterogenen Varianzen rechnen wollen.
+
+### ... mit dem R Paket `{glmmTB}`
+
+[R Paket `{glmmTMB}`](https://glmmtmb.github.io/glmmTMB/index.html) und dann noch [Covariance structures with glmmTMB](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html)
+
+### ... mit dem R Paket `{multilevelmod}`
+
+[R Paket `{multilevelmod}`](https://multilevelmod.tidymodels.org/articles/multilevelmod.html)
+
+## Old (remove me)
 
 ```{r}
 dragons_tbl <- read_excel("data/dragons.xlsx") %>% 
