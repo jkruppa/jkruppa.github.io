@@ -131,11 +131,12 @@ In dem folgenden Kasten werden einmal die Schuldaten simuliert. Daher können wi
 
 Warum sollte man Daten simulieren? Reichen da nicht echte Daten? Wir können an den simulierten Daten die Werte zurückverfolgen, wir wir bei der Erstellung voreingestellt haben. Damit können wir dann auch bewerten, wie gut die statistischen Methoden funktioniert haben. Wir machen es uns aber auch etwas einfacher und bauen uns kein kompliziertes Beispiel. Umfangreich ist es nur, da Daten für ein gemischtes Modell eben auch umfangreich *sind*.
 
-Aus Gründen der Einfachheit haben wir immer ein balanciertes Design vorliegen. Wir haben also immer in allen Faktorkombinationen die gleiche Anzahl an Beobachtungen `n_reps` vorliegen. In der Anwendung mag es Unterschiede geben, so hat eine Sau sicherlich nicht immer exakt zwölf Ferkel, aber in unseren Beispielen macht es keinen Unterschied. Balanciert oder unbalanciert ist bei gemischten Modellen eher nachrangig wichtig. Das [R Paket `{simstudy}`](https://kgoldfeld.github.io/simstudy/articles/clustered.html) erlaubt die Simulation von komplexeren Gruppenstrukturen mit auch unbalancierten Daten.
+Aus Gründen der Einfachheit haben wir immer ein balanciertes Design vorliegen. Wir haben also immer in allen Faktorkombinationen die gleiche Anzahl an Beobachtungen `n_reps` vorliegen. In der Anwendung mag es Unterschiede geben, so hat eine Sau sicherlich nicht immer exakt zwölf Ferkel, aber in unseren Beispielen macht es keinen Unterschied. Balanciert oder unbalanciert ist bei gemischten Modellen eher nachrangig wichtig. Das [R Paket `{simstudy}`](https://kgoldfeld.github.io/simstudy/articles/clustered.html) erlaubt die Simulation von komplexeren Gruppenstrukturen mit auch unbalancierten Daten. Am Ende wäre es dann mit `{simstudy}` vermutlich einfacher gewesen... hier können wir dann auch unterschiedlich Klassengrößen und Anzahlen simulieren.
 
 Im Folgenden setze ich einmal Werte für die Schulanzahl, Klassenzahl pro Schule sowie die Anzahl an Behandlungen. Dann müssen wir noch definieren wie viele Schüler dann pro Klasse zu finden sind. Wenn wir das haben, dann können wir auch die Effekte der Klassen, Schulen und der Lehrformate festlegen. Dabei sind die Effekt der zufälligen Effekte der Klassen und Schule dann die zusätzliche Varianz abgebildet durch die Standardabweichungen.
 
 ```{r}
+pacman::p_load(spatstat.random)
 # set seed
 set.seed(20231208)
 # sample sizes
@@ -274,8 +275,10 @@ rbind(head(yates_raw_tbl, n = 4),
   kable(align = "c", "pipe")
 ```
 
+[Wireworms controlled by fumigants in a latin square](https://kwstat.github.io/agridat/reference/cochran.wireworms.html)
+
 ```{r}
-data(ycochran.wireworms)
+data(cochran.wireworms)
 wireworms_tbl <- cochran.wireworms %>% 
   as_tibble() %>% 
   mutate(trt = as_factor(trt),
@@ -326,8 +329,9 @@ Und dann bringen wir in den folgenden Abbildungen mal verschiedene Abbildungen z
 
 ```{r}
 gg_half_template <- ggplot() +
-  stat_halfeye(width = 0.4, adjust = 0.8,  
-               justification = -0.3, point_colour = NA) + 
+  stat_halfeye(adjust = .5, width = .6, 
+               .width = 0, justification = -.2, 
+               point_colour = NA) + 
   geom_boxplot(width = 0.15, outlier.shape = NA) +
   stat_dots(side = "left", justification = 1.12, binwidth = .25) +
   coord_cartesian(xlim = c(1.2, 2.9), clip = "off") +
@@ -492,8 +496,6 @@ Wir brauchen mindestens 5 bis 6 Level für einen Faktor, den wir als zufälligen
 
 [R Paket `{glmmTMB}`](https://glmmtmb.github.io/glmmTMB/index.html) und dann noch [Covariance structures with glmmTMB](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html)
 
-Damit wir dann auch Overdispersion in einer Poissonregression berücksichtigen können nutzen wir den gleichen "Trick" wie in [Covariance structures for the error term with glmmTMB - a workaround](https://schmidtpaul.github.io/MMFAIR/glmmtmbdispformula0.html)
-
 [R Paket `{mixedup}`](https://m-clark.github.io/mixedup/)
 
 [R Paket `{multilevelmod}`](https://multilevelmod.tidymodels.org/articles/multilevelmod.html)
@@ -523,20 +525,8 @@ Wir mitteln über einen zufälligen Effekt um die individuelle Varianz zu entfer
 #| warning: false
 #| message: false
 lmer_2fac_fit <- lmer(test ~ trt +
-                        (1 | class_id), 
+                        (1 | school_id), 
                       data = school_tbl)
-```
-
-```{r}
-VarCorr(lmer_2fac_fit) %>% 
-  as_tibble() %>% 
-  select(Groups = grp, Std.Dev. = sdcor) %>% 
-  mutate(Std.Dev. = round(Std.Dev., 2))
-
-extract_random_effects(lmer_2fac_fit)
-extract_fixed_effects(lmer_2fac_fit)
-summarize_model(lmer_2fac_fit)
-extract_vc(lmer_2fac_fit)
 ```
 
 ```{r}
@@ -563,13 +553,6 @@ lmer_3fac_fit <- lmer(test ~ trt +
 ```
 
 ```{r}
-VarCorr(lmer_3fac_fit) %>% 
-  as_tibble() %>% 
-  select(Groups = grp, Std.Dev. = sdcor) %>% 
-  mutate(Std.Dev. = round(Std.Dev., 2))
-```
-
-```{r}
 #| warning: false
 #| message: false
 lmer_3fac_fit %>% icc()
@@ -592,13 +575,6 @@ lmer_3fac_nested_fit <- lmer(test ~ trt +
 ```
 
 ```{r}
-VarCorr(lmer_3fac_nested_fit) %>% 
-  as_tibble() %>% 
-  select(Groups = grp, Std.Dev. = sdcor) %>% 
-  mutate(Std.Dev. = round(Std.Dev., 2))
-```
-
-```{r}
 #| warning: false
 #| message: false
 lmer_3fac_nested_fit %>% icc()
@@ -610,6 +586,20 @@ lmer_3fac_nested_fit %>% icc()
 lmer_3fac_nested_fit %>% model_performance()
 ```
 :::
+
+Mehr Informationen zu den Modellen gibt es mit folgenden Funktionen aus dem R Paket `{mixedup}`.
+
+```{r}
+#| warning: false
+#| message: false
+#| eval: false
+extract_random_effects(lmer_2fac_fit)
+extract_fixed_effects(lmer_2fac_fit)
+summarize_model(lmer_2fac_fit)
+extract_vc(lmer_2fac_fit)
+```
+
+Wir schauen uns dann einmal als Übersichtstabelle die drei Modelle an.
 
 ```{r}
 #| warning: false
@@ -625,7 +615,31 @@ modelsummary(lst("lmer 2-fakoriell" = lmer_2fac_fit,
 
 [R Paket `{glmmTMB}`](https://glmmtmb.github.io/glmmTMB/index.html) und dann noch [Covariance structures with glmmTMB](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html)
 
+```{r}
+glmer_poisson_fit <- glmer(count_worms ~ trt + (1|row) + (1|col), 
+                           data = wireworms_tbl, family = "poisson")
+```
+
+```{r}
+glmer_poisson_fit  %>% check_overdispersion()
+```
+
+Wir haben sehr starke Overdispersion vorliegen und gehen daher rüber in den anderen Tab und rechnen eine Quasipoisson Regression. Nur wenn du keine Overdispersion vorliegen hast, dann kannst du eine eine Poisson Regression rechnen.
+
+Da wir in `{lme4}` keine Quasipoissonverteilung auswählen können, nutzen wir das [R Paket `{glmmTMB}`](https://glmmtmb.github.io/glmmTMB/index.html) mit der Verteilungsfamilie `nbinom1`, was einer Parametrisierung einer Quasipoissonverteilung entspricht.
+
+```{r}
+glmer_quasipoisson_fit <- glmmTMB(count_worms ~ trt + (1|row) + (1|col), 
+                                  data = wireworms_tbl, family = nbinom1) 
+```
+
+Damit wir dann auch Overdispersion in einer Poissonregression berücksichtigen können nutzen wir den gleichen "Trick" wie in [Covariance structures for the error term with glmmTMB - a workaround](https://schmidtpaul.github.io/MMFAIR/glmmtmbdispformula0.html)
+
 ### ... mit dem R Paket `{multilevelmod}`
+
+```{r}
+lmer(yield ~ nitro * gen + (1|block/gen), data = oats_tbl)
+```
 
 [R Paket `{multilevelmod}`](https://multilevelmod.tidymodels.org/articles/multilevelmod.html)
 
