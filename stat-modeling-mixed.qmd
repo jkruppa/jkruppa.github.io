@@ -80,6 +80,13 @@ Wie immer und natürlich im Besonderen bei linearen gemischten Modellen, gibt es
 
 ## Genutzte R Pakete
 
+Normalerweise nutze ich *nur* R Pakete, die auch auf CRAN oder eben per `p_load()` zu installieren sind. In diesem Kapitel brauche ich aber noch ein extra Paket, da die Ausgaben von linearen gemischten Modellen sehr unordentlich sind. Das R Paket `{mixedup}` hilft mir hier. Deshalb installiere ich einmal wie folgt `{mixedup}`.
+
+```{r}
+#| eval: false
+remotes::install_github('m-clark/mixedup')
+```
+
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
@@ -88,7 +95,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, broom, see, simstudy,
                multcomp, emmeans, lme4, broom.mixed, readxl,
                parameters, ggridges, scales, performance, 
-               ggdist, gghalves, glmmTMB, lmerTest,
+               ggdist, gghalves, glmmTMB, lmerTest, mixedup,
                multilevelmod, agridat, desplot, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
@@ -116,7 +123,7 @@ flowchart LR
     classDef random fill:#E69F00,stroke:#333,stroke-width:0.75px
 ```
 
-In dem folgenden Kasten werden einmal die Schuldaten simuliert. Daher können wir dann einmal nachvollziehen, welche Werte wir jeweils für die Effekte der Schule, der Klasse und der Lehrform gesetzt haben. Du kannst den Kasten gerne überspringen und dann einfach mit der Visualisierung und Auswertung der Daten weitermachen.
+In dem folgenden Kasten werden einmal die Schuldaten simuliert. Daher können wir dann einmal nachvollziehen, welche Werte wir jeweils für die Effekte der Schule, der Klasse und der Lehrform gesetzt haben. Wir sehen dann auch mal, welche zufälligen Effekte wir eigentlich setzen müssen und wie wir dann die Modelle miteinander vergleichen. Du kannst den Kasten gerne überspringen und dann einfach mit der Visualisierung und Auswertung der Daten weitermachen.
 
 ::: {.callout-caution collapse="true"}
 ## Generierung von Schuldaten (3-faktoriell)
@@ -257,7 +264,8 @@ oats_tbl <- yates.oats %>%
 
 yates_raw_tbl <- yates.oats %>% 
   mutate(gen = as.character(gen),
-         block = as.character(block))
+         block = as.character(block)) %>% 
+  as_tibble()
 
 rbind(head(yates_raw_tbl, n = 4),
       rep("...", times = ncol(yates_raw_tbl)),
@@ -284,7 +292,8 @@ wireworms_tbl <- cochran.wireworms %>%
 #| tbl-cap: "dfdf."
 
 worm_raw_tbl <- cochran.wireworms %>% 
-  mutate(trt = as.character(trt))
+  mutate(trt = as.character(trt)) %>% 
+  as_tibble()
 
 rbind(head(worm_raw_tbl, n = 4),
       rep("...", times = ncol(yates_raw_tbl)),
@@ -356,8 +365,8 @@ gg_half_template %+%
 gg_half_template %+%
   school_tbl + 
   aes(x = trt, y = test, color = class_in_school_id) +
-  labs(x = "Lehrformat", y = "Testscore", color = "Schule") +
-  guides(color = guide_legend(nrow = 3, byrow = FALSE))
+  labs(x = "Lehrformat", y = "Testscore", color = "Klasse") +
+  guides(color = guide_legend(nrow = 1, byrow = FALSE))
 
 ```
 
@@ -498,13 +507,113 @@ Damit wir dann auch Overdispersion in einer Poissonregression berücksichtigen k
 
 : Bedeutung der Formelschreibweise der zufälligen Effekte in einem linearen gemischten Modell in `{lmer}`. Mehr zu der Bedeutung dann in der Veröffentlichung von @bates2014fitting.
 
-### Mitteln
+### Mitteln über den zufälligen Effekt
 
 Wir mitteln über einen zufälligen Effekt um die individuelle Varianz zu entfernen.
 
 ### ... mit dem R Paket `{lme4}`
 
 @bates2014fitting hat das [R Paket `{lme4}`](https://cran.r-project.org/web/packages/lme4/vignettes/lmer.pdf) entwickelt, welches uns erlaubt lineare gemischte Modelle in R anzuwenden. Es gibt noch das ältere R Paket `{nlme}` was aber nicht mehr für lineare gemischte Modelle genutzt wird. Wir nutzen aber gerne die Funktion `gls()` aus dem R Paket `{nlme}`, wenn wir eine lineare Regression mit heterogenen Varianzen rechnen wollen.
+
+::: panel-tabset
+## `lmer()` 2-faktoriell ungenested
+
+```{r}
+#| warning: false
+#| message: false
+lmer_2fac_fit <- lmer(test ~ trt +
+                        (1 | class_id), 
+                      data = school_tbl)
+```
+
+```{r}
+VarCorr(lmer_2fac_fit) %>% 
+  as_tibble() %>% 
+  select(Groups = grp, Std.Dev. = sdcor) %>% 
+  mutate(Std.Dev. = round(Std.Dev., 2))
+```
+
+```{r}
+#| warning: false
+#| message: false
+lmer_2fac_fit %>% icc()
+```
+
+```{r}
+#| warning: false
+#| message: false
+lmer_2fac_fit %>% model_performance()
+```
+
+## `lmer()` 3-faktoriell ungenested
+
+```{r}
+#| warning: false
+#| message: false
+lmer_3fac_fit <- lmer(test ~ trt +
+                        (1 | class_in_school_id) + 
+                        (1 | school_id), 
+                      data = school_tbl)
+```
+
+```{r}
+VarCorr(lmer_3fac_fit) %>% 
+  as_tibble() %>% 
+  select(Groups = grp, Std.Dev. = sdcor) %>% 
+  mutate(Std.Dev. = round(Std.Dev., 2))
+```
+
+```{r}
+#| warning: false
+#| message: false
+lmer_3fac_fit %>% icc()
+```
+
+```{r}
+#| warning: false
+#| message: false
+lmer_3fac_fit %>% model_performance()
+```
+
+## `lmer()` 3-faktoriell genested
+
+```{r}
+#| warning: false
+#| message: false
+lmer_3fac_nested_fit <- lmer(test ~ trt +  
+                               (1 | class_id/school_id), 
+                             data = school_tbl)
+```
+
+```{r}
+VarCorr(lmer_3fac_nested_fit) %>% 
+  as_tibble() %>% 
+  select(Groups = grp, Std.Dev. = sdcor) %>% 
+  mutate(Std.Dev. = round(Std.Dev., 2))
+```
+
+```{r}
+#| warning: false
+#| message: false
+lmer_3fac_nested_fit %>% icc()
+```
+
+```{r}
+#| warning: false
+#| message: false
+lmer_3fac_nested_fit %>% model_performance()
+```
+:::
+
+```{r}
+#| warning: false
+#| message: false
+
+compare_performance(lmer_2fac_fit, 
+                    lmer_3fac_fit, 
+                    lmer_3fac_nested_fit, 
+                    rank = TRUE)
+```
 
 ### ... mit dem R Paket `{glmmTB}`
 
