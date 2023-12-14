@@ -611,9 +611,18 @@ modelsummary(lst("lmer 2-fakoriell" = lmer_2fac_fit,
                            "s.e. = {std.error}"))
 ```
 
+Das R Paket `{lme4}` hat auch die Möglichkeit mit nicht normalverteilten Daten über die Funktion `glmer()` umzugehen. Da schauen wir aber gleich mal rein und zwar bei den Würmerdaten und stellen dabei auch das R Paket `{glmmTMB}` als Alternative vor.
+
 ### ... mit dem R Paket `{glmmTB}`
 
+Hier schauen wir uns einmal den Datensatz zu den Würmern an.
+
 [R Paket `{glmmTMB}`](https://glmmtmb.github.io/glmmTMB/index.html) und dann noch [Covariance structures with glmmTMB](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html)
+
+[glmmTMB: Generalized Linear Mixed Models using Template Model Builder](https://cran.r-project.org/web/packages/glmmTMB/)
+
+::: panel-tabset
+## `glmer()` mit `famliy = poisson`
 
 ```{r}
 glmer_poisson_fit <- glmer(count_worms ~ trt + (1|row) + (1|col), 
@@ -626,14 +635,28 @@ glmer_poisson_fit  %>% check_overdispersion()
 
 Wir haben sehr starke Overdispersion vorliegen und gehen daher rüber in den anderen Tab und rechnen eine Quasipoisson Regression. Nur wenn du keine Overdispersion vorliegen hast, dann kannst du eine eine Poisson Regression rechnen.
 
+## `glmmTMB()` mit `famliy = nbinom1`
+
 Da wir in `{lme4}` keine Quasipoissonverteilung auswählen können, nutzen wir das [R Paket `{glmmTMB}`](https://glmmtmb.github.io/glmmTMB/index.html) mit der Verteilungsfamilie `nbinom1`, was einer Parametrisierung einer Quasipoissonverteilung entspricht.
 
+[Covariance structures with glmmTMB](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html)
+
 ```{r}
-glmer_quasipoisson_fit <- glmmTMB(count_worms ~ trt + (1|row) + (1|col), 
-                                  data = wireworms_tbl, family = nbinom1) 
+glmmTMB_nbinom1_fit <- glmmTMB(count_worms ~ trt + (1|row) + (1|col), 
+                               data = wireworms_tbl, family = nbinom1) 
 ```
 
 Damit wir dann auch Overdispersion in einer Poissonregression berücksichtigen können nutzen wir den gleichen "Trick" wie in [Covariance structures for the error term with glmmTMB - a workaround](https://schmidtpaul.github.io/MMFAIR/glmmtmbdispformula0.html)
+:::
+
+```{r}
+#| warning: false
+#| message: false
+modelsummary(lst("glmer poisson" = glmer_poisson_fit, 
+                 "glmmTMB nbinom1" = glmmTMB_nbinom1_fit),
+             statistic = c("conf.int",
+                           "s.e. = {std.error}"))
+```
 
 ### ... mit dem R Paket `{multilevelmod}`
 
@@ -652,26 +675,6 @@ dragons_tbl <- read_excel("data/dragons.xlsx") %>%
          site = factor(site, labels = c("north", "east", "south"))) 
 ```
 
-Wir mitteln über den Block oder der Klasse
-
-Bevor wir jetzt mit dem Modellieren beginnen, müssen wir noch kurz in einem QQ-Plot schauen, ob unser Ourcome `testscore` auch ungefähr normalverteilt ist. @fig-mixed-6 zeigt den QQ-Plot des Testscores. Wir sehen, dass der Hauptteil der Beobachtungen auf der Geraden liegt und wir nehmen daher an, dass der Testscore zumindest approximativ normalverteilt ist. Wir können also mit einem gaussian linearen gemischten Modell weitermachen.
-
-```{r}
-#| message: false
-#| warning: false
-#| echo: true
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: QQ-Plot zu Überprüfung, ob der Testscore einer Normalverteilung folgt. Die Punkte liegen ungefähr auf der Geraden als Winkelhalbierende, so dass wi eine Normalverteilung des Testscores annehmen können.
-#| label: fig-mixed-6
-
-ggplot(dragons_tbl, aes(sample = test_score)) +
-  stat_qq() + stat_qq_line(color = "red") +
-  theme_bw() +
-  scale_color_okabeito()
-```
-
 Schauen wir uns nun als erstes das Modell `lm_simple_fit` einmal an. Wir bauen das Modell nur mit der Faktorvariable `body_length_cat`. Wir erhalten dann gleich die Ausgabe des Modells über die Funktion `model_parameters()` in einer aufgearbeiteten Form.
 
 ```{r}
@@ -685,23 +688,6 @@ lm_simple_fit %>% model_parameters()
 ```
 
 Der Intercept beinhaltet den Mittelwert für die Drachen des Levels `[tiny]`. Die jeweiligen Koeffizienten dann die Abweichung von den Drachen des Levels `[tiny]`. Daher sind Drachen des Levels `[small]` ungefähr um $2.63$ Einheiten intelligenter. Wir sehen dann an dem $p$-Wert, ob sich die Koeffizienten signifikant von 0 unterscheiden. In @fig-mixed-3 sehen wir nochmal die Boxplots der einzelnen Testscores aufgeteilt nach der Körpergröße. Wir erkennen, dass die kleineren Drachen tendenziell dümmer sind als die großen Drachen. Wir sehen zwei Plateaus.
-
-```{r}
-#| message: false
-#| warning: false
-#| echo: true
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: Boxplots der einzelnen Testscores aufgeteilt nach der Körpergröße.
-#| label: fig-mixed-3
-
-ggplot(dragons_tbl, aes(x = body_length_cat, y = test_score, fill = body_length_cat)) +
-  theme_bw() +
-  geom_boxplot() +
-  theme(legend.position = "none") +
-  scale_fill_okabeito() 
-```
 
 Nun haben wir aber nicht nur die Körpergrößen gemessen sondern auch auf welchem Berg wir die jeweiligen Drachen gefunden haben. Nun könnte es sein, dass der Berg einen viel größeren Einfluss auf die Inteliegenz hat als die Drachenkörpergröße. Wir könnten einen Confoundereffekt durch die Berge vorliegen haben. Ergänzen wir also das Modell um den Faktor `mountain` und erhalten das Modell `lm_mountain_fit`.
 
@@ -717,62 +703,9 @@ Wie wir sehen, werden nun die Körpergrößen der Drachen nicht mehr als signifi
 
 Eigentlich würden wir erwarten, dass es keinen Effekt der Berge auf den Testscore der Drachen gibt. Es müsste eigentlich egal sein, wo wir einen Drachen befragen, wenn wir nur an der Körpergröße und dem Testscore interessiert sind. Wir sehen jedoch in der @fig-mixed-4 einen klaren Unterschied zwischen den Bergen im Bezug auf den Testscore.
 
-```{r}
-#| message: false
-#| warning: false
-#| echo: true
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: Boxplots der einzelnen Testscores aufgeteilt nach dem Berg der Befragung.
-#| label: fig-mixed-4
-
-ggplot(dragons_tbl, aes(mountain, test_score, fill = mountain)) +
-  geom_boxplot() +
-  theme_bw() +
-  theme(legend.position = "none") +
-  scale_fill_okabeito()
-```
-
 In der @fig-mixed-5 sehen wir den Zusammenhang von Testscore und der Körpergröße sowie den Bergen auf denen das Interview stattgefunden hat. so langsam dämmert uns warum wir hier einen Effekt der Körperlänge zu dem Testscore sehen. Die kleineren Drache sind alle nur auf bestimmten Bergen zu finden! Betrachten wir die Berge mit in dem Modell, dann hat die Körpergröße keinen Einfluß mehr.
 
-```{r}
-#| message: false
-#| warning: false
-#| echo: true
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: Boxplots der einzelnen Testscores aufgeteilt nach dem Berg der Befragung und der Körpergröße.
-#| label: fig-mixed-5
-
-ggplot(dragons_tbl, aes(x = body_length_cat, y = test_score, fill = mountain)) +
-  geom_boxplot(position = position_dodge(preserve = "single")) +
-  theme_bw() +
-  scale_fill_okabeito() +
-  labs(fill = "Mountain")
-```
-
 Der Zusammenhang wird vielleicht in @fig-mixed-7 nochmal klarer. Hier schauen wir uns den Zusamenhang wieder für die Körperlänge getrennt für die Berge an. Nur zeichnen wir jetzt jeden einzelnen Berg in ein Subplot. Wir sehen, dass es hier fast keinen Unterschied macht, wie lang die Drachen sind. Der Testscore ist immer gleich. Was einen Unterschied macht, sind die Berge.
-
-```{r}
-#| message: false
-#| warning: false
-#| echo: true
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: Boxplots der einzelnen Testscores aufgeteilt nach dem Berg der Befragung und der Körpergröße in getrennten Subplots.
-#| label: fig-mixed-7
-
-ggplot(dragons_tbl, aes(x = body_length_cat, y = test_score, fill = mountain)) +
-  geom_boxplot(position = position_dodge(preserve = "single")) +
-  theme_bw() +
-  scale_fill_okabeito() +
-  labs(fill = "Mountain") +
-  theme(legend.position = "none") +
-  facet_wrap(~ mountain) 
-```
 
 Schauen wir uns nun einmal ein lineares gemischtes Modell an. Wir nutzen daszu das R Paket `{lme4}`. Wir haben auch noch andere Pakete zur Aswahl, aber wir nutzen hier erstmal das gängiste Paket. Um ein lineares gemischtes Modell in R zu schätzen nutzen wir die Funktion `lmer()`. Die Funktion `lmer()` nimmt an, dass das Outcome `test_score` normalverteilt ist. Wir haben diese Annahme ja weiter oben in dem QQ-Plot überprüft.
 
@@ -815,33 +748,6 @@ lmer_1_fit %>% model_performance()
 ```
 
 In der Abbildung @fig-mixed-8 schauen wir uns nochmal an, ob wir das Modell auch gut gefittet haben. Der Residualplot sieht gut aus, wir erkennen kein Muster. Ebenso sieht der QQ-Plot gut aus, die Beobachtungen liegen alle auf der Geraden. Wir sind mit dem Modell soweit erstmal ganz zufrieden.
-
-```{r}
-#| echo: false
-#| message: false
-#| warning: false
-#| label: fig-mixed-8
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "Visuelle Überprüfung des Modells mit dem Residual und QQ-Plot."
-#| fig-subcap: 
-#|   - "Residualplot"
-#|   - "QQ-Plot"
-#| layout-nrow: 1
-
-augment(lmer_1_fit) %>% 
-  ggplot(aes(x = .fitted, y = .resid)) + 
-  geom_point() +
-  geom_hline(yintercept = 0, color = "red") +
-  theme_bw() +
-  scale_color_okabeito()
-
-ggplot(tibble(.resid = resid(lmer_1_fit)), aes(sample = .resid)) + 
-  stat_qq() + 
-  stat_qq_line(color = "red") +
-  theme_bw()
-```
 
 Wir haben noch eine Variable in unseren Daten ignoriert. Wir haben uns bis jetzt nicht die Variabl `site` angeschaut. Auf jedem Berg haben wir die Drachen noch auf verschiedenen Flanken des Berges `site` befragt. Das heißt, wir haben die Variable `site`, die in der Variable `mountain_site` genestet ist. Wir schreiben daher ein neues Modell und nutzen die Schreibweise `(1|mountain/site)` um zu beschreiben, dass `site` immer zusamen in einem Berg vorkommt. Schaue dir dazu nochmal die Abbidlung ganz zu Beginn dieses Kapitels an um die Zusammenhänge nochmal visualisiert zu bekommen.
 
