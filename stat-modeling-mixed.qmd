@@ -244,7 +244,19 @@ In der @tbl-mixed-simple-2fac im folgenden Kasten findest du den *einfachst mög
 : Kurzform eines dreifaktoriellen Datensatzes mit zwei zufälligen Effekten für `school` und `class` sowie einem Bahandlungsfaktor `trt`. Die zufälligen Effekte sind normalverteilt mit $\mathcal{N}(0, s^2)$. Pro Behandlung haben wir dann nur zwei Wiederholungen. Dennoch erreichen wir eine Fallzahl von sechzehn Beobachtungen daher Schülern. {#tbl-mixed-simple-2fac}
 :::
 
-Dann einmal den Datenklassiker `yates.oats` schlechthin als *das* [Split-plot experiment of oats](https://kwstat.github.io/agridat/reference/yates.oats.html) aus dem R Paket `{agridat}`. Warum ist es der Klassiker? Weil es im Prinzip das erste Split plot Experiment war. Deshalb ist es nicht schlechter als andere. Ich nutze es hier, weil es gut funktioniert und wir uns einmal eine Auswertung eines komplexeren Datensatzes mit einem linearen gemischten Modell anschauen können. Wir haben insgesamt die mittleren Ertragswerte von Hafer für 72 Parzellen vorliegen. Im weiteren haben wir zwei Behandlungsfaktoren mit der Stickstoffgabe `nitro` und der Sorte `gen`. Da wir ein Split plot Experiment vorliegen haben, brauchen wir natürlich die Reihen- und Spaltenpositionen sowie die Information über den Block. Alle drei Positionsfaktoren werden wir dann versuchen als zufällige Effekte in das gemischte Modell zu nehmen.
+Dann einmal den Datenklassiker `yates.oats` schlechthin als *das* [Split-plot experiment of oats](https://kwstat.github.io/agridat/reference/yates.oats.html) aus dem R Paket `{agridat}`. Warum ist es der Klassiker? Weil es im Prinzip das erste Split plot Experiment war. Deshalb ist es nicht schlechter als andere. Ich nutze es hier, weil es gut funktioniert und wir uns einmal eine Auswertung eines komplexeren Datensatzes mit einem linearen gemischten Modell anschauen können. Wir haben insgesamt die mittleren Ertragswerte von Hafer für 72 Parzellen vorliegen. Im weiteren haben wir zwei Behandlungsfaktoren mit der Stickstoffgabe `nitro` und der Sorte `gen`. Da wir ein Split plot Experiment vorliegen haben, brauchen wir natürlich die Reihen- und Spaltenpositionen sowie die Information über den Block. Alle drei Positionsfaktoren werden wir dann versuchen als zufällige Effekte in das gemischte Modell zu nehmen. In der @fig-mermaid-oats siehst du einmal das Abhängigkeitsverhältnis in den Daten.
+
+```{mermaid}
+%%| label: fig-mermaid-oats
+%%| fig-width: 6
+%%| fig-cap: "Abhängigkeitsstruktur des *split plot design*. Der Faktor `gen` ist in den Spalten `cols/rows` der Blöcke randomisiert und der zweite Faktor `nitro` innerhalb des anderen Faktors."
+flowchart LR
+    A(nitro):::fixed --- B(((nestet))) --> C(gen):::fixed --- D(((nestet))) --> E(cols/rows) --- F(block):::random
+    classDef fixed fill:#56B4E9,stroke:#333,stroke-width:0.75px
+    classDef random fill:#E69F00,stroke:#333,stroke-width:0.75px
+```
+
+Ich erweitere noch den Datensatz um die einzelnen Pflanzenwerte indem ich für jeden `yield`-Wert als Mitelwert noch zwölf Pflanzen für die Parzelle simuliere. Damit baue ich die Daten sozusagen wieder zurück.
 
 ```{r}
 data(yates.oats)
@@ -254,8 +266,11 @@ oats_tbl <- yates.oats %>%
          row = as_factor(row),
          col = as_factor(col)) %>% 
   expand_grid(plant_id = 1:12) %>% 
-  mutate(plant_yield = rnorm(n(), yield, 2))
+  mutate(plant_yield = round(rnorm(n(), yield, 2), 2)) %>% 
+  select(row, col, block, nitro, gen, plant_id, plant_yield)
 ```
+
+In der @tbl-yates siehst du nochmal einen Ausschnitt aus den Daten. Wir fokussieren uns hier auf das Outcome `yield` was wir als normalverteilt annehmen. Die anderen möglichen Outcomes ignorieren wir dann erstmal. Wir brauchen dann auch die Informationen für die Position auf dem Feld `row` und `col` um dann einen gute Abbildung des Designs über das R Paket `{desplot}` zu erstellen.
 
 ```{r}
 #| echo: false
@@ -264,9 +279,12 @@ oats_tbl <- yates.oats %>%
 #| label: tbl-yates
 #| tbl-cap: "Haferdatensatz im Split plot Design für zwei Behandlungsfaktoren `nitro` und `gen` sowie drei Positionsfaktoren `row`, `col` und `block`. Wir schauen uns hier nur das Outcome Haferertrag `yield` an."
 
-yates_raw_tbl <- yates.oats %>% 
+yates_raw_tbl <- oats_tbl %>% 
   mutate(gen = as.character(gen),
-         block = as.character(block)) %>% 
+         block = as.character(block),
+         nitro = as.character(nitro),
+         row = as.character(row),
+         col = as.character(col)) %>% 
   as_tibble()
 
 rbind(head(yates_raw_tbl, n = 4),
@@ -275,7 +293,22 @@ rbind(head(yates_raw_tbl, n = 4),
   kable(align = "c", "pipe")
 ```
 
-[Wireworms controlled by fumigants in a latin square](https://kwstat.github.io/agridat/reference/cochran.wireworms.html)
+Neben einem normalverteilten Outcome wollen wir uns danna auch noch eine andere häufige Art von einem Outcome anschauen. Wir betrachten nämlich noch Zähldaten oder Abundanz von Arten. Wir nutzen hier auch einen Datensatz aus dem R Paket `{agridat}` und zwar den Datensatz zu [Wireworms controlled by fumigants in a latin square](https://kwstat.github.io/agridat/reference/cochran.wireworms.html). Es geht hier also um die Verwendung von fünf Pestiziden in einem Feld mit $5 \times 5$ großen Parzellen. In jedem der Parzellen haben wir dann die Würmer an zehn Punkten gezählt. Wie du siehst, haben wir hier ein *latin square design* vorliegen, welches ich dir nochmal in der @fig-mermaid-worms dargestellt habe.
+
+```{mermaid}
+%%| label: fig-mermaid-worms
+%%| fig-width: 6
+%%| fig-cap: "Schematische Darstellung der Abhängigkeitsstruktur im latin suare design für unsere Wurmdaten. Die Behandlungen werden in `rows` und `cols` genestet, die einem quadratischen Block mit den Längen der Anzahl der Level der Behandlungen entsprechen."
+flowchart LR
+    A(trt):::fixed --- B(((nested))) --> C(rows):::random
+    B(((nested))) --> D(cols):::random
+    C --- F(block)
+    D --- F
+    classDef fixed fill:#56B4E9,stroke:#333,stroke-width:0.75px
+    classDef random fill:#E69F00,stroke:#333,stroke-width:0.75px
+```
+
+Im Folgenden habe ich einmal die Daten geladen und die Mittelwerte der Parzellen `worms` wieder auf die ursprünglichen, ausgedachten zehn Zählpunkte erweitert.
 
 ```{r}
 data(cochran.wireworms)
@@ -284,23 +317,27 @@ wireworms_tbl <- cochran.wireworms %>%
   mutate(trt = as_factor(trt),
          col = as_factor(col),
          row = as_factor(row)) %>% 
-  expand_grid(worm_id = 1:10) %>% 
+  expand_grid(site_id = 1:10) %>% 
   mutate(count_worms = rpois(n(), worms))
 ```
+
+Du erhälst dann folgenden Auszug in der @tbl-worms von den Wurmdaten.
 
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
 #| label: tbl-worms
-#| tbl-cap: "dfdf."
+#| tbl-cap: "Auszug aus den Wurmdaten in einem *latin square design* für fünf verschiedene Pestizide."
 
-worm_raw_tbl <- cochran.wireworms %>% 
-  mutate(trt = as.character(trt)) %>% 
+worm_raw_tbl <- wireworms_tbl %>% 
+  mutate(trt = as.character(trt),
+         col = as.character(col),
+         row = as.character(row)) %>% 
   as_tibble()
 
 rbind(head(worm_raw_tbl, n = 4),
-      rep("...", times = ncol(yates_raw_tbl)),
+      rep("...", times = ncol(worm_raw_tbl)),
       tail(worm_raw_tbl, n = 4)) %>% 
   kable(align = "c", "pipe")
 ```
@@ -660,133 +697,46 @@ modelsummary(lst("glmer poisson" = glmer_poisson_fit,
 
 ### ... mit dem R Paket `{multilevelmod}`
 
+[R Paket `{multilevelmod}`](https://multilevelmod.tidymodels.org/articles/multilevelmod.html)
+
+[R Paket '{parsnip}' - Linear regression](https://parsnip.tidymodels.org/reference/linear_reg.html)
+
 ```{r}
-lmer(yield ~ nitro * gen + (1|block/gen), data = oats_tbl)
+oats_lmer_spec <- linear_reg() %>% 
+  set_engine("lmer")
 ```
 
-[R Paket `{multilevelmod}`](https://multilevelmod.tidymodels.org/articles/multilevelmod.html)
+Wir brauchen die Funktion `extract_fit_engine()` damit wir dann die Funktionen aus den anderen Paketen korrekt anwenden können.
+
+```{r}
+oats_lmer_fit <- oats_lmer_spec %>% 
+  fit(plant_yield ~ nitro + gen + nitro:gen + (1|block/gen), data = oats_tbl) %>% 
+  extract_fit_engine()  
+```
+
+```{r}
+#| warning: false
+#| message: false
+oats_lmer_fit %>% icc()
+```
+
+```{r}
+#| warning: false
+#| message: false
+oats_lmer_fit %>% model_performance()
+```
 
 ## Old (remove me)
 
-```{r}
-dragons_tbl <- read_excel("data/dragons.xlsx") %>% 
-  mutate(body_length_cat = as_factor(body_length_cat),
-         mountain = as_factor(mountain),
-         site = factor(site, labels = c("north", "east", "south"))) 
-```
-
-Schauen wir uns nun als erstes das Modell `lm_simple_fit` einmal an. Wir bauen das Modell nur mit der Faktorvariable `body_length_cat`. Wir erhalten dann gleich die Ausgabe des Modells über die Funktion `model_parameters()` in einer aufgearbeiteten Form.
-
-```{r}
-#| message: false
-#| warning: false
-
-lm_simple_fit <- lm(test_score ~ body_length_cat, data = dragons_tbl)
-
-lm_simple_fit %>% model_parameters()
-
-```
-
-Der Intercept beinhaltet den Mittelwert für die Drachen des Levels `[tiny]`. Die jeweiligen Koeffizienten dann die Abweichung von den Drachen des Levels `[tiny]`. Daher sind Drachen des Levels `[small]` ungefähr um $2.63$ Einheiten intelligenter. Wir sehen dann an dem $p$-Wert, ob sich die Koeffizienten signifikant von 0 unterscheiden. In @fig-mixed-3 sehen wir nochmal die Boxplots der einzelnen Testscores aufgeteilt nach der Körpergröße. Wir erkennen, dass die kleineren Drachen tendenziell dümmer sind als die großen Drachen. Wir sehen zwei Plateaus.
-
-Nun haben wir aber nicht nur die Körpergrößen gemessen sondern auch auf welchem Berg wir die jeweiligen Drachen gefunden haben. Nun könnte es sein, dass der Berg einen viel größeren Einfluss auf die Inteliegenz hat als die Drachenkörpergröße. Wir könnten einen Confoundereffekt durch die Berge vorliegen haben. Ergänzen wir also das Modell um den Faktor `mountain` und erhalten das Modell `lm_mountain_fit`.
-
-```{r}
-#| message: false
-#| warning: false
-
-lm_mountain_fit <- lm(test_score ~ body_length_cat + mountain, data = dragons_tbl)
-lm_mountain_fit %>% model_parameters()
-```
-
-Wie wir sehen, werden nun die Körpergrößen der Drachen nicht mehr als signifikant ausgegeben. Die Effekte der Körpergröße auf den Testscore sind auch viel kleiner geworden, wenn wir die `mountain` mit in das Modell nehmen. Anscheinend hat der Berg auf dem wir den Drachen getroffen haben einen viel größeren Einfluss auf die Intelligenz als die Körpergröße. Wir können uns den Zusammenhang zwischen dem Testscore und dem Berg auch in der @fig-mixed-4 einmal anschauen.
-
-Eigentlich würden wir erwarten, dass es keinen Effekt der Berge auf den Testscore der Drachen gibt. Es müsste eigentlich egal sein, wo wir einen Drachen befragen, wenn wir nur an der Körpergröße und dem Testscore interessiert sind. Wir sehen jedoch in der @fig-mixed-4 einen klaren Unterschied zwischen den Bergen im Bezug auf den Testscore.
-
-In der @fig-mixed-5 sehen wir den Zusammenhang von Testscore und der Körpergröße sowie den Bergen auf denen das Interview stattgefunden hat. so langsam dämmert uns warum wir hier einen Effekt der Körperlänge zu dem Testscore sehen. Die kleineren Drache sind alle nur auf bestimmten Bergen zu finden! Betrachten wir die Berge mit in dem Modell, dann hat die Körpergröße keinen Einfluß mehr.
-
-Der Zusammenhang wird vielleicht in @fig-mixed-7 nochmal klarer. Hier schauen wir uns den Zusamenhang wieder für die Körperlänge getrennt für die Berge an. Nur zeichnen wir jetzt jeden einzelnen Berg in ein Subplot. Wir sehen, dass es hier fast keinen Unterschied macht, wie lang die Drachen sind. Der Testscore ist immer gleich. Was einen Unterschied macht, sind die Berge.
-
-Schauen wir uns nun einmal ein lineares gemischtes Modell an. Wir nutzen daszu das R Paket `{lme4}`. Wir haben auch noch andere Pakete zur Aswahl, aber wir nutzen hier erstmal das gängiste Paket. Um ein lineares gemischtes Modell in R zu schätzen nutzen wir die Funktion `lmer()`. Die Funktion `lmer()` nimmt an, dass das Outcome `test_score` normalverteilt ist. Wir haben diese Annahme ja weiter oben in dem QQ-Plot überprüft.
-
-In einem lineare gemischten Modell müssen wir die *festen* Effekte sowie die *zufälligen* Effekte definieren. Die festen Effekte werden ganz normal wie wir es gewohnt sind in das Modell eingegeben. Die zufälligen Effkete schreiben wir in eine Klammer in der Form `(1|)`.
-
-Wir schreiben `(1|moutain_range)` und definieren damit die Variable `mountain` als zufälligen Effekt im Modell. Wir schreiben `1|` vor `mountain`, da wir für jeden Berg die gleiche Steigung von Körperlänge und Testscore annehmen. Wir können dann später noch das Model komplizierter aufbauen und jedem Berg eine eigene Steigung erlauben. Bauen wir uns jetzt erstmal ein lineares gemischtes Modell mit einem festen Effekt `body_length_cat` und einem zufälligen Effekt `(1|mountain)`.
-
-```{r}
-#| message: false
-#| warning: false
-
-lmer_1_fit <- lmer(test_score ~ body_length_cat + (1 | mountain), data = dragons_tbl)
-lmer_1_fit %>% model_parameters()
-```
-
 Unser Model sieht etwas aufgeräumter aus. Als feste Effekte haben wir nur noch die Körperlänge `body_length_cat` und die dazugehörigen Koeffizienten des Modells. Unsere Variable `mountain` verschwindet dann in den zufälligen Effekten. Die Funktion `summary` liefert uns den gesamten Ausdruck, der etwas überwältigend ist. Vieles brauchen wir auch nicht davon.
-
-```{r}
-#| message: false
-#| warning: false
-#| eval: false
-
-lmer_1_fit %>% summary()
-```
 
 ![](images/lmer_summary.png){fig-align="center" width="90%"}
 
 Was wir extrahieren wollen ist die Information von den zufälligen Effekten. Wir wollen wissen, wieviel Varianz durch die zufälligen Effekte erklärt wird. Wir nutzen dazu die Funktion `VarCorr()`, die uns erlaubt die Information zu en zufälligen Effekten zu extrahieren und auszugeben.
 
-```{r}
-print(VarCorr(lmer_1_fit), comp = "Variance")
-```
-
 Wieviel Varianz erklären nun die Berge? Wir können die erklärte Varianz der zufälligen Effekte einfach berechnen. Wir vergleichen die erklärte Varianz von `mountain` mit der gesamten Varianz. Die gesamte Varianz ist die Varianz aller zufälligen Effekte plus der residualen Varianz. Wir erhalten dann $R^2_{random} = 339.7/(339.7 + 223.8) \approx 0.60$. Wir sehen, dass ca. 60% der Varianz in unseren Daten von der Variable `mountain` verursacht wird.
 
 Wir können die Funktion `model_performance()` nutzen um mehr über den Fit des Modells zu erfahren. Das `R2 (cond.)` ist faktisch das gleiche wie wir gerade oben berechnet haben. Wir benötigen also nicht immer den Ausdruck der zufälligen Effekte. Wir können auch die Informationen aus der Funktion `model_performance()` nehmen.
-
-```{r}
-lmer_1_fit %>% model_performance()
-```
-
-In der Abbildung @fig-mixed-8 schauen wir uns nochmal an, ob wir das Modell auch gut gefittet haben. Der Residualplot sieht gut aus, wir erkennen kein Muster. Ebenso sieht der QQ-Plot gut aus, die Beobachtungen liegen alle auf der Geraden. Wir sind mit dem Modell soweit erstmal ganz zufrieden.
-
-Wir haben noch eine Variable in unseren Daten ignoriert. Wir haben uns bis jetzt nicht die Variabl `site` angeschaut. Auf jedem Berg haben wir die Drachen noch auf verschiedenen Flanken des Berges `site` befragt. Das heißt, wir haben die Variable `site`, die in der Variable `mountain_site` genestet ist. Wir schreiben daher ein neues Modell und nutzen die Schreibweise `(1|mountain/site)` um zu beschreiben, dass `site` immer zusamen in einem Berg vorkommt. Schaue dir dazu nochmal die Abbidlung ganz zu Beginn dieses Kapitels an um die Zusammenhänge nochmal visualisiert zu bekommen.
-
-```{r}
-#| message: false
-#| warning: false
-
-lmer_2_fit <- lmer(test_score ~ body_length_cat + (1|mountain/site), data = dragons_tbl) 
-lmer_2_fit %>% model_parameters()
-```
-
-Das Modell hat nun einen weiteren zufälligen Effekt. Es werden jetzt auch nochmal für jeden Berg die Flankeneffekte mit berücksichtigt. Hat das überhaupt einen Einfluss auf das Modell? Schauen wir uns einmal die Modellgüte mit der Funktion `model_performance()` an.
-
-```{r}
-#| message: false
-#| warning: false
-
-lmer_2_fit %>% model_performance()
-```
-
-Wir sehen, dass sich die erklärte varianz leicht erhöht hat. Die $R^2_{random}$ liegt jetzt bei $0.623$ also fast 62%. Etwas besser als vorher, aber auch nicht unbedingt sehr viel mehr.
-
-Wie können wir nun unsere vier Modelle miteinander vergleichen? Wir haben ja folgende Modelle vorliegen:
-
--   Das simple lineare Modell `lm_simple_fit` mit `test_score ~ body_length_cat`.
--   Das multiple lineare Modell `lm_mountain_fit` mit `test_score ~ body_length_cat + mountain`.
--   Das gemischte lineare Modell `lmer_1_fit` mit `test_score ~ body_length_cat + (1|mountin_range)`.
--   Das genestete gemischte lineare Modell `lmer_2_fit` mit `test_score ~ body_length_cat + (1|mountain/site)`.
-
-Um die Modelle miteinander zu vergleichen können wir die Funktion `compare_performance()` nutzen. Wir erhalten mit der Option `rank = TRUE` auch eine Sortierung der Modelle wieder. Das beste Modell steht dann ganz oben.
-
-```{r}
-#| message: false
-#| warning: false
-
-compare_performance(lm_simple_fit, lm_mountain_fit, lmer_1_fit, lmer_2_fit, rank = TRUE)
-```
-
-In diesem Beispiel wäre sogar eine multiple lineare Regression das beste Modell. Wir würden also auch mit zwei festen Effekten die Variabilität der Berge richtig modellieren. Der Effekt der Flanken auf den Testscore scheint ziemlich klein zu sein, so dass wir auch auf die Variable `site` verzichten können.
 
 ## Gruppenvergleich {#sec-mult-comp-lmer-reg}
 
