@@ -6,6 +6,8 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, simstudy, writexl)
 
 *Letzte Änderung am `r format(fs::file_info("stat-modeling-mixed.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*
 
+![](images/caution.png){fig-align="center" width="50%"}
+
 > *"Wer die Arbeit kennt und sich nicht drückt, der ist verrückt." --- Tick, Trick und Track*
 
 In diesem Kapitel vollen wir die Grundzüge der lineare gemischten Modell (eng. *linear mixed models*, abk. *lmm*) zu versuchen zu verstehen. Wir immer, es gibt dazu auch hervorragende Literatur wie das sehr ausführliche Buch von @zuur2009mixed. Fangen wir also einmal an zu verstehen, wie eigentlich ein Experiment aussehen muss, damit wir ein lineares gemischtes Modell rechnen wollen. Dabei ist der erste wichtige Punkt, das wir hier mit den gemischten Modellen hierarchische Daten abbilden. Es gibt also eine Hierarchie zwischen den Daten und damit auch eine Abhängigkeit innerhalb der Daten. Eine Abhängigkeit ist in der Statistik eine Korrelationsstruktur. Hier konzentrieren wir uns auf agrarwissenschaftliche Daten. Wir haben dabei in den Agarwissenschaften unser $x$ als Faktoren $f$ vorliegen. Für das $y$ können aber jeden Messwert als Outcome abbilden den wir wollen. Dafür gibt es dann zum Beispiel die Funktion `glmer()`, die das Äquivalent zu der Funktion `glm()` ist.
@@ -569,7 +571,7 @@ gg_inter_template <- ggplot() +
   theme(legend.position = "top") 
 ```
 
-In der @fig-mixed-yates-1-inter sehen wir einmal die Interaktionsplots für die verschiedenen möglichen Interaktionen zwischen den Faktoren der Stickstoffdünung, der Weizensorte und den Blöcken. @fig-mixed-yates-1-inter-1 zeigt kalr, dass es keine Interaktion zwischen der Stickstoffdüngung und den Sorten gibt. Die Graden laufen parallel zueinander. Wir haben einen mittleren Effekt der Stickstoffdünung, da wir einen Anstieg beobachten. Dennoch ist die Ordnung der Sorten pro Level der Stickstoffdüngun gleich. Würden sich die graden überschneiden, hätten wir eine Interaktion vorliegen.
+In der @fig-mixed-yates-1-inter sehen wir einmal die Interaktionsplots für die verschiedenen möglichen Interaktionen zwischen den Faktoren der Stickstoffdüngung, der Weizensorte und den Blöcken. @fig-mixed-yates-1-inter-1 zeigt klar, dass es keine Interaktion zwischen der Stickstoffdüngung und den Sorten gibt. Die Graden laufen parallel zueinander. Wir haben einen mittleren Effekt der Stickstoffdüngung, da wir einen Anstieg beobachten. Dennoch ist die Ordnung der Sorten pro Level der Stickstoffdüngung gleich. Würden sich die Graden überschneiden, hätten wir eine Interaktion vorliegen. Da die Graden das nicht tun, können wir also von keiner Interaktion zwischen `nitro` und `gen` ausgehen.
 
 ```{r}
 #| message: false
@@ -763,7 +765,10 @@ summarize_model(lmer_2fac_fit)
 extract_vc(lmer_2fac_fit)
 ```
 
-Wir schauen uns dann einmal als Übersichtstabelle die drei Modelle an.
+Wir schauen uns dann einmal als Übersichtstabelle die drei Modelle an. Im folgenden Kasten findest du den Modellvergleich mit dem R Paket `{modelsummary}`.
+
+::: {.callout-note collapse="true"}
+## Modellvergleich mit `modelsummary()`
 
 ```{r}
 #| warning: false
@@ -774,6 +779,7 @@ modelsummary(lst("lmer 2-fakoriell" = lmer_2fac_fit,
              statistic = c("conf.int",
                            "s.e. = {std.error}"))
 ```
+:::
 
 Das R Paket `{lme4}` hat auch die Möglichkeit mit nicht normalverteilten Daten über die Funktion `glmer()` umzugehen. Da schauen wir aber gleich mal rein und zwar bei den Würmerdaten und stellen dabei auch das R Paket `{glmmTMB}` als Alternative vor.
 
@@ -813,6 +819,11 @@ glmmTMB_nbinom1_fit <- glmmTMB(count_worms ~ trt + (1|row) + (1|col),
 Damit wir dann auch Overdispersion in einer Poissonregression berücksichtigen können nutzen wir den gleichen "Trick" wie in [Covariance structures for the error term with glmmTMB - a workaround](https://schmidtpaul.github.io/MMFAIR/glmmtmbdispformula0.html)
 :::
 
+Im folgenden Kasten findest du den Modellvergleich mit dem R Paket `{modelsummary}`.
+
+::: {.callout-note collapse="true"}
+## Modellvergleich mit `modelsummary()`
+
 ```{r}
 #| warning: false
 #| message: false
@@ -821,6 +832,7 @@ modelsummary(lst("glmer poisson" = glmer_poisson_fit,
              statistic = c("conf.int",
                            "s.e. = {std.error}"))
 ```
+:::
 
 ### ... mit dem R Paket `{multilevelmod}`
 
@@ -831,12 +843,26 @@ modelsummary(lst("glmer poisson" = glmer_poisson_fit,
 ```{r}
 oats_lmer_spec <- linear_reg() %>% 
   set_engine("lmer")
+oats_lm_spec <- linear_reg() %>% 
+  set_engine("lm")
 ```
 
 Wir brauchen die Funktion `extract_fit_engine()` damit wir dann die Funktionen aus den anderen Paketen korrekt anwenden können.
 
 ```{r}
+oats_lm_fit <- oats_lm_spec %>% 
+  fit(plant_yield ~ nitro + gen + block, data = oats_tbl) %>% 
+  extract_fit_engine()  
+```
+
+```{r}
 oats_lmer_fit <- oats_lmer_spec %>% 
+  fit(plant_yield ~ nitro + gen + (1|block/gen), data = oats_tbl) %>% 
+  extract_fit_engine()  
+```
+
+```{r}
+oats_lmer_int_fit <- oats_lmer_spec %>% 
   fit(plant_yield ~ nitro + gen + nitro:gen + (1|block/gen), data = oats_tbl) %>% 
   extract_fit_engine()  
 ```
@@ -853,51 +879,23 @@ oats_lmer_fit %>% icc()
 oats_lmer_fit %>% model_performance()
 ```
 
-```{r}
-## das wäre dann das Modell mit gestrichelt anzeigen lassen???
-library(modelbased)
+Im folgenden Kasten findest du den Modellvergleich mit dem R Paket `{modelsummary}`.
 
-model <- lm(plant_yield ~ nitro + gen + nitro*gen, data = oats_tbl)
-means_lm <- estimate_means(model)
-lm_oats_tbl <- means_lm  %>% as_tibble %>% 
-  add_column(.id = "naive_lm")
-
-means_lmer <- estimate_means(oats_lmer_fit)
-lmer_oats_tbl <- means_lmer  %>% as_tibble %>% 
-  add_column(.id = "lmm")
-
-
-bind_rows(lm_oats_tbl, lmer_oats_tbl) %>% 
-  mutate(.id = as_factor(.id)) %>% 
-  ggplot(aes(nitro, Mean, line_type = .id, color = gen, group = gen)) +
-  stat_summary(fun = mean, geom = "point") +
-  stat_summary(fun = mean, geom = "line") 
-
-```
+::: {.callout-note collapse="true"}
+## Modellvergleich mit `modelsummary()`
 
 ```{r}
-means_lm
+#| warning: false
+#| message: false
+modelsummary(lst("lm" = oats_lm_fit, 
+                 "lmer ohne Interaktion" = oats_lmer_fit,
+                 "lmer mit Interaktion" = oats_lmer_int_fit),
+             statistic = c("conf.int",
+                           "s.e. = {std.error}"))
 ```
-
-```{r}
-means_lmer 
-```
-
-## Old (remove me)
-
-Unser Model sieht etwas aufgeräumter aus. Als feste Effekte haben wir nur noch die Körperlänge `body_length_cat` und die dazugehörigen Koeffizienten des Modells. Unsere Variable `mountain` verschwindet dann in den zufälligen Effekten. Die Funktion `summary` liefert uns den gesamten Ausdruck, der etwas überwältigend ist. Vieles brauchen wir auch nicht davon.
-
-![](images/lmer_summary.png){fig-align="center" width="90%"}
-
-Was wir extrahieren wollen ist die Information von den zufälligen Effekten. Wir wollen wissen, wieviel Varianz durch die zufälligen Effekte erklärt wird. Wir nutzen dazu die Funktion `VarCorr()`, die uns erlaubt die Information zu en zufälligen Effekten zu extrahieren und auszugeben.
-
-Wieviel Varianz erklären nun die Berge? Wir können die erklärte Varianz der zufälligen Effekte einfach berechnen. Wir vergleichen die erklärte Varianz von `mountain` mit der gesamten Varianz. Die gesamte Varianz ist die Varianz aller zufälligen Effekte plus der residualen Varianz. Wir erhalten dann $R^2_{random} = 339.7/(339.7 + 223.8) \approx 0.60$. Wir sehen, dass ca. 60% der Varianz in unseren Daten von der Variable `mountain` verursacht wird.
-
-Wir können die Funktion `model_performance()` nutzen um mehr über den Fit des Modells zu erfahren. Das `R2 (cond.)` ist faktisch das gleiche wie wir gerade oben berechnet haben. Wir benötigen also nicht immer den Ausdruck der zufälligen Effekte. Wir können auch die Informationen aus der Funktion `model_performance()` nehmen.
+:::
 
 ## Gruppenvergleich {#sec-mult-comp-lmer-reg}
-
-![](images/caution.png){fig-align="center" width="50%"}
 
 text
 
