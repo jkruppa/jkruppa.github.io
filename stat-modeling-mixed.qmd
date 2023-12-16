@@ -389,6 +389,8 @@ gg_half_template <- ggplot() +
   theme(legend.position = "top") 
 ```
 
+Beginnen wir uns nun einmal die drei Datensätze zu visualisieren und nutzen dann die Abbildungen um etwas über die hierarchischen Strukturen in den Daten zu erfahren. Aus den Rückschlüssen können wir dann entscheiden, wie wir unsere lineare gemischten Modelle bauen müssen.
+
 ### Schuldaten
 
 Dann schauen wir uns einmal in den folgenden beiden Tabs die Schuldaten und damit die Effekte der Schulen und der jeweils drei Klassen auf die Testergebnisse der Schüler an. Es ist immer wichtig sich alle möglichen Kombinationen von Faktoren anzuschauen um dann auch eine Idee für das gemischte Modell im Anschluss zu finden. Sonst stochert man sehr im Nebel rum und mit den Abbildungen hat man dann einen Hinweis, wohin es gehen könnte.
@@ -546,7 +548,7 @@ gg_half_template %+%
 ```
 :::
 
-Jetzt wollen wir nochmal schauen, ob wir auch eine Interaktion zwischen der Stickstoffdüngung, den Weizensorten und den Blöcken vorliegen haben. Insbesondere
+Jetzt wollen wir nochmal schauen, ob wir auch eine Interaktion zwischen der Stickstoffdüngung, den Weizensorten und den Blöcken vorliegen haben. Insbesondere müssen wir natürlich schauen, wie sich unsere beiden Behandlungen `nitro` und `gen` untereinander verhalten. Wenn wir hier auch eine Interaktion vorliegen haben, dann müssen wir diese Interaktion auch im Modell abbilden. Zuerst erschaffen wir uns aber die Mittelwerte über alle Faktorenkombinationen.
 
 ```{r}
 #| message: false
@@ -556,14 +558,18 @@ stat_oats_tbl <- oats_tbl %>%
   summarise(mean = mean(plant_yield))
 ```
 
+Dann sind wir wieder etwas faul und bauen uns erstmal ein `{ggplot}`-Template für die Interaktionsabbildungen. Sonst produzieren wir wieder sehr viel redunanten Code, was wir uns hier dann sparen können. Wir werden uns einfach die Mittelwerte über die Stickstoffgaben getrennt für die Sorten und die Blöcke einmal anschauen.
+
 ```{r}
 gg_inter_template <- ggplot() +
-  stat_summary(fun.y = mean, geom = "point") +
-  stat_summary(fun.y = mean, geom = "line") +
+  stat_summary(fun = mean, geom = "point") +
+  stat_summary(fun = mean, geom = "line") +
   guides(color = guide_legend(nrow = 1, byrow = FALSE)) +
   scale_color_okabeito() +
   theme(legend.position = "top") 
 ```
+
+In der @fig-mixed-yates-1-inter sehen wir einmal die Interaktionsplots für die verschiedenen möglichen Interaktionen zwischen den Faktoren der Stickstoffdünung, der Weizensorte und den Blöcken. @fig-mixed-yates-1-inter-1 zeigt kalr, dass es keine Interaktion zwischen der Stickstoffdüngung und den Sorten gibt. Die Graden laufen parallel zueinander. Wir haben einen mittleren Effekt der Stickstoffdünung, da wir einen Anstieg beobachten. Dennoch ist die Ordnung der Sorten pro Level der Stickstoffdüngun gleich. Würden sich die graden überschneiden, hätten wir eine Interaktion vorliegen.
 
 ```{r}
 #| message: false
@@ -572,7 +578,7 @@ gg_inter_template <- ggplot() +
 #| fig-align: center
 #| fig-height: 6
 #| fig-width: 7
-#| fig-cap: Histogramm des Testscores über alle Datenpunkte zur Überprüfung der Annahme der Normalverteilung. Wir sehen eine approximative Normalverteilung des Testscores.
+#| fig-cap: "Interaktionsplot der Mittelwerte für die Stickstoffbehandlung `nitro`, den Sorten des Weizens `gen` sowie den Blöcken `block`. Dargestellt sind die Mittelwerte für die jeweilige Faktorkombination. Wenn wir *keine* Interaktion erwarten, dann laufen die Graden parallel zueinander."
 #| label: fig-mixed-yates-1-inter
 #| fig-subcap: 
 #|   - "Interaktion `nitro:gen`"
@@ -581,19 +587,19 @@ gg_inter_template <- ggplot() +
 #| layout-nrow: 1
 #| column: page
 gg_inter_template %+% 
-  stat_oats_tbl + 
-  aes(x = nitro, y = mean, color = gen, group = gen) +
+  oats_tbl + 
+  aes(x = nitro, y = plant_yield, color = gen, group = gen) +
   labs(x = "Stickstoffkonzentration", y = "Ertrag", color = "Sorte") 
 
 gg_inter_template %+% 
-  stat_oats_tbl + 
-  aes(x = nitro, y = mean, color = gen, group = gen) +
+  oats_tbl + 
+  aes(x = nitro, y = plant_yield, color = gen, group = gen) +
   labs(x = "Stickstoffkonzentration", y = "Ertrag", color = "Sorte") +
   facet_wrap(~ block)
 
 gg_inter_template %+% 
-  stat_oats_tbl + 
-  aes(x = nitro, y = mean, color = block, group = block) +
+  oats_tbl + 
+  aes(x = nitro, y = plant_yield, color = block, group = block) +
   labs(x = "Stickstoffkonzentration", y = "Ertrag", color = "Block") +
   facet_wrap(~ gen) 
 ```
@@ -845,6 +851,36 @@ oats_lmer_fit %>% icc()
 #| warning: false
 #| message: false
 oats_lmer_fit %>% model_performance()
+```
+
+```{r}
+## das wäre dann das Modell mit gestrichelt anzeigen lassen???
+library(modelbased)
+
+model <- lm(plant_yield ~ nitro + gen + nitro*gen, data = oats_tbl)
+means_lm <- estimate_means(model)
+lm_oats_tbl <- means_lm  %>% as_tibble %>% 
+  add_column(.id = "naive_lm")
+
+means_lmer <- estimate_means(oats_lmer_fit)
+lmer_oats_tbl <- means_lmer  %>% as_tibble %>% 
+  add_column(.id = "lmm")
+
+
+bind_rows(lm_oats_tbl, lmer_oats_tbl) %>% 
+  mutate(.id = as_factor(.id)) %>% 
+  ggplot(aes(nitro, Mean, line_type = .id, color = gen, group = gen)) +
+  stat_summary(fun = mean, geom = "point") +
+  stat_summary(fun = mean, geom = "line") 
+
+```
+
+```{r}
+means_lm
+```
+
+```{r}
+means_lmer 
 ```
 
 ## Old (remove me)
