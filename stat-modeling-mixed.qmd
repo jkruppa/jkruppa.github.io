@@ -707,6 +707,8 @@ Das [R Paket `{lme4}`](https://cran.r-project.org/web/packages/lme4/vignettes/lm
 ::: panel-tabset
 ## `lmer()` 2-faktoriell ungenested
 
+Beginnen wollen wir mit dem einfachsten linearen gemischten Modell. Wir haben hier nur einen festen Effekt `trt` sowie einen zufälligen Effekt `school_id` vorliegen. Damit ignorieren wir die Varianzen aus den Klassen. Wir schauen also, ob wir mit einem etwas simpleren Modell schon ein gutes Ergebnis erhalten.
+
 ```{r}
 #| warning: false
 #| message: false
@@ -715,11 +717,15 @@ lmer_2fac_fit <- lmer(test ~ trt +
                       data = school_tbl)
 ```
 
+Wie gut hat nun das Modell geklappt? Fangen wir einmal mit einem $R^2$ an. Ähnlich wie das Bestimmtheitsmaß $R^2$ gibt der *Intraclass Correlation Coefficient* (abk. *ICC*) Aufschluss über die erklärte Varianz und kann als "der Anteil der Varianz, der durch die Gruppierungsstruktur in den Daten erklärt wird" interpretiert werden. Damit haben wir dann auch eine Maßzahl, wie gut unser gemischtes Modell funktioniert hat. Uns interessiert hier nur das adjustierte ICC.
+
 ```{r}
 #| warning: false
 #| message: false
 lmer_2fac_fit %>% icc()
 ```
+
+Das sieht gar nicht schlecht aus für einen ersten Versuch. Mit einem ICC von $0.88$ sind wir schon ziemlich weit oben an der Grenze. Jetzt müssen wir noch schauen, wie die anderen Maßzahlen aussehen. Eventuell reicht dieses einfache Modell schon aus um unsere Daten zu modellieren und zu erklären. Wir nutzen hier die Funktion [`model_performance()` aus dem R Paket `{performance}`](https://easystats.github.io/performance/reference/model_performance.lm.html) um zu schauen, wie gut unser Modell dann zu den Daten gepasst hat.
 
 ```{r}
 #| warning: false
@@ -727,7 +733,11 @@ lmer_2fac_fit %>% icc()
 lmer_2fac_fit %>% model_performance()
 ```
 
+Hier schauen wir einmal auf das `R2 (marg.)`, was auch eine andere Art des Bestimmtheitsmaßes für die festen Effekte ist. Also auch hier jetzt die Frage, wieviel Prozent der Varianz erklären meine festen Effekte? Hier liefert dann das `R2 (marg.)` eine Antwort. Das `R2 (cond.)` berücksichtigt sowohl die festen als auch die zufälligen Effekte bei der Berechnung des $R^2$. Damit haben wir hier die erklärte Varianz von festen und zufälligen Effekten bei $0.97$, also über $97\%$. Hier haben wir ein echt gutes Modell vorliegen. Die anderen Maßzahlen brauchen wir nur für einen direkten Vergleich von Modellen.
+
 ## `lmer()` 3-faktoriell ungenested
+
+Nachdem wir schon recht gute Ergebnisse mit dem simplen gemischten Modell mit nur einem zufälligen Effekt erreicht haben, nehmen wir jetzt noch neben dem Effekt der Schule den Effekt der Klassen `class_in_school_id` als zufälligen Effekt mit ins Modell. Dann wollen wir mal schauen, ob dieses Modell dann besser ist als das einfache Modell. Unser einfaches Modell ist schon so gut, dass wir hier kaum noch Steigerungen hinkriegen und wir müssen uns dann am Ende fragen, ob nicht ein einfacheres Modell nicht auch reichen würde.
 
 ```{r}
 #| warning: false
@@ -738,11 +748,15 @@ lmer_3fac_fit <- lmer(test ~ trt +
                       data = school_tbl)
 ```
 
+Auch hier berechnen wir dann einmal den *Intraclass Correlation Coefficient* (abk. *ICC*) um mehr über die erklärte Varianz der zufälligen Effekte zu erfahren. Der ICC steigt noch um einen winzigen Betrag gegenüber dem simpleren Modell mit nur einem zufälligen Effekt. Ob sicher hier der Umstieg lohnt, muss man dann nochmal überlegen.
+
 ```{r}
 #| warning: false
 #| message: false
 lmer_3fac_fit %>% icc()
 ```
+
+Dann schauen wir uns nochmal die Werte für `R2 (cond.)` und `R2 (marg.)` an und sehen, dass wir hier auch nur eine kleine Steigerung in den Werten haben. Wir erklären zwar noch mehr Varianz, aber der Anteil ist doch recht gering.
 
 ```{r}
 #| warning: false
@@ -750,7 +764,11 @@ lmer_3fac_fit %>% icc()
 lmer_3fac_fit %>% model_performance()
 ```
 
+Am Ende musst du dann überlegen, ob sich hier noch eine weitere Modellierung lohnt. Wir kommen zwar noch höher mit den Werten für das Bestimmtheitsmaß, aber dann wird auch das Modell auch um einiges komplizierter. Daher kannst du dir als letztes noch das genestete Modell einmal anschauen.
+
 ## `lmer()` 3-faktoriell genested
+
+Jetzt bleibt uns eigentlich nur noch als Modell ein genestetes gemischtes Modell übrig indem wir dann die Klassen in den Schulen genestet modellieren. Das entspricht dann natürlich exakt der Abhängigkeitsstruktur, wie wir auch unsere Daten gebaut haben. Also sollten wir mit dem folgenden Modell auch fast die gesamte Varianz erklären. Im echten Leben kennen wir natürlich nicht die Art und Weise wie die Daten entstanden sind. Deshalb hier als Demonstration das Modell mit einem genesteten, zufälligen Term für die Klassen in den Schulen dargestellt durch `(1 | class_id/school_id)`.
 
 ```{r}
 #| warning: false
@@ -760,20 +778,26 @@ lmer_3fac_nested_fit <- lmer(test ~ trt +
                              data = school_tbl)
 ```
 
+Auch heir schauen wir dann einmal den *Intraclass Correlation Coefficient* (abk. *ICC*) an und sehen, dass der Wert fast Eins ist. Das wundert uns natürlich nicht.
+
 ```{r}
 #| warning: false
 #| message: false
 lmer_3fac_nested_fit %>% icc()
 ```
 
+Und dann sehen wir auch, dass wir mit unseren Modell mit den genesteten zufälligen Effekten ein `R2 (cond.)` von über $99\%$ erreichen. Damit bildet unser genestetes Modell exakt die Abhängigkeitsstruktur wieder, mit der wir auch die Daten gebaut haben.
+
 ```{r}
 #| warning: false
 #| message: false
 lmer_3fac_nested_fit %>% model_performance()
 ```
+
+Damit habe ich gesgezigt, dass wir auch ein perfektes Modell erhalten können, wenn wir wissen wie die Daten erschaffen wurden. Unsere anderen Modelle sind noch so gut, da ich ein sehr balanciertes Design für die Erstellung der Schuldaten gewählt habe. Wenn die Klassen unterschiedliche groß wären und auch unterschiedliche Anzahlen von Klassen pro Schule vorliegen würden, dann sehen die anderen Modelle bedeutend schlechter aus.
 :::
 
-Mehr Informationen zu den Modellen gibt es mit folgenden Funktionen aus dem R Paket `{mixedup}`.
+Manchmal möchten wir dann doch noch mehr Informationen als den *Intraclass Correlation Coefficient* (abk. *ICC*) oder das `R2 (cond.)` oder das `R2 (marg.)` aus dem linearen gemischten Modell extrahieren. Da mir das aber dann aktuell zu weit geht und hier auch nicht mehr erklärt, verweise ich auf die folgenden Funktionen aus dem R Paket `{mixedup}`. Du erhälst mit den Funktionen die Effekte für die zufälligen wie auch festen Effekte und das auch übergreifend für andere Pakte. Manchmal ist auch die Funktion `summary()` sehr klobig für ein `lmer()`-Objekt, da hilft dann die Funktion `summarize_model()`. In seltenen Fällen bist du dann auch an der Varianzstruktur und deren Schätzern interessiert, da gibt es dann auch noch die Funktion `extract_vc()` für.
 
 ```{r}
 #| warning: false
@@ -803,6 +827,22 @@ modelsummary(lst("lm (mean model)" = mean_lm_fit,
 :::
 
 Das R Paket `{lme4}` hat auch die Möglichkeit mit nicht normalverteilten Daten über die Funktion `glmer()` umzugehen. Da schauen wir aber gleich mal rein und zwar bei den Würmerdaten und stellen dabei auch das R Paket `{glmmTMB}` als Alternative vor.
+
+::: {.callout-note collapse="true"}
+## Modellüberprüfung mit `check_model()`
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 16
+#| fig-width: 9
+#| fig-cap: "Überprüfung des Modells mit der Funktion `check_model()` aus dem R Paket `{performance}`. Eine Reihe von Annahmen an das Modell wird in verschiedenen Abbildungen visuell überprüft. Unter den Überschriften steht die Annahme an die Abbildung und wann die Annahme in der Überschrift als erfüllt gilt."
+#| label: fig-mixed-school-model-check
+check_model(lmer_2fac_fit)
+```
+:::
 
 ### ... mit dem R Paket `{glmmTB}`
 
@@ -859,7 +899,7 @@ modelsummary(lst("glmer poisson" = glmer_poisson_fit,
 
 [R Paket `{multilevelmod}`](https://multilevelmod.tidymodels.org/articles/multilevelmod.html)
 
-[R Paket '{parsnip}' - Linear regression](https://parsnip.tidymodels.org/reference/linear_reg.html)
+[R Paket `{parsnip}` - Linear regression](https://parsnip.tidymodels.org/reference/linear_reg.html)
 
 ```{r}
 oats_lmer_spec <- linear_reg() %>% 
