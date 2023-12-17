@@ -848,43 +848,71 @@ Bei den Schuldaten sind wir von einem normalverteilten Outcome `testscore` ausge
 
 ### ... mit dem R Paket `{glmmTB}`
 
-Hier schauen wir uns einmal den Datensatz zu den Würmern an. Wir haben hier kein normalverteiltes Outcome mehr vorliegen sondern zählen ja die Würmer. Wenn wir Zähldaten vorliegen haben, dann nutzen wir die Poissonverteilung um die Daten auszuwerten. Dazu müssen wir dann aber die Funktion `glmer()` verwenden, welche uns erlaubt auch eine andere Verteilung für das Outcome zu nutzen. Die Funktion `glmer()` ist in dem R Paket `{lme4}` implementiert und funktioniert nur, wenn du keine Overdispersion in den Daten vorliegen hast. Overdispersion bedeutet, dass die Varianz mit dem Mittelwert überproportional ansteigt. In einer Poissonverteilung steigt die Varianz der Daten mit dem Mittelwert der Zähldaten in einem 1:1 Verhältnis an. Wenn du ein größeres Verhältnis hast, also mit steigenden Mittelwert proportional größere Varianzen, dann liegt Overdispersion vor. Dafür haben wir dann gleich die Funktion `check_overdispersion()`. Wichtig ist, dass du keine Poissonregression rechnen kannst, wenn du Overdispersion vorliegen hast. Dann musst du deine Poissonregression für die Overdispersion adjustieren indem du eine andere Verteilungsfamilie wählst. Leider sind in `{lme4}` keine anderen Poissonfamilien implementiert, so dass wir dann auf das [R Paket `{glmmTMB}`](https://glmmtmb.github.io/glmmTMB/index.html) ausweichen. In dem R Paket `{glmmTMB}` gibt es eine reichhaltige Auswahl an Kovarianzstrukturen und Möglichkeiten Abhängigkeiten zu modellieren. Mehr dazu findest du auf der Hilfeseite zu [Covariance structures with glmmTMB](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html) und auf der Seite zu [glmmTMB: Generalized Linear Mixed Models using Template Model Builder](https://cran.r-project.org/web/packages/glmmTMB/). Auf der letzteren Seite findest du dann auch die Vignetten mit den jeweiligen Hilfsthemen.
+Hier schauen wir uns einmal den Datensatz zu den Würmern an. Wir haben hier kein normalverteiltes Outcome mehr vorliegen sondern zählen ja die Würmer. Wenn wir Zähldaten vorliegen haben, dann nutzen wir die Poissonverteilung um die Daten auszuwerten. Dazu müssen wir dann aber die Funktion `glmer()` verwenden, welche uns erlaubt auch eine andere Verteilung für das Outcome zu nutzen. Die Funktion `glmer()` ist in dem R Paket `{lme4}` implementiert und funktioniert nur, wenn du keine Overdispersion in den Daten vorliegen hast. Overdispersion bedeutet, dass die Varianz mit dem Mittelwert überproportional ansteigt. In einer Poissonverteilung steigt die Varianz der Daten mit dem Mittelwert der Zähldaten in einem 1:1 Verhältnis an. Wenn du ein größeres Verhältnis hast, also mit steigenden Mittelwert proportional größere Varianzen, dann liegt Overdispersion vor. Dafür haben wir dann gleich die Funktion `check_overdispersion()`. Wichtig ist, dass du keine Poissonregression rechnen kannst, wenn du Overdispersion vorliegen hast. Dann musst du deine Poissonregression für die Overdispersion adjustieren indem du eine andere Verteilungsfamilie wählst. Leider sind in `{lme4}` keine anderen Poissonfamilien implementiert, so dass wir dann auf das [R Paket `{glmmTMB}`](https://glmmtmb.github.io/glmmTMB/index.html) ausweichen. In dem R Paket `{glmmTMB}` gibt es eine reichhaltige Auswahl an Kovarianzstrukturen und Möglichkeiten Abhängigkeiten zu modellieren. Mehr dazu findest du auf der Hilfeseite zu [Covariance structures with glmmTMB](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html) und auf der Seite zu [glmmTMB: Generalized Linear Mixed Models using Template Model Builder](https://cran.r-project.org/web/packages/glmmTMB/). Auf der letzteren Seite findest du dann auch die Vignetten mit den jeweiligen Hilfsthemen. Leider kann `{glmmTB}` auch nicht alles modellieren, wenn es um die möglichen Fehler*quellen* geht und auch hier verweise ich einmal auf eine Hilfeseite zu [Covariance structures for the error term with glmmTMB - a workaround](https://schmidtpaul.github.io/MMFAIR/glmmtmbdispformula0.html). Wie immer du musst das nicht alles lesen. Es ist auch eine Sammlung an Hilfen hier für den Fall, dass es mal jemand braucht.
 
-In den beiden folgenden Tabs wollen wir dann einmal verschiedene Varianten durchprobieren. Zum einen ein `glmer()` mit einer Poissonfamilie rechnen und schauen, ob wir Overdispersion vorliegen haben. Parallel dazu rechnen wir dann in dem anderen Tab die Poissonregression unter der Annahme von Overdispersion mit `glmmTMB` und der Option `famliy = nbinom1`, was faktisch einer Quasipoissonverteilung entspricht. Als Vergleich dient uns dann noch eine
+In den beiden folgenden Tabs wollen wir dann einmal verschiedene Varianten durchprobieren. Zuerst rechnen wir das naive fixe Effekt Modell mit einem `glm()` und einer Quasipoissonverteilung. Dann probieren wir ein gemischtes Modell mit `glmer()` und einer Poissonfamilie und schauen, ob wir Overdispersion vorliegen haben. Parallel dazu rechnen wir dann in dem anderen Tab die Poissonregression unter der Annahme von Overdispersion mit `glmmTMB()` und der Option `famliy = nbinom1`, was faktisch einer Quasipoissonverteilung entspricht.
 
 ::: panel-tabset
 ## `glm` mit `family = quasipoisson`
+
+Dieser Tab ist sehr kurz. Wir rechnen einfach eine Poissonregression unter der Annahme von Overdispersion. Deshalb nutzen wir hier auch gleich eine Quasipoissonverteilung, die es uns erlaubt für das Auftreten von einer Overdispersion zu adjustieren. Mehr zu der einfachen Poissonregression gibt es dann in dem [Kapitel Poissonregression](#sec-poisson). Dort kannst du dann auch noch mehr zum Thema Poissonregression nachlesen. Wir rechnen also eine Poissonregression und nutzen dafür ein `glm()` und die Option `family = "quasipoisson"`. Wir nehmen dabei als Effekte die Behandlung `trt` sowie die Positionen `row` und `col` mit in das Modell. Ich verzichte auf Interaktionen, da das Modell schon so recht groß ist.
 
 ```{r}
 glm_quasipoisson_fit <- glm(count_worms ~ trt + row + col, 
                             data = wireworms_tbl, family = "quasipoisson")
 ```
 
+Das Bestimmtheitsmaß $R^2$ ist in einem `glm`-Modell nicht so einfach. Deshalb nutzen wir folgende Funktion um uns sowas ähnliches wiedergeben zu lassen. Wir interpretieren aber das $R^2$ ganz gewohnt als den Anteil der erklärten Varianz in dem Outcome durch das Modell.
+
+```{r}
+r2_efron(glm_quasipoisson_fit)
+```
+
+Dieses Modell nehmen wir dann als simple Alternative mit in den Vergleich zu den anderen gemischten Modellen. Manchmal reicht auch ein einfaches Modell und es muss nicht immer ein komplexes Modell sein.
+
 ## `glmer()` mit `family = poisson`
+
+Jetzt aber einmal ein lineares gemischtes Modell mit der Poissonfamilie für die Auswertung der Zähldaten. Daher haben wir dann einen fixen Effekt für die Behandlung `trt` sowie die beiden zufälligen Effekte für die Positionen der Parzellen mit `(1 | row)` und `(1 | col)`. Dann wählen wir noch die Poissonfamilie aus und können das Modell einmal rechnen.
 
 ```{r}
 glmer_poisson_fit <- glmer(count_worms ~ trt + (1|row) + (1|col), 
                            data = wireworms_tbl, family = "poisson")
 ```
 
+Bevor wir überhaupt etwas machen, schauen wir erstmal ob Overdispersion in unseren Daten vorliegt. Wenn unser Modell Overdispersion anzeigt, dann können wir das Modell gleich lassen. Das ist sehr wichtig zu wissen, ein Modell mit einer Poissonfamilie und Overdispersion wird dir immer falsche Ergebnisse liefern. Insbesondere wenn es dir um die Gruppenvergleiche geht. Die Nichtberücksichtigung der Overdispersion lässt deine Fehler zu klein werden und damit findest du zu viele falsche signifikante Ergebnisse.
+
 ```{r}
 glmer_poisson_fit  %>% check_overdispersion()
 ```
 
-Wir haben sehr starke Overdispersion vorliegen und gehen daher rüber in den anderen Tab und rechnen eine Quasipoisson Regression. Nur wenn du keine Overdispersion vorliegen hast, dann kannst du eine eine Poisson Regression rechnen.
+Wir haben sehr starke Overdispersion vorliegen und gehen daher in den anderen Tab und rechnen eine Quasipoisson Regression in einem linearen gemischten Modell. Hier nutzen wir dann das R Paket `{glmmTMB}`. Nur wenn du keine Overdispersion vorliegen hast, dann kannst du eine eine reine Poissonregression rechnen.
 
 ## `glmmTMB()` mit `family = nbinom1`
 
-Da wir in `{lme4}` keine Quasipoissonverteilung auswählen können, nutzen wir das [R Paket `{glmmTMB}`](https://glmmtmb.github.io/glmmTMB/index.html) mit der Verteilungsfamilie `nbinom1`, was einer Parametrisierung einer Quasipoissonverteilung entspricht.
+Da wir in `{lme4}` keine Quasipoissonverteilung auswählen können, nutzen wir das [R Paket `{glmmTMB}`](https://glmmtmb.github.io/glmmTMB/index.html) mit der Verteilungsfamilie `nbinom1`, was einer Parametrisierung einer Quasipoissonverteilung entspricht. Mehr dazu dann auch auf der Hilfeseite zu [Covariance structures with glmmTMB](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html). Eigentlich spricht nichts dagegen gleich das R Paket `{glmmTMB}` zu nutzen, wenn du mit nicht normalverteilten Outcomes arbeitest. Auch bei einem normalverteilten Outcome liefert dir `{glmmTMB}` auch $p$-Werte aus einer ANOVA. Es macht also doch Sinn sich mal andere Pakete anzuschauen.
 
-[Covariance structures with glmmTMB](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html)
+Um das Modell zu rechnen nutzen wir die Funktion `glmmTMB()` und der Rest bleibt glücklicherweise gleich. Wir ändern hier nur die Option `family = nbinom1` und können dann einmal das Modell rechnen. Und ja, es gebe noch andere Möglichkeiten, aber wir bleiben hier mal bei einer. Am Ende kannst du dann auch verschiedene Familien durch testen und schauen, wo du den kleinsten Fehler am Ende erhälst. Dafür bietet sich ja das Paket `{modelsummary}` gerade an.
 
 ```{r}
 glmmTMB_nbinom1_fit <- glmmTMB(count_worms ~ trt + (1|row) + (1|col), 
                                data = wireworms_tbl, family = nbinom1) 
 ```
 
-Damit wir dann auch Overdispersion in einer Poissonregression berücksichtigen können nutzen wir den gleichen "Trick" wie in [Covariance structures for the error term with glmmTMB - a workaround](https://schmidtpaul.github.io/MMFAIR/glmmtmbdispformula0.html)
+Auch hier können wir einmal den *Intraclass Correlation Coefficient* (abk. *ICC*) schätzen und sehen, dass nicht viel Varianz durch unser Modell erklärt wird. Das ist etwas bedauerlich, aber manchmal kann man nicht mehr aus den Daten herausholen.
+
+```{r}
+#| warning: false
+#| message: false
+glmmTMB_nbinom1_fit %>% icc()
+```
+
+Dann schauen wir nochmal in das Bestimmtheitsmaß $R^2$ und sehen, dass wir auch hier eher bescheidene Werte erhalten. Wir können mit den festen und zufälligen Effekten zusammen nur $66.9\%$ der Varianz in den Wurmanzahlen erklären. Das ist auch hier kein guter Wert, aber wie immer besser als gar nichts.
+
+```{r}
+glmmTMB_nbinom1_fit %>% r2()
+```
+
+Wir nehmen dann auch das Modell hier mit in den Vergleich und schauen einmal welches Modell das beste Modell ist. Wie immer kann ein komplexeres Modell zwar besser sein, aber am Ende wollen wir dann doch eher ein einfaches Modell haben.
 :::
 
 Im folgenden Kasten findest du den Modellvergleich mit dem R Paket `{modelsummary}`.
@@ -974,40 +1002,89 @@ text
 ## `lmer`
 
 ```{r}
-#| eval: false
-lmer_fit <- lmer(test ~ trt + (1|id_school) + (1|id_class), data = dt_student) 
-
-lmer_fit2 <- lmer(test ~ trt + (1|id_class/id_school), data = dt_student) 
-
-compare_performance(lmer_fit, lmer_fit2, rank = TRUE)
-
-plot(compare_performance(lmer_fit, lmer_fit2, rank = TRUE, verbose = FALSE))
-
-lmer_fit %>% 
-  model_performance()
-
-lmer_fit %>% 
-  emmeans(~ trt) %>% 
-  pairs()
-
-lmer_fit %>% anova
-
+#| warning: false
+#| message: false
+lmer_fit <- lmerTest::lmer(plant_yield ~ nitro + gen + nitro:gen + (1|block/gen), data = oats_tbl)
 ```
 
-## `lm`
+```{r}
+#| warning: false
+#| message: false
+lmer_fit %>% 
+  anova() %>% 
+  model_parameters()
+```
 
 ```{r}
-#| eval: false
-lm_fit <- lm(test ~ trt + id_school + id_class, data = dt_student) 
+#| warning: false
+#| message: false
 
-lm_fit %>% 
-  model_performance()
-
-lm_fit %>% 
-  emmeans(~ trt) %>% 
+lmer_fit %>% 
+  emmeans(~ nitro) %>% 
   pairs()
+```
 
-lm_fit %>% anova
+```{r}
+#| warning: false
+#| message: false
+
+lmer_fit %>% 
+  emmeans(~ gen) %>% 
+  pairs()
+```
+
+```{r}
+#| warning: false
+#| message: false
+
+lmer_fit %>% 
+  emmeans(~ nitro) %>% 
+  cld(Letters = letters)
+```
+
+## `glmmTMB`
+
+```{r}
+#| warning: false
+#| message: false
+glmmTMB_fit <- glmmTMB(plant_yield ~ nitro + gen + nitro:gen + (1|block/gen), data = oats_tbl)
+```
+
+Hier müssen wir die Funktion `Anova()` aus dem R Paket `{car}` nutzen.
+
+```{r}
+#| warning: false
+#| message: false
+glmmTMB_fit %>% 
+  car::Anova() %>% 
+  model_parameters()
+```
+
+```{r}
+#| warning: false
+#| message: false
+
+glmmTMB_fit %>% 
+  emmeans(~ nitro) %>% 
+  pairs()
+```
+
+```{r}
+#| warning: false
+#| message: false
+
+glmmTMB_fit %>% 
+  emmeans(~ gen) %>% 
+  pairs()
+```
+
+```{r}
+#| warning: false
+#| message: false
+
+glmmTMB_fit %>% 
+  emmeans(~ nitro) %>% 
+  cld(Letters = letters)
 ```
 :::
 
@@ -1324,7 +1401,7 @@ cld_pos_tbl <- insects_tbl %>%
 #| label: fig-log-mod-pois-insect-dotbox
 #| fig-align: center
 #| fig-height: 5
-#| fig-width: 5
+#| fig-width: 6
 #| fig-cap: "Dotplots und Boxplots der mittleren Brokkoligewichte aus einem linearen gemischten Modell. Das `lmer()`-Modell berechnet das mittler Gewicht des Brokkoli in jeder Faktorkombination. Das *compact letter display* wird dann in `{emmeans}` generiert. Wir haben noch ein Mindestgewicht von 500g ergänzt."
 
 ggplot(insects_tbl, aes(x = timepoint, y = thripse, fill = trt)) + 
