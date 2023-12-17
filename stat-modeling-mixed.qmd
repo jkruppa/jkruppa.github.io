@@ -109,7 +109,7 @@ pacman::p_load(tidyverse, magrittr, broom, see, simstudy,
                parameters, ggridges, scales, performance, 
                ggdist, gghalves, glmmTMB, lmerTest, mixedup,
                multilevelmod, agridat, desplot, modelsummary,
-               conflicted)
+               ggbeeswarm, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflicts_prefer(lme4::lmer)
@@ -794,10 +794,10 @@ Und dann sehen wir auch, dass wir mit unseren Modell mit den genesteten zufälli
 lmer_3fac_nested_fit %>% model_performance()
 ```
 
-Damit habe ich gesgezigt, dass wir auch ein perfektes Modell erhalten können, wenn wir wissen wie die Daten erschaffen wurden. Unsere anderen Modelle sind noch so gut, da ich ein sehr balanciertes Design für die Erstellung der Schuldaten gewählt habe. Wenn die Klassen unterschiedliche groß wären und auch unterschiedliche Anzahlen von Klassen pro Schule vorliegen würden, dann sehen die anderen Modelle bedeutend schlechter aus.
+Damit habe ich gezeigt, dass wir auch ein perfektes Modell erhalten können, wenn wir wissen wie die Daten erschaffen wurden. Unsere anderen Modelle sind noch so gut, da ich ein sehr balanciertes Design für die Erstellung der Schuldaten gewählt habe. Wenn die Klassen unterschiedliche groß wären und auch unterschiedliche Anzahlen von Klassen pro Schule vorliegen würden, dann sehen die anderen Modelle bedeutend schlechter aus.
 :::
 
-Manchmal möchten wir dann doch noch mehr Informationen als den *Intraclass Correlation Coefficient* (abk. *ICC*) oder das `R2 (cond.)` oder das `R2 (marg.)` aus dem linearen gemischten Modell extrahieren. Da mir das aber dann aktuell zu weit geht und hier auch nicht mehr erklärt, verweise ich auf die folgenden Funktionen aus dem R Paket `{mixedup}`. Du erhälst mit den Funktionen die Effekte für die zufälligen wie auch festen Effekte und das auch übergreifend für andere Pakte. Manchmal ist auch die Funktion `summary()` sehr klobig für ein `lmer()`-Objekt, da hilft dann die Funktion `summarize_model()`. In seltenen Fällen bist du dann auch an der Varianzstruktur und deren Schätzern interessiert, da gibt es dann auch noch die Funktion `extract_vc()` für.
+Manchmal möchten wir dann doch noch mehr Informationen als den *Intraclass Correlation Coefficient* (abk. *ICC*) oder das `R2 (cond.)` oder das `R2 (marg.)` aus dem linearen gemischten Modell extrahieren. Da mir das aber dann aktuell zu weit geht und hier auch nicht mehr erklärt, verweise ich auf die folgenden Funktionen aus dem R Paket `{mixedup}`. Du erhälst mit den Funktionen die Effekte für die zufälligen wie auch festen Effekte und das auch übergreifend für andere Pakte. Manchmal ist auch die Funktion `summary()` sehr klobig für ein `lmer()`-Objekt, da hilft dann die Funktion `summarize_model()`. In seltenen Fällen bist du dann auch an der Varianzstruktur und deren Schätzern interessiert, dafür gibt es dann auch noch die Funktion `extract_vc()`. Ich führe die Funktionen hier jetzt nicht aus, da wir einfach nur Output produzieren.
 
 ```{r}
 #| warning: false
@@ -826,7 +826,7 @@ modelsummary(lst("lm (mean model)" = mean_lm_fit,
 ```
 :::
 
-Das R Paket `{lme4}` hat auch die Möglichkeit mit nicht normalverteilten Daten über die Funktion `glmer()` umzugehen. Da schauen wir aber gleich mal rein und zwar bei den Würmerdaten und stellen dabei auch das R Paket `{glmmTMB}` als Alternative vor.
+Und dann nochmal die visuelle Überprüfung mit `check_model()`.
 
 ::: {.callout-note collapse="true"}
 ## Modellüberprüfung mit `check_model()`
@@ -843,6 +843,8 @@ Das R Paket `{lme4}` hat auch die Möglichkeit mit nicht normalverteilten Daten 
 check_model(lmer_2fac_fit)
 ```
 :::
+
+Das R Paket `{lme4}` hat auch die Möglichkeit mit nicht normalverteilten Daten über die Funktion `glmer()` umzugehen. Da schauen wir aber gleich mal rein und zwar bei den Würmerdaten und stellen dabei auch das R Paket `{glmmTMB}` als Alternative vor.
 
 ### ... mit dem R Paket `{glmmTB}`
 
@@ -1077,6 +1079,9 @@ Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. 
 
 In der @fig-log-mod-gaussian-broc siehst du das Ergebnis der Auswertung in einem Säulendiagramm. Wir sehen einen klaren Effekt der Düngezeitpunkte sowie der Düngermenge auf das Gewicht von Brokkoli. Wenn wir ein mittleres Gewicht von $500g$ für den Handel erreichen wollen, dann erhalten wir das Zielgewicht nur bei einer Düngemenge von $300mg/l$. Hier stellt sich dann die Frage, ob wir bei $225mg/l$ und einem frühen Zeitpunkt der Düngung nicht auch genug Brokkoli erhalten. Das Ziel ist es ja eigentlich in einen Zielbereich zu kommen. Die Köpfe sollen ja nicht zu schwer und auch nicht zu leicht sein. Aber diese Frage und andere Fragen der biologischen Anwendung lassen wir dann hier einmal offen, denn das Beispiel soll ja nur ein Beispiel sein.
 
+::: panel-tabset
+## Barplots
+
 ```{r}
 #| echo: true
 #| warning: false
@@ -1104,6 +1109,45 @@ emm_obj %>%
                 position = position_dodge(width = 0.9, preserve = "single")) +
   scale_fill_okabeito()
 ```
+
+## Dotplots und Boxplots
+
+```{r}
+emm_cld_tbl <- emm_obj %>% 
+  as_tibble()
+```
+
+@fig-log-mod-gaussian-broc-half
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-log-mod-gaussian-broc-half
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "Dotplots und Boxplots der mittleren Brokkoligewichte aus einer Gaussian Regression. Das `lmer()`-Modell berechnet das mittler Gewicht des Brokkoli in jeder Faktorkombination. Das *compact letter display* wird dann in `{emmeans}` generiert. Wir haben noch ein Mindestgewicht von 500g ergänzt."
+
+ggplot(broc_tbl, aes(x = fert_time, y = weight, fill = fert_amount)) + 
+  labs(y = "Mittleres Gewicht [g] des Brokkoli", x = "Düngezeitpunkt",
+       fill = "Düngemenge [mg/l]") +
+  geom_hline(yintercept = 500, size = 0.75, linetype = 2) +
+  geom_half_point(aes(color = fert_amount), 
+                  transformation = position_quasirandom(width = 0.1),
+                  side = "l", size = 0.5, alpha = 0.5,
+                  position = position_dodge(width = 0.9, preserve = "single")) +
+  geom_half_boxplot(aes(fill = fert_amount), 
+                    side = "r", width = 0.5, outlier.size = 1,
+                    position = position_dodge(width = 0.9, preserve = "single")) + 
+  geom_text(data = emm_cld_tbl, aes(label = str_trim(.group), y = emmean + SE * 1.2),
+            position = position_dodge(width = 1.1)) +
+  scale_fill_okabeito() +
+  scale_color_okabeito() +
+  guides(color = "none") +
+  labs(x = "Opposition party autonomy", y = "Media freedom index") 
+```
+:::
 :::
 
 ::: callout-tip
