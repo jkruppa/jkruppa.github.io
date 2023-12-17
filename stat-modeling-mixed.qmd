@@ -1271,12 +1271,12 @@ insects_tbl <- read_excel("data/insects_count.xlsx") %>%
   filter(trt %in% c("10ml", "30ml", "60ml"))
 ```
 
-Dann können wir auch schon die Poisson Regression mit `glm()` rechnen. Auch hier wieder darauf achten, dass wir dann als Option `family = poisson` oder `family = quasipoisson` wählen. Es hängt jetzt davon ab, ob du in deinen Daten Overdispersion vorliegen hast oder nicht. In den beiden folgenden Tabs, rechne ich dann mal beide Modelle.
+Warum bietet sich hier ein lineares gemischtes Modell an? Wir haben hier eine Wiederholung vorliegen, die wir dann als zufälligen Effekt modellieren können. Wir können daher die Poissonregression mit `glmer()` rechnen. Auch hier wieder darauf achten, dass wir dann als Option `family = poisson` wählen. Es hängt jetzt davon ab, ob du in deinen Daten Overdispersion vorliegen hast oder nicht, ob wir `glmer()` nutzen können. In den beiden folgenden Tabs, rechne ich dann mal beide Modelle. Einmal ohne die Berücksichtigung von Overdispersion mit `glmer()` aus dem R Paket `{lme4}` und einmal mit Berücksichtigung der Overdispersion mit `glmmTMB()` aus dem gleichnamigen R Paket.
 
 ::: panel-tabset
 ## `glmer()` mit `family = poisson`
 
-Als Erstes rechnen wir eine normale Poisson Regression und schauen einmal, ob wir Overdispersion vorliegen haben. Wenn wir Overdispersion vorliegen haben, dann können wir keine Poisson Regression rechnen, sondern müssen auf eine Quasipoisson Regression ausweichen. Das ist aber sehr einfach, wie du im anderen Tab sehen wirst.
+Als Erstes rechnen wir eine normale Poissonregression mit `glmer()` und schauen einmal, ob wir Overdispersion vorliegen haben. Wenn wir Overdispersion vorliegen haben, dann können wir keine Poissonregression rechnen, sondern müssen auf eine Quasipoisson Regression ausweichen. Das ist aber sehr einfach, wie du im anderen Tab sehen wirst.
 
 ```{r}
 insects_poisson_fit <- glmer(thripse ~ trt + timepoint + trt:timepoint + (1 | rep), 
@@ -1284,19 +1284,17 @@ insects_poisson_fit <- glmer(thripse ~ trt + timepoint + trt:timepoint + (1 | re
                              family = poisson) 
 ```
 
-Bevor wir uns das Modell mit `summary()` überhaupt anschauen, wollen wir erstmal überprüfen, ob wir überhaupt Overdispersion vorliegen haben. Wenn ja, dann können wir uns die `summary()` hier gleich sparen. Also einmal geguckt, was die Overdispersion macht.
+Bevor wir uns das Modell mit `summary()` überhaupt anschauen, wollen wir erstmal überprüfen, ob wir überhaupt Overdispersion vorliegen haben. Wenn ja, dann können wir uns die `summary()` hier gleich sparen und wir können dann mit dem Modell auch keine Gruppenvergleiche rechnen. Also einmal geguckt, was die Overdispersion macht.
 
 ```{r}
 insects_poisson_fit %>% check_overdispersion()
 ```
 
-Wir haben sehr starke Overdispersion vorliegen und gehen daher rüber in den anderen Tab und rechnen eine Quasipoisson Regression. Nur wenn du keine Overdispersion vorliegen hast, dann kannst du eine eine Poisson Regression rechnen.
+Wir haben sehr starke Overdispersion vorliegen und gehen daher in den anderen Tab und rechnen eine Quasipoisson Regression mit dem R Paket `{glmmTMB}`. Nur wenn du keine Overdispersion vorliegen hast, dann kannst du eine eine Poissonregression mit `glmer()` rechnen.
 
 ## `glmmTMB()` mit `family = nbinom1`
 
-Da wir in `{lme4}` keine Quasipoissonverteilung auswählen können, nutzen wir das [R Paket `{glmmTMB}`](https://glmmtmb.github.io/glmmTMB/index.html) mit der Verteilungsfamilie `nbinom1`, was einer Parametrisierung einer Quasipoissonverteilung entspricht.
-
-Entweder hast du in deinen Daten eine Overdispersion gefunden oder aber du meinst, es wäre besser gleich eine Quasipoisson zu rechnen. Beides ist vollkommen in Ordnung. Ich rechne meistens immer eine Quasipoisson und schaue dann nur, ob die Overdispersion sehr groß war. In den seltensten Fällen hast du eine Overdispersion vorliegen, die eher klein ist. Daher mache ich erst die Lösung und schaue, ob das Problem dann da war.
+Da wir in `{lme4}` keine Quasipoissonverteilung auswählen können, nutzen wir das [R Paket `{glmmTMB}`](https://glmmtmb.github.io/glmmTMB/index.html) mit der Verteilungsfamilie `nbinom1`, was einer Parametrisierung einer Quasipoissonverteilung entspricht. Meistens nutze ich gleich die `glmmTMB()` Funktion, da wir in biologischen Daten sehr häufig Overdispersion vorliegen haben. Dann kann man sich eine Runde gleich sparen. Aber am Ende kannst du dann auch die Modelle miteinander vergleichen und auch berichten wie groß deine Overdispersion ist.
 
 ```{r}
 insects_quasipoisson_fit <- glmmTMB(thripse ~ trt + timepoint + trt:timepoint + (1|rep), 
@@ -1304,32 +1302,35 @@ insects_quasipoisson_fit <- glmmTMB(thripse ~ trt + timepoint + trt:timepoint + 
                                     family = nbinom1) 
 ```
 
-Du kannst in der `summary()` Ausgabe direkt sehen, ob du Overdispersion vorliegen hast. Du musst nur relativ weit unten schauen, was zu dem `Dispersion parameter` in den Klammern geschrieben ist. Wenn da eine Zahl größer als 1 drin steht, dann hast du Overdispersion.
+Im Folgedne schauen wir nochmal, ob wir in unserem neuen Modell in `glmmTMB()` noch Overdispersion vorliegen haben.
 
 ```{r}
-insects_quasipoisson_fit %>% 
-  summary()
+insects_quasipoisson_fit %>% check_overdispersion()
 ```
+
+Das passt soweit. Wir haben keine Overdispersion mehr. Dann berechnen wir auch einmal die $R^2$-Werte für unser Modell. Hier gibt es dann nochmal mehr Informationen auf [$R^2$ for Mixed Models -- Marginal vs. Conditional](https://easystats.github.io/performance/articles/r2.html#marginal-vs--conditional-r2). Wichtig ist, dass das `Conditional R2`, die gesamte erklärte Varianz von festen und zufälligen Effekten beschriebt und das `Marginal R2` nur die erklärte Varianz aus den festen Effekten.
 
 ```{r}
 insects_quasipoisson_fit %>% r2()
 ```
 
-[Intraclass Correlation Coefficient (ICC)](https://easystats.github.io/performance/reference/icc.html)
+Tja, das Modell ist nun echt nicht gerade das beste Modell nach dem Bestimmtheitsmaß. Die festen Effekte, also unsere Behandlungen, erklären kaum etwas von der Varianz. Aber schauen wir mal weiter. Der [Intraclass Correlation Coefficient (ICC)](https://easystats.github.io/performance/reference/icc.html) beschreibt nun die erklärte Varianz durch unsere zufälligen Effekte.
 
 ```{r}
 insects_quasipoisson_fit %>% icc()
 ```
+
+Auch hier sind die Ergebnisse eher mau aus. Du kannst dir die gesamte Übersicht auch gleich in der Funktion `model_performance()` wiedergeben lassen. Das spart dann ein wenig Zeit und Code.
 
 ```{r}
 insects_quasipoisson_fit %>% 
   model_performance()
 ```
 
-Wir haben hier auf jeden Fall Overdispersion vorliegen. Daher nutze ich dann auch das Modell hier mit der Annahme an eine Quasipoissonverteilung. Dann stimmt es auch mit unseren Varianzen und wir produzieren nicht zufällig zu viele signifikante Ergebnisse, die es dann gar nicht gibt.
+Wir haben hier auf jeden Fall Overdispersion vorliegen. Daher nutze ich dann auch das Modell hier in `glmmTMB()` mit der Annahme an eine Quasipoissonverteilung. Dann stimmt es auch mit unseren Varianzen und wir produzieren nicht zufällig zu viele signifikante Ergebnisse, die es dann gar nicht gibt.
 :::
 
-Ich habe mich gerade in den obigen Tabs für eine Quasipoisson Regression entschieden, da wir Overdispersion vorliegen haben. Damit mache ich dann mit dem `insects_quasipoisson_fit` Modell weiter. In den beiden folgenden Tabs findest du dann einmal das Ergebnis für die ANOVA und einmal für den Gruppenvergleich mit dem R Paket `{emmeans}`. Bitte beachte, dass die ANOVA für ein `glm()`-Objekt nicht ganz gleich wie für ein `lm()`-Objekt ist. Du kannst aber die ANOVA erstmal ganz normal interpretieren, nur haben wir hier nicht die Möglichkeit ein $\eta^2$ zu bestimmen. Dann nutzen wir `{emmeans}` für den Gruppenvergleich. Nochmal, weil wir Overdispersion festgestellt haben, nutzen wir das Objekt `insects_quasipoisson_fit` mit der Berücksichtigung der Overdispersion.
+Ich habe mich gerade in den obigen Tabs für eine Quasipoissonregression in einem linearen gemischten Modell mit `glmmTMB()` entschieden, da wir Overdispersion vorliegen haben. Damit mache ich dann mit dem `insects_quasipoisson_fit` Modell weiter. In den beiden folgenden Tabs findest du dann einmal das Ergebnis für die ANOVA und einmal für den Gruppenvergleich mit dem R Paket `{emmeans}`. Bitte beachte, dass die ANOVA für ein `glmmTMB()`-Objekt nicht ganz gleich wie für ein `lm()`-Objekt ist. Du kannst aber die ANOVA erstmal ganz normal interpretieren, nur haben wir hier nicht die Möglichkeit ein $\eta^2$ zu bestimmen. Dann nutzen wir `{emmeans}` für den Gruppenvergleich. Nochmal, weil wir Overdispersion festgestellt haben, nutzen wir das Objekt `insects_quasipoisson_fit` mit der Berücksichtigung der Overdispersion.
 
 Im Folgenden rechnen wir einmal über alle Faktorkombinationen von `trt` und `timepoint` einen Gruppenvergleich. Dafür nutzen wir die Opition `trt * timepoint`. Wenn du die Analyse *getrennt* für die Zeitpunkte durchführen willst, dann nutze die Option `trt | timepoint`. Wir wollen die Wahrscheinlichkeiten für das Auftreten einer Beschädigung von wiedergegeben bekommen, deshalb die Option `regrid = "response`. Dann adjustieren wir noch nach Bonferroni und sind fertig.
 
@@ -1340,14 +1341,12 @@ emm_obj <- insects_quasipoisson_fit %>%
 emm_obj
 ```
 
-Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. Die `rate` stellt die mittlere Anzahl an Thripsen je Faktorkombination dar. Dann können wir auch das *compact letter display* anhand der Abbildung interpretieren.
-
-`str_trim()`
-
-In der @fig-log-mod-pois-insect siehst du das Ergebnis der Auswertung in einem Säulendiagramm. Hier unbedingt `SE` als den Standardfehler für die Fehlerbalken nutzen, da wir sonst Fehlerbalken größer und kleiner als $0$ erhalten, wenn wir die Standardabweichung nutzen würden. Das ist in unserem Fall nicht so das Problem, aber wenn du eher kleine Anzahlen zählst, kann das schnell zu Werten kleiner Null führen. Wir sehen einen klaren Effekt der Behandlung `60ml`. Die Zeit hat keinen Effekt, was ja schon aus der ANOVA klar war, die Säulen sehen für jeden Zeitpunkt vollkommen gleich aus. Gut etwas Unterschied ist ja immer.
+Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. Die `response` stellt die mittlere Anzahl an Thripsen je Faktorkombination dar. Dann können wir auch das *compact letter display* anhand der Abbildung interpretieren. Ich stelle die Abbildung wieder einmal als Barplot und einmal als Dot-Boxplot in den beiden Tabs dar.
 
 ::: panel-tabset
 ## Barplots
+
+In der @fig-log-mod-pois-insect siehst du das Ergebnis der Auswertung in einem Säulendiagramm. Hier unbedingt `SE` als den Standardfehler für die Fehlerbalken nutzen, da wir sonst Fehlerbalken größer und kleiner als $0$ erhalten, wenn wir die Standardabweichung nutzen würden. Das ist in unserem Fall nicht so das Problem, aber wenn du eher kleine Anzahlen zählst, kann das schnell zu Werten kleiner Null führen. Wir sehen einen klaren Effekt der Behandlung `60ml`. Die Zeit hat keinen Effekt, was ja schon aus der ANOVA klar war, die Säulen sehen für jeden Zeitpunkt vollkommen gleich aus. Gut etwas Unterschied ist ja immer.
 
 ```{r}
 #| echo: true
@@ -1377,6 +1376,8 @@ emm_obj %>%
 
 ## Dotplots und Boxplots
 
+Damit wir uns gleich einmal die Daten in einem Dotplot und Boxplot anschauen können, brauchen wir noch die Positionen für das *compact letter display* in unser Abbildung. Daher brauchen wir erstmal das *compact letter display* und entfernen alle Faktorkombinationen, die keine Werte haben.
+
 ```{r}
 #| warning: false
 #| message: false
@@ -1384,6 +1385,8 @@ emm_cld_tbl <- emm_obj %>%
   as_tibble() %>% 
   arrange(timepoint, trt)
 ```
+
+Jetzt berechnen wir uns noch die Position. Ich setze hier das *compact letter display* auf die Position des dritten Quartils, was ausriechen sollte und nicht zu weit weg ist.
 
 ```{r}
 #| warning: false
@@ -1393,6 +1396,8 @@ cld_pos_tbl <- insects_tbl %>%
   summarise(quant_3rd = quantile(thripse, 0.75)) %>% 
   add_column(group = emm_cld_tbl$.group)
 ```
+
+In der @fig-log-mod-pois-insect-dotbox siehst du dann einmal das Ergebnis des Dot-Boxplot.
 
 ```{r}
 #| echo: true
