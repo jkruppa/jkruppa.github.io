@@ -1073,7 +1073,7 @@ Nun können wir auch erkennen, dass wir einen signifikanten Effekt des Blocks ha
 
 ## Gruppenvergleich mit `emmeans()`
 
-Im Folgenden rechnen wir einmal über alle Faktorkombinationen von `fert_time` und `fert_amount` einen Gruppenvergleich. Dafür nutzen wir die Option `fert_time * fert_amount`. Wenn du die Analyse *getrennt* für die Menge und den Zeitpunkt durchführen willst, dann nutze die Option `fert_time | fert_amount`. Dann adjustieren wir noch nach Bonferroni und sind fertig.
+Im Folgenden rechnen wir einmal über alle Faktorkombinationen von `fert_time` und `fert_amount` einen Gruppenvergleich. Dafür nutzen wir die Option `fert_time * fert_amount`. Wenn du die Analyse *getrennt* für die Menge und den Zeitpunkt durchführen willst, dann nutze die Option `fert_time | fert_amount`. Dann adjustieren wir noch nach Bonferroni und sind schon fertig.
 
 ```{r}
 emm_obj <- lmer_fit %>% 
@@ -1082,7 +1082,7 @@ emm_obj <- lmer_fit %>%
 emm_obj
 ```
 
-Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. Die `emmean` stellt den mittleren Gewicht des Brokkoli je Faktorkombination dar gemittelt über alle Blöcke. Das Mitteln über die Blöcke ist eher fragwürdig, da wir ja einen Effekt der Blöcke in der ANOVA gefunden hatten. Hier schauen wir dann nochmal auf das Beispiel im Kapitel zu den [linearen gemischten Modellen](#sec-mixed). Dann können wir zum Abschluss auch das *compact letter display* anhand der Abbildung interpretieren.
+Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. Die `emmean` stellt den mittleren Gewicht des Brokkoli je Faktorkombination dar unter Berücksichtigung der Varianz der Blöcke als zufälligen Effekt. Du siehst ja auch, dass wir hier keine homogen Varianzen $SE$ haben. Dann können wir zum Abschluss auch das *compact letter display* anhand der Abbildung interpretieren. Einige der Vergleiche konnten nicht gerechnet werden, da wir die Faktorkombination nicht in den Daten vorliegen haben.
 :::
 
 In der @fig-log-mod-gaussian-broc siehst du das Ergebnis der Auswertung in einem Säulendiagramm und in der @fig-log-mod-gaussian-broc-half die Ergebnisse in einem Dot-Boxplot. Wir sehen einen klaren Effekt der Düngezeitpunkte sowie der Düngermenge auf das Gewicht von Brokkoli. Wenn wir ein mittleres Gewicht von $500g$ für den Handel erreichen wollen, dann erhalten wir das Zielgewicht nur bei einer Düngemenge von $300mg/l$. Hier stellt sich dann die Frage, ob wir bei $225mg/l$ und einem frühen Zeitpunkt der Düngung nicht auch genug Brokkoli erhalten. Das Ziel ist es ja eigentlich in einen Zielbereich zu kommen. Die Köpfe sollen ja nicht zu schwer und auch nicht zu leicht sein. Aber diese Frage und andere Fragen der biologischen Anwendung lassen wir dann hier einmal offen, denn das Beispiel soll ja nur ein Beispiel sein. Besonders spannend ist hier der Unterschied in den beiden Abbildungen. Schau dir dazu einmal die beiden verschiedenen Tabs an.
@@ -1123,14 +1123,27 @@ emm_obj %>%
 
 ## Dotplots und Boxplots
 
-Als erstes müssen wir nochmal das `emm_obj` in einen `tibble` umwandeln, damit wir dann das *compact letter dispaly* direkt in die Grafik setzen können. Hier könnte man dann noch die Mediane aus den Daten berechnen um die Position etwas besser hinzukriegen. Aber es sollte so erstmal reichen.
+Als erstes müssen wir nochmal das `emm_obj` in einen `tibble` umwandeln, damit wir dann das *compact letter display* direkt in die Grafik setzen können. Wir entfernen dann noch alle Faktorkombinationen, die wir nicht brauchen, damit wir dann auch gleich die Positionen richtig setzen können. Wichtig ist auch, dass die Faktoren richtig sortiert sind, sonst passt es gleich nicht mit dem Zufügen des *compact letter display* zu der Position.
 
 ```{r}
 emm_cld_tbl <- emm_obj %>% 
-  as_tibble()
+  as_tibble() %>% 
+  arrange(fert_time, fert_amount) %>% 
+  na.omit()
 ```
 
-Jetzt stellen wir den Dot-Boxplot einmal in der folgenden Abbildung dar. Dazu nutzen wir das R Paket `{gghalves}` und die entsprechenden Funktionen. Wir müssen hier relativ viel machen, damit der Plot gut aussieht. Aber das meiste ist einfach nur Code wiederverwendet. Spannend ist hier die Variabilität in den Daten. Wir sehen hier, das unsere Brokkoliköpfe bei weitem nicht so nahe an dem Zielbereich sind, wie die Barplots suggerieren. Wir wollen eigentlich ziemlich eng um die $500g$ sein, sonnst muss der Supermarkt wild packen um immer die gleiche Packungsgröße zu haben. Jetzt wirken die Unterschiede zwischen den Zeitpunkten und den Mengen auch schon wieder etwas anders. Auch mit weniger Dünger können wir relativ große Brokkoli erhalten.
+Die Positionen für das *compact letter display* berechnen wir uns aus dem Wert des $3^{rd}$ Quantile. Dann ergänzen wir noch die Werte für das *compact letter display* und fertig sind wir. Aber auch hier lieber einmal doppelt schauen, dass wir auch wirklich die richtigen Buchstaben zu den richtigen Faktorkombinationen ergänzt haben.
+
+```{r}
+#| warning: false
+#| message: false
+cld_pos_tbl <- broc_tbl %>% 
+  group_by(fert_time, fert_amount) %>% 
+  summarise(quant_3rd = quantile(weight, 0.75)) %>% 
+  add_column(group = emm_cld_tbl$.group)
+```
+
+Jetzt stellen wir den Dot-Boxplot einmal in der folgenden Abbildung dar. Dazu nutzen wir das R Paket `{gghalves}` und die entsprechenden Funktionen. Wir müssen hier relativ viel machen, damit der Plot gut aussieht. Aber das meiste ist einfach nur Code wiederverwendet. Spannend ist hier die Variabilität in den Daten. Wir sehen hier, das unsere Brokkoliköpfe bei weitem nicht so nahe an dem Zielbereich sind, wie die Barplots suggerieren. Wir wollen eigentlich ziemlich eng um die $500g$ sein, sonnst muss der Supermarkt wild packen um immer die gleiche Packungsgröße zu haben. Jetzt wirken die Unterschiede zwischen den Zeitpunkten und den Mengen auch schon wieder etwas anders. Auch mit weniger Dünger können wir relativ große Brokkoli erhalten. Das plazieren der Buchstaben wäre vermutlich mit `annotate()` einfacher gewesen.
 
 ```{r}
 #| echo: true
@@ -1149,12 +1162,12 @@ ggplot(broc_tbl, aes(x = fert_time, y = weight, fill = fert_amount)) +
   geom_half_point(aes(color = fert_amount), 
                   transformation = position_quasirandom(width = 0.05),
                   side = "l", size = 0.5, alpha = 0.5,
-                  position = position_dodge(width = 0.9, preserve = "single")) +
+                  position = position_dodge(width = 0.9)) +
   geom_half_boxplot(aes(fill = fert_amount), 
                     side = "r", width = 0.5, outlier.size = 0.8,
-                    position = position_dodge(width = 0.9, preserve = "single")) + 
-  geom_text(data = emm_cld_tbl, aes(label = str_trim(.group), y = emmean + SE * 1.2),
-            position = position_dodge(width = 1.15)) +
+                    position = position_dodge(width = 0.9)) + 
+  geom_text(data = cld_pos_tbl, aes(label = str_trim(group), y = quant_3rd + 70),
+            position = position_dodge(width = 0.9), hjust = -1) +
   scale_fill_okabeito() + scale_color_okabeito() +
   guides(color = "none") + theme(legend.position = "top") 
 ```
@@ -1250,6 +1263,9 @@ Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. 
 
 In der @fig-log-mod-pois-insect siehst du das Ergebnis der Auswertung in einem Säulendiagramm. Hier unbedingt `SE` als den Standardfehler für die Fehlerbalken nutzen, da wir sonst Fehlerbalken größer und kleiner als $0$ erhalten, wenn wir die Standardabweichung nutzen würden. Das ist in unserem Fall nicht so das Problem, aber wenn du eher kleine Anzahlen zählst, kann das schnell zu Werten kleiner Null führen. Wir sehen einen klaren Effekt der Behandlung `60ml`. Die Zeit hat keinen Effekt, was ja schon aus der ANOVA klar war, die Säulen sehen für jeden Zeitpunkt vollkommen gleich aus. Gut etwas Unterschied ist ja immer.
 
+::: panel-tabset
+## Barplots
+
 ```{r}
 #| echo: true
 #| warning: false
@@ -1275,6 +1291,52 @@ emm_obj %>%
                 position = position_dodge(width = 0.9, preserve = "single")) +
   scale_fill_okabeito()
 ```
+
+## Dotplots und Boxplots
+
+```{r}
+#| warning: false
+#| message: false
+emm_cld_tbl <- emm_obj %>% 
+  as_tibble() %>% 
+  arrange(timepoint, trt)
+```
+
+```{r}
+#| warning: false
+#| message: false
+cld_pos_tbl <- insects_tbl %>% 
+  group_by(timepoint, trt) %>% 
+  summarise(quant_3rd = quantile(thripse, 0.75)) %>% 
+  add_column(group = emm_cld_tbl$.group)
+```
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-log-mod-pois-insect-dotbox
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Dotplots und Boxplots der mittleren Brokkoligewichte aus einem linearen gemischten Modell. Das `lmer()`-Modell berechnet das mittler Gewicht des Brokkoli in jeder Faktorkombination. Das *compact letter display* wird dann in `{emmeans}` generiert. Wir haben noch ein Mindestgewicht von 500g ergänzt."
+
+ggplot(insects_tbl, aes(x = timepoint, y = thripse, fill = trt)) + 
+  labs(y = "Mittlere Anzahl an Thripsen", x = "Messzeitpunkte der Zählungen",
+       fill = "Dosis") +
+  geom_half_point(aes(color = trt), 
+                  transformation = position_quasirandom(width = 0.05),
+                  side = "l", size = 0.5, alpha = 0.5,
+                  position = position_dodge(width = 0.9, preserve = "single")) +
+  geom_half_boxplot(aes(fill = trt), 
+                    side = "r", width = 0.5, outlier.size = 0.8,
+                    position = position_dodge(width = 0.9, preserve = "single")) + 
+  geom_text(data = cld_pos_tbl, aes(label = group, y = quant_3rd + 5),
+            position = position_dodge(width = 0.9), hjust = 0) +
+  scale_fill_okabeito() + scale_color_okabeito() +
+  guides(color = "none") + theme(legend.position = "top") 
+```
+:::
 :::
 
 ## Referenzen {.unnumbered}
