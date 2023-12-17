@@ -848,14 +848,19 @@ Bei den Schuldaten sind wir von einem normalverteilten Outcome `testscore` ausge
 
 ### ... mit dem R Paket `{glmmTB}`
 
-Hier schauen wir uns einmal den Datensatz zu den Würmern an.
+Hier schauen wir uns einmal den Datensatz zu den Würmern an. Wir haben hier kein normalverteiltes Outcome mehr vorliegen sondern zählen ja die Würmer. Wenn wir Zähldaten vorliegen haben, dann nutzen wir die Poissonverteilung um die Daten auszuwerten. Dazu müssen wir dann aber die Funktion `glmer()` verwenden, welche uns erlaubt auch eine andere Verteilung für das Outcome zu nutzen. Die Funktion `glmer()` ist in dem R Paket `{lme4}` implementiert und funktioniert nur, wenn du keine Overdispersion in den Daten vorliegen hast. Overdispersion bedeutet, dass die Varianz mit dem Mittelwert überproportional ansteigt. In einer Poissonverteilung steigt die Varianz der Daten mit dem Mittelwert der Zähldaten in einem 1:1 Verhältnis an. Wenn du ein größeres Verhältnis hast, also mit steigenden Mittelwert proportional größere Varianzen, dann liegt Overdispersion vor. Dafür haben wir dann gleich die Funktion `check_overdispersion()`. Wichtig ist, dass du keine Poissonregression rechnen kannst, wenn du Overdispersion vorliegen hast. Dann musst du deine Poissonregression für die Overdispersion adjustieren indem du eine andere Verteilungsfamilie wählst. Leider sind in `{lme4}` keine anderen Poissonfamilien implementiert, so dass wir dann auf das [R Paket `{glmmTMB}`](https://glmmtmb.github.io/glmmTMB/index.html) ausweichen. In dem R Paket `{glmmTMB}` gibt es eine reichhaltige Auswahl an Kovarianzstrukturen und Möglichkeiten Abhängigkeiten zu modellieren. Mehr dazu findest du auf der Hilfeseite zu [Covariance structures with glmmTMB](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html) und auf der Seite zu [glmmTMB: Generalized Linear Mixed Models using Template Model Builder](https://cran.r-project.org/web/packages/glmmTMB/). Auf der letzteren Seite findest du dann auch die Vignetten mit den jeweiligen Hilfsthemen.
 
-[R Paket `{glmmTMB}`](https://glmmtmb.github.io/glmmTMB/index.html) und dann noch [Covariance structures with glmmTMB](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html)
-
-[glmmTMB: Generalized Linear Mixed Models using Template Model Builder](https://cran.r-project.org/web/packages/glmmTMB/)
+In den beiden folgenden Tabs wollen wir dann einmal verschiedene Varianten durchprobieren. Zum einen ein `glmer()` mit einer Poissonfamilie rechnen und schauen, ob wir Overdispersion vorliegen haben. Parallel dazu rechnen wir dann in dem anderen Tab die Poissonregression unter der Annahme von Overdispersion mit `glmmTMB` und der Option `famliy = nbinom1`, was faktisch einer Quasipoissonverteilung entspricht. Als Vergleich dient uns dann noch eine
 
 ::: panel-tabset
-## `glmer()` mit `famliy = poisson`
+## `glm` mit `family = quasipoisson`
+
+```{r}
+glm_quasipoisson_fit <- glm(count_worms ~ trt + row + col, 
+                            data = wireworms_tbl, family = "quasipoisson")
+```
+
+## `glmer()` mit `family = poisson`
 
 ```{r}
 glmer_poisson_fit <- glmer(count_worms ~ trt + (1|row) + (1|col), 
@@ -868,7 +873,7 @@ glmer_poisson_fit  %>% check_overdispersion()
 
 Wir haben sehr starke Overdispersion vorliegen und gehen daher rüber in den anderen Tab und rechnen eine Quasipoisson Regression. Nur wenn du keine Overdispersion vorliegen hast, dann kannst du eine eine Poisson Regression rechnen.
 
-## `glmmTMB()` mit `famliy = nbinom1`
+## `glmmTMB()` mit `family = nbinom1`
 
 Da wir in `{lme4}` keine Quasipoissonverteilung auswählen können, nutzen wir das [R Paket `{glmmTMB}`](https://glmmtmb.github.io/glmmTMB/index.html) mit der Verteilungsfamilie `nbinom1`, was einer Parametrisierung einer Quasipoissonverteilung entspricht.
 
@@ -890,7 +895,8 @@ Im folgenden Kasten findest du den Modellvergleich mit dem R Paket `{modelsummar
 ```{r}
 #| warning: false
 #| message: false
-modelsummary(lst("glmer poisson" = glmer_poisson_fit, 
+modelsummary(lst("glm quasipoisson" = glm_quasipoisson_fit,
+                 "glmer poisson" = glmer_poisson_fit, 
                  "glmmTMB nbinom1" = glmmTMB_nbinom1_fit),
              statistic = c("conf.int",
                            "s.e. = {std.error}"))
