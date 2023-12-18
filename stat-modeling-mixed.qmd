@@ -6,8 +6,6 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, simstudy, writexl)
 
 *Letzte Änderung am `r format(fs::file_info("stat-modeling-mixed.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*
 
-![](images/caution.png){fig-align="center" width="50%"}
-
 > *"Wer die Arbeit kennt und sich nicht drückt, der ist verrückt." --- Tick, Trick und Track*
 
 In diesem Kapitel vollen wir die Grundzüge der lineare gemischten Modell (eng. *linear mixed models*, abk. *lmm*) zu versuchen zu verstehen. Wir immer, es gibt dazu auch hervorragende Literatur wie das sehr ausführliche Buch von @zuur2009mixed. Fangen wir also einmal an zu verstehen, wie eigentlich ein Experiment aussehen muss, damit wir ein lineares gemischtes Modell rechnen wollen. Dabei ist der erste wichtige Punkt, das wir hier mit den gemischten Modellen hierarchische Daten abbilden. Es gibt also eine Hierarchie zwischen den Daten und damit auch eine Abhängigkeit innerhalb der Daten. Eine Abhängigkeit ist in der Statistik eine Korrelationsstruktur. Hier konzentrieren wir uns auf agrarwissenschaftliche Daten. Wir haben dabei in den Agarwissenschaften unser $x$ als Faktoren $f$ vorliegen. Für das $y$ können aber jeden Messwert als Outcome abbilden den wir wollen. Dafür gibt es dann zum Beispiel die Funktion `glmer()`, die das Äquivalent zu der Funktion `glm()` ist.
@@ -1027,7 +1025,7 @@ Jetzt müssen wir die Funktion `lmer()` aus dem R Paket `{lmerTest}` nutzen, dam
 lmer_fit <- lmerTest::lmer(plant_yield ~ nitro + gen + nitro:gen + (1|block/gen), data = oats_tbl)
 ```
 
-Und schon können wir die ANOVA rechnen und erhalten dann auch über die Funktion `model_parameters()` eine schönere Ausgabe wieder.
+Und schon können wir die ANOVA rechnen und erhalten dann auch über die Funktion `model_parameters()` eine schönere Ausgabe wieder. Obwohl es in unserer Abbildung nicht so aussah, haben wir eine signifikante Interaktion in unseren Daten vorliegen. Wir werden daher dann die Daten getrennt einmal auswerten. Auch um ein wenig Platz zu sparen.
 
 ```{r}
 #| warning: false
@@ -1037,6 +1035,8 @@ lmer_fit %>%
   model_parameters()
 ```
 
+Einmal die paarweisen Vergleich für unsere Behandlung `nitro`. Wir sehen, dass alle Vergleiche signifikant sind. Das haben wir aber schon aus der obigen Abbildung erwartet.
+
 ```{r}
 #| warning: false
 #| message: false
@@ -1045,6 +1045,8 @@ lmer_fit %>%
   emmeans(~ nitro) %>% 
   pairs()
 ```
+
+Dann die Vergleiche für die Sorten. Hier haben wir dann keinen signifikanten Unterschied mehr vorliegen. Auch das überrascht uns jetzt nicht sehr. Auch in der obigen Abbildung haben sich die Sorten kaum Unterschiede was den Ertrag anging.
 
 ```{r}
 #| warning: false
@@ -1055,16 +1057,22 @@ lmer_fit %>%
   pairs()
 ```
 
+Abschließend machen wir dann noch das *compact letter display* fertig. Hier dann mit allen Faktorkombinationen von der Stickstoffdüngung `nitro` und den Sorten `gen`, wenn du `nitro * gen` durchlaufen lässt. Für mich ist die Ausgabe dann zu groß, deshalb hier nur die Anwendung für `nitro` getrennt für alle Sorten.
+
 ```{r}
 #| warning: false
 #| message: false
 
 lmer_fit %>% 
-  emmeans(~ nitro) %>% 
+  emmeans(~ nitro | gen) %>% 
   cld(Letters = letters)
 ```
 
+Und damit sind wir dann auch schon mit dem Gruppenvergleich mit `lmer()` durch. Die ANOVA und das *compact letter display* lässt sich schnell und einfach erstellen. Wir müssen eben nur darauf achten, dass wir das richtige Helferpaket mit `{lmerTest}` für die Modellierung des linearen gemischten Modell nutzen.
+
 ## Gruppenvergleich mit `glmmTMB()`
+
+Dann rechnen wir nochmal flux das lineare gemischte Modell mit der Funktion `glmmTMB()`. Eigentlich ist alles genauso wie in dem andern Tab mit der Funktion `lmer()`. Wir brauchen hier aber keine Helferfunktionen. Die Funktion `glmmTMB()` kann das Modell so schätzen, dass wir auch eine ANOVA rechnen können. Wir müssen aber nur gleiche eine spezielle Implementierung wählen, aber das ist auch kein Problem.
 
 ```{r}
 #| warning: false
@@ -1072,7 +1080,7 @@ lmer_fit %>%
 glmmTMB_fit <- glmmTMB(plant_yield ~ nitro + gen + nitro:gen + (1|block/gen), data = oats_tbl)
 ```
 
-Hier müssen wir die Funktion `Anova()` aus dem R Paket `{car}` nutzen.
+Und schon können wir die ANOVA rechnen und erhalten dann auch über die Funktion `model_parameters()` eine schönere Ausgabe wieder. Hier müssen wir die Funktion `Anova()` aus dem R Paket `{car}` nutzen. Obwohl es in unserer Abbildung nicht so aussah, haben wir eine signifikante Interaktion in unseren Daten vorliegen. Wir werden daher dann die Daten getrennt einmal auswerten. Auch um ein wenig Platz zu sparen.
 
 ```{r}
 #| warning: false
@@ -1082,6 +1090,8 @@ glmmTMB_fit %>%
   model_parameters()
 ```
 
+Einmal die paarweisen Vergleich für unsere Behandlung `nitro`. Wir sehen, dass alle Vergleiche signifikant sind. Das haben wir aber schon aus der obigen Abbildung erwartet. Also auch hier nichts anderes zu dem anderen Tab.
+
 ```{r}
 #| warning: false
 #| message: false
@@ -1090,6 +1100,8 @@ glmmTMB_fit %>%
   emmeans(~ nitro) %>% 
   pairs()
 ```
+
+Dann die Vergleiche für die Sorten. Hier haben wir dann keinen signifikanten Unterschied mehr vorliegen. Auch das überrascht uns jetzt nicht sehr. Auch in der obigen Abbildung haben sich die Sorten kaum Unterschiede was den Ertrag anging.
 
 ```{r}
 #| warning: false
@@ -1100,14 +1112,18 @@ glmmTMB_fit %>%
   pairs()
 ```
 
+Abschließend machen wir dann noch das *compact letter display* fertig. Für mich ist die Ausgabe dann zu groß, wenn ich mit `nitro * gen` alle Faktorkombinationen anzeigen lasse, deshalb hier nur die Anwendung für `nitro` getrennt für alle Sorten.
+
 ```{r}
 #| warning: false
 #| message: false
 
 glmmTMB_fit %>% 
-  emmeans(~ nitro) %>% 
+  emmeans(~ nitro | gen) %>% 
   cld(Letters = letters)
 ```
+
+Auch hier sehen wir dann die Unterschiede in den einzelnen Sorten. Alle sind soweit signifikant. Damit sind wir auch mit der Implementierung von `{glmmTMB}` durch. Die ANOVA und das *compact letter display* lässt sich schnell und einfach erstellen.
 :::
 
 In den folgenden grünen Kästen schauen wir uns jetzt zwei Anwenundungsbeispiele für einen Gruppenvergleich mit linearen gemischten Modellen an. Zum einen betrachten wir ein dreifaktorieller Gruppenvergleich für das Gewicht von Brokkoliköpfen und zum anderen ein weiterer dreifaktorieller Gruppenvergleich für Thripsenbefall. Beide Auswertungen sind vollständig und haben auch teilweise erklärenden Text. Im Zweifel musst du dann nochmal in diesem Kapitel nachschlagen, wenn dir Teile unklar sind.
