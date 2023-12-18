@@ -915,7 +915,7 @@ glmmTMB_nbinom1_fit %>% r2()
 Wir nehmen dann auch das Modell hier mit in den Vergleich und schauen einmal welches Modell das beste Modell ist. Wie immer kann ein komplexeres Modell zwar besser sein, aber am Ende wollen wir dann doch eher ein einfaches Modell haben.
 :::
 
-Dann wollen wir uns mal die drei Modelle anschauen und entscheiden, welches der drei Modelle das beste Modell ist. Wir wissen aber schon, dass wir Overdispersion in den Daten vorliegen haben und deshalb keine einfache Poissonregression rechnen dürfen. Daher fällt das `glmer()`-Modell mit der Poissonfamilie aus der Betrachtung. Dann bleibt nur noch das reine fixe Effekt Modell in `glm()` oder eben das gemischte Modell aus `glmmTMB()` mit einer Quasipoissonverteilung übrig. Im folgenden Kasten findest du den Modellvergleich mit dem R Paket `{modelsummary}`. Leider liefert die Funktion `glm()` keine Bestimmtheitsmaße $R^2$ für unser Modell, aber da haben wir ja oben händisch den Wert von $R^2 = 0.53$ berechnet. Von den reinen Werten her, wäre sogar das `glmer()` das beste Modell, aber die statistischen Gütezahlen gelten nur, wenn es eben die Annahmen an das Modell auch passen. Und die Grundannahme an das `glmer()`- Modell ist eben, dass mit einer Poissonverteilung keine Overdispersion vorliegt. Somit ist dann tatsächlich unser `glmmTMB()`- Modell das Beste. Der `RMSE` ist klein, wie bei den anderen Modellen, und darüber hinaus haben wir dann noch relativ hohe Werte für das Bestimmtheitsmaße $R^2$.
+Dann wollen wir uns mal die drei Modelle anschauen und entscheiden, welches der drei Modelle das beste Modell ist. Wir wissen aber schon, dass wir Overdispersion in den Daten vorliegen haben und deshalb keine einfache Poissonregression rechnen dürfen. Daher fällt das `glmer()`-Modell mit der Poissonfamilie aus der Betrachtung. Dann bleibt nur noch das reine fixe Effekt Modell in `glm()` oder eben das gemischte Modell aus `glmmTMB()` mit einer Quasipoissonverteilung übrig. Im folgenden Kasten findest du den Modellvergleich mit dem R Paket `{modelsummary}`. Leider liefert die Funktion `glm()` keine Bestimmtheitsmaße $R^2$ für unser Modell, aber da haben wir ja oben händisch den Wert von $R^2 = 0.53$ berechnet. Von den reinen Werten her, wäre sogar das `glmer()` das beste Modell, aber die statistischen Gütezahlen gelten nur, wenn es eben die Annahmen an das Modell auch passen. Und die Grundannahme an das `glmer()`-Modell ist eben, dass mit einer Poissonverteilung keine Overdispersion vorliegt. Somit ist dann tatsächlich unser `glmmTMB()`-Modell das Beste. Der `RMSE` ist klein, wie bei den anderen Modellen, und darüber hinaus haben wir dann noch relativ hohe Werte für das Bestimmtheitsmaße $R^2$.
 
 ::: {.callout-note collapse="true"}
 ## Modellvergleich mit `modelsummary()`
@@ -951,9 +951,9 @@ check_model(glmmTMB_nbinom1_fit)
 
 ### ... mit dem R Paket `{multilevelmod}`
 
-[R Paket `{multilevelmod}`](https://multilevelmod.tidymodels.org/articles/multilevelmod.html)
+Das R Paket `{parsnip}` erlaubt verschiedene Modellierungen sehr schon zu vereinheitlichen. Wir nutzen die Idee auch sehr in den Kapitel zur Klassifikation. Hier stelle ich einmal das [R Paket `{parsnip}` mit dem Fokus auf die lineare Regression](https://parsnip.tidymodels.org/reference/linear_reg.html) vor. Leider ist `{glmmTMB}` nicht in dem Paket eingebaut, so dass wir hier wieder extra analysieren müssen. Aber gut, man kann nicht alles haben. Um den folgenden Prozess einmal durchlaufen zu lassen, brauchen wir noch das [R Paket `{multilevelmod}`](https://multilevelmod.tidymodels.org/articles/multilevelmod.html), welches uns erlaubt in `{parsnip}` dann auch lineare gemischte Modelle anzuwenden.
 
-[R Paket `{parsnip}` - Linear regression](https://parsnip.tidymodels.org/reference/linear_reg.html)
+Im Folgenden einmal als Beispiel die Weizendaten `oats_tbl`, die wir dann auch gleich nochmal in dem Gruppenvergleich nutzen. Hier als erstmal zwei lineare Regression. Wir rechnen jetzt einmal ein lineares gemischtes Modell und nutzen dafür die Funktion `set_engine("lmer")`. Danach rechnen wir dann als Vergleich dazu ein simples lineares Modell mit `set_engine("lm")`. Wir du siehst, ist die *engine* unabhängig vom Formelaufruf. Das heißt, wir können die *engine* jetzt immer wieder verwenden.
 
 ```{r}
 oats_lmer_spec <- linear_reg() %>% 
@@ -962,25 +962,23 @@ oats_lm_spec <- linear_reg() %>%
   set_engine("lm")
 ```
 
-Wir brauchen die Funktion `extract_fit_engine()` damit wir dann die Funktionen aus den anderen Paketen korrekt anwenden können.
+Jetzt können wir mit der Funktion `fit()` verschiedene Modell anpassen. Ich habe mich jetzt für ein `lm()`-Modell sowie zwei `lmer()`-Modelle entschieden. Einmal ein `lmer()`-Modell mit Interaktionsterm und einmal ohne. Wir haben ja in der obigen Abbildung gesehen, dass wir eigentlich keine Interaktion zwischen den Behandlungen `nitro` und den Sorten `gen` vorliegen haben. Dann brauchen wir noch die Funktion `extract_fit_engine()` damit wir die Ausgabe der Funktion `fit()` auch für andere Pakete korrekt anwenden können.
 
 ```{r}
 oats_lm_fit <- oats_lm_spec %>% 
   fit(plant_yield ~ nitro + gen + block, data = oats_tbl) %>% 
   extract_fit_engine()  
-```
 
-```{r}
 oats_lmer_fit <- oats_lmer_spec %>% 
   fit(plant_yield ~ nitro + gen + (1|block/gen), data = oats_tbl) %>% 
   extract_fit_engine()  
-```
 
-```{r}
 oats_lmer_int_fit <- oats_lmer_spec %>% 
   fit(plant_yield ~ nitro + gen + nitro:gen + (1|block/gen), data = oats_tbl) %>% 
   extract_fit_engine()  
 ```
+
+Damit sich hier nicht alles doppelt, einmal als Beispiel die Ausgabe des *Intraclass Correlation Coefficient* (abk. *ICC*) für das klassische lineare gemischte Modell. Wir sehen, dass die zufälligen Effekte sehr viel der Varianz in den Daten erklären. Das stimmt dann auch mit der Abbildung von oben überein. Die Blocke sind dort sehr variablen, was den Ertrag vom Weizen angeht.
 
 ```{r}
 #| warning: false
@@ -988,13 +986,15 @@ oats_lmer_int_fit <- oats_lmer_spec %>%
 oats_lmer_fit %>% icc()
 ```
 
+Und dann nochmal als Übersicht die Ergebnisse der Ausgabe der Funktion `model_performance()`. Auch das funktioniert wunderbar.
+
 ```{r}
 #| warning: false
 #| message: false
 oats_lmer_fit %>% model_performance()
 ```
 
-Im folgenden Kasten findest du den Modellvergleich mit dem R Paket `{modelsummary}`.
+Im folgenden Kasten findest du den Modellvergleich mit dem R Paket `{modelsummary}`. Auch hier sehen wir, dass das `glmer`-Modell mit und ohne Interaktion ungefähr den gleichen `RMSE` produziert. Der `RMSE` ist auch kleiner als beim `lm()`-Modell, deshalb ist das gemischte Modell vorzuziehen. Je kleiner das Modell ist, desto besser, deshalb wäre hier das Modell ohne Interaktion vorzuziehen. Da die Bestimmtheitsmaße $R^2$ zwischen den gemischten Modellen auch ungefähr gleich sind, passt es auch hier. Den etwas geringeren ICC-Wert nehmen wir dann in kauf, wenn dafür unser Modell etwas simpler ist.
 
 ::: {.callout-note collapse="true"}
 ## Modellvergleich mit `modelsummary()`
