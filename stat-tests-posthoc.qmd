@@ -728,18 +728,14 @@ Wenn du noch etwas weiter gehen möchtest, dann kannst du dir noch die Hilfeseit
 
 ## Compact letter display {#sec-compact-letter}
 
-In der Pflanzenernährung ist es nicht unüblich sehr viele Substrate miteinander zu vergleichen. Oder andersherum, wenn wir sehr viele Gruppen haben, dann kann die Darstellung in einem *all-pair* Vergleich sehr schnell sehr unübersichltich werden. Deshalb wure das *compact letter display* entwickelt.
+In der Pflanzenernährung ist es nicht unüblich sehr viele Substrate miteinander zu vergleichen. Oder andersherum, wenn wir sehr viele Gruppen haben, dann kann die Darstellung in einem *all-pair* Vergleich sehr schnell sehr unübersichltich werden. Deshalb wure das *compact letter display* entwickelt. Das *compact letter display* zeigt an, bei welchen Vergleichen der Behandlungen die Nullhypothese gilt. Daher werden die *nicht* signifikanten Ergebnisse visualisiert. Gut zu lesen ist auch die Vignette [Re-engineering CLDs](https://cran.r-project.org/web/packages/emmeans/vignettes/re-engineering-clds.html) der Hilfeseite zu `{emmeans}` sowie die Hilfeseite [Compact Letter Display (CLD) - What is it?](https://schmidtpaul.github.io/DSFAIR/compactletterdisplay.html).
 
-::: column-margin
-[Compact Letter Display (CLD) - What is it?](https://schmidtpaul.github.io/DSFAIR/compactletterdisplay.html). Das *compact letter display* zeigt an, bei welchen Vergleichen der Behandlungen die Nullhypothese gilt. Daher werden die *nicht* signifikanten Ergebnisse visualisiert.
-:::
-
-Schauen wir uns aber zurerst einmal ein größeres Beispiel mit neun Behandlungen mit jeweils zwanzig Beobachtungen an. Wir erstellen uns den Datensatz in der Form, dass sich die Mittelwerte für die Behandlungen teilweise unterscheiden.
+Schauen wir uns aber zuerst einmal ein größeres Beispiel mit neun Behandlungen mit jeweils zwanzig Beobachtungen an. Wir erstellen uns den Datensatz in der Form, dass sich die Mittelwerte für die Behandlungen teilweise unterscheiden.
 
 ```{r}
 set.seed(20220914)
 data_tbl <- tibble(trt = gl(n = 9, k = 20, 
-                            labels = c("pos_crtl", "neg_ctrl", "treat_A", "treat_B", 
+                            labels = c("pos_ctrl", "neg_ctrl", "treat_A", "treat_B", 
                                        "treat_C", "treat_D", "treat_E", "treat_F", 
                                        "treat_G")),
                    rsp = c(rnorm(20, 10, 5), rnorm(20, 20, 5), rnorm(20, 22, 5), rnorm(20, 24, 5),
@@ -866,6 +862,61 @@ ggplot(data_tbl, aes(x = trt, y = rsp,
   theme(legend.position = "none")
 ```
 
+::: callout-note
+## Das *compact letter display* anders gebaut...
+
+In dem kurzen Kapitel zu [Re-engineering CLDs](https://cran.r-project.org/web/packages/emmeans/vignettes/re-engineering-clds.html) in der Vingette des R Pakets `{emmeans}` geht es darum, wie das *compact letter display* auch anders gebaut werden könnte. Nämlich einmal als wirkliches Anzeigen von Gleichheit über die Option `delta` oder aber über das Anzeigen von Signifikanz über die Option `signif`. Damit haben dann auch wirklich die Information, die wir dann wollen. Also eigentlich was Schönes. Wie machen wir das nun?
+
+Wenn wir das *compact letter display* in dem Sinne der Gleichheit der Behandlungen interpretieren wollen, also das der gleiche Buchstabe bedeutet, dass sich die Behandlungen nicht unterscheiden, dann müssen wir ein `delta` setzen in deren Bandbreite oder Intervall die Behandlungen gleich sind. Ich habe hier mal ein `delta` von 20 gewählt und wir adjustieren bei einem Test auf Gleichheit nicht.
+
+```{r}
+emmeans_cld <- lm(rsp  ~ trt, data = data_tbl) %>%
+  emmeans(~ trt) %>%
+  cld(Letters = letters, adjust = "none", delta = 20)
+emmeans_cld 
+```
+
+Wie wir jetzt sehen, bedeuten gleiche Buchstaben, dass die Behandlungen gleich sind. In dem Sinne gleich sind, dass die Behandlungen im Mittel nicht weiter als der Wert in `delta` auseinanderliegen. Wie du jetzt das `delta` bestimmst ist eine biologische und keine statistische Frage.
+
+Können wir uns auch signifikante Unterschiede anzeigen lassen?
+
+```{r}
+sig_letters <- c("Haus", "Dog", "Cat", "zeit") # as.character(as.roman(1:5))
+sig_letters
+```
+
+```{r}
+small_fit <- data_tbl %>% 
+  filter(trt %in% c("pos_ctrl", "neg_ctrl", "treat_A", "treat_G")) %>% 
+  lm(rsp  ~ trt, data = .) 
+```
+
+```{r}
+small_fit %>% 
+  emmeans(~ trt) %>%
+  cld(adjust = "bonferroni", signif = TRUE)
+```
+
+```{r}
+small_fit %>% 
+  emmeans(~ trt) %>%
+  cld(Letters = letters, adjust = "bonferroni", signif = TRUE)
+```
+
+```{r}
+small_fit %>% 
+  emmeans(~ trt) %>%
+  cld(adjust = "bonferroni", signif = TRUE)
+```
+
+```{r}
+small_fit %>% 
+  emmeans(~ trt) %>%
+  cld(adjust = "bonferroni", signif = TRUE) %>% 
+  pull(.signif.set) %>% str_trim() %>%  str_split("") %>% unlist() %>% as.roman
+```
+:::
+
 ### ... für das Paket `multcomp`
 
 Wir schauen uns zuerst einmal die Implementierung des *compact letter display* in dem Paket `multcomp` an. Wir nutzen die Funktion `multcompLetters()` aus dem Paket `multcompView` um uns das *compact letter display* wiedergeben zu lassen. Davor müssen wir noch einige Schritte an Sortierung und Umbenennung durchführen. Das hat den Grund, dass die Funktion `multcompLetters()` *nur* einen benannten Vektor mit $p$-Werten akzeptiert. Das heist wir müssen aus der Funktion `glht()` die adjustierten $p$-Werte extrahieren und dann einen Vektor der Vergleiche bzw. Kontraste in der Form `A-B` bauen. Also ohne Leerzeichen und in der Beschreibung der Level der Behandlung `trt`. Die Funktion `pull()` erlaubt uns einen Spalte als Vektor aus einem `tibble()` zu ziehen und dann nach der Spalte `contrast` zu benennen.
@@ -896,9 +947,7 @@ Leider sind diese Buchstaben in dieser Form schwer zu verstehen. Deshalb gibt es
 multcomp_cld %>% plot
 ```
 
-[In dem *compact letter display* bedeuten gleiche Buchstaben, dass die Behandlungen gleich sind. Es gilt die Nullhypothese für diesen Vergleich.]{.aside}
-
-Was sehen wir hier? Kombinieren wir einmal das *compact letter display* mit den Leveln der Behandlung und den Mittelwerten der Behandlungen in einer @tbl-mean-to-letter-multcomp. Wenn die Mittelwerte *gleich* sind, dann erhalten die Behandlungslevel den gleichen Buchstaben. Die Mittelwerte vom `neg_ctrl`, `treat_A` und `treat_B` sind nahezu gleich, also damit nicht signifikant. Deshalb erhalten diese Behandlungslevel ein `a`. Ebenso sind die MIttelwerte von `treat_C` und `treat_D` nahezu gleich, dehalb erhalten beide ein `b`. Das machen wir immer so weiter und konzentrieren uns also auf die *nicht* signifikanten Ergebnisse. Denn gleiche Buchstaben bedeuten, dass die Behandlungen gleich sind. Wir sehen hier also, bei welchen Vergleichen die Nullhypothese gilt.
+In dem *compact letter display* bedeuten gleiche Buchstaben, dass die Behandlungen gleich sind. Es gilt die Nullhypothese für diesen Vergleich. Was sehen wir also hier? Kombinieren wir einmal das *compact letter display* mit den Leveln der Behandlung und den Mittelwerten der Behandlungen in einer @tbl-mean-to-letter-multcomp. Wenn die Mittelwerte *gleich* sind, dann erhalten die Behandlungslevel den gleichen Buchstaben. Die Mittelwerte vom `neg_ctrl`, `treat_A` und `treat_B` sind nahezu gleich, also damit nicht signifikant. Deshalb erhalten diese Behandlungslevel ein `a`. Ebenso sind die MIttelwerte von `treat_C` und `treat_D` nahezu gleich, dehalb erhalten beide ein `b`. Das machen wir immer so weiter und konzentrieren uns also auf die *nicht* signifikanten Ergebnisse. Denn gleiche Buchstaben bedeuten, dass die Behandlungen gleich sind. Wir sehen hier also, bei welchen Vergleichen die Nullhypothese gilt.
 
 | Behandlung | Mittelwert |     |     |     |     |     |     |
 |:----------:|:----------:|:---:|:---:|:---:|:---:|:---:|:---:|
