@@ -8,9 +8,7 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, plyr)
 
 > *"Yeah, I might seem so strong; Yeah, I might speak so long; I've never been so wrong." --- London Grammar, Strong*
 
-Die ANOVA (eng. *analysis of variance*) ist wichtig. Was für ein schöner Satz um anzufangen. Historisch betrachtet ist die ANOVA, *das* statistische Verfahren was gut per Hand ohne Computer berechnet werden kann. Daher war die ANOVA von den 20zigern bis in die frühen 90ziger des letzten Jahrhunderts *das* statistische Verfahren der Wahl. Wir brauchen daher die ANOVA aus mehreren Gründen. Die Hochzeiten der ANOVA sind eigentlich vorbei, wir haben in der Statistik für viele Fälle mittlerweile besser Werkzeuge, aber als Allrounder ist die ANOVA immer noch nutzbar. Wir werden immer wieder auf die ANOVA inhaltlich zurück kommen und in vielen Abschlussarbeiten wird die ANOVA immer noch als integraler Bestandteil genutzt.
-
-Wofür und wann brauchen wir die ANOVA, wenn wir Daten auswerten?
+Die ANOVA (eng. *analysis of variance*) ist wichtig. Was für ein schöner Satz um anzufangen. Historisch betrachtet ist die ANOVA, *das* statistische Verfahren was gut per Hand ohne Computer berechnet werden kann. Daher war die ANOVA von den 20zigern bis in die frühen 90ziger des letzten Jahrhunderts *das* statistische Verfahren der Wahl. Wir brauchen daher die ANOVA aus mehreren Gründen. Die Hochzeiten der ANOVA sind eigentlich vorbei, wir haben in der Statistik für viele Fälle mittlerweile besser Werkzeuge, aber als Allrounder ist die ANOVA immer noch nutzbar. Wir werden immer wieder auf die ANOVA inhaltlich zurück kommen und in vielen Abschlussarbeiten wird die ANOVA immer noch als integraler Bestandteil genutzt. Wofür und wann brauchen wir die ANOVA, wenn wir Daten auswerten?
 
 1)  Wir brauchen die ANOVA um mehr als zwei Gruppen *gleichzeitig* miteinander zu vergleichen. Das heißt wir haben einen Faktor mit mehr als zwei Levels und wollen wissen, ob sich *mindestens* zwei Level bzw. Gruppen im Mittelwert unterscheiden.
 2)  Wir brauchen die ANOVA und deren Varianzzerlegung in der Züchtung. Hier spielt die ANOVA eine gewichtige Rolle bei der Abschätzung des genetischen Effekts. Wir werden aktuell (Stand Ende 2022) hierauf noch nicht tiefer eingehen.
@@ -39,24 +37,18 @@ Die *einfaktorielle* ANOVA vergleicht die Parameter mehrerer Normalverteilungen 
 Die *zweifaktorielle* ANOVA vergleicht die Parameter mehrerer Normalverteilungen von zwei Faktoren miteinander. Oder etwas anders formuliert, vergleicht die ANOVA die Mittelwerte von mehreren Gruppen bzw. Behandlungen miteinander. Dabei kann die *zweifaktorielle* ANOVA auch die Interaktion zwischen zwei Variablen abbilden.
 :::
 
-::: {.callout-caution collapse="true"}
-## Ein Wort zur Klausur
-
-Wir rechnen keine ANOVA in der Klausur *per Hand* sondern interpretieren die Ausgabe der R Funktionen einer einfaktoriellen oder zweifaktoriellen ANOVA. Auch hier gilt, überprüfe was du in der Vorlesung gehört hast!
-
-Bitte schau dir unbedingt die Aufgaben in den [gesammelten Klausurfragen auf GitHub](https://github.com/jkruppa/exam/blob/main/Gesammelte_Klausurfragen_Bio_Data_Science.pdf) an um eine Idee zu haben, welche Fragen zu der ANOVA drankommen.
-
-Wenn kein $F_{\alpha = 5\%}$ in der Klausur gegeben ist, setzen wir $F_{\alpha = 5\%} = 3.55$.
-:::
-
 ## Genutzte R Pakete
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
+#| message: false
+#| warning: false
 pacman::p_load(tidyverse, magrittr, broom, 
                readxl, effectsize, ggpubr, 
-               see)
+               see, car, conflicted)
+conflicts_prefer(plyr::mutate)
+conflicts_prefer(dplyr::summarize)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -66,9 +58,7 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 ::: callout-tip
 ## Einführung in die einfaktorielle ANOVA per Video
 
-Du findest auf YouTube [die einfaktorielle ANOVA](https://youtu.be/JDltrsRdAS4) als Video. Ich werde zwar alles nochmal hier als Text aufschreiben, aber manchmal ist das Sehen und Hören dann einfacher.
-
-Ein [weiteres Video](https://youtu.be/LMgMIy2mh1k) mit mehr Fokus auf die Visualisierung findest du ebenfalls auf YouTube.
+Du findest auf YouTube [die einfaktorielle ANOVA](https://youtu.be/JDltrsRdAS4) als Video. Ich werde zwar alles nochmal hier als Text aufschreiben, aber manchmal ist das Sehen und Hören dann einfacher. Ein [weiteres Video](https://youtu.be/LMgMIy2mh1k) mit mehr Fokus auf die Visualisierung findest du ebenfalls auf YouTube.
 :::
 
 Die einfaktorielle ANOVA ist die simpelste Form der ANOVA. Wir nutzen einen Faktor $x$ mit mehr als zwei Leveln. Im Rahmen der einfaktoriellen ANOVA wollen wir uns auch die ANOVA theoretisch einmal anschauen. Danach wie die einfaktorielle ANOVA in R genutzt wird. Ebenso werden wir die einfaktorielle ANOVA visualisieren. Abschließend müssen wir uns noch überlegen, ob es einen Effektschätzer für die einfaktorielle ANOVA gibt.
@@ -135,9 +125,7 @@ Wir schauen uns jetzt einmal die ANOVA theoretisch an bevor wir uns mit der Anwe
 
 ### Einfaktoriellen ANOVA theoretisch
 
-Kommen wir zurück zu den Daten in @tbl-data-anova-1. Wenn wir die ANOVA per Hand rechnen wollen, dann ist nicht das Long Format die beste Wahl sondern das Wide Format. Wir haben ein balanciertes Design vorliegen, dass heißt in jeder Level sind die gleiche Anzahl Beobachtungen. Wir schauen uns jeweils sieben Flöhe von jeder Tierart an. Für eine ANOVA ist aber ein balanciertes Design nicht notwendig, wir können auch mit ungleichen Gruppengrößen eine ANOVA rechnen.
-
-[Statt einer einfaktoriellen ANOVA könnten wir auch gleich einen `pairwise.t.test()`rechnen. Historisch betrachtet ist die einfaktorielle ANOVA die Visualisierung des paarweisen t-Tests.]{.aside}
+Kommen wir zurück zu den Daten in @tbl-data-anova-1. Wenn wir die ANOVA per Hand rechnen wollen, dann ist nicht das Long Format die beste Wahl sondern das Wide Format. Wir haben ein balanciertes Design vorliegen, dass heißt in jeder Level sind die gleiche Anzahl Beobachtungen. Wir schauen uns jeweils sieben Flöhe von jeder Tierart an. Für eine ANOVA ist aber ein balanciertes Design nicht notwendig, wir können auch mit ungleichen Gruppengrößen eine ANOVA rechnen. Statt einer einfaktoriellen ANOVA könnten wir auch gleich einen `pairwise.t.test()`rechnen. Historisch betrachtet ist die einfaktorielle ANOVA die Visualisierung des paarweisen t-Tests.
 
 Eine einfaktorielle ANOVA macht eigentlich keinen großen Sinn, wenn wir anschließend sowieso paarweise Vergleich, wie in @sec-posthoc beschrieben, rechnen. Aus der Historie stellte sich die Frage, ob es sich lohnt die ganze Arbeit für die paarweisen t-Tests per Hand zu rechnen. Daher wurde die ANOVA davor geschaltet. War die ANOVA nicht signifikant, dann konnte man sich dann auch die Rechnerei für die paarweisen t-Tests sparen.
 
@@ -344,8 +332,6 @@ Wie weit die Gruppenmittel von dem globalen Mittel weg sind, dazu nutzt die ANOV
 -   die Varianz der einzelnen Mittelwerte der (Gruppen)Level zum globalen Mittel (eng. *variability between levels*)
 -   und die Varianz der Beobachtungen zu den einzelnen Mittelwerten der Level (eng. *variability within one level*)
 
-[Die *sum of squares* sind nichts anderes als die Varianz. Wir nennen das hier nur einmal anders...]{.aside}
-
 Wir berechnen also wie die Beobachtungen jeweils um das globale Mittel streuen ($SS_{total}$), die einzelnen Beobachtungen um die einzelnen Gruppenmittel $SS_{error}$ und die Streuung der Gruppenmittel um das globale Mittel ($SS_{animal}$). Wir nennen die Streuung Abstandquadrate (eng. *sum of squares*) und damit sind die *Sum of Square* $(SS)$ nichts anderes als die Varianz. Die @tbl-sumsquares zeigt die Berechnung des Anteils jeder einzelnen Beobachtung an den jeweiligen *Sum of Squares*.
 
 ::: column-page
@@ -423,8 +409,6 @@ Bei der Entscheidung mit der berechneten Teststatistik $F_{calc}$ gilt, wenn $F_
 
 Abschließend noch ein Wort zu der Annahme an eine ANOVA. Wir wollen ja für eine ANOVA ein normalverteiltes Outcome $y$ und die gleichen Varianzen über alle Gruppen. Wir wollen Varianzhomogenität vorliegen haben. In @fig-anova-assumption siehst du vier Behandlungsgruppen sowie deren lokale Mittel. Die Gruppe D hat eine sehr viel größere Varianz. Auch ist fraglich, ob die Gruppe D einer Normalverteilung folgt. Dadurch passieren zwei Dinge. Erstens ist der lokale Mittelwert von der Gruppe D viel näher am globalen Mittel als er eigentlich wäre, dadurch wird die *Summe* aus $MS_{treatment}$ kleiner. Zweitens sind die Beobachtungen sehr weit um das lokale Mittel gestreut, dadurch wird die *Summe* aus $MS_{error}$ viel größer. Wir erhalten dadurch eine sehr viel kleinere F Statistik. Im Prinzip vergleichst du mit einer ANOVA ein Set an gleich aussehenden Normalverteilungen. Wenn alles schief und krumm ist, dann ist es vermutlich sogar besser, als wenn wir eine total verkorkste Gruppenverteilung haben, wie hier in Beispiel D.
 
-[In @sec-eda-transform kannst du nochmal über die $\log$-Transformation vom Outcome $y$ nachlesen. Nach der $\log$-Transformation können Daten dann *approximativ* normalverteilt sein.]{.aside}
-
 ![Visualisierung der Annahmen an eine ANOVA. Wir berechnen den $MS_{treatment}$ in dem wir alle Abweichungen vom gloablen Mittel $\bar{y}_{..}$ aufaddieren. Ebenso berechnen wir den $MS_{error}$ indem wir die einzelen Abweichungen von den Bobachtungen $\epsilon$ zu den lokalen Mitteln berechnen. Hat jetzt eine Gruppe, wie die Gruppe D, eine abweichende Streuung, wird das $MS_{error}$ überproportional groß. Damit wird dann die F Statistik klein.](images/anova-assumptions.png){#fig-anova-assumption fig-align="center" width="100%"}
 
 Wir können das einmal numerisch mit einem kritischen Wert für $F_{\alpha = 5\%} = 3.55$ durchspielen. Nehmen wir folgende Summe für $MS_{treatment}$ aus der @fig-anova-assumption mit den einzelnen $MS$ einmal wie folgt an. Wir nehmen an das $MS_A$ gleich 10, $MS_B$ gleich 20, $MS_C$ gleich 8 und $MS_D$ gleich 7 ist. Dann können wir durch das Summieren das $MS_{treatment}$ berechnen.
@@ -448,8 +432,6 @@ $$
 Du siehst hier wie wichtig es ist, ich die Daten einmal zu visualisieren um zu sehen vorher mögliche Probleme herrühren können. Auf der anderen Seite können wir die ANOVA auf ein Recht breites Spektrum an Daten anwenden, solange wir wissen, das die Verteilungen in etwa für jede Gruppe gleich aussehen. Wir müssen nur mit dem $\eta^2$ aufpassen, wenn wir zu schiefe Verteilungen haben. Dann gibt uns $\eta^2$ keine valide Aussage mehr über den Anteil der erklärten Varianz.
 
 ### Einfaktoriellen ANOVA in R
-
-[Um eine ANOVA zu rechnen nutzen wir *zuerst* die Funktion `lm()`, warum das so ist kannst du im @sec-modeling-simple-stat nachlesen. Du brauchst das Wissen aber hier nicht unbedingt.]{.aside}
 
 Wir rechnen keine ANOVA per Hand sondern nutzen R. Dazu müssen wir als erstes das Modell definieren. Das ist im Falle der einfaktoriellen ANOVA relativ einfach. Wir haben unseren Datensatz `fac1_tbl` mit einer kontinuierlichen Variable `jump_lemgth` als $y$ vorliegen sowie einen Faktor `animal` mit mehr als zwei Leveln als $x$. Wir definieren das Modell in R in der Form `jump_length ~ animal`. Um das Modell zu rechnen nutzen wir die Funktion `lm()` - die Abkürzung für *linear model*. Danach pipen wir die Ausgabe vom `lm()` direkt in die Funktion `anova()`. Die Funktion `anova()` berechnet uns dann die eigentliche einfaktorielle ANOVA. Wir speichern die Ausgabe der ANOVA in `fit_1`. Schauen wir uns die ANOVA Ausgabe einmal an.
 
@@ -513,7 +495,7 @@ Die zweifaktorielle ANOVA ist eine wunderbare Methode um herauszufinden, ob zwei
 ::: {layout="[15,85]" layout-valign="center"}
 ![](images/angel_01.png){fig-align="center" width="100%"}
 
-> Die zweifaktorielle ANOVA verlangt ein normalverteiltes $y$ sowie Varianzhomogenität jeweils separat über beide Behandlungsfaktor $x_1$ und $x_2$. Daher alle Level von $x_1$ sollen die gleiche Varianz haben. Ebenso sollen alle Level von $x_2$ die gleiche Varianz haben. Unsere Annahme an die Daten $D$ ist, dass das dein $y$ normalverteilt ist und das die Level vom $x_1$ und $x_2$ jeweils für sich homogen in den Varianzen sind. Später mehr dazu, wenn wir beides nicht vorliegen haben...
+> Die zweifaktorielle ANOVA verlangt ein normalverteiltes $y$ sowie Varianzhomogenität jeweils separat über beide Behandlungsfaktor $x_1$ und $x_2$. Daher alle Level von $x_1$ sollen die gleiche Varianz haben. Ebenso sollen alle Level von $x_2$ die gleiche Varianz haben. Unsere Annahme an die Daten $D$ ist, dass das dein $y$ normalverteilt ist und das die Level vom $x_1$ und $x_2$ jeweils für sich homogen in den Varianzen sind.
 :::
 
 ### Daten für die zweifaktorielle ANOVA
@@ -613,8 +595,6 @@ Wir haben also jetzt die verschiedenen Hypothesenpaare definiert und schauen uns
 
 Bei der einfaktoriellen ANOVA haben wir die Berechnungen der Sum of squares nochmal nachvollzogen. Im Falle der zweifaktoriellen ANOVA verzichten wir darauf. Das Prinzip ist das gleiche. Wir haben nur mehr Mitelwerte und mehr Abweichungen von diesen Mittelwerten, da wir ja nicht nur einen Faktor `animal` vorliegen haben sondern auch noch den Faktor `site`. Da wir aber die ANOVA nur Anwenden und dazu R nutzen, müssen wir jetzt nicht per Hand die zweifaktorielle ANOVA rechnen. Du musst aber die R Ausgabe der ANOVA verstehen. Und diese Ausgabe schauen wir uns jetzt einmal ohne und dann mit Interaktionsterm an.
 
-#### Ohne Interaktionsterm
-
 Wir wollen nun einmal die zweifaktorielle ANOVA ohne Interaktionsterm rechnen die in @tbl-anova-fac2-ohne-inter dargestellt ist. Die $SS$ und $MS$ für die zweifaktorielle ANOVA berechnen wir nicht selber sondern nutzen die Funktion `anova()` in R.
 
 ::: column-page
@@ -674,9 +654,7 @@ Abschließend können wir die Werte in der @tbl-anova-fac2-ohne-inter-example er
 : Zweifaktorielle Anova ohne Interaktionseffekt mit den ausgefüllten Werten. Die $SS_{total}$ sind die Summe der $SS_{animal}$ und $SS_{error}$. Die $MS$ berechnen sich dann direkt aus den $SS$ und den Freiheitsgraden ($df$). Abschließend ergibt sich dann die F Statistik. {#tbl-anova-fac2-ohne-inter-example}
 :::
 
-#### Mit Interaktionssterm
-
-Wir wollen nun noch einmal die zweifaktorielle ANOVA mit Interaktionsterm rechnen, die in @tbl-anova-fac3-inter dargestellt ist. Die $SS$ und $MS$ für die zweifaktorielle ANOVA berechnen wir nicht selber sondern nutzen wie immer die Funktion `anova()` in R.
+Die eigentlich Stärke der zweifaktoriellen ANOVA ist die Nutzung des Interaktionsterm. Also die Berücksichtigung der Interaktion zwischen den beiden Faktoren in der ANOVA. Wir wollen nun noch einmal die zweifaktorielle ANOVA mit Interaktionsterm rechnen, die in @tbl-anova-fac3-inter dargestellt ist. Die $SS$ und $MS$ für die zweifaktorielle ANOVA berechnen wir nicht selber sondern nutzen wie immer die Funktion `anova()` in R.
 
 ::: column-page
 |    Varianzquelle     |      df      |      Sum of squares       |       Mean squares        |                 F$_{\boldsymbol{calc}}$                  |
@@ -793,11 +771,7 @@ ggplot(fac2_tbl, aes(x = animal, y = jump_length,
 
 ```
 
-[Wenn sich die Geraden in einem Interaktionsplot schneiden, haben wir eine Interaktion zwischen den beiden Faktoren vorliegen]{.aside}
-
-Wir schauen zur visuellen Überprüfung auf den Faktor `animal` und das erste level `cat`. Wir sehen die Ordnung des zweiten Faktors `site` mit `field`, `village`, `smalltown` und `city`. Diese Ordnung und die Abstände sind bei zweiten Faktorlevel `dog` schon nicht mehr gegeben. Die Geraden schneiden sich. Auch liegt bei dem Level `fox` eine andere ordnung vor. Daher sehen wir hier eine starke Interaktion zwischen den beiden Faktoren `animal` und `site`.
-
-[Du kannst mehr über Geraden sowie lineare Modelle und deren Eigenschaften im @sec-modeling-simple-stat erfahren.]{.aside}
+Wenn sich die Geraden in einem Interaktionsplot schneiden, haben wir eine Interaktion zwischen den beiden Faktoren vorliegen. Wir schauen zur visuellen Überprüfung auf den Faktor `animal` und das erste level `cat`. Wir sehen die Ordnung des zweiten Faktors `site` mit `field`, `village`, `smalltown` und `city`. Diese Ordnung und die Abstände sind bei zweiten Faktorlevel `dog` schon nicht mehr gegeben. Die Geraden schneiden sich. Auch liegt bei dem Level `fox` eine andere Ordnung vor. Daher sehen wir hier eine starke Interaktion zwischen den beiden Faktoren `animal` und `site`. Du kannst mehr über Geraden sowie lineare Modelle und deren Eigenschaften im @sec-modeling-simple-stat erfahren.
 
 Wir nehmen jetzt auf jeden Fall den Interaktionsterm `animal:site` mit in unser Modell und schauen uns einmal das Ergebnis der ANOVA an. Das lineare Modell der ANOVA wird erneut über die Funktion `lm()` berechnet und anschließend in die Funktion `anova()` gepipt.
 
@@ -807,8 +781,6 @@ fit_3 <-  lm(jump_length ~ animal + site + animal:site, data = fac2_tbl) %>%
 
 fit_3
 ```
-
-[Wenn wir eine signifikante Interaktion vorliegen haben, dann müssen wir den Faktor A getrennt für jedes Levels des Faktors B auswerten.]{.aside}
 
 Die Ergebnistabelle der ANOVA wiederholt sich. Wir sehen, dass der Faktor `animal` signifikant ist, da der p-Wert mit $0.000000000036$ kleiner ist als das Signifikanzniveau $\alpha$ von 5%. Wir können daher die Nullhypothese ablehnen. Mindestens ein Mittelwertsvergleich unterschiedet sich zwischen den Levels des Faktors `animal`. Im Weiteren sehen wir, dass der Faktor `site` nicht signifkant ist, da der p-Wert mit $0.39$ größer ist als das Signifikanzniveau $\alpha$ von 5%. Wir können daher die Nullhypothese nicht ablehnen. Abschließend finden wir die Interaktion zwischen dem Faktor `animal`und `site` las signifikant vor. Wenn wir eine signifikante Interaktion vorliegen haben, dann müssen wir den Faktor `animal` getrennt für jedes Levels des Faktors `site` auswerten. Wir können keine Aussage über die Sprungweite von Hunde-, Katzen- und Fuchsflöhen *unabhängig* von der Herkunft `site` der Flöhe machen.
 
@@ -838,6 +810,35 @@ Abschließend können wir die Werte in der @tbl-anova-fac3-inter-example ergänz
 |        total         |       $120-1$       |       $SS_{total} = 705.34$        |                                   |                                          |
 
 : Zweifaktorielle Anova mit Interaktionseffekt mit den ausgefüllten Werten. Die $SS_{total}$ sind die Summe der $SS_{animal}$ und $SS_{error}$. Die $MS$ berechnen sich dan direkt aus den $SS$ und den Freiheitsgraden ($df$). Abschließend ergibt sich dann die F Statistik. {#tbl-anova-fac3-inter-example}
+:::
+
+Wenn wir eine zweifaktorielle ANOVA rechnen, dann können wir verschiedene Typen von ANOVAs rechnen. Dabei unterscheiden wir zwischen den Typen I, II und III. In dem folgenden Kasten gehe ich einmal auf die drei Typen ein. Wichtig ist, dass wir *nur* zwischen den drei Typen unterscheiden müssen, wenn wir ein unbalanciertes Design vorliegen haben. Ein unbalanciertes Design haben wir vorliegen, wenn wir in den einzelnen Behandlungsgrupen nicht die gleiche Anzahl an Beobachtungen vorliegen haben. Aber auch hier kommt es dann auf eine Beobachtung Unterschied wieder nicht so an.
+
+::: callout-note
+## Die ANOVA Typ I, II und III
+
+Nochmal ganz wichtig, die Ergebnisse der ANOVA-Typen unterscheiden sich vor allem bei unbalancierten Datensätzen. Bei balancierten Datensätzen liefern alle drei Typen in der Regel ähnliche Ergebnisse. Wenn du aber nicht die gleichen Anzahlen an Beobachtungen pro Gruppe hast, dann gilt Folgendes:
+
+-   Die Ergebnisse von Typ I hängen von der Reihenfolge der Faktoren ab, die du ins Modell nimmst. Es macht also einen Unterschied, ob du erst $f_1$ und dann $f_2$ ins Modell aufnimmst oder umgekehrt.
+-   Die Ergebnisse von Typ II und III bleiben unabhängig von der Reihenfolge der Terme gleich, unterscheiden sich aber von den Ergebnissen von Typ I.
+-   Bei Typ III werden die Haupteffekte von $f_1$ und $f_2$ um die Interaktion $f_1:f_2$ bereinigt, was bei Modellen mit Interaktionsterm zu anderen Ergebnissen führt als bei Typ II.
+
+Wir können die verschiedenen ANOVA Typen dann mit dem R Paket `{car}` rechnen. Das ist relativ einfach, die Funktion lauetet dann nur `Anova()` mit einem großen `A` am Anfang. Du ersetzt also einfach die Funktion `anova()` durch die Funktion `Anova()`, wenn du ein unbalanciertes Design vorliegen hast. Ich würde dir per default die ANOVA Type III empfehlen, wenn du auch einen Interaktionsterm mit in deinem Modell hast. Dann bist du auf der sicheren Seite.
+
+```{r}
+#| eval: false
+
+# ANOVA Type I
+fit %>% anova()
+
+# ANOVA Type II
+fit %>% Anova(type = "II")
+
+# ANOVA Type III
+fit %>% Anova(type = "III")
+```
+
+Einen tieferen Einblick gibt es natürlich wie immer auch unter [Anova -- Type I/II/III SS explained](https://md.psych.bio.uni-goettingen.de/mv/unit/lm_cat/lm_cat_unbal_ss_explained.html).
 :::
 
 ## Und weiter?
