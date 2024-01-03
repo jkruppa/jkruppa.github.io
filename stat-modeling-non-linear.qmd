@@ -38,7 +38,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| echo: true
 
 pacman::p_load(tidyverse, magrittr, conflicted, broom, 
-               parameters, performance, see, mgcv)
+               parameters, performance, see, mgcv, mfp)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 ```
@@ -102,7 +102,7 @@ ggplot(chicken_tbl, aes(age, log(weight))) +
 
 Deshalb wollen wir den Zusammenhang zwischen dem Körpergewicht der Hühnchen und dem Lebensalter einmal mit einer nicht-linearen Regression modellieren. Wir sind also nicht so sehr an $p$-Werten interessiert, wir sehen ja, dass die gerade ansteigt, sondern wollen wissen wie die Koeffizienten einer möglichen exponentiellen Gleichung aussehen.
 
-## Modellieren mit `{nls}`
+## Nonlinear least-squares mit `{nls}`
 
 Zum nicht-linearen Modellieren nutzen wir die Funktion `nls()` (eng. *nonlinear least-squares*). Die Funktion `nls()` ist das nicht-lineare Äquivalent zu der linearen Funktion `lm()`. Nur müssen wir mit der `nls()` Funktion etwas anders umgehen. Zum einen müssen wir die `formula()` anders definieren.
 
@@ -406,7 +406,54 @@ ggplot(enzyme_tbl, aes(x = S, y = v)) +
   labs(x = "[S] / mM", y = expression(v/"µmol " * min^-1))
 ```
 
-## Generalized Additive Models (GAM)
+## Multivariate Fractional Polynomials mit `{mfp}`
+
+[Multivariate Fractional Polynomials: Why Isn’t This Used More?](https://towardsdatascience.com/multivariate-fractional-polynomials-why-isnt-this-used-more-1a1fa9ead12c)
+
+[Multivariable Fractional Polynomials (MFP)](https://mfp.imbi.uni-freiburg.de/)
+
+```{r}
+mfp_fit <- mfp(weight ~ fp(age), data = chicken_tbl)
+```
+
+```{r}
+summary(mfp_fit) 
+```
+
+```{r}
+mfp_fit$formula
+```
+
+```{r}
+mfp_fit$coefficients 
+```
+
+```{r}
+mfp_fit %>% r2
+```
+
+```{r}
+age_func <- \(x) {66.3 + 188*(x/10)^2}
+```
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-nls-mfp-1
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Visualisierung der Hühnchengewichte nach Alter in Tagen mit der geschätzen nicht-linearen Regressionsgleichung."
+
+ggplot(chicken_tbl, aes(age, weight)) +
+  geom_function(fun = age_func, color = "red", linetype = 'dashed') +
+  #geom_line(aes(y = predict(mfp_fit)), size = 1, color = "red") +
+  geom_point() +
+  theme_bw()
+```
+
+## Generalized Additive Models (GAM) mit `{mgcv}`
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
@@ -456,4 +503,66 @@ predict(gam_fit, newdata = test_tbl)
 
 [GAM and LOESS smoothing](https://andrewirwin.github.io/data-visualization/smoothing.html) [Local Regression (LOESS)](https://thomasleeper.com/Rcourse/Tutorials/localregression.html)
 
-Gam und Loess in `{ggplot}`
+```{r}
+loess_fit <- loess(weight ~ age, data = chicken_tbl)
+```
+
+```{r}
+loess_fit
+```
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-nls-loess-1
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Visualisierung der Hühnchengewichte nach Alter in Tagen mit der geschätzen nicht-linearen Regressionsgleichung."
+
+ggplot(chicken_tbl, aes(age, weight)) +
+  geom_line(aes(y = predict(loess_fit)), size = 1, color = "red") +
+  geom_point() +
+  theme_bw()
+```
+
+```{r}
+test_tbl <- tibble(age = c(10, 20, 30))
+```
+
+```{r}
+predict(loess_fit, newdata = test_tbl)
+```
+
+::: callout-note
+## Gam und Loess in `{ggplot}`
+
+Natürlich können wir auch einfach eine GAM oder Loess-Funktion in `ggplot()` direkt anwenden ohne über zusätzliche Pakete oder Funktionen zu gehen.
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-nls-ggplot-gam
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Direkte Anwednung von GAM und Loess in `ggplot()` ohne eine zusätzliche Funktion."
+#| fig-subcap: 
+#|   - "GAM"
+#|   - "Loess"
+#| layout-nrow: 1
+
+
+ggplot(chicken_tbl, aes(age, weight)) +
+  stat_smooth(method = "gam") +
+  geom_point() +
+  theme_bw()
+
+ggplot(chicken_tbl, aes(age, weight)) +
+  stat_smooth(method = "loess") +
+  geom_point() +
+  theme_bw()
+```
+:::
