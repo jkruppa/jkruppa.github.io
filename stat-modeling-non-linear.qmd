@@ -60,7 +60,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 #| echo: true
 
-pacman::p_load(tidyverse, magrittr, broom, nlraa,
+pacman::p_load(tidyverse, magrittr, broom, nlraa, modelsummary,
                parameters, performance, see, mgcv, mfp, 
                conflicted)
 conflict_prefer("select", "dplyr")
@@ -171,7 +171,7 @@ nls(weight ~ b0 + I(age^b1), data = chicken_tbl,
     start = c(b0 = exp(3.475), b1 = 1.085))
 ```
 
-Jetzt sollten wir keien Fehlermeldung erhalten haben, dass unser Modell nicht konvergiert ist oder andwerweitig kein Optimum gefunden hat.
+Jetzt sollten wir keine Fehlermeldung erhalten haben, dass unser Modell nicht konvergiert ist oder anderweitig kein Optimum gefunden hat.
 :::
 
 Wir nutzen wieder die Funktion `model_parameters()` aus dem R Paket `parameters` um uns eine aufgeräumte Ausgabe wiedergeben zu lassen.
@@ -451,33 +451,49 @@ ggplot(enzyme_tbl, aes(x = S, y = v)) +
 
 ## Multivariate Fractional Polynomials mit `{mfp}`
 
-[Multivariate Fractional Polynomials: Why Isn’t This Used More?](https://towardsdatascience.com/multivariate-fractional-polynomials-why-isnt-this-used-more-1a1fa9ead12c)
+Manchmal haben wir keine Ahnung, welche mathematische Formel denn überhaupt passen könnte. Ohne eine mathematische Formel können wir dann auch schlecht in `nls()` Startwerte angeben. Ohne die Angabe von Startwerten für die Formel können wir dann auch nichts rechnen. Die wenigsten Menschen haben eine exponentielle Idee im Kopf, wenn sie eine Kurve sehen. Aus dem Grund wurden die *Multivariate Fractional Polynomials* (abk. *mfp*) entwickelt, die dir dann eine Formel wiedergeben. Das Schöne daran ist, dass du einfach nur sagen musst, welche Variable als Polynom in die Formel soll und den Rest macht die Funktion `mfp` aus dem gleichnamigen R Paket `{mfp}` dann für sich. Hier sei auch einmal auf das Tutorial [Multivariate Fractional Polynomials: Why Isn’t This Used More?](https://towardsdatascience.com/multivariate-fractional-polynomials-why-isnt-this-used-more-1a1fa9ead12c) verwiesen. Die Entwickler des R Paketes `{mfp}` haben auch eine eigene Hilfeseite unter [Multivariable Fractional Polynomials (MFP)](https://mfp.imbi.uni-freiburg.de/) eingerichtet. Wir immer ist das Thema zu groß, daher hier nur die simple Anwendung.
 
-[Multivariable Fractional Polynomials (MFP)](https://mfp.imbi.uni-freiburg.de/)
+Der wichtigste Schritt ist einmal die Variable zu bezeichnen, die als Polynom behandelt werden soll. Wir machen das hier mit der Funktion `fp()`. Wir sagen damit der Funktion `mfp()`, dass wir bitte die Koeffizienten und eine "Hochzahl" $a$ für das Alter haben wollen. Wir erhalten also die Koeffizienten für die folgende mathematische Formel mit Zahlen wieder.
+
+$$
+weight \sim \beta_0 + \beta_1 \cdot age^{a}
+$$
+
+Dann rechnen wir also einfach schnelle einmal das Modell.
 
 ```{r}
 mfp_fit <- mfp(weight ~ fp(age), data = chicken_tbl)
 ```
 
+Wir können dann auch gleich einmal in die Zusammenfassung reinschauen und sehen, was dort für eine Formel für das Alter `age` geschätzt wurde.
+
 ```{r}
 summary(mfp_fit) 
 ```
+
+Es ist auch möglich sich die Formel direkt wiedergeben zu lassen. Hier ist dann wichtig zu verstehen, was wir dort sehen. Die Funktion `mfp()` testet immer verschiedene ganzzahlige `a`-Werte für die Potenz. Dann versucht die Funktion `mfp()` die restlichen Koeffizienten optimal den Daten anzupassen.
 
 ```{r}
 mfp_fit$formula
 ```
 
+Nun haben wir erstmal die Informationen über das Alter und die Potenz $a$ und wie diese beiden miteinander zusammengehören. Jetzt fehlen aber noch die Koeffizienten für die Steigung und den y-Achsenabschnitt. Die haben wir auch oben in der `summary()` gesehen, aber wir können uns die Werte auch separat anzeigen lassen.
+
 ```{r}
 mfp_fit$coefficients 
 ```
 
-```{r}
-mfp_fit %>% r2
-```
+Dann können wir auch einmal die etwas kompliziertere mathematische Gleichung aufschreiben. Da wir an ganzzahlige Potenzen gebunden sind, muss der Rest etwas anderes aussehen. Aber die Formel geht eigentlich noch. Da wir eben auch eine ganzzahlige Potenz haben, können wir auch selber mit einem Taschenrechner rechnen. Das wird ja bei Kommazahlen schon etwas mühseliger.
+
+$$
+weight \sim 66.3 + 188 \cdot \left(\cfrac{age}{10}\right)^{2}
+$$ Dann können wir die Funktion auch schon in R übersetzen. Wir machen eigentlich nichts anderes als das wir das $age$ durch durch $x$ ersetzen, was generischer ist. Und wir brauchen diese Art der Darstellung dann auch in `ggplot()`.
 
 ```{r}
 age_func <- \(x) {66.3 + 188 * (x/10)^2}
 ```
+
+In der @fig-nls-mfp-1 sehen wir einmal das Ergebnis der Anpassung. Ich habe hier einmal beides gemacht, einmal mit der Funktion `geom_function()` und einmal mit `geom_line()` und `predict()`. So kannst du mal sehen, dass wir hier das gleiche rauskriegen. Die erste Variante ist eben die bessere, wenn du auch die mathematische Gleichung angeben wilst. Dann bist du dir sicher, dass auch die Gleichung zu der angepassten Kurve passt.
 
 ```{r}
 #| echo: true
@@ -487,13 +503,47 @@ age_func <- \(x) {66.3 + 188 * (x/10)^2}
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "Visualisierung der Hühnchengewichte nach Alter in Tagen mit der geschätzen nicht-linearen Regressionsgleichung."
+#| fig-cap: "Visualisierung der Hühnchengewichte nach Alter in Tagen mit der geschätzen nicht-linearen Regressionsgleichung nach der Funktion `mfp()`."
+#| fig-subcap: 
+#|   - "... mit `geom_function()`"
+#|   - "... mit `geom_line()` und `predict()`"
+#| layout-nrow: 1
 
 ggplot(chicken_tbl, aes(age, weight)) +
   geom_function(fun = age_func, color = "red", linetype = 'dashed') +
-  #geom_line(aes(y = predict(mfp_fit)), size = 1, color = "red") +
   geom_point() +
   theme_bw()
+
+ggplot(chicken_tbl, aes(age, weight)) +
+  geom_line(aes(y = predict(mfp_fit)), size = 1, color = "blue") +
+  geom_point() +
+  theme_bw()
+```
+
+Und am Ende nochmal, wie gut war die Anpassung des Modells an die Daten eigentlich? Hier können wir dann wieder das Bestimmtheitsmaß $R^2$ nutzen. Wie immer siehst du Bestimmtheitsmaß $R^2$ auch in der `summary()` aber hier dann einmal als direkter Aufruf.
+
+```{r}
+mfp_fit %>% r2
+```
+
+Und welche der beiden mathematischen Gleichungen ist denn nun besser? Dafür fitten wir nochmal das `nls()` Modell von oben und vergleichen das Modell einmal zu dem `mfp()`-Modell.
+
+```{r}
+#| results: hide
+
+nls_fit <- nls(weight ~ b0 + I(age^b1), data = chicken_tbl, 
+               start = c(b0 = 1, b1 = 1))
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| eval: false
+#| tbl-cap: "Modellvergleich für das `nls()` Modell mit dem `mfp()` Modell."
+#| label: tbl-model-comp-sens
+
+modelsummary(lst("nls Modell" = nls_fit,
+                 "mfp Modell" = mfp_fit))
 ```
 
 ## Generalized Additive Models (GAM) mit `{mgcv}`
