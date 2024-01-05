@@ -47,8 +47,8 @@ pacman::p_load(tidyverse, magrittr, broom, betareg, car,
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
-cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
-                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+cb_pal <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+            "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -128,12 +128,10 @@ fungi_tbl <- salmon.bunt %>%
 #| warning: false
 #| label: tbl-beta-fungi
 #| tbl-cap: "Auszug aus dem Daten zu den Kichererbsen in Brandenburg."
-#| column: page
 
 fungi_raw_tbl <- fungi_tbl %>% 
   mutate_all(as.character)
   
-
 rbind(head(fungi_raw_tbl, 4),
       rep("...", times = ncol(fungi_raw_tbl)),
       tail(fungi_raw_tbl, 4)) %>% 
@@ -141,9 +139,7 @@ rbind(head(fungi_raw_tbl, 4),
 
 ```
 
-## Fit des Modells
-
-### ... mit dem R Paket `{betareg}`
+## Visualisierung
 
 ```{r}
 #| warning: false
@@ -161,19 +157,48 @@ hunting_tbl %>%
   ylim(0, 1)
 ```
 
+## Fit des Modells
+
+### ... mit der Gaussian Regression
+
 ```{r}
-hunting_fit <- betareg(proportion ~ grass_cover, data = hunting_tbl)
+hunting_lm_fit <- lm(proportion ~ grass_cover, data = hunting_tbl)
 ```
 
 ```{r}
 #| message: false
 #| warning: false
-hunting_fit %>% 
-  model_parameters(exponentiate = TRUE)
+hunting_lm_fit %>% 
+  model_parameters()
 ```
 
 ```{r}
-hunting_fit %>% r2()
+hunting_lm_fit %>% r2()
+```
+
+### ... mit dem R Paket `{betareg}`
+
+```{r}
+hunting_beta_fit <- betareg(proportion ~ grass_cover, data = hunting_tbl)
+```
+
+```{r}
+#| message: false
+#| warning: false
+hunting_beta_fit %>% 
+  model_parameters(exponentiate = TRUE)
+```
+
+$$
+\mbox{Änderung in Odds %:}\; (OR-1) * 100
+$$
+
+$$
+\mbox{Änderung in Odds %:}\; (0.94-1) * 100 = -6\%
+$$
+
+```{r}
+hunting_beta_fit %>% r2()
 ```
 
 ```{r}
@@ -191,11 +216,11 @@ hunting_fit %>% r2()
 #|   - "test"
 #| layout-nrow: 2
 
-plot(hunting_fit)
+plot(hunting_beta_fit)
 ```
 
 ```{r}
-hunting_fit %>% Anova()
+hunting_beta_fit %>% Anova()
 ```
 
 ### ... mit einer logistischen Regression
@@ -222,4 +247,22 @@ hunting_log_fit %>%
 
 ```{r}
 hunting_log_fit %>% Anova()
+```
+
+```{r}
+#| warning: false
+#| message: false
+#| label: fig-beta-fox-predict
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Ausgabe ausgewählter Modelgüteplots der Funktion `check_model()`."
+
+hunting_tbl %>% 
+  ggplot(aes(grass_cover, proportion)) +
+  theme_minimal() +
+  geom_point() +
+  geom_line(aes(y = predict(hunting_log_fit, type = "response")), color = cb_pal[2]) +
+  geom_line(aes(y = predict(hunting_lm_fit, type = "response")), color = cb_pal[3]) +
+  geom_line(aes(y = predict(hunting_beta_fit, type = "response")), color = cb_pal[4])
 ```
