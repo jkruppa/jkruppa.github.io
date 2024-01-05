@@ -1,0 +1,200 @@
+```{r echo = FALSE}
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, patchwork)
+```
+
+# Beta Regression {#sec-beta}
+
+*Letzte Änderung am `r format(fs::file_info("stat-modeling-beta.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*
+
+![](images/caution.png){fig-align="center" width="50%"}
+
+link zu test auf anteile
+
+wirkungsgrad?
+
+Selten n
+
+Im folgenden Kapitel
+
+Daher sieht unser Modell wie folgt aus. Wir haben ein $y$ und $p$-mal $x$. Wobei $p$ für die Anzahl an Variablen auf der rechten Seite des Modells steht. Im Weiteren ist unser $y$ normalverteilt. Das ist hier sehr wichtig, denn wir wollen ja eine multiple gaussian lineare Regression rechnen.
+
+$$
+y \sim x_1 + x_2 + ... + x_p 
+$$
+
+::: callout-tip
+## Weitere Tutorien für die Beta Regression
+
+Wie immer gibt es auch für die Frage nach dem Tutorium für die Beta Regression verschiedene Quellen. Ich kann noch folgende Informationen und Hilfen empfehlen.
+
+-   [A guide to modeling proportions with Bayesian beta and zero-inflated beta regression models](https://www.andrewheiss.com/blog/2021/11/08/beta-regression-guide) hilft besonders, wenn du tiefer in die Matrie einsteigen willst. Du erhälst bei dem Tutorium einen vollständigen Überblick über die Möglichkeiten. Weit mehr als ich hier mache.
+-   Das Tutorium [Beta Regression for Percent and Proportion Data](https://rcompanion.org/handbook/J_02.html) leidet etwas unter dem Mangel an erklärenden Text. Hier wurde anscheinend erst der R Code generiert und der Text sollte folgen. Das schneit hier aber (noch) nicht der Fall zu sein. Als Überblick lohnt sich das Tutorium aber dennoch.
+-   [What is the intuition behind beta distribution?](https://stats.stackexchange.com/questions/47771/what-is-the-intuition-behind-beta-distribution) erklärt nochmal was die Idee der Beta Regression eigentlich ist und was eine Betaverteilung eigentlich beschreibt.
+-   Das R Paket `{betareg}` und die entsprechende Vignette [Beta Regression in R](https://cran.r-project.org/web/packages/betareg/vignettes/betareg.pdf) liefert wichtige Informationen über die Umsetzung der Beta Regression in R.
+-   [Causal inference with beta regression](https://solomonkurz.netlify.app/blog/2023-06-25-causal-inference-with-beta-regression/) liefert eine sehr umfangreiche Überbick über die Beta Regression und das Testen mit der ANOVA. Dann aber auch nicht in dem klassischen Ansatz, den ich hier normalerweise rechne, sondern als bayesianische Variante.
+-   Genauso betrachtet das Tutorium [Model Estimation by Example - Bayesian Beta Regression](https://m-clark.github.io/models-by-example/bayesian-beta-regression.html) auch die bayesianische Variante der Beta Regression, so dass du hier vermutlich eher weniger fündig wirst. Ich fand den Überblick aber gut und schön zu lesen -- vorallem war er auch nicht so lang.
+:::
+
+## Genutzte R Pakete
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+#| message: false
+pacman::p_load(tidyverse, magrittr, broom, betareg, car,
+               see, performance, parameters, agridat,
+               emmeans, multcomp, conflicted)
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("mutate", "dplyr")
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+## Daten
+
+```{r}
+hunting_tbl <- read_excel("data/hunting_fox.xlsx") %>% 
+  mutate(proportion = round(success/attempts, 2))
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-beta-fox
+#| tbl-cap: "Auszug aus dem Daten zu den Kichererbsen in Brandenburg."
+
+hunting_raw_tbl <- hunting_tbl %>% 
+  mutate_all(as.character)
+  
+
+rbind(head(hunting_raw_tbl, 4),
+      rep("...", times = ncol(hunting_raw_tbl)),
+      tail(hunting_raw_tbl, 4)) %>% 
+  kable(align = "c", "pipe")
+
+```
+
+Im Folgenden schauen wir uns die Daten eines
+
+```{r}
+#| message: false
+broc_tbl <- read_excel("data/broccoli_weight.xlsx") %>% 
+  filter(fert_time %in% c("early", "late")) %>% 
+  mutate(fert_time = factor(fert_time, levels = c("early", "late")),
+         fert_amount = as_factor(fert_amount),
+         block = as_factor(block)) %>%
+  select(fert_time, fert_amount, block, weight) %>% 
+  mutate(proportion_500 = round(ifelse(weight/500 > 1, 1, weight/500), 2))
+```
+
+In der
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-beta-broc
+#| tbl-cap: "Auszug aus dem Daten zu den Kichererbsen in Brandenburg."
+
+broc_raw_tbl <- broc_tbl %>% 
+  mutate_all(as.character)
+  
+
+rbind(head(broc_raw_tbl, 4),
+      rep("...", times = ncol(broc_raw_tbl)),
+      tail(broc_raw_tbl, 4)) %>% 
+  kable(align = "c", "pipe")
+
+```
+
+Im Folgenden werden wir die Daten nur für das Fitten eines Modells verwenden. In den anderen oben genannten Kapiteln nutzen wir die Daten dann anders.
+
+[Fungus infection in varieties of wheat](https://kwstat.github.io/agridat/reference/salmon.bunt.html)
+
+```{r}
+data(salmon.bunt)
+fungi_tbl <- salmon.bunt %>% 
+  as_tibble() %>% 
+  select(gen, bunt, rep, percent = pct)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-beta-fungi
+#| tbl-cap: "Auszug aus dem Daten zu den Kichererbsen in Brandenburg."
+#| column: page
+
+fungi_raw_tbl <- fungi_tbl %>% 
+  mutate_all(as.character)
+  
+
+rbind(head(fungi_raw_tbl, 4),
+      rep("...", times = ncol(fungi_raw_tbl)),
+      tail(fungi_raw_tbl, 4)) %>% 
+  kable(align = "c", "pipe")
+
+```
+
+## Fit des Modells
+
+### ... mit dem R Paket `{betareg}`
+
+```{r}
+#| warning: false
+#| message: false
+#| label: fig-beta-fox-scatter
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Ausgabe ausgewählter Modelgüteplots der Funktion `check_model()`."
+
+hunting_tbl %>% 
+  ggplot(aes(grass_cover, proportion)) +
+  theme_minimal() +
+  geom_point() +
+  ylim(0, 1)
+```
+
+```{r}
+hunting_fit <- betareg(proportion ~ grass_cover, data = hunting_tbl)
+```
+
+```{r}
+#| message: false
+#| warning: false
+hunting_fit %>% 
+  model_parameters(exponentiate = TRUE)
+```
+
+```{r}
+hunting_fit %>% r2()
+```
+
+```{r}
+#| message: false
+#| warning: false
+check_model(hunting_fit)
+```
+
+```{r}
+hunting_fit %>% Anova()
+```
+
+### ... mit einer logistischen Regression
+
+```{r}
+#| eval: false
+
+Trials = cbind(Data$Pass, Data$Fail)         # Successes, Failures
+
+model.log = glm(Trials ~ Grade,
+                data = Data,
+                family = binomial(link="logit"))
+
+```
