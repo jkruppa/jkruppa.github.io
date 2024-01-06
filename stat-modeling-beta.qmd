@@ -50,7 +50,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, broom, betareg, car,
                see, performance, parameters, agridat, mfp,
                emmeans, multcomp, rcompanion, ggbeeswarm,
-               conflicted)
+               marginaleffects, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -241,13 +241,18 @@ Wir wenden jetzt also einfach mal die Gaussian Regression mit der Funktion `lm()
 hunting_lm_fit <- lm(proportion ~ snow_height, data = hunting_tbl)
 ```
 
-Dann schauen wir uns einmal die Koeffizienten des Modells einmal an. Wir haben einen `Intercept` von über Eins, was natürlich keinen Sinn ergibt. Wir können keinen Jagederfolg von über Eins bei einer Schneehöhe von Null haben. Hier sieht man schon, dass das Modell nicht so gut für die Randbereiche funktioniert. Dennoch haben wir einen Abfall durch die Steigung der Schneehöhe vorliegen. Wir erkennen, dass pro Zentimeter mehr Schnee der Jagderfolg um $0.02$ oder eben $2\%$ signifikant zurückgeht. Das ist ein Ergebnis mit dem wir leben könnten.
+Dann schauen wir uns einmal die Koeffizienten des Modells einmal an. Wir haben einen `Intercept` von über Eins, was natürlich keinen Sinn ergibt. Wir können keinen Jagederfolg von über Eins bei einer Schneehöhe von Null haben. Hier sieht man schon, dass das Modell nicht so gut für die Randbereiche funktioniert. Dennoch haben wir einen Abfall durch die Steigung der Schneehöhe vorliegen. Wir erkennen, dass pro Zentimeter mehr Schnee der Jagderfolg um $0.0156$ oder eben $1.56\%$ signifikant zurückgeht. Das ist ein Ergebnis mit dem wir leben könnten.
+
+```{r}
+hunting_lm_fit 
+```
+
+Wir können uns auch den Effekt der Schneehöhe auf den Jagderfolg einmal mit der Funktion `avg_slopes()` aus dem R Paket `{marginaleffects}` wiedergeben lassen. Für eine so simple Gaussion Regression ist der marginale Effekt gleich der Steigung, aber wenn wir gleich ein anderes Modell nehmen, dann wird es schon komplizierter. Mehr dazu dann auf der Hilfeseite zu [Marginal Effects Zoo - Slopes](https://marginaleffects.com/vignettes/slopes.html) wo du dann auch mehr über *marginal effects* lernen kannst. Wie du dann siehst, erhalten wir hier den gleichen Wert für die Steigung.
 
 ```{r}
 #| message: false
 #| warning: false
-hunting_lm_fit %>% 
-  model_parameters()
+avg_slopes(hunting_lm_fit)
 ```
 
 Schauen wir einmal wie das Bestimmtheitsmaß $R^2$ aussieht. Hier haben wir einen Wert von $0.758$ und damit können wir durch die Gerade gut $75\%$ der Varianz erklären. Das ist jetzt nicht der beste Werte und wir schauen uns am Ende nochmal in der @fig-beta-fox-predict wie die Gerade durch die Punkte läuft.
@@ -256,28 +261,64 @@ Schauen wir einmal wie das Bestimmtheitsmaß $R^2$ aussieht. Hier haben wir eine
 hunting_lm_fit %>% r2()
 ```
 
-Das einmal als sehr schneller und kurzer Einwurf der Gaussian Regression auf einem Outcome mit Prozenten. Es ist nicht ideal und weit weg von der Empfehlung. Aber wenn du einen statistischen Engel anfahren willst und mit der Interpretation kganz gut leben kannst, dann ist eine lineare Modellierung nicht so dramatisch. Achtung eben an den Rändern. Du erhälst eben auch schnell mal vorhergesagte Werte außerhalb von den Grenzen einer Wahrscheinlichkeit.
+Das einmal als sehr schneller und kurzer Einwurf der Gaussian Regression auf einem Outcome mit Prozenten. Es ist nicht ideal und weit weg von der Empfehlung. Aber wenn du einen statistischen Engel anfahren willst und mit der Interpretation ganz gut leben kannst, dann ist eine lineare Modellierung nicht so dramatisch. Achtung eben an den Rändern. Du erhälst eben auch schnell mal vorhergesagte Werte außerhalb von den Grenzen einer Wahrscheinlichkeit.
+
+### ... mit einer logistischen Regression
+
+Ja, auch dieses Problem können wir mit einer logistischen Regression angehen. Wenn du auch mal in den anderen Kapiteln geschaut hast, dann wundert es dich vermutlich nicht mehr, dass die logistische Regression außerhalb der Agarwissenschaften zu einer der beliebtesten Analysewerkzeugen gehört. Hier müssen wir aber unser Outcome etwas anders der Funktion `glm()` für die logistische Regression übergeben. Wir nutzen nämlich dafür das [Wilkinson-Rogers Format](https://edgarhassler.com/posts/wilkinson-rogers-notation/) welches dann den Anteil an Erfolgen an Fehlschlägen beschreibt. Wir schreiben aber in das Modell die konkrete Anzahl an Erfolgen und Fehlschlägen.
+
+$$
+(Success|Failure) \sim x_1 + x_2 + ... + x_p 
+$$
+
+In R würden wir dann die *zwei* Spalten mit der Anzahl an Erfolgen und Fehlschlägen mit `cbind()` zusammenfassen und in `glm()` ergänzen. Dieses Format haben wir dann auch bei unseren Eisfüchsen vorliegen. In unseren Daten haben wir ja die Spalte `success`, welche die Anzahl Jagderfolge beschreibt sowie die Anzahl der Fehlschläge in der Spalte `fail`. Wichtig ist hier, dass wir wirklich die beiden Spalten mit den jeweiligen Anzahlen haben. Daher würden wir dann in R wie folgt schreiben.
+
+```{r}
+hunting_log_fit <- glm(cbind(success, fail) ~ snow_height, 
+                       data = hunting_tbl, family = binomial)
+hunting_log_fit
+```
+
+Damit haben wir dann auch unseren Koeffizienten des Intercept und der Steigung. Da die logistische Regression auf dem Logit-Link rechnet, können wir die Steigung von $-0.08326$ nicht direkt interpretieren. Daher müssen wir die Steigung wieder von dem Logit-Link auf unsere ursprüngliche Skala (eng. *response*) zurückrechnen. Dafür gibt es einen einfachen Trick mit der "Teile durch Vier" Regel oder aber eine entsprechende Funktion im R Paket `{marginaleffects}`.
+
+::: callout-note
+## "Teile durch Vier" Regel
+
+Die "Teile durch Vier" Regel (eng. *Divide by 4 Rule*) erlaubt uns von dem Koeffizienten aus der logistischen Regression auf die wahre Steigung der Geraden zu schließen. Da die logistische Regression auf dem Logit-Link rechnet, ist unsere $-0.08$ *nicht* die Steigung der Geraden. Es gibt hier die Daumenregel, den Koeffizienten durch Vier zu teilen und so einen annähernd korrekten Wert zu erhalten. In unserem Fall also $-0.08326/4 = -0.021$. Damit haben wir nicht den exakten Wert der Steigung, aber eine recht guten Wert.
+:::
+
+Mit der Funktion `avg_slopes()` können wir uns aus dem Modell die Steigung der Gerade berechnen lassen. Wir haben dann nicht mehr die Logit-Skala vorliegen sondern sind wieder auf unserer ursprünglichen Skala der Prozente. Im Gegensatz zur "Teile durch Vier" Regel ist der Wert von $-0.15$ natürlich genauer.
+
+```{r}
+#| message: false
+#| warning: false
+avg_slopes(hunting_log_fit)
+```
+
+Hier greifen wir auf das R Paket `{rcompanion}` zurück. Wir rechnen auch kein *echtes* Bestimmtheitsmaß $R^2$ aus, sondern den Vergleich zum Null-Modell.
+
+```{r}
+hunting_log_fit %>% 
+  nagelkerke() %>% 
+  pluck("Pseudo.R.squared.for.model.vs.null")
+```
+
+```{r}
+hunting_log_fit %>% Anova()
+```
 
 ### ... mit dem R Paket `{betareg}`
 
 ```{r}
 hunting_beta_fit <- betareg(proportion ~ snow_height | snow_height, data = hunting_tbl)
+hunting_beta_fit
 ```
 
 ```{r}
 #| message: false
 #| warning: false
-hunting_beta_fit %>% 
-  model_parameters(exponentiate = TRUE)
+avg_slopes(hunting_beta_fit)
 ```
-
-$$
-\mbox{Änderung in Odds %:}\; (OR-1) * 100
-$$
-
-$$
-\mbox{Änderung in Odds %:}\; (0.94-1) * 100 = -6\%
-$$
 
 ```{r}
 hunting_beta_fit %>% r2()
@@ -303,32 +344,6 @@ plot(hunting_beta_fit)
 
 ```{r}
 hunting_beta_fit %>% Anova()
-```
-
-### ... mit einer logistischen Regression
-
-```{r}
-hunting_log_fit <- glm(cbind(hunting_tbl$success, hunting_tbl$fail) ~ snow_height, 
-                       data = hunting_tbl, family = binomial(link="logit"))
-```
-
-```{r}
-#| message: false
-#| warning: false
-hunting_log_fit %>% 
-  model_parameters(exponentiate = TRUE)
-```
-
-Hier greifen wir auf das R Paket `{rcompanion}` zurück. Wir rechnen auch kein *echtes* Bestimmtheitsmaß $R^2$ aus, sondern den Vergleich zum Null-Modell.
-
-```{r}
-hunting_log_fit %>% 
-  nagelkerke() %>% 
-  pluck("Pseudo.R.squared.for.model.vs.null")
-```
-
-```{r}
-hunting_log_fit %>% Anova()
 ```
 
 ```{r}
