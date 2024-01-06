@@ -42,7 +42,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, broom, betareg, car,
-               see, performance, parameters, agridat,
+               see, performance, parameters, agridat, mfp,
                emmeans, multcomp, rcompanion, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
@@ -54,6 +54,8 @@ cb_pal <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
 
 ## Daten
+
+Eisfuchs
 
 ```{r}
 hunting_tbl <- read_excel("data/hunting_fox.xlsx") %>% 
@@ -151,7 +153,7 @@ rbind(head(fungi_raw_tbl, 4),
 #| fig-cap: "Ausgabe ausgewählter Modelgüteplots der Funktion `check_model()`."
 
 hunting_tbl %>% 
-  ggplot(aes(grass_cover, proportion)) +
+  ggplot(aes(snow_height, proportion)) +
   theme_minimal() +
   geom_point() +
   ylim(0, 1)
@@ -162,7 +164,7 @@ hunting_tbl %>%
 ### ... mit der Gaussian Regression
 
 ```{r}
-hunting_lm_fit <- lm(proportion ~ grass_cover, data = hunting_tbl)
+hunting_lm_fit <- lm(proportion ~ snow_height, data = hunting_tbl)
 ```
 
 ```{r}
@@ -179,7 +181,7 @@ hunting_lm_fit %>% r2()
 ### ... mit dem R Paket `{betareg}`
 
 ```{r}
-hunting_beta_fit <- betareg(proportion ~ grass_cover, data = hunting_tbl)
+hunting_beta_fit <- betareg(proportion ~ snow_height | snow_height, data = hunting_tbl)
 ```
 
 ```{r}
@@ -226,7 +228,7 @@ hunting_beta_fit %>% Anova()
 ### ... mit einer logistischen Regression
 
 ```{r}
-hunting_log_fit <- glm(cbind(hunting_tbl$success, hunting_tbl$fail) ~ grass_cover, 
+hunting_log_fit <- glm(cbind(hunting_tbl$success, hunting_tbl$fail) ~ snow_height, 
                        data = hunting_tbl, family = binomial(link="logit"))
 ```
 
@@ -237,7 +239,7 @@ hunting_log_fit %>%
   model_parameters(exponentiate = TRUE)
 ```
 
-Hier greifen wir auf das R Paket `{rcompanion}` zurück. Wir rechnen auck kein *echtes* Bestimmtheitsmaß $R^2$ aus, sondern den Verlgeich zum Null-Modell.
+Hier greifen wir auf das R Paket `{rcompanion}` zurück. Wir rechnen auch kein *echtes* Bestimmtheitsmaß $R^2$ aus, sondern den Vergleich zum Null-Modell.
 
 ```{r}
 hunting_log_fit %>% 
@@ -255,14 +257,75 @@ hunting_log_fit %>% Anova()
 #| label: fig-beta-fox-predict
 #| fig-align: center
 #| fig-height: 5
-#| fig-width: 5
+#| fig-width: 6
 #| fig-cap: "Ausgabe ausgewählter Modelgüteplots der Funktion `check_model()`."
 
 hunting_tbl %>% 
-  ggplot(aes(grass_cover, proportion)) +
+  ggplot(aes(snow_height, proportion)) +
   theme_minimal() +
   geom_point() +
-  geom_line(aes(y = predict(hunting_log_fit, type = "response")), color = cb_pal[2]) +
-  geom_line(aes(y = predict(hunting_lm_fit, type = "response")), color = cb_pal[3]) +
-  geom_line(aes(y = predict(hunting_beta_fit, type = "response")), color = cb_pal[4])
+  geom_line(aes(y = predict(hunting_log_fit, type = "response"), color = "log")) +
+  geom_line(aes(y = predict(hunting_lm_fit, type = "response"), color = "lm")) +
+  geom_line(aes(y = predict(hunting_beta_fit, type = "response"), color = "betareg")) +
+  scale_color_manual(name = "Modell", values = cb_pal[2:4])
 ```
+
+::: callout-note
+## Wo ist die mathematische Formel?
+
+::: panel-tabset
+## Mit `nls()`
+
+```{r}
+lm(log(proportion) ~ snow_height, hunting_tbl)
+```
+
+```{r}
+nls(proportion ~ b0 - I(snow_height^b1), data = hunting_tbl, 
+    start = c(b0 = exp(1.0324), b1 = -0.0354))
+```
+
+Dann können wir uns auch schon die Gleichung zusammenbauen.
+
+$$
+proportion = 3.196 - snow\_height^{0.248}
+$$
+
+## Mit `mfp()`
+
+```{r}
+mfp(proportion ~ fp(snow_height), data = hunting_tbl)
+```
+
+Dann erhalten wir folgende Gleichung.
+
+$$
+proportion = 0.9741 -2.4216 \cdot \left(\cfrac{snow\_height}{100}\right)^3
+$$
+:::
+
+```{r}
+nls_func <- \(x){3.196 - x^(0.248)}
+mfp_func <- \(x){0.9741 - 2.4216 * (x/100)^3}
+```
+
+```{r}
+#| warning: false
+#| message: false
+#| label: fig-beta-fox-predict-non
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Ausgabe ausgewählter Modelgüteplots der Funktion `check_model()`."
+
+hunting_tbl %>% 
+  ggplot(aes(snow_height, proportion)) +
+  theme_minimal() +
+  geom_point() +
+  geom_function(fun = nls_func, aes(color = "nls"), linetype = 'dashed') +
+  geom_function(fun = mfp_func, aes(color = "mfp"), linetype = 'dashed') +
+  scale_color_manual(name = "Modell", values = cb_pal[2:3])
+```
+:::
+
+## Gruppenvergleich {#sec-mult-comp-beta-reg}
