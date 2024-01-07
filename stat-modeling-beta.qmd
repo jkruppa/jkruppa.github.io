@@ -413,41 +413,81 @@ hunting_tbl %>%
 ::: callout-note
 ## Wo ist die mathematische Formel?
 
+Jetzt haben wir zwar schön das Modell mit der Beta Regression geschätzt aber leider keine mathematische Formel erhalten. Das ist jetzt ja eigentlich auch eine andere Fragestellung. Daher nutzen wir für die Erstellung der mathematischen Formel auch nicht die Beta Regression sondern die nicht linear Regression. Prinzipiell ginge natürlich auch die lineare Regression, aber da wissen wir ja schon, dass die nicht so super funktioniert. Hier jetzt also der Weg um die Koeffizienten einer nicht lineare Regression zu bestimmen, die durch die Punkte eine Kurve legt.
+
+Auch hier haben wir die Wahl zwischen der Funktion `nls()` aus dem Standardpaket in R oder aber der Funktion `mfp()` aus dem gleichnamigen R Paket `{mfp}`. In den beiden Tabs zeige ich dir einmal die schnelle Anwendung. Wenn du mehr lesen willst dann kannst du nochmal in dem [Kapitel zur nicht linearen Regression](#sec-non-linear) reinschauen. Wie immer führe ich hier den Code mehr aus als ihn dann zu erklären.
+
 ::: panel-tabset
 ## Mit `nls()`
+
+Die Funktion `nls()` hat die Herausforderung, dass wir Startwerte für die Koeffizienten unserer mathematischen Formel übergeben müssen. Darüber hinaus müssen wir auch in der Funktion `nls()` eine Formel vordefinieren, die dann eben mit den Werten der Koeffizienten gefüllt wird. Wenn es dir auch eher schwer fällt in einer Punktewolke eine mathematische Funktion zu sehen, dann ist die Funktion `nls()` eine Herausforderung. Es gibt zwar den einen oder anderen Trick, aber am Ende müssen wir schauen, ob es dann passt mit dem Ergebnis.
+
+Wir brauchen erstmal Startwerte für unsere mathematische Formel $y = a - x^b$. Ein Trick ist, erstmal eine lineare Regression mit `lm()` zu rechnen und die Koeffizienten dann als Startwerte in `nls()` zu nutzen.
 
 ```{r}
 lm(log(proportion) ~ snow_height, hunting_tbl)
 ```
 
+Mit unseren Startwerten können wir dann einmal schauen, ob unser Modell konvergiert. Dann haben wir auch die Werte für die Koeffizienten $a$ und $b$ und können das Modell als mathematische Formel aufschreiben.
+
 ```{r}
-nls(proportion ~ b0 - I(snow_height^b1), data = hunting_tbl, 
-    start = c(b0 = exp(1.0324), b1 = -0.0354))
+nls(proportion ~ a - I(snow_height^b), data = hunting_tbl, 
+    start = c(a = exp(1.0324), b = -0.0354),
+    control = nls.control(maxiter = 1000))
 ```
 
-Dann können wir uns auch schon die Gleichung zusammenbauen.
+Wir können auch nochmal eine $e$-Funktion mit $y = a - e^{b \cdot x}$ nutzen und schauen, ob wir damit etwas besser an die Daten näherkommen. Hier müssen wir dann wirklich ausprobieren, was teilweise echt nervig ist. Dafür schauen wir uns gleich nochmal die Funktion `mfp()` an.
+
+```{r}
+nls(proportion ~ a - exp(b * snow_height), data = hunting_tbl, 
+    start = c(a = 1, b = 0),
+    control = nls.control(maxiter = 1000))
+```
+
+Hat jeweils geklappt und dann können wir uns auch schon die Gleichung zusammenbauen. Die Frage ist natürlich, ob die Werte gut zu unseren Daten passen. Das werden wir dann gleich nochmal in der @fig-beta-fox-predict-non überprüfen. Hier dann einmal die erste Gleichung für das Polynom und dann die zweite Gleichung mit der $e$-Funktion.
 
 $$
 proportion = 3.196 - snow\_height^{0.248}
 $$
 
+$$
+proportion = 2.268 - e^{0.0101 \cdot snow\_height}
+$$
+
+Welche dann die beste mathematische Formel ist sehen wir dann gleich. Bitte schaue dir aber noch den anderen Tab mit der Funktion `mfp()` an, denn mit der Funktion `nls()` ist es dann doch manchmal etwas Glücksspiel, ob man die richtige mathematische Formel mit den richtigen Startwerten trifft.
+
 ## Mit `mfp()`
+
+Nachdem wir den langen Weg mit der Funktion `nls()` gegeangen sind, machen wir es jetzt etwas kürzer mit der Funktion `mfp()`. Wir müssen nur angeben welche Variable als Polynom modelliert werden soll. Den Rest macht dann die Funktion `mfp()` für uns. Wir erhalten dann auch die Formel für den Zusammenhang der folgenden Form. Wir erhalten dann die Werte für $\beta_0$, $\beta_1$ sowie dem Polynom $p$ und der möglichen Transformation von $x$.
+
+$$
+proportion = \beta_0 - \beta_1 \cdot \left(snow\_height\right)^p
+$$
+
+Dann rechnen wir mal die Funktion und schauen welche Werte wir erhalten. Die Kunst ist hier die Werte für die Koeffizienten aus der Ausgabe abzulesen. Aber das mache ich dir hier ja einmal vor.
 
 ```{r}
 mfp(proportion ~ fp(snow_height), data = hunting_tbl)
 ```
 
-Dann erhalten wir folgende Gleichung.
+Dann können wir die Werte aus der Ausgabe auch schon in unsere Gleichung einsetzen. Der Vorteil ist wirklich, dass ich mir nicht überlegen muss, welche mathematische Formel ich nutzen will. Das schränkt mich zwar ein, macht mir das Leben aber auch einfacher. Wir erhalten dann eben eine Polynom, was auch einfach einzusetzen ist.
 
 $$
 proportion = 0.9741 -2.4216 \cdot \left(\cfrac{snow\_height}{100}\right)^3
 $$
+
+Dann schauen wir mal gleich, welche der drei mathematischen Formeln am besten zu unseren Daten in der @fig-beta-fox-predict-non passen.
 :::
 
+Im ersten Schritt bauen wir uns einmal in R die drei mathematischen Formeln einmal nach. Wir nutzen dafür die Funktion `\(x){...}` und setzen die Zahlen der Koeffizienten ein. Hier musst du nur mit den Klammern aufpassen, sonst bauen sich die Formeln einfach.
+
 ```{r}
-nls_func <- \(x){3.196 - x^(0.248)}
+nls_poly_func <- \(x){3.196 - x^(0.248)}
+nls_exp_func <- \(x){2.268 - exp(0.0101 * x)}
 mfp_func <- \(x){0.9741 - 2.4216 * (x/100)^3}
 ```
+
+In der @fig-beta-fox-predict-non siehst du einmal den Vergleich der drei nicht linearen Regressionen zu den Datenpunkten. Was will man sagen, dass Modell aus der Funktion `mfp()` bei weitem das beste Modell liefert um den Verlauf der Punkte durch eine Kurve zu beschreiben. Wenn es dir also nur darum ginge die Werte für die Jagderfolge nach der Schneehöhe vorherzusagen, dann sieht das `mfp()`-Modell sehr gut aus.
 
 ```{r}
 #| warning: false
@@ -456,15 +496,16 @@ mfp_func <- \(x){0.9741 - 2.4216 * (x/100)^3}
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
-#| fig-cap: "Ausgabe ausgewählter Modelgüteplots der Funktion `check_model()`."
+#| fig-cap: "Zusammenhang zwischen dem Jagederfolg von Eisfüchsen und der Schneehöhe in den jeweiligen beobachteten Habitaten zusammen mit den drei nicht linearen Regressionen aus der Funktion `nls()` und `mfp()`."
 
 hunting_tbl %>% 
   ggplot(aes(snow_height, proportion)) +
   theme_minimal() +
   geom_point() +
-  geom_function(fun = nls_func, aes(color = "nls"), linetype = 'dashed') +
-  geom_function(fun = mfp_func, aes(color = "mfp"), linetype = 'dashed') +
-  scale_color_manual(name = "Modell", values = cb_pal[2:3])
+  geom_function(fun = nls_poly_func, aes(color = "nls_poly")) +
+  geom_function(fun = nls_exp_func, aes(color = "nls_exp")) +
+  geom_function(fun = mfp_func, aes(color = "mfp")) +
+  scale_color_manual(name = "Modell", values = cb_pal[2:4])
 ```
 :::
 
