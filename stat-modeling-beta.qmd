@@ -279,7 +279,7 @@ hunting_log_fit <- glm(cbind(success, fail) ~ snow_height,
 hunting_log_fit
 ```
 
-Damit haben wir dann auch unseren Koeffizienten des Intercept und der Steigung. Da die logistische Regression auf dem Logit-Link rechnet, können wir die Steigung von $-0.08326$ nicht direkt interpretieren. Daher müssen wir die Steigung wieder von dem Logit-Link auf unsere ursprüngliche Skala (eng. *response*) zurückrechnen. Dafür gibt es einen einfachen Trick mit der "Teile durch Vier" Regel oder aber eine entsprechende Funktion im R Paket `{marginaleffects}`.
+Damit haben wir dann auch unseren Koeffizienten des Intercept und der Steigung. Da die logistische Regression auf dem Logit-Link rechnet, können wir die Steigung von $-0.08326$ nicht direkt interpretieren. Daher müssen wir die Steigung wieder von dem Logit-Link auf unsere ursprüngliche Skala (eng. *response*) zurückrechnen. Dafür gibt es einen einfachen Trick mit der "Teile durch Vier" Regel oder aber eine entsprechende Funktion im R Paket `{marginaleffects}`. Wichtig ist auch hier, uns interessieren nicht die Odds Ratios aus einer logistischen Regression, da wir an dem Effekt der Steigung interessiert sind. Wir wollen ja wissen, wie sich der Jagderfolg in \[%\] durch die steigende Schneeschöhe verändert.
 
 ::: callout-note
 ## "Teile durch Vier" Regel
@@ -287,7 +287,7 @@ Damit haben wir dann auch unseren Koeffizienten des Intercept und der Steigung. 
 Die "Teile durch Vier" Regel (eng. *Divide by 4 Rule*) erlaubt uns von dem Koeffizienten aus der logistischen Regression auf die wahre Steigung der Geraden zu schließen. Da die logistische Regression auf dem Logit-Link rechnet, ist unsere $-0.08$ *nicht* die Steigung der Geraden. Es gibt hier die Daumenregel, den Koeffizienten durch Vier zu teilen und so einen annähernd korrekten Wert zu erhalten. In unserem Fall also $-0.08326/4 = -0.021$. Damit haben wir nicht den exakten Wert der Steigung, aber eine recht guten Wert.
 :::
 
-Mit der Funktion `avg_slopes()` können wir uns aus dem Modell die Steigung der Gerade berechnen lassen. Wir haben dann nicht mehr die Logit-Skala vorliegen sondern sind wieder auf unserer ursprünglichen Skala der Prozente. Im Gegensatz zur "Teile durch Vier" Regel ist der Wert von $-0.15$ natürlich genauer.
+Mit der Funktion `avg_slopes()` können wir uns aus dem Modell die Steigung der Gerade berechnen lassen. Wir haben dann nicht mehr die Logit-Skala vorliegen sondern sind wieder auf unserer ursprünglichen Skala der Prozente. Im Gegensatz zur "Teile durch Vier" Regel ist der Wert von $-0.15$ natürlich genauer. Wir sehen, dass wir fast einen ähnlichen Wert für die Reduzierung des Jagderfolges der Eisfüchse wie bei der Gaussian Regression erhalten.
 
 ```{r}
 #| message: false
@@ -295,7 +295,7 @@ Mit der Funktion `avg_slopes()` können wir uns aus dem Modell die Steigung der 
 avg_slopes(hunting_log_fit)
 ```
 
-Hier greifen wir auf das R Paket `{rcompanion}` zurück. Wir rechnen auch kein *echtes* Bestimmtheitsmaß $R^2$ aus, sondern den Vergleich zum Null-Modell.
+Leider gibt es für eine logistische Regression mit einem $(Success/Failure)$-Outcome kein kein *echtes* Bestimmtheitsmaß $R^2$. Hier greifen wir auf das R Paket `{rcompanion}` zurück. Wir rechnen auch dabei auch hier kein *echtes* Bestimmtheitsmaß $R^2$ aus, sondern den Vergleich zu einem Null-Modell in dem wir gar keine Variable als Einfluss mit ins Modell nehmen. Das folgende Bestimmtheitsmaß $R^2$ beantwortet also eher die Frage, ob wir besser mit unserem Modell mit der Schneehöhe sind, also mit einem Modell ohne die Schneehöhe.
 
 ```{r}
 hunting_log_fit %>% 
@@ -303,14 +303,17 @@ hunting_log_fit %>%
   pluck("Pseudo.R.squared.for.model.vs.null")
 ```
 
-```{r}
-hunting_log_fit %>% Anova()
-```
+Hm, am Ende würde ich es lassen. Keine der Bestimmtheitsmaße $R^2$ ist wirklich sinnig. Das erste Bestimmtheitsmaß ist viel zu niedrig, dafür das wir so nahe an den Koeffizienten der Gaussian Regression sind. Dafür sind die anderen beiden Bestimmtheitsmaße viel zu optimistisch, wie wir gleich in der @fig-beta-fox-predict sehen werden. Aber damit haben wir auch gesehen, dass wir die Analyse auch mit einer logistischen Regression rechnen können.
 
 ### ... mit dem R Paket `{betareg}`
 
+Jetzt haben wir uns durch andere Modellierungen durchgearbeitet und wollen uns jetzt einmal die Beta Regression anschauen. Die Beta Regression ist in dem R Paket `{betareg}` implementiert und kann über die Funktion `betareg()` angewendet werden. Wir haben hier noch den Sonderfall, dass wir das Modell mit einem `|` schreiben können.
+
+::: panel-tabset
+## Mit `~ snow_height`
+
 ```{r}
-hunting_beta_fit <- betareg(proportion ~ snow_height | snow_height, data = hunting_tbl)
+hunting_beta_fit <- betareg(proportion ~ snow_height, data = hunting_tbl)
 hunting_beta_fit
 ```
 
@@ -319,6 +322,20 @@ hunting_beta_fit
 #| warning: false
 avg_slopes(hunting_beta_fit)
 ```
+
+## Mit `~ snow_height | snow_height`
+
+```{r}
+hunting_beta_phi_fit <- betareg(proportion ~ snow_height | snow_height, data = hunting_tbl)
+hunting_beta_phi_fit
+```
+
+```{r}
+#| message: false
+#| warning: false
+avg_slopes(hunting_beta_phi_fit)
+```
+:::
 
 ```{r}
 hunting_beta_fit %>% r2()
@@ -362,7 +379,8 @@ hunting_tbl %>%
   geom_line(aes(y = predict(hunting_log_fit, type = "response"), color = "log")) +
   geom_line(aes(y = predict(hunting_lm_fit, type = "response"), color = "lm")) +
   geom_line(aes(y = predict(hunting_beta_fit, type = "response"), color = "betareg")) +
-  scale_color_manual(name = "Modell", values = cb_pal[2:4])
+  geom_line(aes(y = predict(hunting_beta_fit, type = "response"), color = "betareg_phi"), linetype = "dashed") +
+  scale_color_manual(name = "Modell", values = cb_pal[2:5])
 ```
 
 ::: callout-note
