@@ -307,15 +307,19 @@ Hm, am Ende würde ich es lassen. Keine der Bestimmtheitsmaße $R^2$ ist wirklic
 
 ### ... mit dem R Paket `{betareg}`
 
-Jetzt haben wir uns durch andere Modellierungen durchgearbeitet und wollen uns jetzt einmal die Beta Regression anschauen. Die Beta Regression ist in dem R Paket `{betareg}` implementiert und kann über die Funktion `betareg()` angewendet werden. Wir haben hier noch den Sonderfall, dass wir das Modell mit einem `|` schreiben können.
+Jetzt haben wir uns durch andere Modellierungen durchgearbeitet und wollen uns jetzt einmal die Beta Regression anschauen. Die Beta Regression ist in dem R Paket `{betareg}` implementiert und kann über die Funktion `betareg()` angewendet werden. Wir haben hier noch den Sonderfall, dass wir das Modell mit einem `|` schreiben können. Wir können nämlich bei der Beta Regression auch die Varianz global schätzen oder aber für eine Variable adjustieren. Wir wählen hier einmal beide Schreibweisen in den folgenden Tabs und schauen was dann herauskommt. Sonst müssen wir bei der Beta Regression erstmal nichts beachten - wie immer schauen wir dann nochmal, ob unser Modell auch gut funktioniert hat.
 
 ::: panel-tabset
 ## Mit `~ snow_height`
+
+Das simpleste Modell wäre hier, dass wir einfach den Jagderfolg in \[%\] durch die Schneehöhe modellieren. Wir nehmen dann mehr oder minder Varianzhomogenität an und erlauben keinen gesonderten Varianzterm. Das kann gut funktionieren, aber meistens variiert die Varianz der $y$-Werte über die $x$-Werte. Wir haben meist eine größere Varianz bei größeren $x$-Werten.
 
 ```{r}
 hunting_beta_fit <- betareg(proportion ~ snow_height, data = hunting_tbl)
 hunting_beta_fit
 ```
+
+Wir sehen, dass wir unseren Koeffizienten erhalten, der fast unserer logistischen Regression entspricht. Jedenfalls numerisch. Aber auch hier dürfen wir uns nicht blenden lassen, wir rechnen auch in einer Beta Regression auf dem Logit-Link. Deshalb müssen wir die Steigung der Schneehöhe dann erst wieder zurückrechnen. Auch hier hilft die Funktion `avg_slopes()` aus dem R Paket `{marginaleffects}`.
 
 ```{r}
 #| message: false
@@ -323,22 +327,45 @@ hunting_beta_fit
 avg_slopes(hunting_beta_fit)
 ```
 
+Wir sehen, dass mit jedem Zentimeter mehr Schnee der Jagderfolg um $-0.0149$ oder $-1.49\%$ zurückgeht. Das sind ähnliche Zahlen wie auch schon bei der logistischen Regression sowie der Gaussian Regression.
+
 ## Mit `~ snow_height | snow_height`
+
+Wenn wir erlauben, dass sich die Varianz der $y$-Werte über den Verlauf der $x$-Werte ändern darf, dann schreiben wir nochmal die Variable, die die Varianz verursacht hinter das Symbol `|`. Wir haben hier nur die Schneehöhe vorliegen, so dass unser Modell sich dann von alleine ergibt. Meistens macht es mehr Sinn die Varianz auch über eine Variable mit zu modellieren. Schauen wir mal, ob wir mit der separaten Modellierung der Varianz der Schneehöhe mehr erreichen.
 
 ```{r}
 hunting_beta_phi_fit <- betareg(proportion ~ snow_height | snow_height, data = hunting_tbl)
 hunting_beta_phi_fit
 ```
 
+Aber auch hier dürfen wir uns nicht blenden lassen, wir rechnen auch in einer Beta Regression auf dem Logit-Link. Deshalb müssen wir die Steigung der Schneehöhe dann erst wieder zurückrechnen. Auch hier hilft die Funktion `avg_slopes()` aus dem R Paket `{marginaleffects}`.
+
 ```{r}
 #| message: false
 #| warning: false
 avg_slopes(hunting_beta_phi_fit)
 ```
+
+Spannenderweise ist hier der Effekt der Schneehöhe noch einen Tick geringer mit $-0.0132$ pro Zentimeter mehr Schnee. Dann müssen wir uns gleich einmal anschauen welches Modell den niedrigeren AIC-Wert hat.
 :::
 
+Dann berechnen wir einmal die AIC-Werte für die beiden Modelle. Ein niedriger AIC-Wert ist besser. Je kleiner oder negativer ein AIC-Wert eines Modells ist, desto besser ist das Modell im Vergleich zu einem anderen Modell. Das AIC ist ein Maß dafür, wie gut die Daten durch das Modell erklärt werden, korrigiert um die Komplexität des Modells. Wir berechnen mit der Funktion `AIC()` einmal die AIC-Werte der beiden Beta Regressionsmodellen.
+
 ```{r}
-hunting_beta_fit %>% r2()
+AIC(hunting_beta_fit)
+AIC(hunting_beta_phi_fit)
+```
+
+Die absoluten Zahlen vom AIC sind nicht von Bedeutung. Erstmal sehen wir, dass unser Modell mit der Berücksichtigung der Varianz durch die Schneehöhe `hunting_beta_phi_fit` besser ist als das reine Modell ohne Berücksichtigung. Wir wollen aber immer die Differenzen von AIC betrachten. Du findest in der wissenschaftlichen Veröffentlichung [Multimodel Inference: Understanding AIC and BIC in Model Selection](https://faculty.washington.edu/skalski/classes/QERM597/papers_xtra/Burnham%20and%20Anderson.pdf) mehr Informationen zu den Entscheidungen [@burnham2004multimodel, pp. 270-271]. Wichtig ist hier, wenn die Differenz größer ist als 2, dann haben wir einen signifikanten Unterschied zwischen den Modellen und wir sollten das Modell mit dem niedrigeren AIC nehmen.
+
+```{r}
+AIC(hunting_beta_fit) - AIC(hunting_beta_phi_fit)
+```
+
+Wir nehmen dann mal auf jeden Fall das Modell mit der Berücksichtigung der Varianz durch die Schneehöhe.
+
+```{r}
+hunting_beta_phi_fit %>% r2()
 ```
 
 ```{r}
@@ -356,11 +383,11 @@ hunting_beta_fit %>% r2()
 #|   - "test"
 #| layout-nrow: 2
 
-plot(hunting_beta_fit)
+plot(hunting_beta_phi_fit)
 ```
 
 ```{r}
-hunting_beta_fit %>% Anova()
+hunting_beta_phi_fit %>% Anova()
 ```
 
 ```{r}
@@ -368,8 +395,8 @@ hunting_beta_fit %>% Anova()
 #| message: false
 #| label: fig-beta-fox-predict
 #| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
+#| fig-height: 6
+#| fig-width: 7
 #| fig-cap: "Ausgabe ausgewählter Modelgüteplots der Funktion `check_model()`."
 
 hunting_tbl %>% 
@@ -379,7 +406,7 @@ hunting_tbl %>%
   geom_line(aes(y = predict(hunting_log_fit, type = "response"), color = "log")) +
   geom_line(aes(y = predict(hunting_lm_fit, type = "response"), color = "lm")) +
   geom_line(aes(y = predict(hunting_beta_fit, type = "response"), color = "betareg")) +
-  geom_line(aes(y = predict(hunting_beta_fit, type = "response"), color = "betareg_phi"), linetype = "dashed") +
+  geom_line(aes(y = predict(hunting_beta_phi_fit, type = "response"), color = "betareg_phi")) +
   scale_color_manual(name = "Modell", values = cb_pal[2:5])
 ```
 
