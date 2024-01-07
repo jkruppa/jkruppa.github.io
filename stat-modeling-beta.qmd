@@ -100,8 +100,9 @@ broc_tbl <- read_excel("data/broccoli_weight.xlsx") %>%
          fert_amount = as_factor(fert_amount),
          block = as_factor(block)) %>%
   select(fert_time, fert_amount, block, weight) %>% 
-  filter(weight <= 500) %>% 
-  mutate(proportion = round(weight/500, 2))
+  filter(weight < 500) %>% 
+  mutate(proportion = weight/500) %>% 
+  select(-weight)
 ```
 
 In der @tbl-beta-broc siehst du einmal den Auszug aus den Brokkolidaten. Wir wollen jetzt sehen, ob wir in den Behandlungsfaktoren einen Unterschied bezüglich der Anteile der untergewichtigen Brokkoliköpfe finden. Tendenziell wollen wir eine Kombination finden, die uns natürlich möglichst schwere Köpfe beschert.
@@ -133,9 +134,8 @@ fungi_tbl <- salmon.bunt %>%
   as_tibble() %>% 
   select(gen, bunt, rep, percent = pct) %>% 
   mutate(gen = fct_reorder(gen, percent),
-         bunt = fct_reorder(bunt, percent)) %>% 
-  group_by(gen, bunt) %>% 
-  summarise(percent = mean(percent)) 
+         bunt = fct_reorder(bunt, percent),
+         percent = percent/100 + 0.001) 
 ```
 
 In der @tbl-beta-fungi siehst du dann einmal den Auszug aus unseren Weizendaten mit einer Pilzinfektion. Wir haben 10 genetische Linien sowie 20 Pilzarten vorliegen. Daher ist der Datensatz ziemlich groß, was die Möglichkeiten der Faktorkombinationen angeht.
@@ -148,7 +148,6 @@ In der @tbl-beta-fungi siehst du dann einmal den Auszug aus unseren Weizendaten 
 #| tbl-cap: "Auszug aus dem Daten zu den zehn Weizenlinien und den zwanzig Pilzarten. Es wurde der Anteil an infizierten Weizen [%] gemessen."
 
 fungi_raw_tbl <- fungi_tbl %>% 
-  ungroup() %>% 
   mutate_all(as.character) 
   
 rbind(head(fungi_raw_tbl, 4),
@@ -216,12 +215,14 @@ Abschließend schauen wir uns in der @fig-beta-fungi die Heatmap der genetischen
 
 
 fungi_tbl %>% 
+  group_by(bunt, gen) %>% 
+  summarise(percent = mean(percent)) %>% 
   ggplot(aes(x = gen, y = bunt, fill = percent)) +
   theme_minimal() +
   geom_tile() +
   scale_fill_gradientn(colors = c("#375997", "gray", "firebrick"),
-                       breaks = seq(0, 100, 10), 
-                       limits = c(0, 100)) + 
+                       breaks = seq(0, 1, 0.1), 
+                       limits = c(0, 1)) + 
   labs(y = "Art des Pilzes", x = "Genetische Linie des Weizens",
        fill = "[%] infiziert")
 
@@ -511,10 +512,130 @@ hunting_tbl %>%
 
 ## Gruppenvergleich {#sec-mult-comp-beta-reg}
 
-Text
+### Untergewichtige Brokkoli
 
 ```{r}
-hunting_beta_phi_fit %>% Anova()
+broc_fit <- betareg(proportion ~ fert_time + fert_amount + fert_time:fert_amount + block, data = broc_tbl)
+```
+
+```{r}
+broc_fit %>% 
+  Anova() %>% 
+  model_parameters()
+```
+
+```{r}
+#| warning: false
+#| message: false
+emm_obj <- broc_fit %>% 
+  emmeans(~ fert_time * fert_amount) 
+emm_obj
+```
+
+```{r}
+#| eval: false
+emm_obj %>% 
+  pairs(adjust = "bonferroni")
+```
+
+```{r}
+emm_obj %>% 
+  cld(Letters = letters)
+```
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-bar-beta-broc
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "Säulendigramm der mittleren Brokkoligewichte aus einer Gaussian Regression. Das `lm()`-Modell berechnet das mittler Gewicht des Brokkoli in jeder Faktorkombination. Das *compact letter display* wird dann in `{emmeans}` generiert. Wir nutzen hier den Standardfehler, da die Standardabweichung mit der großen Fallzahl rießig wäre. Wir haben noch ein Mindestgewicht von 500g ergänzt."
+
+emm_obj %>% 
+  cld(Letters = letters) %>% 
+  as_tibble() %>% 
+  ggplot(aes(x = fert_amount, y = emmean, fill = fert_time)) +
+  theme_minimal() + 
+  labs(y = "[%] erreichtes Zielgewicht", x = "Düngemenge [mg/l]",
+       color = "Düngezeitpunkt") +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.1), limits = c(0, 1)) +
+  geom_bar(stat = "identity", width = 0.7,
+           position = position_dodge(width = 0.9, preserve = "single")) +
+  geom_text(aes(label = .group, y = emmean + SE + 0.01),  
+            position = position_dodge(width = 0.9), vjust = -0.25) +
+  geom_errorbar(aes(ymin = emmean-SE, ymax = emmean+SE),
+                width = 0.2,  
+                position = position_dodge(width = 0.9, preserve = "single")) +
+  theme(legend.position = "top") +
+  scale_fill_okabeito()
+```
+
+### Pilze auf Weizen
+
+```{r}
+fungi_tbl <- fungi_tbl %>% 
+  filter(bunt %in% c("B1", "B12", "B157", "B51", "B189", "B4")) %>% 
+  filter(gen %in% c("Oro", "Albit", "Turkey", "Hybrid128")) 
+```
+
+```{r}
+fungi_fit <- betareg(percent ~ gen + bunt + gen:bunt, data = fungi_tbl)
+```
+
+```{r}
+fungi_fit %>% 
+  Anova() %>% 
+  model_parameters()
+```
+
+```{r}
+#| warning: false
+#| message: false
+emm_obj <- fungi_fit %>% 
+  emmeans(~ gen * bunt) 
+emm_obj 
+```
+
+```{r}
+#| eval: false
+emm_obj %>% 
+  pairs(adjust = "bonferroni")
+```
+
+```{r}
+emm_obj %>% 
+  cld(Letters = letters) 
+```
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-bar-beta-fungi
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "Säulendigramm der mittleren Brokkoligewichte aus einer Gaussian Regression. Das `lm()`-Modell berechnet das mittler Gewicht des Brokkoli in jeder Faktorkombination. Das *compact letter display* wird dann in `{emmeans}` generiert. Wir nutzen hier den Standardfehler, da die Standardabweichung mit der großen Fallzahl rießig wäre. Wir haben noch ein Mindestgewicht von 500g ergänzt."
+
+emm_obj %>% 
+  cld(Letters = letters) %>% 
+  as_tibble() %>% 
+  ggplot(aes(x = bunt, y = emmean, fill = gen)) +
+  theme_minimal() + 
+  labs(y = "[%] erreichtes Zielgewicht", x = "Düngemenge [mg/l]",
+       color = "Düngezeitpunkt") +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.1), limits = c(0, 1)) +
+  geom_bar(stat = "identity", width = 0.7,
+           position = position_dodge(width = 0.9, preserve = "single")) +
+  geom_text(aes(label = .group, y = emmean + SE + 0.01),  
+            position = position_dodge(width = 0.9), vjust = -0.25) +
+  geom_errorbar(aes(ymin = emmean-SE, ymax = emmean+SE),
+                width = 0.2,  
+                position = position_dodge(width = 0.9, preserve = "single")) +
+  theme(legend.position = "top") +
+  scale_fill_okabeito()
 ```
 
 ## Referenzen {.unnumbered}
