@@ -11,6 +11,8 @@ cb_pal <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 
 > *"And you may ask yourself; Well... How did I get here?; And you may ask yourself; 'How do I work this?'" --- Talking Heads - Once in a Lifetime*
 
+![](images/caution.png){fig-align="center" width="50%"}
+
 Was wollen wir mit der nicht-linearen Regression erreichen? Zum einen erhalten wir durch die nicht-lineare Regression die Möglichkeit auch Abhängigkeiten zu modellieren, die nicht linear sind. Zum anderen wollen wir auch nicht nur Gruppen miteinander vergleichen, sondern auch Verläufe modellieren. Häufig sind diese Verläufe über die Zeit nicht linear. Es gibt Sättigungskurven oder aber auch einen exponentiellen Verfall oder ein exponentielles Wachstum. All dies können wir mit nicht-linearen Modellen abbilden und modellieren. Für Zeitreihen habe ich dann noch ein eigenes Kapitel geschrieben, hier wollen wir uns dann mal mit den Verläufen beschäftigen und schauen, dass wir die Koeffizienten einer Geradengleichung erhalten.
 
 Wichtig hierbei ist, dass wir oft nicht statistisch Testen, sondern ein Modell haben wollen, dass die Punkte gut beschreibt. Mit Modell meinen wir hier die Gerade, die durch die Punkte läuft. Für diese Grade wollen wir die Koeffizienten schätzen also rausfinden, wie wir später die Gerade zeichnen könnten, wenn wir die Punkte nicht vorliegen hätten. Also die Frage beantworten, wie $y$ nicht-linear von $x$ abhängt. Wir immer gibt es eine Reihe von Möglichkeiten das Problem zu lösen einer Geradengleichung zu erhalten, die nicht linear ist. Normalerweise haben wir ja eine Regressionsgleichung für eine simple lineare Regression in der folgenden Form vorliegen.
@@ -158,193 +160,6 @@ ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
   geom_point() +
   theme_minimal()
 ```
-
-[How to solve common problems with GAMs](https://www.r-bloggers.com/2021/03/how-to-solve-common-problems-with-gams/)
-
-```{r}
-duckweeds_gam_fit <- gam(sensor ~ s(duckweeds_density, k = 3), data = duckweeds_tbl)
-```
-
-```{r}
-ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
-  geom_point() +
-  geom_line(aes(y = predict(duckweeds_gam_fit)), size = 1, color = "#CC79A7") +
-  theme_minimal()
-```
-
-::: panel-tabset
-## Mit `{ggeffects}`
-
-```{r}
-gg_pred_obj <- ggpredict(duckweeds_gam_fit, terms = "duckweeds_density") 
-gg_pred_obj
-```
-
-## Mit `{marginaleffects}`
-
-[GAM -- Estimate a Generalized Additive Model](https://marginaleffects.com/vignettes/gam.html)
-
-```{r}
-marg_pred_tbl <- predictions(duckweeds_gam_fit, newdata = duckweeds_tbl) %>% 
-  as_tibble() %>% 
-  select(duckweeds_density, sensor, estimate, conf.low, conf.high)
-marg_pred_tbl 
-```
-
-## Mit `{gratia}`
-
-[R Paket `{gratia}`](https://gavinsimpson.github.io/gratia/reference/confint.gam.html)
-
-```{r}
-gratia_pred_tbl <- confint(duckweeds_gam_fit, parm = "s(duckweeds_density)", 
-                           shift = TRUE, type = "confidence", data = duckweeds_tbl)
-gratia_pred_tbl %>% 
-  select(duckweeds_density, est, lower, upper)
-```
-:::
-
-```{r}
-#| echo: true
-#| warning: false
-#| message: false
-#| label: fig-gam-duckweed-02
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "foo"
-#| fig-subcap: 
-#|   - "... mit `geom_function()`"
-#|   - "... mit `geom_line()` und `predict()`"
-#| layout-ncol: 2
-
-
-ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
-  geom_line(aes(y = predict(duckweeds_gam_fit)), size = 1, color = "#CC79A7") +
-  geom_point() +
-  theme_minimal()
-
-ggplot(marg_pred_tbl, aes(duckweeds_density, sensor)) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), fill = "grey90") +
-  geom_point() +
-  geom_line(aes(y = estimate), color = cb_pal[2]) +
-  theme_minimal()
-
-```
-
-```{r}
-duckweeds_nls_fit <- nls(sensor ~ a + I(duckweeds_density^b), data = duckweeds_tbl, 
-                         start = c(a = 2, b = 4))
-duckweeds_nls_fit
-```
-
-$$
-sensor = -1.1468 + duckweeds\_density^{0.2975}
-$$
-
-```{r}
-duckweed_func <- \(x){-1.1468 + x^{0.2975}} 
-```
-
-```{r}
-#| echo: true
-#| warning: false
-#| message: false
-#| label: fig-nls-duckweed-01
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "foo"
-#| fig-subcap: 
-#|   - "... mit `geom_function()`"
-#|   - "... mit `geom_line()` und `predict()`"
-#| layout-nrow: 1
-
-ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
-  geom_function(fun = duckweed_func, color = "#CC79A7") +
-  geom_point() +
-  theme_minimal()
-
-ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
-  geom_line(aes(y = predict(duckweeds_nls_fit)), size = 1, color = "#0072B2") +
-  geom_point() +
-  theme_minimal()
-```
-
-[Prediction interval vs. confidence interval in linear regression analysis](https://stats.stackexchange.com/questions/225652/prediction-interval-vs-confidence-interval-in-linear-regression-analysis)
-
-Die Ermittlung von Vorhersageintervallen (eng. *prediction interval*) also für zukünftige Beobachtungen ist etwas anderes als die Ermittlung von Konfidenzintervallen (eng. *confidence interval*) also für unbekannte Populationsparameter.
-
-[Prediction intervals for Generalized Additive Models (GAMs)](https://mikl.dk/post/2019-prediction-intervals-for-gam/)
-
-::: panel-tabset
-## Prediction interval
-
-```{r}
-nls_boot_obj <- nlsBoot(duckweeds_nls_fit, niter = 500)
-```
-
-```{r}
-pred_plim_tbl <- nlsBootPredict(nls_boot_obj, newdata = duckweeds_tbl, interval = "prediction") %>% 
-  as_tibble %>% 
-  clean_names() %>% 
-  mutate(duckweeds_density = duckweeds_tbl$duckweeds_density)
-pred_plim_tbl
-```
-
-Aus der mittleren Abweichung des Medians zu der unteren 2.5% Grenze sowie zu der oberen 97.5% Grenze lässt sich leicht noch eine Konstante $c$ errechnen, die wir dann zu unserer mathematischen Formel ergänzen können. Dann hätten wir auch die mathematische Formel für die obere und untere Kurve des Prädiktionsintervalls. Im Prinzip ist das Prädiktionsintervall ja nur eine verschobene Kurve der ursprünglichen Geradengleichung.
-
-```{r}
-#| echo: true
-#| warning: false
-#| message: false
-#| label: fig-nls-duckweed-02
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "foo"
-
-ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
-  geom_function(fun = duckweed_func, color = "#CC79A7") +
-  geom_ribbon(data = pred_plim_tbl, fill = "#CC79A7", alpha = 0.3,
-              aes(x = duckweeds_density, ymin = x2_5_percent, ymax = x97_5_percent), inherit.aes = FALSE) +
-  geom_point() +
-  theme_minimal()
-```
-
-## Confidence interval
-
-```{r}
-nls_boot_obj <- nlsBoot(duckweeds_nls_fit, niter = 500)
-```
-
-```{r}
-pred_clim_tbl <- nlsBootPredict(nls_boot_obj, newdata = duckweeds_tbl, interval = "confidence") %>% 
-  as_tibble %>% 
-  clean_names() %>% 
-  mutate(duckweeds_density = duckweeds_tbl$duckweeds_density)
-pred_clim_tbl
-```
-
-Aus der mittleren Abweichung des Medians zu der unteren 2.5% Grenze sowie zu der oberen 97.5% Grenze lässt sich leicht noch eine Konstante $c$ errechnen, die wir dann zu unserer mathematischen Formel ergänzen können. Dann hätten wir auch die mathematische Formel für die obere und untere Kurve des Konfidenzintervalls. Im Prinzip ist das Konfidenzintervall ja nur eine verschobene Kurve der ursprünglichen Geradengleichung.
-
-```{r}
-#| echo: true
-#| warning: false
-#| message: false
-#| label: fig-nls-duckweed-03
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "foo"
-
-ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
-  geom_line(aes(y = predict(duckweeds_nls_fit)), size = 1, color = "#0072B2") +
-  geom_ribbon(data = pred_clim_tbl, fill = "#0072B2", alpha = 0.3,
-              aes(x = duckweeds_density, ymin = x2_5_percent, ymax = x97_5_percent), inherit.aes = FALSE) +
-  geom_point() +
-  theme_minimal()
-```
-:::
 
 ## Nonlinear least-squares mit `{nls}`
 
@@ -511,6 +326,150 @@ weight_{(25-36]} \sim 330.0 + age^{2.14}
 $$
 
 Je nachdem wie zufrieden wir jetzt mit den Ergebnissen der Modellierung sind, könnten wir auch andere Altersgruppen noch mit einfügen. Wir belassen es bei dieser Modellierung und schauen uns nochmal die andere Richtung an.
+
+### ... von Sättigung
+
+```{r}
+duckweeds_nls_fit <- nls(sensor ~ a + I(duckweeds_density^b), data = duckweeds_tbl, 
+                         start = c(a = 0, b = 0))
+duckweeds_nls_fit
+```
+
+$$
+sensor = -1.1468 + duckweeds\_density^{0.2975}
+$$
+
+::: panel-tabset
+## Mit `geom_function()`
+
+```{r}
+duckweed_func <- \(x){-1.1468 + x^{0.2975}} 
+```
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-nls-duckweed-01a
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "foo"
+#| fig-subcap: 
+#|   - "... mit `geom_function()`"
+#|   - "... mit `geom_line()` und `predict()`"
+#| layout-nrow: 1
+
+ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
+  geom_function(fun = duckweed_func, color = "#CC79A7") +
+  geom_point() +
+  theme_minimal()
+```
+
+## Mit `geom_line()` und `predict()`
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-nls-duckweed-01b
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "foo"
+
+ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
+  geom_line(aes(y = predict(duckweeds_nls_fit)), size = 1, color = "#0072B2") +
+  geom_point() +
+  theme_minimal()
+```
+:::
+
+[Prediction interval vs. confidence interval in linear regression analysis](https://stats.stackexchange.com/questions/225652/prediction-interval-vs-confidence-interval-in-linear-regression-analysis)
+
+Die Ermittlung von Vorhersageintervallen (eng. *prediction interval*) also für zukünftige Beobachtungen ist etwas anderes als die Ermittlung von Konfidenzintervallen (eng. *confidence interval*) also für unbekannte Populationsparameter.
+
+[Prediction intervals for Generalized Additive Models (GAMs)](https://mikl.dk/post/2019-prediction-intervals-for-gam/)
+
+::: panel-tabset
+## Prediction interval
+
+```{r}
+nls_boot_obj <- nlsBoot(duckweeds_nls_fit, niter = 500)
+```
+
+```{r}
+pred_plim_tbl <- nlsBootPredict(nls_boot_obj, newdata = duckweeds_tbl, interval = "prediction") %>% 
+  as_tibble %>% 
+  clean_names() %>% 
+  mutate(duckweeds_density = duckweeds_tbl$duckweeds_density)
+pred_plim_tbl
+```
+
+```{r}
+with(pred_plim_tbl, x2_5_percent - median) %>% mean()
+with(pred_plim_tbl, x97_5_percent - median) %>% mean()
+```
+
+Aus der mittleren Abweichung des Medians zu der unteren 2.5% Grenze sowie zu der oberen 97.5% Grenze lässt sich leicht noch eine Konstante $c$ errechnen, die wir dann zu unserer mathematischen Formel ergänzen können. Dann hätten wir auch die mathematische Formel für die obere und untere Kurve des Prädiktionsintervalls. Im Prinzip ist das Prädiktionsintervall ja nur eine verschobene Kurve der ursprünglichen Geradengleichung.
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-nls-duckweed-02
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "foo"
+
+ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
+  geom_function(fun = duckweed_func, color = "#CC79A7") +
+  geom_ribbon(data = pred_plim_tbl, fill = "#CC79A7", alpha = 0.3,
+              aes(x = duckweeds_density, ymin = x2_5_percent, ymax = x97_5_percent), inherit.aes = FALSE) +
+  geom_point() +
+  theme_minimal()
+```
+
+## Confidence interval
+
+```{r}
+nls_boot_obj <- nlsBoot(duckweeds_nls_fit, niter = 500)
+```
+
+```{r}
+pred_clim_tbl <- nlsBootPredict(nls_boot_obj, newdata = duckweeds_tbl, interval = "confidence") %>% 
+  as_tibble %>% 
+  clean_names() %>% 
+  mutate(duckweeds_density = duckweeds_tbl$duckweeds_density)
+pred_clim_tbl
+```
+
+```{r}
+with(pred_clim_tbl, x2_5_percent - median) %>% mean()
+with(pred_clim_tbl, x97_5_percent - median) %>% mean()
+```
+
+Aus der mittleren Abweichung des Medians zu der unteren 2.5% Grenze sowie zu der oberen 97.5% Grenze lässt sich leicht noch eine Konstante $c$ errechnen, die wir dann zu unserer mathematischen Formel ergänzen können. Dann hätten wir auch die mathematische Formel für die obere und untere Kurve des Konfidenzintervalls. Im Prinzip ist das Konfidenzintervall ja nur eine verschobene Kurve der ursprünglichen Geradengleichung.
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-nls-duckweed-03
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "foo"
+
+ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
+  geom_line(aes(y = predict(duckweeds_nls_fit)), size = 1, color = "#0072B2") +
+  geom_ribbon(data = pred_clim_tbl, fill = "#0072B2", alpha = 0.3,
+              aes(x = duckweeds_density, ymin = x2_5_percent, ymax = x97_5_percent), inherit.aes = FALSE) +
+  geom_point() +
+  theme_minimal()
+```
+:::
 
 ### ... von Zerfall
 
@@ -839,6 +798,78 @@ predict(gam_fit, newdata = test_tbl)
 ```
 
 Damit sind wir schon durch mit GAM. In `{ggplot}` musst du aber gar nicht den langen Weg gehen, wenn du nur mit GAM eine Kurve in deine Punkte zeichnen willst. Das geht sehr einfach mit der Funktion `stat_smooth()`. Du hast dann auch dort die Möglichkeit neben GAM auch andere Arten der Anpassung einer Funktion an deine Daten zu wählen.
+
+[How to solve common problems with GAMs](https://www.r-bloggers.com/2021/03/how-to-solve-common-problems-with-gams/)
+
+```{r}
+duckweeds_gam_fit <- gam(sensor ~ s(duckweeds_density, k = 3), data = duckweeds_tbl)
+```
+
+```{r}
+ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
+  geom_point() +
+  geom_line(aes(y = predict(duckweeds_gam_fit)), size = 1, color = "#CC79A7") +
+  theme_minimal()
+```
+
+::: panel-tabset
+## Mit `{ggeffects}`
+
+```{r}
+gg_pred_obj <- ggpredict(duckweeds_gam_fit, terms = "duckweeds_density") 
+gg_pred_obj
+```
+
+## Mit `{marginaleffects}`
+
+[GAM -- Estimate a Generalized Additive Model](https://marginaleffects.com/vignettes/gam.html)
+
+```{r}
+marg_pred_tbl <- predictions(duckweeds_gam_fit, newdata = duckweeds_tbl) %>% 
+  as_tibble() %>% 
+  select(duckweeds_density, sensor, estimate, conf.low, conf.high)
+marg_pred_tbl 
+```
+
+## Mit `{gratia}`
+
+[R Paket `{gratia}`](https://gavinsimpson.github.io/gratia/reference/confint.gam.html)
+
+```{r}
+gratia_pred_tbl <- confint(duckweeds_gam_fit, parm = "s(duckweeds_density)", 
+                           shift = TRUE, type = "confidence", data = duckweeds_tbl)
+gratia_pred_tbl %>% 
+  select(duckweeds_density, est, lower, upper)
+```
+:::
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-gam-duckweed-02
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "foo"
+#| fig-subcap: 
+#|   - "... mit `geom_function()`"
+#|   - "... mit `geom_line()` und `predict()`"
+#| layout-ncol: 2
+
+
+ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
+  geom_line(aes(y = predict(duckweeds_gam_fit)), size = 1, color = "#CC79A7") +
+  geom_point() +
+  theme_minimal()
+
+ggplot(marg_pred_tbl, aes(duckweeds_density, sensor)) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), fill = "grey90") +
+  geom_point() +
+  geom_line(aes(y = estimate), color = cb_pal[2]) +
+  theme_minimal()
+
+```
 
 ::: callout-note
 ## Gam und Loess in `{ggplot}`
