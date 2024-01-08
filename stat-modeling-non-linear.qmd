@@ -3,8 +3,8 @@
 ```{r}
 #| echo: false
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, see, latex2exp)
-cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
-                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+cb_pal <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+            "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
 *Letzte Änderung am `r format(fs::file_info("stat-modeling-non-linear.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*
@@ -60,10 +60,12 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| echo: true
 
 pacman::p_load(tidyverse, magrittr, broom, nlraa, modelsummary,
-               parameters, performance, see, mgcv, mfp, 
-               conflicted)
+               parameters, performance, see, mgcv, mfp, marginaleffects,
+               gratia, readxl, nlstools, janitor, ggeffects, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
+cb_pal <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+            "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -85,7 +87,7 @@ In @tbl-chicken sehen wir nochmal die Daten für die ersten drei und die letzten
 #| message: false
 #| warning: false
 #| label: tbl-chicken
-#| tbl-cap: Auszug aus Hühnchendatensatz.
+#| tbl-cap: "Auszug aus Hühnchendatensatz."
 
 rbind(head(chicken_tbl, n = 3),
       rep("...", times = ncol(chicken_tbl)),
@@ -94,6 +96,23 @@ rbind(head(chicken_tbl, n = 3),
 ```
 
 Schauen wir uns die Daten einmal mit `ggplot()` an um besser zu verstehen wie die Zusammenhänge in dem Datensatz sind.
+
+```{r}
+duckweeds_tbl <- read_excel("data/duckweeds_density.xlsx")
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-duckweeds
+#| tbl-cap: "Auszug aus Hühnchendatensatz."
+
+rbind(head(duckweeds_tbl, n = 3),
+      rep("...", times = ncol(duckweeds_tbl)),
+      tail(duckweeds_tbl, n = 3)) %>% 
+  kable(align = "c", "pipe")
+```
 
 ## Visualisierung
 
@@ -115,15 +134,217 @@ In @fig-nls-00-1 sehen wir die Visualisierung der Hühnchengewichte nach Alter i
 #| column: page
 
 ggplot(chicken_tbl, aes(age, weight)) +
-  theme_bw() +
+  theme_minimal() +
   geom_point()
 
 ggplot(chicken_tbl, aes(age, log(weight))) +
-  theme_bw() +
+  theme_minimal() +
   geom_point()
 ```
 
 Deshalb wollen wir den Zusammenhang zwischen dem Körpergewicht der Hühnchen und dem Lebensalter einmal mit einer nicht-linearen Regression modellieren. Wir sind also nicht so sehr an $p$-Werten interessiert, wir sehen ja, dass die gerade ansteigt, sondern wollen wissen wie die Koeffizienten einer möglichen exponentiellen Gleichung aussehen.
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-gam-duckweeds-01
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "foo"
+
+ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
+  geom_point() +
+  theme_minimal()
+```
+
+[How to solve common problems with GAMs](https://www.r-bloggers.com/2021/03/how-to-solve-common-problems-with-gams/)
+
+```{r}
+duckweeds_gam_fit <- gam(sensor ~ s(duckweeds_density, k = 3), data = duckweeds_tbl)
+```
+
+```{r}
+ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
+  geom_point() +
+  geom_line(aes(y = predict(duckweeds_gam_fit)), size = 1, color = "#CC79A7") +
+  theme_minimal()
+```
+
+::: panel-tabset
+## Mit `{ggeffects}`
+
+```{r}
+gg_pred_obj <- ggpredict(duckweeds_gam_fit, terms = "duckweeds_density") 
+gg_pred_obj
+```
+
+## Mit `{marginaleffects}`
+
+[GAM -- Estimate a Generalized Additive Model](https://marginaleffects.com/vignettes/gam.html)
+
+```{r}
+marg_pred_tbl <- predictions(duckweeds_gam_fit, newdata = duckweeds_tbl) %>% 
+  as_tibble() %>% 
+  select(duckweeds_density, sensor, estimate, conf.low, conf.high)
+marg_pred_tbl 
+```
+
+## Mit `{gratia}`
+
+[R Paket `{gratia}`](https://gavinsimpson.github.io/gratia/reference/confint.gam.html)
+
+```{r}
+gratia_pred_tbl <- confint(duckweeds_gam_fit, parm = "s(duckweeds_density)", 
+                           shift = TRUE, type = "confidence", data = duckweeds_tbl)
+gratia_pred_tbl %>% 
+  select(duckweeds_density, est, lower, upper)
+```
+:::
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-gam-duckweed-02
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "foo"
+#| fig-subcap: 
+#|   - "... mit `geom_function()`"
+#|   - "... mit `geom_line()` und `predict()`"
+#| layout-ncol: 2
+
+
+ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
+  geom_line(aes(y = predict(duckweeds_gam_fit)), size = 1, color = "#CC79A7") +
+  geom_point() +
+  theme_minimal()
+
+ggplot(marg_pred_tbl, aes(duckweeds_density, sensor)) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), fill = "grey90") +
+  geom_point() +
+  geom_line(aes(y = estimate), color = cb_pal[2]) +
+  theme_minimal()
+
+```
+
+```{r}
+duckweeds_nls_fit <- nls(sensor ~ a + I(duckweeds_density^b), data = duckweeds_tbl, 
+                         start = c(a = 2, b = 4))
+duckweeds_nls_fit
+```
+
+$$
+sensor = -1.1468 + duckweeds\_density^{0.2975}
+$$
+
+```{r}
+duckweed_func <- \(x){-1.1468 + x^{0.2975}} 
+```
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-nls-duckweed-01
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "foo"
+#| fig-subcap: 
+#|   - "... mit `geom_function()`"
+#|   - "... mit `geom_line()` und `predict()`"
+#| layout-nrow: 1
+
+ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
+  geom_function(fun = duckweed_func, color = "#CC79A7") +
+  geom_point() +
+  theme_minimal()
+
+ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
+  geom_line(aes(y = predict(duckweeds_nls_fit)), size = 1, color = "#0072B2") +
+  geom_point() +
+  theme_minimal()
+```
+
+[Prediction interval vs. confidence interval in linear regression analysis](https://stats.stackexchange.com/questions/225652/prediction-interval-vs-confidence-interval-in-linear-regression-analysis)
+
+Die Ermittlung von Vorhersageintervallen (eng. *prediction interval*) also für zukünftige Beobachtungen ist etwas anderes als die Ermittlung von Konfidenzintervallen (eng. *confidence interval*) also für unbekannte Populationsparameter.
+
+[Prediction intervals for Generalized Additive Models (GAMs)](https://mikl.dk/post/2019-prediction-intervals-for-gam/)
+
+::: panel-tabset
+## Prediction interval
+
+```{r}
+nls_boot_obj <- nlsBoot(duckweeds_nls_fit, niter = 500)
+```
+
+```{r}
+pred_plim_tbl <- nlsBootPredict(nls_boot_obj, newdata = duckweeds_tbl, interval = "prediction") %>% 
+  as_tibble %>% 
+  clean_names() %>% 
+  mutate(duckweeds_density = duckweeds_tbl$duckweeds_density)
+pred_plim_tbl
+```
+
+Aus der mittleren Abweichung des Medians zu der unteren 2.5% Grenze sowie zu der oberen 97.5% Grenze lässt sich leicht noch eine Konstante $c$ errechnen, die wir dann zu unserer mathematischen Formel ergänzen können. Dann hätten wir auch die mathematische Formel für die obere und untere Kurve des Prädiktionsintervalls. Im Prinzip ist das Prädiktionsintervall ja nur eine verschobene Kurve der ursprünglichen Geradengleichung.
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-nls-duckweed-02
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "foo"
+
+ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
+  geom_function(fun = duckweed_func, color = "#CC79A7") +
+  geom_ribbon(data = pred_plim_tbl, fill = "#CC79A7", alpha = 0.3,
+              aes(x = duckweeds_density, ymin = x2_5_percent, ymax = x97_5_percent), inherit.aes = FALSE) +
+  geom_point() +
+  theme_minimal()
+```
+
+## Confidence interval
+
+```{r}
+nls_boot_obj <- nlsBoot(duckweeds_nls_fit, niter = 500)
+```
+
+```{r}
+pred_clim_tbl <- nlsBootPredict(nls_boot_obj, newdata = duckweeds_tbl, interval = "confidence") %>% 
+  as_tibble %>% 
+  clean_names() %>% 
+  mutate(duckweeds_density = duckweeds_tbl$duckweeds_density)
+pred_clim_tbl
+```
+
+Aus der mittleren Abweichung des Medians zu der unteren 2.5% Grenze sowie zu der oberen 97.5% Grenze lässt sich leicht noch eine Konstante $c$ errechnen, die wir dann zu unserer mathematischen Formel ergänzen können. Dann hätten wir auch die mathematische Formel für die obere und untere Kurve des Konfidenzintervalls. Im Prinzip ist das Konfidenzintervall ja nur eine verschobene Kurve der ursprünglichen Geradengleichung.
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-nls-duckweed-03
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "foo"
+
+ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
+  geom_line(aes(y = predict(duckweeds_nls_fit)), size = 1, color = "#0072B2") +
+  geom_ribbon(data = pred_clim_tbl, fill = "#0072B2", alpha = 0.3,
+              aes(x = duckweeds_density, ymin = x2_5_percent, ymax = x97_5_percent), inherit.aes = FALSE) +
+  geom_point() +
+  theme_minimal()
+```
+:::
 
 ## Nonlinear least-squares mit `{nls}`
 
@@ -211,9 +432,9 @@ Damit haben wir dann auch unsere nicht-lineare Regressionsgleichung erhalten. Pa
 #| fig-cap: "Visualisierung der Hühnchengewichte nach Alter in Tagen mit der geschätzen nicht-linearen Regressionsgleichung."
 
 ggplot(chicken_tbl, aes(age, weight)) +
-  geom_line(aes(y = predict(fit)), size = 1, color = "red") +
+  geom_line(aes(y = predict(fit)), size = 1, color = "#CC79A7") +
   geom_point() +
-  theme_bw()
+  theme_minimal()
 ```
 
 Wie wir erkennen können sieht die Modellierung einigermaßen gut aus. Wir haben zwar einige leichte Abweichungen von den Beobachtungen zu der geschätzten Geraden, aber im Prinzip könnten wir mit der Modellierung leben. Wir hätten jetzt also eine nicht-lineare Gleichung die den Zusammenhang zwischen Körpergewicht und Lebensalter von Hühnchen beschreibt.
@@ -258,7 +479,7 @@ In @fig-nls-02 sehen wir die vier einzelnen Geraden für die vier Altersgruppen.
 ggplot(chicken_tbl, aes(age, weight)) +
   geom_line(data = nls_pred_tbl, aes(age, pred, color = grp), size = 1) +
   geom_point() +
-  theme_bw() +
+  theme_minimal() +
   scale_color_okabeito()
 ```
 
@@ -356,9 +577,9 @@ In @fig-nls-03 sehen wir die Daten zusammen mit der gefitteten Gerade aus der ni
 #| fig-cap: "Visualisierung der Sterberate von Blattläusen nach Aufbringen eines Bio-Pestizides mit der nicht-linearen Regressionsgleichung."
 
 ggplot(exp_tbl, aes(weeks, count)) +
-  theme_bw() +
+  theme_minimal() +
   geom_point() +
-  geom_line(aes(y = predict(fit)), color = "red") +
+  geom_line(aes(y = predict(fit)), color = "#CC79A7") +
   scale_x_continuous(breaks = 1:6)
 
 ```
@@ -402,7 +623,7 @@ Schauen wir uns die Daten einmal in der @fig-nls-04 an. Wir legen die Konzentrat
 #| fig-cap: "Visualisierung der Geschwindigkeit $v$ des Enzyms saure Phosphatase bei verschiedenen Konzentrationen des Substrats Nitrophenolphosphat."
 
 ggplot(enzyme_tbl, aes(x = S, y = v)) +
-  theme_bw() +
+  theme_minimal() +
   geom_point() +
   labs(x = "[S] / mM", y = expression(v/"µmol " * min^-1))
 ```
@@ -451,9 +672,9 @@ In der @fig-nls-05 können wir die gefittete Gerade nochmal überprüfen und sch
 #| fig-cap: "Visualisierung der Michaelis-Menten-Kinetik zusammen mit der gefitteten Gerade aus einer nicht-linearen Regression."
 
 ggplot(enzyme_tbl, aes(x = S, y = v)) +
-  theme_bw() +
+  theme_minimal() +
   geom_point() +
-  geom_line(aes(y = predict(enzyme_fit)), color = "red") +
+  geom_line(aes(y = predict(enzyme_fit)), color = "#CC79A7") +
   labs(x = "[S] / mM", y = expression(v/"µmol " * min^-1))
 ```
 
@@ -518,14 +739,14 @@ In der @fig-nls-mfp-1 sehen wir einmal das Ergebnis der Anpassung. Ich habe hier
 #| layout-nrow: 1
 
 ggplot(chicken_tbl, aes(age, weight)) +
-  geom_function(fun = age_func, color = "red", linetype = 'dashed') +
+  geom_function(fun = age_func, color = "#CC79A7", linetype = 'dashed') +
   geom_point() +
-  theme_bw()
+  theme_minimal()
 
 ggplot(chicken_tbl, aes(age, weight)) +
-  geom_line(aes(y = predict(mfp_fit)), size = 1, color = "blue") +
+  geom_line(aes(y = predict(mfp_fit)), size = 1, color = "#0072B2") +
   geom_point() +
-  theme_bw()
+  theme_minimal()
 ```
 
 Und welche der beiden mathematischen Gleichungen ist denn nun besser? Dafür fitten wir nochmal das `nls()` Modell von oben und vergleichen das Modell einmal zu dem `mfp()`-Modell von eben.
@@ -600,9 +821,9 @@ Dann können wir auch in der @fig-nls-gam-1 einmal das Modell sehen. Wir sehen, 
 #| fig-cap: "Visualisierung der Hühnchengewichte nach Alter in Tagen mit der geschätzen nicht-linearen Regressionsgleichung."
 
 ggplot(chicken_tbl, aes(age, weight)) +
-  geom_line(aes(y = predict(gam_fit)), size = 1, color = "red") +
+  geom_line(aes(y = predict(gam_fit)), size = 1, color = "#CC79A7") +
   geom_point() +
-  theme_bw()
+  theme_minimal()
 ```
 
 Dann machen wir das auch gleich mal in dem wir uns drei Hühnchen mit einem Alter von 10, 20 und 30 Tagen vorgeben. Wir wollen jetzt das Gewicht der drei Hühnchen vorhersagen.
@@ -642,12 +863,12 @@ In `{ggplot}` können wir direkt über die Funktion `stat_smooth()` eine Kurve d
 ggplot(chicken_tbl, aes(age, weight)) +
   stat_smooth(method = "gam") +
   geom_point() +
-  theme_bw()
+  theme_minimal()
 
 ggplot(chicken_tbl, aes(age, weight)) +
   stat_smooth(method = "loess") +
   geom_point() +
-  theme_bw()
+  theme_minimal()
 ```
 :::
 
