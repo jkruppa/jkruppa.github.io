@@ -50,7 +50,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, broom, betareg, car,
                see, performance, parameters, agridat, mfp,
                emmeans, multcomp, rcompanion, ggbeeswarm,
-               marginaleffects, conflicted)
+               marginaleffects, nls.multstart, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -455,7 +455,22 @@ $$
 proportion = 2.268 - e^{0.0101 \cdot snow\_height}
 $$
 
-Welche dann die beste mathematische Formel ist sehen wir dann gleich. Bitte schaue dir aber noch den anderen Tab mit der Funktion `mfp()` an, denn mit der Funktion `nls()` ist es dann doch manchmal etwas Glücksspiel, ob man die richtige mathematische Formel mit den richtigen Startwerten trifft.
+Welche dann die beste mathematische Formel ist sehen wir dann gleich. Bitte schaue dir aber noch den anderen Tab mit der Funktion `mfp()` an, denn mit der Funktion `nls()` ist es dann doch manchmal etwas Glücksspiel, ob man die richtige mathematische Formel mit den richtigen Startwerten trifft. Auch hier hilft vielleicht das [R Paket `{nls.multstart}`](https://github.com/padpadpadpad/nls.multstart) welches versucht das Problem der Startwerte nochmal algorithmisch zu lösen. Sieht jetzt wilder aus als es ist, aber hier kriege ich dann noch ein $c$ mit in der Formel unter.
+
+```{r}
+nls_multstart(proportion ~ a - c * I(snow_height^b), data = hunting_tbl, 
+              lower = c(a = 0, b = 0, c = 0),
+              upper = c(a = Inf, b = Inf, c = Inf),
+              start_lower = c(a = 0, b = 0, c = 0),
+              start_upper = c(a = 500, b = 5, c = 10),
+              iter = 500, supp_errors = "Y")
+```
+
+Dann erhalten wir als Abschluss die folgende Formel. Du kannst hier wirklich sehr viel rumspielen und schauen, welche der expoentziellen Gleichungen am besten passt. Das ist dann wirklich immer ein rumprobieren.
+
+$$
+proportion = 4.914 - 7.189\cdot10^{-10} \cdot snow\_height^{0.888}
+$$
 
 ## Mit `mfp()`
 
@@ -485,6 +500,7 @@ Im ersten Schritt bauen wir uns einmal in R die drei mathematischen Formeln einm
 ```{r}
 nls_poly_func <- \(x){3.196 - x^(0.248)}
 nls_exp_func <- \(x){2.268 - exp(0.0101 * x)}
+nls_multstart <- \(x){4.914 - 7.189e-10 * x^(0.888)}
 mfp_func <- \(x){0.9741 - 2.4216 * (x/100)^3}
 ```
 
@@ -505,8 +521,9 @@ hunting_tbl %>%
   geom_point() +
   geom_function(fun = nls_poly_func, aes(color = "nls_poly")) +
   geom_function(fun = nls_exp_func, aes(color = "nls_exp")) +
+  geom_function(fun = nls_exp_func, aes(color = "nls_multstart")) +
   geom_function(fun = mfp_func, aes(color = "mfp")) +
-  scale_color_manual(name = "Modell", values = cb_pal[2:4])
+  scale_color_manual(name = "Modell", values = cb_pal[2:5])
 ```
 :::
 

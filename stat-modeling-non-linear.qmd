@@ -29,6 +29,8 @@ $$
 
 Dieses $b$ (eng. *power*) und die anderen Koeffizienten müssen wir jetzt irgendwie berechnen. Manchmal fällt das $\beta_1$ dann auch weg oder aber wir haben eben eine noch komplexere Art der Darstellung. Wir gehen daher hier dann mal verschiedene Lösungen für das Problem durch. Nicht alle Lösungen liefern auch eine Geradengleichung, die du dann auch aufschreiben kannst.
 
+Und damit kommen wir auch zu dem zentralen Problem. Woher weiß ich, welche Gerade oder Kurve ich berechnen will? Eine super Hilfestellung liefert die Seite [A collection of self-starters for nonlinear regression in R](https://www.statforbiology.com/2020/stat_nls_usefulfunctions/).
+
 ::: callout-tip
 ## Weitere Tutorien für die Analyse von nicht-linearen Daten
 
@@ -37,6 +39,7 @@ Wie immer gibt es auch für die Frage nach dem Tutorium für die nicht-lineare R
 -   Das R Paket `{nlraa}` ist direkt für die Nutzung in den Agrarwissenschaften ausgelegt. Es finden sich auf der Hilfseite [nlraa: An R package for Nonlinear Regression Applications in Agricultural Research](https://cran.r-project.org/web/packages/nlraa/vignettes/nlraa.html) auch komplexere Beispiele für die Modellierung von Daten.
 -   Die Autoren @archontoulis2015nonlinear mit der wissenschaftlichen Veröffentlichung [Nonlinear Regression Models and Applications in Agricultural Research](https://acsess.onlinelibrary.wiley.com/doi/pdf/10.2134/agronj2012.0506) liefern nochmal einen wunderbaren Überblick über die Möglichkeiten der nicht-linearen Regression in den Agrarwissenschaften.
 -   Wenn es einfach nur eine Kurve durch die Punkte sein soll ohne eine mathematische Gleichung, dann kann das Tutorium zu [GAM and LOESS smoothing](https://andrewirwin.github.io/data-visualization/smoothing.html) helfen. Denn weder GAM noch LOESS liefern eine Gleichung die du aufschreiben kannst, dafür sehr gute Anpassungen an Punkte.
+-   Wie schon erwähnt, konzentrieren wir uns hier auf ein paar zentrale Pakete in R. Wir immer gibt es aber auch hier noch mehr wie bei dem Tutorium [Nonlinear Modelling using nls, nlme and brms](https://www.granvillematheson.com/post/nonlinear-modelling-using-nls-nlme-and-brms/). Du musst dann mal rechts und links schauen, auch für mich ist das ja eine Linksammlung zu der ich dann mal zurückkehre.
 :::
 
 Schaue dir auch die folgenden Zerforschenbeispiele einmal an, wenn dich mehr zu dem Thema der Abbildung von nicht-linearen Regressionen interessiert. Du findest in den Kästen Beispiele für Posterabbildungen zur nicht-linearen Regression, die ich dann zerforscht habe. Dann habe ich auch noch gleich die nicht-lineare Regression gerechnet um die Geradengleichungen sauber darzustellen.
@@ -63,7 +66,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 pacman::p_load(tidyverse, magrittr, broom, nlraa, modelsummary,
                parameters, performance, see, mgcv, mfp, marginaleffects,
-               gratia, readxl, nlstools, janitor, ggeffects, conflicted)
+               gratia, readxl, nlstools, janitor, ggeffects, nls.multstart,
+               conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 cb_pal <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
@@ -164,7 +168,7 @@ Für die Visualisierung der Wasserlinsendaten in der @fig-gam-duckweeds-01 verzi
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
-#| fig-cap: "Visualisierung der Sensorwerte nach Wasserlinsendichte. Pro Dichtewert liegen drei Sensormessungen vor. "
+#| fig-cap: "Visualisierung der Sensorwerte nach Wasserlinsendichte. Pro Dichtewert liegen drei Sensormessungen vor."
 
 ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
   geom_point() +
@@ -227,6 +231,19 @@ nls(weight ~ b0 + I(age^b1), data = chicken_tbl,
 ```
 
 Jetzt sollten wir keine Fehlermeldung erhalten haben, dass unser Modell nicht konvergiert ist oder anderweitig kein Optimum gefunden hat.
+
+Das [R Paket `{nls.multstart}`](https://github.com/padpadpadpad/nls.multstart) versucht das Problem der Startwerte nochmal algorithmisch zu lösen. Wenn du also keine guten Startwerte mit den Trick über `lm()` findest, dann ist das R Paket hier nochmal ein guter Startpunkt. Es geht auch komplexer wie das Tutorium unter [Nonlinear Modelling using nls, nlme and brms](https://www.granvillematheson.com/post/nonlinear-modelling-using-nls-nlme-and-brms/) nochmal zeigt.
+
+```{r}
+nls_multstart(weight ~ b0 + I(age^b1), data = chicken_tbl, 
+              lower = c(b0 = 0, b1 = 0),
+              upper = c(b0 = Inf, b1 = Inf),
+              start_lower = c(b0 = 0, b1 = 0),
+              start_upper = c(b0 = 500, b1 = 5),
+              iter = 500)
+```
+
+Natürlich kommt hier das Gleiche raus, aber manchmal findet man dann wirklich nicht die passenden Startwerte. Die Funktion macht ja nichts anderes als der ursprünglichen `nls()` Funktion etwas unter die Arme zugreifen.
 :::
 
 Wir nutzen wieder die Funktion `model_parameters()` aus dem R Paket `parameters` um uns eine aufgeräumte Ausgabe wiedergeben zu lassen.
