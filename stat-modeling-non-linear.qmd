@@ -27,9 +27,7 @@ $$
 y \sim \beta_0 + \beta_1 \cdot x^b
 $$
 
-Dieses $b$ (eng. *power*) und die anderen Koeffizienten müssen wir jetzt irgendwie berechnen. Manchmal fällt das $\beta_1$ dann auch weg oder aber wir haben eben eine noch komplexere Art der Darstellung. Wir gehen daher hier dann mal verschiedene Lösungen für das Problem durch. Nicht alle Lösungen liefern auch eine Geradengleichung, die du dann auch aufschreiben kannst.
-
-Und damit kommen wir auch zu dem zentralen Problem. Woher weiß ich, welche Gerade oder Kurve ich berechnen will? Eine super Hilfestellung liefert die Seite [A collection of self-starters for nonlinear regression in R](https://www.statforbiology.com/2020/stat_nls_usefulfunctions/).
+Dieses $b$ (eng. *power*) und die anderen Koeffizienten müssen wir jetzt irgendwie berechnen. Manchmal fällt das $\beta_1$ dann auch weg oder aber wir haben eben eine noch komplexere Art der Darstellung. Wir gehen daher hier dann mal verschiedene Lösungen für das Problem durch. Nicht alle Lösungen liefern auch eine Geradengleichung, die du dann auch aufschreiben kannst. Und damit kommen wir auch zu dem zentralen Problem. Woher weiß ich, welche Gerade oder Kurve ich berechnen will? Eine super Hilfestellung liefert die Seite [A collection of self-starters for nonlinear regression in R](https://www.statforbiology.com/2020/stat_nls_usefulfunctions/). Dort kannst du einmal schauen, welche Funktionen es gibt, die du dann zum Beispiel in `nls()` aus dem R Paket `{nls}` modellieren kannst. Mit Modellieren meine ich dann, die Geradenfunktion bestimmen kannst.
 
 ::: callout-tip
 ## Weitere Tutorien für die Analyse von nicht-linearen Daten
@@ -246,7 +244,7 @@ nls_multstart(weight ~ b0 + I(age^b1), data = chicken_tbl,
 Natürlich kommt hier das Gleiche raus, aber manchmal findet man dann wirklich nicht die passenden Startwerte. Die Funktion macht ja nichts anderes als der ursprünglichen `nls()` Funktion etwas unter die Arme zugreifen.
 :::
 
-Wir nutzen wieder die Funktion `model_parameters()` aus dem R Paket `parameters` um uns eine aufgeräumte Ausgabe wiedergeben zu lassen.
+Wir nutzen wieder die Funktion `model_parameters()` aus dem R Paket `{parameters}` um uns eine aufgeräumte Ausgabe wiedergeben zu lassen.
 
 ```{r}
 #| message: false
@@ -357,22 +355,40 @@ Je nachdem wie zufrieden wir jetzt mit den Ergebnissen der Modellierung sind, k�
 
 ### ... von Sättigung
 
+Schauen wir uns jetzt einmal ein Beispiel der Sättigung an. Hier nehmen wir dann eine *Power*-Funktion in der Form $y = a + x^b$. Wir könnten noch eine Konstante $c$ als Multiplikator einfügen, wir schauen jetzt aber mal, ob unsere einfache Parametrisierung jetzt funktioniert. Prinzipiell sehen ja unsere Punkte wie eine *Power*-Funktion aus. Daher bauen wir uns einmal die Fomel in `nls()` und lassen uns die Koeffizienten $a$ und $b$ wiedergeben. Dann schauen wir, ob die Koeffizienten Sinn machen und die Punkte auch gut beschreiben.
+
 ```{r}
 duckweeds_nls_fit <- nls(sensor ~ a + I(duckweeds_density^b), data = duckweeds_tbl, 
                          start = c(a = 0, b = 0))
-duckweeds_nls_fit
+duckweeds_nls_fit 
 ```
+
+Schauen wir uns einmal das Bestimmtheitsmaß $R^2$ für die Anpassung an. Das ist ja immer unser erstes abstraktes Maß für die Modellgüte und wie gut die Kurve durch die Punkte gelaufen ist. Das sieht doch schon sehr gut aus. Wir wollen den Wert aber dann noch gleich einmal visuell überprüfen.
+
+```{r}
+#| warning: false
+#| message: false
+duckweeds_nls_fit %>% r2()
+```
+
+Dann können wir auch schon die mathematische Gleichung aufschreiben. Wir haben einen negativen $y$-Achsenabschnitt $a$ sowie eine *Power* kleiner als 1. Damit sollte unsere Kurve mit steigenden $x$-Werten abflachen. Ich kann mir immer nicht vorstellen, wie so eine Funktion aussehen würde, dafür fehlt mir die mathematische Phantasie.
 
 $$
 sensor = -1.1468 + duckweeds\_density^{0.2975}
 $$
 
+Dann wollen wir einmal die Funktion visualisieren. Wir haben zwei Möglichkeiten. Entweder bauen wir uns die mathematische Funktion in R nach und plotten dann die mathematische Funktion mit `geom_function()` oder wir nutzen nur den Fit `duckweeds_nls_fit` direkt in `ggplot()`. Erstes erlaubt nochmal sicherzugehen, dass wir auch die mathematische Funktion richtig aufgeschrieben haben. Wenn du die nicht brauchst, dann ist die zweite Variante natürlich weit effizienter.
+
 ::: panel-tabset
 ## Mit `geom_function()`
+
+Jetzt nehmen wir einmal unsere Koeffizienten aus dem `nls()`-Modell und bauen uns eine Funktion nach. Das ist im Prinzip die mathematische Formel nur in der Schreibweise in R.
 
 ```{r}
 duckweed_func <- \(x){-1.1468 + x^{0.2975}} 
 ```
+
+Dann können wir auch schon die Kurve durch die Punkte in der folgenden Abbildung legen. Da wir hier eine Funktion vorliegen haben, ist der Verlauf auch sehr schön glatt. Wir sehen aber auch, dass die Funktion sehr schön passt. Die Kurve läuft gut durch die Punkte. Etwas was wir auch schon von dem $R^2$ erwartet hatten.
 
 ```{r}
 #| echo: true
@@ -382,19 +398,18 @@ duckweed_func <- \(x){-1.1468 + x^{0.2975}}
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
-#| fig-cap: "foo"
-#| fig-subcap: 
-#|   - "... mit `geom_function()`"
-#|   - "... mit `geom_line()` und `predict()`"
-#| layout-nrow: 1
+#| fig-cap: "Angepasste Kurve aus der Funktion `nls()` dargestellt mit der Funktion `geom_function()`."
 
 ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
   geom_function(fun = duckweed_func, color = "#CC79A7") +
   geom_point() +
-  theme_minimal()
+  theme_minimal() +
+  labs(x = "Gemessene Dichte der Wasserlinsen", y = "Sensorwert")
 ```
 
 ## Mit `geom_line()` und `predict()`
+
+Schneller geht es in der Funktion `geom_line()` und `predict()`, wo wir dann die Anpassung unseres Modells direkt als $y$-Werte übergeben. Da wir hier jetzt nur die $x$-Werte nutzen, die wir auch in den Daten vorliegen haben, wirkt die Kurve bei so wenigen Messpunkten auf der $x$-Achse etwas stufig. Aber auch hier sehen wir, dass die Kurve gut durch unsere Punkte läuft. Diese Variante ist die etwas schnellere, wenn du nicht an der mathematischen Formulierung interessiert bist.
 
 ```{r}
 #| echo: true
@@ -404,42 +419,54 @@ ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
-#| fig-cap: "foo"
+#| fig-cap: "Angepasste Kurve aus der Funktion `nls()` dargestellt mit der Funktion `geom_line()` und `predict()`."
 
 ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
   geom_line(aes(y = predict(duckweeds_nls_fit)), size = 1, color = "#0072B2") +
   geom_point() +
-  theme_minimal()
+  theme_minimal() +
+  labs(x = "Gemessene Dichte der Wasserlinsen", y = "Sensorwert")
 ```
 :::
 
-[Prediction interval vs. confidence interval in linear regression analysis](https://stats.stackexchange.com/questions/225652/prediction-interval-vs-confidence-interval-in-linear-regression-analysis)
+Jetzt bietet es sich nochmal an die Vorhersageintervalle oder Prädiktionsintervalle (eng. *prediction interval*) der Abbildung hinzuzufügen. Neben den Vorhersageintervallen könntne wir auch die 95% Konfidenzintervalle (eng. *confidence interval*) hinzufügen. Hier müssen wir gleich entscheiden, was wir eigentlich zeigen wollen. Wir müssen also zwischen den beiden Intervallen unterscheiden. Vorhersageintervalle machen eine Aussage zu der Genauigkeit von zukünftigen Beobachtungen wohingegen die die Konfidenzintervalle eine Aussage über die Koeffizienten des Modells treffen. Mehr dazu gibt es auch hier Stack Exchange unter [Prediction interval vs. confidence interval in linear regression analysis](https://stats.stackexchange.com/questions/225652/prediction-interval-vs-confidence-interval-in-linear-regression-analysis). Konfidenzintervalle geben dir also die Bandbreite wieder in der die Gerade verläuft. Dafür nutzen die Konfidenzintervalle die Daten und geben dir ein Intervall an, in dem die Gerade durch die Koeffizienten des Modells mit 95% Sicherheit verläuft. Das Vorhersageintervall gibt dir an mit welchen Bereich zukünftige Beobachtung mit 95% Sicherheit fallen werden. Das Vorhersageintervall ist breiter als das Konfidenzintervall und nicht jede Methode liefert auch beide Intervalle.
 
-Die Ermittlung von Vorhersageintervallen (eng. *prediction interval*) also für zukünftige Beobachtungen ist etwas anderes als die Ermittlung von Konfidenzintervallen (eng. *confidence interval*) also für unbekannte Populationsparameter.
-
-[Prediction intervals for Generalized Additive Models (GAMs)](https://mikl.dk/post/2019-prediction-intervals-for-gam/)
-
-::: panel-tabset
-## Prediction interval
+Es ist uns möglich über Bootstrap, also einer Simulation aus unseren Daten, ein Vorhersageintervall sowie ein Konfidenzintervall zu generieren. Zu dem Bootstrapverfahren kannst du in den Klassifikationskapiteln mehr lesen. Ich nutze hier 500 Simulationen um mir die Intervalle ausgeben zu lassen. Bei einer echten Analyse würde ich die Anzahl auf 1000 bis 2000 setzen. Wir brauchen also als erstes unser Bootstrapobjekt mit dem wir dann in den Tabs weitermachen.
 
 ```{r}
 nls_boot_obj <- nlsBoot(duckweeds_nls_fit, niter = 500)
 ```
 
+Ich habe jetzt das Prädiktionsintervall und das Konfidenzintervall jeweils in einem der Tabs berechnet. Wenn du deine Daten auswertest musst du dich dann für ein Intervall entscheiden. Meistens nutzen wir das Konfidenzintervall, da die Interpretation und die Darstellung im Allgemeinen bekannter ist.
+
+::: panel-tabset
+## Vorhersageintervall (eng. *prediction interval*)
+
+Um das Vorhersageintervall zu erstellen nutzen wir die Funktion `nlsBootPredict()` und übergeben als neue Daten unseren Datensatz. Dann müssen wir natürlich noch als Option `interval = "prediction"` wählen um das Vorhersageintervall wiedergegeben zu bekommen. Ich muss dann noch etwas aufräumen und auch die $x$-Werte wieder ergänzen damit wir gleich alles in `ggplot()` darstellen können. Auch nerven mich die doppelten Werte, die brauche ich nicht für die Darstellung und entferne sie über `distinct()`.
+
 ```{r}
 pred_plim_tbl <- nlsBootPredict(nls_boot_obj, newdata = duckweeds_tbl, interval = "prediction") %>% 
   as_tibble %>% 
   clean_names() %>% 
-  mutate(duckweeds_density = duckweeds_tbl$duckweeds_density)
-pred_plim_tbl %>% print(n = 5)
+  mutate(duckweeds_density = duckweeds_tbl$duckweeds_density) %>% 
+  distinct(duckweeds_density, .keep_all = TRUE)
+pred_plim_tbl
 ```
 
-Aus der mittleren Abweichung des Medians zu der unteren 2.5% Grenze sowie zu der oberen 97.5% Grenze lässt sich leicht noch eine Konstante $c$ errechnen, die wir dann zu unserer mathematischen Formel ergänzen können. Dann hätten wir auch die mathematische Formel für die obere und untere Kurve des Prädiktionsintervalls. Im Prinzip ist das Prädiktionsintervall ja nur eine verschobene Kurve der ursprünglichen Geradengleichung.
+Aus der mittleren Abweichung des Medians zu der unteren 2.5% Grenze `x2_5_percent` sowie zu der oberen 97.5% Grenze `x97_5_percent` lässt sich leicht noch eine Konstante $\phi$ errechnen, die wir dann zu unserer mathematischen Formel ergänzen können. Dann hätten wir auch die mathematische Formel für die obere und untere Kurve des Vorhersageintervalls. Im Prinzip ist das Vorhersageintervall ja nur eine verschobene Kurve der ursprünglichen Geradengleichung. Wir subtrahieren und addieren also unser $\phi$ jeweils zu dem $y$-Achsenabschnittt von $-1.1468$ aus dem `nls()`-Modell.
 
 ```{r}
 with(pred_plim_tbl, x2_5_percent - median) %>% mean()
 with(pred_plim_tbl, x97_5_percent - median) %>% mean()
 ```
+
+Damit hätten wir dann für die 2.5% und 97.% Grenzen des Vorhersageintervalls folgende mathematische Formel. Ich ersetze hier einmal $duckweeds\_density$ durch $x$ um die Formel etwas aufzuräumen und zu kürzen.
+
+$$
+[-1.358 + x^{0.298}; \; -1.031 + x^{0.298}]
+$$
+
+Wir machen es uns etwas einfacher und nutzen hier dann die Funktion `geom_ribbon()` um die Fläche des Vorhersageintervalls. Wir nutzen hier also nicht die Informationen aus unserem `nls()`-Modell direkt sondern erschaffen uns die Informationen nochmal über eine Bootstrapsimulation. Es ist einfach noch ein Extraschritt, wenn du eben noch ein Intervall haben willst. Nicht immer ist es notwendig und die enge des Vorhersageintervalls hängt auch maßgeblich von der Anzahl an Beobachtungen ab.
 
 ```{r}
 #| echo: true
@@ -449,28 +476,26 @@ with(pred_plim_tbl, x97_5_percent - median) %>% mean()
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
-#| fig-cap: "foo"
+#| fig-cap: "Angepasste Kurve aus der Funktion `nls()` zusammen mit dem Vorhersageintervall."
 
 ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
-  geom_function(fun = duckweed_func, color = "#CC79A7") +
+  geom_line(data = pred_plim_tbl, aes(y = median), color = "#CC79A7") +
   geom_ribbon(data = pred_plim_tbl, fill = "#CC79A7", alpha = 0.3,
               aes(x = duckweeds_density, ymin = x2_5_percent, ymax = x97_5_percent), inherit.aes = FALSE) +
   geom_point() +
-  theme_minimal()
+  theme_minimal() +
+  labs(x = "Gemessene Dichte der Wasserlinsen", y = "Sensorwert")
 ```
 
-## Confidence interval
-
-```{r}
-nls_boot_obj <- nlsBoot(duckweeds_nls_fit, niter = 500)
-```
+## Konfdidenzintervall (eng. *confidence interval*)
 
 ```{r}
 pred_clim_tbl <- nlsBootPredict(nls_boot_obj, newdata = duckweeds_tbl, interval = "confidence") %>% 
   as_tibble %>% 
   clean_names() %>% 
-  mutate(duckweeds_density = duckweeds_tbl$duckweeds_density)
-pred_clim_tbl %>% print(n = 5)
+  mutate(duckweeds_density = duckweeds_tbl$duckweeds_density) %>% 
+  distinct(duckweeds_density, .keep_all = TRUE)
+pred_clim_tbl 
 ```
 
 Aus der mittleren Abweichung des Medians zu der unteren 2.5% Grenze sowie zu der oberen 97.5% Grenze lässt sich leicht noch eine Konstante $c$ errechnen, die wir dann zu unserer mathematischen Formel ergänzen können. Dann hätten wir auch die mathematische Formel für die obere und untere Kurve des Konfidenzintervalls. Im Prinzip ist das Konfidenzintervall ja nur eine verschobene Kurve der ursprünglichen Geradengleichung.
@@ -491,11 +516,12 @@ with(pred_clim_tbl, x97_5_percent - median) %>% mean()
 #| fig-cap: "foo"
 
 ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
-  geom_line(aes(y = predict(duckweeds_nls_fit)), size = 1, color = "#0072B2") +
+  geom_line(data = pred_clim_tbl, aes(y = median), color = "#0072B2") +
   geom_ribbon(data = pred_clim_tbl, fill = "#0072B2", alpha = 0.3,
               aes(x = duckweeds_density, ymin = x2_5_percent, ymax = x97_5_percent), inherit.aes = FALSE) +
   geom_point() +
-  theme_minimal()
+  theme_minimal() +
+  labs(x = "Gemessene Dichte der Wasserlinsen", y = "Sensorwert")
 ```
 :::
 
@@ -750,6 +776,7 @@ In der @tbl-model-comp-nls-mfp sehen wir die Funktion `modelsummary()` und den e
 ```{r}
 #| message: false
 #| echo: true
+#| warning: false
 #| tbl-cap: "Modellvergleich für das `nls()` Modell mit dem `mfp()` Modell. Wir vergleichen hier nur die beiden Modelle, da beide Modelle eine mathematische Gleichung wiedergeben, die wir dann berichten können."
 #| label: tbl-model-comp-nls-mfp
 
@@ -848,6 +875,8 @@ ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
   theme_minimal()
 ```
 
+[Prediction intervals for Generalized Additive Models (GAMs)](https://mikl.dk/post/2019-prediction-intervals-for-gam/)
+
 ::: panel-tabset
 ## Mit `{ggeffects}`
 
@@ -863,7 +892,8 @@ gg_pred_obj
 ```{r}
 marg_pred_tbl <- predictions(duckweeds_gam_fit, newdata = duckweeds_tbl) %>% 
   as_tibble() %>% 
-  select(duckweeds_density, sensor, estimate, std.error, conf.low, conf.high)
+  select(duckweeds_density, sensor, estimate, std.error, conf.low, conf.high) %>% 
+  distinct(duckweeds_density, .keep_all = TRUE)
 marg_pred_tbl 
 ```
 
@@ -874,7 +904,8 @@ marg_pred_tbl
 ```{r}
 gratia_pred_tbl <- confint(duckweeds_gam_fit, parm = "s(duckweeds_density)", 
                            shift = TRUE, type = "confidence", data = duckweeds_tbl) %>% 
-  select(duckweeds_density, est, se, lower, upper)
+  select(duckweeds_density, est, se, lower, upper) %>% 
+  distinct(duckweeds_density, .keep_all = TRUE)
 gratia_pred_tbl 
 ```
 :::
