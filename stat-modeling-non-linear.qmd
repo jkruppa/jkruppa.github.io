@@ -97,24 +97,30 @@ rbind(head(chicken_tbl, n = 3),
   kable(align = "c", "pipe")
 ```
 
-Schauen wir uns die Daten einmal mit `ggplot()` an um besser zu verstehen wie die Zusammenhänge in dem Datensatz sind.
+Schauen wir uns die Daten dann gleich einmal in einer Visualisierung mit `ggplot()` an um besser zu verstehen wie die Zusammenhänge in dem Datensatz sind.
+
+Neben dem Hünchendatensatz haben wir noch einen Datenstatz zu dem Wachstum von Wasserlinsen. Wir haben einmal händisch die Dichte bestimmt `duckweeds_density` und einmal mit einem Sensor gemessen. Dabei sind die Einheiten der Sensorwerte erstmal egal, wir wollen aber später eben nur mit einem Sensor messen und dann auf den Wasserlinsengehalt zurückschließen. Wir haben hier eher eine Sätigungskurve vorliegen, denn die Dichte der Wasserlinsen ist ja von der Oberfläche begrenzt. Auch können sich die Wasserlinsen nicht beliebig teilen, es gibt ja nur eine begrenzte Anzahl an Ressourcen.
 
 ```{r}
 duckweeds_tbl <- read_excel("data/duckweeds_density.xlsx")
 ```
+
+In der @tbl-duckweeds siehst du dann einmal einen Auszug aus den Daten zu den Wasserlinsen. Es ist ein sehr einfacher Datensatz mit nur zwei Spalten. Wie du siehst, scheint sich das bei der nicht linearen Regression durchzuziehen. Es gehen auch komplexere Modelle, aber dann kann ich die Ergebnisse schlechter visualisieren.
 
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
 #| label: tbl-duckweeds
-#| tbl-cap: "Auszug aus Hühnchendatensatz."
+#| tbl-cap: "Auszug aus Wasserlinsendatensatz."
 
 rbind(head(duckweeds_tbl, n = 3),
       rep("...", times = ncol(duckweeds_tbl)),
       tail(duckweeds_tbl, n = 3)) %>% 
   kable(align = "c", "pipe")
 ```
+
+Auch die Wasserlinsendaten wollen wir uns erstmal in einer Abbilung anschauen und dann sehen, ob wir eine Kurve durch die Punkte gelegt kriegen.
 
 ## Visualisierung
 
@@ -137,14 +143,18 @@ In @fig-nls-00-1 sehen wir die Visualisierung der Hühnchengewichte nach Alter i
 
 ggplot(chicken_tbl, aes(age, weight)) +
   theme_minimal() +
-  geom_point()
+  geom_point() +
+  labs(x = "Alter der Hühnchen", y = "Tagesgewicht in [g]")
 
 ggplot(chicken_tbl, aes(age, log(weight))) +
   theme_minimal() +
-  geom_point()
+  geom_point() +
+  labs(x = "Alter der Hühnchen", y = "Tagesgewicht in [g]")
 ```
 
 Deshalb wollen wir den Zusammenhang zwischen dem Körpergewicht der Hühnchen und dem Lebensalter einmal mit einer nicht-linearen Regression modellieren. Wir sind also nicht so sehr an $p$-Werten interessiert, wir sehen ja, dass die gerade ansteigt, sondern wollen wissen wie die Koeffizienten einer möglichen exponentiellen Gleichung aussehen.
+
+Für die Visualisierung der Wasserlinsendaten in der @fig-gam-duckweeds-01 verzichte ich einmal auf die logarithmische Darstellung. Wir wollen hier dann eine Kurve durch die Punkte legen so wie die Daten sind. Auffällig ist erstmal, dass wir sehr viel weniger Beobachtungen und auch Dichtemesspunkte auf der $x$-Achse haben. Wir haben dann zu den jeweiligen Wasserlinsendichten dann drei Sensormessungen. Das könnte noch etwas herausfordernd bei der Modellierung werden.
 
 ```{r}
 #| echo: true
@@ -154,11 +164,12 @@ Deshalb wollen wir den Zusammenhang zwischen dem Körpergewicht der Hühnchen un
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
-#| fig-cap: "foo"
+#| fig-cap: "Visualisierung der Sensorwerte nach Wasserlinsendichte. Pro Dichtewert liegen drei Sensormessungen vor. "
 
 ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
   geom_point() +
-  theme_minimal()
+  theme_minimal() +
+  labs(x = "Gemessene Dichte der Wasserlinsen", y = "Sensorwert")
 ```
 
 ## Nonlinear least-squares mit `{nls}`
@@ -835,7 +846,7 @@ gg_pred_obj
 ```{r}
 marg_pred_tbl <- predictions(duckweeds_gam_fit, newdata = duckweeds_tbl) %>% 
   as_tibble() %>% 
-  select(duckweeds_density, sensor, estimate, conf.low, conf.high)
+  select(duckweeds_density, sensor, estimate, std.error, conf.low, conf.high)
 marg_pred_tbl 
 ```
 
@@ -845,9 +856,9 @@ marg_pred_tbl
 
 ```{r}
 gratia_pred_tbl <- confint(duckweeds_gam_fit, parm = "s(duckweeds_density)", 
-                           shift = TRUE, type = "confidence", data = duckweeds_tbl)
-gratia_pred_tbl %>% 
-  select(duckweeds_density, est, lower, upper)
+                           shift = TRUE, type = "confidence", data = duckweeds_tbl) %>% 
+  select(duckweeds_density, est, se, lower, upper)
+gratia_pred_tbl 
 ```
 :::
 
@@ -855,23 +866,7 @@ gratia_pred_tbl %>%
 #| echo: true
 #| warning: false
 #| message: false
-#| label: fig-gam-duckweed-02a
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 6
-#| fig-cap: "foo"
-
-ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
-  geom_line(aes(y = predict(duckweeds_gam_fit)), size = 1, color = "#CC79A7") +
-  geom_point() +
-  theme_minimal()
-```
-
-```{r}
-#| echo: true
-#| warning: false
-#| message: false
-#| label: fig-gam-duckweed-02b
+#| label: fig-gam-duckweed-02
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
