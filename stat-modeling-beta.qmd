@@ -6,27 +6,15 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, patchwork)
 
 *Letzte Änderung am `r format(fs::file_info("stat-modeling-beta.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*
 
-![](images/caution.png){fig-align="center" width="50%"}
-
-Die Beta Regression. Zuerst ein seltsamer Name, was heißt denn jetzt hier Beta? Und was macht die beta Regression eigentlich? Die Beta Regression beschäftigt sich mit einem prozentualen Outcome und damit mit einem Outcome $y$ welches zwischen 0 und 1 liegt. Dabei ist das *Zwischen* sehr wichtig. Weder dürfen einzelne Beobachtungen einen Wert von 1 haben noch einen Wert von 0. Dabei ist die Null weit schlimmer, so dass wir hier gerne einen kleinen Betrag auf alle 0 addieren um dann aus dem Schneider zu sein. Sonst ist unser Outcome dadurch gekennzeichnet, dass wir meistens die Wahrscheinlichkeit oder Anteil für ein Ereignis abgebildet haben. Wie oft tritt eine Klauensuche in einem Stall auf? Welchen Anteil machen faulige Erdbeeren aus?
-
-wirkungsgrad?
-
-Selten n
-
-Im folgenden Kapitel
+Die Beta Regression. Zuerst ein seltsamer Name, was heißt denn jetzt hier Beta? Und was macht die beta Regression eigentlich? Die Beta Regression beschäftigt sich mit einem prozentualen Outcome und damit mit einem Outcome $y$ welches zwischen 0 und 1 liegt. Dabei ist das *Zwischen* sehr wichtig. Weder dürfen einzelne Beobachtungen einen Wert von 1 haben noch einen Wert von 0. Dabei ist die Null weit schlimmer, so dass wir hier gerne einen kleinen Betrag auf alle 0 addieren um dann aus dem Schneider zu sein. Sonst ist unser Outcome dadurch gekennzeichnet, dass wir meistens die Wahrscheinlichkeit oder Anteil für ein Ereignis abgebildet haben. Wie oft tritt eine Klauensuche in einem Stall auf? Welchen Anteil machen faulige Erdbeeren aus? Und um auf die Frage vom Anfang zurückzukommen, ein prozentuales Outcome folgt einer Betaverteilung. Deshalb nutzen wir eine Beta Regression um prozentuale Outcomes auszuwerten.
 
 ::: callout-note
-## Moment, ich möchte nur zwei Wahrscheinlichkeiten $p_1$ und $p_2$ vergleichen!
+## Moment, ich möchte aber nur zwei Wahrscheinlichkeiten $p_1$ und $p_2$ vergleichen!
 
 Wenn du nur wissen willst, ob sich zwei Wahrscheinlichkeiten unterscheiden, dann musst du einmal in dem Kapitel [Vergleich zweier Anteile $p_1$ und $p_2$](#sec-chisquare-prop-test) nachschauen. Dort zeige ich dir wie du dann einen statistischen Test rechnen kannst um rauszufinden ob sich $0.5$ signifikant von $0.7$ unterscheidet. In diesem Kapitel schauen wir uns dann pro Faktor sehr viele Wahrscheinlichkeiten als Outcome an.
 :::
 
-Daher sieht unser Modell wie folgt aus. Wir haben ein $y$ und $p$-mal $x$. Wobei $p$ für die Anzahl an Variablen auf der rechten Seite des Modells steht. Im Weiteren ist unser $y$ normalverteilt. Das ist hier sehr wichtig, denn wir wollen ja eine multiple gaussian lineare Regression rechnen.
-
-$$
-y \sim x_1 + x_2 + ... + x_p 
-$$
+Teilweise sind diese Arten von Daten, die einer Betaverteilung folgen, eher selten in den Agrawissenschaften. Wir müssen nämlich sehr viele Daten generieren um Prozente zu berechnen. Prozente sind ja immer Anteile an irgendwas. Und so müssen wir dann eine Menge Tiere oder Pflanzen zählen, damit wir auch wirklich eine gute Auflösung kriegen. Wenn du zum Beispiel eine Auflösung von 1% erhalten willst, dann musst du auch einhundert Tiere untersuchen und dann bestimmen wie groß der Anteil an deinem untersuchten Outcome ist. So kann es dann passieren, dass sehr viele Untersuchungen in einer einzigen Zahl förmlich verschwinden. Deshalb werden dann häufig die Anzahlen direkt als Poisson Regression ausgewertet. Aber wie immer gilt, selten ist nicht nie. Deshalb einmal hier die Beta Regression für ein prozentuales Outcome.
 
 ::: callout-tip
 ## Weitere Tutorien für die Beta Regression
@@ -529,40 +517,58 @@ hunting_tbl %>%
 
 ## Gruppenvergleich {#sec-mult-comp-beta-reg}
 
-Neben der klassischen Regression können wir die Beta Regression auch verwenden um einen Gruppenvergleich zu rechnen.
+Neben der klassischen Regression in der wir dann eine Kurve durch die Punkte legen können wir die Beta Regression auch verwenden um einen Gruppenvergleich zu rechnen. Häufig sind wir in den Agrawissenschaften eher an dieser Frage interessiert. Wir machen das jetzt eigentlich wie immer mit dem R Paket `{emmeans}` und der Funktion `Anova()` aus dem R Paket `{car}`. Wenn du noch mehr zu den multiplen Vergleichen lesen willst, dann kannst du nochmal in das [Kapitel zu den multiplen Vergleichen und dem Posthoc Test](#sec-posthoc) reinschauen. Wir konzentrieren uns hier auf die wichtigsten Aspekte und gehen einmal die Sachlage für die Daten zu den untergewichtigen Brokkoli sowie unsren Pilzen auf dem Weizen durch. Dabei habe ich dann die Daten für die Pilze etwas reduziert, weil es einfach zu viele Faktoren sind.
 
 ### Untergewichtige Brokkoli
 
-```{r}
-broc_fit <- betareg(proportion ~ fert_time + fert_amount + fert_time:fert_amount + block, data = broc_tbl)
-```
+Beginnen wir also mit den Daten unseres untergewichtigen Brokkoli. Wir haben als Outcome `proprotion` den Anteil an 500g, also die prozentuale Untergewichtigkeit eines jedes Brokkolikopfes. Dabei habe ich dann alle Brokkoli mit einem Anteil von Eins oder größer entfernt. Wir wollen hier explizit auf die Köpfe schauen, die das Zielgewicht nicht erreicht haben. Damit steht das Modell aus schon fast. Wir haben drei Faktoren, einmal die Zeit der Düngung `fert_time` sowie dann die Menge der Düngung `fert_amount`. Dann nehme ich den Block noch mit rein, denn ich will einmal sehen wie stark der Blockeffekt in der ANOVA ist. Damit ich das so auch kann, muss einmal der Block mit ins Modell. Dann haben wir natürlich bei der beta Regression die Frage, ob wir dann die Varianz nochmal direkt mit modellieren sollen. Das würden wir ja mit einem `|` durchführen. Ich rechne hier jetzt mal drei Modelle, einmal ein Modell ohne explizite Varianz, dann einmal mit der Berücksichtigung der Varianz der Blöcke und zum Schluss nochmal ein Modell mit der Berücksichtigung aller drei Faktoren als Varianzquelle.
 
 ```{r}
-broc_fit %>% 
+broc_1_fit <- betareg(proportion ~ fert_time + fert_amount + fert_time:fert_amount + block, 
+                    data = broc_tbl)
+
+broc_2_fit <- betareg(proportion ~ fert_time + fert_amount + fert_time:fert_amount + block | block, 
+                    data = broc_tbl)
+
+broc_3_fit <- betareg(proportion ~ fert_time + fert_amount + fert_time:fert_amount + block | 
+                      fert_time + fert_amount + block, 
+                    data = broc_tbl)
+```
+
+Ich nutze jetzt wieder das AIC um zu entscheiden welches Modell das beste Modell ist. Dabei gilt, dass ein niedrigeres AIC immer besser ist. Im zweiten Schritt sind die absoluten Zahlen irrelevant, mich interessiert nur die Differenz der AIC-Werte. Dabei ist ein Modell mit einem Unterschied von $2$ oder größer vorzuziehen.
+
+```{r}
+AIC_vec <- c("Modell 1"= AIC(broc_1_fit), 
+             "Modell 2" = AIC(broc_2_fit), 
+             "Modell 3" = AIC(broc_3_fit))
+outer(AIC_vec, AIC_vec, "-") %>% round(2)
+```
+
+Wir sehen, dass das Modell 2 `broc_2_fit` besser ist als das Modell 1. Daher bevorzugen wir das Modell 2. Dann kriegen wir aber keine Verbesserung mehr hin und deshalb bleiben wir bei dem zweiten Modell. Jetzt können wir dann einmal die ANOVA rechnen und schauen, welche signifikante Effekte wir in den Daten haben.
+
+```{r}
+broc_2_fit %>% 
   Anova() %>% 
   model_parameters()
 ```
 
-```{r}
-#| warning: false
-#| message: false
-broc_tbl %>% 
-  group_by(fert_time, fert_amount) %>% 
-  summarise(mean_prop = round(mean(proportion), 3))
-```
+Ärgerlicherweise sind unsere beiden Behandlungsfaktoren gar nicht signifikant sondern unsere Blöcke. Dann werden wir uns wohl die Blöcke einmal anschauen müssen. Ich entscheide mich mal über den Zeitpunkt der Düngegabe zu mitteln, den der Effekt des Zeitpunktes ist wirklich nicht signifikant.
 
 ```{r}
 #| warning: false
 #| message: false
-emm_obj <- broc_fit %>% 
-  emmeans(~ fert_time * fert_amount) 
-emm_obj
+emm_obj <- broc_2_fit %>% 
+  emmeans(~ fert_amount * block) 
 ```
 
+Mit dem `emm_obj` können wir dann uns das *compact letter display* berechnen lassen. Wir haben hier als Effekt die mittleren Prozente in der Spalte `emmean`. Also wie viel Prozent der Brokkoliköpfe untergewichtig sind. Ich adjustiere hier dann noch die $p$-Werte nach Bonferroni.
+
 ```{r}
-emm_obj %>% 
-  cld(Letters = letters)
+emm_cld <- emm_obj %>% 
+  cld(Letters = letters, adjust = "bonferroni")
 ```
+
+In der @fig-bar-beta-broc siehst du die Barplots der mittleren Prozente des errichten Zielgewichtes der Brokkoliköpfe für die Düngemenge und die vier Blöcke. Wie du sehen kannst unterscheiden sich die Blöcke stärker untereinander als die Level der Düngemenge. Wie viel Prozent an untergewichtigen Brokkoli du also anteilig erhälst liegt mehr an dem Standort des Blocks als an der Behandlung mit Dünger. Irgendwie dann auch ein spannendes Ergebnis. Ich nutze hier den Standardfehler als Fehlerbalken, da die Standardabweichung eventuell über die Grenze von Eins steigen würde, was bei Prozenten und Anteilen wenig Sinn ergibt.
 
 ```{r}
 #| echo: true
@@ -572,19 +578,18 @@ emm_obj %>%
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 6
-#| fig-cap: "Säulendigramm der mittleren Brokkoligewichte aus einer Gaussian Regression. Das `lm()`-Modell berechnet das mittler Gewicht des Brokkoli in jeder Faktorkombination. Das *compact letter display* wird dann in `{emmeans}` generiert. Wir nutzen hier den Standardfehler, da die Standardabweichung mit der großen Fallzahl rießig wäre. Wir haben noch ein Mindestgewicht von 500g ergänzt."
+#| fig-cap: "Säulendigramm der mittleren Prozente der untergewichtigen Brokkoli aus einer Beta Regression. Das `betareg()`-Modell berechnet das mittleren Prozente des Brokkoli in jeder Faktorkombination. Das *compact letter display* wird dann in `{emmeans}` generiert. Wir nutzen hier den Standardfehler, da die Standardabweichung mit der großen Fallzahl rießig wäre."
 
-emm_obj %>% 
-  cld(Letters = letters) %>% 
+emm_cld %>% 
   as_tibble() %>% 
-  ggplot(aes(x = fert_amount, y = emmean, fill = fert_time)) +
+  ggplot(aes(x = fert_amount, y = emmean, fill = block)) +
   theme_minimal() + 
   labs(y = "[%] erreichtes Zielgewicht", x = "Düngemenge [mg/l]",
-       fill = "Düngezeitpunkt") +
-  scale_y_continuous(breaks = seq(0, 1, by = 0.1), limits = c(0, 1)) +
+       fill = "Block") +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.1)) +
   geom_bar(stat = "identity", width = 0.7,
            position = position_dodge(width = 0.9, preserve = "single")) +
-  geom_text(aes(label = .group, y = emmean + SE + 0.01),  
+  geom_text(aes(label = str_trim(.group), y = emmean + SE + 0.01),  
             position = position_dodge(width = 0.9), vjust = -0.25) +
   geom_errorbar(aes(ymin = emmean-SE, ymax = emmean+SE),
                 width = 0.2,  
@@ -595,15 +600,21 @@ emm_obj %>%
 
 ### Pilze auf Weizen
 
+Unser zweites Beispiel ist wirklich schwierig auszuwerten, da wir so viele Faktoren vorliegen haben. Zum einen haben wir als Faktor der Weizenlinien zehn genetische Linien vorliegen. Dann schauen wir uns auch noch zwanzig Pilzarten an. Das funktioniert dann hier als Demonstration nicht mehr. In der Realität würdest du dir dann auch Linien oder Pilzarten raussuchen, die sich interessieren und nicht wild hier Abbildungen produzieren. Wenn du alle Faktoren mit in die Modelle nimmst, siehst du wirklich gar nichts mehr. Vertraue mir, ich habe das *compact letter display* bis zum Buchstaben $z$ mit diesem Beispiel ausgereizt.
+
 ```{r}
 fungi_tbl <- fungi_tbl %>% 
   filter(bunt %in% c("B1", "B12", "B157", "B51", "B189", "B4")) %>% 
   filter(gen %in% c("Oro", "Albit", "Turkey", "Hybrid128")) 
 ```
 
+Mit unserem reduzierten Datensatz können wir dann einmal unsere Beta Regression rechnen. Ich nehme hier mal keinen gesonderten Varianzterm an, einfach um das Beispiel etwas kürzer zu halten.
+
 ```{r}
 fungi_fit <- betareg(percent ~ gen + bunt + gen:bunt, data = fungi_tbl)
 ```
+
+Dann können wir auch schon die ANOVA rechnen. Hier hilft die ANOVA wirklich mal einen schnellen Überblick über die Daten zu erhalten.
 
 ```{r}
 fungi_fit %>% 
@@ -611,26 +622,25 @@ fungi_fit %>%
   model_parameters()
 ```
 
-Ich zeige hier die Ausgabe einmal als `tibble` damit die Ausgabe nicht so lang wird.
+Wir sehen, dass wir auf jeden Fall einen Effekt der Weizenlinie wie auch der Pilzart haben. Leider haben wir auch eine signifikante Interaktion, so dass ich die Daten dann für die Faktoren getrennt auswerten werde. Wir nutzen dann das Objekt auch gleich um das *compact letter display* zu erstellen. Mehr geht dann natürlich immer, aber da schaue doch mal in das [Kapitel zu den multiplen Vergleichen und dem Posthoc Test](#sec-posthoc) rein.
 
 ```{r}
 #| warning: false
 #| message: false
 emm_obj <- fungi_fit %>% 
   emmeans(~ gen | bunt) 
-emm_obj  %>% 
-  as_tibble() %>% 
-  print(n = 10)
 ```
 
-Im Folgenden einmal der Code für das *compact letter display*. Ich zeige auch hier die Ausgabe nur einmal als `tibble` damit die Ausgabe nicht so lang wird.
+Im Folgenden einmal der Code für das *compact letter display*. Ich zeige auch hier die Ausgabe nur einmal als `tibble` damit die Ausgabe nicht so lang wird. Wir sehen dann gleich mal den mittleren Pilzbefall pro Linie und Pilzart. Es sind wirklich viele Ergebnisse für die Vergleiche, da wir wirklich viele Level der Faktorkombination haben. Irgendwann ist dann auch das *compact letter display* am Ende.
 
 ```{r}
-emm_obj %>% 
+emm_cld <- emm_obj %>% 
   cld(Letters = letters) %>% 
-  as_tibble() %>% 
-  print(n = 10)
+  as_tibble() 
+emm_cld
 ```
+
+In der @fig-bar-beta-fungi siehst du einmal das sehr heterogene Ergebnis. Wir haben teilweise Weizenarten mit einem sehr starken Pilzbefall und teilweise dann mit gar keinem Pilzbefall. Das Ganze ist dann auch immer abhängig von der Art des Pilzes und dann der befallenen Linie. Wir haben hier eben eine klassische Interaktion vorliegen. Hier habe ich mich dann auch für den Standardfehler für die Fehlerbalken entschieden, da die Standardabweichung eventuell über die Eins hinausgeht.
 
 ```{r}
 #| echo: true
@@ -640,10 +650,9 @@ emm_obj %>%
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 7
-#| fig-cap: "Säulendigramm der mittleren Brokkoligewichte aus einer Gaussian Regression. Das `lm()`-Modell berechnet das mittler Gewicht des Brokkoli in jeder Faktorkombination. Das *compact letter display* wird dann in `{emmeans}` generiert. Wir nutzen hier den Standardfehler, da die Standardabweichung mit der großen Fallzahl rießig wäre. Wir haben noch ein Mindestgewicht von 500g ergänzt."
+#| fig-cap: "Säulendigramm des mittleren Pilzbefalls von Weizen durch verschiedene Pilzarten. Das `betareg()`-Modell berechnet den mittleren Pilzbefall in jeder Faktorkombination. Das *compact letter display* wird dann in `{emmeans}` generiert. Wir nutzen hier den Standardfehler, da die Standardabweichung mit der großen Fallzahl rießig wäre."
 
-emm_obj %>% 
-  cld(Letters = letters) %>% 
+emm_cld %>% 
   as_tibble() %>% 
   ggplot(aes(x = bunt, y = emmean, fill = gen)) +
   theme_minimal() + 
@@ -652,7 +661,7 @@ emm_obj %>%
   scale_y_continuous(breaks = seq(0, 1, by = 0.1), limits = c(0, 1)) +
   geom_bar(stat = "identity", width = 0.7,
            position = position_dodge(width = 0.9, preserve = "single")) +
-  geom_text(aes(label = .group, y = emmean + SE + 0.01),  
+  geom_text(aes(label = str_trim(.group), y = emmean + SE + 0.01),  
             position = position_dodge(width = 0.9), vjust = -0.25) +
   geom_errorbar(aes(ymin = emmean-SE, ymax = emmean+SE),
                 width = 0.2,  
