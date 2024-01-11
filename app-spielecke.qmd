@@ -231,6 +231,54 @@ ggplot(plot_tbl, aes(index, value, fill = key)) +
 
 ```
 
+In der folgenden @fig-time-ar-1 siehst du nochmal verschiedene Beispiele für eine Autokorrelation bzw. einen autoregressiven Prozess (abk. *AR*). Der einfachste AR-Prozess ist ein Prozess der Ordnung 0 und daher schreiben wir dann auch AR(0). Bei einem AR(0) liegt keine Abhängigkeit zwischen den Zeitpunkten vor. Nur der Fehlerterm trägt zum Output des Prozesses bei, so dass AR(0) in der Abbildung weißem Rauschen entspricht.
+
+Bei einem AR(1)-Prozess mit einem positiven $\varphi$ tragen nur der vorherige Term des Prozesses und der Rauschterm zum Output bei. Wenn $\varphi$ nahe bei 0 liegt, dann sieht der Prozess immer noch wie weißes Rauschen aus, aber wenn $\varphi$ sich 1 nähert, erhält die Ausgabe einen größeren Beitrag des vorhergehenden Terms im Verhältnis zum Rauschen. Dies führt zu einer "Glättung" oder Integration der Ausgabe, ähnlich wie bei einem Tiefpassfilter.
+
+Bei einem AR(2)-Prozess tragen die beiden vorhergehenden Terme und der Rauschtext zur Ausgabe bei. Wenn beide $\varphi_1$ und $\varphi_2$ positiv sind, ähnelt das Ergebnis einem Tiefpassfilter, bei dem der Hochfrequenzanteil des Rauschens verringert wird. $\varphi_1$ positiv ist, während $\varphi_2$ negativ ist, dann begünstigt der Prozess Vorzeichenwechsel zwischen den Termen des Prozesses. Die Ausgabe oszilliert. Dies kann mit der Erkennung von Kanten oder Richtungsänderungen verglichen werden.
+
+```{r}
+#| message: false
+#| eval: false
+#| echo: false
+#| warning: false
+#| label: fig-time-ar-1
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 8
+#| fig-cap: "AR(0); AR(1) mit AR-Parameter 0.3; AR(1) mit AR-Parameter 0.9; AR(2) mit AR-Parameter 0.3 und 0.3; und AR(2) mit AR-Parameter 0.9 und -0.8."
+
+set.seed(202318080)
+
+plot_tbl <- map(lst(0.01, 0.3, 0.9, c(0.3, 0.3), c(0.2, 0.7)), \(x) {
+  arima.sim(model = list(ar = x), n = 100) %>% 
+    as_tibble() 
+}) %>% 
+  bind_cols() %>% 
+  set_names(c("AR(0) 0", "AR(1) 0.3", "AR(1) 0.9", "AR(2) 0.3; 0.3", "AR(2) 0.9; -0.8")) %>% 
+  mutate(index = 1:100) %>% 
+  pivot_longer(cols = matches("AR"),
+               values_to = "value",
+               names_to = "key") %>% 
+  mutate(key = as_factor(key))
+
+ggplot(plot_tbl, aes(index, value, fill = key)) +
+  theme_bw() +
+  facet_wrap(~ key, nrow = 5, strip.position="right") + 
+  geom_line() +
+  geom_hline(yintercept = 0) +
+  geom_ribbon(aes(ymin = ifelse(value <= 0, value, 0), 
+                  ymax = ifelse(value >= 0, value, 0)), 
+              alpha=0.5) +
+  ylim(-5, 5) +
+  labs(x = "", y = "") +
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        legend.position = "none", 
+        strip.text = element_text(size = 10))
+
+```
+
 ## Zitate {.unnumbered}
 
 > *"One glance at a book and you hear the voice of another person perhaps someone dead for thousands of years. Across the millennia the author is speaking clearly and silently inside your head, directly to YOU." --- Carl Sagan*
