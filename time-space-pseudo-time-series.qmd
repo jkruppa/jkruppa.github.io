@@ -2,7 +2,9 @@
 #| message: FALSE
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, openxlsx)
 pacman::p_load(tidyverse, magrittr, janitor, see, readxl,
-               lubridate, plotly,  conflicted)
+               lubridate, plotly,  
+               ggnewscale, mgcv, patchwork, 
+               conflicted)
 conflicts_prefer(dplyr::filter)
 conflicts_prefer(magrittr::set_names)
 conflicts_prefer(plyr::mutate)
@@ -438,6 +440,105 @@ Wir beginnen also erstmal nicht so typische Analysen von Zeitreihen. Danach scha
 ### Vergleich von Zeitreihen {#sec-time-two-compare}
 
 {{< include time-space/time-space-time-compare.qmd >}}
+
+::: callout-tip
+## Anwendungsbeispiel: Vergleich von Zeitreihen mit Wiederholungen
+
+```{r}
+#| message: false
+#| warning: false
+
+pacman::p_load()
+
+cotton_time_tbl <- read_excel("data/timeseries_cotton.xlsx", sheet = "diameter") %>% 
+  group_by(trt) %>% 
+  mutate(date_num = 1:n()) %>% 
+  pivot_longer(cols = P1:P12,
+               names_to = "plant_id",
+               names_pattern = ".(\\d+)",
+               names_transform = as.numeric,
+               values_to = "height") %>% 
+  ungroup()
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-time-diff-cotton-1
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Korrelation zwischen den originalen Daten und den Lags. Im unteren Bereich des Korrelationsplot sind die Scatterplost mit der Regressionsgraden eingezeichnet. Im oberen Bereich finden sich die berechneten Korrelationskoeffizienten $\\rho$ für die paarweisen Vergleiche. Wir erreichen immer stationärere Daten."
+
+p1 <- ggplot() +
+  aes(date, height, group = plant_id) +
+  theme_minimal() +
+  geom_smooth(data = filter(cotton_time_tbl, trt == "ctrl"),
+              aes(color = plant_id),
+              method = "loess", se = FALSE) +
+  scale_color_gradientn(colors = c('#99000d', '#fee5d9'), guide="none") +
+  new_scale_color() +
+  geom_smooth(data = filter(cotton_time_tbl, trt == "genetic"), 
+              aes(color = plant_id),
+              method = "loess", se = FALSE) +
+  scale_color_gradientn(colors = c('#084594', '#4292c6'), guide="none") +
+  new_scale_color() +
+  geom_point(data = cotton_time_tbl, aes(color = trt)) +
+  scale_color_manual(values = c('#99000d', '#084594')) +
+  theme(legend.position = "top") +
+  labs(color = "Baumwolllinie", x = "", y = "Wuchshöhe in [cm]")
+p1  
+```
+
+```{r}
+get_area <- function(tbl) {
+  fit <- loess(height ~ date_num, tbl)
+  f <- function(x) predict(fit, newdata = x)
+  integrate(f, 1, 18)$value  
+}
+```
+
+```{r}
+auc_cotton_tbl <- cotton_time_tbl %>% 
+  group_by(trt, plant_id) %>% 
+  nest() %>% 
+  mutate(auc = map(data, ~get_area(.x))) %>% 
+  unnest(auc)
+```
+
+```{r}
+t.test(auc ~ trt, data = auc_cotton_tbl)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-time-diff-cotton-2
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 7
+#| fig-cap: "Korrelation zwischen den originalen Daten und den Lags. Im unteren Bereich des Korrelationsplot sind die Scatterplost mit der Regressionsgraden eingezeichnet. Im oberen Bereich finden sich die berechneten Korrelationskoeffizienten $\\rho$ für die paarweisen Vergleiche. Wir erreichen immer stationärere Daten."
+
+p2 <- auc_cotton_tbl %>% 
+  ggplot(aes(trt, auc, fill = trt)) +
+  theme_minimal() +
+  geom_boxplot(alpha = 0.8)  +
+  scale_fill_manual(values = c('#99000d', '#084594')) +
+  theme(legend.position = "none") +
+  labs(y = "Fläche unter der Kurve", x = "") +
+  annotate("text", x = 1.5, y = 19, label = "p = 0.019") +
+  scale_y_continuous(position = "right")
+p2
+```
+
+```{r}
+p1 + p2 + 
+  plot_layout(widths = c(7, 1)) +
+  plot_annotation(tag_levels = 'A')
+```
+:::
 
 ## Wie weiter?
 
