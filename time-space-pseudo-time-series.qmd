@@ -444,15 +444,15 @@ Wir beginnen also erstmal nicht so typische Analysen von Zeitreihen. Danach scha
 ::: callout-tip
 ## Anwendungsbeispiel: Vergleich von Zeitreihen mit Wiederholungen
 
+Wir hatten uns eben gerade zwar ein Beispiel für den Vergleich zweier Zeitreihen angeschaut, aber hatten wir dort keine Wiederholungen, die wir zuordnen konnten. Wenn wir mit Pflanzen arbeiten, dann können wir das Wachstum über die Zeit bei jeder einzelnen Pflanze messen. Dann können wir aber auch den Verlauf des Wachstums für jede Pflanze darstellen. Damit haben wir dann auch noch eine andere Möglichkeit die Daten zu analysieren. Dazu nutzen wir jetzt ein Beispiel mit Baumwolle. Wir haben zwei Typen von Baumwole vorliegen. Einmal die Standardsorte `ctrl` sowie eine neue genetisch veränderte Sorte `genetic`. Wir haben das Wachstum an zwölf Pflanzen `P1` bis `P12` an insgesamt achtzehn Terminen gemessen. Wir haben die Daten in einem Wide-Format vorliegen und bauen uns deshalb mit der Funktion `pivot_longer()` einen Long-Format. Vorher müssen wir noch das Datum in Messtage umwandeln, damit wir besser mit den Werten rechnen können. Für die Darstellung nutzen wir dann die ursprünglcihe Datumsspalte.
+
 ```{r}
 #| message: false
 #| warning: false
 
-pacman::p_load()
-
 cotton_time_tbl <- read_excel("data/timeseries_cotton.xlsx", sheet = "diameter") %>% 
   group_by(trt) %>% 
-  mutate(date_num = 1:n()) %>% 
+  mutate(day_measured = 1:n()) %>% 
   pivot_longer(cols = P1:P12,
                names_to = "plant_id",
                names_pattern = ".(\\d+)",
@@ -461,15 +461,16 @@ cotton_time_tbl <- read_excel("data/timeseries_cotton.xlsx", sheet = "diameter")
   ungroup()
 ```
 
+In der @fig-time-diff-cotton-1 siehst du einmal die Daten der Wuchshöhe der zwölf Baumwollpflanzen pro Sorte über die achtzehn Messtermine visualisiert. Die beiden Baumwolllinien sind jeweils farbig markiert, die einzelnen Linien entsprechen den jeweils zwölf Pflanzen pro Linie. Wir müssen hier etwas mit der Funktion `new_scale_color()` arbeiten, damit wir dann wieder einen neuen Farbgradienten einführen können. Die Linien sind mit der `loess()`-Funktion durch die Punkte geschätzt. Wir speichern die Abbildung auch einmal in dem Objekt `p1`, da wir gleich noch die Abbildung mit der Auswertung der Flächen unter den Kurven zusammenbringen wollen.
+
 ```{r}
 #| message: false
-#| echo: false
 #| warning: false
 #| label: fig-time-diff-cotton-1
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
-#| fig-cap: "Korrelation zwischen den originalen Daten und den Lags. Im unteren Bereich des Korrelationsplot sind die Scatterplost mit der Regressionsgraden eingezeichnet. Im oberen Bereich finden sich die berechneten Korrelationskoeffizienten $\\rho$ für die paarweisen Vergleiche. Wir erreichen immer stationärere Daten."
+#| fig-cap: "Wuchshöhe der zwölf Baumwollpflanzen pro Sorte über die achtzehn Messtermine. Die beiden Baumwolllinien sind jeweils farbig markiert, die einzelnen Linien entsprechen den jeweils zwölf Pflanzen pro Linie."
 
 p1 <- ggplot() +
   aes(date, height, group = plant_id) +
@@ -491,13 +492,17 @@ p1 <- ggplot() +
 p1  
 ```
 
+Jetzt stellt sich die Frage, ob sich das Wachstum über die Zeit in den beiden Linien unterscheidet. Dafür müssen wir die Fläche unter der Kurve für jede Pflanze berechnen. Dann können wir die Flächen vergleichen. Wenn das Wachstum gleich wäre, dann wären auch die Flächen gleich. Ich habe mir dafür die Funktion `get_area()` gebaut, die intern die Funktion `loess()` angepasst für diesen Datensatz aufruft. Dann brauche die noch die Funktion die integriert werden soll, die brauche ich mir mit der Funktion `predict()`. Abschließend muss ich noch der Funktion `integrate()` mitteilen von welchem $x$-Wert ich integrieren will. Ich entscheide mich hier von der ersten Messung bis zur letzten Messung am achtzehnten Tag zu integrieren.
+
 ```{r}
 get_area <- function(tbl) {
-  fit <- loess(height ~ date_num, tbl)
+  fit <- loess(height ~ day_measured, tbl)
   f <- function(x) predict(fit, newdata = x)
   integrate(f, 1, 18)$value  
 }
 ```
+
+Nachdem ich mir die Funktion gebaut habe, kann ich dann für jede Kombination aus Linie und Pflanze einmal die Fläche unter der Kurve `auc` (eng. *area under the curve*) berechnen. Ich nutze dazu die Funktionen `nest()` und `map()` um mir die Sache einfacher zu machen. Ich könnte auch mit `filter()` mir alle Subgruppen rausfiltern und am Ende zusammenbauen. Aber so geht es eben schneller.
 
 ```{r}
 auc_cotton_tbl <- cotton_time_tbl %>% 
@@ -507,19 +512,22 @@ auc_cotton_tbl <- cotton_time_tbl %>%
   unnest(auc)
 ```
 
+Dann kann ich auch schon einen t-Test für den Vergleich der zwölf Flächen unter der Kurve für die Kontrolllinie und der neuen genetischen Linie rechnen. Prinzipiell ginge hier auch ein nicht-parametrischer Test, aber die Daten sehen einigermaßen normalverteilt aus, wie du gleich in den Boxplots in der @fig-time-diff-cotton-2 sehen wirst.
+
 ```{r}
 t.test(auc ~ trt, data = auc_cotton_tbl)
 ```
 
+Wir haben also einen signifikanten $p$-Wert für den Verglich der Flächen unter der Kurve für die beiden Linien. Ich baue mir jetzt einmal den Boxplot in @fig-time-diff-cotton-2 und speichere mir den Plot auch gleich in ein Objekt `p2`. Ich werde dann die beiden Abbildungen `p1` und `p2` gleich einmal zusammenbringen. Vieles von dem Code dient nur die Abbildung schöner zu machen.
+
 ```{r}
 #| message: false
-#| echo: false
 #| warning: false
 #| label: fig-time-diff-cotton-2
 #| fig-align: center
 #| fig-height: 5
-#| fig-width: 7
-#| fig-cap: "Korrelation zwischen den originalen Daten und den Lags. Im unteren Bereich des Korrelationsplot sind die Scatterplost mit der Regressionsgraden eingezeichnet. Im oberen Bereich finden sich die berechneten Korrelationskoeffizienten $\\rho$ für die paarweisen Vergleiche. Wir erreichen immer stationärere Daten."
+#| fig-width: 5
+#| fig-cap: "Boxplot der Fläche unter der Kurve für die beiden Baumwolllinien. Die Achsenbeschriftung ist auf der rechten Seite, da die Abbildung gleich mit den zeitlichen Verläufen zusammengebracht wird."
 
 p2 <- auc_cotton_tbl %>% 
   ggplot(aes(trt, auc, fill = trt)) +
@@ -533,7 +541,18 @@ p2 <- auc_cotton_tbl %>%
 p2
 ```
 
+Dann können wir auch die beiden Abbildungen `p1` und `p2` mit dem [R Paket `{patchwork}`](https://patchwork.data-imaginist.com/index.html) zusammenbringen und eine Annotation mit den Buchstaben A und B ergänzen. Dann mache ich den Boxplot noch über die Funktion `plot_layout()` sehr viel schmaler, als den zeitlichen Verlauf. Eigentlich brauchen wir dann nur die @fig-time-diff-cotton-3 veröffentlichen, die Abbildung bringt ja alles zusammen. Anscheinend gibt es einen Unterschied zwischen den beiden Linien. Überraschenderweise ist unsere neue genetische Linie signifikant kleiner. Oder andersherum, die Linie ist kleiner, ob das gewollt ist war oder nicht, kann ich dir nicht beantworten.
+
 ```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-time-diff-cotton-3
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 7
+#| fig-cap: "(A) Wuchshöhe der zwölf Baumwollpflanzen pro Sorte über die achtzehn Messtermine. Die beiden Baumwolllinien sind jeweils farbig markiert, die einzelnen Linien entsprechen den jeweils zwölf Pflanzen pro Linie. Die Kurven wurden über eine `loess`-Funktion geschätzt. (B) Boxplot der Fläche unter der Kurve für die beiden Baumwolllinien. Der $p$-Wert stammt aus einem Welch t-Test."
+
 p1 + p2 + 
   plot_layout(widths = c(7, 1)) +
   plot_annotation(tag_levels = 'A')
