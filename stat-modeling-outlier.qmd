@@ -6,17 +6,17 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 
 *Letzte Änderung am `r format(fs::file_info("stat-modeling-outlier.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*
 
-Was sind Ausreißer (eng. *Outlier*) in einem Datensatz? An sich schon eine schwierige Frage. Einige Wissenschaftler behaupten es gebe keine Ausreißer. Die Daten müssten so ausgewertet werden wie die Daten erhoben wurden. Was es gäbe wären technische Artefakte, diese müssten entdeckt und entfernt werden. Andere Wissenschaftler meinen, dass Ausreißer schon existieren und entfernt werden müssen, wenn diese Ausreißer nicht zu der Fragestellung oder den restlichen Daten passen. Es ist eine unbekannte Subpopulation, die sich mit einem oder zwei Vertretern in unsere Daten geschmuggelt hat. Diese Subpopulation verzerrt nur das Ergebnis, da wir mit diesen wenigen anderen Beobachtungen sowieso keine Aussage treffen können. Am Ende geht es aber darum Ausreißer zu finden und diese aus den Daten zu entfernen. Wir setzen dann diese Werte der Ausreißer auf `NA` für fehlender Wert (eng. *not available*). Oder aber wir ersetzen die Ausreißer durch passendere Werte aus unseren Daten. Im Prinzip ein wenig wie finde den Ausreißer und imputiere den Ausreißer mit einer anderen Zahl. Mehr zur Imputation von fehlenden Werten findest du in @sec-missing. Vermeide bitte eine Ausreißer/Imputationsschleife in der du immer wieder Ausreißer findest und diese dann wieder imputierst! Gerade dieses Thema Ausreißer kann sehr gut von biologischen Fachexperten diskutiert werden.
+> *"You should be far more concentrated with your current trajectory than with your current results" --- Atomic Habits'*
 
-In den folgenden Abschnitten wollen wir uns verschiedene Möglichkeiten der Detektion von Ausreißern annähern. Es geht wie immer von algorithmisch einfach zu komplexer.
+Was sind Ausreißer (eng. *Outlier*) in einem Datensatz? An sich schon eine schwierige Frage. Einige Wissenschaftler behaupten es gebe keine Ausreißer. Die Daten müssten so ausgewertet werden wie die Daten erhoben wurden. Was es gäbe wären technische Artefakte, diese müssten entdeckt und entfernt werden. Andere Wissenschaftler meinen, dass Ausreißer schon existieren und entfernt werden müssen, wenn diese Ausreißer nicht zu der Fragestellung oder den restlichen Daten passen. Es ist eine unbekannte Subpopulation, die sich mit einem oder zwei Vertretern in unsere Daten geschmuggelt hat. Diese Subpopulation verzerrt nur das Ergebnis, da wir mit diesen wenigen anderen Beobachtungen sowieso keine Aussage treffen können. Am Ende geht es aber darum Ausreißer zu finden und diese aus den Daten zu entfernen. Wir setzen dann diese Werte der Ausreißer auf `NA` für fehlender Wert (eng. *not available*). Oder aber wir ersetzen die Ausreißer durch passendere Werte aus unseren Daten. Im Prinzip ein wenig wie finde den Ausreißer und imputiere den Ausreißer mit einer anderen Zahl. Mehr zur Imputation von fehlenden Werten findest du in @sec-missing. Vermeide bitte eine Ausreißer/Imputationsschleife in der du immer wieder Ausreißer findest und diese dann wieder imputierst! Gerade dieses Thema Ausreißer kann sehr gut von biologischen Fachexperten diskutiert werden. In den folgenden Abschnitten wollen wir uns verschiedene Möglichkeiten der Detektion von Ausreißern annähern. Es geht wie immer von algorithmisch einfach zu komplexer.
 
-::: column-margin
-![](images/angel_01.png){fig-align="center" width="50%"}
+::: {layout="[15,85]" layout-valign="top"}
+![](images/angel_01.png){fig-align="center" width="100%"}
 
-Bitte beiße dich nicht an der *statistischen* Auslegung eines Ausreißers fest. Du bist der Herr oder die Frau über deine Daten. Kein Algorithmus weis mehr als du. Das macht statistischen Engel natürlich traurig...
+Bitte beiße dich nicht an der *statistischen* Auslegung eines Ausreißers fest. Du bist der Herr oder die Frau über deine Daten. Kein Algorithmus weiß mehr als du. Das macht statistischen Engel natürlich traurig...
 :::
 
-Bitte beachte, dass wenn du weist, dass ein Wert nicht richtig ist, diesen dann auch entfernt. Wenn du während der Beprobung feststellst, dass du leider auf dem Feld zu wenig Erde mitgenommen hast, dann trage ein `NA` in die Tabelle ein. Unsinnige Werte einzutragen nur weil die ja so entstanden sind, macht keinen Sinn. Auch kann es sein, dass du dich mal vertippst. Das heist, du hast in die Exceltabelle eine 0 oder ein Komma falsch gesetzt. Das findest du jetzt in der explorativen Datenanalyse raus. Dann bitte korrigiere diese Werte und mache bitte nicht hier mit der Detektion von Ausreißern weiter. Wenn du selber weist, warum da so ein komischer Wert in der Tabelle steht, dann korrigiere den Wert und schreibe in deinen Bericht, was du getan hast.
+Bitte beachte, dass wenn du weist, dass ein Wert nicht richtig ist, diesen dann auch entfernt. Wenn du während der Beprobung feststellst, dass du leider auf dem Feld zu wenig Erde mitgenommen hast, dann trage ein `NA` in die Tabelle ein. Unsinnige Werte einzutragen nur weil die ja so entstanden sind, macht keinen Sinn. Auch kann es sein, dass du dich mal vertippst. Das heißt, du hast in die Exceltabelle eine 0 oder ein Komma falsch gesetzt. Das findest du jetzt in der explorativen Datenanalyse raus. Dann bitte korrigiere diese Werte und mache bitte nicht hier mit der Detektion von Ausreißern weiter. Wenn du selber weist, warum da so ein komischer Wert in der Tabelle steht, dann korrigiere den Wert und schreibe in deinen Bericht, was du getan hast.
 
 ::: callout-caution
 ## Sensitivitätsanalysen nach der Entfernung von Ausreißer
@@ -30,6 +30,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
+set.seed(20240116)
 pacman::p_load(tidyverse, magrittr, dlookr, broom, readxl,
                see, performance, 
                conflicted)
@@ -93,11 +94,7 @@ Nun wollen wir uns aber erstmal den simpelsten Fall von Ausreißern und die Prob
 
 ## Ausreißer mit Cook\`s Abstand
 
-Mit der Cook'schen Distanz können wir herausfinden, ob eine einzelne Beobachtung ein Ausreißer im Zusammenhang zu den anderen Beobachtungen ist. Die Cook'sche Distanz misst, wie stark sich alle geschätzten Werte im Modell ändern, wenn der $i$-te Datenpunkt gelöscht wird. Veranschaulichen wir uns einmal den Zusammenhang an zwei Beispieldaten.
-
-::: column-margin
-Das [R Paket `olsrr`](https://olsrr.rsquaredacademy.com/articles/influence_measures.html) erlaubt eine weitreichende Diagnostik auf Ausreißer für einem normalverteilten Outcome $y$.
-:::
+Mit der Cook'schen Distanz können wir herausfinden, ob eine einzelne Beobachtung ein Ausreißer im Zusammenhang zu den anderen Beobachtungen ist. Die Cook'sche Distanz misst, wie stark sich alle geschätzten Werte im Modell ändern, wenn der $i$-te Datenpunkt gelöscht wird. Veranschaulichen wir uns einmal den Zusammenhang an zwei Beispieldaten. Das [R Paket `{olsrr}`](https://olsrr.rsquaredacademy.com/articles/influence_measures.html) erlaubt eine weitreichende Diagnostik auf Ausreißer für einem normalverteilten Outcome $y$.
 
 ```{r}
 #| message: false
@@ -133,7 +130,6 @@ Wir können uns die Daten der @tbl-cook-tables auch als Visualisierung in @fig-c
 #|   - "Scatterplot ohne Ausreißer"
 #|   - "Scatterplot mit Ausreißer"
 #| layout-nrow: 1
-#| column: page
 
 ggplot(data = no_out_tbl, aes(x = weight, y = jump_length)) +
   geom_point() +
@@ -188,7 +184,7 @@ ggplot(cook_tbl, aes(weight, .cooksd)) +
   theme_minimal()
 ```
 
-Wir können jetzt mit der Funktion `which()` bestimmen welche Beobachtungen wir als Ausreißer identifizert haben. Was wir jetzt mit den Ausreißern machen, müssen wir uns überlegen. Im Prinzip haben wir zwei Möglichkeiten. Entweder entfernen wir die Beobachtungen aus unserem Datensatz oder aber wir setzen die Werte der Ausreißer auf `NA` oder eine andere *pasendere* Zahl.
+Wir können jetzt mit der Funktion `which()` bestimmen welche Beobachtungen wir als Ausreißer identifiziert haben. Was wir jetzt mit den Ausreißern machen, müssen wir uns überlegen. Im Prinzip haben wir zwei Möglichkeiten. Entweder entfernen wir die Beobachtungen aus unserem Datensatz oder aber wir setzen die Werte der Ausreißer auf `NA` oder eine andere *passendere* Zahl.
 
 ```{r}
 #| message: false
@@ -206,19 +202,17 @@ out_tbl
 
 Du siehst, dieser Zugang an die Detektion von Ausreißern ist sehr simple. Wir schauen einfach auf die Cook'sche Distanz und haben so einen schnellen Überblick. Ich empfehle auch gerne dieses Vorgehen um einmal einen Überblick über die Daten zu erhalten. Leider leifern nicht alle Modelle eine Cook'sche Distanz, daher müssen wir uns jetzt etwas strecken und noch andere Verfahren einmal ausprobieren.
 
-## Ausreißer mit `performance`
+## Ausreißer mit *leverage* (deu. *Hebelwirkung*)
 
-Nun wollen wir uns den echten Daten zuwenden und dort einmal schauen, ob wir Ausreißer finden können. Wir nutzen hierzu einmal die Funktion `check_outliers()` aus dem R Paket `performance`. Die Funktion `check_outliers()` rechnet nicht *eine* staistische Maßzahl für die Bestimmung eines Ausreißers sondern eine ganze Reihe an Maßzahlen und gewichtet diese Maßzahlen. Am Ende trifft die Funktion `check_outliers()` dann eine Entscheidung welche Beobachtungen Aureißer sind. Dabei werden alle Variablen betrachtet. Es gibt keinen Unterschied zwischen $y$ oder $x$. Wir nutzen den ganzen Datensatz.
+## Ausreißer mit `{performance}`
 
-::: column-margin
-Das R Paket `performance` hat die Möglichkeit zur [Outliers detection (check for influential observations)](https://easystats.github.io/performance/reference/check_outliers.html).
-:::
+Nun wollen wir uns den echten Daten zuwenden und dort einmal schauen, ob wir Ausreißer finden können. Wir nutzen hierzu einmal die Funktion `check_outliers()` aus dem R Paket `{performance}`. Die Funktion `check_outliers()` rechnet nicht *eine* statistische Maßzahl für die Bestimmung eines Ausreißers sondern eine ganze Reihe an Maßzahlen und gewichtet diese Maßzahlen. Am Ende trifft die Funktion `check_outliers()` dann eine Entscheidung welche Beobachtungen Ausreißer sind. Dabei werden alle Variablen betrachtet. Es gibt keinen Unterschied zwischen $y$ oder $x$. Wir nutzen den ganzen Datensatz. Das R Paket `{performance}` hat die Möglichkeit zur [Outliers detection (check for influential observations)](https://easystats.github.io/performance/reference/check_outliers.html). :::
 
 ```{r}
 check_outliers(longnose_tbl)
 ```
 
-Wir finden also sieben Aureißer in unseren Daten. Wir können diese Beobachtungen einmal mit der Funktion `extract()` rausziehen und uns anschauen. Wie immer mit so Datensätzen erkennen wir hier noch nicht so ein richtiges Muster. Da müssen wir dann nochmal andere Funktionen nutzen.
+Wir finden also sieben Ausreißer in unseren Daten. Wir können diese Beobachtungen einmal mit der Funktion `extract()` rausziehen und uns anschauen. Wie immer mit so Datensätzen erkennen wir hier noch nicht so ein richtiges Muster. Da müssen wir dann nochmal andere Funktionen nutzen.
 
 ```{r}
 longnose_tbl %>% 
@@ -231,22 +225,18 @@ Ebenso schauen wir einmal bei dem Gummibärchendaten nach, welche der Beobachtun
 check_outliers(gummi_tbl)
 ```
 
-Wir wissen ja, dass wir recht viele Beobachtungen haben und wie wir sehen, scheint sich so ein Cluster in den hohen Zweihundertsiebzigern gebildet zu haben. Manchmal echt spanned, was man so finden kann.
+Wir wissen ja, dass wir recht viele Beobachtungen haben und wie wir sehen, scheint sich so ein Cluster in den hohen Zweihundertsiebzigern gebildet zu haben. Manchmal echt spannend, was man so finden kann.
 
 ```{r}
 gummi_tbl %>% 
   extract(c(95, 119, 122, 179), )
 ```
 
-Am Ende muss man dann bei der Funktion `check_outliers()` daran glauben, dass es sich um Ausreißer handelt. Wir müssen uns dann die Daten genau anschauen und entscheiden, ob wir wirklich *so viele* Beobachtungen entfernen wollen. Darüber hinaus wisen wir jetzt gar nicht, warum wir eine Beobachtung als Ausreißer definiert haben. Dafür müsstest du dann tiefer in die Funktion mit der Hilfeseite `?check_outliers()` einsteigen.
+Am Ende muss man dann bei der Funktion `check_outliers()` daran glauben, dass es sich um Ausreißer handelt. Wir müssen uns dann die Daten genau anschauen und entscheiden, ob wir wirklich *so viele* Beobachtungen entfernen wollen. Darüber hinaus wissen wir jetzt gar nicht, warum wir eine Beobachtung als Ausreißer definiert haben. Dafür müsstest du dann tiefer in die Funktion mit der Hilfeseite `?check_outliers()` einsteigen.
 
-## Ausreißer mit `dlookr`
+## Ausreißer mit `{dlookr}`
 
-Eine weitere Möglichkeit Ausreißer zu finden bietet das R Paket `dlookr` mit der Funktion `diagnose_outlier()`. Neben dieser Funkion hat das R Paket `dlookr` noch eine Vielzahl an weiteren Funktionen, die im Bereich der explorativen Datenanalyse von nutzen sein mögen. Schau dir einfach einmal das R Paket und die Webseite näher an.
-
-::: column-margin
-Das [R Paket `dlookr`](https://choonghyunryu.github.io/dlookr/articles/transformation.html#imputation-of-outliers) hat eine große Auswahl an simplen Algorithmen für die Anpassung von Ausreißern.
-:::
+Eine weitere Möglichkeit Ausreißer zu finden bietet das R Paket `{dlookr}` mit der Funktion `diagnose_outlier()`. Neben dieser Funktion hat das R Paket `{dlookr}` noch eine Vielzahl an weiteren Funktionen, die im Bereich der explorativen Datenanalyse von nutzen sein mögen. Schau dir einfach einmal das R Paket und die Webseite näher an. Das [R Paket `dlookr`](https://choonghyunryu.github.io/dlookr/articles/transformation.html#imputation-of-outliers) hat eine große Auswahl an simplen Algorithmen für die Anpassung von Ausreißern.
 
 Wir wollen hier jetzt nur die Funktion `diagnose_outlier()` und `plot_outlier()` nutzen. Also wir werden zuerst die Ausreißer finden und dann die Ausreißer einmal visualisieren. Im Gegensatz zu dem R Paket `performance` nutzt das R Paket `dlookr` nicht eine große Auswahl an Algorithmen und pooled die Ergebnisse. Wir schauen einmal was wir so finden und was die Vorteile und Nachteile sind.
 
@@ -271,7 +261,6 @@ Nachdem wir wieder den ganzen Datensatz unser langnasigen Hechte in dei Funktion
 #|   - "Outcome `longnose`."
 #|   - "Variable `area`."
 #| layout-nrow: 1
-#| column: page
 
 longnose_tbl %>% plot_outlier(longnose)
 longnose_tbl %>% plot_outlier(area)
@@ -310,7 +299,6 @@ In @fig-miss-dlookr-plot-out-imp sehen wir die beiden Imputationsmethoden `cappi
 #|   - "Imputation mit dem Mittelwert."
 #|   - "Imputation mit dem Median."
 #| layout-nrow: 1
-#| column: page
 
 pluck(longnose_imp_tbl, "longnose_capping") %>% 
   plot
@@ -319,4 +307,8 @@ pluck(longnose_imp_tbl, "longnose_median") %>%
   plot
 ```
 
-Wie du siehst ist eine Detektion von Ausreißern nicht so einfach. Zum einen brauchen wir dazu Daten, damit wir auch Ausrißer finden können. Zu irgendwas müssen wir ja die einzelnen Beobachtungen vergleichen. Zum anderen können wir durch die Imputation die Verteilung der Daten stark ändern. Es bleibt ein Drahtseilakt.
+Wie du siehst ist eine Detektion von Ausreißern nicht so einfach. Zum einen brauchen wir dazu Daten, damit wir auch Ausreißer finden können. Zu irgendwas müssen wir ja die einzelnen Beobachtungen vergleichen. Zum anderen können wir durch die Imputation die Verteilung der Daten stark ändern. Es bleibt ein Drahtseilakt.
+
+::: callout-tip
+## Anwendungsbeispiel: Ausreißer in einer simplen Regression
+:::
