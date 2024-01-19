@@ -16,7 +16,7 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 
 Was sind Ausreißer (eng. *Outlier*) in einem Datensatz? An sich schon eine schwierige Frage. Einige Wissenschaftler behaupten es gebe keine Ausreißer. Die Daten müssten so ausgewertet werden wie die Daten erhoben wurden. Was es gäbe wären technische Artefakte, diese müssten entdeckt und entfernt werden. Andere Wissenschaftler meinen, dass Ausreißer schon existieren und entfernt werden müssen, wenn diese Ausreißer nicht zu der Fragestellung oder den restlichen Daten passen. Es ist eine unbekannte Subpopulation, die sich mit einem oder zwei Vertretern in unsere Daten geschmuggelt hat. Diese Subpopulation verzerrt nur das Ergebnis, da wir mit diesen wenigen anderen Beobachtungen sowieso keine Aussage treffen können. @cook2021philosophy meint in seiner wissenschaftlichen Veröffentlichung [The Philosophy of Outliers: Reintegrating Rare Events Into Biological Science](https://academic.oup.com/icb/article/61/6/2191/6324573), dass gerade die seltenen Ereignisse, die wir als Ausreißer definieren, dann vielleicht die spannenden Beobachtungen sind. Warum verhält sich gerade diese eine Beobachtung in diesem Experiment so seltsam? Was will uns die Beobachtung mehr über die biologischen Hintergründe verraten? Aber auch im Falle von @cook2021philosophy müssen wir uns sicher sein, dass unsere Ausreißer keine Tippfehler oder einfach nur nicht gegossene Pflanzen sind. Dazu aber gleich nochmal mehr.
 
-Am Ende geht es aber darum Ausreißer zu finden und diese aus den Daten zu entfernen. Wir setzen dann diese Werte der Ausreißer auf `NA` für fehlender Wert (eng. *not available*). Oder aber wir ersetzen die Ausreißer durch passendere Werte aus unseren Daten. Im Prinzip ein wenig wie finde den Ausreißer und imputiere den Ausreißer mit einer anderen Zahl. Mehr zur Imputation von fehlenden Werten findest du in @sec-missing. Vermeide bitte eine Ausreißer/Imputationsschleife in der du immer wieder Ausreißer findest und diese dann wieder imputierst! Gerade dieses Thema Ausreißer kann sehr gut von biologischen Fachexperten diskutiert werden. In den folgenden Abschnitten wollen wir uns verschiedene Möglichkeiten der Detektion von Ausreißern annähern. Es geht wie immer von algorithmisch einfach zu komplexer. Darüber hinaus gebe ich zuerst nochmal eine kleine Auswahl an Literatur zu dem Thema Ausreißer. Die kannst du auch überspringen, wenn dich das Thema nicht tiefer interessiert.
+Am Ende geht es aber darum Ausreißer zu finden und diese aus den Daten zu entfernen. Wir setzen dann diese Werte der Ausreißer auf `NA` für fehlender Wert (eng. *not available*). Oder aber wir ersetzen die Ausreißer durch passendere Werte aus unseren Daten. Im Prinzip ein wenig wie finde den Ausreißer und imputiere den Ausreißer mit einer anderen Zahl. Mehr zur Imputation von fehlenden Werten findest du in @sec-missing. Vermeide bitte eine Ausreißer/Imputationsschleife in der du immer wieder Ausreißer findest und diese dann wieder imputierst! Gerade dieses Thema Ausreißer kann sehr gut von biologischen Fachexperten diskutiert werden. In den folgenden Abschnitten wollen wir uns verschiedene Möglichkeiten der Detektion von Ausreißern annähern. Es geht wie immer von algorithmisch einfach zu komplexer. Darüber hinaus gebe ich zuerst nochmal eine kleine Auswahl an Literatur zu dem Thema Ausreißer. Die kannst du auch überspringen, wenn dich das Thema nicht tiefer interessiert. Ein weitreichenden Überblick liefert aber auf jeden Fall @boukerche2020outlier mit ihrer wissenschaftlichen Veröffentlichung [Outlier Detection: Methods, Models, and Classification](https://dl.acm.org/doi/abs/10.1145/3381028?casa_token=eXl2SvgkPNcAAAAA:Lgs0l4CXmw3mXyzSMVj9-_M2ry0F-lTyfsYUszWhkRJU9TNg5-JjzCaBaOeFSVifSCkvoyQdeuCvvQ).
 
 ::: {layout="[15,85]" layout-valign="top"}
 ![](images/angel_01.png){fig-align="center" width="100%"}
@@ -26,29 +26,29 @@ Am Ende geht es aber darum Ausreißer zu finden und diese aus den Daten zu entfe
 
 Bitte beachte, dass wenn du weist, dass ein Wert nicht richtig ist, diesen dann auch entfernt. Wenn du während der Beprobung oder Messung feststellst, dass du leider auf dem Feld zu wenig Erde mitgenommen hast, dann trage ein `NA` in die Tabelle ein. Unsinnige Werte einzutragen, nur weil die "ja so entstanden sind", macht keinen Sinn. Auch kann es sein, dass du dich mal vertippst. Das heißt, du hast in die Exceltabelle eine Null oder ein Komma falsch gesetzt. Das findest du dann ja meist in der explorativen Datenanalyse raus. In dem Fall korrigiere diese falschen Werte und mache bitte nicht hier mit der Detektion von Ausreißern weiter. Wenn du selber weist, warum da so ein komischer Wert in der Tabelle steht, dann korrigiere den Wert und schreibe in deinen Bericht, was du getan hast.
 
-@lyons2013discovering und der wissenschaftlichen Veröffentlichung [Discovering the sigificance of 5$\sigma$](https://arxiv.org/pdf/1310.1284.pdf)
+Neben der Biologie gibt es das Problem der Ausreißer oder ungewöhnlichen Messwerte auch in der Physik. Dort heißt das Konzept $5\sigma$ (eng. *five sigma*, deu. *fünf sigma*) auch wenn es nach @lyons2013discovering und der wissenschaftlichen Veröffentlichung [Discovering the sigificance of 5$\sigma$](https://arxiv.org/pdf/1310.1284.pdf) nicht unumstritten ist. Vor allem ist es aber ein einfaches Konzept, da wir mit $\sigma$ die Standardabweichung meinen. Ein Fünf-Sigma-Wert entspricht einer Wahrscheinlichkeit, und daher mehr oder minder einem $p$-Wert, von $3 \cdot 10^7$, also etwa einem Auftreten von einem Ereignis mit einer Wahrscheinlichkeit von eins zu 3.5 Millionen. Nehmen wir zum Beispiel ein Experiment, bei dem wir 100 Mal eine Münze werfen. Das erwartete Ergebnis sei 50-mal Kopf und die Standardabweichung $\sigma$ eines solchen Experiments sei fünf. Wenn du nun 55-mal Kopf erhälst, dann ist das ein $1\sigma$-Effekt, bei 60-mal Kopf ist das ein $2\sigma$-Effekt, bei 65-mal ein $3\sigma$-Effekt, bei 70-mal ein $4\sigma$-Effekt und bei 75-mal Kopf ein $5\sigma$-Effekt. Wenn du also einen $5\sigma$-Effekt beobachtest, dann ist es sehr unwahrscheinlich, dass deine Erweartung an 50-mal Kopf wahr ist. Du hast vermutlich eine gefälschte Münze vorliegen. Mehr dazu auch auf der Seite des CERN und dem Artikel [Why do physicists mention "five sigma" in their results?](https://home.cern/resources/faqs/five-sigma)
 
-[Why do physicists mention "five sigma" in their results?](https://home.cern/resources/faqs/five-sigma)
-
-@michel2020new und der Veröffentlichung [New Author Guidelines for Displaying Data and Reporting Data Analysis and Statistical Methods in Experimental Biology](https://jpet.aspetjournals.org/content/jpet/372/1/136.full.pdf)
+Soweit unser kleiner Ausflug in die Physik. @michel2020new beschreiben in ihrer Veröffentlichung [New Author Guidelines for Displaying Data and Reporting Data Analysis and Statistical Methods in Experimental Biology](https://jpet.aspetjournals.org/content/jpet/372/1/136.full.pdf) Methoden und Anleitungen für die Veröffentlichung von Studien. Wir wollen uns hier einmal auf die Beschreibung der Ausreißer konzentrieren. So schreiben die Autoren wie folgt.
 
 > *Before identifying outliers, authors should consider the possibility that the data come from a lognormal distribution, which may make a value look as an outlier on a linear but not on a logarithmic scale.* --- @michel2020new, p. 139
 
-Siehe auch das Kapitel zu dem [Transformieren von Daten](#sec-eda-transform)
+Wir sollen also einmal überlegen, ob wir vielleicht Daten vorliegen haben, die keiner Normalverteilung folgen und durch eine Transformation wiederum in eine Normalverteilung überführt werden könnten. Die Ausreißer, die wir beobachten gehören also zu den Daten, wir glauben nur an eine falsche Verteilung der Daten und schließen deshalb die Beobachtungen aus. Mehr dazu dann auch in dem Kapitel zu der [Transformieren von Daten](#sec-eda-transform).
+
+Und auch @michel2020new schreiben wie folgt, dass die eigentliche Entscheidung bei den Forschenden liegt, die die Daten erhoben haben.
 
 > *The choice of the appropriate method for handling apparent outliers depends on the specific circumstances and is up to the investigators. The \[journal\] ask authors to state in the methods or results section what quality control criteria were used to remove "bad experiments" or outliers, whether these criteria were set in advance, and how many bad points or experiments were removed.* --- @michel2020new, p. 139
 
+Was dich natürlich nicht davon befreit, einmal zu zeigen, welche Daten entfernt wurden und welche nicht. Meistens ist es aber natürlich so, dass die Ausreißer schon einen Effekt ausmachen, sondt müsste man die Werte ja auch nicht entfernen.
+
 > *It may also make sense to report in an online supplement the details on every value or experiment removed as outliers, and to report in that supplement how the results would differ if outliers were not removed.* --- @michel2020new, p. 139
 
-@boukerche2020outlier und der wissenschaftlichen Veröffentlichung [Outlier Detection: Methods, Models, and Classification](https://dl.acm.org/doi/abs/10.1145/3381028?casa_token=eXl2SvgkPNcAAAAA:Lgs0l4CXmw3mXyzSMVj9-_M2ry0F-lTyfsYUszWhkRJU9TNg5-JjzCaBaOeFSVifSCkvoyQdeuCvvQ)
+Nun ist die Ausreißerbestimmung (eng. *outlier detection*) auch nicht umstritten. So schreiben @zimek2018there in ihrer etwas längeren Veröffentlichung [There and back again: Outlier detection between statistical reasoning and data mining algorithms](https://findresearcher.sdu.dk/ws/files/153197807/There_and_Back_Again.pdf) folgenden Absatz zu Ausreißern und was Ausreißer sind.
 
-@zimek2018there und der Veröffentlichung [There and back again: Outlier detection between statistical reasoning and data mining algorithms](https://findresearcher.sdu.dk/ws/files/153197807/There_and_Back_Again.pdf)
+> *"\[A\]n observation (or subset of observations) which appears to be inconsistent with the remainder of that set of data". In about two decades of research in data mining many methods have been proposed to identify such outliers. Much attention has been spent on doing this ever faster, less attention has been attributed to the description "appears to".* --- @zimek2018there
 
-> *"an observation (or subset of observations) which appears to be inconsistent with the remainder of that set of data". In about two decades of research in data mining many methods have been proposed to identify such outliers. Much attention has been spent on doing this ever faster, less attention has been attributed to the description "appears to".* --- @zimek2018there
+Und so drehen wir usn auch hier etwas im Kreis, denn die Frage bleibt immer, was soll den ein Ausreißer sein? Zu welcher KGruppe an Daten vergleichst du den die einzelnen Werte um zu entscheiden, dass dieser bestimmte Wert jetzt ein Ausreißer ist? Den Gedankengang greifen @sejr2021explainable nochmla mit ihrer Veröffentlichung [Explainable outlier detection: What, for Whom and Why?](https://www.sciencedirect.com/science/article/pii/S2666827021000864) auf. In der Arbeit gehen beide nochmal auf die Problematik ein, dass eine Ausreißerbestimmung immer im Kontext der Forschung und auch der Zielgruppe der Forschung gesehen werden muss. Wem willst du eigentlich die Studie berichten? Was ist das Ziel der Studie und wie sind in diesem Kontext Ausreißer zu sehen?
 
-@sejr2021explainable mit Veröffentlichung [Explainable outlier detection: What, for Whom and Why?](https://www.sciencedirect.com/science/article/pii/S2666827021000864)
-
-Siehe dazu auch das Kapitel der [Sensitivitätsanalyse](#sec-sensitivity). Nachdem wir Beobachtungen aus unseren Daten entfernt haben, ist es häufig üblich noch eine Sensitivitätsanalysen durchzuführen. Wir Vergleich dann das *gereinigte* Modell mit *anderen* Modellen. Oder wir wollen die Frage beantworten, was hat eigentlich mein Entfernen von Ausreißern am Ergebnis geändert? Habe ich eine wichtige Beobachtung rausgeschmissen? Am Ende musst dud ann natürlich enstscheiden, ob das Ergebnis ohne Ausreißer biologisch sinnvoller ist als das Experiment mit Ausreißern. Besonders wenn dann auch andere Ergbnisse rauskommen.
+Siehe dazu auch das Kapitel der [Sensitivitätsanalyse](#sec-sensitivity). Nachdem wir Beobachtungen aus unseren Daten entfernt haben, ist es häufig üblich noch eine Sensitivitätsanalysen durchzuführen. Wir Vergleich dann das *gereinigte* Modell mit *anderen* Modellen. Oder wir wollen die Frage beantworten, was hat eigentlich mein Entfernen von Ausreißern am Ergebnis geändert? Habe ich eine wichtige Beobachtung rausgeschmissen? Am Ende musst du dann natürlich entscheiden, ob das Ergebnis ohne Ausreißer biologisch sinnvoller ist als das Experiment mit Ausreißern. Besonders wenn dann auch andere Ergebnisse rauskommen.
 
 ::: callout-tip
 ## Weitere Tutorien für das Finden von Ausreißern
@@ -403,7 +403,7 @@ Cook's Abstand `.cooksd`
 ```{r}
 clean_tbl <- fit %>% 
   augment() %>% 
-  filter(.cooksd < 0.22)
+  mutate(outlier = ifelse(.cooksd > 0.22, TRUE, FALSE))
 ```
 
 Residuals mean plus minus 2
@@ -430,11 +430,11 @@ standard_colorink_tbl %>%
   geom_smooth(method = "lm", color = "red", se = FALSE)
 
 clean_tbl %>% 
-  ggplot(aes(colorink, standard)) +
+  ggplot(aes(colorink, standard, shape = outlier)) +
   theme_minimal() +
   ylim(50, 100) + xlim(50, 100) +
   geom_point() +
-  geom_smooth(method = "lm", color = "red", se = FALSE)
+  geom_smooth(data = filter(clean_tbl, !outlier), method = "lm", color = "red", se = FALSE)
 
 ```
 :::
