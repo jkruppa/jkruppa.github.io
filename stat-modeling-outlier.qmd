@@ -55,13 +55,21 @@ Siehe dazu auch das Kapitel der [Sensitivitätsanalyse](#sec-sensitivity). Nachd
 ::: callout-tip
 ## Weitere Tutorien für das Finden von Ausreißern
 
--   [Outliers detection in R](https://statsandr.com/blog/outliers-detection-in-r/)
--   [8 methods to find outliers in R (with examples)](https://www.reneshbedre.com/blog/find-outliers.html)
--   [Outliers detection in R](https://rpubs.com/Alema/1000582)
--   Multivariate [Anomaly Detection](https://rpubs.com/Treegonaut/301942) mit dem R Paket [`{mvoutlier}`](https://cran.r-project.org/web/packages/mvoutlier/index.html)
+Wir immer geht natürlich mehr als ich hier Vorstellen kann. Du findest im Folgenden Tutorien, die mich hier in dem Kapitel inspiriert haben. Besonders das Tutorium zu [Anomaly Detection](https://rpubs.com/Treegonaut/301942) mag interessant sein, da wir uns dort mehrere Variablen auf einmal anschauen.
+
+-   [Outliers detection in R](https://statsandr.com/blog/outliers-detection-in-r/) bietet einen sehr schönen Überblick über Möglichkeiten Ausreißer in Daten zu finden. Ich habe Teile des Tutoriums auch hier in dem Kapitel verwendet.
+-   [8 methods to find outliers in R (with examples)](https://www.reneshbedre.com/blog/find-outliers.html) ist ein ähnliches Tutroium. Es gibt nochmal einen guten Überblick ist aber um einiges kürzer. Daher etwas schneller zu lesen.
+-   [Outliers detection in R](https://rpubs.com/Alema/1000582) liefert ebenfalls nochmal einen Überblick über die Methoden der Ausreißerbestimmung. Auch hier doppelt sich dann vieles, aber dafür hast du hier nochmal etwas mehr Text und Erklärungen.
+-   Multivariate [Anomaly Detection](https://rpubs.com/Treegonaut/301942) kannst du mit dem R Paket [`{mvoutlier}`](https://cran.r-project.org/web/packages/mvoutlier/index.html) durchführen. Daher schaust du dir nicht nur eine Variable an, sondern gleich mehrere Variablen auf einmal. Ich gehe nur auf Teile des R Paketes hier in dem Kapitel ein.
 :::
 
 ## Genutzte R Pakete
+
+::: callout-caution
+## Friedhof der R Pakete
+
+In diesem Kapitel ist etwas passiert, was ich noch nie in einem anderem Thema erlebt habe. Ich finde hier R Pakete, die in den letzten Jahren von CRAN runtergenommen wurden, da die Pakete nicht mehr gepflegt werden. Damit sterben natürlich auch einige der Tutorien weg, dir ich so nutze. Also hier der Friedhof der R Pakete zu der Ausreißerbestimmung mit dem R Paket `{dlookr}`, `{OutlierDetection}` sowie `{DMwR}`. **All diese R Pakete werden nicht mehr unterstützt.** Einer Nutzung ist dem normalen Anwender abzuraten.
+:::
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
@@ -82,12 +90,6 @@ cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
-
-::: callout-caution
-## Friedhof der R Pakete
-
-`{dlookr}` oder `{OutlierDetection}` sowie `{DMwR}`
-:::
 
 ## Daten
 
@@ -116,7 +118,8 @@ Im Weiteren betrachten wir noch das Beispiel der Gummibärchendaten. Auch hier h
 #| message: false
 
 gummi_tbl <- read_excel("data/gummibears.xlsx")  %>%
-  select(gender, age, height) %>% 
+  select(module, gender, age, height) %>% 
+  mutate(gender = factor(gender, labels = c("männlich", "weiblich"))) %>% 
   na.omit()
 ```
 
@@ -164,9 +167,9 @@ Nun wollen wir uns aber erstmal den simpelsten Fall von Ausreißern und die Prob
 ## Visualisierung
 
 ```{r }
-#| echo: false
+#| echo: true
 #| message: false
-#| label: fig-beeswarm-dist-0
+#| label: fig-beeswarm-out-0
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
@@ -177,29 +180,21 @@ Nun wollen wir uns aber erstmal den simpelsten Fall von Ausreißern und die Prob
 #| layout-nrow: 1
 #| column: page
 
-na.omit(gummi_tbl) %>% 
-  mutate(gender = factor(gender, labels = c("männlich", "weiblich"))) %>% 
-  ggplot(aes(x = gender, y = age,
-                             color = gender)) +
+gummi_tbl %>% 
+  ggplot(aes(x = gender, y = age, color = gender)) +
   geom_beeswarm(size = 1) +
   theme_minimal() +
-  scale_color_okabeito(order = c(2, 7), 
-                    labels = c("männlich", "weiblich")) +
+  scale_color_okabeito(order = c(2, 7)) +
   labs(x = "Geschlecht", y = "Alter in Jahren") +
-  theme(legend.position = "none") +
-  scale_y_continuous(breaks = seq(10, 70, 5))
+  theme(legend.position = "none")
 
 na.omit(gummi_tbl) %>% 
-  mutate(gender = factor(gender, labels = c("männlich", "weiblich"))) %>% 
-  ggplot(aes(x = gender, y = height,
-                             color = gender)) +
+  ggplot(aes(x = gender, y = height, color = gender)) +
   geom_beeswarm(size = 1) +
   theme_minimal() +
-  scale_color_okabeito(order = c(2, 7), 
-                    labels = c("männlich", "weiblich")) +
+  scale_color_okabeito(order = c(2, 7)) +
   labs(x = "Geschlecht", y = "Körpergröße in [cm]") +
-  theme(legend.position = "none") +
-  scale_y_continuous(breaks = seq(138, 214, 4))
+  theme(legend.position = "none") 
 
 ```
 
@@ -219,7 +214,7 @@ ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
   labs(x = "Gemessene Dichte der Wasserlinsen", y = "Sensorwert")
 ```
 
-## Bekannte Kriterien
+## Bekannte Kriterien für Ausreißer
 
 [Outliers detection in R](https://statsandr.com/blog/outliers-detection-in-r/)
 
@@ -368,30 +363,53 @@ Text
 Nun wollen wir uns den echten Daten zuwenden und dort einmal schauen, ob wir Ausreißer finden können. Wir nutzen hierzu einmal die Funktion `check_outliers()` aus dem R Paket `{performance}`. Die Funktion `check_outliers()` rechnet nicht *eine* statistische Maßzahl für die Bestimmung eines Ausreißers sondern eine ganze Reihe an Maßzahlen und gewichtet diese Maßzahlen. Am Ende trifft die Funktion `check_outliers()` dann eine Entscheidung welche Beobachtungen Ausreißer sind. Dabei werden alle Variablen betrachtet. Es gibt keinen Unterschied zwischen $y$ oder $x$. Wir nutzen den ganzen Datensatz. Das R Paket `{performance}` hat die Möglichkeit zur [Outliers detection (check for influential observations)](https://easystats.github.io/performance/reference/check_outliers.html).
 
 ```{r}
-check_outliers(longnose_tbl)
+out_performance_obj <- check_outliers(gummi_tbl)
+out_performance_obj
 ```
 
 Wir finden also sieben Ausreißer in unseren Daten. Wir können diese Beobachtungen einmal mit der Funktion `extract()` rausziehen und uns anschauen. Wie immer mit so Datensätzen erkennen wir hier noch nicht so ein richtiges Muster. Da müssen wir dann nochmal andere Funktionen nutzen.
 
 ```{r}
-longnose_tbl %>% 
-  extract(c(8, 17, 18, 21, 28, 43, 44), )
-```
-
-Ebenso schauen wir einmal bei dem Gummibärchendaten nach, welche der Beobachtungen ein Ausreißer sein könnten.
-
-```{r}
-check_outliers(gummi_tbl)
-```
-
-Wir wissen ja, dass wir recht viele Beobachtungen haben und wie wir sehen, scheint sich so ein Cluster in den hohen Zweihundertsiebzigern gebildet zu haben. Manchmal echt spannend, was man so finden kann.
-
-```{r}
 gummi_tbl %>% 
-  extract(c(95, 119, 122, 179), )
+  filter(out_performance_obj)
 ```
 
-Am Ende muss man dann bei der Funktion `check_outliers()` daran glauben, dass es sich um Ausreißer handelt. Wir müssen uns dann die Daten genau anschauen und entscheiden, ob wir wirklich *so viele* Beobachtungen entfernen wollen. Darüber hinaus wissen wir jetzt gar nicht, warum wir eine Beobachtung als Ausreißer definiert haben. Dafür müsstest du dann tiefer in die Funktion mit der Hilfeseite `?check_outliers()` einsteigen.
+```{r}
+gummi_performance_out_tbl <- gummi_tbl %>% 
+  mutate(outlier = out_performance_obj)
+```
+
+```{r }
+#| echo: false
+#| message: false
+#| label: fig-beeswarm-dist-0
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Der Beeswarm ist ein Dotplot für eine große Anzahl an Beobachtungen. Hier schauen wir uns einmal das Alter und die Körpergröße aufgeteilt nach Geschlecht an. Bei sehr vielen Beobachtungen kommt dann auch ein Bienenschwarm an die Grenze."
+#| fig-subcap: 
+#|   - "Alter nach Geschlecht"
+#|   - "Körpergröße nach Geschlecht"
+#| layout-nrow: 1
+#| column: page
+
+gummi_performance_out_tbl %>% 
+  ggplot(aes(x = gender, y = age, color = gender, shape = outlier)) +
+  geom_beeswarm(size = 1) +
+  theme_minimal() +
+  scale_color_okabeito(order = c(2, 7), guide = "none") +
+  scale_shape_manual(name = "Ausreißer", values = c(19, 4)) +
+  labs(x = "Geschlecht", y = "Alter in [Jahren]") 
+
+gummi_performance_out_tbl %>% 
+  ggplot(aes(x = gender, y = height, color = gender, shape = outlier)) +
+  geom_beeswarm(size = 1) +
+  theme_minimal() +
+  scale_color_okabeito(order = c(2, 7), guide = "none") +
+  scale_shape_manual(name = "Ausreißer", values = c(19, 4)) +
+  labs(x = "Geschlecht", y = "Körpergröße in [cm]") 
+
+```
 
 ## Ausreißer mit `{olsrr}`
 
