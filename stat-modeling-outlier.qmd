@@ -12,6 +12,8 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
+**Dieses Kapitel wird in den Wintersemesterferien grundlegend überarbeitet. Mit einer neuen Version ist ab März 2024 zu rechnen. Bis dahin sind Teile des Kapitels ab und zu nicht mehr funktional.**
+
 ------------------------------------------------------------------------
 
 Was sind Ausreißer (eng. *Outlier*) in einem Datensatz? An sich schon eine schwierige Frage. Einige Wissenschaftler behaupten es gebe keine Ausreißer. Die Daten müssten so ausgewertet werden wie die Daten erhoben wurden. Was es gäbe wären technische Artefakte, diese müssten entdeckt und entfernt werden. Andere Wissenschaftler meinen, dass Ausreißer schon existieren und entfernt werden müssen, wenn diese Ausreißer nicht zu der Fragestellung oder den restlichen Daten passen. Es ist eine unbekannte Subpopulation, die sich mit einem oder zwei Vertretern in unsere Daten geschmuggelt hat. Diese Subpopulation verzerrt nur das Ergebnis, da wir mit diesen wenigen anderen Beobachtungen sowieso keine Aussage treffen können. @cook2021philosophy meint in seiner wissenschaftlichen Veröffentlichung [The Philosophy of Outliers: Reintegrating Rare Events Into Biological Science](https://academic.oup.com/icb/article/61/6/2191/6324573), dass gerade die seltenen Ereignisse, die wir als Ausreißer definieren, dann vielleicht die spannenden Beobachtungen sind. Warum verhält sich gerade diese eine Beobachtung in diesem Experiment so seltsam? Was will uns die Beobachtung mehr über die biologischen Hintergründe verraten? Aber auch im Falle von @cook2021philosophy müssen wir uns sicher sein, dass unsere Ausreißer keine Tippfehler oder einfach nur nicht gegossene Pflanzen sind. Dazu aber gleich nochmal mehr.
@@ -56,6 +58,7 @@ Siehe dazu auch das Kapitel der [Sensitivitätsanalyse](#sec-sensitivity). Nachd
 -   [Outliers detection in R](https://statsandr.com/blog/outliers-detection-in-r/)
 -   [8 methods to find outliers in R (with examples)](https://www.reneshbedre.com/blog/find-outliers.html)
 -   [Outliers detection in R](https://rpubs.com/Alema/1000582)
+-   Multivariate [Anomaly Detection](https://rpubs.com/Treegonaut/301942) mit dem R Paket [`{mvoutlier}`](https://cran.r-project.org/web/packages/mvoutlier/index.html)
 :::
 
 ## Genutzte R Pakete
@@ -66,7 +69,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 set.seed(20240116)
 pacman::p_load(tidyverse, magrittr, broom, readxl,
-               see, performance, dlookr,
+               see, performance, ggbeeswarm, olsrr,
+               outliers,
                conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
@@ -78,6 +82,12 @@ cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
+
+::: callout-caution
+## Friedhof der R Pakete
+
+`{dlookr}` oder `{OutlierDetection}` sowie `{DMwR}`
+:::
 
 ## Daten
 
@@ -106,27 +116,118 @@ Im Weiteren betrachten wir noch das Beispiel der Gummibärchendaten. Auch hier h
 #| message: false
 
 gummi_tbl <- read_excel("data/gummibears.xlsx")  %>%
-  filter(module %in% c("FU Berlin", "Girls and Boys Day")) %>% 
-  select(gender, age, height, semester, most_liked) %>% 
-  mutate(gender = as_factor(gender),
-         most_liked = as_factor(most_liked)) %>% 
+  select(gender, age, height) %>% 
   na.omit()
 ```
 
 In der @tbl-gummi-1 ist der Datensatz `gummi_tbl` nochmal für die ersten sieben Zeilen dargestellt. Nun haben wir hier in dem Datensatz zu den Gummibärchen auch keine fehlenden Werte mehr.
 
 ```{r}
-#| message: false
 #| echo: false
-#| tbl-cap: "Auszug aus dem Datensatz `gummi_tbl`. Wir betrachten die ersten sieben Zeilen des Datensatzes."
+#| message: false
+#| warning: false
 #| label: tbl-gummi-1
+#| tbl-cap: "Auszug "
 
-gummi_tbl %>% head(7) %>% kable(align = "c", "pipe")
+gummi_raw_tbl <- gummi_tbl %>% 
+  mutate_all(as.character)
+  
+
+rbind(head(gummi_raw_tbl, 4),
+      rep("...", times = ncol(gummi_raw_tbl)),
+      tail(gummi_raw_tbl, 4)) %>% 
+  kable(align = "c", "pipe")
+
+```
+
+```{r}
+duckweeds_tbl <- read_excel("data/duckweeds_density.xlsx")
+```
+
+In der @tbl-duckweeds siehst du dann einmal einen Auszug aus den Daten zu den Wasserlinsen. Es ist ein sehr einfacher Datensatz mit nur zwei Spalten. Wie du siehst, scheint sich das bei der nicht linearen Regression durchzuziehen. Es gehen auch komplexere Modelle, aber dann kann ich die Ergebnisse schlechter visualisieren.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-duckweeds
+#| tbl-cap: "Auszug aus Wasserlinsendatensatz."
+
+rbind(head(duckweeds_tbl, n = 3),
+      rep("...", times = ncol(duckweeds_tbl)),
+      tail(duckweeds_tbl, n = 3)) %>% 
+  kable(align = "c", "pipe")
 ```
 
 Nun wollen wir uns aber erstmal den simpelsten Fall von Ausreißern und die Problematik dahinter visualisieren.
 
-## Ausreißer mit Cook\`s Abstand
+## Visualisierung
+
+```{r }
+#| echo: false
+#| message: false
+#| label: fig-beeswarm-dist-0
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Der Beeswarm ist ein Dotplot für eine große Anzahl an Beobachtungen. Hier schauen wir uns einmal das Alter und die Körpergröße aufgeteilt nach Geschlecht an. Bei sehr vielen Beobachtungen kommt dann auch ein Bienenschwarm an die Grenze."
+#| fig-subcap: 
+#|   - "Alter nach Geschlecht"
+#|   - "Körpergröße nach Geschlecht"
+#| layout-nrow: 1
+#| column: page
+
+na.omit(gummi_tbl) %>% 
+  mutate(gender = factor(gender, labels = c("männlich", "weiblich"))) %>% 
+  ggplot(aes(x = gender, y = age,
+                             color = gender)) +
+  geom_beeswarm(size = 1) +
+  theme_minimal() +
+  scale_color_okabeito(order = c(2, 7), 
+                    labels = c("männlich", "weiblich")) +
+  labs(x = "Geschlecht", y = "Alter in Jahren") +
+  theme(legend.position = "none") +
+  scale_y_continuous(breaks = seq(10, 70, 5))
+
+na.omit(gummi_tbl) %>% 
+  mutate(gender = factor(gender, labels = c("männlich", "weiblich"))) %>% 
+  ggplot(aes(x = gender, y = height,
+                             color = gender)) +
+  geom_beeswarm(size = 1) +
+  theme_minimal() +
+  scale_color_okabeito(order = c(2, 7), 
+                    labels = c("männlich", "weiblich")) +
+  labs(x = "Geschlecht", y = "Körpergröße in [cm]") +
+  theme(legend.position = "none") +
+  scale_y_continuous(breaks = seq(138, 214, 4))
+
+```
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-outlier-duckweeds-01
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Visualisierung der Sensorwerte nach Wasserlinsendichte. Pro Dichtewert liegen drei Sensormessungen vor."
+
+ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
+  geom_point() +
+  theme_minimal() +
+  labs(x = "Gemessene Dichte der Wasserlinsen", y = "Sensorwert")
+```
+
+## Bekannte Kriterien
+
+[Outliers detection in R](https://statsandr.com/blog/outliers-detection-in-r/)
+
+-   Ausreißer mit Cook\`s Abstand
+-   Ausreißer mit *leverage* (deu. *Hebelwirkung*)
+-   Ausreißer mit Hampel Filter
+
+### Ausreißer mit Cook\`s Abstand
 
 Mit der Cook'schen Distanz können wir herausfinden, ob eine einzelne Beobachtung ein Ausreißer im Zusammenhang zu den anderen Beobachtungen ist. Die Cook'sche Distanz misst, wie stark sich alle geschätzten Werte im Modell ändern, wenn der $i$-te Datenpunkt gelöscht wird. Veranschaulichen wir uns einmal den Zusammenhang an zwei Beispieldaten. Das [R Paket `{olsrr}`](https://olsrr.rsquaredacademy.com/articles/influence_measures.html) erlaubt eine weitreichende Diagnostik auf Ausreißer für einem normalverteilten Outcome $y$.
 
@@ -240,7 +341,7 @@ out_tbl[-remove_weight_id,]
 
 Du siehst, dieser Zugang an die Detektion von Ausreißern ist sehr simple. Wir schauen einfach auf die Cook'sche Distanz und haben so einen schnellen Überblick. Ich empfehle auch gerne dieses Vorgehen um einmal einen Überblick über die Daten zu erhalten. Leider liefern nicht alle Modelle eine Cook'sche Distanz, daher müssen wir uns jetzt etwas strecken und noch andere Verfahren einmal ausprobieren.
 
-## Ausreißer mit *leverage* (deu. *Hebelwirkung*)
+### Ausreißer mit *leverage*
 
 ```{r}
 fit_leverage <- lm(jump_length ~ weight, data = out_tbl)
@@ -257,6 +358,10 @@ Leverage `.hat`
 :   Im Allgemeinen sollte ein Punkt mit einer Hebelwirkung von mehr als $(2k+2)/n$ sorgfältig geprüft werden, wobei $k$ die Anzahl der Prädiktorvariablen und $n$ die Anzahl der Beobachtungen ist.
 
 In unserem Fall wäre dann $k = 1$ sowie $n = 10$, so dass wir auf einen Grenzwert von $(2\cdot 1 +2)/10 = 0.4$ kommen, wie auch schon bei Cook's Distanz.
+
+### Ausreißer mit Hampel Filter
+
+Text
 
 ## Ausreißer mit `{performance}`
 
@@ -288,91 +393,17 @@ gummi_tbl %>%
 
 Am Ende muss man dann bei der Funktion `check_outliers()` daran glauben, dass es sich um Ausreißer handelt. Wir müssen uns dann die Daten genau anschauen und entscheiden, ob wir wirklich *so viele* Beobachtungen entfernen wollen. Darüber hinaus wissen wir jetzt gar nicht, warum wir eine Beobachtung als Ausreißer definiert haben. Dafür müsstest du dann tiefer in die Funktion mit der Hilfeseite `?check_outliers()` einsteigen.
 
-## Ausreißer mit `{dlookr}`
+## Ausreißer mit `{olsrr}`
 
-::: callout-caution
-## Installation von `{dlookr}`
+Eine weitere Möglichkeit Ausreißer zu finden bietet das R Paket `{olsrr}` mit der Funktion `diagnose_outlier()`. Neben dieser Funktion hat das R Paket `{olsrr}` noch eine Vielzahl an weiteren Funktionen, die im Bereich der explorativen Datenanalyse von nutzen sein mögen. Schau dir einfach einmal das [R Paket und die Webseite](https://olsrr.rsquaredacademy.com/articles/influence_measures) näher an.
 
-Aktuell ist das R Paket `{dlookr}` nur über GitHub zu installieren. Dafür einmal das R Paket `{devtools}` installieren und dann folgenden Code ausführen.
-
-```{r}
-#| eval: false
-devtools::install_github("choonghyunryu/dlookr")
-```
-:::
-
-Eine weitere Möglichkeit Ausreißer zu finden bietet das R Paket `{dlookr}` mit der Funktion `diagnose_outlier()`. Neben dieser Funktion hat das R Paket `{dlookr}` noch eine Vielzahl an weiteren Funktionen, die im Bereich der explorativen Datenanalyse von nutzen sein mögen. Schau dir einfach einmal das [R Paket und die Webseite](https://choonghyunryu.github.io/dlookr/articles/transformation.html#imputation-of-outliers) näher an.
-
-Wir wollen hier jetzt nur die Funktion `diagnose_outlier()` und `plot_outlier()` nutzen. Also wir werden zuerst die Ausreißer finden und dann die Ausreißer einmal visualisieren. Im Gegensatz zu dem R Paket `{performance}` nutzt das R Paket `{dlookr}` nicht eine große Auswahl an Algorithmen und pooled die Ergebnisse. Wir schauen einmal was wir so finden und was die Vorteile und Nachteile sind.
-
-```{r}
-diagnose_outlier(longnose_tbl) %>% 
-  filter(outliers_cnt > 0) %>% 
-  arrange(desc(outliers_cnt))
-```
-
-Nachdem wir wieder den ganzen Datensatz unser langnasigen Hechte in dei Funktion `diagnose_outlier()` gesteckt haben, kriegen wir einen Datensatz wieder in dem jede Variable mit ihrer anzahl an Ausreißern `outliers_cnt` angezeigt wird. Wir haben also $7$ Ausreißer in dem Outcome `longnose` sowie in anderen Variablen für $x$. Schauen wir uns einmal die Ausreißer und deren Effekt in der @fig-miss-dlookr-plot-out an.
-
-```{r}
-#| message: false
-#| echo: true
-#| warning: false
-#| label: fig-miss-dlookr-plot-out
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 6
-#| fig-cap: "Boxplot und Histogramm der Variablen `longnose` und `area` mit und ohne Ausreißer."
-#| fig-subcap: 
-#|   - "Outcome `longnose`."
-#|   - "Variable `area`."
-#| layout-nrow: 1
-
-longnose_tbl %>% plot_outlier(longnose)
-longnose_tbl %>% plot_outlier(area)
-```
-
-In @fig-miss-dlookr-plot-out-1 sehen wir den Boxplot und das Histogramm der des Outcomes `longnose` einmal mit den Ausreißern und einmal ohne die Ausreißer. Wie du sehen kannst ändert sih die Verteilung des Outcomes dramatisch, wenn wir die Ausreißer entfernen. Deshalb müssen wir besonders bei einem Outcome gut überlegen, ob es eine gute Idee ist, die Ausreißer zu entfernen. Auch in @fig-miss-dlookr-plot-out-2 sehen wir für die Variable `area` die Boxplots und das Histogramm einmal mit den Ausreißern und einmal ohne die Ausreißer. Auch hier sehen wir eine Veränderung in der Verteilung, wenn wir die Ausreißer entfernen. Du siehst, Ausreißer sind immer Teil der Daten und ändern deren Verteilung.
-
-Wir machen jetzt einfach weiter und stören uns nicht an möglichen biologischen Implikationen. Wir wollen jetzt die Ausreißer nicht nur entfernen, sondern durch neue Datenpunkte ersetzen. Faktisch imputieren wir die Ausreißer. Wenn unsere zu imputierende Variable kontinuierlich ist, dann können wir folgende Verfahren nutzen um die Ausreißer in der Variablen zu ersetzen.
-
--   **mean**: Wir ersetzen die gefundenen Ausreißer mit dem Mittelwert der Variable.
--   **median** : Wir ersetzen die gefundenen Ausreißer mit dem Median der Variable.
--   **mode** : Wir ersetzen die gefundenen Ausreißer mit dem Modus der Variable. Also dem am meisten vorkommenden Wert in der Variable.
--   **capping** : Wir imputieren die "oberen" Ausreißer mit dem 95% Quantile und die "unteren" Ausreißer mit dem 5% Quantile. Wir schneiden sozusagen die Verteilungsenden ab.
-
-Im folgenden nutzen wir einmal das `capping` oder die Quantileimputation sowie die `median` Imputation. Schauen wir mal was dann pasiert.
-
-```{r}
-longnose_imp_tbl <- longnose_tbl %>% 
-  mutate(longnose_capping = imputate_outlier(., longnose, method = "capping"),
-         longnose_median = imputate_outlier(., longnose, method = "median"))
-
-```
-
-In @fig-miss-dlookr-plot-out-imp sehen wir die beiden Imputationsmethoden `capping` und `median` für die Ausreißer in den Daten einmal dargestellt. Wir sehen das in der @fig-miss-dlookr-plot-out-imp-1 durch die Quantilimputation die Ausreißer alle nach links geschoben werden. Es entsteht ein neues lokales Maximum. Ob das so sinnvoll ist, sei mal dahingestellt. Der Vorteil ist, dass sich dadurch die anderen Teile der Verteilung nicht ändern. Wenn wir die Medianimputation durchführen, dann erhöhen wir das Maximum der ursprünglichen Verteilung noch weiter. Dafür verlieren wir dann eben alle Werte über Einhundert. Hier müssen wir vermutlich wirklich mal an die Sensitivitätsanalyse ran.
-
-```{r}
-#| message: false
-#| echo: true
-#| warning: false
-#| label: fig-miss-dlookr-plot-out-imp
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 6
-#| fig-cap: "Densityplot der Verteilungen vor und nach der Imputation."
-#| fig-subcap: 
-#|   - "Imputation mit dem Mittelwert."
-#|   - "Imputation mit dem Median."
-#| layout-nrow: 1
-
-pluck(longnose_imp_tbl, "longnose_capping") %>% 
-  plot
-
-pluck(longnose_imp_tbl, "longnose_median") %>% 
-  plot
-```
+Wir wollen hier jetzt nur die Funktion `diagnose_outlier()` und `plot_outlier()` nutzen. Also wir werden zuerst die Ausreißer finden und dann die Ausreißer einmal visualisieren. Im Gegensatz zu dem R Paket `{performance}` nutzt das R Paket `{olsrr}` nicht eine große Auswahl an Algorithmen und pooled die Ergebnisse. Wir schauen einmal was wir so finden und was die Vorteile und Nachteile sind.
 
 Wie du siehst ist eine Detektion von Ausreißern nicht so einfach. Zum einen brauchen wir dazu Daten, damit wir auch Ausreißer finden können. Zu irgendwas müssen wir ja die einzelnen Beobachtungen vergleichen. Zum anderen können wir durch die Imputation die Verteilung der Daten stark ändern. Es bleibt ein Drahtseilakt.
+
+## Ausreißer mit `{mvoutlier}`
+
+[R Paket `{mvoutlier}`](https://cran.r-project.org/web/packages/mvoutlier/index.html)
 
 ::: callout-tip
 ## Anwendungsbeispiel: Ausreißer in einer simplen Regression
