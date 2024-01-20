@@ -93,23 +93,25 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
-Um die Detektion von Ausreißern besser zu verstehen, schauen wir uns zwei Beispieldaten an. Zum einen den Datensatz zu den langnasigen Hechten. Der Datensatz der langnasigen Hechte ist ein echter Datensatz, so dass wir hier eventuell Ausreißer finden werden.
+Um die Detektion von Ausreißern besser zu verstehen, schauen wir uns zwei Beispieldaten an.
 
 ```{r}
-#| message: false
-#| warning: false
-longnose_tbl <- read_csv2("data/longnose.csv") 
+duckweeds_tbl <- read_excel("data/duckweeds_density.xlsx")
 ```
 
-In der @tbl-longnose-1 ist der Datensatz `longnose_tbl` nochmal für die ersten sieben Zeilen dargestellt. Wir haben hier keine fehlenden Werte vorliegen.
+In der @tbl-duckweeds siehst du dann einmal einen Auszug aus den Daten zu den Wasserlinsen. Es ist ein sehr einfacher Datensatz mit nur zwei Spalten. Wie du siehst, scheint sich das bei der nicht linearen Regression durchzuziehen. Es gehen auch komplexere Modelle, aber dann kann ich die Ergebnisse schlechter visualisieren.
 
 ```{r}
-#| message: false
 #| echo: false
-#| tbl-cap: "Auszug aus dem Datensatz `longnose_tbl`. Wir betrachten die ersten sieben Zeilen des Datensatzes."
-#| label: tbl-longnose-1
+#| message: false
+#| warning: false
+#| label: tbl-duckweeds
+#| tbl-cap: "Auszug aus Wasserlinsendatensatz."
 
-longnose_tbl %>% head(7) %>% kable(align = "c", "pipe")
+rbind(head(duckweeds_tbl, n = 3),
+      rep("...", times = ncol(duckweeds_tbl)),
+      tail(duckweeds_tbl, n = 3)) %>% 
+  kable(align = "c", "pipe")
 ```
 
 Im Weiteren betrachten wir noch das Beispiel der Gummibärchendaten. Auch hier haben wir echte Daten vorliegen, so dass wir eventuell Ausreißer entdecken könnten. Da wir hier fehlende Werte in den Daten haben, entfernen wir alle fehlenden Werte mit der Funktion `na.omit()`. Damit löschen wir jede Zeile in den Daten, wo mindestens ein fehlender Wert auftritt. Da wir hier mittlerweile sehr viele Daten vorliegen haben, wollen wir das Problem auf die beiden Quellen *FU Berlin* und dem *Girls and Boys Day* eingrenzen.
@@ -143,28 +145,42 @@ rbind(head(gummi_raw_tbl, 4),
 
 ```
 
-```{r}
-duckweeds_tbl <- read_excel("data/duckweeds_density.xlsx")
-```
-
-In der @tbl-duckweeds siehst du dann einmal einen Auszug aus den Daten zu den Wasserlinsen. Es ist ein sehr einfacher Datensatz mit nur zwei Spalten. Wie du siehst, scheint sich das bei der nicht linearen Regression durchzuziehen. Es gehen auch komplexere Modelle, aber dann kann ich die Ergebnisse schlechter visualisieren.
-
-```{r}
-#| echo: false
-#| message: false
-#| warning: false
-#| label: tbl-duckweeds
-#| tbl-cap: "Auszug aus Wasserlinsendatensatz."
-
-rbind(head(duckweeds_tbl, n = 3),
-      rep("...", times = ncol(duckweeds_tbl)),
-      tail(duckweeds_tbl, n = 3)) %>% 
-  kable(align = "c", "pipe")
-```
-
 Nun wollen wir uns aber erstmal den simpelsten Fall von Ausreißern und die Problematik dahinter visualisieren.
 
 ## Visualisierung
+
+> *Before identifying outliers, authors should consider the possibility that the data come from a lognormal distribution, which may make a value look as an outlier on a linear but not on a logarithmic scale.* --- @michel2020new, p. 139
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-outlier-duckweeds-01
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Visualisierung der Sensorwerte nach Wasserlinsendichte. Pro Dichtewert liegen drei Sensormessungen vor."
+#| fig-subcap: 
+#|   - "Orginal"
+#|   - "$log$ transformiert"
+#| layout-nrow: 1
+#| column: page
+
+
+ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
+  geom_point() +
+  theme_minimal() +
+  labs(x = "Gemessene Dichte der Wasserlinsen", y = "Sensorwert")
+
+
+ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
+  geom_point() +
+  theme_minimal() +
+  labs(x = "Gemessene Dichte der Wasserlinsen", y = "Sensorwert") +
+  scale_x_log10() +
+  scale_y_log10() +
+  annotation_logticks(sides = "bl")
+```
 
 ```{r }
 #| echo: true
@@ -188,7 +204,7 @@ gummi_tbl %>%
   labs(x = "Geschlecht", y = "Alter in Jahren") +
   theme(legend.position = "none")
 
-na.omit(gummi_tbl) %>% 
+gummi_tbl %>% 
   ggplot(aes(x = gender, y = height, color = gender)) +
   geom_beeswarm(size = 1) +
   theme_minimal() +
@@ -196,22 +212,6 @@ na.omit(gummi_tbl) %>%
   labs(x = "Geschlecht", y = "Körpergröße in [cm]") +
   theme(legend.position = "none") 
 
-```
-
-```{r}
-#| echo: true
-#| warning: false
-#| message: false
-#| label: fig-outlier-duckweeds-01
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 6
-#| fig-cap: "Visualisierung der Sensorwerte nach Wasserlinsendichte. Pro Dichtewert liegen drei Sensormessungen vor."
-
-ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
-  geom_point() +
-  theme_minimal() +
-  labs(x = "Gemessene Dichte der Wasserlinsen", y = "Sensorwert")
 ```
 
 ## Bekannte Kriterien für Ausreißer
@@ -398,7 +398,7 @@ gummi_performance_out_tbl %>%
   geom_beeswarm(size = 1) +
   theme_minimal() +
   scale_color_okabeito(order = c(2, 7), guide = "none") +
-  scale_shape_manual(name = "Ausreißer", values = c(19, 4)) +
+  scale_shape_manual(name = "Ausreißer", values = c(1, 19)) +
   labs(x = "Geschlecht", y = "Alter in [Jahren]") 
 
 gummi_performance_out_tbl %>% 
@@ -406,7 +406,7 @@ gummi_performance_out_tbl %>%
   geom_beeswarm(size = 1) +
   theme_minimal() +
   scale_color_okabeito(order = c(2, 7), guide = "none") +
-  scale_shape_manual(name = "Ausreißer", values = c(19, 4)) +
+  scale_shape_manual(name = "Ausreißer", values = c(1, 19)) +
   labs(x = "Geschlecht", y = "Körpergröße in [cm]") 
 
 ```
