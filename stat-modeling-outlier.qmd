@@ -18,7 +18,7 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 
 Was sind Ausreißer (eng. *Outlier*) in einem Datensatz? An sich schon eine schwierige Frage. Einige Wissenschaftler behaupten es gebe keine Ausreißer. Die Daten müssten so ausgewertet werden wie die Daten erhoben wurden. Was es gäbe wären technische Artefakte, diese müssten entdeckt und entfernt werden. Andere Wissenschaftler meinen, dass Ausreißer schon existieren und entfernt werden müssen, wenn diese Ausreißer nicht zu der Fragestellung oder den restlichen Daten passen. Es ist eine unbekannte Subpopulation, die sich mit einem oder zwei Vertretern in unsere Daten geschmuggelt hat. Diese Subpopulation verzerrt nur das Ergebnis, da wir mit diesen wenigen anderen Beobachtungen sowieso keine Aussage treffen können. @cook2021philosophy meint in seiner wissenschaftlichen Veröffentlichung [The Philosophy of Outliers: Reintegrating Rare Events Into Biological Science](https://academic.oup.com/icb/article/61/6/2191/6324573), dass gerade die seltenen Ereignisse, die wir als Ausreißer definieren, dann vielleicht die spannenden Beobachtungen sind. Warum verhält sich gerade diese eine Beobachtung in diesem Experiment so seltsam? Was will uns die Beobachtung mehr über die biologischen Hintergründe verraten? Aber auch im Falle von @cook2021philosophy müssen wir uns sicher sein, dass unsere Ausreißer keine Tippfehler oder einfach nur nicht gegossene Pflanzen sind. Dazu aber gleich nochmal mehr.
 
-Am Ende geht es aber darum Ausreißer zu finden und diese aus den Daten zu entfernen. Wir setzen dann diese Werte der Ausreißer auf `NA` für fehlender Wert (eng. *not available*). Oder aber wir ersetzen die Ausreißer durch passendere Werte aus unseren Daten. Im Prinzip ein wenig wie finde den Ausreißer und imputiere den Ausreißer mit einer anderen Zahl. Mehr zur Imputation von fehlenden Werten findest du in @sec-missing. Vermeide bitte eine Ausreißer/Imputationsschleife in der du immer wieder Ausreißer findest und diese dann wieder imputierst! Gerade dieses Thema Ausreißer kann sehr gut von biologischen Fachexperten diskutiert werden. In den folgenden Abschnitten wollen wir uns verschiedene Möglichkeiten der Detektion von Ausreißern annähern. Es geht wie immer von algorithmisch einfach zu komplexer. Darüber hinaus gebe ich zuerst nochmal eine kleine Auswahl an Literatur zu dem Thema Ausreißer. Die kannst du auch überspringen, wenn dich das Thema nicht tiefer interessiert. Ein weitreichenden Überblick liefert aber auf jeden Fall @boukerche2020outlier mit ihrer wissenschaftlichen Veröffentlichung [Outlier Detection: Methods, Models, and Classification](https://dl.acm.org/doi/abs/10.1145/3381028?casa_token=eXl2SvgkPNcAAAAA:Lgs0l4CXmw3mXyzSMVj9-_M2ry0F-lTyfsYUszWhkRJU9TNg5-JjzCaBaOeFSVifSCkvoyQdeuCvvQ).
+Am Ende geht es aber darum Ausreißer zu finden und diese aus den Daten zu entfernen. Wir setzen dann diese Werte der Ausreißer auf `NA` für fehlender Wert (eng. *not available*). Oder aber wir ersetzen die Ausreißer durch passendere Werte aus unseren Daten. Im Prinzip ein wenig wie finde den Ausreißer und imputiere den Ausreißer mit einer anderen Zahl. Mehr zur Imputation von fehlenden Werten findest du in @sec-missing. Vermeide bitte eine Ausreißer/Imputationsschleife in der du immer wieder Ausreißer findest und diese dann wieder imputierst! Gerade dieses Thema Ausreißer kann sehr gut von biologischen Fachexperten diskutiert werden. In den folgenden Abschnitten wollen wir uns verschiedene Möglichkeiten der Detektion von Ausreißern annähern. Es geht wie immer von algorithmisch einfach zu komplexer. Es ist auch möglich mit der Hauptkomponentenanalyse Ausreißer zu finden, aber das ist dann Thema in dem entsprechenden @sec-pca-main. Bitte dann dort einmal nachschauen. Darüber hinaus gebe ich zuerst nochmal eine kleine Auswahl an Literatur zu dem Thema Ausreißer. Die kannst du auch überspringen, wenn dich das Thema nicht tiefer interessiert. Ein weitreichenden Überblick liefert aber auf jeden Fall @boukerche2020outlier mit ihrer wissenschaftlichen Veröffentlichung [Outlier Detection: Methods, Models, and Classification](https://dl.acm.org/doi/abs/10.1145/3381028?casa_token=eXl2SvgkPNcAAAAA:Lgs0l4CXmw3mXyzSMVj9-_M2ry0F-lTyfsYUszWhkRJU9TNg5-JjzCaBaOeFSVifSCkvoyQdeuCvvQ).
 
 ::: {layout="[15,85]" layout-valign="top"}
 ![](images/angel_01.png){fig-align="center" width="100%"}
@@ -93,13 +93,13 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
-Um die Detektion von Ausreißern besser zu verstehen, schauen wir uns zwei Beispieldaten an.
+Um die Detektion von Ausreißern besser zu verstehen, schauen wir uns zwei Beispieldaten an. Als erstes einen Datensatz zu dem Wachstum von Wasserlinsen und der Messung derselbigen durch einen Sensor. Wir messen also einmal die Dichte `duckweeds_density` konventionell und wollen dann sehen, ob unser Sensor die Messungen dann widerspiegelt. Hier können wir vermutlich erstmal von einem linearen Wachstum ausgehen, dann aber vermutlich von einer Sättigung. Wir haben un mal nur begrenzt Platz für immer neue sich teilende Wasserlinsen.
 
 ```{r}
 duckweeds_tbl <- read_excel("data/duckweeds_density.xlsx")
 ```
 
-In der @tbl-duckweeds siehst du dann einmal einen Auszug aus den Daten zu den Wasserlinsen. Es ist ein sehr einfacher Datensatz mit nur zwei Spalten. Wie du siehst, scheint sich das bei der nicht linearen Regression durchzuziehen. Es gehen auch komplexere Modelle, aber dann kann ich die Ergebnisse schlechter visualisieren.
+In der @tbl-duckweeds siehst du dann einmal einen Auszug aus den Daten zu den Wasserlinsen. Es ist ein sehr einfacher Datensatz mit nur zwei Spalten. Wir haben es eigentlich mit einem nicht linearen Zusammenhang zu tun, aber wir schauen uns hier mal an, was die Algorithmen uns so wiedergeben.
 
 ```{r}
 #| echo: false
@@ -114,7 +114,7 @@ rbind(head(duckweeds_tbl, n = 3),
   kable(align = "c", "pipe")
 ```
 
-Im Weiteren betrachten wir noch das Beispiel der Gummibärchendaten. Auch hier haben wir echte Daten vorliegen, so dass wir eventuell Ausreißer entdecken könnten. Da wir hier fehlende Werte in den Daten haben, entfernen wir alle fehlenden Werte mit der Funktion `na.omit()`. Damit löschen wir jede Zeile in den Daten, wo mindestens ein fehlender Wert auftritt. Da wir hier mittlerweile sehr viele Daten vorliegen haben, wollen wir das Problem auf die beiden Quellen *FU Berlin* und dem *Girls and Boys Day* eingrenzen.
+Im Weiteren betrachten wir noch das Beispiel der Gummibärchendaten. Auch hier haben wir echte Daten vorliegen, so dass wir eventuell Ausreißer entdecken könnten. Da wir hier fehlende Werte in den Daten haben, entfernen wir alle fehlenden Werte mit der Funktion `na.omit()`. Damit löschen wir jede Zeile in den Daten, wo mindestens ein fehlender Wert auftritt.
 
 ```{r}
 #| message: false
@@ -125,14 +125,14 @@ gummi_tbl <- read_excel("data/gummibears.xlsx")  |>
   na.omit()
 ```
 
-In der @tbl-gummi-1 ist der Datensatz `gummi_tbl` nochmal für die ersten sieben Zeilen dargestellt. Nun haben wir hier in dem Datensatz zu den Gummibärchen auch keine fehlenden Werte mehr.
+In der @tbl-gummi-1 ist der Datensatz `gummi_tbl` nochmal als Auszug dargestellt dargestellt. Nun haben wir hier in dem Datensatz zu den Gummibärchen auch keine fehlenden Werte mehr.
 
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
 #| label: tbl-gummi-1
-#| tbl-cap: "Auszug "
+#| tbl-cap: "Auszug aus den Gummibärchendaten für das Modul, dem Geschlecht, dem Alter und der Körpergröße."
 
 gummi_raw_tbl <- gummi_tbl |> 
   mutate_all(as.character)
@@ -145,7 +145,7 @@ rbind(head(gummi_raw_tbl, 4),
 
 ```
 
-Nun wollen wir uns aber erstmal den simpelsten Fall von Ausreißern und die Problematik dahinter visualisieren.
+Nun wollen wir uns aber erstmal den simpelsten Fall von Ausreißern und die Problematik dahinter visualisieren. Dann arbeiten wir uns zu komplexeren Paketen vor.
 
 ## Visualisierung
 
@@ -158,7 +158,7 @@ Nun wollen wir uns aber erstmal den simpelsten Fall von Ausreißern und die Prob
 #| label: fig-outlier-duckweeds-01
 #| fig-align: center
 #| fig-height: 5
-#| fig-width: 6
+#| fig-width: 5
 #| fig-cap: "Visualisierung der Sensorwerte nach Wasserlinsendichte. Pro Dichtewert liegen drei Sensormessungen vor."
 #| fig-subcap: 
 #|   - "Orginal"
@@ -170,7 +170,8 @@ Nun wollen wir uns aber erstmal den simpelsten Fall von Ausreißern und die Prob
 ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
   geom_point() +
   theme_minimal() +
-  labs(x = "Gemessene Dichte der Wasserlinsen", y = "Sensorwert")
+  labs(x = "Gemessene Dichte der Wasserlinsen", y = "Sensorwert") +
+  geom_smooth(method = "lm", se = FALSE, color = "red")
 
 
 ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
@@ -179,7 +180,8 @@ ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
   labs(x = "Gemessene Dichte der Wasserlinsen", y = "Sensorwert") +
   scale_x_log10() +
   scale_y_log10() +
-  annotation_logticks(sides = "bl")
+  annotation_logticks(sides = "bl") +
+  geom_smooth(method = "lm", se = FALSE, color = "red")
 ```
 
 ```{r }
@@ -321,11 +323,6 @@ ggplot(cook_tbl, aes(weight, .cooksd)) +
   geom_hline(yintercept = cooks_border, color = "red") +
   theme_minimal()
 
-ggplot(cook_tbl, aes(weight, .hat)) +
-  geom_point() +
-  geom_hline(yintercept = cooks_border, color = "red") +
-  theme_minimal()
-
 ```
 
 Wir können jetzt mit der Funktion `which()` bestimmen welche Beobachtungen wir als Ausreißer identifiziert haben. Was wir jetzt mit den Ausreißern machen, müssen wir uns überlegen. Im Prinzip haben wir zwei Möglichkeiten. Entweder entfernen wir die Beobachtungen aus unserem Datensatz oder aber wir setzen die Werte der Ausreißer auf `NA` oder eine andere *passendere* Zahl.
@@ -351,7 +348,7 @@ fit_leverage <- lm(jump_length ~ weight, data = out_tbl)
 ```
 
 ```{r}
-fit_leverage |> 
+leverage_tbl <- fit_leverage |> 
   augment() |> 
   select(jump_length, weight, .hat)
 ```
@@ -361,6 +358,22 @@ Leverage `.hat`
 :   Im Allgemeinen sollte ein Punkt mit einer Hebelwirkung von mehr als $(2k+2)/n$ sorgfältig geprüft werden, wobei $k$ die Anzahl der Prädiktorvariablen und $n$ die Anzahl der Beobachtungen ist.
 
 In unserem Fall wäre dann $k = 1$ sowie $n = 10$, so dass wir auf einen Grenzwert von $(2\cdot 1 +2)/10 = 0.4$ kommen, wie auch schon bei Cook's Distanz.
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-hat-2
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Visualisierung der Ausreißer nach der *leverage*. Die Grenze als rote Linie ist mit 0.4 berechnet worden."
+
+ggplot(leverage_tbl, aes(weight, .hat)) +
+  geom_point() +
+  geom_hline(yintercept = 0.4, color = "red") +
+  theme_minimal()
+
+```
 
 ### Ausreißer mit Hampel Filter
 
