@@ -188,7 +188,7 @@ ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
   geom_smooth(method = "lm", se = FALSE, color = "red")
 ```
 
-In der @fig-beeswarm-out-0 sehen wir einmal unsere Gummibärchendaten für das Alter in Jahren und die Körpergröße dargestellt. Als potenzielle Ausreißer haben wir hir die Teilnehmerinnnen des Girls Day in den Daten. Zum einen waren es nur Mädchen und zum anderen sehr junge und damit auch kleine Mädchen. Der Großteil der Daten machen ja Studierenden Anfang Zwanzig aus. Im Weiteren habe ich die Gummibärchen auch auf Weiterbildungen gezählt, so dass auch hier Ausreißer im Sinne eines hohen Alters in den Daten sind. Daher haben wir hier schön ein paar Ausreißer in den Daten. Schauen wir mal, ob die Algorithmen diese Ausreißer auch finden.
+In der @fig-beeswarm-out-0 sehen wir einmal unsere Gummibärchendaten für das Alter in Jahren und die Körpergröße dargestellt. Als potenzielle Ausreißer haben wir hier die Teilnehmerinnnen des Girls Day in den Daten. Zum einen waren es nur Mädchen und zum anderen sehr junge und damit auch kleine Mädchen. Der Großteil der Daten machen ja Studierenden Anfang Zwanzig aus. Im Weiteren habe ich die Gummibärchen auch auf Weiterbildungen gezählt, so dass auch hier Ausreißer im Sinne eines hohen Alters in den Daten sind. Daher haben wir hier schön ein paar Ausreißer in den Daten. Schauen wir mal, ob die Algorithmen diese Ausreißer auch finden.
 
 ```{r }
 #| echo: true
@@ -224,7 +224,7 @@ gummi_tbl |>
 
 ## Bekannte Kriterien für Ausreißer
 
-Im Folgenden schauen wir uns einmal eine Auswahl an Kriterien für die Detektion von Ausreißern an. Du findest noch mehr Möglichkeiten in dem Tutorium [Outliers detection in R](https://statsandr.com/blog/outliers-detection-in-r/). Wir wollen uns hier aber auf ein paar der gängigsten Varianten konzentrieren. In den folgenden Abschnitten danach, schauen wir dann nochmal spezifisch in einzelne R Paket hinein.
+Im Folgenden schauen wir uns einmal eine Auswahl an Kriterien für die Detektion von Ausreißern an. Ich nutze dazu dann gleich einmal einen Dummy-Datensatz in dem ich mir einfach mal zwei Ausreißer hineinbaue und wir schauen dann mal, was die Algorithmen so wiedergeben. Du findest noch mehr Möglichkeiten in dem Tutorium [Outliers detection in R](https://statsandr.com/blog/outliers-detection-in-r/). Wir wollen uns hier aber auf ein paar der gängigsten Varianten konzentrieren. In den folgenden Abschnitten danach, schauen wir dann nochmal spezifisch in einzelne R Paket hinein.
 
 -   Ausreißer mit Cook\`s Abstand
 -   Ausreißer mit *leverage* (deu. *Hebelwirkung*)
@@ -232,7 +232,7 @@ Im Folgenden schauen wir uns einmal eine Auswahl an Kriterien für die Detektion
 -   Ausreißer mit Hampel Filter
 -   Ausreißer mit einem statistischen Test
 
-Veranschaulichen wir uns einmal den Zusammenhang an zwei Beispieldaten.
+Veranschaulichen wir uns einmal den Zusammenhang an zwei Beispieldaten in der @tbl-cook-tables. Ich nehme dazu einfach das Gewicht in \[mg\] von zehn Flöhen und die jeweilige Sprunglänge in \[cm\]. Als erstes einmal einen Datensatz ohne Ausreißer und dann einen Datensatz mit den Sprungweiten von $56$cm und $2$cm als Ausreißer.
 
 ```{r}
 #| message: false
@@ -244,8 +244,8 @@ Veranschaulichen wir uns einmal den Zusammenhang an zwei Beispieldaten.
 #|   - "Zwei Ausreißer"
 #| layout-ncol: 2
 
-no_out_tbl <- tibble(weight = c(1.2, 2.1, 2.5, 3.1, 4.6, 5.1, 7.9, 3.1, 4.3, 5.5),
-                     jump_length = c(22, 23, 24, 23, 19, 21, 25, 29, 23, 22))
+no_out_tbl <- tibble(weight = c(1.1, 2.3, 2.1, 3.7, 4.1, 5.4, 7.6, 4.3, 5.8, 8.1),
+                     jump_length = c(22, 23, 24, 23, 19, 22, 18, 26, 24, 22))
 
 out_tbl <- tibble(weight = c(1.1, 2.3, 2.1, 3.7, 4.1, 5.4, 7.6, 4.3, 5.8, 8.1),
                   jump_length = c(56, 23, 24, 23, 19, 22, 18, 26, 24, 2))
@@ -290,15 +290,15 @@ Mit der Cook'schen Distanz können wir herausfinden, ob eine einzelne Beobachtun
 Im Folgenden rechnen wir eine simple Gaussian lineare Regression auf den Daten und schauen einmal, was wir dann über die einzelnen Beobachtungen erfahren und ob wir die eingestellten Ausreißer wiederfinden.
 
 ```{r}
-fit_cook <- lm(jump_length ~ weight, data = out_tbl)
+jump_fit <- lm(jump_length ~ weight, data = out_tbl)
 ```
 
 Wir können die Funktion `augment()` nutzen um die Cook'sche Distanz als `.cooksd` aus dem linearen Modellfit zu berechnen. Wir lassen uns noch die Variable `weight` wiedergeben um uns später dann die Visualisierung zu erleichtern.
 
 ```{r}
-cook_tbl <- fit_cook  |> 
+cook_tbl <- jump_fit |> 
   augment() |> 
-  select(jump_length, weight, .cooksd)
+  select(weight, jump_length, .cooksd)
 cook_tbl
 ```
 
@@ -352,13 +352,9 @@ Du siehst, dieser Zugang an die Detektion von Ausreißern ist sehr simple. Wir s
 ### Ausreißer mit *leverage*
 
 ```{r}
-fit_leverage <- lm(jump_length ~ weight, data = out_tbl)
-```
-
-```{r}
-leverage_tbl <- fit_leverage |> 
+leverage_tbl <- jump_fit |> 
   augment() |> 
-  select(jump_length, weight, .hat)
+  select(weight, jump_length, .hat)
 ```
 
 Leverage `.hat`
@@ -397,6 +393,12 @@ text @tbl-outlier-sigma
 | $\mu \pm 6 \cdot \sigma$ |          $99.9999996\%$           |  $1:2.5 \cdot 10^8$   |
 
 : Test {#tbl-outlier-sigma}
+
+```{r}
+jump_fit  |> 
+  augment() |> 
+  select(weight, jump_length, .fitted, .resid)
+```
 
 ### Ausreißer mit Hampel Filter
 
