@@ -263,7 +263,7 @@ Jetzt schauen wir uns die Daten der obigen Tabellen auch als Visualisierung in @
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: "Scatterplots der Datentablle zum Vergleich der Detektion von Ausreißern nach Cook's Abstand."
+#| fig-cap: "Scatterplots der Datentabelle zum Vergleich der Detektion von Ausreißern nach verschiedenen Algorithmen."
 #| fig-subcap: 
 #|   - "Scatterplot ohne Ausreißer"
 #|   - "Scatterplot mit Ausreißer"
@@ -285,15 +285,13 @@ ggplot(data = out_tbl, aes(x = weight, y = jump_length)) +
 
 ### Ausreißer mit Cook\`s Abstand
 
-Mit der Cook'schen Distanz können wir herausfinden, ob eine einzelne Beobachtung ein Ausreißer im Zusammenhang zu den anderen Beobachtungen ist. Die Cook'sche Distanz misst, wie stark sich alle geschätzten Werte im Modell ändern, wenn der $i$-te Datenpunkt gelöscht wird.
-
-Im Folgenden rechnen wir eine simple Gaussian lineare Regression auf den Daten und schauen einmal, was wir dann über die einzelnen Beobachtungen erfahren und ob wir die eingestellten Ausreißer wiederfinden.
+Mit der Cook'schen Distanz können wir herausfinden, ob eine einzelne Beobachtung ein Ausreißer im Zusammenhang zu den anderen Beobachtungen ist. Die Cook'sche Distanz misst, wie stark sich alle geschätzten Werte im Modell ändern, wenn der $i$-te Datenpunkt gelöscht wird. So einfach und auch so simple. Das Ganze machen wir natürlich nicht selber, sondern nutzen dafür die Funktion `augment()` aus dem R Paket `{broom}`. Die Funktion `augment()` braucht aber die Ausgabe einer linearen Regression, damit die Cook'sche Distanz berechnet werden kann. Also eigentlich vom Prozes her ganz einfach. Im Folgenden rechnen wir also eine simple Gaussian lineare Regression auf den Daten und schauen einmal, was wir dann über die einzelnen Beobachtungen erfahren und ob wir die eingestellten Ausreißer wiederfinden.
 
 ```{r}
 jump_fit <- lm(jump_length ~ weight, data = out_tbl)
 ```
 
-Wir können die Funktion `augment()` nutzen um die Cook'sche Distanz als `.cooksd` aus dem linearen Modellfit zu berechnen. Wir lassen uns noch die Variable `weight` wiedergeben um uns später dann die Visualisierung zu erleichtern.
+Wir können nun die Funktion `augment()` nutzen um die Cook'sche Distanz als `.cooksd` aus dem linearen Modellfit zu berechnen. Wir lassen uns noch die Variablen `weight` und `jump_length` wiedergeben um uns später dann die Visualisierung zu erleichtern.
 
 ```{r}
 cook_tbl <- jump_fit |> 
@@ -302,20 +300,13 @@ cook_tbl <- jump_fit |>
 cook_tbl
 ```
 
-Zuerst sehen wir, dass die $1$-ste und die $10$-te Beobachtung sehr hohe Werte der Cook'schen Distanz haben. Das heist hier ist irgendwas nicht in Ordnung. Das haben wir ja auch so erwartet. Die beiden Beobachtungen sind ja auch unsere erschaffene Ausreißer. Nun brauchen wir noch einen Threshold um zu entscheiden ab wann wir eine Beobachtung als Ausreißer definieren. Es hat sich als "Kulturkonstante" der Wert von $4/n$ als Threshold etabliert.
+Zuerst sehen wir, dass die $1$-ste und die $10$-te Beobachtung relativ hohe Werte der Cook'schen Distanz haben. Das heißt hier ist irgendwas nicht in Ordnung, es könnte sich also um Ausreißer handeln. Das haben wir ja auch so erwartet. Die beiden Beobachtungen sind ja auch unsere erschaffene Ausreißer. Nun brauchen wir noch einen Threshold oder Grenzwert um obkjektiv zu entscheiden ab wann wir eine Beobachtung als Ausreißer definieren. Es hat sich als "Kulturkonstante" der Wert von $4/n$ als Threshold etabliert [@hardin2007generalized].
 
-Cook's Abstand `.cooksd`
+Grenzwert für Cook's Abstand `.cooksd`
 
-:   @hardin2007generalized bezeichnen Werte, die über $4/n$ liegen als problematisch. Dabei ist dann $n$ ist hierbei die Stichprobengröße.
+:   @hardin2007generalized bezeichnen Werte, die über $4/n$ liegen als problematisch. Dabei ist dann $n$ ist hierbei die Stichprobengröße. Damit haben wir dann auch die entsprechende Literaturquelle.
 
-Berechnen wir also einmal den Threshold für unseren Datensatz indem wir $4$ durch $n = 10$ teilen.
-
-```{r}
-cooks_border <- 4/nrow(cook_tbl)
-cooks_border
-```
-
-Wir erhalten einen Threshold von $0.4$ gespeichert in `cooks_border`. In @fig-cook-2 haben wir den Threshold einmal eingezeichnet. Auf der x-Achse ist das `weight`, damit sich die Punkte etwas verteilen. Wir könnten auch den Index auf die x-Achse legen.
+Berechnen wir also einmal den Threshold für unseren Datensatz indem wir $4$ durch $n = 10$ teilen und erhalten einen Grenzwert von $0.4$ für mögliche Ausreißer. In @fig-cook-2 haben wir den Threshold einmal als rote Linie eingezeichnet. Auf der $x$-Achse ist das Gewicht `weight` der Flöhe eingezeichnet, damit sich die Punkte etwas verteilen. Ich habe als Label die Werte für die Sprungweite `jump_length` vergeben. Damit siehst du dann auch welche $y$-Werte aus den Sprungweiten problematisch sein könnten. Und wir sehen auch sofort was spannendes. Wir entfernen eher unsere Sprungweite $18$ als unsere Sprungweite $2$. Gut, die Sprungweite $56$ ist auf jeden Fall ein Ausreißer, aber die Sprungweite $2$ erwischen wir nicht, sondern entfernen die "richtige" Sprungweite $18$. Deshalb immer Augen auf bei der automatsichen Entfernung von Ausreißern. Algorithmen können sich auch irren.
 
 ```{r}
 #| echo: true
@@ -327,26 +318,26 @@ Wir erhalten einen Threshold von $0.4$ gespeichert in `cooks_border`. In @fig-co
 #| fig-cap: "Visualisierung der Ausreißer nach der Cook'schen Distanz. Die Grenze als rote Linie ist mit $4/n = 0.4$ berechnet worden."
 
 ggplot(cook_tbl, aes(weight, .cooksd)) +
-  geom_hline(yintercept = cooks_border, color = "red") +
+  geom_hline(yintercept = 0.4, color = "red") +
   geom_label(aes(label = jump_length)) +
   theme_minimal()
 ```
 
-Wir können jetzt mit der Funktion `which()` bestimmen welche Beobachtungen wir als Ausreißer identifiziert haben. Was wir jetzt mit den Ausreißern machen, müssen wir uns überlegen. Im Prinzip haben wir zwei Möglichkeiten. Entweder entfernen wir die Beobachtungen aus unserem Datensatz oder aber wir setzen die Werte der Ausreißer auf `NA` oder eine andere *passendere* Zahl.
+Wir können jetzt mit der Funktion `which()` bestimmen welche Beobachtungen wir als Ausreißer identifiziert haben. Was wir jetzt mit den Ausreißern machen, müssen wir uns überlegen. Im Prinzip haben wir zwei Möglichkeiten. Entweder entfernen wir die Beobachtungen aus unserem Datensatz oder aber wir setzen die Werte der Ausreißer auf `NA` oder eine andere *passendere* Zahl. Ich würde immer empfehlen, die Ausreißer einfach zu entfernen. Das kannst du einfach in deinem Excelfile machen oder etwas komplizierter wie hier.
 
 ```{r}
 #| message: false
-remove_weight_id <- which(cook_tbl$.cooksd > cooks_border)
+remove_weight_id <- which(cook_tbl$.cooksd > 0.4)
 ```
 
-Weil es hier am Anfang noch relativ einfach sein soll, entfernen wir einfach die beiden Ausreißer aus unseren Daten. Wir erhalten dann einen kleineren Datensatz mit $n = 8$ Beobachtungen.
+Weil es hier am Anfang noch relativ einfach sein soll, entfernen wir einfach die beiden Ausreißer aus unseren Daten. Wir erhalten dann einen kleineren Datensatz mit $n = 8$ Beobachtungen. Leider ist jetzt unser Ausreißer $2$ noch drin. Die nächste Möglichkeit wäre auf dem kleineren Datensatz *nochmal* eine Ausreißeranalyse zu rechnen und zu hoffen, dass wir jetzt alle Ausreißer erwischen. Dann stellt sich aber die Frage wie lange wir das machen wollen. Am Ende haben wir dann ja kaum noch Daten über, wenn es schlecht läuft.
 
 ```{r}
 #| message: false
 out_tbl[-remove_weight_id,]
 ```
 
-Du siehst, dieser Zugang an die Detektion von Ausreißern ist sehr simple. Wir schauen einfach auf die Cook'sche Distanz und haben so einen schnellen Überblick. Ich empfehle auch gerne dieses Vorgehen um einmal einen Überblick über die Daten zu erhalten. Leider liefern nicht alle Modelle eine Cook'sche Distanz, daher müssen wir uns jetzt etwas strecken und noch andere Verfahren einmal ausprobieren.
+Du siehst, dieser Zugang über die Cook'sche Distanz an die Detektion von Ausreißern ist sehr simple. Wir schauen einfach auf die Cook'sche Distanz und haben so einen schnellen Überblick. Ich empfehle auch gerne dieses Vorgehen um einmal einen Überblick über die Daten zu erhalten. Leider liefern nicht alle Modelle eine Cook'sche Distanz, daher müssen wir uns jetzt etwas strecken und noch andere Verfahren einmal ausprobieren. Und am Ende müssen wir natprlich auch schauen, ob wir die richtigen Ausreißer entfernt haben.
 
 ### Ausreißer mit *leverage*
 
@@ -356,7 +347,7 @@ leverage_tbl <- jump_fit |>
   select(weight, jump_length, .hat)
 ```
 
-Leverage `.hat`
+Grenzwert für Leverage `.hat`
 
 :   Im Allgemeinen sollte ein Punkt mit einer Hebelwirkung von mehr als $(2k+2)/n$ sorgfältig geprüft werden, wobei $k$ die Anzahl der Prädiktorvariablen und $n$ die Anzahl der Beobachtungen ist.
 
@@ -416,6 +407,7 @@ resid_tbl |>
                   ymax = .fitted + 1 * sd(.resid),
                   fill = "1sd"),
               alpha = 0.2) +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
   scale_fill_okabeito() +
   geom_point() 
 ```
