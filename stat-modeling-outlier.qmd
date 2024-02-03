@@ -6,7 +6,7 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 
 *Letzte Änderung am `r format(fs::file_info("stat-modeling-outlier.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*
 
-> *"You should be far more concentrated with your current trajectory than with your current results" --- Atomic Habits'*
+> *"You should be far more concentrated with your current trajectory than with your current results" --- James Clear in Atomic Habits'*
 
 ------------------------------------------------------------------------
 
@@ -323,21 +323,40 @@ ggplot(cook_tbl, aes(weight, .cooksd)) +
   theme_minimal()
 ```
 
-Wir können jetzt mit der Funktion `which()` bestimmen welche Beobachtungen wir als Ausreißer identifiziert haben. Was wir jetzt mit den Ausreißern machen, müssen wir uns überlegen. Im Prinzip haben wir zwei Möglichkeiten. Entweder entfernen wir die Beobachtungen aus unserem Datensatz oder aber wir setzen die Werte der Ausreißer auf `NA` oder eine andere *passendere* Zahl. Ich würde immer empfehlen, die Ausreißer einfach zu entfernen. Das kannst du einfach in deinem Excelfile machen oder etwas komplizierter wie hier.
+Was wir jetzt mit den Ausreißern machen, müssen wir uns überlegen. Im Prinzip haben wir zwei Möglichkeiten. Entweder entfernen wir die Beobachtungen aus unserem Datensatz oder aber wir setzen die Werte der Ausreißer auf `NA` oder eine andere *passendere* Zahl. Ich würde immer empfehlen, die Ausreißer einfach zu entfernen. Das kannst du einfach in deinem Excelfile machen oder etwas komplizierter wie hier über die Funktionen `which()` oder eben `filter()`. Weil es hier am Anfang noch relativ einfach sein soll, entfernen wir einfach die beiden Ausreißer aus unseren Daten. Wir erhalten dann einen kleineren Datensatz mit $n = 8$ Beobachtungen. Leider ist jetzt unser Ausreißer $2$ noch drin.
+
+::: panel-tabset
+## ... über `which()`
+
+Wir können jetzt mit der Funktion `which()` bestimmen welche Beobachtungen wir als Ausreißer identifiziert haben.
 
 ```{r}
 #| message: false
 remove_weight_id <- which(cook_tbl$.cooksd > 0.4)
 ```
 
-Weil es hier am Anfang noch relativ einfach sein soll, entfernen wir einfach die beiden Ausreißer aus unseren Daten. Wir erhalten dann einen kleineren Datensatz mit $n = 8$ Beobachtungen. Leider ist jetzt unser Ausreißer $2$ noch drin. Die nächste Möglichkeit wäre auf dem kleineren Datensatz *nochmal* eine Ausreißeranalyse zu rechnen und zu hoffen, dass wir jetzt alle Ausreißer erwischen. Dann stellt sich aber die Frage wie lange wir das machen wollen. Am Ende haben wir dann ja kaum noch Daten über, wenn es schlecht läuft.
+Dann können wir einfach die Beobachtungen entfernen. Wir entfernen hier einfach die Zeilen, die im Objekt `remove_weight_id` hinterlegt sind.
 
 ```{r}
 #| message: false
-out_tbl[-remove_weight_id,]
+out_tbl[-remove_weight_id, ]
 ```
 
-Du siehst, dieser Zugang über die Cook'sche Distanz an die Detektion von Ausreißern ist sehr simple. Wir schauen einfach auf die Cook'sche Distanz und haben so einen schnellen Überblick. Ich empfehle auch gerne dieses Vorgehen um einmal einen Überblick über die Daten zu erhalten. Leider liefern nicht alle Modelle eine Cook'sche Distanz, daher müssen wir uns jetzt etwas strecken und noch andere Verfahren einmal ausprobieren. Und am Ende müssen wir natprlich auch schauen, ob wir die richtigen Ausreißer entfernt haben.
+## ... über `augment()`
+
+Oder wir nutzen die Funktion `filter()` auf der Ausgabe der Funktion `augment()`. Ich persönlich mag ja diese Variante hier mehr, aber es kommt immer auf den Kontext an.
+
+```{r}
+jump_fit |> 
+  augment() |> 
+  select(weight, jump_length, .cooksd) |> 
+  filter(.cooksd <= 0.4)
+```
+:::
+
+Die nächste Möglichkeit wäre auf dem kleineren Datensatz *nochmal* eine Ausreißeranalyse zu rechnen und zu hoffen, dass wir jetzt alle Ausreißer erwischen. Dann stellt sich aber die Frage wie lange wir das machen wollen. Am Ende haben wir dann ja kaum noch Daten über, wenn es schlecht läuft.
+
+Du siehst, dieser Zugang über die Cook'sche Distanz an die Detektion von Ausreißern ist sehr simple. Wir schauen einfach auf die Cook'sche Distanz und haben so einen schnellen Überblick. Ich empfehle auch gerne dieses Vorgehen um einmal einen Überblick über die Daten zu erhalten. Leider liefern nicht alle Modelle eine Cook'sche Distanz, daher müssen wir uns jetzt etwas strecken und noch andere Verfahren einmal ausprobieren. Und am Ende müssen wir natürlich auch schauen, ob wir die richtigen Ausreißer entfernt haben.
 
 ### Ausreißer mit *leverage*
 
