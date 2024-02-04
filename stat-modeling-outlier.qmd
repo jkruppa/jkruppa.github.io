@@ -467,7 +467,7 @@ sd_out_tbl |>
             Standardabweichung = sd(jump_length))
 ```
 
-In der @fig-sd-2 sehen wir dann einmal das Ergebnis unseres Vorgehens. Die $\circ$ stellen dabei die Beobachtungen dar, die wir nicht als Ausreißer deklariert haben. Die $\bullet$ repräsentieren dann unsere potenziellen Ausreißer. Dann konnte ich mit den $\circ$-Werten einmal den Mittelwert berechnen und die Standardabweichungen für $k$ von 1 bis 3 einfärben. Wir sehen klar, dass die potenziellen Ausreißer nicht in den Sigmaintervallen liegen. Daher wären die beiden potenziellen Ausreißer schon ungewöhnliche Repräsentation den der anderen Werte.
+In der @fig-sd-2 sehen wir dann einmal das Ergebnis unseres Vorgehens. Die $\circ$ stellen dabei die Beobachtungen dar, die wir nicht als Ausreißer deklariert haben. Die $\bullet$ repräsentieren dann unsere potenziellen Ausreißer. Dann konnte ich mit den $\circ$-Werten einmal den Mittelwert berechnen und die Standardabweichungen für $k$ von 1 bis 3 einfärben. Wir sehen klar, dass die potenziellen Ausreißer nicht in den Sigmaintervallen liegen. Daher wären die beiden potenziellen Ausreißer schon ungewöhnliche Repräsentation den der anderen Werte. Wie immer, liegt hier natürlich das Problem darin, dass wir irgendwie vorab definieren müssen, welche der Werte denn als potenzielle Ausreißer in Frage kommen. Aber meistens kannst du das dann doch, so dass die Sigmaregel eine gute Methode ist einfach und schnell Ausreißer zu definieren.
 
 ```{r}
 #| echo: true
@@ -476,7 +476,7 @@ In der @fig-sd-2 sehen wir dann einmal das Ergebnis unseres Vorgehens. Die $\cir
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
-#| fig-cap: "Darstellung der Sigmaregel mir vorher deklarierten Ausreißern. Die Sigmaintervalle wurden auf den $\circ$-Werten berechnet und die zwei potenziellen Ausreißer $\bullet$ vorab definiert."
+#| fig-cap: "Darstellung der Sigmaregel mir vorher deklarierten Ausreißern. Die Sigmaintervalle wurden auf den $\\circ$-Werten berechnet und die zwei potenziellen Ausreißer als $\\bullet$-Werte vorab definiert und somit aus der Berechnung herausgenommen."
 
 sd_out_tbl |> 
   ggplot(aes(weight, jump_length)) +
@@ -496,32 +496,79 @@ sd_out_tbl |>
 
 ```
 
-### Ausreißer mit Hampel Filter
+### Ausreißer mit Hampelfilter
+
+Jetzt kann man sich natürlich fragen, wenn es eine Sigmaregel gibt in der wir den Mittelwert plusminus $k$-mal die Standardabweichung rechnen, geht das denn nicht auch mit dem Median $\tilde{y}$ anstatt dem Mittelwert? Ja geht auch. Und deshalb heißt dieser Filter dann Hampelfilter. Ja, das ist dann immer in der Statistik so, dass auf einmal die Sachen wieder nach den Erfinder heißen und man sich das nicht am Namen merken kann, was der Filter oder die Methode macht. Der Hampelfilter gibt uns aber auch in Intervall $I$ wieder, in dem wir sagen würden, dass wir alle Beobachtungen wiederfinden sollten. Wenn wir Beobachtungen außerhalb des Intervalls $I$ vorliegen haben, dann sind diese Beobachtungen Ausreißer. Wir berechnen das Intervall $I$ für den Hampelfilter wie folgt.
 
 $$
 I = [\tilde{y} - 3 \cdot MAD;\; \tilde{y} + 3 \cdot MAD]
 $$
 
+Wir nehmen einfach den Median $\tilde{y}$ und addieren und subtrahieren das dreifache des $MAD$-Wertes. Den Wert für $MAD$ mit der [Median absolute deviation](https://en.wikipedia.org/wiki/Median_absolute_deviation) (deu. *Mittlere absolute Abweichung vom Median*, abk. *MAD*) können wir dann ebenfalls recht einfach wie folgt berechnen. Der MAD ist damit der Median der absoluten Abweichungen aller Beobachtungen vom Median. Sozusagen der Median vom Median.
+
 $$
 MAD = \tilde{d}\; \mbox{mit}\; d = y_i - |\tilde{y}|
 $$
 
-[Median absolute deviation](https://en.wikipedia.org/wiki/Median_absolute_deviation) (deu. *Mittlere absolute Abweichung vom Median*, abk. *MAD*)
+Weil das sich meistens dann doch wirrer anhört als es ist, hier einmal ein Zahlenbeispiel mit sieben willkürlich gewählten Zahlen in dem Vektor $y$.
 
 ```{r}
 y <- c(1, 2, 4, 6, 9, 12, 15)
 ```
 
+Dann berechnen wir einfach einmal den Median. Da ich die Zahlenreihe schon vorab sortiert habe, sieht man gleich, dass der Median $6$ ist.
+
 ```{r}
 median(y)
 ```
+
+Jetzt berechnen wir noch den absoluten Abstand von jeder Beobachtung $y$ zu dem Median $\tilde{y}$ gleich 6 und sortieren die Werte wieder. Denn dann können wir wieder den mittleren Wert als Median für unseren $MAD$-Wert bestimmen.
 
 ```{r}
 (y - median(y)) |> abs() |> sort()
 ```
 
+Damit wäre der $MAD$ in unserem Beispiel auch $4$ und das können wir auch mit der Funktion $mad()$ einmal überprüfen. Wir müssen hier noch als `constant` gleich 1 wählen, da wir sonst noch einen Korrekturterm in der Formel erhalten, die wir hier nicht brauchen.
+
 ```{r}
 mad(y, constant = 1)
+```
+
+Dann können wir auch schon das Intervall für unser Beispiel aufschreiben.
+
+$$
+I = [6 - 3 \cdot 4;\; 6 + 3 \cdot 4] = [-6; 18]
+$$
+
+Dann können wir den Hampelfilter einmal auf unserem Beispiel der Sprungweitendaten anwenden. Ich nehme hier den vollen Datensatz und deklarieren nicht vorab potenzielle Ausreißer wie bei der Sigmaregel. Das ist eigentlich ein Vorteil des Hampelfilters, wir müssen hier nicht so viel vorher als potenzielle Ausreißer definieren.
+
+```{r}
+out_tbl |> 
+  summarise(Median = median(jump_length), 
+            MAD = mad(jump_length, constant = 1))
+```
+
+Damit ahben wir einen Median von $23$ und einen MAD-Wert von $1.5$ vorliegen. Somit kann ich mir dann im `geom_ribbon()` das Intervall in der @fig-hampel-1 einmal visualisieren. Das hat ziemlich gut funktioniert. Wir sehen, dass unsere beiden Ausreißer außerhalb des Intervalls des Hampelfilters liegen. Die letzte Beobachtung liegt ziemlich genau auf der Grenze, was nicht weiter schlimm ist. Hier würde ich dann ein Auge zudrücken.
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-hampel-1
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Darstellung des Hampelfilters mir vorher deklarierten Ausreißern. Der Hampelfilter wurde auf allen Werten berechnet und gibt die beiden Ausreißer ($\\bullet$-Wert) wieder."
+
+sd_out_tbl |> 
+  ggplot(aes(weight, jump_length)) +
+  theme_minimal() +
+  geom_ribbon(aes(ymin = 23 - 3 * 1.5,
+                  ymax = 23 + 3 * 1.5,
+                  fill = "Hampelfilter"), alpha = 0.2) +
+  scale_fill_okabeito(name = "") +
+  geom_point(aes(shape = as_factor(potential_outlier))) +
+  scale_shape_manual(name = "Ausreißer", values = c(1, 19)) 
+
 ```
 
 ### Ausreißer mit einem statistischen Test
