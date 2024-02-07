@@ -2,7 +2,7 @@
 pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 ```
 
-# Maßzahlen der Modelgüte {#sec-lin-reg-quality}
+# Modelgüte {#sec-lin-reg-quality}
 
 *Letzte Änderung am `r format(fs::file_info("stat-linear-reg-quality.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*
 
@@ -12,7 +12,7 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
-**Dieses Kapitel wird in den Wintersemesterferien 2023/2024 grundlegend überarbeitet. Daher können Teile des Codes und des Textes kurzfristig keinen Sinn ergeben oder nicht funktional sein. Es ist geplant eine fertige Version im März 2024 vorliegen zuhaben.**
+**Dieses Kapitel wird in den Wintersemesterferien 2023/2024 grundlegend überarbeitet. Daher können Teile des Codes und des Textes kurzfristig keinen Sinn ergeben oder nicht funktional sein. Es ist geplant eine fertige Version im März 2024 vorliegen zu haben.**
 
 ------------------------------------------------------------------------
 
@@ -153,26 +153,39 @@ fit_1 |>
 ::: callout-note
 ## Verschiedene Arten von Residuen
 
-![](images/caution.png){fig-align="center" width="50%"}
-
-https://www.bookdown.org/rwnahhas/RMPH/mlr-residuals.html
+Residuen beschreiben je den Anteil des Modells, den wir nicht erklären können. Neben den klassischen Residuen (eng. *ordinary*), die wir aus einer Regression erhalten, gibt es noch andere Varianten von Residuen. Hier sind die beiden bekanntesten Residuen mit standardisierte Residuen und den studentisierten Residuen. Beide Arten sind sehr nützlich, wenn wir verschiedene Modelle untereinander vergleichen wollen. Hier dann nochmal die Definition.
 
 Standardisierte Residuen (eng. *standardized residuals*)
 
-:   ... sind Residuen, die durch eine Schätzung ihrer Standardabweichung geteilt werden, mit dem Ergebnis, dass sie unabhängig von der Skala des Ergebnisses eine Standardabweichung sehr nahe bei 1 haben.
+:   ... sind Residuen, die durch eine Schätzung ihrer Standardabweichung geteilt werden, mit dem Ergebnis, dass sie unabhängig von der Skala des Ergebnisses eine Standardabweichung sehr nahe bei 1 haben. Wir erhalten die standardisierte Residuen mit der R Funktion `rstandard()`.
 
 Studentisierte Residuen (eng. *studentized residuals*)
 
-:   ... sind den standardisierten Residuen ähnlich, außer dass für jeden Fall das Residuum durch die Standardabweichung geteilt wird, die aus der Regression ohne diese Beobachtung geschätzt wurde.
+:   ... sind den standardisierten Residuen ähnlich, außer dass für jeden Fall das Residuum durch die Standardabweichung geteilt wird, die aus der Regression ohne diese Beobachtung geschätzt wurde. Wir erhalten die studentisierte Residuen mit der R Funktion `rstudent()`.
 
-Beide Arten von Residuen können wir mit der Standardnormalverteilung vergleichen. Ein standardisiertes Residuum von 2 entspricht zum Beispiel einem Punkt, der 2 Standardabweichungen über der Regressionslinie liegt.
+Beide Arten von Residuen können wir mit der Standardnormalverteilung vergleichen. Ein standardisiertes Residuum von 2 entspricht zum Beispiel einem Punkt, der 2 Standardabweichungen über der Regressionslinie liegt. Damit haben wir dann eine Idee, wie weit weg einzelne Beobachtungen von der Geraden liegen. Beide Arten der Residuen haben ja keine Einheit mehr und so lässt sich hier recht einfach eine allgemeine Aussage machen. Beobachtungen, die ein Residuum von 2 oder mehr haben, liegen damit sehr weit von der Geraden entfernt. Im Folgenden nochmal der Vergleich aller drei Residuen Arten für unser Modell `fit_1`.
 
 ```{r}
+#| message: false
+#| warning: false
 resid_tbl <- tibble(Ordinary = resid(fit_1),
                     Standard = rstandard(fit_1),
                     Student = rstudent(fit_1)) |> 
   gather()
 ```
+
+Dann können wir auch einmal die Mittelwerte und die Standardabweichung berechnen. Bei der relativ großen Fallzahl in unseren Daten sind die standardisierten und die studentisierten Residuen sehr ähnlich von den Werten.
+
+```{r}
+#| message: false
+#| warning: false
+resid_tbl |> 
+  group_by(key) |> 
+  summarise(mean(value), sd(value)) |> 
+  mutate_if(is.numeric, round, 2)
+```
+
+Im Folgenden nutzen wir einmal das [R Paket `{ggdist}`](https://mjskay.github.io/ggdist/index.html) um uns in der @fig-model-resid die drei Arten der Residuen einmal zu visualisieren. Wo die klassischen Residuen noch eine sehr weite Verteilung haben sind die beiden einheitslosen Arten der Residuen sehr ähnlich und kompakt. Wir können daher sagen, das Beobachtungen mit einem Residuum größer als 2 schon sehr auffällige Werte haben und sehr weit von der angepassten Gerade liegen.
 
 ```{r}
 #| echo: true
@@ -182,11 +195,12 @@ resid_tbl <- tibble(Ordinary = resid(fit_1),
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 7
-#| fig-cap: "foo"
+#| fig-cap: "Vergleich der klassischen Residuen mit den standardisierten und den studentisierten Residuen. Da die beiden letzteren einheitslos sind lassen sich die Residuen auch in dem Sinne einer Standardnormalverteilung interpretieren."
 
-ggplot(resid_tbl, aes(value, fct_rev(key))) +
+ggplot(resid_tbl, aes(value, fct_rev(key), fill = key)) +
   theme_minimal() +
   stat_halfeye() +
+  scale_fill_okabeito() +
   labs(y = "", x = "Residuen")
 ```
 :::
