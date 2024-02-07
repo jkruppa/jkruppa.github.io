@@ -18,20 +18,22 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 
 Wir interpretieren keine der Gütekriterien und statistischen Maßzahlen alleine sondern in der Gesamtheit. Wir meinen mit Gütekriterien wie gut das statistische Modellieren funktioniert hat. Wir haben eine große Auswahl an Methoden und wir müssen das Ergebnis des Modellierens überprüfen. Es gibt daher eine Reihe von Maßzahlen für die Güte eines Modells, wir schauen uns hier einige an. Später werden wir uns noch andere Maßzahlen anschauen, wenn wir eine multiple lineare Regression rechnen. Das [R Paket `{performance}`](https://easystats.github.io/performance/) werden wir später auch nutzen um die notwendigen Gütekriterien zu erhalten. Wir wollen eine Gerade durch Punkte legen. Deshalb müssen wir folgende Fragen klären um zu wissen, ob das Ziehen der Gerade auch gut funktioniert hat:
 
--   Läuft die Gerade durch die Mitte der Punkte? Hier hilft ein Residualplot für die Bewertung (siehe @sec-linreg-residual).
--   Liegen die Punkte alle auf der Geraden? Hier hilft das Bestimmtheitsmaß $R^2$ weiter (siehe @sec-linreg-bestimmt)
--   Folgt unser Outcome $y$ einer Normalverteilung? Hier kann der QQ-Plot helfen (siehe @sec-linreg-qq)
+-   Läuft die Gerade durch die Mitte der Punkte? [Hier hilft ein Residualplot für die Bewertung](#sec-linreg-residual).
+-   Folgt unser Outcome $y$ und damit auch die Residuen einer Normalverteilung? [Hier kann der QQ-Plot helfen](#sec-linreg-qq).
+-   Liegen die Punkte alle auf der Geraden? [Hier hilft das Bestimmtheitsmaß $R^2$](#sec-linreg-bestimmt).
 
 Wir gehen jetzt mal alle Punkte durch und schauen, ob wir eine gute Gerade angepasst (eng. *fit*) haben. Wenn wir keine gute Gerade angepasst haben, dann müssen wir überlegen, ob wir nicht unser Modell der Regression ändern. Es ist also vollkommen okay, eine Regression zu rechnen und dann festzustellen, dass die Regression so nicht geklappt hat. Dann rechnen wir eine andere Regression. Wie du in den folgenden Kapiteln feststellen wirst, gibt es nämlich eine Menge Typen von Regression. Auch ist es eine Überlegung wert einmal das Outcome $y$ zu transformieren. Mehr dazu kannst du dann im [Kapitel zur Transformation](#sec-eda-transform) von Variablen nachlesen.
 
 {{< video https://youtu.be/dLlgWQI4M8w?si=IacLwPIwurRGbLHU >}}
 
 ::: callout-tip
-## Weitere Tutorien für das Finden von Ausreißern
+## Weitere Tutorien für die Güte einer Regression
 
 Wir immer geht natürlich mehr als ich hier Vorstellen kann. Du findest im Folgenden Tutorien, die mich hier in dem Kapitel inspiriert haben.
 
--   Das [R Paket `{olsrr}` und die Webseite](https://olsrr.rsquaredacademy.com/) liefert nochmal sehr viel mehr Möglichkeiten sich die Qualität einer Gaussian linearen Regression anzuschauen.
+-   Das [R Paket `{olsrr}` und die Webseite](https://olsrr.rsquaredacademy.com/) liefert nochmal sehr viel mehr Möglichkeiten sich die Qualität einer Gaussian linearen Regression anzuschauen. Wenn du einen normalverteiltes Outcome hast, dann ist das R Paket `{olsrr}` richtig gut geeignet eine Regression zu rechnen und zu bewerten.
+-   Das [R Paket `{ggfortify}` und die Webseite](https://github.com/sinhrks/ggfortify) sowie die Seite [Concepts and Basics of `{ggfortify}`](https://rpubs.com/sinhrks/basics) liefern noch andere Möglichkeiten sich automatisierte Abbildungen `autoplot()` über die Güte eines Modells zu erstellen.
+-   Das [R Paket `{ggResidpanel}` und die Webseite](https://goodekat.github.io/ggResidpanel-tutorial/tutorial.html) liefert auch nochmal eine Möglichkeit sich sehr übersichtlich die Informationen zu Residuen anzuschauen. Ich finde die Abbildungen dann etwas schöner als von anderen Paketen.
 -   Den QQ-Plot selber per Hand bauen und zu SPSS vergleichen kannst du dann auch nochmal in [QQ-plots in R vs SPSS](https://rpubs.com/markheckmann/45771).
 :::
 
@@ -42,7 +44,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom,
-               see, performance)
+               see, performance, ggResidpanel)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
@@ -76,40 +78,46 @@ model_tbl |> head(7) |> kable(align = "c", "pipe")
 
 Im Folgenden *ignorieren* wir, dass die Sprungweiten und die Gewichte der Flöhe auch noch von den Hunden oder Katzen sowie dem unterschiedlichen Geschlecht der Flöhe abhängen könnten. Wir schmeißen alles in einen Pott und schauen nur auf den Zusammenhang von Sprungweite und Gewicht.
 
-## Das simple lineare Modell
+## Simples lineares Modell
 
-Wir fitten ein simples lineares Modell mit nur einem Einflussfaktor `weight` auf die Sprunglänge `jump_length`. Wir erhalten dann das Objekt `fit_1` was wir dann im Weiteren nutzen werden.
+Für dieses Kapitel nehmen wir nur ein simples lineares Modell mit nur einem Einflussfaktor `weight` auf die Sprunglänge `jump_length`. Später kannst du dann noch komplexere Modelle rechnen mit mehr Einflussfaktoren $x$ oder aber einer anderen Verteilungsfamilie für $y$. Wir erhalten dann das Objekt `fit_1` aus einer simplen linearen Gaussianregression was wir dann im Weiteren nutzen werden.
 
 ```{r}
 fit_1 <- lm(jump_length ~ weight, data = model_tbl)
 ```
 
-Wir nutzen jetzt dieses simple lineare Modell für die weiteren Gütekritierien.
+Wir nutzen jetzt dieses simple lineare Modell für die weiteren Gütekritierien, da wir es uns hier erstmal etwas einfacher machen wollen. Dann erhalten wir folgende zusammenfassende Ausgabe von dem Modell, was wir uns jetzt im Bezug auf die `Residuals` und dem `R-squared` näher anschauen wollen. Alle anderen Werte haben wir ja schon in dem [Kapitel zur simplen linearen Regression](#sec-modeling-simple-stat) besprochen.
+
+```{r}
+fit_1 |> 
+  summary()
+```
 
 ## Residualplot {#sec-linreg-residual}
 
-[R Paket `{olsrr}` mit der Residual Diagnostics](https://olsrr.rsquaredacademy.com/articles/residual_diagnostics)
+Die erste Frage ist natürlich, geht die Gerade aus dem `lm()`-Fit mittig durch die Punkte? Liegen also alle Punkte gleichmaäßig um die Gerade verteilt. Das ist ja die Idee der linearen Regression, wir legen eine Gerade durch eine Punktewolke und wollen das die Abstände von den Beobachtungen unterhalb und oberhalb der Gerade in etwa gleich sind. Die Abstände von den Beobachtungen nennen wir auch $\epsilon$ als Fehler oder aber eben Residuen. Das [R Paket `{olsrr}` mit der Hilfeseite Residual Diagnostics](https://olsrr.rsquaredacademy.com/articles/residual_diagnostics) liefert noch mehr Möglichkeiten der Diagnose der Modellgüte über die Residuen als hier vorgestellt. Das R Paket `{olsrr}` funktioniert aber nur für einen normalverteiltes Outcome $y$.
 
-In R wird in Modellausgaben die Standardabweichung der Residuen $s_{\epsilon}$ als `sigma` bezeichnet.
-
-Wir wollen mit dem Residualplot die Frage beantworten, ob die Gerade *mittig* durch die Punktewolke läuft. Die Residuen $\epsilon$ sollen normalverteilt sein mit einem Mittelwert von Null $\epsilon \sim \mathcal{N}(0, s^2_{\epsilon})$.
-
-Wir erhalten die Residuen `resid` und die angepassten Werte `.fitted` auf der Geraden über die Funktion `augment()`. Die Funktion `augment()` gibt noch mehr Informationen wieder, aber wir wollen uns jetzt erstmal auf die Residuen konzentrieren.
+Wir wollen nun mit dem Residualplot die Frage beantworten, ob die Gerade *mittig* durch die Punktewolke läuft. Die Residuen $\epsilon$ sollen normalverteilt sein mit einem Mittelwert von Null und einer Varianz von $s^2_{\epsilon}$ und somit gilt $\epsilon \sim \mathcal{N}(0, s^2_{\epsilon})$. In R wird in Modellausgaben die Standardabweichung der Residuen $s_{\epsilon}$ häufig als `sigma` bezeichnet. Wir können auch hier die Funktion `augment()` aus dem R Paket `{broom}` nutzen um uns die Residuen wiedergeben zu lassen. Wir erhalten somit die Residuen `resid` und die angepassten Werte `.fitted` auf der Geraden über die Funktion `augment()`. Die Funktion `augment()` gibt noch mehr Informationen wieder, aber wir wollen uns jetzt erstmal auf die Residuen und deren Derivate konzentrieren.
 
 ```{r}
 resid_plot_tbl <- fit_1 |> 
   augment() |> 
-  select(.fitted, .resid)
-
-resid_plot_tbl |> 
-  head(5)
+  select(-.hat, -.cooksd)
+resid_plot_tbl
 ```
 
-Die Daten selber interessieren uns nicht einer Tabelle. Stattdessen zeichnen wir einmal den Residualplot. Bei dem Residualplot tragen wir die Werte der Residuen `.resid` auf die $y$-Achse auf und die angepassten y-Werte auf der Geraden `.fitted` auf die $x$-Achse. Wir kippen im Prinzip die gefittete Gerade so, dass die Gerade parallel zu $x$-Achse läuft.
+Wir erhalten jetzt folgende Information über unser Modell aus der Ausgabe der Funktion `augment()` wiedergeben. Ich habe hier einmal sehr kurz die Informationen erklärt.
+
+-   `.fitted` sind die vorhergesagten Werte auf der Geraden. Wir bezeichnen diese Werte auch die $\hat{y}$ Werte.
+-   `.resid` sind die Residuen oder auch $\epsilon$. Daher der Abstand zwischen den beobachteten $y$-Werten in der Spalte `jump_length` und den $\hat{y}$ Werten auf der Geraden und somit der Spalte `.fitted`.
+-   `.sigma` beschreibt die geschätzte $s^2_{\epsilon}$ , wenn die entsprechende Beobachtung aus dem Modell herausgenommen wird.
+-   `std.resid` sind die standardisierten Residuen. Dabei werden die Residuen durch die Standardabweichung der Residuen $s_{\epsilon}$ geteilt. Wir rechnen hier mehr oder minder den Quotienten der Spalten `.resid/.sigma`. Die standardisierten Residuen folgen dann einer Standardnormalverteilung. Dazu dann aber gleich noch mehr.
+
+Die Daten selber interessieren uns nicht einer Tabelle. Stattdessen zeichnen wir einmal den Residualplot. Bei dem Residualplot tragen wir die Werte der Residuen `.resid` auf die $y$-Achse auf und die angepassten y-Werte auf der Geraden `.fitted` auf die $x$-Achse. Wir kippen im Prinzip die angepasste Gerade so, dass die Gerade parallel zu $x$-Achse läuft. Dann kommen wir auch schon zum berühmten Zitat, wie ein Residualplot aussehen soll.
 
 > *"The residual plot should look like the sky at night, with no pattern of any sort."*
 
-In @fig-scatter-qual-01 sehen wir den Residualplot von unseren Beispieldaten. Wir sehen, dass wir keine Struktur in der Punktewolke erkennen. Auch sind die Punkte gleichmäßig um die Gerade verteilt. Wir haben zwar einen Punkt, der sehr weit von der Gerade weg ist, das können wir aber ignorieren. Später können wir uns noch überlegen, ob wir einen Ausreißer (eng. *outlier*) vorliegen haben.
+In @fig-scatter-qual-01 sehen wir den Residualplot von unseren Beispieldaten. Wir sehen, dass wir keine Struktur in der Punktewolke erkennen. Auch sind die Punkte gleichmäßig um die Gerade verteilt. Wir haben zwar einen Punkt, der sehr weit von der Gerade weg ist, das können wir aber ignorieren. Später können wir uns noch in dem [Kapitel zu den Ausreißern](#sec-outlier) überlegen, ob wir einen Ausreißer (eng. *outlier*) vorliegen haben.
 
 ```{r}
 #| echo: true
@@ -126,36 +134,21 @@ ggplot(resid_plot_tbl, aes(.fitted, .resid)) +
   theme_minimal()
 ```
 
-Kommen wir nochmal auf die Funktion `augment()` zurück und schauen uns einmal an, was die ganzen Spalten hier zu bedeuten haben. Dafür nutzen wir nochmal einen simpleren Datensatz in der die vierte Beobachtung mit $(4.1, 5.2)$ sehr extreme Werte im Vergleich zu den anderen drei Beobachtungen annimmt. Danach fitten wir dann wieder unser lineares Modell.
+Es gibt viele Möglichkeiten sich die Residuen anzuschauen. Wir haben hier einmal den klassischen Residualplot nachgebaut. Wenn du dir andere Pakete anschaust, dann kriegts du immer eine Reihe von Abbildungen und nicht nur einen Scatterplot als Residualplot. Das [R Paket `{ggResidpanel}` und die Webseite](https://goodekat.github.io/ggResidpanel-tutorial/tutorial.html) liefert eine Kombination von verschiedenen Abbildungen mit dem [R Paket `plotly`](https://plotly.com/r/getting-started/), so dass wir hier mit der Funktion `resid_interact()` eine interaktive Abbildung vorliegen haben. Die statische Abbildung kannst du dir über die Funktion `resid_panel()` erstellen. Über den QQ-Plot erfährst du dann im nächsten Abschnitt mehr.
 
 ```{r}
-simple_tbl <- tibble(jump_length = c(1.2, 1.8, 1.3, 5.2),
-                     weight = c(0.8, 1, 1.2, 4.1))
-
-fit_2 <- lm(jump_length ~ weight, data = simple_tbl)
-```
-
-Im Folgenden sehen wir dann die Ausgabe der Funktion `augment()`. Dabei sind die ersten beiden Spalten noch selbsterklärend. Wir haben hier mit `jump_length` und `weight` die Werte für das Outcome $y$ und die Einflussvariablen $x$ dargestellt.
-
-```{r}
+#| echo: true
 #| message: false
 #| warning: false
+#| label: fig-scatter-qual-03
+#| fig-align: center
+#| fig-height: 8
+#| fig-width: 8
+#| fig-cap: "Residual*panel* der Residuen des Models `fit_1`. Verschiedene Abbildungen geben Informationen über die Residuen und deren Eigenschaften wieder. Durch die Kombination mit dem R Paket `{plotly}` können wir direkt Informationen aus der Abbildung ablesen."
 
-fit_2 |> 
-  augment() |> 
-  mutate(across(where(is.numeric), round, 2))
+fit_1 |> 
+  resid_interact()
 ```
-
-Die anderen Spalten sind dann wie folgt zu lesen.
-
--   `.fitted` sind die vorhergesagten Werte auf der Geraden. Wir bezeichnen diese Werte auch die $\hat{y}$ Werte.
--   `.resid` sind die Residuen oder auch $\epsilon$. Daher der Abstand zwischen den beobachteten $y$-Werten und den $\hat{y}$ Werten auf der Geraden.
--   `.hat` gibt den Einfluss jeder einzelnen Beobachtung auf die endgültige Gerade wieder. Also den Hebel (eng. *leverage*) jeder einzelnen Beobachtung und damit wie stark eine Beobachtung an der Geraden zieht.
--   `.sigma` beschreibt die geschätzte $s^2_{\epsilon}$ , wenn die entsprechende Beobachtung aus dem Modell herausgenommen wird.
--   `.cooksd` definiert, ob eine Beobachtung ein tendenzieller Outlier im Bezug zu den anderen Beobachtungen ist. Im Prinzip eine Standardisierung der `hat` Spalte.
--   `std.resid` sind die standardisierten Residuen. Dabei werden die Residuen durch die Standardabweichung der Residuen $s_{\epsilon}$ geteilt. Die standardisierten Residuen folgen dann einer Standardnormalverteilung.
-
-Wir können dann der Ausgabe von `augment()` entnehmen, dass unsere vierte Beobachtung vermutlich ein Outlier ist.
 
 ::: callout-note
 ## Verschiedene Arten von Residuen
@@ -163,43 +156,11 @@ Wir können dann der Ausgabe von `augment()` entnehmen, dass unsere vierte Beoba
 ![](images/caution.png){fig-align="center" width="50%"}
 
 https://www.bookdown.org/rwnahhas/RMPH/mlr-residuals.html
-:::
-
-## Bestimmtheitsmaß $R^2$ {#sec-linreg-bestimmt}
-
-Nachdem wir nun wissen wie gut die Gerade durch die Punkte läuft, wollen wir noch bestimmen wie genau die Punkte auf der Geraden liegen. Das heißt wir wollen mit dem Bestimmtheitsmaß $R^2$ ausdrücken wie stark die Punkte um die Gerade variieren. Wir können folgende Aussage über das Bestimmtheitsmaß $R^2$ treffen. Die @fig-rsquare visualisiert nochmal den Zusammenhang.
-
--   wenn alle Punkte auf der Geraden liegen, dann ist das Bestimmtheitsmaß $R^2$ gleich 1.
--   wenn alle Punkte sehr stark um die Gerade streuen, dann läuft das Bestimmtheitsmaß $R^2$ gegen 0.
-
-![Visualisierung des Bestimmtheitsmaßes $R^2$. Auf der linken Seite sehen wir eine perfekte Übereinstimmung der Punkte und der geschätzten Gerade. Wir haben ein $R^2$ von 1 vorliegen. Sind die Punkte und die geschätzte Gerade nicht deckungsgleich, so läuft das $R^2$ gegen 0.](images/statistical_modeling_rsquare){#fig-rsquare fig-align="center" width="100%"}
-
-Da die Streuung um die Gerade auch gleichzeitig die Varianz widerspiegelt, können wir auch sagen, dass wenn alle Punkte auf der Geraden liegen, die Varianz gleich Null ist. Die Einflussvariable $x_1$ erklärt die gesamte Varianz, die durch die Beobachtungen verursacht wurde. Damit beschreibt das Bestimmtheitsmaß $R^2$ auch den Anteil der Varianz, der durch die lineare Regression, daher der Graden, erklärt wird. Wenn wir ein Bestimmtheitsmaß $R^2$ von Eins haben, wird die gesamte Varianz von unserem Modell erklärt. Haben wir ein Bestimmtheitsmaß $R^2$ von Null, wird gar keine Varianz von unserem Modell erklärt. Damit ist ein niedriges Bestimmtheitsmaß $R^2$ schlecht.
-
-Im Folgenden können wir uns noch einmal die Formel des Bestimmtheitsmaß $R^2$ anschauen um etwas besser zu verstehen, wie die Zusammenhänge mathematisch sind.
-
-$$
-\mathit{R}^2 = 
-\cfrac{\sum_{i=1}^N \left(\hat{y}_i- \bar{y}\right)^2}{\sum_{i=1}^N \left(y_i - \bar{y}\right)^2}
-$$
-
-In der @fig-bestimmtheit-01 sehen wir den Zusammenhang nochmal visualisiert. Wenn die Abstände von dem Mittelwert zu den einzelnen Punkten mit $y_i - \bar{y}$ gleich dem Abstand der Mittelwerte zu den Punkten *auf* der Geraden mit $\hat{y}_i- \bar{y}$ ist, dann haben wir einen perfekten Zusammenhang.
-
-![Auf der linken Seite sehen wir eine Gerade die nicht perfekt durch die Punkte läuft. Wir nehmen ein Bestimmtheitsmaß $R^2$ von ca. 0.7 an. Die Abstände der einzelnen Beobachtungen $y_i$ zu dem Mittelwert der y-Werte $\bar{y}$ ist nicht gleich den Werten auf der Geraden $\hat{y}_i$ zu dem Mittelwert der y-Werte $\bar{y}$. Dieser Zusammenhang wird in der rechten Abbildung mit einem Bestimmtheitsmaß $R^2$ von 1 nochmal deutlich.](images/statistical_modeling_bestimmtheit.png){#fig-bestimmtheit-01 fig-align="center"}
-
-Wir können die Funktion `glance()` nutzen um uns das `r.squared` und das `adj.r.squared` wiedergeben zu lassen.
 
 ```{r}
-#| message: false
 
-fit_1 |> 
-  glance() |> 
-  select(r.squared, adj.r.squared)
 ```
-
-Wir nutzen grundsätzlich das adjustierte $R^2$`adj.r.squared` in der Anwendung. Wir haben wir ein $R^2$ von $0.31$ vorliegen. Damit erklärt unser Modell bzw. die Gerade 31% der Varianz. Das ist jetzt nicht viel, aber wundert uns auch erstmal nicht. Wir haben ja die Faktoren `animal` und `sex` ignoriert. Beide Faktoren könnten ja auch einen Teil der Varianz erklären. Dafür müssten wir aber eine multiple lineare Regression mit mehren $x$ rechnen.
-
-Wenn wir eine multiple Regression rechnen, dann nutzen wir das adjustierte $R^2$ in der Anwendung. Das hat den Grund, dass das $R^2$ automatisch ansteigt je mehr Variablen wir in das Modell nehmen. Jede neue Variable wird immer *etwas* erklären. Um dieses Überanpassen (eng. *overfitting*) zu vermeiden nutzen wir das adjustierte $R^2$. Im Falle des adjustierte $R^2$ wird ein Strafterm eingeführt, der das adjustierte $R^2$ kleiner macht je mehr Einflussvariablen in das Modell aufgenommen werdenn.
+:::
 
 ## QQ-Plot {#sec-linreg-qq}
 
@@ -360,6 +321,42 @@ ggplot(tibble(x, z), aes(z, x)) +
        y = "Werte der beobachteten Stichprobe")
 ```
 :::
+
+## Bestimmtheitsmaß $R^2$ {#sec-linreg-bestimmt}
+
+Nachdem wir nun wissen wie gut die Gerade durch die Punkte läuft, wollen wir noch bestimmen wie genau die Punkte auf der Geraden liegen. Das heißt wir wollen mit dem Bestimmtheitsmaß $R^2$ ausdrücken wie stark die Punkte um die Gerade variieren. Wir können folgende Aussage über das Bestimmtheitsmaß $R^2$ treffen. Die @fig-rsquare visualisiert nochmal den Zusammenhang.
+
+-   wenn alle Punkte auf der Geraden liegen, dann ist das Bestimmtheitsmaß $R^2$ gleich 1.
+-   wenn alle Punkte sehr stark um die Gerade streuen, dann läuft das Bestimmtheitsmaß $R^2$ gegen 0.
+
+![Visualisierung des Bestimmtheitsmaßes $R^2$. Auf der linken Seite sehen wir eine perfekte Übereinstimmung der Punkte und der geschätzten Gerade. Wir haben ein $R^2$ von 1 vorliegen. Sind die Punkte und die geschätzte Gerade nicht deckungsgleich, so läuft das $R^2$ gegen 0.](images/statistical_modeling_rsquare){#fig-rsquare fig-align="center" width="100%"}
+
+Da die Streuung um die Gerade auch gleichzeitig die Varianz widerspiegelt, können wir auch sagen, dass wenn alle Punkte auf der Geraden liegen, die Varianz gleich Null ist. Die Einflussvariable $x_1$ erklärt die gesamte Varianz, die durch die Beobachtungen verursacht wurde. Damit beschreibt das Bestimmtheitsmaß $R^2$ auch den Anteil der Varianz, der durch die lineare Regression, daher der Graden, erklärt wird. Wenn wir ein Bestimmtheitsmaß $R^2$ von Eins haben, wird die gesamte Varianz von unserem Modell erklärt. Haben wir ein Bestimmtheitsmaß $R^2$ von Null, wird gar keine Varianz von unserem Modell erklärt. Damit ist ein niedriges Bestimmtheitsmaß $R^2$ schlecht.
+
+Im Folgenden können wir uns noch einmal die Formel des Bestimmtheitsmaß $R^2$ anschauen um etwas besser zu verstehen, wie die Zusammenhänge mathematisch sind.
+
+$$
+\mathit{R}^2 = 
+\cfrac{\sum_{i=1}^N \left(\hat{y}_i- \bar{y}\right)^2}{\sum_{i=1}^N \left(y_i - \bar{y}\right)^2}
+$$
+
+In der @fig-bestimmtheit-01 sehen wir den Zusammenhang nochmal visualisiert. Wenn die Abstände von dem Mittelwert zu den einzelnen Punkten mit $y_i - \bar{y}$ gleich dem Abstand der Mittelwerte zu den Punkten *auf* der Geraden mit $\hat{y}_i- \bar{y}$ ist, dann haben wir einen perfekten Zusammenhang.
+
+![Auf der linken Seite sehen wir eine Gerade die nicht perfekt durch die Punkte läuft. Wir nehmen ein Bestimmtheitsmaß $R^2$ von ca. 0.7 an. Die Abstände der einzelnen Beobachtungen $y_i$ zu dem Mittelwert der y-Werte $\bar{y}$ ist nicht gleich den Werten auf der Geraden $\hat{y}_i$ zu dem Mittelwert der y-Werte $\bar{y}$. Dieser Zusammenhang wird in der rechten Abbildung mit einem Bestimmtheitsmaß $R^2$ von 1 nochmal deutlich.](images/statistical_modeling_bestimmtheit.png){#fig-bestimmtheit-01 fig-align="center"}
+
+Wir können die Funktion `glance()` nutzen um uns das `r.squared` und das `adj.r.squared` wiedergeben zu lassen.
+
+```{r}
+#| message: false
+
+fit_1 |> 
+  glance() |> 
+  select(r.squared, adj.r.squared)
+```
+
+Wir nutzen grundsätzlich das adjustierte $R^2$`adj.r.squared` in der Anwendung. Wir haben wir ein $R^2$ von $0.31$ vorliegen. Damit erklärt unser Modell bzw. die Gerade 31% der Varianz. Das ist jetzt nicht viel, aber wundert uns auch erstmal nicht. Wir haben ja die Faktoren `animal` und `sex` ignoriert. Beide Faktoren könnten ja auch einen Teil der Varianz erklären. Dafür müssten wir aber eine multiple lineare Regression mit mehren $x$ rechnen.
+
+Wenn wir eine multiple Regression rechnen, dann nutzen wir das adjustierte $R^2$ in der Anwendung. Das hat den Grund, dass das $R^2$ automatisch ansteigt je mehr Variablen wir in das Modell nehmen. Jede neue Variable wird immer *etwas* erklären. Um dieses Überanpassen (eng. *overfitting*) zu vermeiden nutzen wir das adjustierte $R^2$. Im Falle des adjustierte $R^2$ wird ein Strafterm eingeführt, der das adjustierte $R^2$ kleiner macht je mehr Einflussvariablen in das Modell aufgenommen werdenn.
 
 ## Das R Paket `{performance}`
 
