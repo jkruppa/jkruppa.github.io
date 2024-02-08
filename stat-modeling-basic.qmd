@@ -6,18 +6,38 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 *Letzte Änderung am `r format(fs::file_info("stat-modeling-basic.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*
 
-In diesem Kapitel wollen wir uns nun folgende Aspekte einmal genauer anschauen. Wir gehen hier nicht so sehr auf den theoretischen Hintergrund ein, wollen aber verstehen wie wir die Statistik nutzen und anwenden können.
+> *"All models are approximations. Essentially, all models are wrong, but some are useful. However, the approximate nature of the model must always be borne in mind." --- George E. P. Box*
 
--   Wir besprechen die Modellmatrix in @sec-modell-matrix. Wir wollen uns Fragen, wie R eigentlich zu den Koeffizienten der Regressionsgleichung kommt.
--   Wir besprechen die Interpretation der Koeffizienten der linearen Regression in @sec-interpret-x.
--   Wir fragen uns, was sind eigentlich Confounder (deu. *Verwechsler*) im @sec-confounder.
--   Wir fragen uns, was ist eigentlich ein Variance Inflation Factor (VIF) für kontinuierliche $x$ in @sec-vif.
--   Wir besprechen, wie wir verschiedene Modelle miteinander vergleichen können in @sec-model-basic-compare.
+In diesem Kapitel wollen wir uns mit den Grundlagen der *multiplen* linearen Regression beschäftigen. Sagen, dass wir ein multiples lineares Modell vorliegen haben, wenn wir mehrere Einflussvariable $x_1$ bis $x_p$ vorliegen haben. Bei dem Outcome $y$, was einer Verteilung folgt, ändert sich erstmal nichts. Wir wollen jetzt herausfinden, welchen Einfluss oder Effekt die Variablen $x_1, ..., x_p$ auf das Outcome $y$ hat. Sehr simple gesprochen legen wir eine Gerade durch eine *mehrdimensionale* Punktewolke. Wir konzentrieren uns hier in diesem Kapitel auf nur normalverteilte Outcomes. Später kannst du dann aber auch andere Verteilungsfamilien modellieren.
 
-Zuerst nochmal eine Wiederholung oder Einführung. Ein multiples lineare Modell hat mehrere $x$. Daher haben wir auf der linken Seite ein $y$ und auf der rechten Seite $p$-mal ein $x$. Wir können daher ein multiples lineares Modell daher wie folgt in R schreiben.
+Wir erinnern und nochmal, das ein *simples* lineares Modell nur ein $x_1$ hat:
 
 $$
-y \sim x_1 + x_2 + ... + x_p 
+y \sim x_1
+$$
+
+Ein *multiples* lineares Modell hat von $x_1$ bis $x_p$ Einflussvariablen:
+
+$$
+y \sim x_1 + x_2 + ... + x_p
+$$
+
+Wir brauchen viele der Konzepte aus den vorherigen Kapiteln zur Modellgüte sowie Konfidenzintervallen. Vieles fällt hier zusammen. Schau dir ruhig nochmal die vorherigen Kapitel an, wenn dir etwas unklar ist. Häufig wollen wir auch etwas spezifischer sein. Wir schreiben daher einen Faktor mit einem $f$ wie folgt.
+
+$$
+y \sim f_1
+$$
+
+Wenn wir dann noch einen Block mit hinzunehmen, dann erweitern wir das Modell um einen Blockfaktor mit einem $b$ wie folgt.
+
+$$
+y \sim f_1 + b_1
+$$
+
+Es kann auch sein, dass wir noch einen zufälligen Effekt (eng. *random effect*) mit in das Modell nehmen wollen. Wir bezeichnen einen zufälligen Effekt mit einem $z$ wie folgt.
+
+$$
+y \sim f_1 + z_1
 $$
 
 Oder konkreter können wir sagen, dass `jump_length` von `animal`, `sex` und `weight` abhängt und wir diesen Zusammenhang modellieren wollen.
@@ -40,6 +60,14 @@ $$
 
 Wir zeichen im Prinzip eine Gerade durch den $p$-dimensionellen Raum.
 
+In diesem Kapitel wollen wir uns nun folgende Aspekte einmal genauer anschauen. Wir gehen hier nicht so sehr auf den theoretischen Hintergrund ein, wollen aber verstehen wie wir die Statistik nutzen und anwenden können.
+
+-   Wir besprechen die Modellmatrix in @sec-modell-matrix. Wir wollen uns Fragen, wie R eigentlich zu den Koeffizienten der Regressionsgleichung kommt.
+-   Wir besprechen die Interpretation der Koeffizienten der linearen Regression in @sec-interpret-x.
+-   Wir fragen uns, was sind eigentlich Confounder (deu. *Verwechsler*) im @sec-confounder.
+-   Wir fragen uns, was ist eigentlich ein Variance Inflation Factor (VIF) für kontinuierliche $x$ in @sec-vif.
+-   Wir besprechen, wie wir verschiedene Modelle miteinander vergleichen können in @sec-model-basic-compare.
+
 ## Genutzte R Pakete
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
@@ -61,9 +89,7 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Die Modellmatrix in R {#sec-modell-matrix}
 
-[Wozu brauche ich das? Eine gute Frage. Du brauchst das Verständnis der Modellmatrix, wenn du verstehen willst *wie* R in einer linearen Regression zu den Koeffizienten kommt...]{.aside}
-
-Als erstes wollen wir verstehen, wie ein Modell *in* R aussieht. Dann können wir auch besser verstehen, wie die eigentlichen Koeffizienten aus dem Modell entstehen. Wir bauen uns dafür ein sehr simplen Datensatz. Wir bauen uns einen Datensatz mit Schlangen.
+Als erstes wollen wir verstehen, wie ein Modell *in* R aussieht. Dann können wir auch besser verstehen, wie die eigentlichen Koeffizienten aus dem Modell entstehen. Wozu brauche ich das? Eine gute Frage. Du brauchst das Verständnis der Modellmatrix, wenn du verstehen willst *wie* R in einer linearen Regression zu den Koeffizienten kommt. Wir bauen uns dafür ein sehr simplen Datensatz. Wir bauen uns einen Datensatz mit Schlangen.
 
 ```{r}
 #| message: false
@@ -591,8 +617,6 @@ lm(y ~ x, data = cont_tbl) %>%
   select(Parameter, Coefficient)
 ```
 
-[Steigt das $x$ um 1 Einheit an, so erhöht sich das $y$ um den Wert der Steigung von $x$.]{.aside}
-
 Wir erhalten einen Intercept von $4.32$ und eine Steigung von $x$ mit $1.71$. Wichtig nochmal, wir haben uns hier zufällige Zahlen erstellen lassen. Wenn du oben den Fehler rausnimmst, dann erhälst du auch die exakten Zahlen für den Intercept und die Steigung von $x$ wieder. Wir sehen also, wenn wir ein kontinuierliches $x$ haben, dann können wir das $x$ in dem Sinne einr Steigung interpretieren. Steigt das $x$ um 1 Einheit an, so erhöht sich das $y$ um den Wert der Steigung von $x$.
 
 In @fig-stat-modeling-basic-00 sehen wir den Zusammenhang nochmal graphisch dargestellt. Wir sehen, dass wir die voreingestellten Parameter von $\beta_0 = 5$ und $\beta_1 = 1.5$ fast treffen.
@@ -664,9 +688,7 @@ cat_two_tbl %>%
   kable(align = "c", "pipe")
 ```
 
-[Steigt das $x$ um 1 Einheit an, also springt von Gruppe A zu Gruppe B, so erhöht sich das $y$ um den Mittelwertsunterschied $\Delta_{A-B}$.]{.aside}
-
-In @fig-stat-modeling-basic-01 kannst du nochmal den visuellen Zusammenhang zwischen den einzelnen Beobachtungen und der sich ergebenen Geraden sehen. Die Gerade geht durch die beiden Mittelwerte der Gruppe A und B. Daher ist die Steigung der Mittlwertsunterschied zwischen der Gruppe A und der Gruppe B.
+In @fig-stat-modeling-basic-01 kannst du nochmal den visuellen Zusammenhang zwischen den einzelnen Beobachtungen und der sich ergebenen Geraden sehen. Die Gerade geht durch die beiden Mittelwerte der Gruppe A und B. Daher ist die Steigung der Mittlwertsunterschied zwischen der Gruppe A und der Gruppe B. Steigt das $x$ um 1 Einheit an, also springt von Gruppe A zu Gruppe B, so erhöht sich das $y$ um den Mittelwertsunterschied $\Delta_{A-B}$.
 
 ```{r}
 #| message: false
@@ -945,9 +967,7 @@ fit_4 <- lm(jump_length ~ animal + sex + sex:weight, data = model_tbl)
 fit_5 <- lm(log(jump_length) ~ animal + sex, data = model_tbl)
 ```
 
-[Du kannst auch das $R^2$ bzw. das $R^2_{adj}$ für die Modellauswahl nehmen. Das $AIC$ ist neuer und auch für komplexere Modelle geeignet.]{.aside}
-
-Als Ergänzung zum Bestimmtheitsmaß $R^2$ wollen wir uns noch das *Akaike information criterion* (abk. $AIC$) anschauen. Es gilt hierbei, je kleiner das $AIC$ ist, desto besser ist das $AIC$. Wir wollen also Modelle haben, die ein kleines $AIC$ haben. Wir gehen jetzt nicht auf die Berechnung der $AIC$'s für jedes Modell ein. Wir erhalten nur ein $AIC$ für jedes Modell. Die einzelnen Werte des $AIC$'s sagen *nichts* aus. Ein $AIC$ ist ein mathematisches Konstrukt. Wir können aber verwandte Modelle mit dem $AIC$ untereinander vergleichen. Daher berechnen wir ein $\Delta$ über die $AIC$. Dafür nehmen wir das Modell mit dem niedrigsten $AIC$ und berechnen die jeweiligen Differenzen zu den anderen $i$ Modellen. In unserem Beispiel ist $i$ dann gleich fünf, da wir fünf Modelle haben.
+Als Ergänzung zum Bestimmtheitsmaß $R^2$ wollen wir uns noch das *Akaike information criterion* (abk. $AIC$) anschauen. Du kannst auch das $R^2$ bzw. das $R^2_{adj}$ für die Modellauswahl nehmen. Das $AIC$ ist neuer und auch für komplexere Modelle geeignet. Es gilt hierbei, je kleiner das $AIC$ ist, desto besser ist das $AIC$. Wir wollen also Modelle haben, die ein kleines $AIC$ haben. Wir gehen jetzt nicht auf die Berechnung der $AIC$'s für jedes Modell ein. Wir erhalten nur ein $AIC$ für jedes Modell. Die einzelnen Werte des $AIC$'s sagen *nichts* aus. Ein $AIC$ ist ein mathematisches Konstrukt. Wir können aber verwandte Modelle mit dem $AIC$ untereinander vergleichen. Daher berechnen wir ein $\Delta$ über die $AIC$. Dafür nehmen wir das Modell mit dem niedrigsten $AIC$ und berechnen die jeweiligen Differenzen zu den anderen $i$ Modellen. In unserem Beispiel ist $i$ dann gleich fünf, da wir fünf Modelle haben.
 
 $$
 \Delta_i = AIC_i - AIC_{min}
@@ -966,9 +986,7 @@ $$
 p_i = \exp\left(\cfrac{-\Delta_i}{2}\right)
 $$
 
-Zum Beispiel entspricht $\Delta_i = 1.5$ einem $p_i$ von $0.47$ (ziemlich hoch) und ein $\Delta_i = 15$ entspricht einem $p_i =0.0005$ (ziemlich niedrig). Im ersten Fall besteht eine Wahrscheinlichkeit von 47%, dass das $i$-te Modell tatsächlich eine bessere Beschreibung ist als das Modell, das $AIC_{min}$ ergibt, und im zweiten Fall beträgt diese Wahrscheinlichkeit nur 0,05%. Wir können so einmal nachrechnen, ob sich eine Entscheidung für ein anderes Modell lohnen würde.
-
-[Neben dem $AIC$ gibt es auch das Bayesian information criterion ($BIC$). Auch beim $BIC$ gilt, je kleiner das BIC ist, desto besser ist das BIC.]{.aside}
+Zum Beispiel entspricht $\Delta_i = 1.5$ einem $p_i$ von $0.47$ (ziemlich hoch) und ein $\Delta_i = 15$ entspricht einem $p_i =0.0005$ (ziemlich niedrig). Im ersten Fall besteht eine Wahrscheinlichkeit von 47%, dass das $i$-te Modell tatsächlich eine bessere Beschreibung ist als das Modell, das $AIC_{min}$ ergibt, und im zweiten Fall beträgt diese Wahrscheinlichkeit nur 0,05%. Wir können so einmal nachrechnen, ob sich eine Entscheidung für ein anderes Modell lohnen würde. Neben dem $AIC$ gibt es auch das Bayesian information criterion ($BIC$). Auch beim $BIC$ gilt, je kleiner das BIC ist, desto besser ist das BIC.
 
 Du siehst schon, es gibt eine Reihe von Möglichkeiten sich mit der Güte oder Qualität eines Modells zu beschäftigen. Wir nutzen die Funktion `model_performance()` um uns die Informationen über die Güte eines Modells wiedergeben zu lassen. Im folgenden Codeblock habe ich mich nur auf das $AIC$ und das $BIC$ konzentriert.
 
