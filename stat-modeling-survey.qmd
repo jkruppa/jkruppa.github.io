@@ -84,7 +84,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, gtsummary, janitor, FactoMineR,
-               factoextra, conflicted)
+               factoextra, corrplot, wesanderson, conflicted)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -125,6 +125,12 @@ Gummibärchendaten?
 ## Daten preprocessing
 
 Wenn wir uns mit Fragebögen beschäftigen, dann werten wir meisten *nicht* alle Fragen aus. Das macht auch meistens keinen Sinn. Denn wir stellen zwar recht viele Fragen, aber am Ende müssen wir auch schauen, ob alle Fragen sinnvoll beantwortet wurden oder aber ob wir sehr viele Nichtantworten haben. Davon hängt dann auch die weitere Analyse ab. Wir können uns auch überlegen einzelne Fragen zusammenzufassen, da wir feststellen, dass wir dann am Ende doch nicht so eine feingliedrige Aufteilung wollen.
+
+```{r}
+tiger_num_tbl <- tiger_tbl |> 
+  mutate_all(as.factor) |> 
+  mutate_all(as.numeric)
+```
 
 ### Flowchart oder Flussdiagramm
 
@@ -194,6 +200,13 @@ tiger_tbl |>
 ```
 :::
 
+```{r}
+tiger_clean_num_tbl <- tiger_num_tbl |> 
+  select(-f2Soziodemografisch_nebenerwerb,
+         -f4Stimmungsabfrage_wunsch_rückmeldung) |> 
+  na.omit()
+```
+
 ### Zusammenfassen
 
 #### ...von einzelnen Fragen {.unnumbered}
@@ -219,16 +232,29 @@ Mit der R Funktion [`case_when()`](https://dplyr.tidyverse.org/reference/case_wh
 
 ### Repräsentativer Teilnehmer
 
-## Hauptkomponentenanalyse
+## Korrelation der Fragen
 
 ```{r}
-tiger_pca_tbl <- tiger_tbl |> 
-  mutate_all(as.factor) |> 
-  mutate_all(as.numeric)
+cor_mat <- tiger_clean_num_tbl |> 
+  cor(method = "spearman")
 ```
 
 ```{r}
-pca_tiger <- PCA(tiger_pca_tbl, scale.unit = TRUE, 
+#| warning: false
+#| message: false
+#| label: fig-survey-corr-1
+#| fig-align: center
+#| fig-height: 12
+#| fig-width: 12
+#| fig-cap: "."
+corrplot(cor_mat, method = 'number',
+         col = wes_palette("Zissou1", 8, type = "continuous"))
+```
+
+## Hauptkomponentenanalyse
+
+```{r}
+pca_tiger <- PCA(tiger_num_tbl, scale.unit = TRUE, 
                    ncp = 5, graph = FALSE)
 ```
 
@@ -282,7 +308,7 @@ fviz_pca_ind(pca_tiger,
              palette = c("#F0E442", "#0072B2", "#D55E00", "#CC79A7"),
              addEllipses = TRUE, 
              legend.title = "Groups", mean.point = FALSE) +
-  geom_label(aes(label = tiger_pca_tbl$haben_Sie_tiger))
+  geom_label(aes(label = tiger_num_tbl$haben_Sie_tiger))
 ```
 
 ## Lime Survey
