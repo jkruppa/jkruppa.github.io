@@ -43,6 +43,9 @@ Wir immer geht natürlich mehr als ich hier Vorstellen kann. Du findest im Folge
 -   Vignette des [R Pakets `{survey}`](https://cran.r-project.org/web/packages/survey/)
 -   [Using R for Social Work Research \| Survey Research](https://bookdown.org/bean_jerry/using_r_for_social_work_research/survey-research.html)
 -   [5 Ways to Effectively Visualize Survey Data Using R](https://towardsdatascience.com/5-ways-to-effectively-visualize-survey-data-using-r-89928bf08cb2)
+-   [R Paket `{likert}`](https://rcompanion.org/handbook/E_03.html) auf Rcompanion von Salvatore Mangiafico
+-   [Survey data chart designs](https://graphdr.github.io/data-stories/posts/2022-02-12-survey-data-chart-designs/index.html)
+-   [On Likert scales in R](https://jakec007.github.io/2021-06-23-R-likert/)
 :::
 
 ## Durchführung
@@ -84,7 +87,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, gtsummary, janitor, FactoMineR,
-               factoextra, corrplot, wesanderson, conflicted)
+               factoextra, corrplot, wesanderson, naniar,
+               conflicted)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -109,7 +113,7 @@ In der @tbl-survey-tiger sehen wir einen Auszug aus unseren Ergebnis der Umfrage
 
 tiger_raw_tbl <- tiger_tbl |> 
   mutate_all(as.character) |> 
-  select("geschlecht",	"alter",	"haben_Sie_tiger",	"f1Soziodemografisch_erwerb",	"f2Soziodemografisch_nebenerwerb")
+  select("geschlecht",	"alter",	"haben_Sie_tiger",	"f1Soziodemografisch",	"f2Soziodemografisch")
   
 
 rbind(head(tiger_raw_tbl, 4),
@@ -120,6 +124,23 @@ rbind(head(tiger_raw_tbl, 4),
 ```
 
 Wir werden jetzt den Datensatz einmal versuchen auszuwerten. Dabei gehen wir schrittweise verschiedene Analysen durch und schauen, ob wir mit den Fragebogendaten so arbeiten können. Sehr häufig müssen wir nämlich erstmal die Daten so lange bearbeiten, bis die Daten sinnvoll ausgewertet werden können. Das machen wir im Daten preprocessing.
+
+Das ganze geht natürlich auch als Excelsheet
+
+```{r}
+short_question_tbl <- read_excel("data/survey-serengeti-tiger-king.xlsx", sheet = "question-short") 
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-survey-tiger-short
+#| tbl-cap: "."
+
+short_question_tbl |> 
+  kable(align = c("cll"), "pipe")
+```
 
 ## Daten preprocessing
 
@@ -148,11 +169,14 @@ Du siehst, dass ist eine Menge an Arbeit und zu tippen. Deshalb kann ich dir emp
 ```{r}
 tiger_ord_tbl <- tiger_tbl |> 
   mutate(alter = ordered(alter, levels = alter_ord),
-         f1Verbandsarbeit_wahrnehmung = ordered(f1Verbandsarbeit_wahrnehmung, levels = präsent_ord),
-         f2Verbandsarbeit_eigenleistung = ordered(f2Verbandsarbeit_eigenleistung, levels = leistung_ord),
-         f3Verbandsarbeit_sinnhaftigkeit	= ordered(f3Verbandsarbeit_sinnhaftigkeit, levels = zustimmung_ord), 
-         f1Imagearbeit_ist = ordered(f1Imagearbeit_ist, levels = zufrieden_ord), 
-         f2Imagearbeit_wahrnehmung	= ordered(f2Imagearbeit_wahrnehmung, levels = aktiv_ord)) |> 
+         f1Verbandsarbeit = ordered(f1Verbandsarbeit, levels = präsent_ord),
+         f2Verbandsarbeit = ordered(f2Verbandsarbeit, levels = leistung_ord),
+         f3Verbandsarbeit	= ordered(f3Verbandsarbeit, levels = zustimmung_ord), 
+         f4Verbandsarbeit	= ordered(f4Verbandsarbeit, levels = zustimmung_ord), 
+         f5Verbandsarbeit	= ordered(f5Verbandsarbeit, levels = zustimmung_ord),
+         f1Imagearbeit = ordered(f1Imagearbeit, levels = zufrieden_ord), 
+         f2Imagearbeit = ordered(f2Imagearbeit, levels = aktiv_ord),
+         f3Imagearbeit = ordered(f3Imagearbeit, levels = aktiv_ord)) |> 
   mutate_if(is.character, as.factor)
 
 ```
@@ -193,6 +217,7 @@ answer_vec |>
 #| message: false
 #| warning: false
 tiger_tbl |> 
+  set_names(short_question_tbl$question) |> 
   tbl_summary()
 ```
 
@@ -218,6 +243,7 @@ Gleiche Einträge
 #| label: tbl-survey-tiger-summary
 #| tbl-cap: "Auszug von fünf Fragen aus dem Fragebogen zur Nutzung von Großkatzen zur Steigerung der Attraktivität von Erlebnishöfen. Insgesamt haben 173 Erlebnishöfe den Fragebogen zurückgesendet."
 tiger_ord_tbl |> 
+  set_names(short_question_tbl$question) |>
   tbl_summary()
 ```
 :::
@@ -232,7 +258,8 @@ tiger_ord_tbl |>
 #| label: tbl-survey-tiger-summary_by
 #| tbl-cap: "Auszug von fünf Fragen aus dem Fragebogen zur Nutzung von Großkatzen zur Steigerung der Attraktivität von Erlebnishöfen. Insgesamt haben 173 Erlebnishöfe den Fragebogen zurückgesendet."
 tiger_ord_tbl |> 
-  tbl_summary(by = f1Soziodemografisch_erwerb) |> 
+  set_names(short_question_tbl$question) |>
+  tbl_summary(by = "Halten Sie aktuell Tiger oder andere Großkatzen auf Ihrem Erlebnishof?") |> 
   add_p()
 ```
 :::
@@ -245,14 +272,25 @@ tiger_ord_tbl |>
 feed_tbl <- tiger_fct_tbl |>
   select(matches("Fuetterung")) |> 
   mutate(across(matches("Fuetterung"), \(x) as.numeric(x)-1)) |> 
-  mutate(sum_feeding = rowSums(across(matches("Fuetterung"))))
+  mutate(Fuetterung = rowSums(across(matches("Fuetterung"))))
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-survey-feed-1
+#| tbl-cap: "."
+
 feed_tbl |> 
-  select(sum_feeding, everything())
+  select(Fuetterung, everything()) |> 
+  head(n = 7) |> 
+  kable(align = "c", "pipe")
 ```
 
 ```{r}
 feed_tbl |> 
-  tabyl(sum_feeding) |> 
+  tabyl(Fuetterung) |> 
   round(2)
 ```
 
@@ -285,16 +323,15 @@ Ist ein guter Punkt. Du musst natürlich deine Flowchart nicht in R bauen. Wahrs
 ```{r}
 tiger_clean_num_tbl <- tiger_fct_tbl |> 
   mutate_all(as.numeric) |>  
-  select(-f2Soziodemografisch_nebenerwerb) 
+  set_names(short_question_tbl$ques_id)
 ```
+
+`use = "pairwise.complete.obs"`
 
 ```{r}
 cor_mat <- tiger_clean_num_tbl |> 
-  select(-matches("Fuetterung")) |> 
-  na.omit() |> 
-  cor(method = "spearman")
-
-
+  select(-matches("Soziodemografisch")) |> 
+  cor(use = "pairwise.complete.obs")
 ```
 
 ```{r}
@@ -302,11 +339,24 @@ cor_mat <- tiger_clean_num_tbl |>
 #| message: false
 #| label: fig-survey-corr-1
 #| fig-align: center
-#| fig-height: 12
-#| fig-width: 12
+#| fig-height: 8
+#| fig-width: 8
 #| fig-cap: "."
-corrplot(cor_mat, method = 'number',
+corrplot(cor_mat, method = 'number', 
          col = wes_palette("Zissou1", 8, type = "continuous"))
+```
+
+```{r}
+#| warning: false
+#| message: false
+#| label: fig-survey-miss-1
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "."
+
+tiger_clean_num_tbl |> 
+  gg_miss_upset(nsets = 15)
 ```
 
 ## Hauptkomponentenanalyse
@@ -352,7 +402,7 @@ fviz_pca_ind(pca_tiger,
 
 ```{r}
 ind_tiger <- get_pca_ind(pca_tiger)
-grp_tiger_ind <- kmeans(ind_tiger$coord, centers = 3, nstart = 25) %>% 
+grp_tiger_ind <- kmeans(ind_tiger$coord, centers = 2, nstart = 25) %>% 
   pluck("cluster") %>% 
   as_factor()
 ```
@@ -368,10 +418,10 @@ grp_tiger_ind <- kmeans(ind_tiger$coord, centers = 3, nstart = 25) %>%
 fviz_pca_ind(pca_tiger,
              geom.ind = "point", 
              col.ind = grp_tiger_ind, 
-             palette = c("#F0E442", "#0072B2", "#D55E00", "#CC79A7"),
+             palette = c("#0072B2", "#CC79A7"),
              addEllipses = TRUE, 
              legend.title = "Groups", mean.point = FALSE) +
-  geom_label(aes(label = tiger_num_tbl$f1Soziodemografisch_erwerb))
+  geom_label(aes(label = tiger_num_tbl$f1Soziodemografisch))
 ```
 
 ## Lime Survey
