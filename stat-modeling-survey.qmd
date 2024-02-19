@@ -54,6 +54,7 @@ Wir immer geht natürlich mehr als ich hier Vorstellen kann. Du findest im Folge
 -   [R Paket `{likert}`](https://rcompanion.org/handbook/E_03.html) auf Rcompanion von Salvatore Mangiafico
 -   [Survey data chart designs](https://graphdr.github.io/data-stories/posts/2022-02-12-survey-data-chart-designs/index.html)
 -   [On Likert scales in R](https://jakec007.github.io/2021-06-23-R-likert/)
+-   Da ja Fragebögen auch immer etwas mit den Sozialwissenschaften zu tun haben empfiehlt sich auch ein Blick in das R Paket [`{sjPlot}` - Data Visualization for Statistics in Social Science](https://strengejacke.github.io/sjPlot/index.html)
 :::
 
 ## Durchführung
@@ -96,7 +97,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 pacman::p_load(tidyverse, gtsummary, janitor, FactoMineR,
                factoextra, corrplot, wesanderson, naniar,
-               scales, likert, conflicted)
+               scales, likert, sjPlot, conflicted)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -372,6 +373,8 @@ Ist ein guter Punkt. Du musst natürlich deine Flowchart nicht in R bauen. Wahrs
 
 ### Repräsentativer Teilnehmer
 
+Wenn ich einen Fragebogen auswerte, dann lasse ich mir gerne eine Tabelle der repräsentativen Teilnehmer rausgeben. Nicht immer funktioniert es, denn wir brauchen natürlich auch einiges an Teilnehmern. Manchmal sind die Anzahlen auch zu gering, dass ich von einem repräsentativen Teilnehmer sprechen würde. Nichtsdestotrotz, ich schaue mir das gerne einmal an. Ich schaue mir dafür die demographischen Fragen einmal an und erstelle mir dann eine Tabelle mit den Eigenschaften der häufigsten Teilnehmern. In unserem Fall möchte ich wissen, ob es Überschneidungen im Geschlecht, dem Alter sowie den Erwerb und der betrieblichen Stellung gibt. Technisch klebe ich die vier Spalten einfach mit `str_c()` zu einem String zusammen und zähle dann wie oft so ein String dann vorkommt. Dafür nutze ich die Funktion `tabyl()`, die mir sehr angenehm die Anzahlen und Prozente wiedergibt. Die Funktion [`reframe()`](https://www.tidyverse.org/blog/2023/02/dplyr-1-1-0-pick-reframe-arrange/#reframe) erlaubt es uns dann die Rückgabe von `tabyl()` in einen Datensatz.
+
 ```{r}
 most_common_participant_tbl <- tiger_tbl |> 
   select(geschlecht, alter, f1Soziodemografisch, f3Soziodemografisch) |> 
@@ -382,23 +385,25 @@ most_common_participant_tbl <- tiger_tbl |>
   mutate(percent = percent(percent))
 ```
 
+In der @tbl-survey-most_common-1 findest du die tabellarische Übersicht über die vier häufigsten Teilnehmer in unserem Fragebogen nach den oben ausgewählten vier demographischen Fragen. Du siehst hier sehr schön welches Problem unsere Teilnehmer haben. Gut 50% der häufigsten Teilnehmer sind männlich und Betriebsleiter. Wir haben nur eine kleine Variation im Erwerb und im Alter. Wobei der Großteil unser Teilnehmer eben dann auch schon alt ist. Das müssen wir natürlich beachten, wenn wir unsere Rückschlüsse aus dem Fragebogen ziehen.
+
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
 #| label: tbl-survey-most_common-1
-#| tbl-cap: "."
+#| tbl-cap: "Tabellarische Übersicht über die vier häufigsten Teilnehmer in unserem Fragebogen nach vier demographischen Fragen."
 
 most_common_participant_tbl |> 
-  head() |> 
+  head(n = 4) |> 
   kable(align = c("lcr"), "pipe")
 ```
 
-## Das R Paket `{likert}`
+## Visualisierung
+
+### ... mit `{likert}`
 
 [Survey data I/O with `{likert}`](https://graphdr.github.io/data-stories/posts/2022-02-13-survey-data-io/index.html)
-
-[Plot likert scales as centered stacked bars](https://strengejacke.github.io/sjPlot/reference/plot_likert.html)
 
 [Plot likert scale data](https://rpubs.com/Linh-LTP/1032218)
 
@@ -407,7 +412,7 @@ most_common_participant_tbl |>
 #| message: false
 #| label: fig-survey-likert-plot-1
 #| fig-align: center
-#| fig-height: 4
+#| fig-height: 5
 #| fig-width: 7
 #| fig-cap: "."
 #| fig-subcap: 
@@ -450,7 +455,7 @@ tiger_ord_tbl |>
 #| column: page
 
 tiger_ord_tbl |> 
-  select(f3Verbandsarbeit:f5Verbandsarbeit) |>
+  select(f1Verbandsarbeit:f5Verbandsarbeit) |>
   mutate_all(fct_rev) |> 
   as.data.frame() |> 
   likert() |>
@@ -462,6 +467,58 @@ tiger_ord_tbl |>
   as.data.frame() |> 
   likert() |>
   plot(type = "heat")
+```
+
+### ... mit `{ggplot}`
+
+```{r}
+tiger_percent_tbl <- tiger_ord_tbl |> 
+  select(f1Verbandsarbeit:f5Verbandsarbeit) |>
+  mutate_all(as.numeric) |> 
+  map(tabyl) |> 
+  bind_rows(.id = "id") |> 
+  dplyr::rename(answer = ".x[[i]]") |> 
+  mutate(answer = factor(answer, labels = zustimmung_ord))
+```
+
+```{r}
+#| warning: false
+#| message: false
+#| label: fig-survey-likert-plot-3
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 8
+#| fig-cap: "."
+tiger_percent_tbl |> 
+  ggplot(aes(x = fct_rev(id), y = valid_percent, fill = answer)) +
+  theme_minimal() +
+  geom_bar(position = "fill", stat = "identity", color = "black", width=0.7) +
+  scale_y_continuous(labels = scales::percent) +
+  geom_text(aes(label = scales::percent(valid_percent)), 
+            position = position_stack(vjust = 0.5), size = 2) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values = wes_palette("Zissou1", 8, type = "continuous")) +
+  labs(x = "" , y = "") +
+  coord_flip()
+```
+
+### ... mit`{sjPlot}`
+
+[Plot likert scales as centered stacked bars](https://strengejacke.github.io/sjPlot/reference/plot_likert.html)
+
+```{r}
+#| warning: false
+#| message: false
+#| label: fig-survey-likert-plot-4
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "."
+tiger_ord_tbl |> 
+  select(f1Verbandsarbeit:f5Verbandsarbeit) |> 
+  plot_likert(cat.neutral = 3) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
 ```
 
 ## Korrelation der Fragen
