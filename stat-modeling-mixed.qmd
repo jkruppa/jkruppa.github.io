@@ -86,6 +86,7 @@ Wie immer und natürlich im Besonderen bei linearen gemischten Modellen, gibt es
 -   Als weiteres Tutorium für die Auswertung von linearen gemischten Modellen und allgemein dem Modellieren von agarwissenschaftlichen Daten kann ich die Seite [Data Science for Agriculture in R](https://schmidtpaul.github.io/dsfair_quarto/) sehr empfehlen. Dort findest du dann auch die Abwendung der R Pakete aus diesem Kapitel. Und natürlich die verwandte Seite [Mixed Models for Agriculture in R](https://schmidtpaul.github.io/MMFAIR/) auf der gerade viele Beispiele gesammelt werden. Ein Großteil der Seite aber noch *under construction* (Stand Ende 2023) und teilweise zu detailliert für Abschlussarbeiten.
 -   [Introduction to `{broom.mixed}`](https://cran.r-project.org/web/packages/broom.mixed/vignettes/broom_mixed_intro.html) hilft dabei die Ausgaben der verschiedenen R Pakte, die es zu gemischten Modellen gibt zu vereinheitlichen. Wir erhalten dann immer die gleiche `tidy()`-Ausgabe und nicht immer was anderes von den Funktionen wiedergegeben.
 -   [Linear Models and Mixed Models with R](https://bodo-winter.net/tutorials.html) sind zwei PDF Dateien von @winter2013linear in denen er nochmal sehr schön erklärt wie lineare gemischte Modelle in R funktionieren.
+-   Das Tutorium [Ordinal regression in R: part 1](https://tdunn.ca/posts/2020-03-15-ordinal-regression-in-r-part-1/) liefert nochmal ein lineares gemischtes Modell für ordinale Daten oder eben Bonituren. Dafür dann gerne auch am Ende des Kapitels die beispielhafte Auswertung anschauen.
 :::
 
 ## Genutzte R Pakete
@@ -107,7 +108,8 @@ pacman::p_load(tidyverse, magrittr, broom, see, simstudy,
                parameters, ggridges, scales, performance, 
                ggdist, gghalves, glmmTMB, lmerTest, mixedup,
                multilevelmod, agridat, desplot, modelsummary,
-               ggbeeswarm, conflicted)
+               ggbeeswarm, ordinal, janitor, RVAideMemoire, 
+               conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflicts_prefer(lme4::lmer)
@@ -1012,6 +1014,18 @@ modelsummary(lst("lm" = oats_lm_fit,
 
 Vielleicht bist du direkt aus dem Kapitel zu den multiplen Vergleichen hierher gesprungen. Wenn ja, dann musst du eventuell nochmal weiter oben anfangen zu lesen, denn hier geht es eher um die schnelle Variante, den Gruppenvergleich mit einem linearen gemischten Modell durchzuführen. Details stehen in dem Kapitel. Wir nutzen hier einmal das R Paket `{lme4}` zusammen mit dem [R Paket `{lmerTest}`](https://www.jstatsoft.org/article/view/v082i13), welches uns dann auch erlaubt statistische Tests mit einem $p$-Wert zurechnen. Leider ist das in der ursprünglichen Version so nicht implementiert und deshalb müssen wir noch ein zusätzliches Paket laden. In dem R Paket `{glmmTMB}` funktioniert soweit alles wie es soll, nur das wir hier dann noch das R Paket `{car}` benötigen um die ANOVA zu rechnen. Wir ignorieren hier das Bestimmtheitsmaß oder die Modellgüte. Wir ziehen hier einmal stumpf den Prozess des Testens durch. Der Gruppenvergleich läuft dann wie gewohnt in `{emmeans}` ab. Mehr dazu dann auch in den beiden Anwendungsbeispielen in den grünen Kästen im Anschluss.
 
+::: callout-tip
+## Welches R Paket mit welchem Endpunkt?
+
+Manchmal ist es etwas verwirrend, welches R Paket für die gemischten linearen Modellen mit welcher Funktion für welchen Endpunkt oder Outcome geeignet ist. Hier mal eine schnelle Übersicht, damit du dich orientieren kannst.
+
+-   Wenn dein Outcome normalverteilt ist, wie zum Beispiel das Trocken- oder Frischgewicht, dann hilft die Funktion `lmer()` aus dem R Paket `{lme4}` weiter.
+-   Wenn du Zähldaten hast dann nutzt die Funktion `glmer()` aus dem R Paket `lme4` oder eben die Funktion `glmmTMB()` aus dem gleichnamigen R Paket mit der entsprechenden Option für die Verteilungsfamilie.
+-   Wenn du Boniturdaten oder aber ein ordinales Outcome vorliegen hast, dann kannst du die Funktion `clmm()` aus dem R Paket `{ordinal}` nutzen. Du brauchst hier noch zusätzlich die Funktion `Anova.clmm()` aus dem R Paket {RVAideMemoire}\` um die ANOVA rechnen zu können.
+
+Alle drei Varianten zeige ich dir in den grünen Kästen zu den beispielhaften Anwendungen am Ende des Kapitels.
+:::
+
 Ich zeige dir jetzt einmal in den beiden Tabs die Gruppenvergleiche für das R Paket `{lme4}` und der Funktion `lmer()` sowie dann den Gruppenvergleich mit dem R Paket `{glmmTMB}` und der gleichnamigen Funktion. Du kannst die Funktion `lmer()` ohne weiteres durch die Funktion `glmer()` ersetzen. Ich würde aber in dem Fall immer zu dem Paket `{glmmTMB}` wechseln. Für nicht-normalverteilte Outcomes ist `{glmmTMB}` einfach besser, da wir in dem Paket mehr Möglichkeiten haben die Daten zu modellieren. Wir nutzen hier als Beispiel die Weizendaten mit der Behandlung `nitro` sowie den Sorten `gen` und verschiedenen Blöcken im Split Plot Design. Wir wissen dass die Blöcke und die Sorten miteinander interagieren und packen deshalb diese genestete Struktur nochmal in den zufälligen Effekt mit `(1|block/gen)`. Wir brauchen hier den Interaktionsterm, damit wir anschließend in `{emmeans}` uns alle Faktorkombinationen anzeigen lassen können. Jedenfalls ist es dann so einfacher und wir verlieren nichts.
 
 ::: panel-tabset
@@ -1126,7 +1140,7 @@ glmmTMB_fit %>%
 Auch hier sehen wir dann die Unterschiede in den einzelnen Sorten. Alle sind soweit signifikant. Damit sind wir auch mit der Implementierung von `{glmmTMB}` durch. Die ANOVA und das *compact letter display* lässt sich schnell und einfach erstellen.
 :::
 
-In den folgenden grünen Kästen schauen wir uns jetzt zwei Anwenundungsbeispiele für einen Gruppenvergleich mit linearen gemischten Modellen an. Zum einen betrachten wir ein dreifaktorieller Gruppenvergleich für das Gewicht von Brokkoliköpfen und zum anderen ein weiterer dreifaktorieller Gruppenvergleich für Thripsenbefall. Beide Auswertungen sind vollständig und haben auch teilweise erklärenden Text. Im Zweifel musst du dann nochmal in diesem Kapitel nachschlagen, wenn dir Teile unklar sind.
+In den folgenden grünen Kästen schauen wir uns jetzt drei Anwenundungsbeispiele für einen Gruppenvergleich mit linearen gemischten Modellen an. Zum einen betrachten wir ein dreifaktorieller Gruppenvergleich für das Gewicht von Brokkoliköpfen und zum anderen ein weiterer dreifaktorieller Gruppenvergleich für Thripsenbefall. Dann betrachten wir noch ein ordinales Modell mit den Boniturnoten in Brokkoli. Alle Auswertungen sind vollständig und haben auch teilweise erklärenden Text. Im Zweifel musst du dann nochmal in diesem Kapitel nachschlagen, wenn dir Teile unklar sind.
 
 ::: callout-tip
 ## Anwendungsbeispiel: Gruppenvergleich für Brokkolikopfgewicht (3-faktoriell)
@@ -1465,6 +1479,116 @@ ggplot(insects_tbl, aes(x = timepoint, y = thripse, fill = trt)) +
   guides(color = "none") + theme(legend.position = "top") 
 ```
 :::
+:::
+
+::: callout-tip
+## Anwendungsbeispiel: Gruppenvergleich für Boniturnoten in Brokkoli (2-faktoriell)
+
+Dieses Beispiel ist die etwas angepasste und verkürzte Form des [Gruppenvergleich für die ordinale Regression](#sec-mult-comp-ord-reg) in dem Kapitel zur ordinalen Regression. Ebenfalls hilfreich ist das Tutorium [Ordinal regression in R: part 1](https://tdunn.ca/posts/2020-03-15-ordinal-regression-in-r-part-1/) auf das ich gerne verweisen möchte. Im folgenden Beispiel schauen wir uns eine praktische Auswertung von einem agrarwissenschaftlichen Beispiel mit Brokkoli an. Wir haben uns in diesem Experiment verschiedene Dosen `fert_amount` von einem Dünger aufgebracht sowie verschiedene Zeitpunkte der Düngung `fert_time` berücksichtigt. Ziel ist es die Boniturnoten für den Stamm von Brokkoli miteinander zu vergleichen. Auch hier haben wir einige Besonderheiten in den Daten, da nicht jede Faktorkombination vorliegt. Wir ignorieren aber diese Probleme und rechnen einfach stumpf unseren Gruppenvergleich. Wir müssen aber ein paar Anpassungen durchführen. Unsere Noten müssen ein geordneter Faktor sein, daher nutzen wir die Funktion `ordered`. Darüber hinaus schmeißen wir die Düngerzeit `early` aus den Daten, da wir zu dem Zeitpunkt keine hohlen Stämme bonitiert haben. Ebenfalls haben wir sehr viele Brokkoliköpfe mit Eins bonitiert. Auch diese Beobachtungen entfernen wir einmal aus den Daten damit wir dann auch ein paar Effekte sehen.
+
+```{r}
+broc_tbl <- read_excel("data/broccoli_weight.xlsx") %>% 
+  mutate(fert_time = factor(fert_time, levels = c("none", "early", "late")),
+         fert_amount = as_factor(fert_amount),
+         block = as_factor(block),
+         stem_hollowness_num = stem_hollowness,
+         stem_hollowness = ordered(stem_hollowness)) %>%
+  filter(fert_time == "early") %>% 
+  filter(stem_hollowness > 1) %>% 
+  select(fert_time, fert_amount, block, stem_hollowness, stem_hollowness_num) %>% 
+  droplevels() %>% 
+  na.omit()
+```
+
+Im Folgenden einmal die Tabelle mit `tabyl` aus dem R Paket `{janitor}`. Mehr dazu auf der Hilfeseite zu [tabyls: a tidy, fully-featured approach to counting things](https://cran.r-project.org/web/packages/janitor/vignettes/tabyls.html). Wir sehen, dass wir kaum schlechte Noten erhalten.
+
+```{r}
+broc_tbl %>% 
+  tabyl(stem_hollowness, fert_amount) 
+```
+
+Die Tabelle sehen wir dann auch nochmal in der @fig-clm-broc-violin als Violinplot visualisiert. Die Brokkoliköpfe mit der Note Eins fehlen, so dass wir hier sogar einen leichten Effekt von der Düngung mit $300$ sehen könnten. Die Düngestufe könnte etwas höhere Noten haben.
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-clm-broc-violin
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: "Violinplot der Boniturnoten der Brokkolistämme. Klar ist die sehr schiefe Verteilung der Boniturnoten zu erkennen."
+
+ggplot(broc_tbl, aes(fert_amount, stem_hollowness_num, fill = fert_amount)) +
+  theme_minimal() +
+  geom_violin() +
+  scale_y_continuous(breaks = 1:9, limits = c(1,9)) +
+  scale_fill_okabeito() +
+  theme(legend.position = "none")
+
+```
+
+Wir rechnen jetzt natürlich trotzdem eine ordinale Regression mit der Funktion `clmm()`. Da wir nur einen Behandlungsfaktor mit der Düngung vorliegen haben bleibt noch der Block als zufälligen Faktor übrig. Wir schreiben das Modell wie wir es schon kennen mit einem festen und einem zufälligen Effekt.
+
+```{r}
+clmm_fit <- clmm(stem_hollowness ~ fert_amount + (1 | block), 
+                 data = broc_tbl)
+```
+
+Jetzt rechnen wir in den beiden folgenden Tabs einmal die ANOVA und dann auch den multiplen Gruppenvergleich mit `{emmeans}`. Da wir hier ordinale Daten haben, können wir dann nicht einfach die Standardverfahren nehmen. Wir entscheiden uns dann für den Standardfehler bei der Darstellung.
+
+::: panel-tabset
+## ANOVA mit `anova()`
+
+Wir rechnen hier einmal die ANOVA mit der Funktion `Anova.clmm()` aus dem R Paket `{RVAideMemoire}`. In dem Paket `{ordinal}` ist keine ANOVA für den Gruppenvergleich implementiert. Wir machen dann die Ausgabe nochmal schöner und fertig sind wir.
+
+```{r}
+clmm_fit %>% 
+  Anova.clmm() %>%
+  model_parameters()
+```
+
+Wir sehen, dass der die Menge des Düngers nicht signifikant ist. Wir haben nicht mehr Faktoren in dem Modell gehabt, so dass wir hier auch keine weiteren Aussagen tätigen können. Wir rechnen trotzdem den multiplen Vergleich, damit wir das dann auch gemacht haben.
+
+## Gruppenvergleich mit `emmeans()`
+
+Im Folgenden rechnen wir einmal für den Faktor `fert_amount` einen Gruppenvergleich. Wir setzen hier die Option `mean.class` damit wir dann die mittleren Noten wiedergegeben bekommen. Mit den mittleren Noten können wir dann ein Säulendiagramm erstellen. Dann adjustieren wir noch nach Bonferroni und sind fertig.
+
+```{r}
+emm_obj <- clmm_fit %>% 
+  emmeans(~ fert_amount, mode = "mean.class") %>%
+  cld(Letters = letters, adjust = "bonferroni")
+emm_obj
+```
+
+Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. Die `mean.class` stellt den mittleren Noten des Brokkoli für die Menge der Düngung dar. Wir nutzen dann auch hier die Standardfehler für die Abbildungen, da wir sonst schnelle Werte kleiner 0 und größer 9 erhalten. Dann können wir zum Abschluss auch das *compact letter display* anhand der Abbildung interpretieren.
+:::
+
+In der @fig-log-mod-ordinal-broc siehst du das Ergebnis der Auswertung in einem Säulendiagramm. In unserem Fall sind die Düngestufen nicht signifikant. Hier ist dann die Varianz zu groß um den Unterschied zwischen der Düngestufe $150$ und $300$ signifikant zu zeigen. Vermutlich wäre es mit der größeren Fallzahl schon wieder anders, aber wir haben aber auch nur eine begrenzte Anzahl an Beobachtungen mit einer Note größer als Eins vorliegen. Ich habe auch darauf verzichtet die ganze Notenskala von 1 bis 9 zu zeigen, dann sieht man nämlich gar nichts mehr. Würde man auch so nicht, aber hier haben wir dann eine etwas bessere Auflösung.
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-log-mod-ordinal-broc
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: "Säulendigramm der mittleren Boniturnote des Brokkoli aus einer ordinalen Regression. Das `clmm()`-Modell berechnet das mittlere Boniturnote für den Faktor `fert_amount`. Das *compact letter display* wird dann in `{emmeans}` generiert."
+
+emm_obj %>% 
+  as_tibble() %>% 
+  ggplot(aes(x = fert_amount, y = mean.class, fill = fert_amount)) +
+  theme_minimal() + 
+  labs(y = "Mittlere Boniturnote", x = "Düngemenge [mg/l]",
+       fill = "Düngemenge [mg/l]") +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = str_trim(.group), y = mean.class + SE + 0.01), vjust = -0.25) +
+  geom_errorbar(aes(ymin = mean.class-SE, ymax = mean.class+SE),
+                width = 0.2) +
+  scale_fill_okabeito() +
+  theme(legend.position = "none") 
+
+```
 :::
 
 ## Referenzen {.unnumbered}
