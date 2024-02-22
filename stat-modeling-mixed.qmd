@@ -1482,59 +1482,55 @@ ggplot(insects_tbl, aes(x = timepoint, y = thripse, fill = trt)) +
 :::
 
 ::: callout-tip
-## Anwendungsbeispiel: Gruppenvergleich für Boniturnoten in Brokkoli (2-faktoriell)
+## Anwendungsbeispiel: Gruppenvergleich für Boniturnoten von Schweinen (3-faktoriell)
 
-Dieses Beispiel ist die etwas angepasste und verkürzte Form des [Gruppenvergleich für die ordinale Regression](#sec-mult-comp-ord-reg) in dem Kapitel zur ordinalen Regression. Ebenfalls hilfreich ist das Tutorium [Ordinal regression in R: part 1](https://tdunn.ca/posts/2020-03-15-ordinal-regression-in-r-part-1/) auf das ich gerne verweisen möchte. Im folgenden Beispiel schauen wir uns eine praktische Auswertung von einem agrarwissenschaftlichen Beispiel mit Brokkoli an. Wir haben uns in diesem Experiment verschiedene Dosen `fert_amount` von einem Dünger aufgebracht sowie verschiedene Zeitpunkte der Düngung `fert_time` berücksichtigt. Ziel ist es die Boniturnoten für den Stamm von Brokkoli miteinander zu vergleichen. Auch hier haben wir einige Besonderheiten in den Daten, da nicht jede Faktorkombination vorliegt. Wir ignorieren aber diese Probleme und rechnen einfach stumpf unseren Gruppenvergleich. Wir müssen aber ein paar Anpassungen durchführen. Unsere Noten müssen ein geordneter Faktor sein, daher nutzen wir die Funktion `ordered`. Darüber hinaus schmeißen wir die Düngerzeit `early` aus den Daten, da wir zu dem Zeitpunkt keine hohlen Stämme bonitiert haben. Ebenfalls haben wir sehr viele Brokkoliköpfe mit Eins bonitiert. Auch diese Beobachtungen entfernen wir einmal aus den Daten damit wir dann auch ein paar Effekte sehen.
+In dem folgenden agrawissenschaftlichen Beispiel wollen wir uns einmal die Auswertung von verschiedenen Schweinerassen im Bezug auf ihre Fußgesundheit in zwei Platzangeboten in Ställen anschauen. Die Ställe haben dabei zwei Arten von Belegung vorliegen, nämlich einmal eine weite Belegung und einmal eine enge Belegung. Darüber hinaus ist die Studie in verschiedenen Ställen und und verschiedenen Orten durchgeführt worden. Es ergibt sich also ein recht komplexer Datensatz. Dabei sind die Ställe `barn` auf den Höfe `location` genestet. Darüber hinaus haben wir eine Behandlung `spacing` sowie die verschiedenen Schweinerassen `breed`. Ich habe hier nur eine Auswahl an Schweinerassen getroffen, da mir sonst das `clmm()`-Modell zu lange dauert bis es gerechnet ist. Wir brauchen dann später für unser `clmm()`-Modell das Outcome noch als geordneten Faktor. Wenn du den Code nutzt, dann kannst du gerne alle Schweinerassen mit in das Modell nehmen. Ebenfalls hilfreich ist das Tutorium [Ordinal regression in R: part 1](https://tdunn.ca/posts/2020-03-15-ordinal-regression-in-r-part-1/) auf das ich gerne verweisen möchte. Am Ende haben wir einen sehr großen Datensatz mit 2840 bonitierten Schweinen. Das sind wirklich eine Menge Schweine.
 
 ```{r}
-broc_tbl <- read_excel("data/broccoli_weight.xlsx") %>% 
-  mutate(fert_time = factor(fert_time, levels = c("none", "early", "late")),
-         fert_amount = as_factor(fert_amount),
-         block = as_factor(block),
-         stem_hollowness_num = stem_hollowness,
-         stem_hollowness = ordered(stem_hollowness)) %>%
-  filter(fert_time == "early") %>% 
-  filter(stem_hollowness > 1) %>% 
-  select(fert_time, fert_amount, block, stem_hollowness, stem_hollowness_num) %>% 
-  droplevels() %>% 
+pig_tbl <- read_excel("data/bonitur_pig.xlsx") %>% 
+  mutate(breed = as_factor(breed),
+         spacing = factor(spacing, labels = c("Weite Belegung", "Enge Belegung")),
+         location = as_factor(location),
+         barn = as_factor(barn),
+         foot_inflamed_fct = ordered(foot_inflamed)) |> 
+  filter(breed %in% c("Vietnamese Pot-bellied", "Welsh", "Belarus Black Pied", "Saddleback", 
+                     "American Yorkshire", "Bentheim Black Pied", "Mangalica")) |> 
   na.omit()
 ```
 
-Im Folgenden einmal die Tabelle mit `tabyl` aus dem R Paket `{janitor}`. Mehr dazu auf der Hilfeseite zu [tabyls: a tidy, fully-featured approach to counting things](https://cran.r-project.org/web/packages/janitor/vignettes/tabyls.html). Wir sehen, dass wir kaum schlechte Noten erhalten.
-
-```{r}
-broc_tbl %>% 
-  tabyl(stem_hollowness, fert_amount) 
-```
-
-Die Tabelle sehen wir dann auch nochmal in der @fig-clm-broc-violin als Violinplot visualisiert. Die Brokkoliköpfe mit der Note Eins fehlen, so dass wir hier sogar einen leichten Effekt von der Düngung mit $300$ sehen könnten. Die Düngestufe könnte etwas höhere Noten haben.
+Die Daten sehen wir dann auch nochmal in der @fig-clm-pig-violin als Violinplot visualisiert. Wir sehen, dass wir bei der Anzahl an Beobachtungen dann nichts mehr sehen. Die Violinplots mögen sich unterscheiden, aber so richtig gut erkennen, können wir hier eigentlich nicht. Auch lassen sich hier schwer halbe Abbildungen erstellen. Wir haben teilweise so viele Beobachtungen mit geringen Noten, dass wir kaum etwas erkennen können.
 
 ```{r}
 #| echo: true
 #| message: false
-#| label: fig-clm-broc-violin
+#| label: fig-clm-pig-violin
 #| fig-align: center
 #| fig-height: 4
-#| fig-width: 4
-#| fig-cap: "Violinplot der Boniturnoten der Brokkolistämme. Klar ist die sehr schiefe Verteilung der Boniturnoten zu erkennen."
+#| fig-width: 7
+#| fig-cap: "Violinplot der Boniturnoten für die Fußgesundheit der Schweinerassen aufgeteilt nach dem Platzangebot. Klar ist die sehr schiefe Verteilung der Boniturnoten zu erkennen."
 
-ggplot(broc_tbl, aes(fert_amount, stem_hollowness_num, fill = fert_amount)) +
+ggplot(pig_tbl, aes(breed, foot_inflamed, fill = breed)) +
   theme_minimal() +
   geom_violin() +
   scale_y_continuous(breaks = 1:9, limits = c(1,9)) +
+  theme(legend.position = "none") +
+  facet_wrap(~ spacing, ncol = 1) +
   scale_fill_okabeito() +
-  theme(legend.position = "none")
+  scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+  labs(x = "Schweinerasse", y = "Boniturnote")
 
 ```
 
-Wir rechnen jetzt natürlich trotzdem eine ordinale Regression mit der Funktion `clmm()`. Da wir nur einen Behandlungsfaktor mit der Düngung vorliegen haben bleibt noch der Block als zufälligen Faktor übrig. Wir schreiben das Modell wie wir es schon kennen mit einem festen und einem zufälligen Effekt.
+Wir rechnen jetzt eine ordinale gemischte Regression mit der Funktion `clmm()`. Wir schreiben das Modell wie wir es schon kennen mit zwei festen und einem genesteten zufälligen Effekt. Wir betrachten auch die Interaktion zwischen den Schweinerassen und dem Platzangebot. Mich würde wundern wenn alle Schweinerassen auf das Platzangebot gleich reagieren würden. Dann müssen wir noch sichergehen das unser Outcome als Faktor mit der Spalte `foot_inflamed_fct` kodiert ist, damit wir das Modell rechnen können.
 
 ```{r}
-clmm_fit <- clmm(stem_hollowness ~ fert_amount + (1 | block), 
-                 data = broc_tbl)
+#| cache: true
+#| label: mixed-clmm-model
+clmm_fit <- clmm(foot_inflamed_fct ~ breed + spacing + breed:spacing + (1 | location/barn), 
+                 data = pig_tbl)
 ```
 
-Jetzt rechnen wir in den beiden folgenden Tabs einmal die ANOVA und dann auch den multiplen Gruppenvergleich mit `{emmeans}`. Da wir hier ordinale Daten haben, können wir dann nicht einfach die Standardverfahren nehmen. Wir entscheiden uns dann für den Standardfehler bei der Darstellung.
+Wir nutzen das Modell `clmm_fit` direkt für den Gruppenvergleich und übergehen einmal die Modelldiagnostik hier. Jetzt rechnen wir in den beiden folgenden Tabs einmal die ANOVA und dann auch den multiplen Gruppenvergleich mit `{emmeans}`. Da wir hier ordinale Daten haben, können wir dann nicht einfach die Standardverfahren nehmen. Wir entscheiden uns dann für den Standardfehler bei der Darstellung.
 
 ::: panel-tabset
 ## ANOVA mit `anova()`
@@ -1542,28 +1538,30 @@ Jetzt rechnen wir in den beiden folgenden Tabs einmal die ANOVA und dann auch de
 Wir rechnen hier einmal die ANOVA mit der Funktion `Anova.clmm()` aus dem R Paket `{RVAideMemoire}`. In dem Paket `{ordinal}` ist keine ANOVA für den Gruppenvergleich implementiert. Wir machen dann die Ausgabe nochmal schöner und fertig sind wir.
 
 ```{r}
+#| cache: true
+#| label: mixed-clmm-model-anova
 clmm_fit %>% 
   Anova.clmm() %>%
   model_parameters()
 ```
 
-Wir sehen, dass der die Menge des Düngers nicht signifikant ist. Wir haben nicht mehr Faktoren in dem Modell gehabt, so dass wir hier auch keine weiteren Aussagen tätigen können. Wir rechnen trotzdem den multiplen Vergleich, damit wir das dann auch gemacht haben.
+Wir sehen, dass die Schweinerasse signifikant ist. Ebenso hat der Abstand in den Ställen einen signifikanten Einfluss auf die Fußgesundheit. Wie es auch zu erwarten war, verhalten sich natürlich nicht alle Schweinerassen identisch im Bezug auf das Platzangebot und der Fußgesundheit. Es wäre auch sehr komisch, wenn wir hier keine Interaktion gehabt hätten. Wir werten also gleich mal die Boniturnoten getrennt für das Platzangebot aus. Auch hier müssen wir uns Fragen was ist mehr von Interesse, ich entscheide mich hier für die Rassen.
 
 ## Gruppenvergleich mit `emmeans()`
 
-Im Folgenden rechnen wir einmal für den Faktor `fert_amount` einen Gruppenvergleich. Wir setzen hier die Option `mean.class` damit wir dann die mittleren Noten wiedergegeben bekommen. Mit den mittleren Noten können wir dann ein Säulendiagramm erstellen. Dann adjustieren wir noch nach Bonferroni und sind fertig.
+Im Folgenden rechnen wir einmal für den Faktor `breed` getrennt für die beiden Platzangebote `spacing` einen Gruppenvergleich. Immerhin haben wir eine Interaktion vorliegen. Wir setzen hier die Option `mean.class` damit wir dann die mittleren Noten wiedergegeben bekommen. Mit den mittleren Noten können wir dann ein Säulendiagramm erstellen. Dann adjustieren wir *nicht* und sind auch schon fertig. Warum adjustieren wir hier nicht? Wenn du hier adjustierst ist am Ende nichts mehr signifikant, da du so viele Gruppenvergleiche rechnest, das hier die $p$-Werte nicht klein genug werden. Irgendwo ist dann auch eine Grenze. Die Effekte sind hier nicht stark genug sein um sie dann noch signifikant nachzuweisen.
 
 ```{r}
 emm_obj <- clmm_fit %>% 
-  emmeans(~ fert_amount, mode = "mean.class") %>%
-  cld(Letters = letters, adjust = "bonferroni")
+  emmeans(~ breed | spacing, mode = "mean.class") %>%
+  cld(Letters = letters, adjust = "none")
 emm_obj
 ```
 
-Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. Die `mean.class` stellt den mittleren Noten des Brokkoli für die Menge der Düngung dar. Wir nutzen dann auch hier die Standardfehler für die Abbildungen, da wir sonst schnelle Werte kleiner 0 und größer 9 erhalten. Dann können wir zum Abschluss auch das *compact letter display* anhand der Abbildung interpretieren.
+Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. Die `mean.class` stellt den mittleren Noten der Fußgesundheit für die Menge die Rassen getrennt nach dem Platzangebot dar. Wir nutzen dann auch hier die Standardfehler für die Abbildungen, da wir sonst schnelle Werte kleiner 0 und größer 9 erhalten. Dann können wir zum Abschluss auch das *compact letter display* anhand der Abbildung interpretieren.
 :::
 
-In der @fig-log-mod-ordinal-broc siehst du das Ergebnis der Auswertung in einem Säulendiagramm. In unserem Fall sind die Düngestufen nicht signifikant. Hier ist dann die Varianz zu groß um den Unterschied zwischen der Düngestufe $150$ und $300$ signifikant zu zeigen. Vermutlich wäre es mit der größeren Fallzahl schon wieder anders, aber wir haben aber auch nur eine begrenzte Anzahl an Beobachtungen mit einer Note größer als Eins vorliegen. Ich habe auch darauf verzichtet die ganze Notenskala von 1 bis 9 zu zeigen, dann sieht man nämlich gar nichts mehr. Würde man auch so nicht, aber hier haben wir dann eine etwas bessere Auflösung.
+In der @fig-log-mod-ordinal-broc siehst du das Ergebnis der Auswertung in einem Säulendiagramm. In unserem Fall ist die weite Belegung nicht signifikant über die Rassen. Bei der engen Belegung sehen wir schon einige Unterschiede in der Benotung der Fußgesundheit. Die große Frage bleibt hier, ist der Effekt den wir sehen überhaupt relevant oder nicht? Immerhin haben wir sehr geringe mittlere Boniturnoten, die eventuell darüber hinwegtäuschen wie stark der Effekt eigentlich ist. Als Faustformel sage ich mir immer, dass ich eigentlich immer einen Notenschritt als Änderung sehen möchte. Sonst ist es eigentlich zu wenig um von einer Relevanz zu sprechen. Aber das ist eher eine Diskussion im Kontext der wissenschaftlichen Fragestellung als eine statistische Diskussion.
 
 ```{r}
 #| echo: true
@@ -1572,21 +1570,26 @@ In der @fig-log-mod-ordinal-broc siehst du das Ergebnis der Auswertung in einem 
 #| label: fig-log-mod-ordinal-broc
 #| fig-align: center
 #| fig-height: 4
-#| fig-width: 4
-#| fig-cap: "Säulendigramm der mittleren Boniturnote des Brokkoli aus einer ordinalen Regression. Das `clmm()`-Modell berechnet das mittlere Boniturnote für den Faktor `fert_amount`. Das *compact letter display* wird dann in `{emmeans}` generiert."
+#| fig-width: 7
+#| fig-cap: "Säulendigramm der mittleren Boniturnote der Fußgesundheit aus einer ordinalen gemischten Regression. Das `clmm()`-Modell berechnet das mittlere Boniturnote für den Faktor `breed` getrennt für die beiden Platzangebote `spacing`. Das *compact letter display* wird dann in `{emmeans}` generiert. Fraglich bleibt, ob die Unterschiede wirklich relevant sind, da die mittleren Boniturnoten sehr nahe beieinander liegen."
 
 emm_obj %>% 
   as_tibble() %>% 
-  ggplot(aes(x = fert_amount, y = mean.class, fill = fert_amount)) +
+  ggplot(aes(x = breed, y = mean.class, fill = breed)) +
   theme_minimal() + 
-  labs(y = "Mittlere Boniturnote", x = "Düngemenge [mg/l]",
-       fill = "Düngemenge [mg/l]") +
-  geom_bar(stat = "identity") +
-  geom_text(aes(label = str_trim(.group), y = mean.class + SE + 0.01), vjust = -0.25) +
+  labs(y = "Mittlere Boniturnote", x = "Schweinerasse") +
+  geom_bar(stat = "identity", position = position_dodge(0.9)) +
+  geom_text(aes(label = str_trim(.group), y = mean.class + SE + 0.01), vjust = -0.25,
+            position = position_dodge(0.9)) +
   geom_errorbar(aes(ymin = mean.class-SE, ymax = mean.class+SE),
-                width = 0.2) +
+                width = 0.2, position = position_dodge(0.9)) +
+  facet_wrap(~ spacing, ncol = 1) +
+  theme(legend.position = "none") +
   scale_fill_okabeito() +
-  theme(legend.position = "none") 
+  scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+  ylim(0, 4)
+
+
 
 ```
 :::
