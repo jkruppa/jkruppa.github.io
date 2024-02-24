@@ -184,7 +184,7 @@ short_question_tbl |>
   kable(align = c("cll"), "pipe")
 ```
 
-## Daten preprocessing
+## Preprocessing
 
 Wenn wir uns mit Fragebögen beschäftigen, dann werten wir meisten *nicht* alle Fragen aus. Das macht auch meistens keinen Sinn. Denn wir stellen zwar recht viele Fragen, aber am Ende müssen wir auch schauen, ob alle Fragen sinnvoll beantwortet wurden oder aber ob wir sehr viele Nichtantworten haben. Davon hängt dann auch die weitere Analyse ab. Wir können uns auch überlegen einzelne Fragen zusammenzufassen, da wir feststellen, dass wir dann am Ende doch nicht so eine feingliedrige Aufteilung wollen.
 
@@ -346,9 +346,45 @@ Am Ende werten wir ja viele Fragen erstmal alleine aus. Daher schauen wir uns an
 Eine Möglichkeit mit fehlenden Werten umzugehen ist die [Imputation von fehlende Werten](#sec-missing), die ich in einem anderen Kapitel erläutere. Ich wäre aber mit dem Einsatz der Methoden sehr vorsichtig, da diese Methoden teilweise nicht in Veröffentlichungen anerkannt werden. Die Kritik lautet dabei, dass künstliche Daten erstellt werden, die nicht den realen Hintergrund abbilden. Daher ist die Verwendung von einem Imputationsalgorithmus immer gesondert zu diskutieren und zu bewerten.
 :::
 
+### Korrelation
+
+Warum Korrelation der Fragen? Nun es kann sein, dass wir Fragen gebaut haben, die eventuell das Gleiche abfragen. Oder aber, dass die Teilnehmer:innen unseres Fragebogen eine Frage genau so beantworten wie eine andere Frage. Das lässt sich bei der Vielzahl an Fragen kaum überblicken. Deshalb schauen wir uns einmal die Korrelation zwischen den Fragen an um zu sehen, ob wir nicht Fragen haben, die das Gleiche aussagen.
+
+Zuerst bauen wir uns einen Datensatz `tiger_clean_num_tbl` indem alle Spalten nur noch numerisch sind. Wir können die Korrelation nur mit numerischen Spalten rechnen. Wenn du noch Wörter als Antworten in den Spalten stehen hast, dann kannst du über `as.factor()` erstmal die Antworten in Faktoren umwandeln. Das habe ich hier schon gemacht und nutze daher den Datensatz `tiger_fct_tbl`. Am Ende setze ich dann noch die Bezeichnung der Fragen auf die Abkürzungen der Fragen, sonst klappt es nicht richtig mit der Darstellung. Dafür sind dann die ursprünglichen Spaltenbezeichungen zu lang.
+
+```{r}
+tiger_clean_num_tbl <- tiger_fct_tbl |> 
+  mutate_all(as.numeric) |>  
+  set_names(short_question_tbl$ques_id)
+```
+
+Wenn du dir nur die Korrelation zwischen den Spalten hier anschaust, dann nutze zuerst die Option `use = "pairwise.complete.obs"`. Dann werden nur die Beobachtungen genutzt die in den jeweiligen Spalten, die verglichen werden, vorhanden sind. Ich nutze hier dann auch den Korrelationskoeffizienten nach Pearson. Da wir eigentlich keine normalverteilten Daten in den Antwortmöglichkeiten vorliegen haben, müsste ich eigentlich besser Spearman nutzen, aber Spearman neigt zu Fehlern, wenn die Daten nicht richtig passen. Da ich mir hier aber nur einen groben Überblick verschaffen möchte, kommt es auf Abweichungen in dem Korrelationskoeffizienten nicht an. Auch wenn mein Korrelationskoeffizienten verzerrt ist, wird ein hoher Korrelationskoeffizienten nach Pearson auf eine Korrelation hindeuten. Das ist ja auch nur mein Ziel hier, nämlich ähnliche Fragen zu erkennen. Den berechneten Korrelationskoeffizienten nehme ich dann aber nicht zu ernst. Am Ende nehme ich noch die Frage `f2Soziodemografisch` aus der Betrachtung, da hier zu viele fehlende Werte vorliegen.
+
+```{r}
+#| warning: false
+#| message: false
+cor_mat <- tiger_clean_num_tbl |> 
+  select(-matches("Soziodemografisch")) |> 
+  cor(use = "pairwise.complete.obs")
+```
+
+Ich könnte mir jetzt die berechnete Korrelationsmatrix `cor_mat` einmal in R als Matrix anschauen. Schöner ist es in der @fig-survey-corr-1 als Korrelationsplot. Trotz der Verwendung des Korrelationskoeffizienten nach Person konnten wir nicht für alle paarweisen Vergleiche der Fragen eine Korrelation berechnen. Wenn es nicht möglich war, dann sehen wir ein Fragezeichen in der Abbildung. Wenn wir eine zeitlang auf die Abbildung schauen, sehen wir, dass wir eigentlich keinen große Korrelation zwischen den Fragen haben. Der größte Wert ist $0.31$ sowie $0.26$ und damit noch sehr nah an der Null und keiner Korrelation. Ich bin somit mit der Korrelation zufrieden. Wir müssen keine Fragen zusammenfassen oder entfernen, weil die Korrelation zwischen den Fragen zu groß ist und damit die Fragen das Gleiche aussagen.
+
+```{r}
+#| warning: false
+#| message: false
+#| label: fig-survey-corr-1
+#| fig-align: center
+#| fig-height: 9
+#| fig-width: 9
+#| fig-cap: "Visualisierung der Korrelationsmatrix nach Pearson für alle Fragen. Teilweise konnte der Korrelationskoeffizient nicht berechnet werden. Wir haben keine Korrelation zwischen den Fragen vorliegen."
+corrplot(cor_mat, method = 'number', 
+         col = wes_palette("Zissou1", 8, type = "continuous"))
+```
+
 ### Zusammenfassen
 
-Manchmal wollen wir dann doch Fragen zusammenfassen. Irgendwie stellen wir fest, nachdem wir die Antworten gesehen haben, dass wir dann doch irgendwie nicht so eine detaillierte Fragenaufteilung wollen. Dann können wir natürlich auch Fragen zusammenfassen. Eine goldene Regel gibt es dafür nicht, ich zeige aber mal die eine oder andere Möglichkeit. Neben dem Fragen zusammenfassen, können wir auch Antwortkategorien zusammenfassen. Wir wollen dann nicht die fünf Antwortmöglichkeiten sondern eben nur drei oder zwei. Dann können wir das auch machen, müssen es nur in unserem Report oder der Abschlussarbeit berichten.
+Manchmal wollen wir dann doch Fragen zusammenfassen. Irgendwie stellen wir fest, nachdem wir die Antworten gesehen haben, dass wir dann doch irgendwie nicht so eine detaillierte Fragenaufteilung wollen. Dann können wir natürlich auch Fragen zusammenfassen. Eine goldene Regel gibt es dafür nicht, ich zeige aber mal die eine oder andere Möglichkeit. Es kann auch sein, dass wir festgestellt haben, dass einzelne Fragen sehr stark miteinander korrelieren und wir deshalb die Fragen zusammenfasen wollen anstatt eine der Fragen aus der Analyse zu nehmen. Neben dem Fragen zusammenfassen, können wir auch Antwortkategorien zusammenfassen. Wir wollen dann nicht die fünf Antwortmöglichkeiten sondern eben nur drei oder zwei. Dann können wir das auch machen, müssen es nur in unserem Report oder der Abschlussarbeit berichten.
 
 #### ...von einzelnen Fragen {.unnumbered}
 
@@ -433,7 +469,9 @@ alter_combined_perc_obj |>
 
 Am Ende ist es natürlich wichtig, das du dann im Methodenteil deiner Arbeit oder Veröffentlichung genau beschreibst, wie du und warum du die Antwortmöglichkeiten zusammengefasst hast. Allgemein spricht nichts dagegen Antworten zusammenzufassen, es sollte nur nicht der Anschein erweckt werden, dass du dir dann am Ende die Ergebnisse zurechtbiegst.
 
-### Flowchart oder Flussdiagramm
+### Flowchart
+
+Das Flussdiagramm (eng. *flowchart*)
 
 [Building a flowchart](https://cran.r-project.org/web/packages/Gmisc/vignettes/Grid-based_flowcharts.html)
 
@@ -447,7 +485,7 @@ Am Ende ist es natürlich wichtig, das du dann im Methodenteil deiner Arbeit ode
 Ist ein guter Punkt. Du musst natürlich deine Flowchart nicht in R bauen. Wahrscheinlich geht es in PowerPoint sogar schneller und einfacher. Da ich hier aber alles in R mache und dir nicht aufschreiben kann, wie es dann in PowerPoint geht, zeige ich hier auch die R Variante. Suche dir einfach aus was für dich besser passt. Ich löse gerne meine Probleme in R.
 :::
 
-### Repräsentativer Teilnehmer
+### Repräsentative:r Teilnehmer:innen
 
 Wenn ich einen Fragebogen auswerte, dann lasse ich mir gerne eine Tabelle der repräsentativen Teilnehmer rausgeben. Nicht immer funktioniert es, denn wir brauchen natürlich auch einiges an Teilnehmern. Manchmal sind die Anzahlen auch zu gering, dass ich von einem repräsentativen Teilnehmer sprechen würde. Nichtsdestotrotz, ich schaue mir das gerne einmal an. Ich schaue mir dafür die demographischen Fragen einmal an und erstelle mir dann eine Tabelle mit den Eigenschaften der häufigsten Teilnehmern. In unserem Fall möchte ich wissen, ob es Überschneidungen im Geschlecht, dem Alter sowie den Erwerb und der betrieblichen Stellung gibt. Technisch klebe ich die vier Spalten einfach mit `str_c()` zu einem String zusammen und zähle dann wie oft so ein String dann vorkommt. Dafür nutze ich die Funktion `tabyl()`, die mir sehr angenehm die Anzahlen und Prozente wiedergibt. Die Funktion [`reframe()`](https://www.tidyverse.org/blog/2023/02/dplyr-1-1-0-pick-reframe-arrange/#reframe) erlaubt es uns dann die Rückgabe von `tabyl()` in einen Datensatz.
 
@@ -579,38 +617,6 @@ tiger_ord_tbl |>
   plot_likert(cat.neutral = 3) +
   theme_minimal() +
   theme(legend.position = "bottom")
-```
-
-## Korrelation der Fragen
-
-[How does Polychoric Correlation Work? (aka Ordinal-to-Ordinal correlation)](https://www.r-bloggers.com/2021/02/how-does-polychoric-correlation-work-aka-ordinal-to-ordinal-correlation/)
-
-[An Alternative to the Correlation Coefficient That Works For Numeric and Categorical Variables](https://rviews.rstudio.com/2021/04/15/an-alternative-to-the-correlation-coefficient-that-works-for-numeric-and-categorical-variables/)
-
-```{r}
-tiger_clean_num_tbl <- tiger_fct_tbl |> 
-  mutate_all(as.numeric) |>  
-  set_names(short_question_tbl$ques_id)
-```
-
-`use = "pairwise.complete.obs"`
-
-```{r}
-cor_mat <- tiger_clean_num_tbl |> 
-  select(-matches("Soziodemografisch")) |> 
-  cor(use = "pairwise.complete.obs")
-```
-
-```{r}
-#| warning: false
-#| message: false
-#| label: fig-survey-corr-1
-#| fig-align: center
-#| fig-height: 9
-#| fig-width: 9
-#| fig-cap: "."
-corrplot(cor_mat, method = 'number', 
-         col = wes_palette("Zissou1", 8, type = "continuous"))
 ```
 
 ## Hauptkomponentenanalyse
