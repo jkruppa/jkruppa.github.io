@@ -126,7 +126,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 pacman::p_load(tidyverse, gtsummary, janitor, FactoMineR,
                factoextra, corrplot, wesanderson, naniar,
-               scales, likert, sjPlot, conflicted)
+               scales, likert, sjPlot, parameters, mfp,
+               conflicted)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -341,7 +342,7 @@ tiger_tbl |>
   miss_case_summary()
 ```
 
-Schauen wir uns mal die Perosnen mit sieben oder mehr fehlenden Werten einmal an.
+Schauen wir uns mal die Personen mit sieben oder mehr fehlenden Werten einmal an.
 
 ```{r}
 tiger_tbl |> 
@@ -685,7 +686,7 @@ Und weil es so schön ist, dass ganze dann in der @fig-survey-likert-plot-5 noch
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 7
-#| fig-cap: "Drastellung der Likertskala der Antworten zur Verbandkommunikation. Wir haben hier wiederum keine Sortierung in den Fragen. Die Antworten werden nach den positiven und negativen Antwortkategorien sortiert. Die neutrale Kategorie wird links an der Seite dargestellt."
+#| fig-cap: "Darstellung der Likertskala der Antworten zur Verbandkommunikation. Wir haben hier wiederum keine Sortierung in den Fragen. Die Antworten werden nach den positiven und negativen Antwortkategorien sortiert. Die neutrale Kategorie wird links an der Seite dargestellt."
 tiger_ord_tbl |> 
   select(f1Imagearbeit:f4Imagearbeit) |> 
   plot_likert(cat.neutral = 3) +
@@ -697,7 +698,11 @@ Neben dem R Paket `{sjPlot}` gibt es auch die Möglichkeit das R Paket `{HH}` au
 
 ## Bivariate Analysen
 
-Was sind bivariate Analysen? Eigentlich nichts anderes als Gruppenvergleich zwischen den Fragen. Also wir vergleichen zwei Fragen miteinander und wollen wissen, ob es in dem Antwortmuster der einen Fragen einen Unterschied gegeben der anderen Frage gibt. Wir rechnen also eigentlich einen [$\mathcal{X}^2$-Test](#sec-chi-test) auf verschieden großen Kreuztabellen (eng. *cross table*). In R ist die einfachste Funktion sich eine Kreuztabelle zu erstellen die Funktion `xtabs()`. Du erhälst dann für die beiden Fragen die kreuzweisen Häufigkeiten wiedergeben. Wir machen das jetzt einmal für die beiden Spalten `haben_Sie_tiger` und dem Erwerb in der Spalte `f1Soziodemografisch`. Damit erhalten wir dann eine klassische 2x2 Kreuztabelle wieder.
+Was sind bivariate Analysen? Eigentlich nichts anderes als Gruppenvergleich zwischen den Fragen. Also wir vergleichen zwei Fragen miteinander und wollen wissen, ob es in dem Antwortmuster der einen Fragen einen Unterschied gegeben der anderen Frage gibt.
+
+### Kategorial vs. kategoriale Frage
+
+Wir rechnen also eigentlich einen [$\mathcal{X}^2$-Test](#sec-chi-test) auf verschieden großen Kreuztabellen (eng. *cross table*). In R ist die einfachste Funktion sich eine Kreuztabelle zu erstellen die Funktion `xtabs()`. Du erhälst dann für die beiden Fragen die kreuzweisen Häufigkeiten wiedergeben. Wir machen das jetzt einmal für die beiden Spalten `haben_Sie_tiger` und dem Erwerb in der Spalte `f1Soziodemografisch`. Damit erhalten wir dann eine klassische 2x2 Kreuztabelle wieder.
 
 ```{r}
 cross_tab <- xtabs(~ haben_Sie_tiger + f1Soziodemografisch, data = tiger_ord_tbl)
@@ -723,24 +728,125 @@ Jetzt müsstest du jede Frage für die Frage `f1Soziodemografisch` testen indem 
 #| eval: false
 tiger_ord_tbl |> 
   set_names(short_question_tbl$question) |>
-  tbl_summary(by = "Ist Ihr Erlebnishof Haupterwerb oder Nebenerwerb?") |> 
+  tbl_summary(by = "Halten Sie aktuell Tiger oder andere Großkatzen auf Ihrem Erlebnishof?") |> 
   add_p()
 ```
+
+### Kontinuierlich vs. kategoriale Frage
+
+[Der t-Test](#sec-ttest) [Der Wilcoxon-Mann-Whitney-Test](#sec-utest)
+
+```{r}
+#| warning: false
+#| message: false
+#| label: fig-survey-bivariat-plot-1
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "."
+ggplot(tiger_ord_tbl, aes(haben_Sie_tiger, f5dauer_verletzung, 
+                          fill = haben_Sie_tiger)) +
+  theme_minimal() +
+  geom_boxplot(show.legend = FALSE) +
+  scale_fill_okabeito() 
+```
+
+::: panel-tabset
+## Der t-Test
+
+```{r}
+t.test(f5dauer_verletzung ~ haben_Sie_tiger, tiger_ord_tbl) 
+```
+
+## Der Wilcoxon-Test
+
+```{r}
+wilcox.test(f5dauer_verletzung ~ haben_Sie_tiger, tiger_ord_tbl, 
+            conf.int = TRUE)
+```
+:::
+
+### Kontinuierlich vs. Kontinuierlich Frage
+
+[Simple lineare Regression](#sec-modeling-simple-stat) oder [Nicht lineare Regression](#sec-non-linear)
+
+::: panel-tabset
+## Lineare Regression
+
+```{r}
+#| warning: false
+#| message: false
+lm(f6einkommen_jahr ~ f5dauer_verletzung, tiger_tbl) |> 
+  model_parameters()
+```
+
+```{r}
+#| warning: false
+#| message: false
+#| label: fig-survey-bivariat-plot-2
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "."
+ggplot(tiger_tbl, aes(f5dauer_verletzung, f6einkommen_jahr)) +
+  theme_minimal() +
+  geom_smooth(method = "lm", color = "#CC79A7", se = FALSE) +
+  geom_point() 
+```
+
+## Nicht lineare Regression
+
+```{r}
+mfp_fit <- mfp(f6einkommen_jahr ~ fp(f5dauer_verletzung), tiger_tbl)
+```
+
+```{r}
+mfp_fit$formula
+```
+
+```{r}
+mfp_fit$coefficients
+```
+
+$$
+weight \sim 939.91 + 93.90 \cdot \left(\cfrac{f5dauer\_verletzung}{100}\right)^{1}
+$$
+
+```{r}
+f5dauer_verletzung_func <- \(x) {939.91 + 93.90 * (x/100)^1}
+```
+
+```{r}
+#| warning: false
+#| message: false
+#| label: fig-survey-bivariat-plot-3
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "."
+ggplot(tiger_tbl, aes(f5dauer_verletzung, f6einkommen_jahr)) +
+  theme_minimal() +
+  geom_function(fun = f5dauer_verletzung_func, color = "#CC79A7") +
+  geom_point() 
+```
+:::
+
+### Mit `tbl_summary()`
 
 Ich habe dir wie immer die Ausgabe einmal zusammengeklappt, damit hier nicht die gesamte Tabelle alles überlappt. Wir sehen, dass wir keinen Unterschied zwischen den beiden Erwerbsformen über alle Fragen in den Antwortmustern finden. Kontinuierliche Antworten werden dann entsprechend auch über einen t-Test oder einer ANOVA getestet. Teilweise dann auch über einen Wilcoxon-Test, wenn die Normalverteilung nicht gegeben ist. Daher macht es einem diese Funktion schon sehr einfach die Fragen flott auszuwerten.
 
 ::: {.callout-note collapse="true"}
-## Bivariate Analyse mit der Funktion `tbl_summary()` für den Erwerb
+## Bivariate Analyse mit der Funktion `tbl_summary()` für die Tigerhaltung
 
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
 #| label: tbl-survey-tiger-summary_by
-#| tbl-cap: "Bivariate Analyse der einzelenen Fragen und deren Antwortverteilung aufgeteilt nach der Frage zum Erwerb. Anhand der Tabelle können fehlende Werte und ungleichmäßig beantwortete Fragen erkannt und dann ausgeschlossen werden."
+#| tbl-cap: "Bivariate Analyse der einzelenen Fragen und deren Antwortverteilung aufgeteilt nach der Frage zur der Haltung von Tigern. Anhand der Tabelle können fehlende Werte und ungleichmäßig beantwortete Fragen erkannt und dann ausgeschlossen werden."
 tiger_ord_tbl |> 
   set_names(short_question_tbl$question) |>
-  tbl_summary(by = "Ist Ihr Erlebnishof Haupterwerb oder Nebenerwerb?") |> 
+  tbl_summary(by = "Halten Sie aktuell Tiger oder andere Großkatzen auf Ihrem Erlebnishof?") |> 
   add_p()
 ```
 :::
@@ -790,6 +896,8 @@ fviz_pca_ind(pca_tiger,
   scale_x_continuous(expand = expansion(add = c(0.5, 1))) +
   scale_y_continuous(expand = expansion(add = c(0.5, 0.5))) 
 ```
+
+Mit `slice()` könnten wir uns jetzt die Zeilen für die Individuen 131 und 172 einmal anschauen. Oder wir gehen dann in den Exceldatensatz und schauen in die entsprechenden Zeilen. Aber Achtung, in Excel zählt die Überschrift immer als eine Zeile. Daher mussdt du dann in Excel in die Zeile 132 und 173 für die entsprechenden Einträge schauen.
 
 ```{r}
 ind_tiger <- get_pca_ind(pca_tiger)
