@@ -17,7 +17,7 @@ set.seed(20230523)
 
 ------------------------------------------------------------------------
 
-Die Korrelation gibt uns die Information welche Steigung die Gerade in einer simplen linearen Regression hat. Das ist die einfache Antwort auf die Frage, was die Korrelation aus statistischer Sicht ist. Dabei erlaubt es die Korrelation uns verschiedene Geraden miteinander zu vergleichen auch wenn unsere Variablen unterschiedliche Einheiten haben. Die Korrelation ist nämlich einheitslos. Wir standardisieren durch die Anwendung der Korrelation die Steigung der Geraden dafür auf -1 bis +1. Damit ist die Korrelation ein bedeutendes Effektmaß für die Abschätzung eines Zusammenhangs zwischen zwei Variablen. Wir nutzen die Korrelation in vielen Bereichen der Agrarwissenschaften. Wichtig ist, dass wir immer zwei kontinuierliche Variablen miteinander vergleichen. Hierzu schaue dann auch mal in dem [Kapitel zu den Effektmaßen und Interrater Reliabilität](#sec-effect-interrater). Wir wollen dort die Frage beantworten, in wie weit zwei Bewerter die gleichen Boniturnoten vergeben.
+Die Korrelation gibt uns die Information welche Steigung die Gerade in einer simplen linearen Regression hat. Das ist die einfache Antwort auf die Frage, was die Korrelation aus statistischer Sicht ist. Dabei erlaubt es die Korrelation uns verschiedene Geraden miteinander zu vergleichen auch wenn unsere Variablen unterschiedliche Einheiten haben. Die Korrelation ist nämlich einheitslos. Wir standardisieren durch die Anwendung der Korrelation die Steigung der Geraden dafür auf -1 bis +1. Damit ist die Korrelation ein bedeutendes Effektmaß für die Abschätzung eines Zusammenhangs zwischen zwei Variablen. Wir nutzen die Korrelation in vielen Bereichen der Agrarwissenschaften. Wichtig ist, dass wir immer zwei Variablen, also damit auch Spalten, miteinander vergleichen. Diese Variablen müssen eine Zahl, also numerisch, sein. Im Weiteren schaue dann auch mal in dem [Kapitel zu den Effektmaßen und Interrater Reliabilität](#sec-effect-interrater). Wir wollen dort die Frage beantworten, in wie weit zwei Bewerter die gleichen Boniturnoten vergeben.
 
 Es gibt aber ein Problem in dem allgemeinen Sprachgebrauch. Das Wort *korrelieren* ist zum Gattungsbegriff in der Statistik geworden, wenn es um den Vergleich oder den Zusammenhang von zwei oder mehreren Variablen geht. Das heißt, in der Anwendung wird gesagt, dass wir A mit B *korrelieren* lassen wollen. Das Wort *korrelieren* steht jetzt aber nicht für das Konzept statistische Korrelation sondern ist Platzhalter für eine noch vom Anwender zu definierende oder zu findende statistische Methode. Im Weiteren müssen wir beachten, dass nur weil etwas miteinander korreliert muss es keinen kausalen Zusammenhang geben. So ist die Ursache und Wirkung manchmal nicht klar zu benennen. Nehmen wir als plakatives Beispiel dicke Kinder, die viel Fernsehen. Wir würden annehmen, dass zwischen dem Fernsehkonsum und dem Gewicht von Kindern eine hohe Korrelation vorliegt. Sind jetzt aber die Kinder dick, weil die Kinder so viel Fernsehen oder schauen einfach dicke Kinder mehr Fernsehen, da die Kinder dick sind und sich nicht mehr so viel bewegen wollen? Die Internetseite [Spurious correlations](https://www.tylervigen.com/spurious-correlations) zeigt verschiedene *zufällige* Korrelationen zwischen zwei *zufällig* ausgewählten Variablen aus den USA. Es ist immer wieder spannend zu sehen, was da zufällig miteinander ähnlich agiert.
 
@@ -26,6 +26,10 @@ Wie immer gibt es auch Literatur zu dem Thema Korrelation. Denn eigentlichbist n
 @asuero2006correlation [The Correlation Coefficient: An Overview](https://www.unife.it/economia/lm.economics/lectures/applied-econometrics/materiale-didattico-2018-2019/Correlation_overview.pdf) Bedeutung der Visualisierung
 
 @bewick2003statistics [Statistics review 7: Correlation and regression](https://link.springer.com/content/pdf/10.1186/cc2401.pdf)
+
+@taylor2013discussion [A discussion on the significance associated with Pearson’s correlation in precision agriculture studies](https://link.springer.com/article/10.1007/s11119-013-9314-9)
+
+@shao2022accurate [How Accurate Is Your Correlation? Different Methods Derive Different Results and Different Interpretations](https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2022.901412/full)
 
 In diesem Kapitel wollen wir uns mit der statistischen Korrelation beschäftigen. Die statistische Korrelation ist weniger aufregender, denn am Ende ist die Korrelation nur eine Zahl zwischen -1 und +1. Eigentlich ist das eine wichtige Botschaft, denn wenn deine berechnete Korrelation nicht zwischen -1 und +1 liegt, dann hast du was anderes berechnet oder aber hier stimmt was nicht.
 
@@ -40,7 +44,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, conflicted, readxl,
                corrplot, GGally, ggraph, correlation, see)
 conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
+conflicts_prefer(dplyr::filter)
 conflict_prefer("mutate", "dplyr")
 ```
 
@@ -87,14 +91,18 @@ ggplot(simple_tbl, aes(weight, jump_length)) +
   xlim(0, 3.5) + ylim(0, 3.5)
 ```
 
-Als zweiten Datensatz nutzen wir die Gummibärchendaten und zwar alle numerischen Spaltenvon `count_bears` bis zum `semester`.
+Als zweiten Datensatz nutzen wir die Gummibärchendaten und zwar alle numerischen Spalten von `count_bears` bis zum `semester`. Dann nehme ich nur die Teilnehmerinnen an der Umfrage, da ich sonst Probleme mit der Körpergröße kriege. Männer und Frauen sind unterschiedlich groß und dann würden wir immer eine Art Effekt von dieser Sachlage bekommen, wenn wir Männer und Frauen nicht getrennt betrachten. Wenn du keine numerischen Daten sondern Worte vorliegen hast, dann kannst du über die Funktion `as.factor()` dir erst einen Faktor erschaffen und dann über `as.numeric()` aus dem Faktor eine Zahl machen. Ich zeige dir das hier einmal an der Spalte `most_liked`.
 
 ```{r}
 #| message: false
 corr_gummi_tbl <- read_excel("data/gummibears.xlsx") |> 
+  filter(gender == "w") |> 
   select(count_bears:semester) |> 
+  mutate(most_liked = as.numeric(as.factor(most_liked))) |> 
   select_if(is.numeric)
 ```
+
+Dann in der @tbl-corr-1 nochmal ein Auszug aus den Daten. Wir betrachten hier nur die numerischen Spalten, da wir nur über diese eine Korrelation berechnen können. Du siehst wie wir die Worte in der Spalte `most_liked` dann in einer Zahl umgewandelt haben. Jede der Zahlen steht dann für eine der sechs Farben der Gummibärchen plus die "keine Präferenz"-Kategorie. Da wir die eigentliche Übersetzung nicht brauchen um die Korrelation zu interpretieren, passt das hier ganz gut.
 
 ```{r}
 #| message: false
@@ -116,11 +124,11 @@ rbind(head(corr_gummi_raw_tbl, 4),
 
 Wir schauen uns hier die Korrelation nach Pearson an. Die Korrelation nach Pearson nimmt an, dass beide zu korrelierende Variablen einer Normalverteilung entstammen. Wenn wir keine Normalverteilung vorliegen haben, dann nutzen wir die Korrelation nach Spearman. Die Korrelation nach Spearman basiert auf den Rängen der Daten und ist ein nicht-parametrisches Verfahren. Die Korrelation nach Pearson ist die parametrische Variante. Wir bezeichnen die Korrelation entweder mit $r$ oder dem griechischen Buchstaben $\rho$ als *rho* gesprochen.
 
-Was macht nun die Korrelation? Die Korrelation gibt die Richtung der Geraden an. Oder noch konkreter die Steigung der Geraden normiert auf -1 bis 1. Die @fig-corr1 zeigt die Visualisierung der Korrelation für drei Ausprägungen. Eine Korrelation von $r = -1$ bedeutet eine maximale negative Korrelation. Die Gerade fällt in einem 45° Winkel. Eine Korrelation von $r = +1$ bedeutet eine maximale positive Korrelation. Die gerade steigt in einem 45° Winkel. Eine Korrelation von $r = 0$ bedeutet, dass keine Korrelation vorliegt. Die Grade verläuft parallel zur x-Achse.
+Was macht nun die Korrelation? Die Korrelation gibt die Richtung der Geraden an. Oder noch konkreter die Steigung der Geraden normiert auf -1 bis 1. Die @fig-corr1 zeigt die Visualisierung der Korrelation für drei Ausprägungen. Eine Korrelation von $r = -1$ bedeutet eine maximale negative Korrelation. Die Gerade fällt in einem 45° Winkel. Eine Korrelation von $r = +1$ bedeutet eine maximale positive Korrelation. Die gerade steigt in einem 45° Winkel. Eine Korrelation von $r = 0$ bedeutet, dass keine Korrelation vorliegt. Die Grade verläuft parallel zur $x$-Achse.
 
-![Visualisierung der Korrelation für drei Ausprägungen des Korrelationskoeffizient.](images/statistical_modeling_corr){#fig-corr1 fig-align="center" width="80%"}
+![Visualisierung der Korrelation für drei Ausprägungen des Korrelationskoeffizient.](images/statistical_modeling_corr){#fig-corr1 fig-align="center" width="100%"}
 
-Im Folgenden sehen wir die Formel für den Korrelationskoeffizient nach Pearson.
+Im Folgenden sehen wir die Formel für den Korrelationskoeffizient nach Pearson. Es gibt natürlich auch noch andere Korrelationskoeffizienten aber hier geht es dann einmal darum das Prinzip zu verstehen und das können wir am Korrelationskoeffizient nach Pearson am einfachsten. Wichtig hierbei, die beiden Variablen, die wir korrelieren wollen, müssen bei dem Korrelationskoeffizienten nach Pearson normalverteilt sein.
 
 $$
 \rho = r_{x,y} = \cfrac{s^2_{x,y}}{s_x \cdot s_y}
@@ -184,7 +192,7 @@ Wir nutzen die Korrelation in R selten nur für zwei Variablen. Meistens schauen
 
 Wir schauen uns jetzt nochmal einen die Berechnung für den Datensatz `simple_tbl` an. Wir müssen für die Korrelation zwischen zwei Variablen diese Variablen mit dem `$`-Zeichen aus dem Datensatz extrahieren. Die Funktion `cor()` kann nur mit Vektoren oder *ganzen* numerischen Datensätzen arbeiten.
 
-Wir können den Korrelationskoeffizienten nach Pearson mit der Option `method = "pearson"` auswählen, wenn wir normalverteilte Daten vorliegen haben. Das heißt, dass alle unsere Spalten einer Normalverteilung folgen müssen.
+Wir können den Korrelationskoeffizienten nach Pearson mit der Option `method = "pearson"` auswählen, wenn wir normalverteilte Daten vorliegen haben. Das heißt, dass alle unsere Spalten, mit denen wir die paarweisen Korrelationen berechnen wollen, einer Normalverteilung folgen müssen.
 
 ```{r}
 cor(simple_tbl$jump_length, simple_tbl$weight, method = "pearson")
@@ -240,12 +248,28 @@ cor_gummi_res %>%
   plot()
 ```
 
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-scatter-corr-rpaket-02
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 7
+#| fig-cap: "Scatterplot zwischen der Körpergröße und dem Alter aller Teilnehmerinnen in dem Gummibärchendatensatz."
+
+corr_gummi_tbl |> 
+  cor_test("age", "height") |> 
+  plot() +
+  theme_minimal()
+```
+
 @bhushan2019using [Using a Gaussian Graphical Model to Explore Relationships Between Items and Variables in Environmental Psychology Research](https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2019.01050/full)
 
 ```{r}
 #| echo: false
 #| message: false
-#| label: fig-scatter-corr-rpaket-02
+#| label: fig-scatter-corr-rpaket-03
 #| fig-align: center
 #| fig-height: 8
 #| fig-width: 10
@@ -420,7 +444,7 @@ ggpairs(corr_gummi_tbl,
         upper = list(continuous = wrap(cor_func, method = 'pearson', symbol = expression('\u03C1 ='))),
         diag = list(continuous = wrap(diag_fun)),
         lower = list(continuous = wrap(lower_fun)),
-        columnLabels = c("Anzahl Bärchen", "Anzahl Farben", 
+        columnLabels = c("Anzahl Bärchen", "Anzahl Farben", "Meist gemocht", 
                          "Alter", "Größe", "Semester")) +
   theme_minimal()
 ```
@@ -438,7 +462,7 @@ Hier hilft es dann auch mal mit den Themes `theme_minimal()` oder `theme_void()`
 #| fig-cap: "Modifizierte Abbildung aus `ggpairs()` mit allen paarweisen Vergleichen der numerischen Variablen. Hier einmal mit internen Achsenbeschrfitungen und zur Abwechselung dem Theme `theme_minimal()`."
 ggpairs(corr_gummi_tbl, 
         lower = list(continuous = wrap(lower_fun)),
-        columnLabels = c("Bärchen", "Farben", 
+        columnLabels = c("Bärchen", "Farben", "Gemocht",
                          "Alter", "Größe", "Semester"),
         axisLabels = "internal") +
   theme_minimal()
