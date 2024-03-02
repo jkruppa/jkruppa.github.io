@@ -220,9 +220,9 @@ Aus dem Test erhalten wir den $p$-Wert von $0.079$. Damit liegt der $p$-Wert üb
 
 ### Mit `{correlation}`
 
-Das [R Paket `{correlation}`](https://easystats.github.io/correlation/index.html) erlaubt es, die Korrelation in R zu berechnen und hilft wirklich bei der Anwendung. Die ursprünglichen Funktion in R passen überhaupt nicht zum `{tidyverse}` und so ist es gut, dass wir hier eine andere Möglichkeit haben, die auch noch viel mehr kann als die klassischen Funktion in R.
+Das [R Paket `{correlation}`](https://easystats.github.io/correlation/index.html) erlaubt es, die Korrelation in R zu berechnen und hilft wirklich bei der Anwendung. Die ursprünglichen Funktion in R passen überhaupt nicht zum `{tidyverse}` und so ist es gut, dass wir hier eine andere Möglichkeit haben, die auch noch viel mehr kann als die klassischen Funktion in R. Die zentrale Funktion ist dabei die Funktion `correlation()`. Wir können eine Vielzahl an Korrelationskoeffizienten auswählen. Wenn du keine Methode über die Option `method =` eingibst, dann wird der Korrelationskoeffizient nach Pearson unter der Annahme von normalverteilten Daten gerechnet. Die kannst es dir auch einfacher machen und die Funktion über die Option `method = "auto"` selber wählen lassen. Ich bevorzuge aber den Korrelationskoeffizient nach Spearman, wenn ich sehr viele Variablen miteinander vergleichen möchte. Im Normalfall werden die $p$-Werte adjustiert, dass stelle ich hier aber einmal ab. Sonst nutze gerne die Option `p_adjust = "bonferroni"`, wenn du für sehr viele Vergleiche adjustieren willst.
 
-`method = "auto"`
+Wenn du nun die Funktion aufrufst, dann erhälst du alle paarweisen Korrelationen in deinem Datensatz über alle Variablen. Daher baue ich mir immer erstmal über `select()` einen Datensatz zusammen, den ich dann analysieren will. Sonst hast du da Spalten in deiner Auswertung, die dich gar nicht interessieren. Die Spalte `rho` gibt dir dann den Korrelationskoeffizient wieder. Dann erhälst du noch die 95% Konfidenzintervalle sowie den $p$-Wert für den Korrelationskoeffizient. Hier testen wir, ob der Korrelationskoeffizient unterschiedlich von der Null ist.
 
 ```{r}
 cor_gummi_res <- corr_gummi_tbl |> 
@@ -230,10 +230,14 @@ cor_gummi_res <- corr_gummi_tbl |>
 cor_gummi_res
 ```
 
+Wir haben jetzt einige signifikante Korrelationskoeffizienten. Jetzt ist es wichtig, dass wir nicht nur auf die Signifikanz schauen, sondern auch fragen, ist der Korrelationskoeffizient *relevant*? Das heißt, ist der Korrelationskoeffizient weit genug weg von der Null um für uns auch eine Aussagekraft zu haben. Hier können wir uns für die bessere Übersicht auch einmal die Korrelationsmatrix wiedergeben lassen.
+
 ```{r}
 cor_gummi_res |> 
   summary(redundant = TRUE)
 ```
+
+Das sieht dann nicht mehr so relevant aus. Viele der signifikanten Korrelationskoeffizienten sind irgendwie bei knapp $0.25$ was zwar signifikant unterschiedlich von Null ist, aber auch eher eine sehr kleine Korrelation beschreibt. Ich würde hier nicht von einem Zusammenhang ausgehen. In der @fig-scatter-corr-rpaket-01 siehst du dann die Matrix nochmal visualisiert. Die Farben entsprechen dann der Richtung der Korrelation. Je kräftiger der Farbton, desto größer ist die Korrelation.
 
 ```{r}
 #| echo: false
@@ -242,11 +246,13 @@ cor_gummi_res |>
 #| fig-align: center
 #| fig-height: 6
 #| fig-width: 7
-#| fig-cap: "."
+#| fig-cap: "Darstellung der Korrealtion zwischen den Variablen in den Gummibärchendatensatz. Eine rote Einfärbung deutet auf eine positive Korrelation und eine blaue Einfärbung auf eine negative Korrelation hin."
 cor_gummi_res %>%
   summary(redundant = TRUE) %>%
   plot()
 ```
+
+Eine angenehme Funktion in dem R Paket `{correlation}` ist die Funktion `cor_test()`. Wir haben hier zum einen die Möglichkeit direkt Spaltennamen in die Funktion zu pipen. Auf der anderen Seite können wir die Funktion auch gleich in der Funktion `plot()` visualisieren. Das ist super praktisch, wenn du dir die Daten einmal anschauen willst und sehen willst, ob der Korrelationskoeffizient gepasst hat. Ich nutze die Funktion gerne in meiner Arbeit als schnelle Visualisierung einer Korrelation in einem Scatterplot. Sonst sind es schon ein paar mehr Zeilen Code mit `{ggplot}`.
 
 ```{r}
 #| echo: false
@@ -264,7 +270,7 @@ corr_gummi_tbl |>
   theme_minimal()
 ```
 
-@bhushan2019using [Using a Gaussian Graphical Model to Explore Relationships Between Items and Variables in Environmental Psychology Research](https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2019.01050/full)
+Als letztes erlaubt das R Paket noch die Darstellung der Daten in einem gaußsches grafisches Modell (eng. *Gaussian Graphical Model*). Ein gaußsches grafisches Modell besteht dabei aus einer Reihe von Variablen, die durch Kreise dargestellt werden, und einer Reihe von Linien, die die Beziehungen zwischen den Variablen visualisieren. Die Dicke dieser Linien stellt die Stärke der Beziehungen zwischen den Variablen dar. Daher kannst du davon ausgehen, dass ein Fehlen einer Linie keine oder nur sehr schwache Beziehungen zwischen den relevanten Variablen darstellt. Insbesondere erfassen diese Linien im Gaußschen Grafikmodell partielle Korrelationen (eng. *partial correlation*). Partielle Korrelationen beschreiben die Korrelation zwischen zwei Variablen, wenn für alle Variablen im Datensatz kontrolliert wird. Ein wesentlicher Vorteil der partiellen Korrelationen besteht nun darin, dass unerwünschte Korrelationen vermieden werden. Mehr zu dem Thema findest du auch bei @bhushan2019using in deren Arbeit [Using a Gaussian Graphical Model to Explore Relationships Between Items and Variables in Environmental Psychology Research](https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2019.01050/full)
 
 ```{r}
 #| echo: false
@@ -278,7 +284,7 @@ plot(correlation(corr_gummi_tbl, partial = TRUE)) +
   scale_edge_color_continuous(low = "#000004FF", high = "#FCFDBFFF")
 ```
 
-::: callout-note
+::: callout-tip
 ## Anwendungsbeispiel: Die Korrelation als Vergleich zweier Steigungen
 
 In der @fig-corr-01 können wir uns noch einmal den Vorteil der Korrelation als ein einheitsloses Maß anschauen. Wenn wir uns nur die Steigung der beiden Gerade betrachten würden, dann wäre die Steigung $\beta_{kopfgewicht} = 0.021$ und die Steigung $\beta_{strunkdurchmesser} = 5.15$. Man könnte meinen, das es keinen Zusammenhang zwischen der Boniturnote und dem Kopfgewicht gäbe wohl aber einen starken Zusammenhang zwischen der Boniturnote und dem Durchmesser. Die Steigung der Geraden wird aber stark von den unterschiedlich skalierten Einheiten von Kopfgewicht in \[g\] und dem Strunkdurchmesserdurchmesser in \[cm\] beeinflusst.
