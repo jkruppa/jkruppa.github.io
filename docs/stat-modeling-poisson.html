@@ -2,10 +2,11 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="de" xml:lang="de"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.3.450">
+<meta name="generator" content="quarto-1.4.549">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="description" content="Ein Kochbuch mit Rezepten der Bio Data Science, Biostatistik, Biometrie und Statistik">
 
 <title>Bio Data Science - 47&nbsp; Poisson Regression</title>
 <style>
@@ -22,7 +23,7 @@ ul.task-list li input[type="checkbox"] {
 }
 /* CSS for syntax highlighting */
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -103,7 +104,13 @@ div.csl-indent {
   "collapse-after": 3,
   "panel-placement": "start",
   "type": "textbox",
-  "limit": 20,
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
   "language": {
     "search-no-results-text": "Keine Treffer",
     "search-matching-documents-text": "Treffer",
@@ -112,17 +119,44 @@ div.csl-indent {
     "search-more-match-text": "weitere Treffer in diesem Dokument",
     "search-more-matches-text": "weitere Treffer in diesem Dokument",
     "search-clear-button-title": "Zurücksetzen",
+    "search-text-placeholder": "",
     "search-detached-cancel-button-title": "Abbrechen",
     "search-submit-button-title": "Abschicken",
     "search-label": "Suchen"
   }
 }</script>
-
 <script src="site_libs/kePrint-0.0.1/kePrint.js"></script>
 <link href="site_libs/lightable-0.0.1/lightable.css" rel="stylesheet">
 
   <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
 
 </head>
 
@@ -132,12 +166,12 @@ div.csl-indent {
   <header id="quarto-header" class="headroom fixed-top">
   <nav class="quarto-secondary-nav">
     <div class="container-fluid d-flex">
-      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Seitenleiste umschalten" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Seitenleiste umschalten" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-      <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./stat-modeling-preface.html">Statistisches Modellieren</a></li><li class="breadcrumb-item"><a href="./stat-modeling-poisson.html"><span class="chapter-number">47</span>&nbsp; <span class="chapter-title">Poisson Regression</span></a></li></ol></nav>
-      <a class="flex-grow-1" role="button" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Seitenleiste umschalten" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
-      </a>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./stat-modeling-preface.html">Statistisches Modellieren</a></li><li class="breadcrumb-item"><a href="./stat-modeling-poisson.html"><span class="chapter-number">47</span>&nbsp; <span class="chapter-title">Poisson Regression</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="button" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Seitenleiste umschalten" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
       <button type="button" class="btn quarto-search-button" aria-label="" onclick="window.quartoOpenSearch();">
         <i class="bi bi-search"></i>
       </button>
@@ -147,7 +181,7 @@ div.csl-indent {
 <!-- content -->
 <div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
 <!-- sidebar -->
-  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal sidebar-navigation floating overflow-auto">
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
     <div class="pt-lg-2 mt-2 text-left sidebar-header">
     <div class="sidebar-title mb-0 py-0">
       <a href="./">Bio Data Science</a> 
@@ -731,7 +765,7 @@ div.csl-indent {
     </ul>
     </div>
 </nav>
-<div id="quarto-sidebar-glass" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass"></div>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
 <!-- margin-sidebar -->
     <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
         <nav id="TOC" role="doc-toc" class="toc-active">
@@ -753,7 +787,7 @@ div.csl-indent {
 <!-- main -->
 <main class="content page-columns page-full" id="quarto-document-content">
 
-<header id="title-block-header" class="quarto-title-block default">
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./stat-modeling-preface.html">Statistisches Modellieren</a></li><li class="breadcrumb-item"><a href="./stat-modeling-poisson.html"><span class="chapter-number">47</span>&nbsp; <span class="chapter-title">Poisson Regression</span></a></li></ol></nav>
 <div class="quarto-title">
 <h1 class="title"><span id="sec-poisson" class="quarto-section-identifier"><span class="chapter-number">47</span>&nbsp; <span class="chapter-title">Poisson Regression</span></span></h1>
 </div>
@@ -768,7 +802,9 @@ div.csl-indent {
   </div>
   
 
+
 </header>
+
 
 <p><em>Letzte Änderung am 13. January 2024 um 19:53:14</em></p>
 <div class="callout callout-style-default callout-tip callout-titled">
@@ -789,18 +825,18 @@ Einführung in die Poisson Regression per Video
 <p>Ein weiteres Problem sind die zu vielen Nullen in dem Outcome <span class="math inline">\(y\)</span>. Daherher wir zählen über die Maßen viel <em>Nichts</em>. Wir nennen diesen Fall <em>zero inflation</em> und beschreiben damit die zu vielen Nullen in den Daten. Hier muss dann noch speziell modelliert werden. Eine Poisson Regression hat schon so seine speziellen Tücken.</p>
 <section id="annahmen-an-die-daten" class="level2 page-columns page-full" data-number="47.1">
 <h2 data-number="47.1" class="anchored" data-anchor-id="annahmen-an-die-daten"><span class="header-section-number">47.1</span> Annahmen an die Daten</h2>
-<div class="page-columns page-full"><p></p><div class="no-row-height column-margin column-container"><span class="">Unser gemessenes Outcome <span class="math inline">\(y\)</span> folgt einer Poissonverteilung.</span></div></div>
+<div class="page-columns page-full"><p></p><div class="no-row-height column-margin column-container"><span class="margin-aside">Unser gemessenes Outcome <span class="math inline">\(y\)</span> folgt einer Poissonverteilung.</span></div></div>
 <p>Im folgenden Kapitel zu der multiplen Poisson linearen Regression gehen wir davon aus, dass die Daten in der vorliegenden Form <em>ideal</em> sind. Das heißt wir haben weder fehlende Werte vorliegen, noch haben wir mögliche Ausreißer in den Daten. Auch wollen wir keine Variablen selektieren. Wir nehmen alles was wir haben mit ins Modell. Sollte eine oder mehre Bedingungen nicht zutreffen, dann schaue dir einfach die folgenden Kapitel an.</p>
 <ul>
-<li>Wenn du fehlende Werte in deinen Daten vorliegen hast, dann schaue bitte nochmal in das <a href="stat-modeling-missing.html"><span>Kapitel&nbsp;43</span></a> zu Imputation von fehlenden Werten.</li>
-<li>Wenn du denkst, dass du Ausreißer oder auffälige Werte in deinen Daten hast, dann schaue doch bitte nochmal in das <a href="stat-modeling-outlier.html"><span>Kapitel&nbsp;41</span></a> zu Ausreißer in den Daten.</li>
-<li>Wenn du denkst, dass du zu viele Variablen in deinem Modell hast, dann hilft dir das <a href="stat-modeling-variable-selection.html"><span>Kapitel&nbsp;42</span></a> bei der Variablenselektion.</li>
+<li>Wenn du fehlende Werte in deinen Daten vorliegen hast, dann schaue bitte nochmal in das <a href="stat-modeling-missing.html" class="quarto-xref"><span>Kapitel 43</span></a> zu Imputation von fehlenden Werten.</li>
+<li>Wenn du denkst, dass du Ausreißer oder auffälige Werte in deinen Daten hast, dann schaue doch bitte nochmal in das <a href="stat-modeling-outlier.html" class="quarto-xref"><span>Kapitel 41</span></a> zu Ausreißer in den Daten.</li>
+<li>Wenn du denkst, dass du zu viele Variablen in deinem Modell hast, dann hilft dir das <a href="stat-modeling-variable-selection.html" class="quarto-xref"><span>Kapitel 42</span></a> bei der Variablenselektion.</li>
 </ul>
 <p>Daher sieht unser Modell wie folgt aus. Wir haben ein <span class="math inline">\(y\)</span> und <span class="math inline">\(p\)</span>-mal <span class="math inline">\(x\)</span>. Wobei <span class="math inline">\(p\)</span> für die Anzahl an Variablen auf der rechten Seite des Modells steht. Im Weiteren folgt unser <span class="math inline">\(y\)</span> einer Poissonverteilung. Das ist hier sehr wichtig, denn wir wollen ja eine multiple Poisson lineare Regression rechnen.</p>
 <p><span class="math display">\[
 y \sim x_1 + x_2 + ... + x_p
 \]</span></p>
-<p>Wir können in dem Modell auch Faktoren <span class="math inline">\(f\)</span> haben, aber es geht hier nicht um einen Gruppenvergleich. Das ist ganz wichtig. Wenn du einen Gruppenvergleich rechnen willst, dann musst du in <a href="stat-tests-posthoc.html"><span>Kapitel&nbsp;33</span></a> nochmal nachlesen.</p>
+<p>Wir können in dem Modell auch Faktoren <span class="math inline">\(f\)</span> haben, aber es geht hier nicht um einen Gruppenvergleich. Das ist ganz wichtig. Wenn du einen Gruppenvergleich rechnen willst, dann musst du in <a href="stat-tests-posthoc.html" class="quarto-xref"><span>Kapitel 33</span></a> nochmal nachlesen.</p>
 </section>
 <section id="genutzte-r-pakete" class="level2" data-number="47.2">
 <h2 data-number="47.2" class="anchored" data-anchor-id="genutzte-r-pakete"><span class="header-section-number">47.2</span> Genutzte R Pakete</h2>
@@ -820,16 +856,20 @@ y \sim x_1 + x_2 + ... + x_p
 </section>
 <section id="daten" class="level2 page-columns page-full" data-number="47.3">
 <h2 data-number="47.3" class="anchored" data-anchor-id="daten"><span class="header-section-number">47.3</span> Daten</h2>
-<p>Im folgenden schauen wir uns ein Datenbeispiel mit Hechten an. Es handelt sich um langnasige Hechte in nordamerikanischen Flüssen. Wir haben uns insgesamt <span class="math inline">\(n = 68\)</span> Flüsse einmal angesehen und dort die Anzahl an Hechten gezählt. Im Weiteren haben wir dann noch andere Flussparameter erhoben und fragen uns nun, welche dieser Parameter einen Einfluss auf die Anzahl an Hechten in den Flussarmen haben. In <a href="example-complex.html#sec-example-longnose"><span>Kapitel&nbsp;7.2</span></a> findest du nochmal mehr Informationen zu den Daten. Wir entfernen hier die Informationen zu den Flüssen, die brauchen wir in dieser Analyse nicht. Die Daten zu den langnasigen Hechten stammt von <a href="https://rcompanion.org/rcompanion/e_05.html">Salvatore S. Mangiafico - An R Companion for the Handbook of Biological Statistics</a>. Besuche gerne mal seine Webseite, dort findest du auch andere tolle Beispiele zu statistischen Analysen.</p>
+<p>Im folgenden schauen wir uns ein Datenbeispiel mit Hechten an. Es handelt sich um langnasige Hechte in nordamerikanischen Flüssen. Wir haben uns insgesamt <span class="math inline">\(n = 68\)</span> Flüsse einmal angesehen und dort die Anzahl an Hechten gezählt. Im Weiteren haben wir dann noch andere Flussparameter erhoben und fragen uns nun, welche dieser Parameter einen Einfluss auf die Anzahl an Hechten in den Flussarmen haben. In <a href="example-complex.html#sec-example-longnose" class="quarto-xref"><span>Kapitel 7.2</span></a> findest du nochmal mehr Informationen zu den Daten. Wir entfernen hier die Informationen zu den Flüssen, die brauchen wir in dieser Analyse nicht. Die Daten zu den langnasigen Hechten stammt von <a href="https://rcompanion.org/rcompanion/e_05.html">Salvatore S. Mangiafico - An R Companion for the Handbook of Biological Statistics</a>. Besuche gerne mal seine Webseite, dort findest du auch andere tolle Beispiele zu statistischen Analysen.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>longnose_tbl <span class="ot">&lt;-</span> <span class="fu">read_csv2</span>(<span class="st">"data/longnose.csv"</span>) <span class="sc">%&gt;%</span> </span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>stream)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell page-columns page-full">
+<div id="tbl-pois-longnose" class="cell quarto-float anchored page-columns page-full">
+<figure class="quarto-float quarto-float-tbl figure page-columns page-full">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-pois-longnose-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Tabelle&nbsp;47.1— Auszug aus dem Daten zu den langnasigen Hechten.
+</figcaption>
+<div aria-describedby="tbl-pois-longnose-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca" class="page-columns page-full">
 <div class="cell-output-display column-page">
-<div id="tbl-pois-longnose" class="anchored">
-<table class="table table-sm table-striped small">
-<caption>Tabelle&nbsp;47.1— Auszug aus dem Daten zu den langnasigen Hechten.</caption>
+<table class="do-not-create-environment cell table table-sm table-striped small">
 <thead>
 <tr class="header">
 <th style="text-align: center;">longnose</th>
@@ -927,17 +967,23 @@ y \sim x_1 + x_2 + ... + x_p
 </table>
 </div>
 </div>
+</figure>
 </div>
-<p>Im Folgenden werden wir die Daten nur für das Fitten eines Modells verwenden. In den anderen oben genannten Kapiteln nutzen wir die Daten dann anders. In <a href="#fig-pois-model-longnose">Abbildung&nbsp;<span>47.1</span></a> sehen wir nochmal die Verteilung der Anzahl der Hechte in den Flüssen.</p>
+</div>
+<p>Im Folgenden werden wir die Daten nur für das Fitten eines Modells verwenden. In den anderen oben genannten Kapiteln nutzen wir die Daten dann anders. In <a href="#fig-pois-model-longnose" class="quarto-xref">Abbildung&nbsp;<span>47.1</span></a> sehen wir nochmal die Verteilung der Anzahl der Hechte in den Flüssen.</p>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(longnose_tbl, <span class="fu">aes</span>(longnose)) <span class="sc">+</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>()</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<div id="fig-pois-model-longnose" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="stat-modeling-poisson_files/figure-html/fig-pois-model-longnose-1.png" class="img-fluid figure-img" width="480"></p>
-<figcaption class="figure-caption">Abbildung&nbsp;47.1— Histogramm der Verteilung der Hechte in den beobachteten Flüssen.</figcaption>
+<div id="fig-pois-model-longnose" class="quarto-figure quarto-figure-center quarto-float anchored" data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-pois-model-longnose-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="stat-modeling-poisson_files/figure-html/fig-pois-model-longnose-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="480">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pois-model-longnose-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Abbildung&nbsp;47.1— Histogramm der Verteilung der Hechte in den beobachteten Flüssen.
+</figcaption>
 </figure>
 </div>
 </div>
@@ -952,7 +998,7 @@ y \sim x_1 + x_2 + ... + x_p
 <li>Ein negative Binomialmodell <code>glm.nb(...)</code> ebenfalls mit der Berücksichtigung einer Overdispersion.</li>
 </ul>
 <p>Beginnen wollen wir aber mit einer klassischen Poissonregression ohne die Annahme von einer Overdispersion in den Daten. Wir nutzen dafür die Funktion <code>glm()</code> und spezifizieren die Verteilungsfamilie als <code>poisson</code>. Wir nehmen wieder alle Variablen in das Modell auf der rechten Seite des <code>~</code>. Auf der linken Seite des <code>~</code> kommt dann unser Outcome <code>longnose</code> was die Anzahl an Hechten erhält.</p>
-<div class="page-columns page-full"><p></p><div class="no-row-height column-margin column-container"><span class="">Hier gibt es nur die Kurzfassung der <em>link</em>-Funktion. <span class="citation" data-cites="dormann2013parametrische">Dormann (<a href="#ref-dormann2013parametrische" role="doc-biblioref">2013</a>)</span> liefert hierzu in Kapitel 7.1.3 nochmal ein Einführung in das Thema.</span></div></div>
+<div class="page-columns page-full"><p></p><div class="no-row-height column-margin column-container"><span class="margin-aside">Hier gibt es nur die Kurzfassung der <em>link</em>-Funktion. <span class="citation" data-cites="dormann2013parametrische">Dormann (<a href="#ref-dormann2013parametrische" role="doc-biblioref">2013</a>)</span> liefert hierzu in Kapitel 7.1.3 nochmal ein Einführung in das Thema.</span></div></div>
 <p>Wir müssen für die Possionregression noch beachten, dass die Zähldaten von <span class="math inline">\(0\)</span> bis <span class="math inline">\(+\infty\)</span> laufen. Damit wir normalverteilte Residuen erhalten und einen lineren Zusammenhang, werden wir das Modell auf dem <span class="math inline">\(\log\)</span>-scale fitten. Das heißt, wir werden den Zusammenhang von <span class="math inline">\(y\)</span> und <span class="math inline">\(x\)</span> logarithmieren. Wichtig ist hierbei der <em>Zusammenhang</em>. Wir transformieren nicht einfach <span class="math inline">\(y\)</span> und lassen den Rest unberührt. Das führt dazu, dass wir am Ende die Koeffizienten der Poissonregression exponieren müssen. Das können die gängigen Funktionen, wir müssen das Exponieren aber aktiv durchführen. Deshalb hier schon mal erwähnt.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>poisson_fit <span class="ot">&lt;-</span> <span class="fu">glm</span>(longnose <span class="sc">~</span> area <span class="sc">+</span> do2 <span class="sc">+</span> maxdepth <span class="sc">+</span> no3 <span class="sc">+</span> so4 <span class="sc">+</span> temp,</span>
@@ -1152,15 +1198,19 @@ temp        |      0.09 |     0.03 | [ 0.03,  0.16] |  2.85 | 0.004 </code></pre
 </div>
 </div>
 <p>Mit einem pseudo-<span class="math inline">\(R^2\)</span> von <span class="math inline">\(0.33\)</span> erklären wir ca. 33% der Varianz in der Anzahl der Hechte. Das ist zwar keine super gute Zahl, aber dafür, dass wir nur eine handvoll von Parametern erfasst haben, ist es dann auch wieder nicht so schlecht. Die Anzahl an Hechten wird sicherlich an ganz vielen Parametern hängen, wir konnten immerhin einige wichtige Stellschrauben vermutlich finden.</p>
-<p>In <a href="#fig-pois-model-check">Abbildung&nbsp;<span>47.2</span></a> schauen wir uns nochmal die Daten in den Modelgüteplots an. Wir sehen vorallem, dass wir vielelicht doch einen Ausreißer mit der Beobachtung 17 vorliegen haben. Auch ist der Fit nicht so super, wie wir an dem QQ-Plot sehen. Die Beobachtungen fallen in dem QQ-Plot nicht alle auf eine Linie. Auch sehen wir dieses Muster in dem Residualplot. Hiererwarten wir eine gerade blaue Linie und auch hier haben wir eventuell Ausreißer mit in den Daten.</p>
+<p>In <a href="#fig-pois-model-check" class="quarto-xref">Abbildung&nbsp;<span>47.2</span></a> schauen wir uns nochmal die Daten in den Modelgüteplots an. Wir sehen vorallem, dass wir vielelicht doch einen Ausreißer mit der Beobachtung 17 vorliegen haben. Auch ist der Fit nicht so super, wie wir an dem QQ-Plot sehen. Die Beobachtungen fallen in dem QQ-Plot nicht alle auf eine Linie. Auch sehen wir dieses Muster in dem Residualplot. Hiererwarten wir eine gerade blaue Linie und auch hier haben wir eventuell Ausreißer mit in den Daten.</p>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">check_model</span>(quasipoisson_fit, <span class="at">colors =</span> cbbPalette[<span class="dv">6</span><span class="sc">:</span><span class="dv">8</span>], </span>
 <span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>            <span class="at">check =</span> <span class="fu">c</span>(<span class="st">"qq"</span>, <span class="st">"outliers"</span>, <span class="st">"pp_check"</span>, <span class="st">"homogeneity"</span>)) </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<div id="fig-pois-model-check" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="stat-modeling-poisson_files/figure-html/fig-pois-model-check-1.png" class="img-fluid figure-img" width="768"></p>
-<figcaption class="figure-caption">Abbildung&nbsp;47.2— Ausgabe ausgewählter Modelgüteplots der Funktion <code>check_model()</code>.</figcaption>
+<div id="fig-pois-model-check" class="quarto-figure quarto-figure-center quarto-float anchored" data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-pois-model-check-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="stat-modeling-poisson_files/figure-html/fig-pois-model-check-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="768">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pois-model-check-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Abbildung&nbsp;47.2— Ausgabe ausgewählter Modelgüteplots der Funktion <code>check_model()</code>.
+</figcaption>
 </figure>
 </div>
 </div>
@@ -1176,12 +1226,16 @@ temp        |      0.09 |     0.03 | [ 0.03,  0.16] |  2.85 | 0.004 </code></pre
 <span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">count =</span> <span class="fu">round</span>(count),</span>
 <span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>         <span class="at">grp =</span> <span class="fu">factor</span>(grp, <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">"ctrl"</span>, <span class="st">"trt"</span>)))</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>In <a href="#tbl-pois-longnose-small">Tabelle&nbsp;<span>47.2</span></a> sehen wir nochmal die Daten als Ausschnitt dargestellt.</p>
+<p>In <a href="#tbl-pois-longnose-small" class="quarto-xref">Tabelle&nbsp;<span>47.2</span></a> sehen wir nochmal die Daten als Ausschnitt dargestellt.</p>
 <div class="cell">
+<div id="tbl-pois-longnose-small" class="cell quarto-float anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-pois-longnose-small-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Tabelle&nbsp;47.2— How much is the fish? Der Datensatz über <span class="math inline">\(n = 1000\)</span> Beobachtungen an dem wir überlegen wollen wie wir die Effektschätzer einer Poissonregression zu interpretieren haben.
+</figcaption>
+<div aria-describedby="tbl-pois-longnose-small-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
-<div id="tbl-pois-longnose-small" class="anchored">
-<table class="table table-sm table-striped small">
-<caption>Tabelle&nbsp;47.2— How much is the fish? Der Datensatz über <span class="math inline">\(n = 1000\)</span> Beobachtungen an dem wir überlegen wollen wie wir die Effektschätzer einer Poissonregression zu interpretieren haben.</caption>
+<table class="do-not-create-environment cell table table-sm table-striped small">
 <thead>
 <tr class="header">
 <th style="text-align: center;">grp</th>
@@ -1229,9 +1283,11 @@ temp        |      0.09 |     0.03 | [ 0.03,  0.16] |  2.85 | 0.004 </code></pre
 </table>
 </div>
 </div>
+</figure>
 </div>
-<p>Da sich die Tabelle schlecht liest hier nochmal der Boxplot in <a href="#fig-pois-model-small">Abbildung&nbsp;<span>47.3</span></a>. Wir sehen den Grupenunterschied von <span class="math inline">\(10\)</span> sowie die unterschiedlichen mittleren Anzahlen für die Kontrolle und die Behandlung.</p>
-<div>
+</div>
+<p>Da sich die Tabelle schlecht liest hier nochmal der Boxplot in <a href="#fig-pois-model-small" class="quarto-xref">Abbildung&nbsp;<span>47.3</span></a>. Wir sehen den Grupenunterschied von <span class="math inline">\(10\)</span> sowie die unterschiedlichen mittleren Anzahlen für die Kontrolle und die Behandlung.</p>
+<div class="cell" data-layout-nrow="2" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(longnose_small_tbl, <span class="fu">aes</span>(<span class="at">x =</span> grp, <span class="at">y =</span> count, <span class="at">fill =</span> grp)) <span class="sc">+</span></span>
 <span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
 <span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>() <span class="sc">+</span></span>
@@ -1244,29 +1300,41 @@ temp        |      0.09 |     0.03 | [ 0.03,  0.16] |  2.85 | 0.004 </code></pre
 <span id="cb26-10"><a href="#cb26-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">""</span>, <span class="at">y =</span> <span class="st">""</span>, <span class="at">fill =</span> <span class="st">"Gruppe"</span>) <span class="sc">+</span></span>
 <span id="cb26-11"><a href="#cb26-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_okabeito</span>() <span class="sc">+</span></span>
 <span id="cb26-12"><a href="#cb26-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">breaks =</span> <span class="fu">seq</span>(<span class="dv">10</span>, <span class="dv">30</span>, <span class="at">by =</span> <span class="dv">5</span>), <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">10</span>, <span class="dv">30</span>)) </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div id="fig-pois-model-small" class="cell quarto-layout-panel">
-<figure class="figure">
-<div class="quarto-layout-row quarto-layout-valign-top">
-<div class="cell-output-display quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 100.0%;justify-content: center;">
-<div id="fig-pois-model-small-1" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="stat-modeling-poisson_files/figure-html/fig-pois-model-small-1.png" class="img-fluid figure-img" data-ref-parent="fig-pois-model-small" width="480"></p>
-<figcaption class="figure-caption">(a) Verteilung der Werte als Boxplot.</figcaption>
+<div id="fig-pois-model-small" class="quarto-layout-panel">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-pois-model-small-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="quarto-layout-row">
+<div class="cell-output-display quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-pois-model-small" style="flex-basis: 100.0%;justify-content: center;">
+<div id="fig-pois-model-small-1" class="quarto-figure quarto-figure-center quarto-float anchored" data-fig-align="center">
+<figure class="quarto-float quarto-subfloat-fig figure">
+<div aria-describedby="fig-pois-model-small-1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="stat-modeling-poisson_files/figure-html/fig-pois-model-small-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" data-ref-parent="fig-pois-model-small" width="480">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-subfloat-caption quarto-subfloat-fig" id="fig-pois-model-small-1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+(a) Verteilung der Werte als Boxplot.
+</figcaption>
 </figure>
 </div>
 </div>
 </div>
-<div class="quarto-layout-row quarto-layout-valign-top">
-<div class="cell-output-display quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 100.0%;justify-content: center;">
-<div id="fig-pois-model-small-2" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="stat-modeling-poisson_files/figure-html/fig-pois-model-small-2.png" class="img-fluid figure-img" data-ref-parent="fig-pois-model-small" width="480"></p>
-<figcaption class="figure-caption">(b) Verteilung der Werte als Densityplot.</figcaption>
+<div class="quarto-layout-row">
+<div class="cell-output-display quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-pois-model-small" style="flex-basis: 100.0%;justify-content: center;">
+<div id="fig-pois-model-small-2" class="quarto-figure quarto-figure-center quarto-float anchored" data-fig-align="center">
+<figure class="quarto-float quarto-subfloat-fig figure">
+<div aria-describedby="fig-pois-model-small-2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="stat-modeling-poisson_files/figure-html/fig-pois-model-small-2.png" class="img-fluid quarto-figure quarto-figure-center figure-img" data-ref-parent="fig-pois-model-small" width="480">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-subfloat-caption quarto-subfloat-fig" id="fig-pois-model-small-2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+(b) Verteilung der Werte als Densityplot.
+</figcaption>
 </figure>
 </div>
 </div>
 </div>
-<p></p><figcaption class="figure-caption">Abbildung&nbsp;47.3— How much is the fish? Der Boxplot über <span class="math inline">\(n = 1000\)</span> Beobachtungen an dem wir überlegen wollen wie wir die Effektschätzer einer Poissonregression zu interpretieren haben.</figcaption><p></p>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pois-model-small-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Abbildung&nbsp;47.3— How much is the fish? Der Boxplot über <span class="math inline">\(n = 1000\)</span> Beobachtungen an dem wir überlegen wollen wie wir die Effektschätzer einer Poissonregression zu interpretieren haben.
+</figcaption>
 </figure>
 </div>
 </div>
@@ -1334,12 +1402,16 @@ temp        | 1.08 |     0.04 | [1.01, 1.16] |  2.22 | 0.027 </code></pre>
 <section id="zeroinflation" class="level2" data-number="47.7">
 <h2 data-number="47.7" class="anchored" data-anchor-id="zeroinflation"><span class="header-section-number">47.7</span> Zeroinflation</h2>
 <p>So eine Poissonregression hat schon einiges an Eigenheiten. Neben dem Problem der Overdispersion gibt es aber noch eine weitere Sache, die wir beachten müssen. Wir können bei einer Poissonregression auch eine Zeroinflation vorliegen haben. Das heißt, wir beobachten viel mehr Nullen in den Daen, als wir aus der Poissonverteilung erwarten würden. Es gibt also einen biologischen oder künstlichn Prozess, der uns Nullen produziert. Häufig wissen wir nicht, ob wir den Prozess, der uns die Nullen in den Daten produziert, auch abbilden. Das heißt, es kann sein, dass wir einfach nichts Zählen, weil dort nichts ist oder aber es gibt dafür einen Grund. Diesen Grund müssten wir dann irgendwie in unseren Daten erfasst haben, aber meistens haben wir das nicht.</p>
-<p>Schauen wir usn dafür einmal ein Datenbeispiel von Eidechsen in der Lüneburgerheide an. Wir haben Eidechsen <code>lizard</code> in zwei verschiedenen Habitaten <code>grp</code> gezählt. Einmal, ob die Eidechsen eher im offenen Gelände oder eher im bedeckten Gelände zu finden waren. Im Weiteren haben wir geschaut, ob der Boden keinen Regen erhalten hatte, trocken war oder gar feucht. Mit trocken ist hier eine gewisse Restfeuchte gemeint. Am Ende haben wir noch bestimmt, ob wir eher nah an einer Siedlung waren oder eher weiter entfernt. Du kannst dir den Daten satz in der Datei <code>lizards.csv</code> nochmal anschauen. In <a href="#tbl-lizard-data">Tabelle&nbsp;<span>47.3</span></a> sind die Daten nochmal dargestellt.</p>
+<p>Schauen wir usn dafür einmal ein Datenbeispiel von Eidechsen in der Lüneburgerheide an. Wir haben Eidechsen <code>lizard</code> in zwei verschiedenen Habitaten <code>grp</code> gezählt. Einmal, ob die Eidechsen eher im offenen Gelände oder eher im bedeckten Gelände zu finden waren. Im Weiteren haben wir geschaut, ob der Boden keinen Regen erhalten hatte, trocken war oder gar feucht. Mit trocken ist hier eine gewisse Restfeuchte gemeint. Am Ende haben wir noch bestimmt, ob wir eher nah an einer Siedlung waren oder eher weiter entfernt. Du kannst dir den Daten satz in der Datei <code>lizards.csv</code> nochmal anschauen. In <a href="#tbl-lizard-data" class="quarto-xref">Tabelle&nbsp;<span>47.3</span></a> sind die Daten nochmal dargestellt.</p>
 <div class="cell">
+<div id="tbl-lizard-data" class="cell quarto-float anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-lizard-data-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Tabelle&nbsp;47.3— Ausschnitt aus den Eidechsendaten für die zwei Habitate unter verschiedenen Feuchtigkeitsbedingungen und Nähe zur nächsten Siedlung.
+</figcaption>
+<div aria-describedby="tbl-lizard-data-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
-<div id="tbl-lizard-data" class="anchored">
-<table class="table table-sm table-striped small">
-<caption>Tabelle&nbsp;47.3— Ausschnitt aus den Eidechsendaten für die zwei Habitate unter verschiedenen Feuchtigkeitsbedingungen und Nähe zur nächsten Siedlung.</caption>
+<table class="do-not-create-environment cell table table-sm table-striped small">
 <thead>
 <tr class="header">
 <th style="text-align: center;">grp</th>
@@ -1395,8 +1467,10 @@ temp        | 1.08 |     0.04 | [1.01, 1.16] |  2.22 | 0.027 </code></pre>
 </table>
 </div>
 </div>
+</figure>
 </div>
-<p>In <a href="#fig-pois-lizard-data">Abbildung&nbsp;<span>47.4</span></a> sehen wir die Zähldaten der Eidechsen nochmal als Histogramm dargestellt. Wenn wir an einem Punkt keine Eidechsen gefunden haben, dann haben wir keine fehlenden Werte eingetragen, sondern eben, dass wir keine Eidechsen gezählt haben. Wir sehen das wir sehr viele Nullen in unseren Daten haben. Ein Indiz für eine Inflation an Nullen oder eben einer Zeroinflation.</p>
+</div>
+<p>In <a href="#fig-pois-lizard-data" class="quarto-xref">Abbildung&nbsp;<span>47.4</span></a> sehen wir die Zähldaten der Eidechsen nochmal als Histogramm dargestellt. Wenn wir an einem Punkt keine Eidechsen gefunden haben, dann haben wir keine fehlenden Werte eingetragen, sondern eben, dass wir keine Eidechsen gezählt haben. Wir sehen das wir sehr viele Nullen in unseren Daten haben. Ein Indiz für eine Inflation an Nullen oder eben einer Zeroinflation.</p>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(lizard_zero_tbl, <span class="fu">aes</span>(lizard)) <span class="sc">+</span></span>
 <span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
@@ -1404,10 +1478,14 @@ temp        | 1.08 |     0.04 | [1.01, 1.16] |  2.22 | 0.027 </code></pre>
 <span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Anzahl der gefundenen Eidechsen"</span>, <span class="at">y =</span> <span class="st">"Anzahl"</span>) <span class="sc">+</span></span>
 <span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">breaks =</span> <span class="dv">0</span><span class="sc">:</span><span class="dv">7</span>)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<div id="fig-pois-lizard-data" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="stat-modeling-poisson_files/figure-html/fig-pois-lizard-data-1.png" class="img-fluid figure-img" width="480"></p>
-<figcaption class="figure-caption">Abbildung&nbsp;47.4— Histogramm der Verteilung der Hechte in den beobachteten Flüssen.</figcaption>
+<div id="fig-pois-lizard-data" class="quarto-figure quarto-figure-center quarto-float anchored" data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-pois-lizard-data-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="stat-modeling-poisson_files/figure-html/fig-pois-lizard-data-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="480">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pois-lizard-data-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Abbildung&nbsp;47.4— Histogramm der Verteilung der Hechte in den beobachteten Flüssen.
+</figcaption>
 </figure>
 </div>
 </div>
@@ -1541,7 +1619,7 @@ Parameter   | Odds Ratio |   SE |       95% CI |     z |     p
 (Intercept) |       0.11 | 0.11 | [0.02, 0.74] | -2.26 | 0.024</code></pre>
 </div>
 </div>
-<p>Nun haben wir vier Modelle geschätzt und wolen jetzt wissen, was ist das beste Modell. Dafür hilft usn dann eine Gegenüberstellung der Modelle mit der Funktion <code>modelsummary()</code>. Wir könnten die Modelle auch gegeneinander statistsich Testen, aber hier behalten wir uns einmal den beschreibenden Vergleich vor. In <a href="#tbl-model-comp-zero">Tabelle&nbsp;<span>47.4</span></a> sehen wir einmal die vier Modelle nebeneinander gestellt. Für eine bessere Übrsicht, habe ich aus allen Modellen den Intercept entfernt.</p>
+<p>Nun haben wir vier Modelle geschätzt und wolen jetzt wissen, was ist das beste Modell. Dafür hilft usn dann eine Gegenüberstellung der Modelle mit der Funktion <code>modelsummary()</code>. Wir könnten die Modelle auch gegeneinander statistsich Testen, aber hier behalten wir uns einmal den beschreibenden Vergleich vor. In <a href="#tbl-model-comp-zero" class="quarto-xref">Tabelle&nbsp;<span>47.4</span></a> sehen wir einmal die vier Modelle nebeneinander gestellt. Für eine bessere Übrsicht, habe ich aus allen Modellen den Intercept entfernt.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb51"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="fu">modelsummary</span>(<span class="fu">lst</span>(<span class="st">"ZeroInfl Intercept"</span> <span class="ot">=</span> lizard_zero_infl_intercept_fit,</span>
 <span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a>                 <span class="st">"ZeroInfl rain"</span> <span class="ot">=</span> lizard_zero_infl_rain_fit,</span>
@@ -1553,10 +1631,14 @@ Parameter   | Odds Ratio |   SE |       95% CI |     z |     p
 <span id="cb51-8"><a href="#cb51-8" aria-hidden="true" tabindex="-1"></a>                           <span class="st">"p = {p.value}"</span>),</span>
 <span id="cb51-9"><a href="#cb51-9" aria-hidden="true" tabindex="-1"></a>             <span class="at">coef_omit =</span> <span class="st">"Intercept"</span>, </span>
 <span id="cb51-10"><a href="#cb51-10" aria-hidden="true" tabindex="-1"></a>             <span class="at">exponentiate =</span> <span class="cn">TRUE</span>)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div id="tbl-model-comp-zero" class="cell quarto-float anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-model-comp-zero-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Tabelle&nbsp;47.4— Modellvergleich mit den vier Modellen. Wir schauen in wie weit sich die Koeffizienten und Modelgüten für die einzelnen Modelle im direkten Vergleich zum vollen Modell verändert haben.
+</figcaption>
+<div aria-describedby="tbl-model-comp-zero-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
-<div id="tbl-model-comp-zero" class="anchored">
-<table class="table table-sm table-striped small" data-quarto-postprocess="true">
-<caption>Tabelle&nbsp;47.4— Modellvergleich mit den vier Modellen. Wir schauen in wie weit sich die Koeffizienten und Modelgüten für die einzelnen Modelle im direkten Vergleich zum vollen Modell verändert haben.</caption>
+<table class="table do-not-create-environment cell table-sm table-striped small" data-quarto-postprocess="true">
 <thead>
 <tr class="header">
 <th style="text-align: left;" data-quarto-table-cell-role="th"></th>
@@ -1856,9 +1938,11 @@ Parameter   | Odds Ratio |   SE |       95% CI |     z |     p
 </tr>
 </tbody>
 </table>
+
+
 </div>
-
-
+</div>
+</figure>
 </div>
 </div>
 <p>Die beiden Intercept Modelle haben die kleinsten <span class="math inline">\(AIC\)</span>-Werte der vier Modelle. Darüber hinaus haben dann beide Modelle auch die höchsten <span class="math inline">\(R^2_{adj}\)</span> Werte. Beide Modelle erklären also im Verhältnis viel Varianz mit 58.5%. Auch ist der <span class="math inline">\(RMSE\)</span> Wert als Fehler bei beiden Modellen am kleinsten. Damit haben wir die Qual der Wahl, welches Modell wir nehmen. Ich würde das negative binominal Modell nehmen. Wir haben ins unseren Daten vermutlich eine Zeroinflation sowie eine Overdispersion vorliegen. Daher bietest es sich an, beides in einer negativen binominalen Regression zu berücksichtigen. Zwar sind die beiden Intercept Modelle in diesem Beispielfall von den Koeffizienten fast numerisch gleich, aber das hat eher mit dem reduzierten Beispiel zu tun, als mit dem eigentlichen Modell. In unserem Fall ist die Overdispersion nicht so extrem.</p>
@@ -1874,7 +1958,7 @@ Parameter   | Odds Ratio |   SE |       95% CI |     z |     p
 <span id="cb52-7"><a href="#cb52-7" aria-hidden="true" tabindex="-1"></a>newdata_tbl <span class="ot">&lt;-</span> newdata_tbl <span class="sc">%&gt;%</span> </span>
 <span id="cb52-8"><a href="#cb52-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">lizard =</span> pred_lizards)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>Nachdem wir in dem Datensatz <code>newdata_tbl</code> nun die vorhergesagten Eidechsen haben, können wir uns jetzt in der <a href="#fig-pred-lizard">Abbildung&nbsp;<span>47.5</span></a> die Zusammenhänge nochmal anschauen.</p>
+<p>Nachdem wir in dem Datensatz <code>newdata_tbl</code> nun die vorhergesagten Eidechsen haben, können wir uns jetzt in der <a href="#fig-pred-lizard" class="quarto-xref">Abbildung&nbsp;<span>47.5</span></a> die Zusammenhänge nochmal anschauen.</p>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb53"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(newdata_tbl, <span class="fu">aes</span>(<span class="at">x =</span> rain, <span class="at">y =</span> lizard, <span class="at">colour =</span> grp, <span class="at">group =</span> grp)) <span class="sc">+</span></span>
 <span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
@@ -1885,10 +1969,14 @@ Parameter   | Odds Ratio |   SE |       95% CI |     z |     p
 <span id="cb53-7"><a href="#cb53-7" aria-hidden="true" tabindex="-1"></a>       <span class="at">color =</span> <span class="st">"Gruppe"</span>) <span class="sc">+</span></span>
 <span id="cb53-8"><a href="#cb53-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_okabeito</span>()</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<div id="fig-pred-lizard" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="stat-modeling-poisson_files/figure-html/fig-pred-lizard-1.png" class="img-fluid figure-img" width="960"></p>
-<figcaption class="figure-caption">Abbildung&nbsp;47.5— Scatterplot der vorhergesagten Eidechsen in den Habitaten (<code>grp</code>), der Feuchtigkeit des Bodens nach Regen und dem Abstand zur nächsten Ortschaft.</figcaption>
+<div id="fig-pred-lizard" class="quarto-figure quarto-figure-center quarto-float anchored" data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-pred-lizard-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="stat-modeling-poisson_files/figure-html/fig-pred-lizard-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="960">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pred-lizard-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Abbildung&nbsp;47.5— Scatterplot der vorhergesagten Eidechsen in den Habitaten (<code>grp</code>), der Feuchtigkeit des Bodens nach Regen und dem Abstand zur nächsten Ortschaft.
+</figcaption>
 </figure>
 </div>
 </div>
@@ -2197,7 +2285,7 @@ NOTE: If two or more means share the same grouping symbol,
 </div>
 </div>
 </div>
-<p>In der <a href="stat-modeling-mixed.html#fig-log-mod-pois-insect">Abbildung&nbsp;<span>52.19</span></a> siehst du das Ergebnis der Auswertung in einem Säulendiagramm. Hier unbedingt <code>SE</code> als den Standardfehler für die Fehlerbalken nutzen, da wir sonst Fehlerbalken größer und kleiner als <span class="math inline">\(0\)</span> erhalten, wenn wir die Standardabweichung nutzen würden. Das ist in unserem Fall nicht so das Problem, aber wenn du eher kleine Anzahlen zählst, kann das schnell zu Werten kleiner Null führen. Wir sehen einen klaren Effekt der Behandlung <code>60ml</code>. Die Zeit hat keinen Effekt, was ja schon aus der ANOVA klar war, die Säulen sehen für jeden Zeitpunkt vollkommen gleich aus. Gut etwas Unterschied ist ja immer.</p>
+<p>In der <a href="stat-modeling-mixed.html#fig-log-mod-pois-insect" class="quarto-xref">Abbildung&nbsp;<span>52.19</span></a> siehst du das Ergebnis der Auswertung in einem Säulendiagramm. Hier unbedingt <code>SE</code> als den Standardfehler für die Fehlerbalken nutzen, da wir sonst Fehlerbalken größer und kleiner als <span class="math inline">\(0\)</span> erhalten, wenn wir die Standardabweichung nutzen würden. Das ist in unserem Fall nicht so das Problem, aber wenn du eher kleine Anzahlen zählst, kann das schnell zu Werten kleiner Null führen. Wir sehen einen klaren Effekt der Behandlung <code>60ml</code>. Die Zeit hat keinen Effekt, was ja schon aus der ANOVA klar war, die Säulen sehen für jeden Zeitpunkt vollkommen gleich aus. Gut etwas Unterschied ist ja immer.</p>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb82"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb82-1"><a href="#cb82-1" aria-hidden="true" tabindex="-1"></a>emm_obj <span class="sc">%&gt;%</span> </span>
 <span id="cb82-2"><a href="#cb82-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_tibble</span>() <span class="sc">%&gt;%</span> </span>
@@ -2214,10 +2302,14 @@ NOTE: If two or more means share the same grouping symbol,
 <span id="cb82-13"><a href="#cb82-13" aria-hidden="true" tabindex="-1"></a>                <span class="at">position =</span> <span class="fu">position_dodge</span>(<span class="at">width =</span> <span class="fl">0.9</span>, <span class="at">preserve =</span> <span class="st">"single"</span>)) <span class="sc">+</span></span>
 <span id="cb82-14"><a href="#cb82-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_okabeito</span>()</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<div id="fig-log-mod-pois-insect" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="stat-modeling-poisson_files/figure-html/fig-log-mod-pois-insect-1.png" class="img-fluid figure-img" width="576"></p>
-<figcaption class="figure-caption">Abbildung&nbsp;47.6— Säulendigramm der mitleren Zahl der Thripsen aus einer Poisson Regression. Das <code>glm()</code>-Modell berechnet die mittlere Anzahl in jeder Faktorkombination. Das <em>compact letter display</em> wird dann in <code>{emmeans}</code> generiert.</figcaption>
+<div id="fig-log-mod-pois-insect" class="quarto-figure quarto-figure-center quarto-float anchored" data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-log-mod-pois-insect-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="stat-modeling-poisson_files/figure-html/fig-log-mod-pois-insect-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="576">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-log-mod-pois-insect-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Abbildung&nbsp;47.6— Säulendigramm der mitleren Zahl der Thripsen aus einer Poisson Regression. Das <code>glm()</code>-Modell berechnet die mittlere Anzahl in jeder Faktorkombination. Das <em>compact letter display</em> wird dann in <code>{emmeans}</code> generiert.
+</figcaption>
 </figure>
 </div>
 </div>
@@ -2278,6 +2370,33 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       } else {
         el.classList.add('notransition');
       }
+    }
+  }
+  const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+    const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+    const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+    let newTheme = '';
+    if(darkModeDefault) {
+      newTheme = isAlternate ? baseTheme : alternateTheme;
+    } else {
+      newTheme = isAlternate ? alternateTheme : baseTheme;
+    }
+    const changeGiscusTheme = () => {
+      // From: https://github.com/giscus/giscus/issues/336
+      const sendMessage = (message) => {
+        const iframe = document.querySelector('iframe.giscus-frame');
+        if (!iframe) return;
+        iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+      }
+      sendMessage({
+        setConfig: {
+          theme: newTheme
+        }
+      });
+    }
+    const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+    if (isGiscussLoaded) {
+      changeGiscusTheme();
     }
   }
   const toggleColorMode = (alternate) => {
@@ -2346,13 +2465,15 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       return localAlternateSentinel;
     }
   }
-  let localAlternateSentinel = 'default';
+  const darkModeDefault = false;
+  let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
   // Dark / light mode switch
   window.quartoToggleColorScheme = () => {
     // Read the current dark / light value 
     let toAlternate = !hasAlternateSentinel();
     toggleColorMode(toAlternate);
     setStyleSentinel(toAlternate);
+    toggleGiscusIfUsed(toAlternate, darkModeDefault);
   };
   // Ensure there is a toggle, if there isn't float one in the top right
   if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
@@ -2431,10 +2552,9 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     // clear code selection
     e.clearSelection();
   });
-  function tippyHover(el, contentFn) {
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
     const config = {
       allowHTML: true,
-      content: contentFn,
       maxWidth: 500,
       delay: 100,
       arrow: false,
@@ -2444,8 +2564,17 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       interactive: true,
       interactiveBorder: 10,
       theme: 'quarto',
-      placement: 'bottom-start'
+      placement: 'bottom-start',
     };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
     window.tippy(el, config); 
   }
   const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
@@ -2458,6 +2587,125 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       const id = href.replace(/^#\/?/, "");
       const note = window.document.getElementById(id);
       return note.innerHTML;
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
     });
   }
       let selectedAnnoteEl;
@@ -2501,6 +2749,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
             }
             div.style.top = top - 2 + "px";
             div.style.height = height + 4 + "px";
+            div.style.left = 0;
             let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
             if (gutterDiv === null) {
               gutterDiv = window.document.createElement("div");
@@ -2526,8 +2775,8 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
         });
         selectedAnnoteEl = undefined;
       };
-      // Handle positioning of the toggle
-      window.addEventListener(
+        // Handle positioning of the toggle
+    window.addEventListener(
       "resize",
       throttle(() => {
         elRect = undefined;
@@ -2535,23 +2784,23 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
           selectCodeLines(selectedAnnoteEl);
         }
       }, 10)
-      );
-      function throttle(fn, ms) {
-      let throttle = false;
-      let timer;
-        return (...args) => {
-          if(!throttle) { // first call gets through
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
               fn.apply(this, args);
-              throttle = true;
-          } else { // all the others get throttled
-              if(timer) clearTimeout(timer); // cancel #2
-              timer = setTimeout(() => {
-                fn.apply(this, args);
-                timer = throttle = false;
-              }, ms);
-          }
-        };
-      }
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
       const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
       for (let i=0; i<annoteTargets.length; i++) {
         const annoteTarget = annoteTargets[i];
@@ -2596,7 +2845,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
               options: {
                 flipVariations: false, // true by default
                 allowedAutoPlacements: ['right'],
-                fallbackPlacements: ['right', 'top', 'top-start', 'top-end'],
+                fallbackPlacements: ['right', 'top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end', 'left'],
               },
             },
             {
@@ -2652,12 +2901,12 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 </script>
 <nav class="page-navigation">
   <div class="nav-page nav-page-previous">
-      <a href="./stat-modeling-gaussian.html" class="pagination-link">
+      <a href="./stat-modeling-gaussian.html" class="pagination-link  aria-label=" &lt;span="" regression&lt;="" span&gt;"="">
         <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">46</span>&nbsp; <span class="chapter-title">Gaussian Regression</span></span>
       </a>          
   </div>
   <div class="nav-page nav-page-next">
-      <a href="./stat-modeling-multinom.html" class="pagination-link">
+      <a href="./stat-modeling-multinom.html" class="pagination-link" aria-label="<span class='chapter-number'>48</span>&nbsp; <span class='chapter-title'>Multinomiale / Ordinale logistische Regression</span>">
         <span class="nav-page-text"><span class="chapter-number">48</span>&nbsp; <span class="chapter-title">Multinomiale / Ordinale logistische Regression</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
@@ -2665,13 +2914,18 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 </div> <!-- /content -->
 <footer class="footer">
   <div class="nav-footer">
-    <div class="nav-footer-left">Bio Data Science wurde von Jochen Kruppa-Scheetz geschrieben.</div>   
+    <div class="nav-footer-left">
+<p>Bio Data Science wurde von Jochen Kruppa-Scheetz geschrieben.</p>
+</div>   
     <div class="nav-footer-center">
       &nbsp;
     </div>
-    <div class="nav-footer-right">Dieses Buch wurde mit <a href="https://quarto.org/">Quarto</a> erstellt.</div>
+    <div class="nav-footer-right">
+<p>Dieses Openbook wurde mit <a href="https://quarto.org/">Quarto</a> erstellt.</p>
+</div>
   </div>
 </footer>
+
 
 
 

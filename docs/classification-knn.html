@@ -2,10 +2,11 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="de" xml:lang="de"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.3.450">
+<meta name="generator" content="quarto-1.4.549">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="description" content="Ein Kochbuch mit Rezepten der Bio Data Science, Biostatistik, Biometrie und Statistik">
 
 <title>Bio Data Science - 69&nbsp; \(k\) nearest neighbor</title>
 <style>
@@ -22,7 +23,7 @@ ul.task-list li input[type="checkbox"] {
 }
 /* CSS for syntax highlighting */
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -84,7 +85,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   "collapse-after": 3,
   "panel-placement": "start",
   "type": "textbox",
-  "limit": 20,
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
   "language": {
     "search-no-results-text": "Keine Treffer",
     "search-matching-documents-text": "Treffer",
@@ -93,6 +100,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     "search-more-match-text": "weitere Treffer in diesem Dokument",
     "search-more-matches-text": "weitere Treffer in diesem Dokument",
     "search-clear-button-title": "Zurücksetzen",
+    "search-text-placeholder": "",
     "search-detached-cancel-button-title": "Abbrechen",
     "search-submit-button-title": "Abschicken",
     "search-label": "Suchen"
@@ -102,6 +110,33 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
 
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
 </head>
 
 <body class="nav-sidebar floating">
@@ -110,12 +145,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <header id="quarto-header" class="headroom fixed-top">
   <nav class="quarto-secondary-nav">
     <div class="container-fluid d-flex">
-      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Seitenleiste umschalten" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Seitenleiste umschalten" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-      <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./classification-preface.html">Klassifikation oder maschinelles Lernen</a></li><li class="breadcrumb-item"><a href="./classification-knn.html"><span class="chapter-number">69</span>&nbsp; <span class="chapter-title">$k$ nearest neighbor</span></a></li></ol></nav>
-      <a class="flex-grow-1" role="button" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Seitenleiste umschalten" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
-      </a>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./classification-preface.html">Klassifikation oder maschinelles Lernen</a></li><li class="breadcrumb-item"><a href="./classification-knn.html"><span class="chapter-number">69</span>&nbsp; <span class="chapter-title"><span class="math inline">\(k\)</span> nearest neighbor</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="button" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Seitenleiste umschalten" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
       <button type="button" class="btn quarto-search-button" aria-label="" onclick="window.quartoOpenSearch();">
         <i class="bi bi-search"></i>
       </button>
@@ -125,7 +160,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <!-- content -->
 <div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
 <!-- sidebar -->
-  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal sidebar-navigation floating overflow-auto">
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
     <div class="pt-lg-2 mt-2 text-left sidebar-header">
     <div class="sidebar-title mb-0 py-0">
       <a href="./">Bio Data Science</a> 
@@ -709,7 +744,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     </ul>
     </div>
 </nav>
-<div id="quarto-sidebar-glass" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass"></div>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
 <!-- margin-sidebar -->
     <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
         <nav id="TOC" role="doc-toc" class="toc-active">
@@ -729,7 +764,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <!-- main -->
 <main class="content page-columns page-full" id="quarto-document-content">
 
-<header id="title-block-header" class="quarto-title-block default">
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./classification-preface.html">Klassifikation oder maschinelles Lernen</a></li><li class="breadcrumb-item"><a href="./classification-knn.html"><span class="chapter-number">69</span>&nbsp; <span class="chapter-title"><span class="math inline">\(k\)</span> nearest neighbor</span></a></li></ol></nav>
 <div class="quarto-title">
 <h1 class="title"><span id="sec-knn" class="quarto-section-identifier"><span class="chapter-number">69</span>&nbsp; <span class="chapter-title"><span class="math inline">\(k\)</span> nearest neighbor</span></span></h1>
 </div>
@@ -744,7 +779,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </div>
   
 
+
 </header>
+
 
 <p><em>Letzte Änderung am 14. January 2024 um 09:43:58</em></p>
 <p>Was macht der <span class="math inline">\(k\)</span> nächste Nachbarn Algorithmus (eng. <em>k nearest neighbor</em>, abk. <em>k-NN</em>), wenn wir ihn verwenden? Der Algorithmus ist ein sehr einfacher Algorithmus, der auf den Abständen zu den benachbarten Beobachtungen basiert. Wir wollen also für eine neue Beobachtung den Infektionsstatus vorhersagen. Um diese Vorhersage zu bewerkstelligen nutzen wir die <span class="math inline">\(k\)</span>-nächsten Nachbarn zu dieser neuen Beobachtung. Wenn die Mehrzahl der <span class="math inline">\(k\)</span>-nächsten Nachbarn den Infektionsstatus <span class="math inline">\(krank\)</span> hat, dann vergeben wir auch der neuen Beobachtung den Infektionsstatus <span class="math inline">\(krank\)</span>. Wenn dies nicht der Fall ist, dann erhält die neue Beobachtung den Infektionsstatus <span class="math inline">\(gesund\)</span>. Wir werden uns hier wieder den Fall der binären Klassifikation anschauen. Wenn wir natürlich mehrere Klassen in einem Label haben, dann geht es ähnlich. Wir schauen uns prinzipiell die <span class="math inline">\(k\)</span> Nachbarn einer neuen Beobachtung an und entscheiden dann nach der Mehrheit der Klassen in diesen <span class="math inline">\(k\)</span> Nachbarn für den Status der neuen Beobachtung.</p>
@@ -774,12 +811,16 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>         <span class="at">infected =</span> <span class="fu">as_factor</span>(infected)) <span class="sc">%&gt;%</span> </span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(pig_id, infected, <span class="fu">everything</span>())  </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>In <a href="#tbl-ml-basic-pig">Tabelle&nbsp;<span>69.1</span></a> siehst du nochmal einen Auschnitt aus den Daten. Wir haben noch die ID mit eingefügt, damit wir einzelne Beobachtungen nachvollziehen können.</p>
+<p>In <a href="#tbl-ml-basic-pig" class="quarto-xref">Tabelle&nbsp;<span>69.1</span></a> siehst du nochmal einen Auschnitt aus den Daten. Wir haben noch die ID mit eingefügt, damit wir einzelne Beobachtungen nachvollziehen können.</p>
 <div class="cell page-columns page-full">
+<div id="tbl-ml-basic-pig" class="cell quarto-float anchored page-columns page-full">
+<figure class="quarto-float quarto-float-tbl figure page-columns page-full">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-ml-basic-pig-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Tabelle&nbsp;69.1— Auszug aus dem Daten zu den kranken Ferkeln.
+</figcaption>
+<div aria-describedby="tbl-ml-basic-pig-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca" class="page-columns page-full">
 <div class="cell-output-display column-page">
-<div id="tbl-ml-basic-pig" class="anchored">
-<table class="table table-sm table-striped small">
-<caption>Tabelle&nbsp;69.1— Auszug aus dem Daten zu den kranken Ferkeln.</caption>
+<table class="do-not-create-environment cell table table-sm table-striped small">
 <colgroup>
 <col style="width: 7%">
 <col style="width: 9%">
@@ -982,44 +1023,62 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </table>
 </div>
 </div>
+</figure>
+</div>
 </div>
 <p>Gehen wir jetzt mal die Wörter und Begrifflichkeiten, die wir für das maschinelle Lernen mit dem <span class="math inline">\(k\)</span>-NN Algorithmus später brauchen einmal durch.</p>
 </section>
 <section id="k-nn-theoretisch" class="level2" data-number="69.3">
 <h2 data-number="69.3" class="anchored" data-anchor-id="k-nn-theoretisch"><span class="header-section-number">69.3</span> <span class="math inline">\(k\)</span>-NN theoretisch</h2>
-<p>Im Folgenden betrachten wir uns den <span class="math inline">\(k\)</span>-NN Algorithmus einmal ganz simpel. Dafür nutzen wir die <a href="#fig-class-knn-01">Abbildung&nbsp;<span>69.1</span></a> als Startpunkt. Wir haben dort 11 Beobachtungen im Trainingsdatensatz dargestellt. Wir finden in dem Trainingsdatensatz acht infizierte Personen soiwe drei gesunde Personen. Darüber hinaus eine neue rote Beobachtung. Gegeben den Traingsdaten, welchen Status wollen wir der neuen roten Beobachtung geben?</p>
-<div id="fig-class-knn-01" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="images/class-knn-01.png" class="img-fluid figure-img" style="width:70.0%"></p>
-<figcaption class="figure-caption">Abbildung&nbsp;69.1— Darstellung von 11 Beobachtungen aus dem Traingsdatensatz und einer neuen roten Beobachtung aus den Testdaten. Die schwarzen Kugeln stellen kranke Personen und die grünen die gesunde Personen dar.</figcaption>
+<p>Im Folgenden betrachten wir uns den <span class="math inline">\(k\)</span>-NN Algorithmus einmal ganz simpel. Dafür nutzen wir die <a href="#fig-class-knn-01" class="quarto-xref">Abbildung&nbsp;<span>69.1</span></a> als Startpunkt. Wir haben dort 11 Beobachtungen im Trainingsdatensatz dargestellt. Wir finden in dem Trainingsdatensatz acht infizierte Personen soiwe drei gesunde Personen. Darüber hinaus eine neue rote Beobachtung. Gegeben den Traingsdaten, welchen Status wollen wir der neuen roten Beobachtung geben?</p>
+<div id="fig-class-knn-01" class="quarto-figure quarto-figure-center quarto-float anchored" data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-class-knn-01-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="images/class-knn-01.png" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:70.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-class-knn-01-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Abbildung&nbsp;69.1— Darstellung von 11 Beobachtungen aus dem Traingsdatensatz und einer neuen roten Beobachtung aus den Testdaten. Die schwarzen Kugeln stellen kranke Personen und die grünen die gesunde Personen dar.
+</figcaption>
 </figure>
 </div>
-<p>In der <a href="#fig-class-knn-02">Abbildung&nbsp;<span>69.2</span></a> sehen wir die Klassifizierung nach <span class="math inline">\(k = 1\)</span>. Wir nehmen daher die <span class="math inline">\(k = 1\)</span> nächsten Beobachtungen und bestimmen daran den neuen Status der roten Beobachtung. Wenn wir nur die eine nächste Beobachtung als Nachbarn betrachten, so setzen wir den Status unser neuen Beobachtung auf grün und daher gesund.</p>
-<div id="fig-class-knn-02" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="images/class-knn-02.png" class="img-fluid figure-img" style="width:70.0%"></p>
-<figcaption class="figure-caption">Abbildung&nbsp;69.2— Wir nehmen mit <span class="math inline">\(k=1\)</span> nur die nächste Beobachtung zu unserer neuen Beobachtung hinzu und bestimmen die neue Beobachtung als grün.</figcaption>
+<p>In der <a href="#fig-class-knn-02" class="quarto-xref">Abbildung&nbsp;<span>69.2</span></a> sehen wir die Klassifizierung nach <span class="math inline">\(k = 1\)</span>. Wir nehmen daher die <span class="math inline">\(k = 1\)</span> nächsten Beobachtungen und bestimmen daran den neuen Status der roten Beobachtung. Wenn wir nur die eine nächste Beobachtung als Nachbarn betrachten, so setzen wir den Status unser neuen Beobachtung auf grün und daher gesund.</p>
+<div id="fig-class-knn-02" class="quarto-figure quarto-figure-center quarto-float anchored" data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-class-knn-02-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="images/class-knn-02.png" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:70.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-class-knn-02-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Abbildung&nbsp;69.2— Wir nehmen mit <span class="math inline">\(k=1\)</span> nur die nächste Beobachtung zu unserer neuen Beobachtung hinzu und bestimmen die neue Beobachtung als grün.
+</figcaption>
 </figure>
 </div>
-<p>Nun können wir das Spiel weiterspielen und wählen in der <a href="#fig-class-knn-03">Abbildung&nbsp;<span>69.3</span></a> die <span class="math inline">\(k = 2\)</span> nächsten Nachbarn zu unser neuen Beobachtung aus. Wir erhalten jetzt ein Unentschieden. Wir haben eine schwarze Beobachtung und eine grüne Beobachtung als <span class="math inline">\(k=2\)</span> nächste Nachbarn. Wir können hier keine Entscheidung treffen. Eine gerade Anzahl an nächsten Nachbarn ist prinzipiell nicht anzuraten. Ich empfehle immer eine ungerade Anzhl. Auch wenn es natürlich auch für eine gerade Anzahl eine algorithmische Lösung gibt. Das ist aber weit über die Anwendung hinaus und geht in die Tiefe des Algorithmus, die wir hier nicht behandeln wollen.</p>
-<div id="fig-class-knn-03" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="images/class-knn-03.png" class="img-fluid figure-img" style="width:70.0%"></p>
-<figcaption class="figure-caption">Abbildung&nbsp;69.3— Mit <span class="math inline">\(k = 2\)</span> nächste Nachbarn haben wir ein Patt vorliegen. Wir können uns nicht entscheiden, ob wir die neue Beobachtung als grün oder schwarz klassifizieren.</figcaption>
+<p>Nun können wir das Spiel weiterspielen und wählen in der <a href="#fig-class-knn-03" class="quarto-xref">Abbildung&nbsp;<span>69.3</span></a> die <span class="math inline">\(k = 2\)</span> nächsten Nachbarn zu unser neuen Beobachtung aus. Wir erhalten jetzt ein Unentschieden. Wir haben eine schwarze Beobachtung und eine grüne Beobachtung als <span class="math inline">\(k=2\)</span> nächste Nachbarn. Wir können hier keine Entscheidung treffen. Eine gerade Anzahl an nächsten Nachbarn ist prinzipiell nicht anzuraten. Ich empfehle immer eine ungerade Anzhl. Auch wenn es natürlich auch für eine gerade Anzahl eine algorithmische Lösung gibt. Das ist aber weit über die Anwendung hinaus und geht in die Tiefe des Algorithmus, die wir hier nicht behandeln wollen.</p>
+<div id="fig-class-knn-03" class="quarto-figure quarto-figure-center quarto-float anchored" data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-class-knn-03-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="images/class-knn-03.png" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:70.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-class-knn-03-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Abbildung&nbsp;69.3— Mit <span class="math inline">\(k = 2\)</span> nächste Nachbarn haben wir ein Patt vorliegen. Wir können uns nicht entscheiden, ob wir die neue Beobachtung als grün oder schwarz klassifizieren.
+</figcaption>
 </figure>
 </div>
-<p>In der <a href="#fig-class-knn-04">Abbildung&nbsp;<span>69.4</span></a> sehen wir, dass wir jetzt <span class="math inline">\(k = 3\)</span> Nachbarn betrachten. Damit haben wir auf jeden Fall wieder eine Entscheidung. Wenn auch hier nur sehr knapp, da wir ja zwei schwarze und einen grünen Nachbarn haben. Wir klassifizieren dennoch die neue Beobachtung als schwarz.</p>
-<div id="fig-class-knn-04" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="images/class-knn-04.png" class="img-fluid figure-img" style="width:70.0%"></p>
-<figcaption class="figure-caption">Abbildung&nbsp;69.4— Die Klassifizierung mit <span class="math inline">\(k = 3\)</span> nächsten Nachbarn. Wir erhalten hier eine , wenn auch knappe, Entscheidung für den schwarzen Status und damit krank.</figcaption>
+<p>In der <a href="#fig-class-knn-04" class="quarto-xref">Abbildung&nbsp;<span>69.4</span></a> sehen wir, dass wir jetzt <span class="math inline">\(k = 3\)</span> Nachbarn betrachten. Damit haben wir auf jeden Fall wieder eine Entscheidung. Wenn auch hier nur sehr knapp, da wir ja zwei schwarze und einen grünen Nachbarn haben. Wir klassifizieren dennoch die neue Beobachtung als schwarz.</p>
+<div id="fig-class-knn-04" class="quarto-figure quarto-figure-center quarto-float anchored" data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-class-knn-04-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="images/class-knn-04.png" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:70.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-class-knn-04-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Abbildung&nbsp;69.4— Die Klassifizierung mit <span class="math inline">\(k = 3\)</span> nächsten Nachbarn. Wir erhalten hier eine , wenn auch knappe, Entscheidung für den schwarzen Status und damit krank.
+</figcaption>
 </figure>
 </div>
 <p>Soweit so gut. Und wie entscheide ich jetzt was weit weg ist? Wenn wir uns mit dem <span class="math inline">\(k\)</span>-NN Algorithmus näher beschäftigen würden, dann werden wir feststellen, dass es eine Vielzahl an Abstandsmaßen gibt. Wir du dir vorstellen kannst, kann man die Entfernung zwischen zwei Punkten als den absoluten Abstand messen. Oder aber als den quadratischen Abstand. Es wäre auch möglich einen gewichteten Abstand einzuführen, so dass nähere Beobachtungen einen größeren Einfluss auf die Vorhersage haben als weiter entfernte Beobachtungen. Dann würden wir auch das Problem von geraden <span class="math inline">\(k\)</span> Anzahlen lösen. Du musst dann leider in den jeweiligen R Paketen schauen, welche Optionen es dort geben mag. Wir werden uns hier auf eins der R Pakete mit <code>kknn</code> konzentrieren.</p>
 </section>
 <section id="klassifikation" class="level2" data-number="69.4">
 <h2 data-number="69.4" class="anchored" data-anchor-id="klassifikation"><span class="header-section-number">69.4</span> Klassifikation</h2>
-<p>Schauen wir uns als erstes eine simple Klassifikation mit dem <span class="math inline">\(k\)</span>-NN Algorithmus an. Wir brauchen dafür erstmal einen Trainings- und Testdatensatz. Wir trainieren dann den <span class="math inline">\(k\)</span>-NN Algorithmus auf den Trainingsdaten. Wenn wir dann mit dem Modell zufrieden sind, schauen wir, ob unserer Modell auch auf den Trainingsdaten funktioniert. Wir trennen daher die Daten mit <span class="math inline">\(3/4\)</span> Trainingsdaten und <span class="math inline">\(1/4\)</span> Testdaten auf. Wir nutzen dazu die Funktion <code>initial_split()</code>. Es gibt auch andere Möglichkeiten sich den Split in Trainings- und Testdatensatz zu erstellen, aber so geht es relativ einfach und schnell. Im <a href="classification-data.html"><span>Kapitel&nbsp;66</span></a> kannst du dir auch noch eine Alternative anschauen.</p>
+<p>Schauen wir uns als erstes eine simple Klassifikation mit dem <span class="math inline">\(k\)</span>-NN Algorithmus an. Wir brauchen dafür erstmal einen Trainings- und Testdatensatz. Wir trainieren dann den <span class="math inline">\(k\)</span>-NN Algorithmus auf den Trainingsdaten. Wenn wir dann mit dem Modell zufrieden sind, schauen wir, ob unserer Modell auch auf den Trainingsdaten funktioniert. Wir trennen daher die Daten mit <span class="math inline">\(3/4\)</span> Trainingsdaten und <span class="math inline">\(1/4\)</span> Testdaten auf. Wir nutzen dazu die Funktion <code>initial_split()</code>. Es gibt auch andere Möglichkeiten sich den Split in Trainings- und Testdatensatz zu erstellen, aber so geht es relativ einfach und schnell. Im <a href="classification-data.html" class="quarto-xref"><span>Kapitel 66</span></a> kannst du dir auch noch eine Alternative anschauen.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>pig_data_split <span class="ot">&lt;-</span> <span class="fu">initial_split</span>(pig_tbl, <span class="at">prop =</span> <span class="dv">3</span><span class="sc">/</span><span class="dv">4</span>)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
@@ -1084,10 +1143,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">roc_curve</span>(<span class="at">truth =</span> infected, .pred_1, <span class="at">event_level =</span> <span class="st">"second"</span>) <span class="sc">%&gt;%</span> </span>
 <span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">autoplot</span>()</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<div id="fig-class-kknn-03" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="classification-knn_files/figure-html/fig-class-kknn-03-1.png" class="img-fluid figure-img" width="480"></p>
-<figcaption class="figure-caption">Abbildung&nbsp;69.5— ROC Kurve für den <code>kknn</code> Algorithmus.</figcaption>
+<div id="fig-class-kknn-03" class="quarto-figure quarto-figure-center quarto-float anchored" data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-class-kknn-03-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="classification-knn_files/figure-html/fig-class-kknn-03-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="480">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-class-kknn-03-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Abbildung&nbsp;69.5— ROC Kurve für den <code>kknn</code> Algorithmus.
+</figcaption>
 </figure>
 </div>
 </div>
@@ -1130,7 +1193,7 @@ Prediction  0  1
          1 22 60</code></pre>
 </div>
 </div>
-<p>Wenn wir dann die Funktion <code>summary()</code> nutzen, dann erhalten wir insgesamt dreizehn Beurteilungskriterien für die Klassifikation. Wir gehen jetzt nicht auf alle Kriterien ein, das sprengt hier den Rahmen. Wir schauen uns die Kriterien dann in dem <a href="classification-model-compare.html#sec-class-model-compare"><span>Kapitel&nbsp;68.6</span></a> nochmal teilweise an. Wie immer musst du nicht alle Kriterien angeben sondern nur die Kriterien, die der Fragestellung dienen.</p>
+<p>Wenn wir dann die Funktion <code>summary()</code> nutzen, dann erhalten wir insgesamt dreizehn Beurteilungskriterien für die Klassifikation. Wir gehen jetzt nicht auf alle Kriterien ein, das sprengt hier den Rahmen. Wir schauen uns die Kriterien dann in dem <a href="classification-model-compare.html#sec-class-model-compare" class="quarto-xref"><span>Kapitel 68.6</span></a> nochmal teilweise an. Wie immer musst du nicht alle Kriterien angeben sondern nur die Kriterien, die der Fragestellung dienen.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>pig_cm <span class="sc">%&gt;%</span> <span class="fu">summary</span>()</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
@@ -1157,10 +1220,14 @@ Prediction  0  1
 <div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">autoplot</span>(pig_cm, <span class="at">type =</span> <span class="st">"mosaic"</span>) <span class="sc">+</span></span>
 <span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<div id="fig-class-kknn-04" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="classification-knn_files/figure-html/fig-class-kknn-04-1.png" class="img-fluid figure-img" width="480"></p>
-<figcaption class="figure-caption">Abbildung&nbsp;69.6— Mosaicplot der Konfusionsmatrix für den <code>kknn</code> Algorithmus.</figcaption>
+<div id="fig-class-kknn-04" class="quarto-figure quarto-figure-center quarto-float anchored" data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-class-kknn-04-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="classification-knn_files/figure-html/fig-class-kknn-04-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="480">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-class-kknn-04-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Abbildung&nbsp;69.6— Mosaicplot der Konfusionsmatrix für den <code>kknn</code> Algorithmus.
+</figcaption>
 </figure>
 </div>
 </div>
@@ -1278,10 +1345,14 @@ Computational engine: kknn </code></pre>
 <span id="cb33-10"><a href="#cb33-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_log10</span>(<span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">label_number</span>()) <span class="sc">+</span></span>
 <span id="cb33-11"><a href="#cb33-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_okabeito</span>()</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<div id="fig-class-kknn-05" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="classification-knn_files/figure-html/fig-class-kknn-05-1.png" class="img-fluid figure-img" width="576"></p>
-<figcaption class="figure-caption">Abbildung&nbsp;69.7— Tuning Kurven für den <code>kknn</code> Algorithmus.</figcaption>
+<div id="fig-class-kknn-05" class="quarto-figure quarto-figure-center quarto-float anchored" data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-class-kknn-05-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="classification-knn_files/figure-html/fig-class-kknn-05-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="576">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-class-kknn-05-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Abbildung&nbsp;69.7— Tuning Kurven für den <code>kknn</code> Algorithmus.
+</figcaption>
 </figure>
 </div>
 </div>
@@ -1369,10 +1440,14 @@ Computational engine: kknn </code></pre>
 <span id="cb43-4"><a href="#cb43-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">autoplot</span>() <span class="sc">+</span></span>
 <span id="cb43-5"><a href="#cb43-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<div id="fig-class-kknn-06" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="classification-knn_files/figure-html/fig-class-kknn-06-1.png" class="img-fluid figure-img" width="480"></p>
-<figcaption class="figure-caption">Abbildung&nbsp;69.8— ROC Kurve für den <code>kknn</code> Algorithmus nach der Kreuvalidierung und dem Tuning.</figcaption>
+<div id="fig-class-kknn-06" class="quarto-figure quarto-figure-center quarto-float anchored" data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-class-kknn-06-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="classification-knn_files/figure-html/fig-class-kknn-06-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="480">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-class-kknn-06-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Abbildung&nbsp;69.8— ROC Kurve für den <code>kknn</code> Algorithmus nach der Kreuvalidierung und dem Tuning.
+</figcaption>
 </figure>
 </div>
 </div>
@@ -1472,6 +1547,33 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       }
     }
   }
+  const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+    const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+    const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+    let newTheme = '';
+    if(darkModeDefault) {
+      newTheme = isAlternate ? baseTheme : alternateTheme;
+    } else {
+      newTheme = isAlternate ? alternateTheme : baseTheme;
+    }
+    const changeGiscusTheme = () => {
+      // From: https://github.com/giscus/giscus/issues/336
+      const sendMessage = (message) => {
+        const iframe = document.querySelector('iframe.giscus-frame');
+        if (!iframe) return;
+        iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+      }
+      sendMessage({
+        setConfig: {
+          theme: newTheme
+        }
+      });
+    }
+    const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+    if (isGiscussLoaded) {
+      changeGiscusTheme();
+    }
+  }
   const toggleColorMode = (alternate) => {
     // Switch the stylesheets
     const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
@@ -1538,13 +1640,15 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       return localAlternateSentinel;
     }
   }
-  let localAlternateSentinel = 'default';
+  const darkModeDefault = false;
+  let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
   // Dark / light mode switch
   window.quartoToggleColorScheme = () => {
     // Read the current dark / light value 
     let toAlternate = !hasAlternateSentinel();
     toggleColorMode(toAlternate);
     setStyleSentinel(toAlternate);
+    toggleGiscusIfUsed(toAlternate, darkModeDefault);
   };
   // Ensure there is a toggle, if there isn't float one in the top right
   if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
@@ -1623,10 +1727,9 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     // clear code selection
     e.clearSelection();
   });
-  function tippyHover(el, contentFn) {
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
     const config = {
       allowHTML: true,
-      content: contentFn,
       maxWidth: 500,
       delay: 100,
       arrow: false,
@@ -1636,8 +1739,17 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       interactive: true,
       interactiveBorder: 10,
       theme: 'quarto',
-      placement: 'bottom-start'
+      placement: 'bottom-start',
     };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
     window.tippy(el, config); 
   }
   const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
@@ -1650,6 +1762,125 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       const id = href.replace(/^#\/?/, "");
       const note = window.document.getElementById(id);
       return note.innerHTML;
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
     });
   }
       let selectedAnnoteEl;
@@ -1693,6 +1924,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
             }
             div.style.top = top - 2 + "px";
             div.style.height = height + 4 + "px";
+            div.style.left = 0;
             let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
             if (gutterDiv === null) {
               gutterDiv = window.document.createElement("div");
@@ -1718,8 +1950,8 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
         });
         selectedAnnoteEl = undefined;
       };
-      // Handle positioning of the toggle
-      window.addEventListener(
+        // Handle positioning of the toggle
+    window.addEventListener(
       "resize",
       throttle(() => {
         elRect = undefined;
@@ -1727,23 +1959,23 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
           selectCodeLines(selectedAnnoteEl);
         }
       }, 10)
-      );
-      function throttle(fn, ms) {
-      let throttle = false;
-      let timer;
-        return (...args) => {
-          if(!throttle) { // first call gets through
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
               fn.apply(this, args);
-              throttle = true;
-          } else { // all the others get throttled
-              if(timer) clearTimeout(timer); // cancel #2
-              timer = setTimeout(() => {
-                fn.apply(this, args);
-                timer = throttle = false;
-              }, ms);
-          }
-        };
-      }
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
       const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
       for (let i=0; i<annoteTargets.length; i++) {
         const annoteTarget = annoteTargets[i];
@@ -1788,7 +2020,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
               options: {
                 flipVariations: false, // true by default
                 allowedAutoPlacements: ['right'],
-                fallbackPlacements: ['right', 'top', 'top-start', 'top-end'],
+                fallbackPlacements: ['right', 'top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end', 'left'],
               },
             },
             {
@@ -1844,12 +2076,12 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 </script>
 <nav class="page-navigation">
   <div class="nav-page nav-page-previous">
-      <a href="./classification-model-compare.html" class="pagination-link">
+      <a href="./classification-model-compare.html" class="pagination-link  aria-label=" &lt;span="" von="" algorithmen&lt;="" span&gt;"="">
         <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">68</span>&nbsp; <span class="chapter-title">Vergleich von Algorithmen</span></span>
       </a>          
   </div>
   <div class="nav-page nav-page-next">
-      <a href="./classification-randomforest.html" class="pagination-link">
+      <a href="./classification-randomforest.html" class="pagination-link" aria-label="<span class='chapter-number'>70</span>&nbsp; <span class='chapter-title'>Decision trees</span>">
         <span class="nav-page-text"><span class="chapter-number">70</span>&nbsp; <span class="chapter-title">Decision trees</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
@@ -1857,13 +2089,18 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 </div> <!-- /content -->
 <footer class="footer">
   <div class="nav-footer">
-    <div class="nav-footer-left">Bio Data Science wurde von Jochen Kruppa-Scheetz geschrieben.</div>   
+    <div class="nav-footer-left">
+<p>Bio Data Science wurde von Jochen Kruppa-Scheetz geschrieben.</p>
+</div>   
     <div class="nav-footer-center">
       &nbsp;
     </div>
-    <div class="nav-footer-right">Dieses Buch wurde mit <a href="https://quarto.org/">Quarto</a> erstellt.</div>
+    <div class="nav-footer-right">
+<p>Dieses Openbook wurde mit <a href="https://quarto.org/">Quarto</a> erstellt.</p>
+</div>
   </div>
 </footer>
+
 
 
 
