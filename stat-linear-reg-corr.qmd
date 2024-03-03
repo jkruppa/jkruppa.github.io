@@ -96,7 +96,8 @@ ggplot(simple_tbl, aes(weight, jump_length)) +
 
 ```{r}
 stork_tbl <- read_excel("data/storks_deliver_babys.xlsx") |>
-  clean_names()
+  clean_names() |> 
+  rename(birth_rate = birth_rate_1000_yr)
 ```
 
 ```{r}
@@ -206,6 +207,65 @@ Wir können mit der Funktion `cor()` in R die Korrelation zwischen zwei Spalten 
 cor(simple_tbl$jump_length, simple_tbl$weight)
 ```
 
+::: callout-note
+## Partielle Korrelation in a Nutshell
+
+```{mermaid}
+%%| label: fig-mermaid-part-cor
+%%| fig-width: 6
+%%| fig-cap: "Flowchart der "
+flowchart LR
+    A("x"):::factor <-. r<sub>xz</sub> ..-> B("z"):::confound;
+    A("x"):::factor <-- r<sub>xy</sub> --> C("y"):::factor;
+    B("z"):::confound <-. r<sub>yz</sub> ..-> C("y"):::factor;
+    classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
+    classDef confound fill:#CC79A7,stroke:#333,stroke-width:0.75px
+
+```
+
+$$
+r_{xy, z} = \cfrac{r_{xy} - r_{xz} \cdot r_{yz}}{\sqrt{(1-r^2_{xz}) \cdot (1-r^2_{yz})}}
+$$
+
+mit
+
+-   $r_{xy}$ der Korrelation zwischen den Variablen $x$ und $y$
+-   $r_{xz}$ der Korrelation zwischen den Variablen $x$ und $z$
+-   $r_{yz}$ der Korrelation zwischen den Variablen $y$ und $z$
+
+@matthews2000storks [Storks Deliver Babies (p = 0.008)](https://www.researchgate.net/profile/Robert-Matthews-2/publication/227763292_Storks_Deliver_Babies_p_0008/links/56f138d708aec9e096b316c9/Storks-Deliver-Babies-p-0008.pdf) fand eine Korrelation $r_{xy}$ von $0.62$ zwischen $x$ gleich Anzahl der brütenden Störche und $y$ gleich der Anzahl an Babies in den entsprechenden untersuchten Gebieten.
+
+```{mermaid}
+%%| label: fig-mermaid-part-cor-storch
+%%| fig-width: 6
+%%| fig-cap: "Flowchart der "
+flowchart LR
+    A("stork_pairs"):::factor <-. 0.58 ..-> B("birth_rate"):::confound;
+    A("stork_pairs"):::factor <-- 0.62 --> C("area_km2"):::factor;
+    B("area_km2"):::confound <-. 0.81 ..-> C("birth_rate"):::factor;
+    classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
+    classDef confound fill:#CC79A7,stroke:#333,stroke-width:0.75px
+
+```
+
+$$
+r_{xy, z} = \cfrac{0.62 - 0.58 \cdot 0.81}{\sqrt{(1-0.58^2) \cdot (1-0.81^2)}} = \cfrac{0.15}{0.48} = 0.31
+$$
+
+```{r}
+stork_tbl |> 
+  correlation()
+```
+
+```{r}
+stork_tbl |> 
+  select(area_km2, storks_pairs, birth_rate) |> 
+  correlation(partial = TRUE) |> 
+  plot() +
+  scale_edge_color_continuous(low = "#000004FF", high = "#FCFDBFFF")
+```
+:::
+
 ## Korrelation in R
 
 In R haben wir dann die Möglichkeit die Korrelation mit der Standardfunktion `cor()` ganz klassisch zu bestimmen oder aber auch das [R Paket `{correlation}`](https://easystats.github.io/correlation/index.html) zu nutzen. Das R Paket kann dabei vollumfänglich auf das `{tidyverse}` zugreifen und ist von mir bevorzugt. Wenn es schnell gehen muss oder ich mir nur aml als Demonstration eine Korrelation berechnen will, dann ist die klassiche Variante in R gut, aber für größere Datensätze nutze ich nur noch das R Paket `{correaltion}` und deren tollen Funktionen.
@@ -249,19 +309,19 @@ Das [R Paket `{correlation}`](https://easystats.github.io/correlation/index.html
 Wenn du nun die Funktion aufrufst, dann erhälst du alle paarweisen Korrelationen in deinem Datensatz über alle Variablen. Daher baue ich mir immer erstmal über `select()` einen Datensatz zusammen, den ich dann analysieren will. Sonst hast du da Spalten in deiner Auswertung, die dich gar nicht interessieren. Die Spalte `rho` gibt dir dann den Korrelationskoeffizient wieder. Dann erhälst du noch die 95% Konfidenzintervalle sowie den $p$-Wert für den Korrelationskoeffizient. Hier testen wir, ob der Korrelationskoeffizient unterschiedlich von der Null ist.
 
 ```{r}
-cor_gummi_res <- corr_gummi_tbl |> 
+cor_stork_res <- stork_tbl |> 
   correlation(method = "spearman", p_adjust = "none")
-cor_gummi_res
+cor_stork_res
 ```
 
 Wir haben jetzt einige signifikante Korrelationskoeffizienten. Jetzt ist es wichtig, dass wir nicht nur auf die Signifikanz schauen, sondern auch fragen, ist der Korrelationskoeffizient *relevant*? Das heißt, ist der Korrelationskoeffizient weit genug weg von der Null um für uns auch eine Aussagekraft zu haben. Hier können wir uns für die bessere Übersicht auch einmal die Korrelationsmatrix wiedergeben lassen.
 
 ```{r}
-cor_gummi_res |> 
+cor_stork_res |> 
   summary(redundant = TRUE)
 ```
 
-Das sieht dann nicht mehr so relevant aus. Viele der signifikanten Korrelationskoeffizienten sind irgendwie bei knapp $0.25$ was zwar signifikant unterschiedlich von Null ist, aber auch eher eine sehr kleine Korrelation beschreibt. Ich würde hier nicht von einem Zusammenhang ausgehen. In der @fig-scatter-corr-rpaket-01 siehst du dann die Matrix nochmal visualisiert. Die Farben entsprechen dann der Richtung der Korrelation. Je kräftiger der Farbton, desto größer ist die Korrelation.
+Das sieht dann schon relevant aus. Viele der signifikanten Korrelationskoeffizienten sind irgendwie bei knapp $0.8$ was dann auch signifikant unterschiedlich von Null ist und auch eine sehr große Korrelation beschreibt. Ich würde hier schon von einem Zusammenhang ausgehen. In der @fig-scatter-corr-rpaket-01 siehst du dann die Matrix nochmal visualisiert. Die Farben entsprechen dann der Richtung der Korrelation. Je kräftiger der Farbton, desto größer ist die Korrelation.
 
 ```{r}
 #| echo: false
@@ -270,13 +330,15 @@ Das sieht dann nicht mehr so relevant aus. Viele der signifikanten Korrelationsk
 #| fig-align: center
 #| fig-height: 6
 #| fig-width: 7
-#| fig-cap: "Darstellung der Korrealtion zwischen den Variablen in den Gummibärchendatensatz. Eine rote Einfärbung deutet auf eine positive Korrelation und eine blaue Einfärbung auf eine negative Korrelation hin."
-cor_gummi_res %>%
+#| fig-cap: "Darstellung der Korrelation zwischen den Variablen in dm Storchendatensatz. Eine rote Einfärbung deutet auf eine positive Korrelation und eine blaue Einfärbung auf eine negative Korrelation hin."
+cor_stork_res %>%
   summary(redundant = TRUE) %>%
   plot()
 ```
 
 Eine angenehme Funktion in dem R Paket `{correlation}` ist die Funktion `cor_test()`. Wir haben hier zum einen die Möglichkeit direkt Spaltennamen in die Funktion zu pipen. Auf der anderen Seite können wir die Funktion auch gleich in der Funktion `plot()` visualisieren. Das ist super praktisch, wenn du dir die Daten einmal anschauen willst und sehen willst, ob der Korrelationskoeffizient gepasst hat. Ich nutze die Funktion gerne in meiner Arbeit als schnelle Visualisierung einer Korrelation in einem Scatterplot. Sonst sind es schon ein paar mehr Zeilen Code mit `{ggplot}`.
+
+Wir sehen dann in der @fig-scatter-corr-rpaket-02 einmal den Zusammenhang. Die Korrelation beschreibt ja die einheistlose Steigung. Die Korrelation $r$ mit $0.62$ ist signifikant mit einem $p$-Wert von $0.008$ welcher ja unter dem Signifikanzniveau liegt. Einzig die beiden Beobachtungen rechts mit knapp 30000 sowie 25000 Storchenpaaren ziehen die Gerade sehr nach oben. Hier müsste man sich nochmal eine *partielle Korrelation* anschauen um zu sehen, ob es hier nicht noch andere Effekt einer anderen Variable in den Daten gibt.
 
 ```{r}
 #| echo: false
@@ -285,62 +347,16 @@ Eine angenehme Funktion in dem R Paket `{correlation}` ist die Funktion `cor_tes
 #| label: fig-scatter-corr-rpaket-02
 #| fig-align: center
 #| fig-height: 6
-#| fig-width: 7
-#| fig-cap: "Scatterplot zwischen der Körpergröße und dem Alter aller Teilnehmerinnen in dem Gummibärchendatensatz."
+#| fig-width: 6
+#| fig-cap: "Scatterplot zwischen der Anzahl an Storchpaaren `storks_pairs` und der Geburtenrate `birth_rate`. Wie man gut sieht, wird die gerade von nur ein paar Punkten getrieben. Hier müsste nochmal geschaut werden, ob nicht eine *partielle Korrelation* mehr Aussagekraft hätte."
 
-corr_gummi_tbl |> 
-  cor_test("age", "height") |> 
+stork_tbl |> 
+  cor_test("storks_pairs", "birth_rate") |> 
   plot() +
   theme_minimal()
 ```
 
-Als letztes erlaubt das R Paket noch die Darstellung der Daten in einem gaußsches grafisches Modell (eng. *Gaussian Graphical Model*). Ein gaußsches grafisches Modell besteht dabei aus einer Reihe von Variablen, die durch Kreise dargestellt werden, und einer Reihe von Linien, die die Beziehungen zwischen den Variablen visualisieren. Die Dicke dieser Linien stellt die Stärke der Beziehungen zwischen den Variablen dar. Daher kannst du davon ausgehen, dass ein Fehlen einer Linie keine oder nur sehr schwache Beziehungen zwischen den relevanten Variablen darstellt. Insbesondere erfassen diese Linien im Gaußschen Grafikmodell partielle Korrelationen (eng. *partial correlation*). Partielle Korrelationen beschreiben die Korrelation zwischen zwei Variablen, wenn für alle Variablen im Datensatz kontrolliert wird. Ein wesentlicher Vorteil der partiellen Korrelationen besteht nun darin, dass unerwünschte Korrelationen vermieden werden. Mehr zu dem Thema findest du auch bei @bhushan2019using in deren Arbeit [Using a Gaussian Graphical Model to Explore Relationships Between Items and Variables in Environmental Psychology Research](https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2019.01050/full).
-
-::: callout-note
-## Partielle Korrelation in a Nutshell
-
-```{mermaid}
-%%| label: fig-mermaid-part-cor
-%%| fig-width: 6
-%%| fig-cap: "Flowchart der "
-flowchart LR
-    A("x"):::factor <-. r<sub>xz</sub> ..-> B("z"):::confound;
-    A("x"):::factor <-- r<sub>xy</sub> --> C("y"):::factor;
-    B("z"):::confound <-. r<sub>yz</sub> ..-> C("y"):::factor;
-    classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
-    classDef confound fill:#CC79A7,stroke:#333,stroke-width:0.75px
-
-```
-
-$$
-r_{xy, z} = \cfrac{r_{xy} - r_{xz} \cdot r_{yz}}{\sqrt{(1-r^2_{xz}) \cdot (1-r^2_{yz})}}
-$$
-
-mit
-
--   $r_{xy}$ der Korrelation zwischen den Variablen $x$ und $y$
--   $r_{xz}$ der Korrelation zwischen den Variablen $x$ und $z$
--   $r_{yz}$ der Korrelation zwischen den Variablen $y$ und $z$
-
-@matthews2000storks [Storks Deliver Babies (p = 0.008)](https://www.researchgate.net/profile/Robert-Matthews-2/publication/227763292_Storks_Deliver_Babies_p_0008/links/56f138d708aec9e096b316c9/Storks-Deliver-Babies-p-0008.pdf) fand eine Korrelation $r_{xy}$ von $0.62$ zwischen $x$ gleich Anzahl der brütenden Störche und $y$ gleich der Anzahl an Babies in den entsprechenden untersuchten Gebieten.
-
-```{mermaid}
-%%| label: fig-mermaid-part-cor-storch
-%%| fig-width: 6
-%%| fig-cap: "Flowchart der "
-flowchart LR
-    A("Störche"):::factor <-. 0.54 ..-> B("Babies"):::confound;
-    A("Störche"):::factor <-- 0.6 --> C("Bevölkerungsdichte"):::factor;
-    B("Bevölkerungsdichte"):::confound <-. 0.89 ..-> C("Babies"):::factor;
-    classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
-    classDef confound fill:#CC79A7,stroke:#333,stroke-width:0.75px
-
-```
-
-$$
-r_{xy, z} = \cfrac{0.62 - 0.54 \cdot 0.89}{\sqrt{(1-0.54^2) \cdot (1-0.89^2)}} = 0.36
-$$
-:::
+Als letztes erlaubt das R Paket noch die Darstellung der Daten in einem gaußsches grafisches Modell (eng. *Gaussian Graphical Model*). Wir visualisieren uns damit die partielle Korrelationen (eng. *partial correlation*). Ein gaußsches grafisches Modell besteht dabei aus einer Reihe von Variablen, die durch Kreise dargestellt werden, und einer Reihe von Linien, die die Beziehungen zwischen den Variablen visualisieren. Die Dicke dieser Linien stellt die Stärke der Beziehungen zwischen den Variablen dar. Daher kannst du davon ausgehen, dass ein Fehlen einer Linie keine oder nur sehr schwache Beziehungen zwischen den relevanten Variablen darstellt. Insbesondere erfassen diese Linien im Gaußschen Grafikmodell partielle Korrelationen. Partielle Korrelationen beschreiben die Korrelation zwischen zwei Variablen, wenn für alle Variablen im Datensatz kontrolliert wird. Ein wesentlicher Vorteil der partiellen Korrelationen besteht nun darin, dass unerwünschte Korrelationen vermieden werden. Mehr zu dem Thema findest du auch bei @bhushan2019using in deren Arbeit [Using a Gaussian Graphical Model to Explore Relationships Between Items and Variables in Environmental Psychology Research](https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2019.01050/full).
 
 Im Folgenden nutzen wir einmal die Funktion `correlation()` mit der Option `partial = TRUE`. Zuerst haben wir dann nur noch die Anzahl an Beobachtungen in den Daten für die wir auch überall einen Wert haben. Sonst hätten wir ja noch die Möglichkeit, dass bei einzelnen Variablenpaaren mehr Beobachtungen übrig bleiben. Dann können wir auch schon unsere partielle Korrelation einmal in der @fig-scatter-corr-rpaket-03 abbilden. Wir setzen dann noch andere Farben mit der Funktion `scale_edge_color_continuous()` für wenig partielle Korrelation zu viel Korrelation.
 
@@ -352,40 +368,11 @@ Im Folgenden nutzen wir einmal die Funktion `correlation()` mit der Option `part
 #| fig-height: 8
 #| fig-width: 10
 #| fig-cap: "Partielle Korrelation in einem *Gaussian Graphical Model*. Je dicker die Linien desto stärker ist der Zusammenhang zwischen den Variablen desto sträker ist dann auch die partielle Korrelation."
-corr_gummi_tbl |> 
+stork_tbl |> 
   correlation(partial = TRUE) |> 
   plot() +
   scale_edge_color_continuous(low = "#000004FF", high = "#FCFDBFFF")
 ```
-
-::: callout-tip
-## Anwendungsbeispiel: Die Korrelation als Vergleich zweier Steigungen
-
-In der @fig-corr-01 können wir uns noch einmal den Vorteil der Korrelation als ein einheitsloses Maß anschauen. Wenn wir uns nur die Steigung der beiden Gerade betrachten würden, dann wäre die Steigung $\beta_{kopfgewicht} = 0.021$ und die Steigung $\beta_{strunkdurchmesser} = 5.15$. Man könnte meinen, das es keinen Zusammenhang zwischen der Boniturnote und dem Kopfgewicht gäbe wohl aber einen starken Zusammenhang zwischen der Boniturnote und dem Durchmesser. Die Steigung der Geraden wird aber stark von den unterschiedlich skalierten Einheiten von Kopfgewicht in \[g\] und dem Strunkdurchmesserdurchmesser in \[cm\] beeinflusst.
-
-![Der Zusammenhang von Hohlstrunk Boniturnote und Kopfgewicht sowie Strunkdurchmesser. In dem Beispiel ist gut der Zusammenhang zwischen der Steigung $\beta_1$ von $x$ und der Einheit von $x$ zu erkennen.](images/corr_example_einheit.jpeg){#fig-corr-01 fig-align="center"}
-
-Wir wollen den Zusammenhang nochmal mit der Korrelation überprüfen, da die Korrelation nicht durch die Einheiten von $y$ und $x$, in diesem Fall den Einheiten von Kopfgewicht in \[g\] und dem Durchmesser in \[cm\], beeinflusst wird. Wir bauen uns zuerst einen künstlichen Datensatz in dem wir die Informationen aus der Geradengleichung nutzen. Dann addieren wir mit der Funktion `rnorm()` noch einen kleinen Fehler auf jede Beobachtung drauf.
-
-```{r}
-strunk_tbl <- tibble(durchmesser = seq(3.5, 4.5, by = 0.05),
-                     bonitur = 5.15 * durchmesser - 16.65 + rnorm(length(durchmesser), 0, 1))
-kopf_tbl <- tibble(gewicht = seq(410, 700, by = 2),
-                   bonitur = 0.021 * gewicht - 8.42 + rnorm(length(gewicht), 0, 1))
-```
-
-Wir können und jetzt einmal die Korrelation aus den Daten berechnen. Die Koeffizienten der Geraden sind die gleichen Koeffizienten wie in der @fig-corr-01. Was wir aber sehen, ist das sich die Korrelation für beide Gerade sehr ähnelt oder fast gleich ist.
-
-```{r}
-strunk_tbl %$% 
-  cor(durchmesser, bonitur, method = "spearman")
-
-kopf_tbl %$% 
-  cor(gewicht, bonitur, method = "spearman")
-```
-
-Wie wir sehen, können wir mit der Korrelation sehr gut verschiedene Zusammenhänge vergleichen. Insbesondere wenn die Gerade zwar das gleiche Outcome haben aber eben verschiedene Einheiten auf der $x$-Achse. Prinzipiell geht es natürlich auch für die Einheiten auf der $y$-Achse, aber meistens ist das Outcome der konstante Modellteil.
-:::
 
 ## Visualisierung {#sec-linear-corr-visu}
 
@@ -548,5 +535,34 @@ ggpairs(corr_gummi_tbl,
   theme_minimal()
 
 ```
+
+::: callout-tip
+## Anwendungsbeispiel: Die Korrelation als Vergleich zweier Steigungen
+
+In der @fig-corr-01 können wir uns noch einmal den Vorteil der Korrelation als ein einheitsloses Maß anschauen. Wenn wir uns nur die Steigung der beiden Gerade betrachten würden, dann wäre die Steigung $\beta_{kopfgewicht} = 0.021$ und die Steigung $\beta_{strunkdurchmesser} = 5.15$. Man könnte meinen, das es keinen Zusammenhang zwischen der Boniturnote und dem Kopfgewicht gäbe wohl aber einen starken Zusammenhang zwischen der Boniturnote und dem Durchmesser. Die Steigung der Geraden wird aber stark von den unterschiedlich skalierten Einheiten von Kopfgewicht in \[g\] und dem Strunkdurchmesserdurchmesser in \[cm\] beeinflusst.
+
+![Der Zusammenhang von Hohlstrunk Boniturnote und Kopfgewicht sowie Strunkdurchmesser. In dem Beispiel ist gut der Zusammenhang zwischen der Steigung $\beta_1$ von $x$ und der Einheit von $x$ zu erkennen.](images/corr_example_einheit.jpeg){#fig-corr-01 fig-align="center"}
+
+Wir wollen den Zusammenhang nochmal mit der Korrelation überprüfen, da die Korrelation nicht durch die Einheiten von $y$ und $x$, in diesem Fall den Einheiten von Kopfgewicht in \[g\] und dem Durchmesser in \[cm\], beeinflusst wird. Wir bauen uns zuerst einen künstlichen Datensatz in dem wir die Informationen aus der Geradengleichung nutzen. Dann addieren wir mit der Funktion `rnorm()` noch einen kleinen Fehler auf jede Beobachtung drauf.
+
+```{r}
+strunk_tbl <- tibble(durchmesser = seq(3.5, 4.5, by = 0.05),
+                     bonitur = 5.15 * durchmesser - 16.65 + rnorm(length(durchmesser), 0, 1))
+kopf_tbl <- tibble(gewicht = seq(410, 700, by = 2),
+                   bonitur = 0.021 * gewicht - 8.42 + rnorm(length(gewicht), 0, 1))
+```
+
+Wir können und jetzt einmal die Korrelation aus den Daten berechnen. Die Koeffizienten der Geraden sind die gleichen Koeffizienten wie in der @fig-corr-01. Was wir aber sehen, ist das sich die Korrelation für beide Gerade sehr ähnelt oder fast gleich ist.
+
+```{r}
+strunk_tbl %$% 
+  cor(durchmesser, bonitur, method = "spearman")
+
+kopf_tbl %$% 
+  cor(gewicht, bonitur, method = "spearman")
+```
+
+Wie wir sehen, können wir mit der Korrelation sehr gut verschiedene Zusammenhänge vergleichen. Insbesondere wenn die Gerade zwar das gleiche Outcome haben aber eben verschiedene Einheiten auf der $x$-Achse. Prinzipiell geht es natürlich auch für die Einheiten auf der $y$-Achse, aber meistens ist das Outcome der konstante Modellteil.
+:::
 
 ## Referenzen {.unnumbered}
