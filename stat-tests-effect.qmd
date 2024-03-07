@@ -49,10 +49,11 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 pacman::p_load(tidyverse, magrittr, see, scales,
                effectsize, parameters, broom, readxl,
-               emmeans, conflicted)
+               emmeans, vcd, irr, conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("mutate", "dplyr")
+conflicts_prefer(effectsize::oddsratio)
 
 ```
 
@@ -735,7 +736,11 @@ mit
 
 ## Interrater Reliabilität {#sec-effect-interrater}
 
-![](images/caution.png){fig-align="center" width="50%"}
+::: callout-caution
+## Ein wort zum Umfang des Abschnitts
+
+Aktuell (SoSe 2024) warte ich noch auf ein konkretes Datenbeispiel hier aus der Agrarfakultät, so dass der Abschnitt hier eine erste Ideensammlung ist. Sobald ich weiterreichende Anwendung mit Daten habe, ergänze ich dann das Beispiel und weitere Themen zur Reliabilität.
+:::
 
 Worum geht es jetzt in diesem Abschnitt? Wir wollen uns anschauen, ob verschiedene Bewerter auf die gleichen Noten oder Einschätzungen kommen. Das ist eher selten im Kontext einer Abschlussarbeit, aber kommt häufiger bei der Bonitur vor. Wir können uns dabei zwei Fälle vorstellen. Zum einen wollen wir wissen ob zwei oder mehr Bewerter auf die gleichen Noten kommen, wenn sie das gleiche Subjekt bewerten. Wir haben also eine Rasenfläche oder ein Schwein vor uns und drei Forschende sollen bestimmen wie krank der Rasen oder das Schwein auf einer Skala von 1 bis 9 ist. Vorher wurden natürlich alle drei auf der Notensakal trainiert. Das würden wir dann die Interrater Reliabilität nennen. Benoten zwei oder mehr Bewerter ein Subjekt nach einem gegebenen Notenschlüssen und Kriterien gleich. Wichtig ist hier, dass es ein Kriterienkatalog gibt. Wir machen machen hier also nicht auf Geratewohl los.
 
@@ -749,11 +754,22 @@ Intrarater Reliabilität
 
 :   Unterscheiden sich die Bewertungen oder Benotungen eines Bewerters an einer Beobachtung über die Zeit?
 
-Reliabilität ist der Grad an Übereinstimmung einer Messung, wenn diese unter identischen Bedingungen jedoch von unterschiedlichen Bewertern wiederholt wird. Anhand der Interrater Reliabilität wird es somit möglich, den Grad zu ermitteln, in dem sich die erhaltenen Ergebnisse wiederholen lassen. Eine wunderbare Übersicht zur Interrater Reliabilität gibt auf Data Novia mit [Introduction to R for Inter-Rater Reliability Analyses](https://www.datanovia.com/en/lessons/introduction-to-r-for-inter-rater-reliability-analyses/). Ebenso liefert das Tutorium [Inter-rater-reliability and Intra-class-correlation](http://dwoll.de/rexrepos/posts/interRaterICC.html) einen guten Überblick über alle Methoden in R. Wir schauen uns jetzt einmal die häufigsten Maßzahlen für die Reliabilität an. Und hier haben wir es dann mit Cohen's Kappa bzw. Fleiss Kappa zu tun.
+Reliabilität ist der Grad an Übereinstimmung einer Messung, wenn diese unter identischen Bedingungen jedoch von unterschiedlichen Bewertern wiederholt wird. Anhand der Interrater Reliabilität wird es somit möglich, den Grad zu ermitteln, in dem sich die erhaltenen Ergebnisse wiederholen lassen. Eine wunderbare Übersicht zur Interrater Reliabilität gibt auf Data Novia mit [Introduction to R for Inter-Rater Reliability Analyses](https://www.datanovia.com/en/lessons/introduction-to-r-for-inter-rater-reliability-analyses/). Ebenso liefert das Tutorium [Inter-rater-reliability and Intra-class-correlation](http://dwoll.de/rexrepos/posts/interRaterICC.html) einen guten Überblick über alle Methoden in R. Wir schauen uns jetzt einmal die häufigsten Maßzahlen für die Reliabilität an. Für das erste beschränken wir uns hier einmal auf Cohen's Kappan.
 
 ### Cohen's Kappa auf einer 2x2 Kreuztabelle
 
-@maclure1987misinterpretation [Misinterpretation and misuse of the kappa statistic](https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=63e3fc4cf928bc0a12f6c62cace8d94aee34db62) kappa statistik
+Fangen wir mit dem simpelsten Fall an. Wir haben zwei Bewerter $R_1$ und $R_2$ und wir wollen schauen, ob diese beiden Bewerter ein Subjekt richtig in $ja$ oder $nein$ einordnen. So kann die Frage sein, hat die Sonnenblume Mehltau? Oder aber die Frage, ist das Schwein erkrankt? Wir haben hier keine Wahrheit vorliegen, sondern wollen einfach nur wissen, ob unsere beiden Bewerter zum gleichen Schluss kommen. Dafür können wir dann Cohen's Kappa $\kappa$ nutzen. Dabei ist die Verwendung von Cohen's Kappa nicht unumstritten. @maclure1987misinterpretation diskutiert in seiner Arbeit [Misinterpretation and misuse of the kappa statistic](https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=63e3fc4cf928bc0a12f6c62cace8d94aee34db62) diesen Sachverhalt. Fangen wir einmal mit einem Beispiel an. Die @tbl-2x2-kappa zeigt einmal das Ergebnis von siebzig bewerteten Subjekten. Wir haben hier zwei Bewerter vorliegen, die jeweils mit $ja$ oder $nein$ bewerten sollten. In R kannst du dir später so eine Tabelle einfach mit der Funktion `xtabs()` bauen.
+
+|                |            |                   |                   |
+|:--------------:|:----------:|:-----------------:|:-----------------:|
+|                |            |  **Bewerter 1**   |                   |
+|                |            |     *ja (1)*      |    *nein (0)*     |
+| **Bewerter 2** |  *ja (1)*  | $25_{\;\Large a}$ | $10_{\;\Large b}$ |
+|                | *nein (0)* | $15_{\;\Large c}$ | $20_{\;\Large d}$ |
+
+: Eine 2x2 Tabelle als Beispiel für die Bewertung einer Erkrankung an siebzig Beobachtungen von zwei Bewertern. Für die folgenden Berechnungen sind die Zellen mit Buchstaben versehen. {#tbl-2x2-kappa}
+
+Als Faustregel für Cohen's Kappa $\kappa$ dient dabei, dass die Diagonale von links oben nach rechts unten die Übereinstimmungen zeigt. Die Diagonale von links unten nach rechts oben zeigt dann die Nichtübereinstimmung. Das ist natürlich nur eine grobe Abschätzung im Folgenden einmal die Formel mit der du dann Cohen's Kappa $\kappa$ berechnen kannst.
 
 $$
 \kappa = \cfrac{p_0 - p_e}{1 - p_e}
@@ -764,82 +780,39 @@ mit
 -   $p_0$ Anteil der beobachteten Übereinstimmung
 -   $p_e$ Anteil der veränderten Übereinstimmung
 
-Cohen's Kappa $\kappa$
-
-:   Cohen's Kappa kann von -1 (keine Übereinstimmung) bis +1 (perfekte Übereinstimmung) reichen. Wenn $\kappa = 0$ ist, ist die Übereinstimmung nicht besser als das, was durch Zufall erreicht werden würde. Wenn $\kappa$ negativ ist, ist die Übereinstimmung geringer als die zufällig erwartete Übereinstimmung. Wenn $\kappa$ positiv ist, übersteigt die Übereinstimmung der Bewerter die zufällige Übereinstimmung.
-
-Text dazwischen
-
-|                |            |                   |                   |
-|:--------------:|:----------:|:-----------------:|:-----------------:|
-|                |            |  **Bewerter 1**   |                   |
-|                |            |       *ja*        |      *nein*       |
-| **Bewerter 2** |  *ja (1)*  | $25_{\;\Large a}$ | $10_{\;\Large b}$ |
-|                | *nein (0)* | $15_{\;\Large c}$ | $20_{\;\Large d}$ |
-
-: Eine 2x2 Tabelle als Beispiel. {#tbl-2x2-kappa}
+Das ist jetzt natürlich wieder sehr theoretisch. Deshalb wollen wir einmal die beiden Teile $p_0$ und $p_e$ aus den obigen Daten berechnen. Wenn du jetzt denkst, dass dir das doch irgendwie bekannt vorkommt, ja der $\mathcal{X}^2$-Test sieht sehr ähnlich aus. Wir können $p_0$ wie folgt aus der 2x2 Kreuztabelle berechnen. Wir schauen hier auf die Übereinstimmungen auf der Diagonalen von obeb links nach unten rechts.
 
 $$
 p_0 = \cfrac{a + d}{N} = \cfrac{25 + 20}{70} = 0.643 
 $$
 
+Für den Wert von $p_e$ brauchen wir zwei Werte, die wir dann aufaddieren. Einmal berechnen wir den Wert für $p_e$ von $ja$ und einmal den Wert von $p_e$ für $nein$. Das geht dann mit der Formel auch recht schnell. Wir schauen hier im Prinzip auf die Diagonale von unten links nach oben rechts.
+
 $$
-p_e^{yes} = \cfrac{a + b}{N} \cdot \cfrac{a + c}{N} = \cfrac{25+10}{70} \cdot \cfrac{25+15}{70} = 0.5 \cdot 0.57 = 0.285 
+p_e^{ja} = \cfrac{a + b}{N} \cdot \cfrac{a + c}{N} = \cfrac{25+10}{70} \cdot \cfrac{25+15}{70} = 0.5 \cdot 0.57 = 0.285 
 $$
 
 $$
-p_e^{no} = \cfrac{c + d}{N} \cdot \cfrac{b + d}{N} = \cfrac{15+20}{70} \cdot \cfrac{10+20}{70} = 0.5 \cdot 0.428 = 0.214 
+p_e^{nein} = \cfrac{c + d}{N} \cdot \cfrac{b + d}{N} = \cfrac{15+20}{70} \cdot \cfrac{10+20}{70} = 0.5 \cdot 0.428 = 0.214 
 $$
 
+Dann addieen wir die beiden Werte für $p_e$ einmal auf.
+
 $$
-p_e = 0.285 +0.214 = 0.499
+p_e = p_e^{ja} + p_e^{nein} = 0.285 + 0.214 = 0.499
 $$
+
+Dann können wir auch schon Cohen's Kappa $\kappa$ für eine 2x2 Kreuztabelle berechnen. Ehrlicherweise, machen wir das dann natürlich gleich in R.
 
 $$
 \kappa = \cfrac{0.643 - 0.499}{1 - 0.499} = 0.28
 $$
 
-Die ungewichtete Version entspricht dem Cohen's Kappa, mit dem wir uns in diesem Kapitel beschäftigen. Das gewichtete Kappa sollte nur für ordinale Variablen betrachtet werden und wird weitgehend in Kapitel
+Dabei interpretieren wir dann Cohen's Kappa $\kappa$ wie folgt. Beachte dabei immer, dass es sich natürlich erstmal nur um eine grobe Abschätzung handelt. Wie gut oder wie schlecht dann diese Zahl von Cohen's Kappa $\kappa$ in deinem Bereich ist, liegt dann auch daran wie genau du arbeiten möchtest.
 
-[R Paket `{vcd}`](https://www.datavis.ca/courses/VCD/vcd-tutorial.pdf)
+Cohen's Kappa $\kappa$ interpretieren
 
-```{r}
-library(vcd)
-xtab <- as.table(rbind(c(25, 10), c(15, 20)))
-```
-
-Die Funktion `xtabs()` hilft dir aus zwei oder mehr Spalten eine Kreuztabelle zu bauen.
-
-```{r}
-kappa_res <- Kappa(xtab)
-kappa_res
-```
-
-Faustregel Cohen's Kappa $\kappa$
-
-:   Die Diagonale von links oben nach rechts unten zeigt die Übereinstimmungen. Die Diagonale von links unten nach rechts oben zeigt die Nichtübereinstimmung.
-
-```{r}
-kappa_res |> 
-  confint()
-```
-
-Das Ganze geht natürlich nicht nur für zwei Level (ja/nein) sondern dann in R auch für mehrere Level
-
-### Cohen's Kappa für mehr als zwei Bewerter
-
-[R Paket `{irr}`](https://cran.r-project.org/web/packages/irr/irr.pdf) ist schon ziemlich alt und hat auch sehr schlechte bis gar keine Hilfeseiten. Wenn man weiß, was man barucht und die Funktion bedeuten, dann kannst du das Paket gut nutzen.
-
-```{r}
-pacman::p_load(irr)
-# Load and inspect a demo data
-data("diagnoses", package = "irr")
-head(diagnoses[, 1:3], 4)
-```
-
-```{r}
-kappam.light(diagnoses[1:5, 1:3])
-```
+:   Cohen's Kappa kann von -1 (keine Übereinstimmung) bis +1 (perfekte Übereinstimmung) reichen. Wenn $\kappa = 0$ ist, ist die Übereinstimmung nicht besser als das, was durch Zufall erreicht werden würde. Wenn $\kappa$ negativ ist, ist die Übereinstimmung geringer als die zufällig erwartete Übereinstimmung. Wenn $\kappa$ positiv ist, übersteigt die Übereinstimmung der Bewerter die zufällige Übereinstimmung.
 
 Was sind jetzt die exakten grenzen für die Cohen's Kappa Werte? Das kannst du dir fast wieder aussuchen wie du möchtest. Es gibt eine Reihe von Publikationen, die alle verschiedene Grenzwerte liefern. Gerne kannst du dir die Tabellen in dem Tutorium [Cohen's Kappa in R: For Two Categorical Variables](https://www.datanovia.com/en/lessons/cohens-kappa-in-r-for-two-categorical-variables/) einmal näher anschauen. Ich würde dann mal als Quintessenz folgende Regel von @mchugh2012interrater nehmen.
 
@@ -854,6 +827,45 @@ Was sind jetzt die exakten grenzen für die Cohen's Kappa Werte? Das kannst du d
 
 : Interpretation des Cohen's Kappa Wert nach @mchugh2012interrater {#tbl-interpret-kappa}
 
-[Intraclass Correlation Coefficient in R](https://www.datanovia.com/en/lessons/intraclass-correlation-coefficient-in-r/)
+Das [R Paket `{vcd}`](https://www.datavis.ca/courses/VCD/vcd-tutorial.pdf) liefert nun die Funktion `Kappa()` mit der wir auf einer 2x2 Kreuztabelle zum Beispiel aus der Funktion `xtabs()` dann Cohen's Kappa $\kappa$ berechnen können. Die Funktion `xtabs()` hilft dir aus zwei oder mehr Spalten eine Kreuztabelle zu bauen.
+
+```{r}
+xtab <- as.table(rbind(c(25, 10), c(15, 20)))
+```
+
+Dann können wir auch schon Cohen's Kappa $\kappa$ in R berechnen.
+
+```{r}
+kappa_res <- Kappa(xtab)
+kappa_res
+```
+
+Die ungewichtete Version entspricht dem Cohen's Kappa, mit dem wir uns in diesem Kapitel beschäftigen. Das gewichtete Kappa sollte nur für ordinale Variablen betrachtet werden und wird weitgehend hier ignoriert. Dann noch die Konfidenzintervalle und alles ist soweit da, was wir brauchen.
+
+```{r}
+kappa_res |> 
+  confint()
+```
+
+Das Ganze geht natürlich nicht nur für zwei Level (ja/nein) sondern dann in R auch für mehrere Level. Also wenn wir zum Beispiel dann Boniturnoten einmal bewerten und dann für zwei Bewerter vergleichen wollen.
+
+### Weitere Maßzahlen
+
+Cohen's Kappa für mehr als zwei Bewerter liefert das [R Paket `{irr}`](https://cran.r-project.org/web/packages/irr/irr.pdf) mit der Funktion `kappam.light()`. Das R Paket ist schon ziemlich alt und hat auch sehr schlechte bis gar keine Hilfeseiten. Wenn man weiß, was man braucht und die Funktion bedeuten, dann kannst du das Paket gut nutzen.
+
+Aktuell einmal mit dem Build-In Beispiel mit einem Auszug von drei Bewertern und fünf Beobachtungen.
+
+```{r}
+data("diagnoses", package = "irr")
+diagnoses[1:5, 1:3]
+```
+
+Dann einmal die Anwendung von `kappam.light()`.
+
+```{r}
+kappam.light(diagnoses[1:5, 1:3])
+```
+
+Eine weitere Möglichkeit ist auch die Berechnung des [Intraclass Correlation Coefficient (ICC) in R](https://www.datanovia.com/en/lessons/intraclass-correlation-coefficient-in-r/) um auf die Reliabilität von Bewertern zurückzuschließen.
 
 ## Referenzen {.unnumbered}
