@@ -1,0 +1,241 @@
+```{r}
+#| echo: false
+#| warning: false
+cbbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+In diesem Zerforschenbeispiel wollen wir uns eine [nicht-lineare Regression](#sec-non-linear) anschauen. Auch hier stellt sich dann mal die Frage, ob die Modellierung in der vorliegenden Abbildung jetzt die beste Modellierung ist. Wir bleiben aber mal hier bei dem Nachbau und ergänzen dann noch zwei weitere Modellierungen. Du kannst gerne nochmal andere Modellierungen ausprobieren. Wir wollen also die folgende Abbildung einmal nachbauen.
+
+![Ursprüngliche Abbildung, die nachgebaut werden soll. Eine nicht-lineare Regressionen mit der jeweiligen Regressionsgleichung und dem Bestimmtheitsmaß $R^2$.](images/eda/zerforschen_regression_03.jpeg){#fig-simple-regression fig-align="center" width="70%"}
+
+Ich mache es mir hier wieder etwas einfacher und erstelle die Daten direkt in R. Dann sparen wir uns einmal das Einlesen von Daten und haben einen Schritt weniger.
+
+```{r}
+shoot_k_tbl <- tibble(k_in_shoot = c(3.7, 4.1, 4.2, 4.3, 4.3, 4.4, 4.6, 4.65, 5.7, 5.7,
+                                     6, 6.1, 6.15, 6.6, 6.6, 6.6),
+                      freshmass = c(85, 82, 87, 83, 81, 80, 79, 78, 72, 81, 
+                                    59, 70, 63, 39, 30, 28))
+```
+
+Im Folgenden schauen wir uns einmal drei Modellierungen der nicht-linearen Regression an. Einmal baue ich die originale Gleichung mit einem Polynom nach. Dann möchte ich wissen, ob nicht eine exponentielle Funktion ein besseres oder einfache Gleichung liefert. Am Ende nutzte ich nochmal das R Paket `mfp` mit der gleichnamigen Funktion um automatisiert das beste Polynom zu finden.
+
+::: panel-tabset
+## `nls()` mit Polynom
+
+Dann bauen wir uns einmal das Polynom mit der Funktion `nls()`. Wir müssen hier Startwerte für unsere Koeffizienten `b1`, `b2` und `c` angeben. Wir haben aber Glück, dass es gleich auf Anhieb mit unseren einfachen Zahlen funktioniert.
+
+```{r}
+fit_poly <- nls(freshmass ~ b1 * k_in_shoot^2 + b2 * k_in_shoot + c, data = shoot_k_tbl, 
+                start = c(b1 = 1, b2 = 1, c = 1))
+```
+
+Dann können wir uns auch schon die Koeffizienten der Gleichung wiedergeben lassen. Diese brauchen wir dann gleich, um einmal die Geradengleichung zusammenzusetzen.
+
+```{r}
+fit_poly %>% 
+  parameters::model_parameters() %>% 
+  select(Parameter, Coefficient)
+```
+
+Dann bauen wir auch schon gleich mal unsere nicht-lineare Gleichung zusammen. Du setzt einfach die Werte der Koeffizienten in die Geradengleichung ein und schon bist du fertig.
+
+$$
+freshmass = -12.16 \cdot (k\_in\_shoot)^2 + 111.95 \cdot k\_in\_shoot - 172.01
+$$
+
+Diese Gleichung bauen wir dann auch einmal als Funktion in R nach, um dann gleich mal zu schauen, wie gut unsere Kurve dann durch die Punkte läuft.
+
+```{r}
+shoot_k_nls_poly_func <- \(x) {-12.16 * x^2 + 111.95 * x - 172.01}
+```
+
+Am Ende brauche ich noch das Betimmtheitsmaß $R^2$ aus der Funktion `r2()`. Ich nutze hier immer die Funktion aus dem R Paket `{performance}`.
+
+```{r}
+#| warning: false
+#| message: false
+performance::r2(fit_poly)
+```
+
+Schön, damit haben wir fast den Wert wie auch in der ursprünglichen Abbildung. Schauen wir mal, ob wir den Wert noch besser hinkriegen.
+
+## `nls()` mit `exp()`
+
+Mir war dann die Idee mit dem Polynom etwas verspielt. Ich weiß, dass wir aus dem Polynom sehr gut dann den Extremwert bestimmen können, aber ich dachte vielleicht finden wir noch eine andere Funktion, die eventuell noch besser passt. Deshalb hier einmal eine einfache exponentielle Funktion.
+
+```{r}
+fit_exp <- nls(freshmass ~ b1 * exp(k_in_shoot) + c, data = shoot_k_tbl, 
+               start = c(b1 = 1, c = 1))
+```
+
+Dann können wir uns auch schon die Koeffizienten der Gleichung wiedergeben lassen. Diese brauchen wir dann gleich, um einmal die Geradengleichung zusammenzusetzen.
+
+```{r}
+fit_exp %>% 
+  parameters::model_parameters() %>% 
+  select(Parameter, Coefficient)
+```
+
+Dann bauen wir auch schon gleich mal unsere nicht-lineare Gleichung zusammen. Du setzt einfach die Werte der Koeffizienten in die Geradengleichung ein und schon bist du fertig. Das ist hier dann sogar noch einen Tick einfacher.
+
+$$
+freshmass = -0.07 \cdot e^{k\_in\_shoot} + 89.45
+$$
+
+Diese Gleichung bauen wir dann auch einmal als Funktion in R nach, um dann gleich mal zu schauen, wie gut unsere Kurve dann durch die Punkte läuft. Hier müssen wir dann eigentlich nur noch den Code von oben rüber kopieren.
+
+```{r}
+shoot_k_nls_exp_func <- \(x) {-0.07 * exp(x) + 89.45}
+```
+
+Am Ende brauche ich noch das Betimmtheitsmaß $R^2$ aus der Funktion `r2()`. Ich nutze hier immer die Funktion aus dem R Paket `{performance}`.
+
+```{r}
+#| warning: false
+#| message: false
+performance::r2(fit_exp)
+```
+
+Gut, der ursprüngliche Wert war schon so gut, dass wir hier auch nur noch schwer eine Steigerung hinkriegen.
+
+## `mfp()`
+
+Das R Paket `{mfp}` macht uns das Leben leichter, da wir keine Startwerte oder eine Formal angeben müssen, wie wir dann mit Koeffizienten bestücken. Wir erhalten also beides. Zum einen die Formel die auf unsere Daten passt und zum anderen dann auch die Werte für die Formel. Das klingt gut, kommt aber wie immer auf das Ergebnis an. Wir müssen nur sagen, welcher Teil der `formula` dann ein Polynom `fp()` sein soll. In unserem Fall ist es natürlich die Variable `k_in_shoot`.
+
+```{r}
+fit_mfp <- mfp(freshmass ~ fp(k_in_shoot), data = shoot_k_tbl)
+```
+
+Dann schauen wir uns mal die geradengleichung an und sind leicht verstört, wie komplex die Gleichung ist.
+
+```{r}
+fit_mfp$formula
+```
+
+Dann brauchen wir trotzdem die Koeffizienten, damit wir die Gleichung einmal erstellen können.
+
+```{r}
+fit_mfp$coefficients 
+```
+
+Und da ist das Monster einer Gleichung. Ob das jetzt wirklich *besser* ist, werden wir dann gleich sehen. Aber komplexer ist die Gleichung auf alle Fälle. Ob sich das lohnt, wage ich gerade zu bezweifeln. Geschweige den diese Gleichung als was besseres als die beiden anderen Lösungen zu bezeichnen.
+
+$$
+\small
+freshmass \sim 37.6 - 578.2 \cdot \left(\cfrac{k\_in\_shoot}{10}\right)^{3} - 1370.9 \cdot \left(\cfrac{k\_in\_shoot}{10}\right)^{3} \cdot \log\left(\cfrac{k\_in\_shoot}{10}\right)
+$$
+
+Ich breche mir dann noch einen ab, diese Gleichung dann einmal in R zu übersetzen. Sieht dann gar nicht mehr so schlimm aus, ist aber dennoch ein Brocken.
+
+```{r}
+shoot_k_mfp_func <- \(x) {37.55 - 578.20 * (x/10)^3 - 1370.91 * (x/10)^3 * log(x/10)}
+```
+
+Am Ende brauche ich noch das Betimmtheitsmaß $R^2$ aus der Funktion `r2()`. Ich nutze hier immer die Funktion aus dem R Paket `{performance}`.
+
+```{r}
+#| warning: false
+#| message: false
+performance::r2(fit_mfp)
+```
+
+Auch hier gilt, dass der ursprüngliche Wert schon so gut war, dass wir hier auch nur noch schwer eine Steigerung hinkriegen. Dafür haben wir dann eine super komplexe Gleichung erhalten. Da macht der Aufwand manchmal keien Sinn mehr.
+:::
+
+Jetzt stellt sich natürlich die Frage des Maximums unserer Gradengleichung. Ich mache das jetzt nur für das Polynom aus der ursprünglichen Abbildung. Das ist jetzt der Vorteil unserer recht einfachen Gleichung eines Polynoms. Wir können diese Ableiten und dann Null setzen. So können wir schnell das Maximum berechnen. Das wäre natürlich bei komplizierteren Gleichungen dann schwerer und deshalb mache ich das auch nicht.
+
+$$
+\begin{align}
+f(x) & = -12.16 \cdot x^2 + 111.95 \cdot x - 172.01\\
+f'(x) &= -24.32 \cdot x + 111.95 \\
+\end{align}
+$$
+
+Dann die erste Ableitung $f'(x)$ Null setzen und nach $x$ auflösen. Das geht bei der Formel sehr schnell. Das ist ja keine höhere Mathematik.
+
+$$
+x = \frac{-111.95}{-24.32} = 4.6
+$$
+
+Wir kriegen fast den gleichen Wert mit $4.6$ wie auch in der ursprünglichen Abbildung. Ob dieser Wert dann eine Aussagekraft hat, sei mal dahingestellt. Wenn du dir gleich die drei Modellierungen anschaust, dann siehst du, dass das Polynom natürlich für die beobachteten Punkte passt, aber für Werte davor schon eventuell nicht mehr. Da wir diese Werte aber nicht beobachten, ist es natürlich auch eine akademische Diskussion.
+
+::: panel-tabset
+## Orginal nachgebaut
+
+In der @fig-zerforschen-shoot_k-01-a siehst du dann die originale Abbildung einmal nachgebaut. Ich habe die Funktion in `geom_function()` etwas eher zeichnen lassen, aber da kannst du dann mit der Option `xlim` nachjustieren. Ich wollte einmal zeigen, wie die Funktion aussieht, wenn du frühere Werte vorhersagen wollen würdest. Sonst musste ich noch etwas mit den Pfeil spielen. Der Strich und der Kopf sind separat, damit es mit der gestrichelten Linie besser aussieht.
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-zerforschen-shoot_k-01-a
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Visualisierung der nicht-linearen Regression mit einem Polynom aus der Funkion `nls()`."
+
+shoot_k_tbl |> 
+  ggplot(aes(k_in_shoot, freshmass)) +
+  theme_minimal() +
+  geom_point(size = 4, color = "red4") +
+  geom_function(fun = shoot_k_nls_poly_func, color = "black", size = 1,
+                xlim = c(1, 6.8)) + 
+  labs(x = "K in shoot [% DM]", y = TeX(r"(Shoot fresh mass \[g plant$^{-1}$\] - 34 DAP)")) +
+  scale_x_continuous(breaks = c(0, 2, 3, 4, 4.6, 5, 6, 7, 8), limits = c(3, 7)) +
+  scale_y_continuous(breaks = c(0, 20, 40, 60, 80, 100), limits = c(20, 100)) +
+  annotate("text", x = 3.5, y = 100, hjust = "left", color = "black", size = 4, 
+           label = TeX(r"($y = -12.16 \cdot x^2 + 111.95 \cdot x - 172.01$)")) +
+  annotate("text", x = 3.5, y = 95, hjust = "left", color = "black", size = 4, 
+           label = TeX(r"($R^2 = 0.89$)")) +
+  annotate("text", x = 4.7, y = 30, label = "4.6%",
+           hjust = "left", size = 5) +
+  annotate("segment", x = 4.6, y = shoot_k_nls_poly_func(4.6), xend = 4.6, yend = 20, linetype = 'dashed', 
+           size = 1) +
+  annotate("segment", x = 4.6, y = 21, xend = 4.6, yend = 20, 
+           arrow = arrow(length = unit(0.4, "cm"), type = "closed"))
+```
+
+## Mit `exp()` und `mfp()` nachgebaut
+
+In der folgenden @fig-zerforschen-shoot_k-01-b siehst du dann einmal die exponentiellen Funktion mit `nls()` sowie der algorithmisch erstellten Funktion aus dem R Paket `{mfp}`. Beide Funktionen treffen auch die Punkte sehr gut. Der Unterschied liegt dann vor den beobachteten Werten. Ich habe auch einmal die ursprüngliche Funktion aus einem Polynom über den gesamten Wertebereich ergänzt. Wenn dich nur der beobachtete Wertebereich interessiert, dann passen alle drei Modellierungen. Was davor passiert, ist auf jeden Fall nochmal spannend zu beobachten.
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-zerforschen-shoot_k-01-b
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Visualisierung der nicht-linearen Regression auf einem erweiterten Wertebereich von $x$ mit einer exponentiellen Funktion mit `nls()` in Orange sowie der algorithmisch erstellten Funktion aus dem R Paket `{mfp}` in Dunkelgrün. Die graue Funktion stellt die ursprüngliche Funktion aus einem Polynom über den gesamten Wertebereich dar."
+
+shoot_k_tbl |> 
+  ggplot(aes(k_in_shoot, freshmass)) +
+  theme_minimal() +
+  geom_point(size = 4, color = "red4") +
+  geom_function(fun = shoot_k_nls_poly_func, color = "gray", size = 1,
+                xlim = c(1, 6.8)) + 
+  geom_function(fun = shoot_k_mfp_func, color = "darkgreen", size = 1,
+                xlim = c(1, 6.8)) + 
+  geom_function(fun = shoot_k_nls_exp_func, color = "orange", size = 1,
+                xlim = c(1, 6.8)) + 
+  labs(x = "K in shoot [% DM]", y = TeX(r"(Shoot fresh mass \[g plant$^{-1}$\] - 34 DAP)")) +
+  scale_x_continuous(breaks = c(0, 2, 3, 4, 4.6, 5, 6, 7, 8), limits = c(1, 7)) +
+  scale_y_continuous(breaks = c(0, 20, 40, 60, 80, 100), limits = c(20, 100)) +
+  annotate("text", x = 4.7, y = 30, label = "4.6%",
+           hjust = "left", size = 5, color = "gray") +
+  annotate("segment", x = 4.6, y = shoot_k_nls_poly_func(4.6), xend = 4.6, yend = 20, linetype = 'dashed', 
+           size = 1, color = "gray") +
+  annotate("segment", x = 4.6, y = 21, xend = 4.6, yend = 20, 
+           arrow = arrow(length = unit(0.4, "cm"), type = "closed"), color = "gray") +
+  annotate("text", x = 1.25, y = 100, hjust = "left", color = "orange", size = 4, 
+           label = TeX(r"($y = -0.07 \cdot e^x + 89.45$)")) +
+  annotate("text", x = 1.25, y = 95, hjust = "left", color = "orange", size = 4, 
+           label = TeX(r"($R^2 = 0.90$)")) +
+  annotate("text", x = 1.25, y = 38, hjust = "left", color = "darkgreen", size = 4, 
+           label = TeX(r"($y = 37.6 - 578.2 \cdot \left(\frac{x}{10}\right)^{3} - 1370.9 \cdot \left(\frac{x}{10}\right)^{3} \cdot \log\left(\frac{x}{10}\right)$)")) +
+  annotate("text", x = 1.25, y = 33, hjust = "left", color = "darkgreen", size = 4, 
+           label = TeX(r"($R^2 = 0.92$)")) 
+```
+:::
