@@ -1,6 +1,6 @@
 ```{r echo = FALSE}
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, performance,
-               latex2exp, see)
+               latex2exp, see, patchwork, mfp)
 ```
 
 # Spielecke {#sec-spielecke}
@@ -19,11 +19,14 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, performance,
 
 ## Zerforschen {.unnumbered}
 
-::: {.callout-note collapse="false"} \## Zerforschen: Nicht-lineare Regression
+::: {.callout-note collapse="false"}
+## Zerforschen: Nicht-lineare Regression
 
-In diesem Zerforschenbeispiel wollen wir uns eine [nicht-lineare Regression](#sec-non-linear) anschauen. Auch hier stellt sich dann mal die Frage, ob die Modellierung in der vorliegenden Abbildung jetzt die beste Modellierung ist. Wir bleiben aber mal hier bei dem Nachbau, du kannst gerne nochmal andere Modellierungen ausprobieren. Wir wollen also die folgende Abbildung einmal nachbauen.
+In diesem Zerforschenbeispiel wollen wir uns eine [nicht-lineare Regression](#sec-non-linear) anschauen. Auch hier stellt sich dann mal die Frage, ob die Modellierung in der vorliegenden Abbildung jetzt die beste Modellierung ist. Wir bleiben aber mal hier bei dem Nachbau und ergänzen dann noch zwei weitere Modellierungen. Du kannst gerne nochmal andere Modellierungen ausprobieren. Wir wollen also die folgende Abbildung einmal nachbauen.
 
 ![Ursprüngliche Abbildung, die nachgebaut werden soll. Eine nicht-lineare Regressionen mit der jeweiligen Regressionsgleichung und dem Bestimmtheitsmaß $R^2$.](images/eda/zerforschen_regression_03.jpeg){#fig-simple-regression fig-align="center" width="70%"}
+
+Ich mache es mir hier wieder etwas einfacher und erstelle die Daten direkt in R. Dann sparen wir uns einmal das Einlesen von Daten und haben einen Schritt weniger.
 
 ```{r}
 shoot_k_tbl <- tibble(k_in_shoot = c(3.7, 4.1, 4.2, 4.3, 4.3, 4.4, 4.6, 4.65, 5.7, 5.7,
@@ -32,13 +35,19 @@ shoot_k_tbl <- tibble(k_in_shoot = c(3.7, 4.1, 4.2, 4.3, 4.3, 4.4, 4.6, 4.65, 5.
                                     59, 70, 63, 39, 30, 28))
 ```
 
+Im Folgenden schauen wir uns einmal drei Modellierungen der nicht-linearen Regression an. Einmal baue ich die originale Gleichung mit einem Polynom nach. Dann möchte ich wissen, ob nicht eine exponentielle Funktion ein besseres oder einfache Gleichung liefert. Am Ende nutzte ich nochmal das R Paket `mfp` mit der gleichnamigen Funktion um automatisiert das beste Polynom zu finden.
+
 ::: panel-tabset
-## nls poly
+## `nls()` mit Polynom
+
+Dann bauen wir uns einmal das Polynom mit der Funktion `nls()`. Wir müssen hier Startwerte für unsere Koeffizienten `b1`, `b2` und `c` angeben. Wir haben aber Glück, dass es gleich auf Anhieb mit unseren einfachen Zahlen funktioniert.
 
 ```{r}
 fit_poly <- nls(freshmass ~ b1 * k_in_shoot^2 + b2 * k_in_shoot + c, data = shoot_k_tbl, 
                 start = c(b1 = 1, b2 = 1, c = 1))
 ```
+
+Dann können wir uns auch schon die Koeffizienten der Gleichung wiedergeben lassen. Diese brauchen wir dann gleich, um einmal die Geradengleichung zusammenzusetzen.
 
 ```{r}
 fit_poly %>% 
@@ -46,18 +55,38 @@ fit_poly %>%
   select(Parameter, Coefficient)
 ```
 
+Dann bauen wir auch schon gleich mal unsere nicht-lineare Gleichung zusammen. Du setzt einfach die Werte der Koeffizienten in die Geradengleichung ein und schon bist du fertig.
+
+$$
+freshmass = -12.16 \cdot (k\_in\_shoot)^2 + 111.95 \cdot k\_in\_shoot - 172.01
+$$
+
+Diese Gleichung bauen wir dann auch einmal als Funktion in R nach, um dann gleich mal zu schauen, wie gut unsere Kurve dann durch die Punkte läuft.
+
+```{r}
+shoot_k_nls_poly_func <- \(x) {-12.16 * x^2 + 111.95 * x - 172.01}
+```
+
+Am Ende brauche ich noch das Betimmtheitsmaß $R^2$ aus der Funktion `r2()`. Ich nutze hier immer die Funktion aus dem R Paket `{performance}`.
+
 ```{r}
 #| warning: false
 #| message: false
 performance::r2(fit_poly)
 ```
 
-## nls exp
+Schön, damit haben wir fast den Wert wie auch in der ursprünglichen Abbildung. Schauen wir mal, ob wir den Wert noch besser hinkriegen.
+
+## `nls()` mit `exp()`
+
+Mir war dann die Idee mit dem Polynom etwas verspielt. Ich weiß, dass wir aus dem Polynom sehr gut dann den Extremwert bestimmen können, aber ich dachte vielleicht finden wir noch eine andere Funktion, die eventuell noch besser passt. Deshalb hier einmal eine einfache exponentielle Funktion.
 
 ```{r}
 fit_exp <- nls(freshmass ~ b1 * exp(k_in_shoot) + c, data = shoot_k_tbl, 
                start = c(b1 = 1, c = 1))
 ```
+
+Dann können wir uns auch schon die Koeffizienten der Gleichung wiedergeben lassen. Diese brauchen wir dann gleich, um einmal die Geradengleichung zusammenzusetzen.
 
 ```{r}
 fit_exp %>% 
@@ -65,26 +94,61 @@ fit_exp %>%
   select(Parameter, Coefficient)
 ```
 
+Dann bauen wir auch schon gleich mal unsere nicht-lineare Gleichung zusammen. Du setzt einfach die Werte der Koeffizienten in die Geradengleichung ein und schon bist du fertig. Das ist hier dann sogar noch einen Tick einfacher.
+
+$$
+freshmass = -0.07 \cdot e^{k\_in\_shoot} + 89.45
+$$
+
+Diese Gleichung bauen wir dann auch einmal als Funktion in R nach, um dann gleich mal zu schauen, wie gut unsere Kurve dann durch die Punkte läuft. Hier müssen wir dann eigentlich nur noch den Code von oben rüber kopieren.
+
+```{r}
+shoot_k_nls_exp_func <- \(x) {-0.07 * exp(x) + 89.45}
+```
+
+Am Ende brauche ich noch das Betimmtheitsmaß $R^2$ aus der Funktion `r2()`. Ich nutze hier immer die Funktion aus dem R Paket `{performance}`.
+
 ```{r}
 #| warning: false
 #| message: false
 performance::r2(fit_exp)
 ```
 
-## mfp
+Gut, der ursprüngliche Wert war schon so gut, dass wir hier auch nur noch schwer eine Steigerung hinkriegen.
+
+## `mfp()`
+
+Das R Paket `{mfp}` macht uns das Leben leichter, da wir keine Startwerte oder eine Formal angeben müssen, wie wir dann mit Koeffizienten bestücken. Wir erhalten also beides. Zum einen die Formel die auf unsere Daten passt und zum anderen dann auch die Werte für die Formel. Das klingt gut, kommt aber wie immer auf das Ergebnis an. Wir müssen nur sagen, welcher Teil der `formula` dann ein Polynom `fp()` sein soll. In unserem Fall ist es natürlich die Variable `k_in_shoot`.
 
 ```{r}
-library(mfp)
 fit_mfp <- mfp(freshmass ~ fp(k_in_shoot), data = shoot_k_tbl)
 ```
+
+Dann schauen wir uns mal die geradengleichung an und sind leicht verstört, wie komplex die Gleichung ist.
 
 ```{r}
 fit_mfp$formula
 ```
 
+Dann brauchen wir trotzdem die Koeffizienten, damit wir die Gleichung einmal erstellen können.
+
 ```{r}
 fit_mfp$coefficients 
 ```
+
+Und da ist das Monster einer Gleichung. Ob das jetzt wirklich *besser* ist, werden wir dann gleich sehen. Aber komplexer ist die Gleichung auf alle Fälle.
+
+$$
+freshmass \sim 37.55 - 578.20 \cdot \left(\cfrac{k\_in\_shoot}{10}\right)^{3} - 1370.91 \cdot \left(\cfrac{k\_in\_shoot}{10}\right)^{3} \cdot \log\left(\cfrac{k\_in\_shoot}{10}\right)
+$$
+
+Ich breche mir dann noch einen ab, diese Gleichung dann einmal in R zu überstetzen. Sieht dann gar nicht mehr so schlimm aus, ist aber dennoch ein Brocken.
+
+```{r}
+shoot_k_mfp_func <- \(x) {37.55 - 578.20 * (x/10)^3 - 1370.91 * (x/10)^3 * log(x/10)}
+```
+
+Am Ende brauche ich noch das Betimmtheitsmaß $R^2$ aus der Funktion `r2()`. Ich nutze hier immer die Funktion aus dem R Paket `{performance}`.
 
 ```{r}
 #| warning: false
@@ -92,22 +156,8 @@ fit_mfp$coefficients
 performance::r2(fit_mfp)
 ```
 
-$$
-freshmass \sim 37.55 - 578.20 \cdot \left(\cfrac{k\_in\_shoot}{10}\right)^{3} - 1370.91 \cdot \left(\cfrac{k\_in\_shoot}{10}\right)^{3} \cdot \log\left(\cfrac{k\_in\_shoot}{10}\right)
-$$
+Auch hier gilt, dass der ursprüngliche Wert schon so gut war, dass wir hier auch nur noch schwer eine Steigerung hinkriegen. Dafür haben wir dann eine super komplexe Gleichung erhalten. Da macht der Aufwand manchmal keien Sinn mehr.
 :::
-
-```{r}
-shoot_k_nls_poly_func <- \(x) {-12.16 * x^2 + 111.95 * x - 172.01}
-```
-
-```{r}
-shoot_k_nls_exp_func <- \(x) {-0.07 * exp(x) + 89.45}
-```
-
-```{r}
-shoot_k_mfp_func <- \(x) {37.55 - 578.20 * (x/10)^3 - 1370.91 * (x/10)^3 * log(x/10)}
-```
 
 Jetzt stellt sich natürlich die Frage des Maximums unserer Gradengleichung. Das ist jetzt der Vorteil unserer recht einfachen Gleichung. Wir können diese Ableiten und dann Null setzen. So können wir schnell das Maximum berechnen. Das wäre natürlich bei komplizierteren Gleichungen dann schwerer.
 
@@ -185,6 +235,12 @@ shoot_k_tbl |>
   labs(x = "K in shoot [% DM]", y = TeX(r"(Shoot fresh mass \[g plant$^{-1}$\] - 34 DAP)")) +
   scale_x_continuous(breaks = c(0, 2, 3, 4, 4.6, 5, 6, 7, 8), limits = c(1, 7)) +
   scale_y_continuous(breaks = c(0, 20, 40, 60, 80, 100), limits = c(20, 100)) +
+  annotate("text", x = 4.7, y = 30, label = "4.6%",
+           hjust = "left", size = 5, color = "gray") +
+  annotate("segment", x = 4.6, y = shoot_k_nls_poly_func(4.6), xend = 4.6, yend = 20, linetype = 'dashed', 
+           size = 1, color = "gray") +
+  annotate("segment", x = 4.6, y = 21, xend = 4.6, yend = 20, 
+           arrow = arrow(length = unit(0.4, "cm"), type = "closed"), color = "gray") +
   annotate("text", x = 1.25, y = 100, hjust = "left", color = "orange", size = 4, 
            label = TeX(r"($y = -0.07 \cdot e^x + 89.45$)")) +
   annotate("text", x = 1.25, y = 95, hjust = "left", color = "orange", size = 4, 
@@ -192,34 +248,77 @@ shoot_k_tbl |>
   annotate("text", x = 1.25, y = 38, hjust = "left", color = "darkgreen", size = 4, 
            label = TeX(r"($y = 37.6 - 578.2 \cdot \left(\frac{x}{10}\right)^{3} - 1370.9 \cdot \left(\frac{x}{10}\right)^{3} \cdot \log\left(\frac{x}{10}\right)$)")) +
   annotate("text", x = 1.25, y = 33, hjust = "left", color = "darkgreen", size = 4, 
-           label = TeX(r"($R^2 = 0.92$)")) +
-  annotate("text", x = 4.7, y = 30, label = "4.6%",
-           hjust = "left", size = 5, color = "gray") +
-  annotate("segment", x = 4.6, y = shoot_k_nls_poly_func(4.6), xend = 4.6, yend = 20, linetype = 'dashed', 
-           size = 1, color = "gray") +
-  annotate("segment", x = 4.6, y = 21, xend = 4.6, yend = 20, 
-           arrow = arrow(length = unit(0.4, "cm"), type = "closed"), color = "gray")
+           label = TeX(r"($R^2 = 0.92$)")) 
 ```
+:::
 :::
 
 ![Ursprüngliche Abbildung, die nachgebaut werden soll. Eine nicht-lineare Regressionen mit der jeweiligen Regressionsgleichung und dem Bestimmtheitsmaß $R^2$.](images/eda/zerforschen_pseudo_time.jpeg){#fig-simple-regression fig-align="center" width="100%"}
 
 ```{r}
-time_shoot_tbl <- read_excel("data/zerforschen_pseudo_time.xlsx")
+time_shoot_tbl <- read_excel("data/zerforschen_pseudo_time.xlsx") |> 
+  mutate(date = as.factor(date),
+         trt = as_factor(trt))
 ```
 
 ```{r}
-time_shoot_tbl |> 
-  ggplot(aes(as.factor(date), freshmatter, color = trt, group = trt)) +
+p1 <- time_shoot_tbl |> 
+  ggplot(aes(date, freshmatter, color = trt, group = trt)) +
   theme_minimal() +
   geom_jitter(position=position_dodge(0.3), shape = 4, size = 2) +
   stat_summary(fun.data="mean_sdl", fun.args = list(mult = 1), 
                geom="pointrange", position=position_dodge(0.3))  +
   stat_summary(fun = "mean", fun.min = "min", fun.max = "max", geom = "line",
                position=position_dodge(0.3)) +
+  labs(x = "Tag der Messung", y = TeX(r"(Shoot fresh mass \[g plant$^{-1}$\])"),
+       color = "") +
   theme(legend.position = "top") +
   scale_x_discrete(labels = c("30. April", "17. Mai", "25. Mai", "03. Juni")) + 
   scale_color_okabeito()
+```
+
+```{r}
+#| warning: false
+#| message: false
+stat_t4_tbl <- time_shoot_tbl |> 
+  filter(date == "2023-06-03") |> 
+  group_by(date, trt) |> 
+  summarise(mean = mean(freshmatter),
+            sd = sd(freshmatter),
+            cld_pos = mean + sd + 4)
+  
+```
+
+```{r}
+p2 <- ggplot(stat_t4_tbl, aes(x = date, y = mean, 
+                       fill = trt)) + 
+  theme_minimal() +
+  geom_bar(stat = "identity", position = position_dodge2(preserve = "single")) +
+  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd),
+                width = 0.5, position = position_dodge(0.9)) +
+  labs(x = "", y = "") +
+  annotate("text", 
+           x = c(0.75, 0.975, 1.2, 1.425), 
+           y = stat_t4_tbl$cld_pos, 
+           label = c("a", "ab", "b", "c")) +
+  theme(legend.position = "none") +
+  scale_fill_okabeito() +
+  scale_x_discrete(labels = c("03. Juni")) 
+```
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-zerforschen-timeseries-shoot
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 7
+#| fig-cap: "Visualisierung ."
+
+p1 + p2 + 
+  plot_layout(widths = c(7, 1))
+
 ```
 
 ## Zitate {.unnumbered}
