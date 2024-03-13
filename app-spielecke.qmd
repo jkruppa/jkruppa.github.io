@@ -33,10 +33,15 @@ shoot_k_tbl <- tibble(k_in_shoot = c(3.7, 4.1, 4.2, 4.3, 4.3, 4.4, 4.6, 4.65, 5.
                                     59, 70, 63, 39, 30, 28))
 ```
 
+::: panel-tabset
+## nls
+
 ```{r}
 fit <- nls(freshmass ~ b1 * k_in_shoot^2 + b2 * k_in_shoot + c, data = shoot_k_tbl, 
-           start = c(b1 = 1, b2 = 1, c = 1)) 
+           start = c(b1 = 1, b2 = 1, c = 1))
+```
 
+```{r}
 fit %>% 
   parameters::model_parameters() %>% 
   select(Parameter, Coefficient)
@@ -48,8 +53,32 @@ fit %>%
 performance::r2(fit)
 ```
 
+## mfp
+
 ```{r}
-shoot_k_func <- \(x) {-12.16 * x^2 + 111.95 * x - 172.01}
+library(mfp)
+mfp_fit <- mfp(freshmass ~ fp(k_in_shoot), data = shoot_k_tbl)
+```
+
+```{r}
+mfp_fit$formula
+```
+
+```{r}
+mfp_fit$coefficients 
+```
+
+$$
+freshmass \sim 37.55 - 578.20 \cdot \left(\cfrac{k\_in\_shoot}{10}\right)^{3} - 1370.91 \cdot \left(\cfrac{k\_in\_shoot}{10}\right)^{3} \cdot \log\left(\cfrac{k\_in\_shoot}{10}\right)
+$$
+:::
+
+```{r}
+shoot_k_nls_func <- \(x) {-12.16 * x^2 + 111.95 * x - 172.01}
+```
+
+```{r}
+shoot_k_mfp_func <- \(x) {-12.16 * x^2 + 111.95 * x - 172.01}
 ```
 
 Jetzt stellt sich natürlich die Frage des Maximums unserer Gradengleichung. Das ist jetzt der Vorteil unserer recht einfachen Gleichung. Wir können diese Ableiten und dann Null setzen. So können wir schnell das Maximum berechnen. Das wäre natürlich bei komplizierteren Gleichungen dann schwerer.
@@ -83,7 +112,7 @@ shoot_k_tbl |>
   ggplot(aes(k_in_shoot, freshmass)) +
   theme_minimal() +
   geom_point(size = 4, color = "red4") +
-  geom_function(fun = shoot_k_func, color = "black", size = 1,
+  geom_function(fun = shoot_k_nls_func, color = "black", size = 1,
                 xlim = c(3.8, 6.8)) + 
   labs(x = "K in shoot [% DM]", y = TeX(r"(Shoot fresh mass \[g plant$^{-1}$\] - 34 DAP)")) +
   scale_x_continuous(breaks = c(0, 2, 3, 4, 4.6, 5, 6, 7, 8), limits = c(3, 7)) +
@@ -96,7 +125,7 @@ shoot_k_tbl |>
            label = TeX(r"($R^2 = 0.89$)")) +
   annotate("text", x = 4.7, y = 30, label = "4.6%",
            hjust = "left", size = 5) +
-  annotate("segment", x = 4.6, y = shoot_k_func(4.6), xend = 4.6, yend = 20, linetype = 'dashed', 
+  annotate("segment", x = 4.6, y = shoot_k_nls_func(4.6), xend = 4.6, yend = 20, linetype = 'dashed', 
            size = 1) +
   annotate("segment", x = 4.6, y = 21, xend = 4.6, yend = 20, 
            arrow = arrow(length = unit(0.4, "cm"), type = "closed"))
