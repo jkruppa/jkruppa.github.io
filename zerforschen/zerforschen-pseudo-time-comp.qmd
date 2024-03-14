@@ -1,0 +1,104 @@
+In dem folgenden Zerforschenbeispiel wollen wir einmal einen zeitlichen verlauf nachbauen und dann die Auswertung etwas verbessern. Mit Verbessern meien ich, dass wir die @fig-simple-pseudo-time zwar nachbauen, aber auch die korrekten $x$-Achsen setzen. Die Ergänzung von Bildern ist immer besser in PowerPoint oder anderen Programmen zu machen. Ja, es geht auch in `{ggplot}`, aber ich würde es eher lassen und wenn es sein muss, dann mache das einfach extern. Daher lasse ich es hier in meinem Beispiel.
+
+![Ursprüngliche Abbildung, die nachgebaut werden soll. Wir haben einen zeitlichen Verlauf des Wachstums von Petunien vorliegen. Am Ende interessiert uns dann nur der Vergleich am letzten Tag der Messung. Wirrerweiseist die $x$-Achse nicht mit den Messtagen beschriftet sondern anderen Tagen. Das macht wenig Sinn. Auch fehlt die Standardabweichung. Hier sind nur Mittelwerte dargestellt.](images/eda/zerforschen_pseudo_time.jpeg){#fig-simple-pseudo-time fig-align="center" width="100%"}
+
+Du findest dann den Datensatz wie immer auf GitHub und hier lade ich einmal die Daten ein. Ich habe mir die Werte aus der Abbildung rausgesucht und dann nochmal jeweils zwei Beobachtungen ergänzt. Da wir bei dem letzten Termin einen Gruppenvergleich rechnen wollen, brauchen wir auch mehr als eine Beobachtung. Das ist auch so eine Sache, die hier fehlt. Es werden nämlich nur die Mittelwerte angegeben ohne die Standardabweichung. Ich wandle alle Zeitangaben in einen Faktor um, so dass die Abstände jetzt alle gleich lang sind. Das könnte man auch anders machen indem wir uns noch eine zusätzliche Spalte mit einer numerischen Zeitangabe bauen. Aber hier soll es so reichen.
+
+```{r}
+time_shoot_tbl <- read_excel("data/zerforschen_pseudo_time.xlsx") |> 
+  mutate(date = as.factor(date),
+         trt = as_factor(trt))
+```
+
+Ich baue mir jetzt erstmal den zeitlichen Verlauf und ergeänze dann über das R Paket `{patchwork}` an der rechten Seite nochmal den Barplot für das letzte Datum. Den test rechne ich dann in `{emmeans}`, da das Paket einfach den anderen Tests überlegen ist. Der Games-Howell-Test nimmt Varianzheterogenität in den Daten an und das kann ich dann auch einfach in `emmeans()` durch die Option `vcov. = sandwich::vcovHAC` berücksichtigen. Das ist die bessere Option, da wir hier sehr viel flexibler sind als mit anderen statistischen Tests. Mehr dazu dann aber wie immer im [Kapitel zu den multiplen Vergleichen](#sec-posthoc).
+
+::: panel-tabset
+## Zeitlicher Verlauf
+
+Wir bauen uns jetzt einmal den zeitlichen Verlauf nach. Ich speichere dann auch den Plot einmal in dem Objekt `p1` um ihn dann gleich wiederzuverwenden. Wichtig ist hierbei, dass wir zum einen eine Gerade durch die Mittelwerte zeichen und dann noch die Fehlerbalken ergänzen. Damit das alles nicht übereinander liegt, habe ich noch die Positionen angepasst. Die ursprünglichen Beobachtungen sind dann Kreuze. Ganz am Ende musste ich noch die $y$-Achse etwas expandieren, damit es gleich besser zusammen mit dem Barplot ausszieht. Aber wie immer, am meisten lernst du, wenn du einzelen Layer einfach mit `#` auskommentierst und schaust, was die so machen.
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-zerforschen-timeseries-shoot-l
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Visualisierung des Wachstums von Petunien mit Gerade durch die Mittelwerte und die entsprechenden Standardabweichungen in den Gruppen. Die Punkte wurden etwas gestreut, damit wir nicht alles übereinander liegen haben. Darüber hinaus werden auch die richtigen Zeitpunkte auf der $x$-Achse angezeigt. Die Abstände sind jetzt alle gleich lang."
+p1 <- time_shoot_tbl |> 
+  ggplot(aes(date, freshmatter, color = trt, group = trt)) +
+  theme_minimal() +
+  geom_jitter(position=position_dodge(0.3), shape = 4, size = 2) +
+  stat_summary(fun.data="mean_sdl", fun.args = list(mult = 1), 
+               geom="pointrange", position=position_dodge(0.3))  +
+  stat_summary(fun = "mean", fun.min = "min", fun.max = "max", geom = "line",
+               position=position_dodge(0.3)) +
+  labs(x = "Date", y = TeX(r"(Shoot fresh mass \[g plant$^{-1}$\])"),
+       color = "") +
+  theme(legend.position = "top") +
+  scale_x_discrete(labels = c("30. April", "17. Mai", "25. Mai", "03. Juni")) + 
+  scale_y_continuous(expand = expand_scale(mult = c(0.09, 0.09))) +
+  scale_color_okabeito()
+p1
+```
+
+## Barplot für 03. Juni
+
+Dann möchte ich noch für den 3. Juni einmal gesondert die Barplots in einer Abbildung zeigen. Ich bin etwas faul und rechne einfach über alle Behandlungen getrennt nach dem Zeitpunkt einen multiplen Mittelwertesvergleich. Dann lasse ich mir das *compact letter display* wiedergeben. Ich entferne noch unnötige Leerzeichen und rechne den Standardfehler in die Standardabweichung zurück.
+
+```{r}
+#| warning: false
+#| message: false
+emmeans_tbl <- lm(freshmatter ~ trt + date + trt:date, data = time_shoot_tbl) %>%
+  emmeans(~ trt | date, vcov. = sandwich::vcovHAC) %>%
+  cld(Letters = letters, adjust = "none") %>% 
+  as_tibble() %>% 
+  mutate(.group = str_trim(.group),
+         sd = SE * sqrt(4)) 
+```
+
+In der @fig-zerforschen-timeseries-shoot-r wähle ich dann nur den 3. Juni aus und baue mir wie gewohnt einen Barplot aus dem Mittelwert und der berechneten Stanardabweichung. Ich räume dann noch den Plot etwas auf, da wir die Hauptinformationen in dem zeitlichen Verlauf drin haben.
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-zerforschen-timeseries-shoot-r
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Visualisierung des Mittelwertsunterschied für den 03. Juni mit Standardabweichung und *compact letter display*."
+p2 <- emmeans_tbl |> 
+  filter(date == "2023-06-03") |> 
+  ggplot(aes(x = trt, y = emmean, fill = trt)) + 
+  theme_minimal() +
+  geom_bar(stat = "identity", position = position_dodge2(preserve = "single")) +
+  geom_errorbar(aes(ymin = emmean-sd, ymax = emmean+sd),
+                width = 0.5, position = position_dodge(0.9)) +
+  labs(x = "3. Juni", y = "") +
+  geom_text(aes(label = .group, y = emmean + sd + 3)) +
+  theme(legend.position = "none") +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  scale_fill_okabeito() 
+p2
+```
+:::
+
+Am Ende nutze ich das R Paket `{patchwork}` um die beiden Abbidlungen in den Objekten `p1` und `p2` zusammenzubringen. Wie immer geht hier noch mehr, aber ich finde das wir hier eine schöne Übersicht über das Wachstum der Petunien über die Zeit haben. Ich habe jetzt auch die Buchstaben aus dem zeitlichen Verlauf rausgenommen, da man sonst denken könnte wir hätten den ganzen verlauf getestet und nicht nur den letzten Tag. Das macht einen gewaltigen Unterschied in der Interpretation.
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-zerforschen-timeseries-shoot-b
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 7
+#| fig-cap: "Darstellung des Wachstums von Petunien mit Gerade durch die Mittelwerte und die entsprechenden Standardabweichungen in den Gruppen. Ergänzt wurde auf der rechten Seite der Mittelwertsunterschied für den 03. Juni mit Standardabweichung und *compact letter display*."
+
+p1 + p2 + 
+  plot_layout(widths = c(7, 1))
+
+```
