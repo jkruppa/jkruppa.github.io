@@ -35,11 +35,78 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, performance,
 
 [*Thus, for example, fats and ethanol have the greatest amount of food energy per unit mass, 37 and 29 kJ/g (9 and 7 kcal/g), respectively*](https://en.wikipedia.org/wiki/Food_energy)
 
-![Ursprüngliche Abbildung, die nachgebaut werden soll. Zwei lineare Regressionen mit den jeweiligen Regressionsgleichungen.](images/eda/zerforschen_green_tea_effect_01.png){#fig-zer-green-tea-01 fig-align="center" width="100%"}
+![Ursprüngliche Abbildung, die nachgebaut werden soll. Zwei lineare Regressionen mit den jeweiligen Regressionsgleichungen.](images/eda/zerforschen_green_tea_effect_01.png){#fig-zer-green-tea-01 fig-align="center" width="70%"}
 
 ![Ursprüngliche Abbildung, die nachgebaut werden soll. Zwei lineare Regressionen mit den jeweiligen Regressionsgleichungen.](images/eda/zerforschen_green_tea_effect_02.png){#fig-zer-green-tea-02 fig-align="center" width="100%"}
 
-![Ursprüngliche Abbildung, die nachgebaut werden soll. Zwei lineare Regressionen mit den jeweiligen Regressionsgleichungen.](images/eda/zerforschen_green_tea_effect_03.png){#fig-zer-green-tea-03 fig-align="center" width="100%"}
+```{r}
+green_tea_tbl <- read_excel("data/zerforschen_green_tea_effect.xlsx") |> 
+  mutate(trt = as_factor(trt),
+         time_fct = as_factor(time),
+         fat_ox_r_g_min = round(fat_ox_r_kj_min/37, 2))
+```
+
+```{r}
+lm(fat_ox_r_kj_min ~ trt + time_fct + trt:time_fct, data = green_tea_tbl) |> 
+  emmeans(~ trt | time_fct) |> 
+  pairs()
+```
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-zerforschen-green-tea-01
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Visualisierung der Sensorwerte nach Wasserlinsendichte. Pro Dichtewert liegen drei Sensormessungen vor."
+
+green_tea_tbl |> 
+  ggplot(aes(time, fat_ox_r_kj_min, color = trt)) +
+  theme_minimal() +
+  geom_jitter(position=position_dodge(0.3), shape = 4, size = 2) +
+  stat_summary(fun.data="mean_sdl", fun.args = list(mult = 1), 
+               geom="pointrange", position=position_dodge(0.3))  +
+  stat_summary(fun = "mean", fun.min = "min", fun.max = "max", geom = "line",
+               position=position_dodge(0.3)) +
+  labs(x = "Time (min)", y = "Fat oxidation rates (kJ/min)", color = "") +
+  scale_y_continuous(sec.axis = sec_axis(~ ./37, breaks = c(4:7/37),
+                                         labels = round(c(4:7/37), 2),
+                                         name = "Fat oxidation rates (g/min)")) +
+  theme(legend.position = "top") +
+  scale_color_okabeito()
+
+```
+
+```{r}
+stat_tbl <- tibble(trt = as_factor(c("Placebo", "GTE")),
+                   mean = c(0.35, 0.41),
+                   sd = c(0.03, 0.03))
+```
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| label: fig-zerforschen-green-tea-02
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Visualisierung der Sensorwerte nach Wasserlinsendichte. Pro Dichtewert liegen drei Sensormessungen vor."
+
+stat_tbl |> 
+  ggplot(aes(x = trt, y = mean, fill = trt)) + 
+  theme_minimal() +
+  geom_bar(stat = "identity") +
+  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd),
+                width = 0.5) +
+  theme(legend.position = "none") +
+  labs(x = "", y = "Fat oxidation rates (g/min)", color = "") +
+  scale_fill_okabeito()
+```
+
+![Ursprüngliche Abbildung, die nachgebaut werden soll. Zwei lineare Regressionen mit den jeweiligen Regressionsgleichungen.](images/eda/zerforschen_green_tea_effect_03.png){#fig-zer-green-tea-03 fig-align="center" width="70%"}
 
 ## Quecksilber {.unnumbered}
 
@@ -86,7 +153,7 @@ nasa_pred_tbl <- nasa_tbl |>
 
 ```{r}
 #| echo: true
-#| eval: false
+#| cache: true
 #| warning: false
 #| message: false
 #| label: fig-zerforschen-nasa-ozone
