@@ -41,6 +41,8 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, performance,
 
 ![Ursprüngliche Abbildung, die nachgebaut werden soll. Zwei lineare Regressionen mit den jeweiligen Regressionsgleichungen.](images/eda/zerforschen_green_tea_effect_02.png){#fig-zer-green-tea-02 fig-align="center" width="100%"}
 
+Ich habe den Datensatz etwas anders gebaut, damit ich die Standardabweichung nutzen kann und nicht den Standardfehler. Da ich sowieso nur drei Beobachtungen genommen habe, kommt es dann auf diesen Unterschied auch nicht mehr direkt an. Der Standardfehler wurde aber in der Arbeit von @venables2008green benutzt und ist auch ein besseres Maß, wenn es um die [Abschätzung der statistischen Signifikanz geht](#sec-desc-stat).
+
 ```{r}
 green_tea_tbl <- read_excel("data/zerforschen_green_tea_effect.xlsx") |> 
   mutate(trt = as_factor(trt),
@@ -56,10 +58,6 @@ green_fit <- lm(fat_ox_r_kj_min ~ trt + time_fct + trt:time_fct, data = green_te
 green_fit |> 
   emmeans(~ trt | time_fct) |> 
   pairs()
-```
-
-```{r}
-green_fit <- lm(fat_ox_r_kj_min ~ trt + time + trt:time, data = green_tea_tbl)
 ```
 
 ::: panel-tabset
@@ -270,15 +268,11 @@ animate(p, fps = 5)
 
 ## Pakete, die ich mal anschauen will... {.unnumbered}
 
-[R Paket `{correlation}`](https://easystats.github.io/correlation/index.html)
-
 [R Paket `{ggdist}`](https://mjskay.github.io/ggdist/index.html)
 
 [R Paket `{modelbased}`](https://easystats.github.io/modelbased/)
 
 Das R Paket `{visibly}` auf [An Introduction to Visibly](https://m-clark.github.io/visibly/articles/intro.html)
-
-[R Paket `{gganimate}`](https://gganimate.com/)
 
 [R Paket `{innsight}`](https://github.com/bips-hb/innsight)
 
@@ -324,118 +318,6 @@ Folgende Dinge helfen während der Lernphase das Lernen zu verstärken und zu fe
 -   Wenn du das wiederholt tust, können diese kleinen Schritte des Lernens zu einer übergroßen Menge des Lernens insgesamt führen.
 
 [How to Learn Anything You Want \| Andrew Huberman](https://youtu.be/8oyA-ctqq3g)
-
-## Zeitlicher Verlauf Ideen {.unnumbered}
-
-```{r}
-library(mgcv)
-
-data_tbl <- tibble(x = 1:10,
-                   y = c(2, 4, 5, 5.5, 6, 7, 6.5, 6.0, 5, 4))
-
-data_tbl
-
-
-
-fit_gam <- gam(y ~ s(x), data_tbl, family = gaussian)
-fit_loess <- loess(y ~ x, data_tbl)
-
-ggplot(data_tbl, aes(x, y)) +
-  geom_point() +
-  geom_line(aes(y = predict(fit_gam)), color = "red") +
-  geom_line(aes(y = predict(fit_loess)), color = "blue", linetype = 2)
-
-f_gam <- function(x) predict(fit_gam, tibble(x))
-integrate(f_gam, 1, 10)  
-
-f_loess <- function(x) predict(fit_loess, tibble(x))
-integrate(f_loess, 1, 10) 
-
-```
-
-```{r}
-#| eval: false
-library(writexl)
-tiger_tbl |> 
-  mutate(f7gruppengroesse = round(rexp(nrow(tiger_tbl), 0.2)) + 2,
-         f5dauer_verletzung = round(rexp(nrow(tiger_tbl), 0.01) + 20 - 2.75 * f7gruppengroesse),
-         f6einkommen_jahr = round(rexp(nrow(tiger_tbl), 0.001)) + 100,
-         f8eis_verkauf= round(rexp(nrow(tiger_tbl), 0.1) + 10 + 0.25 * f7gruppengroesse)) |> 
-  #select(matches("f5")) |> 
-  write_xlsx("test.xlsx")
-```
-
-```{r}
-#| warning: false
-#| message: false
-
-
-dd <- read.table(text="trt    rep    hour    mass
-y      a      1       3
-y      a      2       5
-y      a      3       8
-y      a      4       6
-y      b      1       2
-y      b      2       3
-y      b      3       5
-y      b      4       4
-n      c      1       4
-n      c      2       6
-n      c      3       8
-n      c      4       7
-n      d      1       5
-n      d      2       7
-n      d      3       8
-n      d      4       7 ", header=T) %>% 
-  as_tibble()
-
-
-fit_loess <- loess(mass ~ hour, data = dd)
-f_loess <- function(x) predict(fit_loess, x)
-integrate(f_loess, 1, 4)$value
-
-dd %>% 
-  ggplot(aes(hour, mass, color = rep)) +
-  geom_point() +
-  geom_line(aes(y = predict(fit_loess)), color = "blue", linetype = 2) +
-  stat_smooth()
-```
-
-```{r}
-#| warning: false
-#| message: false
-library(plyr)
-
-dd %>% 
-  split(.$rep) %>% 
-  map(~loess(mass ~ hour, data = .x)) %>% 
-  map(~function(x) predict(.x, x)) %>% 
-  map(~integrate(.x, 1, 4)$value) %>%
-  ldply(.id = "rep")
-  
-```
-
-```{r}
-#| eval: false
-f_gam <- function(x) predict(fit_gam, tibble(x))
-
-dd %>% 
-  split(.$rep) %>% 
-  map(~gam(mass ~ hour, data = .x, family = gaussian)) %>% 
-  map(~function(x) predict(.x, tibble(x))) %>% 
-  map(~integrate(.x, 1, 4))
-
-
-get_area <- function(df) {
-    fit <- loess(mass ~ hour, df)
-    f <- function(x) predict(fit,newdata=x)
-    integrate(f, 0, 60)$value  
-}
-
-dd %>% group_by(rep) %>% do(area=get_area(.))
-
-
-```
 
 ## Weitere Datenquellen {.unnumbered}
 
