@@ -1,0 +1,86 @@
+Dieses Anwendungsbeispiel zum Zerforschen ist mir mehr oder minder zufällig über den Weg gelaufen. Und wie immer es so ist, manchmal habe ich dann Lust noch was Neues auszuprobieren. In diesem Fall war es dann das [R Paket `{animate}`](https://gganimate.com/) was mich sehr gereizt hat mal auszuprobieren. Und für zeitliche Verläufe bietet sich das R Paket sehr gut an. Worum geht es also heute? Wir wollen uns die Geschichte anschauen, warum die NASA das Ozonloch nicht entdeckte, obwohl die Daten alle da waren. Hierzu wie immer auch noch mehr Informationen auf der Seite [How NASA didn’t discover the hole in the ozone layer](https://robjhyndman.com/hyndsight/ozone-hole-anomaly.html) und natürlich auf der Homepage der NASA selbst mit [History of the Ozone Hole](https://ozonewatch.gsfc.nasa.gov/facts/history_SH.html). Von dort habe ich auch die ursprüngliche @fig-nasa-ozone, die wir hier einmal zerforschen wollen.
+
+![Zeitlicher Verlauf der Messerte vom Ozone von 1957 bis 2022. Die verschieden farbigen Punkte stellen die unterschiedlichen Messverfahren dar.](images/eda/zerforschen-nasa-ozone.png){#fig-nasa-ozone fig-align="center" width="100%"}
+
+Was mich dann dazu gebracht hat, mir die Sachlage einmal mehr anzuschauen, war folgendes Zitat von Rob J Hyndman. Denn eigentlich meint man ja nicht sofort etwas in den Daten zu sehen.
+
+> Always plot the data. In this case, a graph such as [Figure @fig-nasa-ozone] would have revealed the problem in the late 1970s, but it seems no-one was producing plots like this. --- [How NASA didn’t discover the hole in the ozone layer](https://robjhyndman.com/hyndsight/ozone-hole-anomaly.html)
+
+In den frühen 80zigern war es anscheinend noch nicht so gängig sich Daten auch wirklich mal anzuschauen. Das wollen wir hier einmal umgehen und laden uns einmal die Daten. Vorab brauche ich noch einige zusätzliche R Pakete um die Darstelung besser hinzukriegen.
+
+```{r}
+pacman::p_load(ggh4x, gganimate)
+```
+
+Die Daten habe ich aus der ursprünglichen @fig-nasa-ozone abgelesen. Ich hatte erst überlegt mir die Daten runterzuladen, aber es war mir dann zu mühselig alles nochmal reinzulesen und nachzubauen. So reicht es auch vollkommen. Es dauerte etwas aber am Ende hatte ich fast die gleichen Daten wie oben in der Abbildung.
+
+```{r}
+nasa_tbl <- read_excel("data/zerforschen_nasa_ozone.xlsx") |> 
+  mutate(method = as_factor(method))
+```
+
+Ich wolle mir dann einmal die Regression für die Daten vor 1980 einmal anschauen und dann als Regressionspfeil mit in die Abbildung plotten. Dafür filtere ich einmal die Daten und rechne mir eine lineare Regression aus.
+
+```{r}
+nasa_tbl |> 
+  filter(year <= 1980) |> 
+  lm(total_ozone ~ year, data = _) |> 
+  coef()
+```
+
+Mit den Informationen zu der Steigung und dem Intercept kann ich mir auch gleich einmal die Regressionsgleichung bauen. Wie wir sehen, geht der Anteil an Ozon mit ca. 3 DU-Einheiten pro Jahr schon vor 1980 zurück. Das ist nicht wenig.
+
+$$
+total\_ozone = 6111 - 2.96 \cdot year
+$$
+
+Dann ergänze ich noch den ursprünglichen Datensatz um eine Spalte mit der Vorhersage. Ich muss das machen, da ich in `{gganimate}` immer nur auf einen Datensatz zugreifen kann. Den Datensatz kann ich zwar filtern, aber es ist super schwer, wenn du mit mehreren Datensätzen arbeiten willst. Daher mache ich es mir hier einfacher.
+
+```{r}
+nasa_pred_tbl <- nasa_tbl |> 
+  mutate(pred_ozone = 6111 - 2.96 * year) 
+```
+
+Wenn du mehr wissen willst, dann kan ich dir das [Animate ggplots with gganimate::CHEAT SHEET](https://rstudio.github.io/cheatsheets/gganimate.pdf) empfehlen. Wir animieren jetzt den Plot über die $x$-Achse und damit über `year`. Das ist eigentlich nur die letzte Zeile mit `transition_reveal(year)`, die uns dann den Plot animierfähig macht. Ich speichere die Abbildung dann in dem Objekt `p` damit ich gleich die Geschwindigkeit modifizieren kann. Das [R Paket `{ggh4x}`](https://teunbrand.github.io/ggh4x/index.html) erlaubt mir dann noch die Ergänzung von zusätzlichen Strichen auf den Achsen. Der Rest ist eigentlich fast selbsterklärend. Der Pfeil war dann vermutlich die komplizierteste Ergänzung.
+
+```{r}
+#| warning: false
+#| message: false
+p <- nasa_pred_tbl |> 
+  ggplot(aes(year, total_ozone, color = method, shape = method)) +
+  theme_minimal() +
+  geom_point(aes(group = seq_along(year)), size = 2) +
+  geom_line(data = filter(nasa_pred_tbl, year < 1979), aes(year, pred_ozone),
+            color = "gray", arrow = arrow(length=unit(0.30,"cm"), type = "closed"),
+            linewidth = 1.25) +
+  ylim(100, NA) +
+  theme(legend.position = "top") +
+  scale_x_continuous(minor_breaks = seq(1957, 2022, by = 1),
+                     breaks = seq(1960, 2020, by = 10), limits = c(1957, 2022),
+                     guide = "axis_minor",
+                     sec.axis = sec_axis(trans=~.*1, name="", 
+                                         breaks = seq(1960, 2020, by = 10))) + 
+  scale_y_continuous(breaks = c(100, 150, 180, 200, 250, 300, 330),
+                     sec.axis = sec_axis(trans=~.*1, name="",
+                                         breaks = c(100, 150, 180, 200, 250, 300, 330))) +
+  scale_color_okabeito(order = c(9, 3, 2, 6)) +
+  labs(x = "Year", y = "Total Ozone (DU)", color = "", shape = "") +
+  geom_hline(yintercept = 180, color = "gray") +
+  transition_reveal(year)  
+```
+
+In der @fig-zerforschen-nasa-ozone siehst du dann einmal die animierte Abbildung. Ich habe dann noch mit der Option `fps = 5` die Geschwindigkeit etwas angepasst. Wir sehen sehr schön wie stark der Ozongehalt schon vor 1980 beginnt zu fallen. Das können wir mit der Regressionsgeraden gut nachvollziehen. Es dauert aber noch ein paar Jahre, bis die Ozonwerte unter den damaligen kritischen Grenzwert der NASA von 180 DU fällt. Wir hätten den Trend schon viel früher sehen müssen, wenn wir die Daten visualisiert hätten.
+
+```{r}
+#| echo: true
+#| cache: true
+#| warning: false
+#| message: false
+#| label: fig-zerforschen-nasa-ozone
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 8
+#| fig-cap: "Zeilicher Verlauf der Messerte vom Ozone von 1957 bis 2022. Die verschieden farbigen Punkte stellen die unterschiedlichen Messverfahren dar. Die Regressionsgerade dient der Veranschaulichung des Trends des Ozongehalts in den Siebzigern. Die Linie bei 180 stellt den Grenzwert der NASA für einen Fehler in den Messwerten dar und damit einen zu niedrigen Wert."
+
+animate(p, fps = 5)
+```
