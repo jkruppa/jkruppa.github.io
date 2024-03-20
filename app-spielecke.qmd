@@ -17,144 +17,6 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, performance,
 
 ------------------------------------------------------------------------
 
-## Science Cops {.unnumbered}
-
-In diesem Zerforschenbeispiel wollen wir uns nicht direkt mit einem Poster beschäftigen sondern haben uns eine etwas andere Quelle herausgesucht. Ich hatte den Podcast [Wie Jasper Caven ABNEHM-LÜGEN verbreitet \| Podcast #49 (02/23) \| Quarks Science Cops](https://www.youtube.com/watch?v=buUq_1ZSwOA) und mir dazu die Quellen auf der Webseite [Der Fall Jasper Caven: Abnehmen mit Stoffwechsel-Pillen?](https://www.quarks.de/podcast/science-cops-der-fall-jasper-caven/) angeschaut. Im Podcast geht es recht früh um die Publikation von @venables2008green mit dem Titel [Green tea extract ingestion, fat oxidation, and glucose tolerance in healthy humans](https://www.sciencedirect.com/science/article/pii/S000291652323508X?via%3Dihub). Kurz, die Arbeit verkündet, dass mit grünen Teeextrakt (eng. *green tea extract*, abk. *GTE*) im Vergleich zu einem Placebo (abk. *PLA*) die Fettverbrennung um 17% ansteigt. Das ist natürlich eine steile These. Warum das jetzt nicht so gut ist, wie es klingt, wollen wir dann mal in der wissenschaftlichen Veröffentlichung zerforschen. Zuerst aber einmal in der @fig-zer-green-tea-01 ein Auszug aus dem Zusammenfassung (eng. *abstract*) aus der Arbeit von @venables2008green in der nochmal auf den Unterschied und dem Anstieg von 17% eingegangen wird. Und es stimmt ja auch, der Unterschied als Quotient zwischen den absoluten Zahlen $0.41$ und $0.35$ ist auch $1.17$ und damit ist grüner Teeextrakt um 17% größer in der Fettverbrennung. Aber Achtung, so einfach ist es dann auch wieder nicht.
-
-![Auszug aus dem Zusammenfassung (eng. *abstract*) aus der Arbeit von @venables2008green. Der Fokus liegt hier auf der Steigerung von 17% Fettverbrennungsrate von Placebo zu Grünen Teeextrakt.](images/eda/zerforschen_green_tea_effect_01.png){#fig-zer-green-tea-01 fig-align="center" width="80%"}
-
-Schauen wir dazu einmal in den Ergebnisteil der Studie. Wir sehen auch hier, dass wir eine Fettverbrennungssteigerung haben. Es sind die gleichen Zahlen wie auch in der Zusammenfassung plus, dass wir einmal auf die @fig-zer-green-tea-02 verwiesen werden. Spannenderweise haben die Unterschiede zwischen der Energiebereitstellung (*energy expenditure (EE)*) von Kohlenhydraten zu Fett die gleichen prozentualen Steigerungen von Placebo zu grünen Teeextrakt.
-
-![Auszug aus dem Ergebnis zu der Kohlenhydrat- und Fatverbrennung aus der Arbeit von @venables2008green. Auch hier liegt der Fokus auf der Veränderung von Placebo zu Grünen Teeextrakt.](images/eda/zerforschen_green_tea_effect_03.png){#fig-zer-green-tea-03 fig-align="center" width="80%"}
-
-Im Folgenden einmal die zentrale Abbildung zu der Fettverbrennung unter Placebo und grünem Teeextrakt. Hier haben wir leider dann ein Problem mit den Einheiten. In der Abbildung haben wir auf der $y$-Achse die Rate der Fettverbrennung in $kJ/min$. Der Text spricht aber in den Einheiten $g/min$ von der Fettverbrennung. Und damit wird es jetzt schwierig. Wir wissen zwar, dass [*fats and ethanol have the greatest amount of food energy per unit mass, 37 and 29 kJ/g (9 and 7 kcal/g), respectively*](https://en.wikipedia.org/wiki/Food_energy), aber das hilft hier auch nur begrenzt weiter. Wir müssten für die Umrechnung von $kJ/min$ zu $g/min$ die Werte durch 37 teilen, aber irgendwie passt es dann immer noch nicht, wie wir gleich sehen werden.
-
-![Die Abbildung 1.A (eng. FIGURE 1.A) aus der Arbeit von mit der ein Unterschied in der Fettverbrennung von 17% von Placebo zu Grünen Teeextrakt gezeigt werden soll. Der Text schreibt von einem Unterschied in der Einheit $g/min$. In der Abbildung werden als Einheit $kJ/min$ angegeben. Entweder ist die Referenz nicht korrekt oder aber die Umrechung nicht nachzuvollziehen. Fett hat einen Energiegehalt von ca. $37kj/g$. Abkürzung: total energy expenditure (TEE).](images/eda/zerforschen_green_tea_effect_02.png){#fig-zer-green-tea-02 fig-align="center" width="100%"}
-
-Dann wollen wir also die Abbildung 1.A einmal zerforschen. Ich habe den Datensatz etwas anders gebaut, damit ich die Standardabweichung nutzen kann und nicht den Standardfehler. Das macht es mir etwas einfacher. Da ich sowieso nur drei Beobachtungen genommen habe, kommt es dann auf diesen Unterschied auch nicht mehr direkt an. Der Standardfehler wurde aber in der ursprünglichen Arbeit von @venables2008green benutzt und ist auch ein besseres Maß, wenn es um die [Abschätzung der statistischen Signifikanz geht](#sec-desc-stat).
-
-```{r}
-green_tea_tbl <- read_excel("data/zerforschen_green_tea_effect.xlsx") |> 
-  mutate(trt = as_factor(trt),
-         time_fct = as_factor(time),
-         fat_ox_r_g_min = round(fat_ox_r_kj_min/37, 2))
-```
-
-In den beiden folgenden Tabs baue ich dir einmal den Verlauf nach und dann einmal die Werte mit $0.41\pm 0.03$ und $0.35\pm 0.03$ aus dem Text als Barplot.
-
-::: panel-tabset
-## Abbildung 1.A
-
-Hier einmal als Nachbau die Abbildung des Verlaufs. Ich speichere mit die Abbildung einmal in dem Objekt `p1` damit ich gleich das R Paket `{patchwork}` nutzen kann um die Abbildungen zusammenzubauen. Als Besonderheit ergänze ich an der rechten Seite die Fettverbrennung in der Einheit $g/min$.
-
-```{r}
-p1 <- green_tea_tbl |> 
-  ggplot(aes(time, fat_ox_r_kj_min, color = trt)) +
-  theme_minimal() +
-  geom_jitter(position=position_dodge(0.4), shape = 4, size = 2) +
-  stat_summary(fun.data="mean_sdl", fun.args = list(mult = 1), 
-               geom="pointrange", position=position_dodge(0.4))  +
-  stat_summary(fun = "mean", fun.min = "min", fun.max = "max", geom = "line",
-               position=position_dodge(0.4)) +
-  labs(x = "Time (min)", y = "Fat oxidation rates (kJ/min)", color = "") +
-  scale_y_continuous(sec.axis = sec_axis(~ ./37, breaks = c(4:7/37),
-                                         labels = round(c(4:7/37), 2),
-                                         name = "Fat oxidation rates (g/min)")) +
-  theme(legend.position = "none") +
-  scale_color_okabeito()
-```
-
-## Barplot
-
-Mich hat dann einmal interessiert wie die Werte aus dem Text mit $0.41\pm 0.03$ und $0.35\pm 0.03$ denn als Barplot aussehen würden. Deshalb hier einmal die Werte in einem `tibble()` um diese dann als einen Barplot abbilden zu können.
-
-```{r}
-stat_tbl <- tibble(trt = as_factor(c("PLA", "GTE")),
-                   mean = c(0.35, 0.41),
-                   sem = c(0.03, 0.03))
-```
-
-Auch hier speichere ich einmal die Abbildung in dem Objekt `p2` um gleich eine schönere Abbildung mit dem R Paket `{patchwork}` zu bauen.
-
-```{r}
-p2 <- stat_tbl |> 
-  ggplot(aes(x = trt, y = mean, fill = trt)) + 
-  theme_minimal() +
-  geom_bar(stat = "identity") +
-  geom_errorbar(aes(ymin = mean-sem, ymax = mean+sem),
-                width = 0.5) +
-  theme(legend.position = "none") +
-  labs(x = "", y = "Fat oxidation rates (g/min)", color = "") +
-  scale_fill_okabeito()
-```
-:::
-
-In der @fig-zerforschen-green-tea-01 siehst du einmal die beiden Abbildungen `p1` und `p2` in einem Plot visualisiert. Es war etwas aufwendiger um die Abbildung zu bauen, aber dann hatte ich die Werte auch ungefähr zusammen. Auch hier passen zwar die Werte für die Einheit $kJ/min$ der Fettverbrennung aber nicht für die Einheit in $g/min$. Da bin ich in der Umrechnung gescheitert. Was wir aber gleich mal machen werden, ist die Fläche unter der Kurve zu berechnen in der Hoffnung, dass wir eventuell hier den Quotienten von ca. $17\%$ finden.
-
-```{r}
-#| echo: true
-#| warning: false
-#| message: false
-#| label: fig-zerforschen-green-tea-01
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 7
-#| fig-cap: "**(A)** Zerforschung der Abbildung 1.A (eng. *FIGURE 1.A*) aus der Arbeit von @venables2008green mit der ein Unterschied in der Fettverbrennung von 17% von Placebo zu Grünen Teeextrakt gezeigt werden soll. Ich habe hierbei die Werte abgelesen und die Standardabweichung anstatt den Standardfehler für die Fehlerbalken gewählt. Der Verlauf ist gut getroffen und die Fläche unter der Kurve soll berechnet werden. Auf der linken $y$-Achse findet sich die Fettverbrennungsrate in $kJ/min$ auf der rechten Seite die mit dem Faktor $37 kJ/g$ umgerechnete Einheit in $g/min$. **(B)** Zerforschung und Visualisierung als Barplots der Fettverbrennungsrate aus der Zusammenfassung (eng. *abstract*) der Arbeit von @venables2008green."
-
-p1 + p2 + 
-  plot_layout(widths = c(6, 1)) +
-  plot_annotation(tag_levels = 'A')
-
-```
-
-In den folgenden beiden Tabs habe ich einmal die Fläche unter den beiden Kurven berechnet. Ich habe die Hoffnung, dass der Quotient von den beiden Flächen sich dann um 17% unterscheidet. Das müsste ja ungefähr so hinkommen, wenn schon die Einheiten nicht funktionieren.
-
-::: panel-tabset
-## Placebo (*PLA*)
-
-```{r}
-pla_fit <- green_tea_tbl |> 
-  filter(trt == "PLA") |> 
-  lm(fat_ox_r_kj_min ~ time, data = _) 
-
-f_pla <- \(x) predict(pla_fit, newdata = tibble(time = x)) 
-integrate(f_pla, 10, 30)
-```
-
-$$
-\cfrac{98.6\; kJ/min}{37\; kJ/g} = 2.66 \; g/min 
-$$
-
-## Grüner Teeextrakt (*GTE*)
-
-```{r}
-gte_fit <- green_tea_tbl |> 
-  filter(trt == "GTE") |> 
-  lm(fat_ox_r_kj_min ~ time, data = _) 
-
-f_gte <- \(x) predict(gte_fit, newdata = tibble(time = x)) 
-integrate(f_gte, 10, 30)
-```
-
-$$
-\cfrac{114.67\; kJ/min}{37\; kJ/g} = 3.10 \; g/min 
-$$
-:::
-
-$$
-\cfrac{3.10}{2.66} = 1.17\; (\uparrow 17\%)  
-$$
-
-```{r}
-green_fit <- lm(fat_ox_r_kj_min ~ trt + time_fct + trt:time_fct, data = green_tea_tbl)
-```
-
-```{r}
-green_fit |> 
-  emmeans(~ trt | time_fct) |> 
-  pairs()
-```
-
 ## Quecksilber {.unnumbered}
 
 [Tuna-Steak und Co: Methylquecksilber im Fisch](https://www.eskp.de/schadstoffe/tuna-steak-und-co-methylquecksilber-im-fisch-9351051/)
@@ -165,9 +27,13 @@ green_fit |>
 
 ## Zerforschen {.unnumbered}
 
-![Ursprüngliche Abbildung, die nachgebaut werden soll. Zwei lineare Regressionen mit den jeweiligen Regressionsgleichungen.](images/eda/zerforschen_corr_table.jpeg){#fig-zer-corr-table fig-align="center" width="100%"}
+### Boxplot Ideen {.unnumbered}
+
+Vermutlich ist die Abbildung zu groß und es sollte nur eine Abbildung ausgewählt werden.
 
 ![Ursprüngliche Abbildung, die nachgebaut werden soll. Zwei lineare Regressionen mit den jeweiligen Regressionsgleichungen.](images/eda/zerforschen_boxplot_mult.jpeg){#fig-zer-boxplot-mult fig-align="center" width="100%"}
+
+### NASA und Ozone {.unnumbered}
 
 [How NASA didn’t discover the hole in the ozone layer](https://robjhyndman.com/hyndsight/ozone-hole-anomaly.html)
 
@@ -268,6 +134,40 @@ animate(p, fps = 5)
 
 [Women in Statistics through History](https://womeninstatshistory.blog/) [Trailblazing women in statistics](https://news.uga.edu/groundbreaking-women-in-statistics/) [Famous women statisticians](https://andifugard.info/famous-women-statisticians/)
 
+Wie sieht es denn heute aus? Haben wir dort auch sehr viele Frauen, die sich in der Programmierung vortun? Leider nein. In der @fig-eda-preface-r-01 sehen wir den dramatischen Rückgang an Frauen in der Informatik und den Computerwissenschaften. Eigentlich bin ich ja hier schon zu spät dran mit meiner Lehre der Informatik und Programmierung, der größte Rückgang an Frauen wird schon in den früheren Jahren verursacht als ich junge Frauen unterrichte. Aber dennoch möchte ich hier natürlich dem Trend entgegenwirken. Nichtstun ist ja in so einem Fall auch keine wirkliche Option.
+
+```{r}
+#| warning: false
+#| echo: false
+#| message: false
+#| label: fig-eda-preface-r-01
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "Im Jahr 1995 waren 37 % der Informatiker Frauen. Heute sind es nur noch 24 %. Der Prozentsatz wird weiter sinken, wenn wir nichts tun. Wir wissen, dass der größte Rückgang von Mädchen in der Informatik im Alter zwischen 13 und 17 Jahren stattfindet. Quelle: [Girls who code](https://girlswhocode.com/about-us)"
+
+data_tbl <- tibble(year = c(1995, 2017, 2022),
+                   percent = c(0.34, 0.24, 0.22))
+
+ggplot(data_tbl, aes(year, percent, label = scales::percent(percent))) +
+  theme_minimal() +
+  geom_line() +
+  geom_ribbon(aes(ymin = 0.1, ymax = percent), fill = "#F0E442", alpha=0.7, position = "identity") +
+  geom_label() + 
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_continuous(breaks = c(1995, 2017, 2022)) +
+  labs(y = "% of women in Computer Science", x = "")
+
+```
+
+Was sind den die Gründe für das [Gap in der Informatik und der Computerwissenschaften](https://en.wikipedia.org/wiki/Gender_disparity_in_computing)? Hier gibt es ntürlich nicht den einen Grund, aber ich fand einen der Gründe besonders spannend.
+
+Auch unterrichte ich weniger Informatik als [Computational statistics](https://en.wikipedia.org/wiki/Computational_statistics) oder eben aktuell Data Science - die Wissenschaft der Daten. Eigentlich gibt es nur noch Computational statistics,
+
+[Admiral Grace Murray Hopper: When Women Were Computers](https://www.nationalww2museum.org/war/articles/grace-hopper-woman-computer)
+
+[Girls who code](https://girlswhocode.com/)
+
 ## Korrelation {.unnumbered}
 
 [How does Polychoric Correlation Work? (aka Ordinal-to-Ordinal correlation)](https://www.r-bloggers.com/2021/02/how-does-polychoric-correlation-work-aka-ordinal-to-ordinal-correlation/)
@@ -283,28 +183,6 @@ animate(p, fps = 5)
 Das R Paket `{visibly}` auf [An Introduction to Visibly](https://m-clark.github.io/visibly/articles/intro.html)
 
 [R Paket `{innsight}`](https://github.com/bips-hb/innsight)
-
-```{r}
-#| warning: false
-#| eval: false
-
-
-library(ggplot2)
-library(gganimate)
-library(gifski)
-
-ggplot(mtcars, aes(factor(cyl), mpg)) + 
-  geom_boxplot() + 
-  # Here comes the gganimate code
-  transition_states(
-    gear,
-    transition_length = 2,
-    state_length = 1
-  ) +
-  enter_fade() + 
-  exit_shrink() +
-  ease_aes('sine-in-out')
-```
 
 ## Learning text {.unnumbered}
 
@@ -409,109 +287,6 @@ Hier hängen wir dann an der Interpretation. Da müssen wir nochmal tiefer schau
 
 Schöne Diagramme [Structural Equation Models](https://advstats.psychstat.org/book/sem/index.php)
 
-### Autoregressive model {.unnumbered}
-
-$$
-AR = 
-\begin{pmatrix}
- 1 & \rho & \rho^2 & \rho^3 & \cdots & \rho^{n-1} \\
- \rho & 1 & \rho & \rho^2 & \cdots & \rho^{n-2} \\
- \rho & \rho^2 & 1 & \rho & \cdots & \rho^{n-3} \\
- \vdots & \vdots & \vdots & \vdots & \ddots & \vdots \\
- \rho^{n-1} & \rho^{n-2} & \rho^{n-3} & \rho^{n-4} & \cdots & 1 \\
-\end{pmatrix}
-$$
-
-```{r}
-#| message: false
-#| echo: false
-#| eval: false
-#| warning: false
-#| label: fig-time-ar-1
-#| fig-align: center
-#| fig-height: 6
-#| fig-width: 8
-#| fig-cap: "AR(0); AR(1) mit AR-Parameter 0.3; AR(1) mit AR-Parameter 0.9; AR(2) mit AR-Parameter 0.3 und 0.3; und AR(2) mit AR-Parameter 0.9 und -0.8."
-
-set.seed(202318080)
-
-plot_tbl <- map(lst(0.01, 0.3, 0.9, c(0.3, 0.3), c(0.2, 0.7)), \(x) {
-  arima.sim(model = list(ar = x), n = 100) %>% 
-    as_tibble() 
-}) %>% 
-  bind_cols() %>% 
-  set_names(c("AR(0) 0", "AR(1) 0.3", "AR(1) 0.9", "AR(2) 0.3; 0.3", "AR(2) 0.9; -0.8")) %>% 
-  mutate(index = 1:100) %>% 
-  pivot_longer(cols = matches("AR"),
-               values_to = "value",
-               names_to = "key") %>% 
-  mutate(key = as_factor(key))
-
-ggplot(plot_tbl, aes(index, value, fill = key)) +
-  theme_bw() +
-  facet_wrap(~ key, nrow = 5, strip.position="right") + 
-  geom_line() +
-  geom_hline(yintercept = 0) +
-  geom_ribbon(aes(ymin = ifelse(value <= 0, value, 0), 
-                  ymax = ifelse(value >= 0, value, 0)), 
-              alpha=0.5) +
-  ylim(-5, 5) +
-  labs(x = "", y = "") +
-  theme(axis.text.x = element_blank(),
-        axis.text.y = element_blank(),
-        legend.position = "none", 
-        strip.text = element_text(size = 10))
-
-```
-
-In der folgenden @fig-time-ar-1 siehst du nochmal verschiedene Beispiele für eine Autokorrelation bzw. einen autoregressiven Prozess (abk. *AR*). Der einfachste AR-Prozess ist ein Prozess der Ordnung 0 und daher schreiben wir dann auch AR(0). Bei einem AR(0) liegt keine Abhängigkeit zwischen den Zeitpunkten vor. Nur der Fehlerterm trägt zum Output des Prozesses bei, so dass AR(0) in der Abbildung weißem Rauschen entspricht.
-
-Bei einem AR(1)-Prozess mit einem positiven $\varphi$ tragen nur der vorherige Term des Prozesses und der Rauschterm zum Output bei. Wenn $\varphi$ nahe bei 0 liegt, dann sieht der Prozess immer noch wie weißes Rauschen aus, aber wenn $\varphi$ sich 1 nähert, erhält die Ausgabe einen größeren Beitrag des vorhergehenden Terms im Verhältnis zum Rauschen. Dies führt zu einer "Glättung" oder Integration der Ausgabe, ähnlich wie bei einem Tiefpassfilter.
-
-Bei einem AR(2)-Prozess tragen die beiden vorhergehenden Terme und der Rauschtext zur Ausgabe bei. Wenn beide $\varphi_1$ und $\varphi_2$ positiv sind, ähnelt das Ergebnis einem Tiefpassfilter, bei dem der Hochfrequenzanteil des Rauschens verringert wird. $\varphi_1$ positiv ist, während $\varphi_2$ negativ ist, dann begünstigt der Prozess Vorzeichenwechsel zwischen den Termen des Prozesses. Die Ausgabe oszilliert. Dies kann mit der Erkennung von Kanten oder Richtungsänderungen verglichen werden.
-
-```{r}
-#| message: false
-#| eval: false
-#| echo: false
-#| warning: false
-#| label: fig-time-ar-2
-#| fig-align: center
-#| fig-height: 6
-#| fig-width: 8
-#| fig-cap: "AR(0); AR(1) mit AR-Parameter 0.3; AR(1) mit AR-Parameter 0.9; AR(2) mit AR-Parameter 0.3 und 0.3; und AR(2) mit AR-Parameter 0.9 und -0.8."
-
-set.seed(202318080)
-
-plot_tbl <- map(lst(0.01, 0.3, 0.9, c(0.3, 0.3), c(0.2, 0.7)), \(x) {
-  arima.sim(model = list(ar = x), n = 100) %>% 
-    as_tibble() 
-}) %>% 
-  bind_cols() %>% 
-  set_names(c("AR(0) 0", "AR(1) 0.3", "AR(1) 0.9", "AR(2) 0.3; 0.3", "AR(2) 0.9; -0.8")) %>% 
-  mutate(index = 1:100) %>% 
-  pivot_longer(cols = matches("AR"),
-               values_to = "value",
-               names_to = "key") %>% 
-  mutate(key = as_factor(key))
-
-ggplot(plot_tbl, aes(index, value, fill = key)) +
-  theme_bw() +
-  facet_wrap(~ key, nrow = 5, strip.position="right") + 
-  geom_line() +
-  geom_hline(yintercept = 0) +
-  geom_ribbon(aes(ymin = ifelse(value <= 0, value, 0), 
-                  ymax = ifelse(value >= 0, value, 0)), 
-              alpha=0.5) +
-  ylim(-5, 5) +
-  labs(x = "", y = "") +
-  theme(axis.text.x = element_blank(),
-        axis.text.y = element_blank(),
-        legend.position = "none", 
-        strip.text = element_text(size = 10))
-
-```
-
 ## Links {.unnumbered}
 
 [Analyzing reactor water level measurements in the Fukushima Daiichi 1 accident](https://www.sciencedirect.com/science/article/pii/S0149197023001427)
@@ -534,14 +309,6 @@ ggplot(plot_tbl, aes(index, value, fill = key)) +
 
 [Biasarten](https://www.iqwig.de/sonstiges/glossar/biasarten.html)
 
-https://stats.stackexchange.com/questions/555855/why-is-a-regression-coefficient-covariance-variance
-
-https://denninginstitute.com/modules/dau/stat/regression/linregsn/nreg_6_frm.html#:\~:text=The%20Regression%20coefficient%20is%20defined,independent%20variable%2C%20x%20or%20y.
-
-https://wiki.pathmind.com/eigenvector
-
-https://stats.stackexchange.com/questions/2691/making-sense-of-principal-component-analysis-eigenvectors-eigenvalues
-
 Data Science
 
 -   Real World Data @liu2022real
@@ -550,49 +317,9 @@ Data Science
 
 Deutsches Sprichwort: Deutsch mit jemanden Reden; Verstehe nur Spanisch
 
-Von den Daten zu Erkenntnis und zurück.
-
-Wahrscheinlichkeitsbegriff sollte dann doch irgendwie bei Bayes mit rein...
-
 > *"Gott würfelt nicht!" --- Albert Einstein*
 
 -   [Frequentistischer Wahrscheinlichkeitsbegriff](https://de.wikipedia.org/wiki/Frequentistischer_Wahrscheinlichkeitsbegriff)
 -   [Bayessche Wahrscheinlichkeitsbegriff](https://de.wikipedia.org/wiki/Bayesscher_Wahrscheinlichkeitsbegriff)
-
-## Und heute? {.unnumbered}
-
-Wie sieht es denn heute aus? Haben wir dort auch sehr viele Frauen, die sich in der Programmierung vortun? Leider nein. In der @fig-eda-preface-r-01 sehen wir den dramatischen Rückgang an Frauen in der Informatik und den Computerwissenschaften. Eigentlich bin ich ja hier schon zu spät dran mit meiner Lehre der Informatik und Programmierung, der größte Rückgang an Frauen wird schon in den früheren Jahren verursacht als ich junge Frauen unterrichte. Aber dennoch möchte ich hier natürlich dem Trend entgegenwirken. Nichtstun ist ja in so einem Fall auch keine wirkliche Option.
-
-```{r}
-#| warning: false
-#| echo: false
-#| message: false
-#| label: fig-eda-preface-r-01
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 7
-#| fig-cap: "Im Jahr 1995 waren 37 % der Informatiker Frauen. Heute sind es nur noch 24 %. Der Prozentsatz wird weiter sinken, wenn wir nichts tun. Wir wissen, dass der größte Rückgang von Mädchen in der Informatik im Alter zwischen 13 und 17 Jahren stattfindet. Quelle: [Girls who code](https://girlswhocode.com/about-us)"
-
-data_tbl <- tibble(year = c(1995, 2017, 2022),
-                   percent = c(0.34, 0.24, 0.22))
-
-ggplot(data_tbl, aes(year, percent, label = scales::percent(percent))) +
-  theme_minimal() +
-  geom_line() +
-  geom_ribbon(aes(ymin = 0.1, ymax = percent), fill = "#F0E442", alpha=0.7, position = "identity") +
-  geom_label() + 
-  scale_y_continuous(labels = scales::percent) +
-  scale_x_continuous(breaks = c(1995, 2017, 2022)) +
-  labs(y = "% of women in Computer Science", x = "")
-
-```
-
-Was sind den die Gründe für das [Gap in der Informatik und der Computerwissenschaften](https://en.wikipedia.org/wiki/Gender_disparity_in_computing)? Hier gibt es ntürlich nicht den einen Grund, aber ich fand einen der Gründe besonders spannend.
-
-Auch unterrichte ich weniger Informatik als [Computational statistics](https://en.wikipedia.org/wiki/Computational_statistics) oder eben aktuell Data Science - die Wisenschaft der Daten. Eigentlich gibt es nur noch Computational statistics,
-
-[Admiral Grace Murray Hopper: When Women Were Computers](https://www.nationalww2museum.org/war/articles/grace-hopper-woman-computer)
-
-[Girls who code](https://girlswhocode.com/)
 
 ## Referenzen {.unnumbered}
