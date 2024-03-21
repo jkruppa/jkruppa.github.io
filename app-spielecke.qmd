@@ -34,11 +34,16 @@ Vermutlich ist die Abbildung zu groß und es sollte nur eine Abbildung ausgewäh
 ![Ursprüngliche Abbildung, die nachgebaut werden soll. Zwei lineare Regressionen mit den jeweiligen Regressionsgleichungen.](images/eda/zerforschen_boxplot_mult.jpeg){#fig-zer-boxplot-mult fig-align="center" width="100%"}
 
 ```{r}
-boxplot_mult_tbl <- read_excel("data/zerforschen_boxplot_mult.xlsx", sheet = "substrate") %>% 
-  mutate(type = as_factor(type))
+boxplot_mult_tbl <- read_excel("data/zerforschen_boxplot_mult.xlsx") |> 
+  pivot_longer(cols = fresh_weight:flower_number,
+               values_to = "rsp",
+               names_to = "plant_measure") |> 
+    mutate(trt = as_factor(trt),
+           plant_measure = as_factor(plant_measure)) 
 ```
 
-text
+::: panel-tabset
+## Mit `facet_wrap()`
 
 ```{r}
 #| message: false
@@ -48,24 +53,60 @@ text
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 7
-#| fig-cap: "Die"
-
-boxplot_mult_tbl <- read_excel("data/zerforschen_boxplot_mult.xlsx", sheet = "substrate") |> 
-  pivot_longer(cols = fresh_weight:dry_weight,
-               values_to = "rsp",
-               names_to = "plant_measure") |> 
-    mutate(type = as_factor(type),
-           plant_measure = as_factor(plant_measure)) 
+#| fig-cap: "Nicht alle Ausreißer wurden von mir direkt nachgebaut. Das ist sehr viel Arbeit mit wenig Erkenntnisgewinn."
 
 boxplot_mult_tbl |> 
-  ggplot(aes(type, rsp)) +
+  ggplot(aes(trt, rsp)) +
+  theme_minimal() +
   stat_boxplot(geom = "errorbar", width = 0.25) + 
   geom_boxplot(outlier.shape = 18, outlier.size = 2) +
-  #scale_y_continuous(breaks = seq(60, 160, by = 20), limits = c(50, 160)) +
   stat_summary(fun.y = mean, geom = "point", shape = 23, size = 4, fill = "red") +
-  facet_wrap(~ plant_measure, nrow = 1, scales = "free_y")
+  facet_wrap(~ type * plant_measure, nrow = 2, scales = "free")
 
 ```
+
+## Mit `{patchwork}`
+
+Hier bauen wir uns erstmal ein Template für `ggplot()` und dann ändern wir nur die Werte für `scale_y_continuous()`.
+
+```{r}
+gg_template <- ggplot() +
+  aes(trt, rsp) +
+  theme_minimal() +
+  stat_boxplot(geom = "errorbar", width = 0.25) + 
+  geom_boxplot(outlier.shape = 18, outlier.size = 2) +
+  stat_summary(fun.y = mean, geom = "point", shape = 23, size = 4, fill = "red") +
+  labs(x = "")
+```
+
+```{r}
+p1 <- gg_template %+%
+  filter(boxplot_mult_tbl, type == "substrate" & plant_measure == "fresh_weight")
+p2 <- gg_template %+%
+  filter(boxplot_mult_tbl, type == "substrate" & plant_measure == "dry_weight")
+p3 <- gg_template %+%
+  filter(boxplot_mult_tbl, type == "substrate" & plant_measure == "plant_height")
+p4 <- gg_template %+%
+  filter(boxplot_mult_tbl, type == "substrate" & plant_measure == "flower_number")
+p5 <- gg_template %+%
+  filter(boxplot_mult_tbl, type == "water" & plant_measure == "fresh_weight")
+p6 <- gg_template %+%
+  filter(boxplot_mult_tbl, type == "water" & plant_measure == "fresh_weight")
+p7 <- gg_template %+%
+  filter(boxplot_mult_tbl, type == "water" & plant_measure == "fresh_weight")
+p8 <- gg_template %+%
+  filter(boxplot_mult_tbl, type == "water" & plant_measure == "fresh_weight")
+```
+
+```{r}
+patch <- (p1 + p2 + p3 + p4) |
+  (p5 + p6 + p7 + p8) 
+patch + plot_annotation(tag_levels = 'A',
+                        title = 'The surprising truth about mtcars',
+                        subtitle = 'These 3 plots will reveal yet-untold secrets about our beloved data-set',
+                        caption = 'Disclaimer: None of these plots are insightful')
+```
+:::
 
 ## Zitate {.unnumbered}
 
