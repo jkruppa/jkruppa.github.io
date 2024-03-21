@@ -1,6 +1,8 @@
 ```{r echo = FALSE}
-pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, performance,
-               latex2exp, see, patchwork, mfp, multcomp, emmeans)
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, performance, parameters,
+               latex2exp, see, patchwork, mfp, multcomp, emmeans, janitor, conflicted)
+conflicts_prefer(dplyr::select)
+conflicts_prefer(dplyr::filter)
 ```
 
 # Spielecke {#sec-spielecke}
@@ -39,7 +41,45 @@ boxplot_mult_tbl <- read_excel("data/zerforschen_boxplot_mult.xlsx") |>
                values_to = "rsp",
                names_to = "plant_measure") |> 
     mutate(trt = as_factor(trt),
-           plant_measure = as_factor(plant_measure)) 
+           plant_measure = factor(plant_measure,
+                                  levels = c("fresh_weight", "dry_weight",
+                                             "plant_height", "flower_number"),
+                                  labels = c("Fresh weight (g)", "Dry weight (g)",
+                                             "Plant height (cm)", "Flower number")),
+           type = factor(type, labels = c("Substrate", "Water"))) 
+```
+
+```{r}
+spinach_nest_tbl <- boxplot_mult_tbl |>
+  group_by(type, plant_measure) |>
+  nest() 
+
+spinach_nest_tbl
+```
+
+```{r}
+spinach_nest_tbl |>
+  mutate(model = map(data, ~lm(rsp ~ trt, data = .x))) %>% 
+  mutate(anova = map(model, anova)) %>% 
+  mutate(parameter = map(anova, model_parameters)) %>% 
+  select(type, plant_measure, parameter) |> 
+  unnest(parameter) %>% 
+  clean_names() %>% 
+  filter(parameter != "Residuals") %>% 
+  select(type, plant_measure, parameter, p)
+```
+
+```{r}
+emm_tbl <- spinach_nest_tbl |>
+  mutate(model = map(data, ~lm(rsp ~ trt, data = .x))) %>% 
+  mutate(emm = map(model, emmeans, ~trt)) %>% 
+  mutate(contrast = map(emm, contrast, method = "pairwise", 
+                        adjust = "none")) %>% 
+  mutate(cld = map(emm, cld, Letters = letters, adjust = "none")) |> 
+  unnest(cld) |> 
+  select(type, plant_measure, trt, rsp = emmean, group = .group) |> 
+  mutate(group = str_trim(group))
+
 ```
 
 ::: panel-tabset
@@ -60,8 +100,10 @@ boxplot_mult_tbl |>
   theme_minimal() +
   stat_boxplot(geom = "errorbar", width = 0.25) + 
   geom_boxplot(outlier.shape = 18, outlier.size = 2) +
-  stat_summary(fun.y = mean, geom = "point", shape = 23, size = 4, fill = "red") +
-  facet_wrap(~ type * plant_measure, nrow = 2, scales = "free")
+  stat_summary(fun.y = mean, geom = "point", shape = 23, size = 3, fill = "red") +
+  facet_wrap(~ type * plant_measure, nrow = 2, scales = "free") +
+  labs(x = "", y = "") +
+  geom_text(data = emm_tbl, aes(label = group))
 
 ```
 
@@ -75,32 +117,41 @@ gg_template <- ggplot() +
   theme_minimal() +
   stat_boxplot(geom = "errorbar", width = 0.25) + 
   geom_boxplot(outlier.shape = 18, outlier.size = 2) +
-  stat_summary(fun.y = mean, geom = "point", shape = 23, size = 4, fill = "red") +
+  stat_summary(fun.y = mean, geom = "point", shape = 23, size = 3, fill = "red") +
   labs(x = "")
 ```
 
 ```{r}
 p1 <- gg_template %+%
-  filter(boxplot_mult_tbl, type == "substrate" & plant_measure == "fresh_weight")
+  filter(boxplot_mult_tbl, type == "Substrate" & plant_measure == "Fresh weight (g)") +
+  labs(y = "Fresh weight (g)")
 p2 <- gg_template %+%
-  filter(boxplot_mult_tbl, type == "substrate" & plant_measure == "dry_weight")
+  filter(boxplot_mult_tbl, type == "Substrate" & plant_measure == "Dry weight (g)") +
+  labs(y = "Dry weight (g)")
 p3 <- gg_template %+%
-  filter(boxplot_mult_tbl, type == "substrate" & plant_measure == "plant_height")
+  filter(boxplot_mult_tbl, type == "Substrate" & plant_measure == "Plant height (cm)") +
+  labs(y = "Plant height (cm)")
 p4 <- gg_template %+%
-  filter(boxplot_mult_tbl, type == "substrate" & plant_measure == "flower_number")
+  filter(boxplot_mult_tbl, type == "Substrate" & plant_measure == "Flower number") +
+  labs(y = "Flower number")
 p5 <- gg_template %+%
-  filter(boxplot_mult_tbl, type == "water" & plant_measure == "fresh_weight")
+  filter(boxplot_mult_tbl, type == "Water" & plant_measure == "Fresh weight (g)") +
+  labs(y = "Fresh weight (g)")
 p6 <- gg_template %+%
-  filter(boxplot_mult_tbl, type == "water" & plant_measure == "fresh_weight")
+  filter(boxplot_mult_tbl, type == "Water" & plant_measure == "Dry weight (g)") +
+  labs(y = "Dry weight (g)")
 p7 <- gg_template %+%
-  filter(boxplot_mult_tbl, type == "water" & plant_measure == "fresh_weight")
+  filter(boxplot_mult_tbl, type == "Water" & plant_measure == "Plant height (cm)") +
+  labs(y = "Plant height (g)")
 p8 <- gg_template %+%
-  filter(boxplot_mult_tbl, type == "water" & plant_measure == "fresh_weight")
+  filter(boxplot_mult_tbl, type == "Water" & plant_measure == "Flower number") +
+  labs(y = "Flower number")
 ```
 
 ```{r}
-patch <- (p1 + p2 + p3 + p4) |
-  (p5 + p6 + p7 + p8) 
+patch <- p1 + p2 + p3 + p4 +
+  p5 + p6 + p7 + p8 +
+  plot_layout(ncol = 4)
 patch + plot_annotation(tag_levels = 'A',
                         title = 'The surprising truth about mtcars',
                         subtitle = 'These 3 plots will reveal yet-untold secrets about our beloved data-set',
