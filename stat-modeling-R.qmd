@@ -38,7 +38,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, conflicted)
+pacman::p_load(tidyverse, emmeans, multcomp, conflicted)
+conflicts_prefer(dplyr::select)
 ```
 
 Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum selber durchführen oder aber kopieren.
@@ -46,6 +47,87 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 ## Daten
 
 Wir
+
+```{r}
+#| warning: false
+#| message: false
+cutting_tbl <- read_excel("data/multiple_outcomes.xlsx") |> 
+  mutate(trt = as_factor(trt),
+         block = as_factor(block)) |> 
+  mutate_if(is.numeric, round, 2)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-model-r-multiple-out
+#| tbl-cap: "Auszug aus den Daten ."
+
+cutting_raw_tbl <- cutting_tbl |>
+  mutate_all(as.character)
+  
+
+rbind(head(cutting_raw_tbl, 4),
+      rep("...", times = ncol(cutting_raw_tbl)),
+      tail(cutting_raw_tbl, 4)) |>
+  kable(align = "c", "pipe")
+
+```
+
+```{r}
+family_lst <- lst(shoot = binomial(),
+                  leaf = quasipoisson(),
+                  flower = quasipoisson(),
+                  fruit = quasipoisson(),
+                  ca = gaussian(), 
+                  drymatter = gaussian(), 
+                  freshweight = gaussian(), 
+                  height = gaussian())
+```
+
+```{r}
+cutting_long_tbl <- cutting_tbl |>
+  pivot_longer(cols = shoot:last_col(),
+               names_to = "outcome",
+               values_to = "rsp") |>
+  arrange(outcome, trt, block)
+```
+
+```{r}
+cutting_lst <- cutting_long_tbl |>
+  split(~outcome)
+```
+
+```{r}
+#| message: false
+#| warning: false
+glm_lst <- cutting_lst %>% 
+  map2(family_lst, 
+       ~glm(rsp ~ trt + block + trt:block, 
+            data = .x, family = .y))  
+  
+glm_lst %>% 
+  map(pluck, "family")
+
+glm_lst %>% 
+  map(car::Anova)
+
+emm_lst <- glm_lst %>% 
+  map(~emmeans(.x, specs = ~ trt, type = "response")) 
+
+emm_lst %>% 
+  map(~contrast(.x, method = "pairwise", adjust = "bonferroni")) %>% 
+  map(as_tibble) %>% 
+  bind_rows(.id = "outcome")
+
+emm_lst %>% 
+  map(~cld(.x, Letters = letters, adjust = "bonferroni")) %>% 
+  map(as_tibble) %>% 
+  bind_rows(.id = "outcome") %>% 
+  select(outcome, trt, .group)  %>% 
+  print(n = 28)
+```
 
 ## Weitere Ideen
 
