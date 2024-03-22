@@ -2,7 +2,8 @@
 #| message: false
 #| warning: false
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, performance, parameters,
-               latex2exp, see, patchwork, mfp, multcomp, emmeans, janitor, conflicted)
+               latex2exp, see, patchwork, mfp, multcomp, emmeans, janitor, effectsize,
+               conflicted)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(dplyr::filter)
 ```
@@ -44,139 +45,7 @@ Pflanzenpaper
 
 ## Zerforschen {.unnumbered}
 
-### Boxplot Ideen {.unnumbered}
-
-Hier wollen wir einmal eine etwas größere @fig-zer-boxplot-mult mit einer Menge Boxplots zerforschen. Da ich den Datensatz dann nicht zu groß machen wollte und Boxplots zu zerforschen manchmal nicht so einfach ist, passen die Ausreißer dann manchmal dann doch nicht. Auch liefern die statistischen Tests dann nicht super genau die gleichen Ergebnisse. Aber das macht vermutlich nicht so viel, hier geht es ja dann eher um den Bau der Boxplots und dem rechnen des statistischen Tests in `{emmeans}`. Die Reihenfolge des *compact letter displays* habe ich dann auch nicht angepasst sondern die Buchstaben genommen, die ich dann erhalten habe. Die Sortierung kann man ja selber einfach ändern. Wir haben hier ein einfaktorielles Design mit einem Behandlungsfaktor mit drei Leveln vorliegen. Insgesamt schauen wir uns vier Endpunkte in veränderten Substrat- und Wasserbedingungen an.
-
-![Ursprüngliche Abbildung, die nachgebaut werden soll. Insgesamt vier Outcomes sollen für zwei Behandlungen ausgewertet werden. Das praktische ist hier, dass wir es nur mit einem einfaktoriellen Design zu tun haben.](images/eda/zerforschen_boxplot_mult.jpeg){#fig-zer-boxplot-mult fig-align="center" width="100%"}
-
-Im Folgenden lade ich einmal den Datensatz, den ich dann per Auge zusammengesetzt habe. Das war jetzt etwas anstrengender als gedacht, da ich nicht weiß wie viele Beobachtungen einen Boxplot bilden. Je mehr Beobachtungen, desto feiner kann man den Boxplot abstimmen. Da ich hier nur mit sieben Beobachtungen ja Gruppe gearbeitet habe, habe ich es nicht geschafft die Ausreißer darzustellen. Das wäre mir dann zu viel Arbeit geworden. Nachdem ich jetzt die Daten geladen habe, muss ich noch über die Funktion `pivot_longer()` einen Datensatz passenden im Longformat bauen. Abschließend mutiere ich dann noch alle Faktoren richtig und vergebe bessere Namen als `labels` sonst versteht man ja nicht was die Spalten bedeuten.
-
-```{r}
-boxplot_mult_tbl <- read_excel("data/zerforschen_boxplot_mult.xlsx") |> 
-  pivot_longer(cols = fresh_weight:flower_number,
-               values_to = "rsp",
-               names_to = "plant_measure") |> 
-  mutate(trt = as_factor(trt),
-         plant_measure = factor(plant_measure,
-                                levels = c("fresh_weight", "dry_weight",
-                                           "plant_height", "flower_number"),
-                                labels = c("Fresh weight (g)", "Dry weight (g)",
-                                           "Plant height (cm)", "Flower number")),
-         type = factor(type, labels = c("Substrate", "Water"))) 
-```
-
-Ich habe mir dann die beiden Behandlungen `substrate` und `water` in die neue Spalte `type` geschrieben. Die Spaltennamen der Outcomes wandern in die Spalte `plant_measure` und die entsprechenden Werte in die Spalte `rsp`. Dann werde ich hier mal alle Outcomes auf einmal auswerten und nutze dafür das R Paket `{purrr}` mit der Funktion `nest()` und `map()`. Ich packe mir als die Daten nach `type` und `plant_measure` einmal zusammen. Dann habe ich einen neuen genesteten Datensatz mit nur noch acht Zeilen. Auf jeder Zeile rechne ich dann jeweils mein Modell. Wie du dann siehst is in der Spalte `data` dann jeweils ein Datensatz mit der Spalte `trt` und `rsp` für die entsprechenden 21 Beobachtungen.
-
-```{r}
-boxplot_mult_nest_tbl <- boxplot_mult_tbl |>
-  group_by(type, plant_measure) |>
-  nest() 
-
-boxplot_mult_nest_tbl
-```
-
-```{r}
-boxplot_mult_nest_tbl |>
-  mutate(model = map(data, ~lm(rsp ~ trt, data = .x))) %>% 
-  mutate(anova = map(model, anova)) %>% 
-  mutate(parameter = map(anova, model_parameters)) %>% 
-  select(type, plant_measure, parameter) |> 
-  unnest(parameter) %>% 
-  clean_names() %>% 
-  filter(parameter != "Residuals") %>% 
-  select(type, plant_measure, parameter, p)
-```
-
-```{r}
-emm_tbl <- boxplot_mult_nest_tbl |>
-  mutate(model = map(data, ~lm(rsp ~ trt, data = .x))) %>% 
-  mutate(emm = map(model, emmeans, ~trt)) %>% 
-  mutate(contrast = map(emm, contrast, method = "pairwise", 
-                        adjust = "none")) %>% 
-  mutate(cld = map(emm, cld, Letters = letters, adjust = "none")) |> 
-  unnest(cld) |> 
-  select(type, plant_measure, trt, rsp = emmean, group = .group) |> 
-  mutate(group = str_trim(group))
-
-```
-
-::: panel-tabset
-## Mit `facet_wrap()`
-
-```{r}
-#| message: false
-#| echo: true
-#| warning: false
-#| label: fig-zerforschen_boxplot_mult-1
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 7
-#| fig-cap: "Nicht alle Ausreißer wurden von mir direkt nachgebaut. Das ist sehr viel Arbeit mit wenig Erkenntnisgewinn."
-
-boxplot_mult_tbl |> 
-  ggplot(aes(trt, rsp)) +
-  theme_minimal() +
-  stat_boxplot(geom = "errorbar", width = 0.25) + 
-  geom_boxplot(outlier.shape = 18, outlier.size = 2) +
-  stat_summary(fun.y = mean, geom = "point", shape = 23, size = 3, fill = "red") +
-  facet_wrap(~ type * plant_measure, nrow = 2, scales = "free") +
-  labs(x = "", y = "") +
-  geom_text(data = emm_tbl, aes(y = rsp * 1.25, label = group), size = 6)
-
-```
-
-## Mit `{patchwork}`
-
-Hier bauen wir uns erstmal ein Template für `ggplot()` und dann ändern wir nur die Werte für `scale_y_continuous()`.
-
-```{r}
-gg_template <- ggplot() +
-  aes(trt, rsp) +
-  theme_minimal() +
-  stat_boxplot(geom = "errorbar", width = 0.25) + 
-  geom_boxplot(outlier.shape = 18, outlier.size = 2) +
-  stat_summary(fun.y = mean, geom = "point", shape = 23, size = 3, fill = "red") +
-  labs(x = "")
-```
-
-```{r}
-p1 <- gg_template %+%
-  filter(boxplot_mult_tbl, type == "Substrate" & plant_measure == "Fresh weight (g)") +
-  labs(y = "Fresh weight (g)")
-p2 <- gg_template %+%
-  filter(boxplot_mult_tbl, type == "Substrate" & plant_measure == "Dry weight (g)") +
-  labs(y = "Dry weight (g)")
-p3 <- gg_template %+%
-  filter(boxplot_mult_tbl, type == "Substrate" & plant_measure == "Plant height (cm)") +
-  labs(y = "Plant height (cm)")
-p4 <- gg_template %+%
-  filter(boxplot_mult_tbl, type == "Substrate" & plant_measure == "Flower number") +
-  labs(y = "Flower number")
-p5 <- gg_template %+%
-  filter(boxplot_mult_tbl, type == "Water" & plant_measure == "Fresh weight (g)") +
-  labs(y = "Fresh weight (g)")
-p6 <- gg_template %+%
-  filter(boxplot_mult_tbl, type == "Water" & plant_measure == "Dry weight (g)") +
-  labs(y = "Dry weight (g)")
-p7 <- gg_template %+%
-  filter(boxplot_mult_tbl, type == "Water" & plant_measure == "Plant height (cm)") +
-  labs(y = "Plant height (g)")
-p8 <- gg_template %+%
-  filter(boxplot_mult_tbl, type == "Water" & plant_measure == "Flower number") +
-  labs(y = "Flower number")
-```
-
-```{r}
-patch <- p1 + p2 + p3 + p4 +
-  p5 + p6 + p7 + p8 +
-  plot_layout(ncol = 4)
-patch + plot_annotation(tag_levels = 'A',
-                        title = 'The surprising truth about mtcars',
-                        subtitle = 'These 3 plots will reveal yet-untold secrets about our beloved data-set',
-                        caption = 'Disclaimer: None of these plots are insightful')
-```
-:::
+Aktuell leider nichts da... juchee!
 
 ## Zitate {.unnumbered}
 
@@ -330,7 +199,7 @@ Grundsätzlich basiert die *latent class analysis* nicht auf Distanzen sondern v
 #| eval: false
 pacman::p_load(tidyverse, magrittr, janitor, conflicted)
 
-animals_tbl <- read_excel("data/cluster_animal.xlsx", sheet = 1) %>% 
+animals_tbl <- read_excel("data/cluster_animal.xlsx", sheet = 1) |> 
   clean_names() 
 ```
 

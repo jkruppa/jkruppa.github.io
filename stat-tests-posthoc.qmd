@@ -1,6 +1,11 @@
 ```{r echo = FALSE}
+#| message: false
+#| warning: false
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, see, latex2exp,
-               multcomp, emmeans, ggpubr, multcompView, nlme, quantreg)
+               multcomp, emmeans, ggpubr, multcompView, nlme, quantreg, janitor,
+               parameters, effectsize, patchwork, conflicted)
+conflicts_prefer(dplyr::select)
+conflicts_prefer(dplyr::filter)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
@@ -75,6 +80,12 @@ Schaue dir auch die folgenden Zerforschenbeispiele einmal an, wenn dich mehr zu 
 {{< include zerforschen/zerforschen-boxplot-2fac-target-emmeans.qmd >}}
 :::
 
+::: {.callout-note collapse="true"}
+## Zerforschen: Boxplots mit `emmeans` und *compact letter display*
+
+{{< include zerforschen/zerforschen-boxplot-mult.qmd >}}
+:::
+
 ## Genutzte R Pakete
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
@@ -93,11 +104,7 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 
 ## Daten
 
-Wir nutzen in diesem Kapitel den Datensatz aus dem Beispiel in @sec-example-3. Wir haben als Outcome die Sprunglänge in \[cm\] von Flöhen. Die Sprunglänge haben wir an Flöhen von Hunde, Katzen und Füchsen gemessen. Der Datensatz ist also recht übeerschaubar. Wir haben ein normalverteiltes $y$ mit `jump_length` sowie einen multinomialverteiltes $y$ mit `grade` und einen Faktor `animal` mit drei Leveln.
-
-Du kannst dir komplexere Auswertungen in dem Skript [Beispielhaften Auswertungen](https://jkruppa.github.io/application/) anschauen. Dort sammelt sich mit der Zeit Auswertungen vom Fachbereich an. Daher finden sich dort auch Beispiele für multiple Vergleiche.
-
-Im Folgenden laden wir den Datensatz `flea_dog_cat_fox.csv` und selektieren mit der Funktion `select()` die benötigten Spalten. Abschließend müssen wir die Spalte `animal`noch in einen Faktor umwandeln. Damit ist unsere Vorbereitung des Datensatzes abgeschlossen.
+Wir nutzen in diesem Kapitel den Datensatz aus dem Beispiel in @sec-example-3. Wir haben als Outcome die Sprunglänge in \[cm\] von Flöhen. Die Sprunglänge haben wir an Flöhen von Hunde, Katzen und Füchsen gemessen. Der Datensatz ist also recht übeerschaubar. Wir haben ein normalverteiltes $y$ mit `jump_length` sowie einen multinomialverteiltes $y$ mit `grade` und einen Faktor `animal` mit drei Leveln. Im Folgenden laden wir den Datensatz `flea_dog_cat_fox.csv` und selektieren mit der Funktion `select()` die benötigten Spalten. Abschließend müssen wir die Spalte `animal`noch in einen Faktor umwandeln. Damit ist unsere Vorbereitung des Datensatzes abgeschlossen.
 
 ```{r}
 #| message: false
@@ -107,7 +114,7 @@ fac1_tbl <- read_csv2("data/flea_dog_cat_fox.csv") %>%
   mutate(animal = as_factor(animal))
 ```
 
-In der @tbl-data-posthoc-1 ist der Datensatz `fac1_tbl` nochmal dargestellt.
+In der @tbl-data-posthoc-1 ist der Datensatz `fac1_tbl` nochmal dargestellt. Wir werden nun den Datensatz `fac1_tbl` in den folgenden Abschnitten immer wieder nutzen.
 
 ::: {.callout-tip collapse="true"}
 ## Für die vollständige Datentabelle bitte aufklappen
@@ -122,13 +129,9 @@ fac1_tbl %>% kable(align = "c", "pipe")
 ```
 :::
 
-Wir werden nun den Datensatz `fac1_tbl` in den folgenden Abschnitten immer wieder nutzen.
-
 ### Hypothesen für multiple Vergleiche
 
-Als wir eine ANOVA gerechnet hatten, hatten wir nur eine Nullhypothese und eine Alternativehypothese. Wenn wir Nullhypothese abgelehnt hatten, wussten wir nur, dass sich mindestens ein paarweiser Vergleich unterschiedet. Multiple Vergleich lösen nun dieses Problem und führen ein Hypothesen*paar* für jeden paarweisen Vergleich ein. Zum einen rechnen wir damit $k$ Tests und haben damit auch $k$ Hypothesenpaare (siehe auch @sec-statistisches-testen-alpha-adjust zur Problematik des wiederholten Testens).
-
-Wenn wir zum Beispiel alle Level des Faktors `animal` miteinander Vergleichen wollen, dann rechnen wir $k=3$ paarweise Vergleiche. Im Folgenden sind alle drei Hypothesenpaare dargestellt.
+Als wir eine ANOVA gerechnet hatten, hatten wir nur eine Nullhypothese und eine Alternativehypothese. Wenn wir Nullhypothese abgelehnt hatten, wussten wir nur, dass sich mindestens ein paarweiser Vergleich unterschiedet. Multiple Vergleich lösen nun dieses Problem und führen ein Hypothesen*paar* für jeden paarweisen Vergleich ein. Zum einen rechnen wir damit $k$ Tests und haben damit auch $k$ Hypothesenpaare (siehe auch @sec-statistisches-testen-alpha-adjust zur Problematik des wiederholten Testens). Wenn wir zum Beispiel alle Level des Faktors `animal` miteinander Vergleichen wollen, dann rechnen wir $k=3$ paarweise Vergleiche. Im Folgenden sind alle drei Hypothesenpaare dargestellt.
 
 $$
 \begin{aligned}
@@ -151,15 +154,11 @@ H_{A3}: &\; \bar{y}_{dog} \ne \bar{y}_{fox}\\
 \end{aligned}
 $$
 
-Wenn wir drei Vergleiche rechnen, dann haben wir eine $\alpha$ Inflation vorliegen. Wir sagen, dass wir für das multiple Testen adjustieren müssen. In R gibt es eine Reihe von Adjustierungsverfahren. Wir nehmen meist Bonferroni oder das Verfahren, was in der jeweiligen Funktion als Standard (eng. *default*) gesetzt ist.
-
-Wir adjustieren grundsätzlich die $p$-Werte und erhalten adjustierte $p$-Werte aus den jeweiligen Funktionen in R. Die adjustierten p-Werte können wir dann mit dem Signifikanzniveau von $\alpha$ gleich 5% vergleichen.
+Wenn wir drei Vergleiche rechnen, dann haben wir eine $\alpha$ Inflation vorliegen. Wir sagen, dass wir für das multiple Testen adjustieren müssen. In R gibt es eine Reihe von Adjustierungsverfahren. Wir nehmen meist Bonferroni oder das Verfahren, was in der jeweiligen Funktion als Standard (eng. *default*) gesetzt ist. Wir adjustieren grundsätzlich die $p$-Werte und erhalten adjustierte $p$-Werte aus den jeweiligen Funktionen in R. Die adjustierten p-Werte können wir dann mit dem Signifikanzniveau von $\alpha$ gleich 5% vergleichen.
 
 ## Simple Gruppenvergleiche {#sec-posthoc-pairwise}
 
-Wenn wir nur einen Faktor mit mehr als zwei Leveln vorliegen haben, dann können wir die Funktion `pairwise.*.test()` nutzen. Der Stern `*` steht entweder als Platzhalter für `t` für den t-Test oder aber für `wilcox` für den Wilcoxon Test. Die Funktion ist relativ einfach zu nutzen und liefert auch sofort die entsprechenden p-Werte.
-
-Die Funktion `pairwise.*.test()` ist in dem Sinne *veraltet*, da wir keine 95% Konfidenzintervalle generieren können. Da die Funktion aber immer mal wieder angefragt wird, ist die Funktion hier nochmal aufgeführt. Die Funktion `pairwise.*.test()` ist *veraltet*, wir nutzen das R Paket `{emmeans}` oder das R Paket `{multcomp}`.
+Wenn wir nur einen Faktor mit mehr als zwei Leveln vorliegen haben, dann können wir die Funktion `pairwise.*.test()` nutzen. Der Stern `*` steht entweder als Platzhalter für `t` für den t-Test oder aber für `wilcox` für den Wilcoxon Test. Die Funktion ist relativ einfach zu nutzen und liefert auch sofort die entsprechenden p-Werte. Die Funktion `pairwise.*.test()` ist in dem Sinne *veraltet*, da wir keine 95% Konfidenzintervalle generieren können. Da die Funktion aber immer mal wieder angefragt wird, ist die Funktion hier nochmal aufgeführt. Die Funktion `pairwise.*.test()` ist *veraltet*, wir nutzen das R Paket `{emmeans}` oder das R Paket `{multcomp}`.
 
 ### Paarweiser t Test
 
@@ -170,10 +169,6 @@ Wir nutzen den paarweisen t-Test,
 -   wenn wir Varianzhomogenität über alle Level vorliegen haben, dann nutzen wir die Option `pool.sd = TRUE`. Wenn wir Varianzheterogenität über alle Level des Faktors vorliegen haben, dann nutzen wir `pool.sd = FALSE`.
 
 Die Funktion `pairwise.t.test` kann nicht mit Datensätzen arbeiten sondern nur mit Vektoren. Daher können wir der Funktion auch keine `formula` übergeben sondern müssen die Vektoren aus dem Datensatz mit `fac1_tbl$jump_length` für das Outcome und mit `fac1_tbl$animal` für die Gruppierende Variable benennen. Das ist umständlich und daher auch fehleranfällig. Wir können auch den `%$%`-Operator aus dem R Paket `{magrittr}` nutzen um die Problematik zu umgehen. Weiter unten siehst du dann einmal beide Anwendungen.
-
-::: column-margin
-Mehr zu `mutate_if()` erfährst du auf der [Hilfeseite von mutate()](https://dplyr.tidyverse.org/reference/mutate_all.html)
-:::
 
 Als Adjustierungsmethode für den $\alpha$ Fehler wählen wir die Bonferroni-Methode mit `p.adjust.method = "bonferroni"` aus. Da wir eine etwas unübersichtliche Ausgabe in R erhalten nutzen wir die Funktion `tidy()`um die Ausgabe in ein sauberes `tibble` zu verwandeln. Abschließend runden wir noch alle numerischen Spalten mit der Funktion `round` auf drei Stellen hinter dem Komma.
 
@@ -196,13 +191,9 @@ fac1_tbl %$%
   mutate_if(is.numeric, round, 3)
 ```
 
-Wir erhalten in einem Tibble die adjustierten p-Werte nach Bonferroni. Wir können daher die adjustierten p-Werte ganz normal mit dem Signifikanzniveau $\alpha$ von 5% vergleichen. Wenn du keine adjustierten p-Werte möchtest, dann nutze die Option `p.adjust.method = "none"`. Wir sehen, dass der Gruppenvergleich `cat - dog` signifikant ist, der Gruppenvergleich `fox - dog` nicht signifikant ist und der Gruppenvergleich `fox - cat` wiederum signifikant ist.
+Wir erhalten in einem Tibble die adjustierten p-Werte nach Bonferroni. Wir können daher die adjustierten p-Werte ganz normal mit dem Signifikanzniveau $\alpha$ von 5% vergleichen. Wenn du keine adjustierten p-Werte möchtest, dann nutze die Option `p.adjust.method = "none"`. Wir sehen, dass der Gruppenvergleich `cat - dog` signifikant ist, der Gruppenvergleich `fox - dog` nicht signifikant ist und der Gruppenvergleich `fox - cat` wiederum signifikant ist. Leider können wir uns keine Konfidenzintervalle wiedergeben lassen, so dass die Funktion nicht dem Stand der Wissenschaft und deren Ansprüchen genügt.
 
-Leider können wir uns keine Konfidenzintervalle wiedergeben lassen, so dass die Funktion nicht dem Stand der Wissenschaft und deren Ansprüchen genügt.
-
-Im Folgenden wollen wir uns nochmal die Visualisierung mit dem R Paket `{ggpubr}` anschauen. Die [Hilfeseite des R Pakets `{ggpubr}`](https://rpkgs.datanovia.com/ggpubr/index.html) liefert noch eine Menge weitere Beispiele für den simplen Fall eines Modells $y ~ x$, also von einem $y$ und einem Faktor $x$.
-
-Um die @fig-ggpubr-1 zu erstellen müssen wir als erstes die Funktion `compare_mean()` nutzen um mit der `formula` Syntax einen t-Test zu rechnen. wir adjustieren die p-Werte nach Bonferroni. Anschließend erstellen wir einen Boxplot mit der Funktion `ggboxplot()` und speichern die Ausgabe in dem Objekt `p`. Wie in `ggplot` üblich können wir jetzt auf das Layer `p` über das `+`-Zeichen noch weitere Layer ergänzen. Wir nutzen die Funktion `stat_pvalue_manual()` um die asjustierten p-Werte aus dem Objekt `stat_test_obj` zu ergänzen. Abschließend wollen wir noch den p-Wert einer einfaktoriellen ANOVA als globalen Test ergänzen.
+Im Folgenden wollen wir uns nochmal die Visualisierung mit dem R Paket `{ggpubr}` anschauen. Die [Hilfeseite des R Pakets `{ggpubr}`](https://rpkgs.datanovia.com/ggpubr/index.html) liefert noch eine Menge weitere Beispiele für den simplen Fall eines Modells $y ~ x$, also von einem $y$ und einem Faktor $x$. Um die @fig-ggpubr-1 zu erstellen müssen wir als erstes die Funktion `compare_mean()` nutzen um mit der `formula` Syntax einen t-Test zu rechnen. wir adjustieren die p-Werte nach Bonferroni. Anschließend erstellen wir einen Boxplot mit der Funktion `ggboxplot()` und speichern die Ausgabe in dem Objekt `p`. Wie in `ggplot` üblich können wir jetzt auf das Layer `p` über das `+`-Zeichen noch weitere Layer ergänzen. Wir nutzen die Funktion `stat_pvalue_manual()` um die asjustierten p-Werte aus dem Objekt `stat_test_obj` zu ergänzen. Abschließend wollen wir noch den p-Wert einer einfaktoriellen ANOVA als globalen Test ergänzen.
 
 ```{r}
 #| message: false
@@ -236,13 +227,9 @@ Wir nutzen den paarweisen Wilxocon Test,
 -   wenn wir ein *nicht*-normalverteiltes $y$ vorliegen haben, wie `grade`.
 -   wenn wir *nur* einen Faktor mit mehr als zwei Leveln vorliegen haben, wie `animal`.
 
-Die Funktion `pairwise.wilcox.test` kann nicht mit Datensätzen arbeiten sondern nur mit Vektoren. Daher können wir der Funktion auch keine `formula` übergeben sondern müssen die Vektoren aus dem Datensatz mit `fac1_tbl$jump_length` für das Outcome und mit `fac1_tbl$animal` für die Gruppierende Variable benennen. Das ist umständlich und dhaer auch fehleranfällig.
+Die Funktion `pairwise.wilcox.test` kann nicht mit Datensätzen arbeiten sondern nur mit Vektoren. Daher können wir der Funktion auch keine `formula` übergeben sondern müssen die Vektoren aus dem Datensatz mit `fac1_tbl$jump_length` für das Outcome und mit `fac1_tbl$animal` für die Gruppierende Variable benennen. Das ist umständlich und daher auch fehleranfällig.
 
-::: column-margin
-Mehr zu `mutate_if()` erfährst du auf der [Hilfeseite von mutate()](https://dplyr.tidyverse.org/reference/mutate_all.html)
-:::
-
-Als Adjustierungsmethode für den $\alpha$ Fehler wählen wir die Bonferroni-Methode mit `p.adjust.method = "bonferroni"` aus. Da wir eine etwas unübersichtliche Ausgabe in R erhalten nutzen wir die Funktion `tidy()`um die Ausgabe in ein saubers `tibble` zu verwandeln. Abschließend runden wir noch alle numerischen Spalten mit der Funktion `round` auf drei Stellen hinter dem Komma.
+Als Adjustierungsmethode für den $\alpha$ Fehler wählen wir die Bonferroni-Methode mit `p.adjust.method = "bonferroni"` aus. Da wir eine etwas unübersichtliche Ausgabe in R erhalten nutzen wir die Funktion `tidy()`um die Ausgabe in ein sauberes `tibble` zu verwandeln. Abschließend runden wir noch alle numerischen Spalten mit der Funktion `round` auf drei Stellen hinter dem Komma.
 
 ```{r}
 #| warning: false
@@ -253,13 +240,9 @@ pairwise.wilcox.test(fac1_tbl$grade, fac1_tbl$animal,
   mutate_if(is.numeric, round, 3)
 ```
 
-Wir erhalten in einem Tibble die adujstierten p-Werte nach Bonferroni. Wir können daher die adjustierten p-Werte ganz normal mit dem Signifikanzniveau $\alpha$ von 5% vergleichen. Wir sehen, dass der Gruppenvergleich `cat - dog` knapp signifikant ist, der Gruppenvergleich `fox - dog` ebenfalls signifkant ist und der Gruppenvergleich `fox - cat` auch signifkant ist.
+Wir erhalten in einem Tibble die adujstierten p-Werte nach Bonferroni. Wir können daher die adjustierten p-Werte ganz normal mit dem Signifikanzniveau $\alpha$ von 5% vergleichen. Wir sehen, dass der Gruppenvergleich `cat - dog` knapp signifikant ist, der Gruppenvergleich `fox - dog` ebenfalls signifikant ist und der Gruppenvergleich `fox - cat` auch signifikant ist. Leider können wir uns keine Konfidenzintervalle wiedergeben lassen, so dass die Funktion nicht dem Stand der Wissenschaft und deren Ansprüchen genügt.
 
-Leider können wir uns keine Konfidenzintervalle wiedergeben lassen, so dass die Funktion nicht dem Stand der Wissenschaft und deren Ansprüchen genügt.
-
-Im Folgenden wollen wir uns nochmal die Visualisierung mit dem R Paket `{ggpubr}` anschauen. Die [Hilfeseite des R Pakets `{ggpubr}`](https://rpkgs.datanovia.com/ggpubr/index.html) liefert noch eine Menge weitere Beispiele für den simplen Fall eines Modells $y ~ x$, also von einem $y$ und einem Faktor $x$.
-
-Um die @fig-ggpubr-2 zu erstellen müssen wir als erstes die Funktion `compare_mean()` nutzen um mit der `formula` Syntax einen Wilcoxon Test zu rechnen. wir adjustieren die p-Werte nach Bonferroni. Anschließend erstellen wir einen Boxplot mit der Funktion `ggboxplot()` und speichern die Ausgabe in dem Objekt `p`. Wie in `ggplot` üblich können wir jetzt auf das Layer `p` über das `+`-Zeichen noch weitere Layer ergänzen. Wir nutzen die Funktion `stat_pvalue_manual()` um die asjustierten p-Werte aus dem Objekt `stat_test_obj` zu ergänzen. Abschließend wollen wir noch den p-Wert eines Kruskal Wallis als globalen Test ergänzen.
+Im Folgenden wollen wir uns nochmal die Visualisierung mit dem R Paket `{ggpubr}` anschauen. Die [Hilfeseite des R Pakets `{ggpubr}`](https://rpkgs.datanovia.com/ggpubr/index.html) liefert noch eine Menge weitere Beispiele für den simplen Fall eines Modells $y ~ x$, also von einem $y$ und einem Faktor $x$. Um die @fig-ggpubr-2 zu erstellen müssen wir als erstes die Funktion `compare_mean()` nutzen um mit der `formula` Syntax einen Wilcoxon Test zu rechnen. wir adjustieren die p-Werte nach Bonferroni. Anschließend erstellen wir einen Boxplot mit der Funktion `ggboxplot()` und speichern die Ausgabe in dem Objekt `p`. Wie in `ggplot` üblich können wir jetzt auf das Layer `p` über das `+`-Zeichen noch weitere Layer ergänzen. Wir nutzen die Funktion `stat_pvalue_manual()` um die asjustierten p-Werte aus dem Objekt `stat_test_obj` zu ergänzen. Abschließend wollen wir noch den p-Wert eines Kruskal Wallis als globalen Test ergänzen.
 
 ```{r}
 #| message: false
@@ -288,15 +271,9 @@ p + stat_pvalue_manual(stat_test_obj, label = "p.adj", y.position = c(10, 13, 16
 
 ## Gruppenvergleich mit `{emmeans}` {#sec-posthoc-emmeans}
 
-Im Folgenden wollen wir uns mit einem anderen R Paket beschäftigen was auch multiple Vergleiche rechnen kann. In diesem Kapitel nutzen wir das R Paket `{emmeans}`. Im Prinzip kann `{emmeans}` das Gleiche wir das R Paket `{multcomp}`. Beide Pakete rechnen dir einen multipen Vergleich. Das Paket `{emmeans}` kann noch mit *nested comparisons* umgehen. Deshalb hier nochmal die Vorstellung von `{emmeans}`. Du kannst aber für eine simple Auswertung mit nur einem Faktor beide Pakete verwenden.
+Im Folgenden wollen wir uns mit einem anderen R Paket beschäftigen was auch multiple Vergleiche rechnen kann. In diesem Kapitel nutzen wir das R Paket `{emmeans}`. Im Prinzip kann `{emmeans}` das Gleiche wir das R Paket `{multcomp}`. Beide Pakete rechnen dir einen multiplen Vergleich. Das Paket `{emmeans}` kann noch mit *nested comparisons* umgehen. Deshalb hier nochmal die Vorstellung von `{emmeans}`. Du kannst aber für eine simple Auswertung mit nur einem Faktor beide Pakete verwenden.
 
-::: column-margin
-Wir können hier nicht alles erklären und im Detail durchgehen. Hier gibt es noch ein aufwendiges Tutorium zu `emmeans`: [Getting started with emmeans](https://aosmith.rbind.io/2019/03/25/getting-started-with-emmeans/).
-
-Daneben gibt es auch noch die [Einführung mit Theorie auf der Seite des R Paktes](https://cran.r-project.org/web/packages/emmeans/vignettes/basics.html#contents)
-
-Es gibt hier auch ein weiteres englischsprachiges Tutorium [Don't Ignore Interactions - Unleash the Full Power of Models with {emmeans} R-package](https://yuzar-blog.netlify.app/posts/2022-12-29-emmeans2interactions/) oder [{emmeans} Game-Changing R-package Squeezes Hidden Knowledge out of Models!](https://yuzar-blog.netlify.app/posts/2022-11-29-emmeans/). **DISCLAIMER:** Der Text ist gut, die Bebilderung des entsprechenden Videos geht so leider mal gar nicht...
-:::
+Wir können hier nicht alles erklären und im Detail durchgehen. Hier gibt es noch ein aufwendiges Tutorium zu `emmeans`: [Getting started with emmeans](https://aosmith.rbind.io/2019/03/25/getting-started-with-emmeans/). Daneben gibt es auch noch die [Einführung mit Theorie auf der Seite des R Paktes](https://cran.r-project.org/web/packages/emmeans/vignettes/basics.html#contents) Es gibt hier auch ein weiteres englischsprachiges Tutorium [Don't Ignore Interactions - Unleash the Full Power of Models with {emmeans} R-package](https://yuzar-blog.netlify.app/posts/2022-12-29-emmeans2interactions/) oder [{emmeans} Game-Changing R-package Squeezes Hidden Knowledge out of Models!](https://yuzar-blog.netlify.app/posts/2022-11-29-emmeans/). **DISCLAIMER:** Der Text ist gut, die Bebilderung des entsprechenden Videos geht so leider mal gar nicht...
 
 ### Gruppenvergleiche mit `emmeans` in R
 
@@ -316,11 +293,7 @@ comp_2_obj <- fit_2 %>%
 comp_2_obj
 ```
 
-Wir können auch einen anderen Kontrast wählen. Wir überschreiben jetzt das Objekt `comp_2_obj` mit dem Kontrast *all-pair*, der alle möglichen Vergleiche rechnet. In `emmeans` heißt der *all-pair* Kontrast *pairwise*.
-
-::: column-margin
-Die Ausgabe von `emmeans` können über die Funktion `tidy()` aufgeräumt werden. Mehr dazu unter der [Hilfeseite von `tidy`() zu emmeans](https://broom.tidymodels.org/reference/tidy.emmGrid.html).
-:::
+Wir können auch einen anderen Kontrast wählen. Wir überschreiben jetzt das Objekt `comp_2_obj` mit dem Kontrast *all-pair*, der alle möglichen Vergleiche rechnet. In `emmeans` heißt der *all-pair* Kontrast *pairwise*. Die Ausgabe von `emmeans` können über die Funktion `tidy()` aufgeräumt werden. Mehr dazu unter der [Hilfeseite von `tidy`() zu emmeans](https://broom.tidymodels.org/reference/tidy.emmGrid.html).
 
 ```{r}
 comp_2_obj <- fit_2 %>% 
@@ -463,9 +436,7 @@ comp_3_obj %>%
   mutate(p.value = format.pval(p.value, eps = 0.001, digits = 2))
 ```
 
-In der Ausgabe können wir erkennen, dass die Vergleich in der Stadt alle signifkant sind. Jedoch erkennen wir keine signifikanten Ergebnisse mehr in dem Dorf und im Feld ist nur der Vergleich `dog - fox` signifkant. Hier solltest du nochmal beachten, warum wir die Analyse getrennt machen. In der zweifaktoriellen ANOVA haben wir gesehen, dass ein signifkanter Interaktionsterm zwischen den beiden Faktoren `animal` und `site` vorliegt.
-
-Wir wollen uns noch über die Funktion `confint()` die 95% Konfidenzintervalle wiedergeben lassen.
+In der Ausgabe können wir erkennen, dass die Vergleich in der Stadt alle signifkant sind. Jedoch erkennen wir keine signifikanten Ergebnisse mehr in dem Dorf und im Feld ist nur der Vergleich `dog - fox` signifkant. Hier solltest du nochmal beachten, warum wir die Analyse getrennt machen. In der zweifaktoriellen ANOVA haben wir gesehen, dass ein signifkanter Interaktionsterm zwischen den beiden Faktoren `animal` und `site` vorliegt. Wir wollen uns noch über die Funktion `confint()` die 95% Konfidenzintervalle wiedergeben lassen.
 
 ```{r}
 res_3_obj <- comp_3_obj %>% 
@@ -476,9 +447,7 @@ res_3_obj <- comp_3_obj %>%
 res_3_obj
 ```
 
-Besonders mit den 95% Konfiendezintervallen sehen wir nochmal den Interaktionseffekt zwischen den beiden Faktoren `animal` und `site`. So dreht sich der Effekt von zum Beispiel `dog - fox` von $-3.44$ in dem Level `city` zu $+2.35$ in dem Level `field`. Wir haben eine Interaktion vorliegen und deshalb die Analyse getrennt für jeden Level des Faktors `site` durchgeführt.
-
-@fig-emmeans-2 zeigt die entsprechenden 95% Konfidenzintervalle. Wir müssen hier etwas mit der `position` spielen, so dass die Punkte und der `geom_errorbar` richtig liegen.
+Besonders mit den 95% Konfiendezintervallen sehen wir nochmal den Interaktionseffekt zwischen den beiden Faktoren `animal` und `site`. So dreht sich der Effekt von zum Beispiel `dog - fox` von $-3.44$ in dem Level `city` zu $+2.35$ in dem Level `field`. Wir haben eine Interaktion vorliegen und deshalb die Analyse getrennt für jeden Level des Faktors `site` durchgeführt. @fig-emmeans-2 zeigt die entsprechenden 95% Konfidenzintervalle. Wir müssen hier etwas mit der `position` spielen, so dass die Punkte und der `geom_errorbar` richtig liegen.
 
 ```{r}
 #| message: false
@@ -506,29 +475,21 @@ Wir drehen hier einmal die Erklärung um. Wir machen erst die Anwendung in R und
 
 ### Gruppenvergleiche mit `multcomp` in R
 
-::: column-margin
-Die Ausgabe von `multcomp` können über die Funktion `tidy()` aufgeräumt werden. Mehr dazu unter der [Hilfeseite von `tidy`() zu multcomp](https://broom.tidymodels.org/reference/tidy.glht.html).
-:::
-
 Als erstes brauchen wir ein lineares Modell für die Verwendung von `multcomp`. Normalerweise verenden wir das gleiche Modell, was wir schon in der ANOVA verwendet haben. Wir nutzen hier ein simples lineares Modell mit nur einem Faktor. Im Prinzip kann das Modell auch größer sein, davon schauen wir uns dann später im Verlauf des Kapitels noch welche an.
 
 ```{r}
 fit_1 <- lm(jump_length ~ animal, data = fac1_tbl)
 ```
 
-Wir haben das Objeckt `fit_1` mit der Funktion `lm()` erstellt. Im Modell sind jetzt alle Mittelwerte und die entsprechenden Varianzen geschätzt worden. Mit `summary(fit_1)` kannst du dir gerne das Modell auch nochmal anschauen.
+Wir haben das Objekt `fit_1` mit der Funktion `lm()` erstellt. Im Modell sind jetzt alle Mittelwerte und die entsprechenden Varianzen geschätzt worden. Mit `summary(fit_1)` kannst du dir gerne das Modell auch nochmal anschauen. Wenn wir keinen *all-pair* Vergleich rechnen wollen, dann können wir auch einen *many-to-one* Vergleich mit dem `Dunnett` Kontrast rechnen.
 
-::: column-margin
-Wenn wir keinen *all-pair* Vergleich rechnen wollen, dann können wir auch einen *many-to-one* Vergleich mit dem `Dunnett` Kontrast rechnen.
-:::
-
-Im Anschluß nutzen wir die Funktion `glht()` um den multiplen vergleich zu rechnen. Als erstes musst du wissen, dass wenn wir *alle* Vergleiche rechnen wollen, wir einen *all-pair* Vergleich rechnen. In der Statistik heißt dieser Typ von Vergleich `Tukey`. Wir wollen jetzt als für den Faktor `animal` einen multiplen `Tukey`-Vergleich rechnen. Nichts anders sagt `mcp(animal = "Tukey")` aus, dabei steht `mcp` für *multiple comparison procedure*. Mit dem hinteren Teil der Funktion weiß jetzt die Funktion `glht()` was gerechnet werden soll. Wir müssen jetzt der Funktion nur noch mitgeben auf was der multiple vergleich gerehcnet werden soll, mit dem Objekt `fit_1`. Wir speichern die Ausgabe der Funktion in `comp_1_obj`.
+Im Anschluss nutzen wir die Funktion `glht()` um den multiplen Vergleich zu rechnen. Als erstes musst du wissen, dass wenn wir *alle* Vergleiche rechnen wollen, wir einen *all-pair* Vergleich rechnen. In der Statistik heißt dieser Typ von Vergleich `Tukey`. Wir wollen jetzt als für den Faktor `animal` einen multiplen `Tukey`-Vergleich rechnen. Nichts anders sagt `mcp(animal = "Tukey")` aus, dabei steht `mcp` für *multiple comparison procedure*. Mit dem hinteren Teil der Funktion weiß jetzt die Funktion `glht()` was gerechnet werden soll. Wir müssen jetzt der Funktion nur noch mitgeben auf was der multiple Vergleich gerechnet werden soll, mit dem Objekt `fit_1`. Wir speichern die Ausgabe der Funktion in `comp_1_obj`.
 
 ```{r}
 comp_1_obj <- glht(fit_1, linfct = mcp(animal = "Tukey")) 
 ```
 
-Mit dem Objekt `comp_1_fit` können wir noch nicht soviel anfangen. Der Inhalt ist etwas durcheinander und wir wollen noch die Konfidenzintervalle haben. Daher pipen wir `comp_1_fit` erstmal in die Funktion `tidy()` und alssen mit der Option `conf.int = TRUE` die simultanen 95% Konfidenzintervalle berechnen. Dann nutzen wir die Funktion `select()` um die wichtigen Spalten zu selektieren. Abschließend mutieren wir noch alle numerischen Spalten in dem wir auf die dritte Kommastelle runden. Wir speichern alles in das Objekt `res_1_obj`.
+Mit dem Objekt `comp_1_fit` können wir noch nicht soviel anfangen. Der Inhalt ist etwas durcheinander und wir wollen noch die Konfidenzintervalle haben. Daher pipen wir `comp_1_fit` erstmal in die Funktion `tidy()` und lassen mit der Option `conf.int = TRUE` die simultanen 95% Konfidenzintervalle berechnen. Dann nutzen wir die Funktion `select()` um die wichtigen Spalten zu selektieren. Abschließend mutieren wir noch alle numerischen Spalten in dem wir auf die dritte Kommastelle runden. Wir speichern alles in das Objekt `res_1_obj`.
 
 ```{r}
 #| message: false

@@ -1,0 +1,180 @@
+Hier wollen wir einmal eine etwas größere @fig-zer-boxplot-mult mit einer Menge Boxplots zerforschen. Da ich den Datensatz dann nicht zu groß machen wollte und Boxplots zu zerforschen manchmal nicht so einfach ist, passen die Ausreißer dann manchmal dann doch nicht. Auch liefern die statistischen Tests dann nicht super genau die gleichen Ergebnisse. Aber das macht vermutlich nicht so viel, hier geht es ja dann eher um den Bau der Boxplots und dem rechnen des statistischen Tests in `{emmeans}`. Die Reihenfolge des *compact letter displays* habe ich dann auch nicht angepasst sondern die Buchstaben genommen, die ich dann erhalten habe. Die Sortierung kann man ja selber einfach ändern. Wir haben hier ein einfaktorielles Design mit einem Behandlungsfaktor mit drei Leveln vorliegen. Insgesamt schauen wir uns vier Endpunkte in veränderten Substrat- und Wasserbedingungen an.
+
+![Ursprüngliche Abbildung, die nachgebaut werden soll. Insgesamt vier Outcomes sollen für zwei Behandlungen ausgewertet werden. Das praktische ist hier, dass wir es nur mit einem einfaktoriellen Design zu tun haben.](images/eda/zerforschen_boxplot_mult.jpeg){#fig-zer-boxplot-mult fig-align="center" width="100%"}
+
+Im Folgenden lade ich einmal den Datensatz, den ich dann per Auge zusammengesetzt habe. Das war jetzt etwas anstrengender als gedacht, da ich nicht weiß wie viele Beobachtungen einen Boxplot bilden. Je mehr Beobachtungen, desto feiner kann man den Boxplot abstimmen. Da ich hier nur mit sieben Beobachtungen ja Gruppe gearbeitet habe, habe ich es nicht geschafft die Ausreißer darzustellen. Das wäre mir dann zu viel Arbeit geworden. Nachdem ich jetzt die Daten geladen habe, muss ich noch über die Funktion `pivot_longer()` einen Datensatz passenden im Longformat bauen. Abschließend mutiere ich dann noch alle Faktoren richtig und vergebe bessere Namen als `labels` sonst versteht man ja nicht was die Spalten bedeuten.
+
+```{r}
+boxplot_mult_tbl <- read_excel("data/zerforschen_boxplot_mult.xlsx") |> 
+  pivot_longer(cols = fresh_weight:flower_number,
+               values_to = "rsp",
+               names_to = "plant_measure") |> 
+  mutate(trt = as_factor(trt),
+         plant_measure = factor(plant_measure,
+                                levels = c("fresh_weight", "dry_weight",
+                                           "plant_height", "flower_number"),
+                                labels = c("Fresh weight (g)", "Dry weight (g)",
+                                           "Plant height (cm)", "Flower number")),
+         type = factor(type, labels = c("Substrate", "Water"))) 
+```
+
+Ich habe mir dann die beiden Behandlungen `substrate` und `water` in die neue Spalte `type` geschrieben. Die Spaltennamen der Outcomes wandern in die Spalte `plant_measure` und die entsprechenden Werte in die Spalte `rsp`. Dann werde ich hier mal alle Outcomes auf einmal auswerten und nutze dafür das R Paket `{purrr}` mit der Funktion `nest()` und `map()`. Ich packe mir als die Daten nach `type` und `plant_measure` einmal zusammen. Dann habe ich einen neuen genesteten Datensatz mit nur noch acht Zeilen. Auf jeder Zeile rechne ich dann jeweils mein Modell. Wie du dann siehst ist in der Spalte `data` dann jeweils ein Datensatz mit der Spalte `trt` und `rsp` für die entsprechenden 21 Beobachtungen.
+
+```{r}
+boxplot_mult_nest_tbl <- boxplot_mult_tbl |>
+  group_by(type, plant_measure) |>
+  nest() 
+
+boxplot_mult_nest_tbl
+```
+
+Zur Veranschaulichung rechne ich jetzt einmal mit `mutate()` und `map()` für jeden der Datensätze in der Spalte `data` einmal ein lineares Modell mit der Funktion `lm()`. Ich muss nur darauf achten, dass ich die Daten mit `.x` einmal an die richtige Stelle in der Funktion `lm()` übergebe. Dann habe ich alle Modell komprimiert in der Spalte `model`. Das geht natürlcih auch alles super in einem Rutsch.
+
+```{r}
+boxplot_mult_nest_model_tbl <- boxplot_mult_nest_tbl |>
+  mutate(model = map(data, ~lm(rsp ~ trt, data = .x)))
+
+boxplot_mult_nest_model_tbl 
+```
+
+Jetzt können wir einmal eskalieren und insgesamt acht mal die ANOVA rechnen. Das sieht jetzt nach viel Code aus, aber am Ende ist es nur eine lange Pipe. Am Ende erhalten wir dann den $p$-Wert für die einfaktorielle ANOVA für die Behandlung `trt` wiedergegeben. Wir sehen, dass wir eigentlich nur einen signifikanten Unterschied in der Wassergruppe und der Pflanzenhöhe erwarten sollten. Da der $p$-Wert für die Wassergruppe und der Blütenanzahl auch sehr nah an dem Signifikanzniveau ist, könnte hier auch etwas sein, wenn wir die Gruppen nochmal getrennt testen.
+
+```{r}
+boxplot_mult_nest_model_tbl  |> 
+  mutate(anova = map(model, anova)) |> 
+  mutate(parameter = map(anova, model_parameters)) |> 
+  select(type, plant_measure, parameter) |> 
+  unnest(parameter) |> 
+  clean_names() |> 
+  filter(parameter != "Residuals") |> 
+  select(type, plant_measure, parameter, p)
+```
+
+Dann schauen wir uns nochmal das $\eta^2$ an um zu sehen, wie viel Varianz unsere Behandlung in den Daten erklärt. Leider sieht es in unseren Daten sehr schlecht aus. Nur bei der Wassergruppe und der Pflanzenhöhe scheinen wir durch die Behandlung Varianz zu erklären.
+
+```{r}
+#| message: false
+#| warning: false
+boxplot_mult_nest_model_tbl %>%  
+  mutate(eta = map(model, eta_squared)) %>% 
+  unnest(eta) %>% 
+  clean_names() %>% 
+  select(type, plant_measure, eta2) 
+```
+
+Dann können wir auch schon den Gruppenvergleich mit dem R Paket `{emmeans}` rechnen. Wir nutzen hier die Option `vcov. = sandwich::vcovHAC` um heterogene Varianzen zuzulassen. Im Weiteren adjustieren wir nicht für die Anzahl der Vergleiche und lassen uns am Ende das *compact letter display* wiedergeben.
+
+```{r}
+emm_tbl <- boxplot_mult_nest_model_tbl |> 
+  mutate(emm = map(model, emmeans, ~trt, vcov. = sandwich::vcovHAC)) |> 
+  mutate(cld = map(emm, cld, Letters = letters, adjust = "none")) |> 
+  unnest(cld) |> 
+  select(type, plant_measure, trt, rsp = emmean, group = .group) |> 
+  mutate(group = str_trim(group))
+
+emm_tbl
+```
+
+Da die Ausgabe viel zu lang ist, wollen wir ja jetzt einmal unsere Abbildungen in `{ggplot}` nachbauen. Dazu nutze ich dann einmal zwei Wege. Einmal den etwas schnelleren mit `facet_wrap()` bei dem wir eigentlich alles automatisch machen lassen. Zum anderen zeige ich dir mit etwas Mehraufwand alle acht Abbildungen einzeln baust und dann über das R Paket `{patchwork}` wieder zusammenklebst. Der zweite Weg ist der Weg, wenn du mehr Kontrolle über die einzelnen Abbildungen haben willst.
+
+::: panel-tabset
+## Mit `facet_wrap()`
+
+Die Funktion `facet_wrap()` erlaubt es dir automatisch Subplots nach einem oder mehreren Faktoren zu erstellen. Dabei muss auch ich immer wieder probieren, wie ich die Faktoren anordne. In unserem Fall wollen wir zwei Zeilen und auch den Subplots erlauben eigene $x$-Achsen und $y$-Achsen zu haben. Wenn du die Option `scale = "free"` nicht wählst, dann haben alle Plots alle Einteilungen der $x$\_Achse und die $y$-Achse läuft von dem kleinsten zu größten Wert in den gesamten Daten.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-zerforschen_boxplot_mult-1
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "Nachbau der Abbildung mit der Funktion `facte_wrap()` mit Boxplots und dem Mittelwert. Neben dem Mittelwert finden sich das *compact letter display*. Auf eine Einfärbung nach der Behandlung wurde verzichtet um die Abbildung nicht noch mehr zu überladen."
+
+boxplot_mult_tbl |> 
+  ggplot(aes(trt, rsp)) +
+  theme_minimal() +
+  stat_boxplot(geom = "errorbar", width = 0.25) + 
+  geom_boxplot(outlier.shape = 18, outlier.size = 2) +
+  stat_summary(fun.y = mean, geom = "point", shape = 23, size = 3, fill = "red") +
+  facet_wrap(~ type * plant_measure, nrow = 2, scales = "free") +
+  labs(x = "", y = "") +
+  geom_text(data = emm_tbl, aes(y = rsp, label = group), size = 3, fontface = "bold",
+            position = position_nudge(0.2), hjust = 0, vjust = 0, color = "red")
+
+```
+
+## Mit `{patchwork}`
+
+Jetzt wird es etwas wilder. Wir bauen uns jetzt alle acht Plots einzeln und kleben diese dann mit dem R Paket `{patchwork}` zusammen. Das hat ein paar Vorteile. Wir können jetzt jeden einzelnen Plot bearbeiten und anpassen wie wir es wollen. Damit wir aber nicht zu viel Redundanz haben bauen wir uns erstmal ein Template für `ggplot()`. Dann können wir immer noch die Werte für `scale_y_continuous()` in den einzelnen Plots ändern. Hier also einmal das Template, was beinhaltet was für alle Abbildungen gelten soll.
+
+```{r}
+gg_template <- ggplot() +
+  aes(trt, rsp) +
+  theme_minimal() +
+  stat_boxplot(geom = "errorbar", width = 0.25) + 
+  geom_boxplot(outlier.shape = 18, outlier.size = 2) +
+  stat_summary(fun.y = mean, geom = "point", shape = 23, size = 3, fill = "red") +
+  labs(x = "")
+```
+
+Ja, jetzt geht es los. Wir bauen also jeden Plot einmal nach. Dafür müssen wir dann jeweils den Datensatz filtern, den wir auch brauchen. Dann ergänzen wir noch die korrekte $y$-Achsenbeschriftung. So können wir dann auch händisch das *compact letter display* über die Whisker einfach setzen. Im Weiteren habe ich dann auch einmal als Beispiel noch die $y$-Achseneinteilung mit `scale_y_continuous()` geändert. Ich habe das einmal für den Plot `p1` gemacht, der Rest würde analog dazu funktionieren.
+
+```{r}
+p1 <- gg_template %+%
+  filter(boxplot_mult_tbl, type == "Substrate" & plant_measure == "Fresh weight (g)") +
+  labs(y = "Fresh weight (g)") +
+  annotate("text", x = c(1, 2, 3), y = c(170, 120, 135), label = c("a", "a", "a"), 
+           color = "red", size = 3, fontface = "bold") +
+  scale_y_continuous(breaks = seq(40, 180, 20), limits = c(60, 180))
+p2 <- gg_template %+%
+  filter(boxplot_mult_tbl, type == "Substrate" & plant_measure == "Dry weight (g)") +
+  labs(y = "Dry weight (g)")
+p3 <- gg_template %+%
+  filter(boxplot_mult_tbl, type == "Substrate" & plant_measure == "Plant height (cm)") +
+  labs(y = "Plant height (cm)")
+p4 <- gg_template %+%
+  filter(boxplot_mult_tbl, type == "Substrate" & plant_measure == "Flower number") +
+  labs(y = "Flower number")
+p5 <- gg_template %+%
+  filter(boxplot_mult_tbl, type == "Water" & plant_measure == "Fresh weight (g)") +
+  labs(y = "Fresh weight (g)")
+p6 <- gg_template %+%
+  filter(boxplot_mult_tbl, type == "Water" & plant_measure == "Dry weight (g)") +
+  labs(y = "Dry weight (g)")
+p7 <- gg_template %+%
+  filter(boxplot_mult_tbl, type == "Water" & plant_measure == "Plant height (cm)") +
+  labs(y = "Plant height (g)")
+p8 <- gg_template %+%
+  filter(boxplot_mult_tbl, type == "Water" & plant_measure == "Flower number") +
+  labs(y = "Flower number")
+```
+
+Dann kleben wir die Abbildungen einfach mit einem `+` zusammen und dann wählen wir noch aus, dass wir vier Spalten wollen. Dann können wir noch Buchstaben zu den Subplots hinzufügen und noch Titel und anderes wenn wir wollen würden. Dann haben wir auch den Plot schon nachgebaut. Ich verzichte hier händisch überall das *compact letter display* zu ergänzen. Das macht super viel Arbeit und endlos viel Code und hilft dir dann aber in deiner Abbildung auch nicht weiter. Du musst dann ja bei dir selber die Positionen für die Buchstaben finden.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-zerforschen_boxplot_mult-2
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "Nachbau der Abbildung mit dem R Paket `{patchwork}` mit Boxplots und dem Mittelwert. Neben dem Mittelwert finden sich das *compact letter display* bei dem ersten Plot. Auf eine Einfärbung nach der Behanldung wurde verzichtet um die Abbildung nicht noch mehr zu überladen."
+
+patch <- p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 +
+  plot_layout(ncol = 4)
+patch + plot_annotation(tag_levels = 'A',
+                        title = 'Ein Zerforschenbeispiel an Boxplots',
+                        subtitle = 'Alle Plots wurden abgelesen und daher sagen Signifikanzen nichts.',
+                        caption = 'Disclaimer: Die Abbildungen sagen nichts aus.')
+```
+:::
+
+Am Ende kannst du dann folgenden Code noch hinter deinen `ggplot` Code ausführen um dann deine Abbildung als `*.png`-Datei zu speichern. Dann hast du die Abbildung super nachgebaut und sie sieht auch wirklich besser aus.
+
+```{r}
+#| eval: false
+ggsave("my_ggplot_boxplot.png", width = 12, height = 6)
+```
