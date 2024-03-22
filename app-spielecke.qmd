@@ -50,32 +50,32 @@ Hier wollen wir einmal eine etwas größere @fig-zer-boxplot-mult mit einer Meng
 
 ![Ursprüngliche Abbildung, die nachgebaut werden soll. Insgesamt vier Outcomes sollen für zwei Behandlungen ausgewertet werden. Das praktische ist hier, dass wir es nur mit einem einfaktoriellen Design zu tun haben.](images/eda/zerforschen_boxplot_mult.jpeg){#fig-zer-boxplot-mult fig-align="center" width="100%"}
 
-Im Folgenden lade ich einmal den Datensatz, den ich dann per Auge zusammengesetzt habe. Das war jetzt etwas anstrengender als gedacht, da ich nicht weiß wie viele Beobachtungen einen Boxplot bilden. Je mehr Beobachtungen, desto feiner kann man den Boxplot abstimmen. Da ich hier nur mit sieben Beobachtungen ja Gruppe gearbeitet habe, habe ich es nicht geschafft die Ausreißer darzustellen. Das wäre mir dann zu viel Arbeit geworden. Nachdem ich jetzt die Daten geladen habe, muss ich noch über die Funktion `pivot_longer()` einen Datensatz passenden Datensatz in Longformat bauen.
+Im Folgenden lade ich einmal den Datensatz, den ich dann per Auge zusammengesetzt habe. Das war jetzt etwas anstrengender als gedacht, da ich nicht weiß wie viele Beobachtungen einen Boxplot bilden. Je mehr Beobachtungen, desto feiner kann man den Boxplot abstimmen. Da ich hier nur mit sieben Beobachtungen ja Gruppe gearbeitet habe, habe ich es nicht geschafft die Ausreißer darzustellen. Das wäre mir dann zu viel Arbeit geworden. Nachdem ich jetzt die Daten geladen habe, muss ich noch über die Funktion `pivot_longer()` einen Datensatz passenden im Longformat bauen. Abschließend mutiere ich dann noch alle Faktoren richtig und vergebe bessere Namen als `labels`.
 
 ```{r}
 boxplot_mult_tbl <- read_excel("data/zerforschen_boxplot_mult.xlsx") |> 
   pivot_longer(cols = fresh_weight:flower_number,
                values_to = "rsp",
                names_to = "plant_measure") |> 
-    mutate(trt = as_factor(trt),
-           plant_measure = factor(plant_measure,
-                                  levels = c("fresh_weight", "dry_weight",
-                                             "plant_height", "flower_number"),
-                                  labels = c("Fresh weight (g)", "Dry weight (g)",
-                                             "Plant height (cm)", "Flower number")),
-           type = factor(type, labels = c("Substrate", "Water"))) 
+  mutate(trt = as_factor(trt),
+         plant_measure = factor(plant_measure,
+                                levels = c("fresh_weight", "dry_weight",
+                                           "plant_height", "flower_number"),
+                                labels = c("Fresh weight (g)", "Dry weight (g)",
+                                           "Plant height (cm)", "Flower number")),
+         type = factor(type, labels = c("Substrate", "Water"))) 
 ```
 
 ```{r}
-spinach_nest_tbl <- boxplot_mult_tbl |>
+boxplot_mult_nest_tbl <- boxplot_mult_tbl |>
   group_by(type, plant_measure) |>
   nest() 
 
-spinach_nest_tbl
+boxplot_mult_nest_tbl
 ```
 
 ```{r}
-spinach_nest_tbl |>
+boxplot_mult_nest_tbl |>
   mutate(model = map(data, ~lm(rsp ~ trt, data = .x))) %>% 
   mutate(anova = map(model, anova)) %>% 
   mutate(parameter = map(anova, model_parameters)) %>% 
@@ -87,7 +87,7 @@ spinach_nest_tbl |>
 ```
 
 ```{r}
-emm_tbl <- spinach_nest_tbl |>
+emm_tbl <- boxplot_mult_nest_tbl |>
   mutate(model = map(data, ~lm(rsp ~ trt, data = .x))) %>% 
   mutate(emm = map(model, emmeans, ~trt)) %>% 
   mutate(contrast = map(emm, contrast, method = "pairwise", 
