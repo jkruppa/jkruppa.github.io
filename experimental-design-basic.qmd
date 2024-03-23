@@ -39,12 +39,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 set.seed(2034)
 pacman::p_load(tidyverse, magrittr, dae, agricolae, FielDHub,
                conflicted)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
-conflict_prefer("set_names", "magrittr")
-cbbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", 
-                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+conflicts_prefer(magrittr::set_names)
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
@@ -82,8 +77,8 @@ fit <- lm(drymatter ~ trt, data = crd_tbl)
 Wenn du für deine zwanzig Pflanzen nur ein Randomisierungmuster brauchst, dann empfehle ich dir die Folgende schnelle Art und Weise. Du nimmst die Zahlen von 1 bis 20 und mischt die Zahlen einmal mit der Funktion `sample()` durch. Dann erstellst du dir als dein Grid für deine Pflanzen mit einer $4 \times 5$-Matrix und pflanzt nach diesem Grid die Pflanzen ein. Das war es dann und du bist durch.
 
 ```{r}
-1:20 %>% 
-  sample() %>% 
+1:20 |> 
+  sample() |> 
   matrix(nrow = 4, ncol = 5,
          dimnames = list(str_c("Reihe", 1:4, sep = "-"),
                          str_c("Spalte", 1:5, sep = "-")))
@@ -95,11 +90,11 @@ Wenn du für deine zwanzig Pflanzen nur ein Randomisierungmuster brauchst, dann 
 Warum kompliziert, wenn es auch einfach geht. Wir nutzen hier einmal die Funktion `expand_grid()` um uns das *complete randomized design* zu erstellen. Die Randomisierung kommt dann über das `sample()` und der Pflanzenidentifikationsnummer `pid`. Das geht super einfach und wir brauchen auch gar keine anderen höheren Funktionen von komplexeren R Paketen. Die Spalte `trt_rep` wird uns später helfen die Beobachtung dann in dem Grid der Pflanzenposition auf dem Tisch wiederzufinden.
 
 ```{r}
-crd_long_tbl <- expand_grid(trt = 1:4, rep = 1:4) %>% 
+crd_long_tbl <- expand_grid(trt = 1:4, rep = 1:4) |> 
   mutate(trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
          rep = factor(rep, labels = as.roman(1:4)),
          trt_rep = str_c(trt, ".", rep),
-         pid = sample(1:n())) %>%  ## Randomsierung über alles
+         pid = sample(1:n())) |>  ## Randomsierung über alles
   select(pid, everything())
 crd_long_tbl
 ```
@@ -110,15 +105,15 @@ Dann kannst du dir die Datei mit der Funktion `write_xlsx()` aus dem R Paket `{w
 #| eval: false
 #| message: false
 #| warning: false
-crd_long_tbl %>% 
+crd_long_tbl |> 
   write_xlsx("template_sheet.xlsx")
 ```
 
 Für die Visualisierung fehlt uns jetzt noch die Positionsangaben auf dem Feld. Daher bauen wir uns einmal ein Grid der Reihen `rows` und der Spalten `cols`. Das Grid können wir dann mit den nach den Pflanzen-ID's sortieren Design zusammenbringen. Damit haben wir dann eigentlich schon fast alles zusammen.
 
 ```{r}
-crd_plot_tbl <- crd_long_tbl %>% 
-  arrange(pid) %>% 
+crd_plot_tbl <- crd_long_tbl |> 
+  arrange(pid) |> 
   bind_cols(expand_grid(row = 1:4, col = 1:4))
 crd_plot_tbl
 ```
@@ -155,7 +150,7 @@ crd_obj <- CRD(t = c("ctrl", "A", "B", "C"),
 Dann können wir uns einmal das erstellte Feldbuch wiedergeben lassen, was du dann auch in Excel raus schreiben kannst. Nicht immer brauchst du alle Informationen. Zum Beispiel ist der Ort `location`, wo das Experiment durchgeführt wird eher zweitrangig. Du könntest dir auch zusätzliche Daten generieren lassen, aber das kannst du dir dann auch selber mit Werten ausdenken.
 
 ```{r}
-crd_obj$fieldBook %>% 
+crd_obj$fieldBook |> 
   as_tibble()
 ```
 
@@ -170,7 +165,7 @@ Wir müssen hier mit der Standardfunktion von `{desplot}` leben und können nich
 #| fig-width: 6
 #| fig-cap: "Schema der Pflanzungen nach den Behandlungen für das *complete randomized design*."
 
-crd_obj %>% plot
+crd_obj |> plot()
 ```
 
 ### ... mit `{agricolae}`
@@ -187,10 +182,10 @@ crd_obj <- design.crd(trt = c("ctrl", "A", "B", "C"),
 Jetzt kommt leider der etwas aufwenidigere Teil. Das Paket `{agricolae}` ist schon etwas älter und damit auch teilweise nicht mehr so kompatibel und auf dem Stand der Zeit. Wir bauen uns daher jetzt noch ein paar Sachen zurecht. Am Ende wollen wie ein sauberes `tibble` mit anständigen Namen und einer Variable `trt_rep`, die uns sagt welche Behandlung und Wiederholung wir vorliegen haben.
 
 ```{r}
-crd_book_tbl <- crd_obj %>% 
-  pluck("book") %>% 
-  as_tibble() %>% 
-  set_names(c("plots", "r", "trt")) %>% 
+crd_book_tbl <- crd_obj |> 
+  pluck("book") |> 
+  as_tibble() |> 
+  set_names(c("plots", "r", "trt")) |> 
   mutate(trt_rep = str_c(trt, ".", r))
 crd_book_tbl
 ```
@@ -198,7 +193,7 @@ crd_book_tbl
 Schön ist was anderes, da hast du recht, aber wir können uns dann auch noch das Pflanzgrid einmal als Abbildung wiedergeben lassen. Da die Ausgabe der Funktion `design.crd()` schon permutiert ist, müssen wir hier nur die Informationen zu den Zeilen und Spalten ergänzen. Im Prinzip kannst du entscheiden, wie du die Wiederholungen `cols` oder Behandlungen `rows` anordnest. Du kannst am Ende aber auch einfach den ausgedruckten Zettel drehen.
 
 ```{r}
-crd_plot_tbl <- crd_book_tbl %>%
+crd_plot_tbl <- crd_book_tbl |>
   bind_cols(expand_grid(rows = 1:4,
                         cols = 1:5))
 ```
@@ -278,17 +273,17 @@ Das praktische an `expand_grid()` ist, dass du nochmal eine Vorstellugn über de
 
 ```{r}
 rcbd_long_tbl <- expand_grid(block = 1:4, 
-                             trt = 1:4) %>% 
+                             trt = 1:4) |> 
   mutate(trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
          block = factor(block, labels = as.roman(1:4)),
          trt_block = str_c(trt, ".", block),
-         pid = 1:n()) %>% 
-  group_by(block) %>% 
+         pid = 1:n()) |> 
+  group_by(block) |> 
   mutate(trt = sample(trt)) ## Randomisierung pro Block
 ```
 
 ```{r}
-rcbd_plot_tbl <- rcbd_long_tbl %>% 
+rcbd_plot_tbl <- rcbd_long_tbl |> 
   bind_cols(expand_grid(rows = 1:4, cols = 1:4))
 
 ```
@@ -317,7 +312,7 @@ Dann können wir auch schon unseren Versuchsplan als Exceldatei rausschreiben. W
 #| eval: false
 #| message: false
 #| warning: false
-rcbd_long_tbl %>% 
+rcbd_long_tbl |> 
   write_xlsx("template_sheet.xlsx")
 ```
 
@@ -333,7 +328,7 @@ rcbd_obj <- RCBD(t = c("ctrl", "A", "B", "C"),
 Wir können uns dann auch wieder das Feldbuch wiedergeben lassen und es eben dann auch in Excel als `.xlsx` exportieren und so dann direkt mit den Daten aus unserem Experiment füllen oder als Randomisierung nutzen.
 
 ```{r}
-rcbd_obj$fieldBook %>% 
+rcbd_obj$fieldBook |> 
   as_tibble()
 ```
 
@@ -348,7 +343,7 @@ In der @fig-exp-basic-rcbd-fieldhub siehst du einmal das Ergebnis der Randomisie
 #| fig-width: 6
 #| fig-cap: "Schema der Pflanzungen nach den Behandlungen für das randomized complete block design. Beachte die schwarzen Linien als Grenzen für die Blöcke. Im realen Leben können das Gänge zwischen Tischen sein oder Feldwege."
 
-rcbd_obj %>% plot
+rcbd_obj |> plot()
 ```
 
 ### ... mit `{agricolae}`
@@ -362,9 +357,9 @@ rcbd_obj <- design.rcbd(trt = c("ctrl", "A", "B", "C"), r = 5)
 Leider ist die Ausgabe von `design.rcbd()` etwas ungünstig für die weitere Darstellung. Deshalb wandeln wir etwas das Feldbuch für unsere Bedürfnisse um. Wir könnten natürlich gleich mit dem Feldbuch weitermachen und die Pflanzen in der Form ausbringen, aber wir wollen ja noch ein Pflanzschema erstellen.
 
 ```{r}
-rcbd_book_tbl <- rcbd_obj %>% 
-  pluck("book") %>% 
-  as_tibble() %>% 
+rcbd_book_tbl <- rcbd_obj |> 
+  pluck("book") |> 
+  as_tibble() |> 
   set_names(c("plots", "block", "trt"))
 rcbd_book_tbl
 ```
@@ -372,18 +367,18 @@ rcbd_book_tbl
 Jetzt nochmal das Grid für die Pflanzungen ergänzt. Hier müssen wir etwas mehr schauen, wie wir die Zeilen `rows` und Spalten `cols` zuordnen. Unsere Zeilen sind die Blöcke, aber innerhalb der Blöcke müssen wir die Anzahl der Behandlungen nummerieren. Deshalb machen wir den Zwischenschritt mit `group_by()`.
 
 ```{r}
-rcbd_plot_tbl <- rcbd_book_tbl %>%
+rcbd_plot_tbl <- rcbd_book_tbl |>
   mutate(rows = as.numeric(block),
-         trt_block = str_c(trt, ".", block)) %>% 
-  group_by(rows) %>% 
+         trt_block = str_c(trt, ".", block)) |> 
+  group_by(rows) |> 
   mutate(cols = 1:n())
 ```
 
 Zur Kontrolle einmal die Ausgabe des `skretch`. Auch hier steht wieder nichts an den Zeilen und Spalten, so dass wir immer überlegen müssen, was war nun der Block und was war die Behandlung.
 
 ```{r}
-rcbd_obj %>% 
-  pluck("sketch") %>% 
+rcbd_obj |> 
+  pluck("sketch") |> 
   t()
 ```
 
@@ -466,8 +461,8 @@ latin_square_obj <- latin_square(t = 4, reps = 2,
 Damit können wir uns auch schon einmal das Feldbuch anschauen. Auch hier gilt, das Feldbuch lässt sich dann einfach nach Excel exportieren. Hier zeige ich nur die ersten zehn Zeilen, da sonst die Ausgabe zu groß wird.
 
 ```{r}
-latin_square_obj$fieldBook %>% 
-  as_tibble() %>% 
+latin_square_obj$fieldBook |> 
+  as_tibble() |> 
   head(10)
 ```
 
@@ -482,7 +477,7 @@ In der folgenden @fig-exp-basic-latin-fieldhub siehst du dann einmal das *latin 
 #| fig-width: 6
 #| fig-cap: "Schema der Pflanzungen nach den Behandlungen für das *latin square design*. Beachte die schwarzen Linien als Grenzen für die Blöcke. Im realen Leben können das Gänge zwischen Tischen sein oder Feldwege."
 
-latin_square_obj %>% plot
+latin_square_obj |> plot()
 ```
 
 ### ... mit `{agricolae}`
@@ -497,10 +492,10 @@ lsd_obj <- design.lsd(trt = c("ctrl", "A", "B", "C", "D"),
 Zum Glück kriegen wir hier auch die Zeilen und Spalten direkt von der Funktion `design.lsd()` geliefert. Leider als Faktoren, so dass wir die Faktoren nochmal in Zahlen umwandeln damit es später mit der Visualisierung klappt.
 
 ```{r}
-lsd_book_tbl <- lsd_obj %>% 
-  pluck("book") %>% 
-  as_tibble() %>% 
-  set_names(c("plots", "rows", "cols", "trt")) %>% 
+lsd_book_tbl <- lsd_obj |> 
+  pluck("book") |> 
+  as_tibble() |> 
+  set_names(c("plots", "rows", "cols", "trt")) |> 
   mutate(rows = as.numeric(rows),
          cols = as.numeric(cols))
 lsd_book_tbl
@@ -509,8 +504,8 @@ lsd_book_tbl
 Dann einmal die Ausgabe des `sketch`. Hier kann man mal nichts falsch machen. Wir kriegen unser Quadrat als *latin square* und gut ist.
 
 ```{r}
-lsd_obj %>% 
-  pluck("sketch") %>% 
+lsd_obj |> 
+  pluck("sketch") |> 
   t()
 ```
 
@@ -539,8 +534,8 @@ Dann nochmal das *latin square design* rausschreiben und wir können mit der Dat
 #| eval: false
 #| message: false
 #| warning: false
-lsd_book_tbl %>% 
-  select(trt, rows, cols) %>% 
+lsd_book_tbl |> 
+  select(trt, rows, cols) |> 
   write_xlsx("template_sheet.xlsx")
 ```
 
@@ -667,7 +662,7 @@ alpha_obj <- design.alpha(trt = trt_gen,
 Wie immer müssen wir uns noch die Zeilen und Spalten selber erschaffen, damit wir das *alpha design* auch abbilden können. Hier ist wichtig, dass wir dann noch die Wiederholung haben, die kein Block ist. Pro Wiederholung haben wir eben fünf unvollständige Blöcke mit drei Linien vorliegen.
 
 ```{r}
-alpha_book_tbl <- alpha_obj$book %>% 
+alpha_book_tbl <- alpha_obj$book |> 
   mutate(replication = str_c("Wiederholung ", replication),
          rows = as.numeric(block),
          cols = as.numeric(cols))
@@ -698,8 +693,8 @@ Dann nochmal das *alpha design* als Feldbuch rausschreiben und wir können mit d
 #| eval: false
 #| message: false
 #| warning: false
-lsd_book_tbl %>% 
-  select(replication, trt_gen, inc_block = block, rows, cols) %>% 
+lsd_book_tbl |> 
+  select(replication, trt_gen, inc_block = block, rows, cols) |> 
   write_xlsx("template_sheet.xlsx")
 ```
 
@@ -715,8 +710,8 @@ alpha_obj <- alpha_lattice(t = 9,
 Dann können wir uns auch hier sehr einfach das Feldbuch rausschrieben. Wir nutzen dann den gleichen Code wie oben für das rausschrieben nach Excel.
 
 ```{r}
-alpha_obj$fieldBook %>% 
-  as_tibble() %>% 
+alpha_obj$fieldBook |> 
+  as_tibble() |> 
   head(10)
 ```
 
@@ -731,7 +726,7 @@ In der @fig-exp-basic-alpha-fieldhub siehst du dann einmal das *alpha design* in
 #| fig-width: 6
 #| fig-cap: "Schema der Pflanzungen nach den Behandlungen für das *alpha design*."
 
-alpha_obj %>% plot
+alpha_obj |> plot()
 ```
 
 ### Augmented design {#sec-augment}
@@ -817,7 +812,7 @@ augmented_obj <- design.dau(trt1 = standard,
 Jetzt nehmen wir das Feldbuch und ergänzen nochmal die Positionen `rows` und `cols`. Dabei müssen wir die `rows` etwas komplizierter aus der letzten Ziffer der Variable `plots` durch die Funktion `str_sub()` extrahieren. Sonst passt es leider nicht ganz mit den jeweiligen Positionen. Die Spalten `cols` sind unsere Blöcke.
 
 ```{r}
-augmented_book_tbl <- augmented_obj$book %>% 
+augmented_book_tbl <- augmented_obj$book |> 
   mutate(cols = as.numeric(block),
          rows = as.numeric(str_sub(plots, 3,3)))
 ```
@@ -833,8 +828,8 @@ blue_15_and_orange_03 <- c(blue_15, orange_03)
 Dann müssen wir noch den Farbvektor korrekt benennen, so dass die Behandlung im Namen steht und darunter im Vektor dann der Farbwert.
 
 ```{r}
-names(blue_15_and_orange_03) <- augmented_book_tbl %>% 
-  pull(trt) %>% as.character() %>% sort %>% unique
+names(blue_15_and_orange_03) <- augmented_book_tbl |> 
+  pull(trt) |> as.character() |> sort() |> unique()
 ```
 
 Dann können wir schon in der @fig-exp-basic-8 einmal das *augmented design* einmal anschauen. Es ist schön zu sehen, das pro Reihe und damit Block beide Standards zufällig auf der Parzelle auftauchen. Auf der anderen Seite sind nicht alle fünfzehn Linien in jedem Block enthalten. Wir sparen mit dem *augmented design* auf jeden Fall Platz auf dem Feld und können so mehr Linien testen, als wir es mit einem RCBD gekonnt hätten.
@@ -868,8 +863,8 @@ augmented_obj <- RCBD_augmented(lines = 15,
 Spannenderweise müssen wir hier fünf Blöcke wählen und können nicht das Design von oben in `{agricolae}` nachbauen. Dennoch erstellen wir uns auch schon das letzte Feldbuch in diesem Kapitel und können dann das Feldbuch für die Planung nutzen. Auch hier hilft dann wirklich die Shiny App mehr, dann kannst du besser mit den Werten spielen.
 
 ```{r}
-augmented_obj$fieldBook %>% 
-  as_tibble() %>% 
+augmented_obj$fieldBook |> 
+  as_tibble() |> 
   head(10)
 ```
 
@@ -884,5 +879,5 @@ Abschließend haben wir dann die @fig-exp-basic-augmented-fieldhub, die sich dan
 #| fig-width: 6
 #| fig-cap: "Schema der Pflanzungen nach den Behandlungen für das *augmented design*. Die Standardbedingungen sind vollständig in den Blöcken randomisiert, die genetischen Linien nur nicht komplett."
 
-augmented_obj %>% plot
+augmented_obj |> plot()
 ```

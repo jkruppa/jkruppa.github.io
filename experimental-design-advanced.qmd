@@ -67,9 +67,9 @@ fac2rcbd_out <- design.ab(trt = c(n_trt_fac2_fert, n_trt_fac1_soil),
                           r = n_block, 
                           seed = 42)
 
-fac2rcbd_out$bookRowCol <- fac2rcbd_out$book %>%
+fac2rcbd_out$bookRowCol <- fac2rcbd_out$book |>
   bind_cols(expand.grid(rows = 1:n_trt_fac2_fert,
-                        cols = 1:(n_trt_fac1_soil*n_block))) %>% 
+                        cols = 1:(n_trt_fac1_soil*n_block))) |> 
   mutate(trt_fac2_fert = paste0("fe_", A),
          trt_fac1_soil = paste0("soil_", B),
          block = paste0("Block ", block))
@@ -89,10 +89,10 @@ splitplot_out <- design.split(trt1 = trt_fac1_soil,
                               seed = 42)
 
 
-splitplot_out$bookRowCol <- splitplot_out$book %>% 
+splitplot_out$bookRowCol <- splitplot_out$book |> 
   mutate(block = paste0("Block ", block),
-         cols = plots %>% str_sub(2,3) %>% as.integer,
-         rows = splots %>% as.integer)
+         cols = plots |> str_sub(2,3) |> as.integer(),
+         rows = splots |> as.integer())
 
 desplot(block ~ cols + rows | block, flip = TRUE,
         out1 = rows, out1.gpar = list(col = "grey", lty = 1),
@@ -106,15 +106,15 @@ desplot(block ~ cols + rows | block, flip = TRUE,
 
 rcbd_long_tbl <- expand_grid(block = 1:4, 
                              trt = 1:4,
-                             rep = 1:6) %>% 
+                             rep = 1:6) |> 
   mutate(trt = factor(trt, labels = trt_fac1_soil),
          block = factor(block, labels = str_c("Block ", 1:4)),
          pid = 1:n(),
-         pid_text = str_pad(1:96, width = 2, pad = "0")) %>% 
-  group_by(block) %>% 
+         pid_text = str_pad(1:96, width = 2, pad = "0")) |> 
+  group_by(block) |> 
   mutate(trt = sample(trt)) 
 
-rcbd_plot_tbl <- rcbd_long_tbl %>% 
+rcbd_plot_tbl <- rcbd_long_tbl |> 
   bind_cols(expand_grid(cols = 1:16, rows = 1:6))
 
 desplot(data = rcbd_plot_tbl, flip = TRUE, 
@@ -138,11 +138,9 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, agricolae, dae, desplot,
                janitor, FielDHub,
                conflicted)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
-conflict_prefer("set_names", "magrittr")
-cbbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", 
+conflicts_prefer(dplyr::filter)
+conflicts_prefer(magrittr::set_names)
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
@@ -192,11 +190,11 @@ fit <- lm(drymatter ~ soil + fert + soil:fert + block, data = rcbd_3f_tbl)
 Bei dem *randomized complete block design* haben wir ja Glück, wir müssen nur darauf achten, das die einzelnen Beobachtungen innerhalb der Blöcke vollständig randomisiert sind. Daher Randomisieren wir ganz am Ende einmal die Saplte `fert` und die Spalte `soil` durch. Wir hätten uns das `mutate()` auch sparen können und stattdessen einfach die Funktion `slice_sample(prop = 1)` nutzen. Die Funktion permutiert dann alles innerhalb der gruppierten Blöcke durch. Mach wie es dir besser gefällt und du es besser nachvollziehen kannst.
 
 ```{r}
-three_fct_long_tbl <- expand_grid(block = 1:2, soil = 1:4, fert = 1:6) %>% 
+three_fct_long_tbl <- expand_grid(block = 1:2, soil = 1:4, fert = 1:6) |> 
   mutate(block = factor(block, labels = str_c("Block ", 1:2)),
          soil = factor(soil, labels = str_c("soil_", 1:4)),
-         fert = factor(fert, label = str_c("fe_", 1:6))) %>% 
-  group_by(block) %>% 
+         fert = factor(fert, label = str_c("fe_", 1:6))) |> 
+  group_by(block) |> 
   mutate(fert = sample(fert), # Randomisierung fert
          soil = sample(soil)) # Randomisierung soil
 three_fct_long_tbl
@@ -205,7 +203,7 @@ three_fct_long_tbl
 Jetzt mache ich es etwas anders bei der Erstellung des Grids der Spalten und Zeilen. Ich will später beim `desplot()` für die Blöcke durch `| block` separieren. Daher setzte ich die Spaltennummerierung `cols` jeweils auf 1 bis 4 und bilde die Blöcke durch ein davor geschaltetes `rep` ab. Wenn du die Variable `rep` nicht möchtest, kannst du auch die `cols` auf 1 bis 8 setzten, darfst dann aber nicht für die Blöcke durch `rep` separieren.
 
 ```{r}
-three_fct_plot_tbl <- three_fct_long_tbl %>% 
+three_fct_plot_tbl <- three_fct_long_tbl |> 
   bind_cols(expand_grid(rep = 1:2, cols = 1:4, rows = 1:6))
 ```
 
@@ -236,8 +234,8 @@ Auch hier können wir dann den Versuchsplan relativ einfach raus schreiben. Ich 
 #| eval: false
 #| message: false
 #| warning: false
-three_fct_plot_tbl %>% 
-  select(-rep) %>% 
+three_fct_plot_tbl |> 
+  select(-rep) |> 
   write_xlsx("template_sheet.xlsx")
 ```
 
@@ -254,7 +252,7 @@ Deshalb gibt es die Möglichkeit sich ein Grid zu erstellen und anhand der Namen
 
 ```{r}
 data_factorial <- lst(fct = c(rep(c("soil", "fe"), c(4, 6))),
-                      lvl = c(str_c("soil_", 1:4), str_c("fe_", 1:6))) %>% 
+                      lvl = c(str_c("soil_", 1:4), str_c("fe_", 1:6))) |> 
   as.data.frame()
 data_factorial
 ```
@@ -270,7 +268,7 @@ rcbd_fac3_obj <- full_factorial(setfactors = NULL, reps = 3, l = 1, type = 2,
 Dann können wir uns einmal das erstellte Feldbuch wiedergeben lassen, was du dann auch in Excel raus schreiben kannst. Nicht immer brauchst du alle Informationen. Zum Beispiel ist der Ort `location`, wo das Experiment durchgeführt wird eher zweitrangig. Du könntest dir auch zusätzliche Daten generieren lassen, aber das kannst du dir dann auch selber mit Werten ausdenken.
 
 ```{r}
-rcbd_fac3_obj$fieldBook %>% 
+rcbd_fac3_obj$fieldBook |> 
   as_tibble()
 ```
 
@@ -285,7 +283,7 @@ Dann erstellen wir auch schon die @fig-exp-basic-fac3-fieldhub mit dem *randomiz
 #| fig-width: 10
 #| fig-cap: "Schema der Pflanzungen nach den Behandlungen für das *randomized complete block design*. Die Farbwhal und die Beschriftung ist mehr als gewöhnungsbedürftig. Die Abbildung ist nicht sehr übersichtlich und nur begrenzt als Darstellung geeignet."
 
-rcbd_fac3_obj %>% plot
+rcbd_fac3_obj |> plot()
 ```
 
 ### ... mit `{agricolae}`
@@ -312,12 +310,12 @@ rcbd_fac3_obj <- design.ab(trt = c(n_trt_fac2_fert, n_trt_fac1_soil),
 Dann können wir auch schon unser Ergebnis der Funktion einmal aufarbeiten. Wie immer fehlt das Positionsgrid, so dass wir hier nochmal tätig werden müssen. Dann wollen wir noch die Faktoren wieder umbenennen, so dass auch die Level passen. Am Ende wähle ich noch die Spalten aus, die wir dann später brauchen werden. Meistens müssen wir auch bei den komplexeren Designs und der Nutzung von `agricolae` im Nachgang sehr viel selber machen. Teilweise lohnt es sich da für mich nicht, für zwei Zeilen Code eine Funktion zu nutzen, der ich dann auch noch sehr viel Nachprogrammieren muss. Man merkt hier eben auch das Alter von dem R Paket `agricolae`.
 
 ```{r}
-rcbd_fac3_book_tbl <- rcbd_fac3_obj$book %>%
+rcbd_fac3_book_tbl <- rcbd_fac3_obj$book |>
   bind_cols(expand.grid(rows = 1:n_trt_fac2_fert,
-                        cols = 1:(n_trt_fac1_soil*n_block))) %>% 
+                        cols = 1:(n_trt_fac1_soil*n_block))) |> 
   mutate(trt_fac2_fert = str_c("fe_", A),
          trt_fac1_soil = str_c("soil_", B),
-         block = paste0("Block ", block)) %>% 
+         block = paste0("Block ", block)) |> 
   select(block, fert = trt_fac2_fert, soil = trt_fac1_soil, rows, cols)
 ```
 
@@ -400,13 +398,13 @@ Ja, selber machen ist hier etwas mühsamer, aber wenn du die Schritte nachvollzi
 
 ```{r}
 splitplot_long_tbl <- expand_grid(block = 1:2, 
-                                  soil = 1:4) %>% 
-  group_by(block) %>%             # Gruppieren nach block
-  mutate(soil = sample(soil)) %>% # Randomisieren von soil in block
-  expand_grid(fert = 1:6) %>%   
-  group_by(block, soil) %>%       # Gruppieren nach block und soil
-  mutate(fert = sample(fert)) %>% # Randomisieren von fert in block und soil
-  ungroup() %>% 
+                                  soil = 1:4) |> 
+  group_by(block) |>             # Gruppieren nach block
+  mutate(soil = sample(soil)) |> # Randomisieren von soil in block
+  expand_grid(fert = 1:6) |>   
+  group_by(block, soil) |>       # Gruppieren nach block und soil
+  mutate(fert = sample(fert)) |> # Randomisieren von fert in block und soil
+  ungroup() |> 
   mutate(fert = factor(fert, label = str_c("fe_", 1:6)),
          block = factor(block, labels = str_c("Block ", 1:2)),
          soil = factor(soil, labels = str_c("soil_", 1:4))) 
@@ -416,7 +414,7 @@ splitplot_long_tbl
 Da ich auch gleich wieder für die Blöcke separieren möchte, baue ich mir für jeden Block `rep` nochmal vier Spalten, je eine Spalte für eine Bodenbehandlung, und dann nochmal sechs Zeilen, eine für jede Düngestufe. Dann verbinden wir den randomisirten Datensatz mit den Pflanzgrid und schon können wir uns das *split plot design* einmal anschauen.
 
 ```{r}
-splitplot_plot_tbl <- splitplot_long_tbl %>% 
+splitplot_plot_tbl <- splitplot_long_tbl |> 
   bind_cols(expand_grid(rep = 1:2, 
                         cols = 1:4, 
                         rows = 1:6))
@@ -456,7 +454,7 @@ split_plot_obj <- split_plot(wp = paste0("soil_", 1:4),
 Dann können wir uns einmal das erstellte Feldbuch wiedergeben lassen, was du dann auch in Excel raus schreiben kannst. Wie immer brauchst du nicht alle Informationen. Auch hier würde ich das Feldbuch dann nutzen um mir selber in `{desplot}` die Abbildung zu erstellen. Die automatisierte Abbildungserstellung in `{FielDHub}` ist der manuellen weit unterlegen.
 
 ```{r}
-split_plot_obj$fieldBook %>% 
+split_plot_obj$fieldBook |> 
   as_tibble()
 ```
 
@@ -471,7 +469,7 @@ Dann erstellen wir auch schon die @fig-exp-basic-split-fieldhub mit dem *split p
 #| fig-width: 10
 #| fig-cap: "Split plot design (3-faktoriell) für die Faktoren Dünger `fert` sowie `soil` randomisiert in den zwei Blöcken. Der Faktor `fert` ist in dem Faktor `soil` genestet und randomisiert."
 
-split_plot_obj %>% plot
+split_plot_obj |> plot()
 ```
 
 ### ... mit `{agricolae}`
@@ -498,10 +496,10 @@ splitplot_obj <- design.split(trt1 = trt_fac1_soil,
 Leider gibt es kein `sketch`-Objekt gerade hier wo man eins gebrauchen könnte. Deshalb also nochmal alles umbauen und die Zeilen `rows` und Spalten `cols` entsprechend ergänzen. Ich nenne jetzt nochmal ein wenig die Variablen um, einfach damit hier nicht immer das Gleiche passiert. Wichtig ist, dass wir hier immer für die Blöcke separieren. Wir müssen also in `desplot` definitiv die Option `| block` setzen, sonst klappt es mit der Darstellung nicht.
 
 ```{r}
-splitsplot_book_tbl <- splitplot_obj$book %>% 
+splitsplot_book_tbl <- splitplot_obj$book |> 
   mutate(block = str_c("Block ", block),
          cols = plots, 
-         rows = as.numeric(splots)) %>% 
+         rows = as.numeric(splots)) |> 
   select(block, fert = trt_fac2_fert, soil = trt_fac1_soil, rows, cols)
 ```
 
@@ -534,7 +532,7 @@ Wie funktioniert nun die Erstellung eines *split plot design*? Wir bauen uns ers
 split_sys <- cbind(fac.gen(list(Blocks = 4, MPlots = 4, SubPlots = 6)),
                    fac.gen(list(soil = str_c("soil_", 1:4),
                                 fert = str_c("fe_", 1:6)), times = 4)) 
-split_sys %>% 
+split_sys |> 
   as_tibble()
 ```
 
@@ -548,7 +546,7 @@ split_lay <- designRandomize(allocated = split_sys[c("soil", "fert")],
                              nestet.recipients = list(MPlots = "Blocks",
                                                       SubPlots = c("MPlots", "Blocks")),
                              seed = 235805)
-split_lay %>% 
+split_lay |> 
   as_tibble()
 ```
 
@@ -643,19 +641,19 @@ Das Subsampling geht nur im Selbermachen, also machen wir das dann einmal mit de
 ```{r}
 subsampling_long_tbl <- expand_grid(block = 1:4, 
                                     trt = 1:4,
-                                    rep = 1:6) %>% 
+                                    rep = 1:6) |> 
   mutate(trt = factor(trt, labels = c("ctrl", "A", "B", "C")),
          block = factor(block, labels = str_c("Block ", 1:4)),
          pid = 1:n(),
-         pid_text = str_pad(1:96, width = 2, pad = "0")) %>% 
-  group_by(block) %>% 
+         pid_text = str_pad(1:96, width = 2, pad = "0")) |> 
+  group_by(block) |> 
   mutate(trt = sample(trt)) ## Randomisierung in den Blöcken
 ```
 
 Dann bauen wir noch unser Grid auf. Wir wollen insgesamt sechzehn Spalten, dass sind die Blöcke/Behandlungs-Kombinationen. Dann brauchen wir noch jeweils sechs Zeilen für die individuellen Pflanzen. Dann können wir die Daten schon nehmen und in der @fig-exp-adv-10-1 visualisieren. Bevor wir die Abbildung besprechen, generieren wir uns nochmal die anderen Daten, wo die Behandlungen in den Blöcken randomisiert werden.
 
 ```{r}
-subsampling_plot_tbl <- subsampling_long_tbl %>% 
+subsampling_plot_tbl <- subsampling_long_tbl |> 
   bind_cols(expand_grid(cols = 1:16, rows = 1:6))
 ```
 
@@ -664,11 +662,11 @@ Eine andere Möglichkeit ist, dass unsere Pflanzen in einem Pflanztray stehen. D
 ```{r}
 
 subsampling_tray_long_tbl <- expand_grid(block = 1:4, 
-                                        trt = 1:4) %>% 
+                                        trt = 1:4) |> 
   mutate(trt = factor(trt, labels = trt_fac1_soil),
-         block = factor(block, labels = str_c("Block ", 1:4))) %>% 
-  group_by(block) %>% 
-  mutate(trt = sample(trt)) %>% # Randomisierung der Behandlungen in den Blöcken
+         block = factor(block, labels = str_c("Block ", 1:4))) |> 
+  group_by(block) |> 
+  mutate(trt = sample(trt)) |> # Randomisierung der Behandlungen in den Blöcken
   expand_grid(rep = str_pad(1:6, width = 2, pad = "0"))
 
 ```
@@ -676,7 +674,7 @@ subsampling_tray_long_tbl <- expand_grid(block = 1:4,
 Jetzt bauen wir uns noch das Grid für die Positionen zusammen, da bleibt alles beim alten. Wir brauchen auch wieder sechzehn Spalten, dass sind die Blöcke/Behandlungs-Kombinationen. Dann noch die sechs Zeilen für das Pflanzentray. In der @fig-exp-adv-10-2 sehen wir einmal das Ergebnis der Randomisierung. Alle Pflanzen sind jetzt in einer Spalte randomisiert, die eben das Tray der Pflanzung entspricht.
 
 ```{r}
-subsampling_tray_plot_tbl <- subsampling_tray_long_tbl %>% 
+subsampling_tray_plot_tbl <- subsampling_tray_long_tbl |> 
   bind_cols(expand_grid(cols = 1:16, rows = 1:6))
 ```
 
@@ -795,11 +793,11 @@ fit <- lm(drymatter ~ trt + inc_block + trt:inc_block, data = inc_block_tbl)
 Bei dem Selbermachen ist es jetzt eigentlich wie bei dem 3-faktoriellen *randomized complete block design*. Deshalb schaue einfach nochmal oben nach, wenn dir Teile der Generierung unklar sind. Hier und dort ändert sich ja bei mir immer nur leicht der Code, damit du auch mal was anderes siehst. Es gibt ja viele Wege nach Rom.
 
 ```{r}
-incomplete_long_tbl <- expand_grid(block = 1:2, soil = 1:4, fert = 1:6) %>% 
+incomplete_long_tbl <- expand_grid(block = 1:2, soil = 1:4, fert = 1:6) |> 
   mutate(block = factor(block, labels = str_c("Block ", 1:2)),
          soil = factor(soil, labels = str_c("soil_", 1:4)),
-         fert = factor(fert, label = str_c("fe_", 1:6))) %>% 
-  group_by(block) %>% 
+         fert = factor(fert, label = str_c("fe_", 1:6))) |> 
+  group_by(block) |> 
   mutate(fert = sample(fert),
          soil = sample(soil)) 
 
@@ -809,8 +807,8 @@ incomplete_long_tbl
 Noch haben wir kein *incomplete block design* vorliegen, dass bauen wir uns jetzt. Wir rasieren nämlich einfach die letzten beiden Zeilen unseres *randomized complete block design* ab. Damit haben wir dann nur noch ein $4\times4$-Block übrig. Sonst wäre es ja ein Block mit sechs Zeilen.
 
 ```{r}
-incomplete_plot_tbl <- incomplete_long_tbl %>% 
-  bind_cols(expand_grid(rep = 1:2, cols = 1:4, rows = 1:6)) %>% 
+incomplete_plot_tbl <- incomplete_long_tbl |> 
+  bind_cols(expand_grid(rep = 1:2, cols = 1:4, rows = 1:6)) |> 
   filter(rows <= 4)
 ```
 
@@ -848,7 +846,7 @@ incomplete_block_obj <- incomplete_blocks(t = 6,
 Dann können wir uns einmal das erstellte Feldbuch wiedergeben lassen, was du dann auch in Excel raus schreiben kannst.
 
 ```{r}
-incomplete_block_obj$fieldBook %>% 
+incomplete_block_obj$fieldBook |> 
   as_tibble()
 ```
 
@@ -863,7 +861,7 @@ Dann erstellen wir auch schon die @fig-exp-basic-incomplete-fieldhub mit dem *sp
 #| fig-width: 5
 #| fig-cap: "Incomplete block design (2-faktoriell) für den Faktor `trt` randomisiert in den sechs Blöcken."
 
-incomplete_block_obj %>% plot
+incomplete_block_obj |> plot()
 ```
 
 ### ... mit `{agricolae}` (2-faktoriell)
@@ -884,9 +882,9 @@ Wichtig ist hier, dass wir auf den `Efficiency factor` schauen. Wir sind mit uns
 Wir müssen in diesem Fall nicht so viel an den Daten bereinigen um uns gleich die Visualisierung anzuschauen. Das geht hier relativ einfach. Wir benennen nur die Spalten um und sind schon soweit fertig.
 
 ```{r}
-bib_book_tbl <- bib_obj %>% 
-  pluck("book") %>% 
-  as_tibble() %>% 
+bib_book_tbl <- bib_obj |> 
+  pluck("book") |> 
+  as_tibble() |> 
   set_names(c("plots", "block", "trt"))
 bib_book_tbl
 ```
@@ -894,17 +892,17 @@ bib_book_tbl
 Dann ergänzen wir noch die Informationen zu den Spalten und den Zeilen, so dass wir dann auch gleich `desplot()` nutzen können. Wir müssen hier nochmal nach den Spalten gruppieren, damit wir die Zeilen sauber zugeordnet kriegen. Wir haben ja nicht für jede Behandlung eine Zeile sondern eben weniger. Ja, man hätte auch mit der Information von `k = 3` hier arbeiten können. So finde ich es aber schöner.
 
 ```{r}
-bib_plot_tbl <- bib_book_tbl %>%
-  mutate(cols = as.numeric(block)) %>% 
-  group_by(cols) %>% 
+bib_plot_tbl <- bib_book_tbl |>
+  mutate(cols = as.numeric(block)) |> 
+  group_by(cols) |> 
   mutate(rows = 1:n())
 ```
 
 Einmal der Vergleich zum `sketch` aus der Ausgabe von `design.bib()`. Siehst gut aus und entspricht unseren Erwartungen. Du siehst hier gut, dass im ersten Block die Kontrolle gar nicht enthalten ist.
 
 ```{r}
-bib_obj %>% 
-  pluck("sketch") %>% 
+bib_obj |> 
+  pluck("sketch") |> 
   t()
 ```
 
@@ -991,7 +989,7 @@ strip_obj <- design.strip(trt1 = trt_nitro, # kürzerer Vektor (hier der Länge 
 Für die Zuweisung der richtigen Zeilen `rows` und Spalten `cols` im Positionsgrid müssen wir dann nicht so viel machen, wenn wir oben darauf geachtet haben, die Behandlungsfaktoren in der richtigen Reihenfolge den Optionen zuzuweisen. Die Zuweisung der `cols` funktioniert also nur, wenn du in der Funktion `design.strip()` wirklich den kürzeren vor dem längeren Vektor zuweist.
 
 ```{r}
-strip_plot_tbl <- strip_obj$book %>% 
+strip_plot_tbl <- strip_obj$book |> 
   bind_cols(expand_grid(cols = 1:(n_trt_nitro*n_block), 
                         rows = 1:n_trt_gen))
 ```
@@ -1030,7 +1028,7 @@ strip_plot_obj <- strip_plot(Hplots = trt_nitro, # kürzerer Vektor (hier der L�
 Dann können wir uns einmal das erstellte Feldbuch wiedergeben lassen, was du dann auch in Excel raus schreiben kannst.
 
 ```{r}
-strip_plot_obj$fieldBook %>% 
+strip_plot_obj$fieldBook |> 
   as_tibble()
 ```
 
@@ -1045,7 +1043,7 @@ Dann erstellen wir auch schon die @fig-exp-basic-stripplot-fieldhub mit dem *str
 #| fig-width: 7
 #| fig-cap: "Strip plot design (3-faktoriell) für den Faktor `trt_gen`, in den Zeilen randomisiert sowie dem Faktor `trt_nitro` in den Saplten randomisiert und in drei Blöcken genestet."
 
-strip_plot_obj %>% plot
+strip_plot_obj |> plot()
 ```
 
 ## Referenzen {.unnumbered}

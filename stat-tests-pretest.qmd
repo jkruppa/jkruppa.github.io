@@ -44,11 +44,10 @@ pacman::p_load(tidyverse, magrittr, olsrr,
                broom, car, performance, 
                see, scales, readxl, nlme,
                conflicted)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
-cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
-                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+conflicts_prefer(dplyr::filter)
+conflicts_prefer(dplyr::select)
+#cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+#                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
@@ -170,7 +169,7 @@ Dann berechnen wir uns auch gleich die absoluten Abstände $Z_{ij}$ von jeder Be
 ```{r}
 #| message: false
 
-z_tbl <- animal_tbl %>% 
+z_tbl <- animal_tbl |> 
   mutate(dog_abs = abs(dog - mean(dog)),
          cat_abs = abs(cat - mean(cat)))
 z_tbl
@@ -225,8 +224,8 @@ Wir erhalten ein $W = 0.968$, was wir direkt als eine F-Statistik interpretieren
 ```{r}
 #| message: false
 #| warning: false
-z_tbl %>% 
-  select(dog, cat) %>% 
+z_tbl |> 
+  select(dog, cat) |> 
   gather(key = animal, value = jump_length) %$% 
   leveneTest(jump_length ~ animal, center = "mean")
 
@@ -235,10 +234,10 @@ z_tbl %>%
 Der Levene-Test ist eigentlich nichts anderes als eine einfaktorielle ANOVA auf den absoluten Abständen von den einzelnen Werten zu dem Mittelwert oder dem Median. Das können wir hier einmal nachvollziehen indem wir auf den absoluten Werten einmal eine einfaktorielle ANOVA in R rechnen. Wir erhalten den gleichen F-Wert in beiden Fällen. Eigentlich ist die ANOVA sogar etwas genauer, da wir hier auch die *Sum of squares* wie auch *Mean squares* erhalten.
 
 ```{r}
-z_tbl %>% 
-  select(dog_abs, cat_abs) %>% 
+z_tbl |> 
+  select(dog_abs, cat_abs) |> 
   gather(key = animal, value = jump_length) %$% 
-  lm(jump_length ~ animal) %>% 
+  lm(jump_length ~ animal) |> 
   anova()
 ```
 
@@ -251,8 +250,8 @@ Wir bauen uns nun einen Datensatz mit zwei Gruppen $A$ und $B$ zu je zehn Beobac
 ```{r}
 set.seed(202209013)
 small_homogen_tbl <- tibble(A = rnorm(n = 10, mean = 10, sd = 5),
-                            B = rnorm(n = 10, mean = 10, sd = 5)) %>% 
-  gather(trt, rsp) %>% 
+                            B = rnorm(n = 10, mean = 10, sd = 5)) |> 
+  gather(trt, rsp) |> 
   mutate(trt = as_factor(trt))
 ```
 
@@ -277,12 +276,12 @@ ggplot(small_homogen_tbl, aes(trt, rsp, fill = trt)) +
 Wir wollen nun die Varianz auf Homogenität testen. Wir nutzen dafür den `leveneTest()` sowie den `bartlett.test()`. Beide Tests bieten sich an. Die Daumenregel ist, dass der Bartlett-Test etwas bessere statistische Eigenschaften hat. Dennoch ist der Levene-Test bekannter und wird häufiger angefragt und genutzt. Wir nutzen die Funktion `tidy()` aus dem Paket `{broom}` um die Ausgabe aufzuräumen und selektieren nur den $p$-Wert.
 
 ```{r}
-leveneTest(rsp ~ trt, data = small_homogen_tbl) %>% 
-  tidy %>% 
+leveneTest(rsp ~ trt, data = small_homogen_tbl) |> 
+  tidy() |> 
   select(p.value)
 
-bartlett.test(rsp ~ trt, data = small_homogen_tbl) %>% 
-  tidy %>% 
+bartlett.test(rsp ~ trt, data = small_homogen_tbl) |> 
+  tidy() |> 
   select(p.value)
 ```
 
@@ -291,7 +290,7 @@ Wir sehen, dass der $p$-Wert größer ist als das Signifikanzniveau $\alpha$ von
 Wir können auch die Funktion `check_homogeneity()` aus dem Paket `{performance}` nutzen. Wir erhalten hier auch gleich eine Entscheidung in englischer Sprache ausgegeben. Die Funktion `check_homogeneity()` nutzt den Bartlett-Test. Wir können in Funktion auch andere Methoden mit `method = c("bartlett", "fligner", "levene", "auto")` wählen.
 
 ```{r}
-lm(rsp ~ trt, data = small_homogen_tbl) %>% 
+lm(rsp ~ trt, data = small_homogen_tbl) |> 
   check_homogeneity()
 ```
 
@@ -304,8 +303,8 @@ Nun stellt sich die Frage, wie sieht es aus, wenn wir ungleiche Varianzen vorlie
 ```{r}
 set.seed(202209013)
 small_heterogen_tbl <- tibble(A = rnorm(10, 10, 12),
-                              B = rnorm(10, 10, 5)) %>% 
-  gather(trt, rsp) %>% 
+                              B = rnorm(10, 10, 5)) |> 
+  gather(trt, rsp) |> 
   mutate(trt = as_factor(trt))
 ```
 
@@ -330,12 +329,12 @@ ggplot(small_heterogen_tbl, aes(trt, rsp, fill = trt)) +
 Wir wollen nun die Varianz auf Homogenität testen. Wir nutzen dafür den `levenTest()` sowie den `bartlett.test()`. Wir können nur die Varianzhomogenität testen, da jeder statistischer Test nur eine Aussage über die Nullhypothese erlaubt. Damit können wir hier nur die Varianzhomogenität testen.
 
 ```{r}
-leveneTest(rsp ~ trt, data = small_heterogen_tbl) %>% 
-  tidy %>% 
+leveneTest(rsp ~ trt, data = small_heterogen_tbl) |> 
+  tidy() |> 
   select(p.value)
 
-bartlett.test(rsp ~ trt, data = small_heterogen_tbl) %>% 
-  tidy %>% 
+bartlett.test(rsp ~ trt, data = small_heterogen_tbl) |> 
+  tidy() |> 
   select(p.value)
 ```
 
@@ -344,7 +343,7 @@ Wir sehen, dass der $p$-Wert kleiner ist als das Signifikanzniveau $\alpha$ von 
 Wir können auch die Funktion `check_homogeneity()` aus dem Paket `{performance}` nutzen. Wir erhalten hier auch gleich eine Entscheidung in englischer Sprache ausgegeben. Die Funktion `check_homogeneity()` nutzt den Bartlett-Test. Wir können in Funktion auch andere Methoden mit `method = c("bartlett", "fligner", "levene", "auto")` wählen.
 
 ```{r}
-lm(rsp ~ trt, data = small_heterogen_tbl) %>% 
+lm(rsp ~ trt, data = small_heterogen_tbl) |> 
   check_homogeneity()
 ```
 
@@ -393,8 +392,8 @@ Auch hier schauen wir uns den Fall mit einer niedrigen Fallzahl an. Dafür bauen
 ```{r}
 set.seed(202209013)
 low_normal_tbl <- tibble(A = rt(10, df = 30),
-                         B = rt(10, df = 30)) %>% 
-  gather(trt, rsp) %>% 
+                         B = rt(10, df = 30)) |> 
+  gather(trt, rsp) |> 
   mutate(trt = as_factor(trt))
 ```
 
@@ -432,14 +431,14 @@ ggplot(low_normal_tbl, aes(rsp, fill = trt)) +
 Wir können den Shapiro-Wilk-Test nutzen um statistisch zu testen, ob eine Abweichung von der Normalverteilung vorliegt. Wir erfahren aber nicht, welche *andere* Verteilung vorliegt. Wir testen natürlich für die beiden Gruppen getrennt. Die Funktion `shapiro.test()`kann nur mit einem Vektor von Zahlen arbeiten, daher übergeben wir mit `pull` die entsprechend gefilterten Werte des Outcomes `rsp`.
 
 ```{r}
-low_normal_tbl %>% 
-  filter(trt == "A") %>% 
-  pull(rsp) %>% 
+low_normal_tbl |> 
+  filter(trt == "A") |> 
+  pull(rsp) |> 
   shapiro.test()
   
-low_normal_tbl %>% 
-  filter(trt == "B") %>% 
-  pull(rsp) %>% 
+low_normal_tbl |> 
+  filter(trt == "B") |> 
+  pull(rsp) |> 
   shapiro.test()
 ```
 
@@ -454,8 +453,8 @@ Schauen wir uns jetzt den anderen Fall an. Wir haben jetzt wieder eine niedrige 
 ```{r}
 set.seed(202209013)
 low_nonnormal_tbl <- tibble(A = rexp(10, 1/1500),
-                            B = rexp(10, 1/1500)) %>% 
-  gather(trt, rsp) %>% 
+                            B = rexp(10, 1/1500)) |> 
+  gather(trt, rsp) |> 
   mutate(trt = as_factor(trt))
 ```
 
@@ -496,14 +495,14 @@ Wir können wieder den Shapiro-Wilk-Test nutzen um statistisch zu testen, ob ein
 
 ```{r}
 
-low_nonnormal_tbl %>% 
-  filter(trt == "A") %>% 
-  pull(rsp) %>% 
+low_nonnormal_tbl |> 
+  filter(trt == "A") |> 
+  pull(rsp) |> 
   shapiro.test()
   
-low_nonnormal_tbl %>% 
-  filter(trt == "B") %>% 
-  pull(rsp) %>% 
+low_nonnormal_tbl |> 
+  filter(trt == "B") |> 
+  pull(rsp) |> 
   shapiro.test()
 
 ```
@@ -526,7 +525,7 @@ Wenn deine Daten *keiner* Normalverteilung folgen, dann kann es sein, dass du mi
 Im folgenden Beispiel zu den Keimungsraten von verschiedenen Nelkensorten wollen wir einmal testen, ob jede Sorte einer Normalverteilung folgt. Da wir hier insgesamt 20 Sorten vorliegen haben, nutzen wir die Funktion `map()` aus dem R Paket `{purrr}` um hier schneller voranzukommen. Wie immer laden wir erst die Daten und mutieren die Spalten in dem Sinne wie wir die Spalten brauchen.
 
 ```{r}
-clove_tbl <- read_excel("data/clove_germ_rate.xlsx") %>% 
+clove_tbl <- read_excel("data/clove_germ_rate.xlsx") |> 
   mutate(clove_strain = as_factor(clove_strain),
          germ_rate = as.numeric(germ_rate))
 ```
@@ -534,12 +533,12 @@ clove_tbl <- read_excel("data/clove_germ_rate.xlsx") %>%
 Jetzt können wir die Daten nach der Sorte der Nelken in eine Liste mit der Funktion `split()` aufspalten und dann auf jedem Listeneintrag einen Shapiro-Wilk-Test rechnen. Dann machen wir uns noch die Ausgabe schöner und erschaffen uns eine `decision`-Spalte in der wir gleich das Ergebnis für oder gegen die Normalverteilung ablesen können.
 
 ```{r}
-clove_tbl %>% 
-  split(.$clove_strain) %>% 
-  map(~shapiro.test(.x$germ_rate)) %>% 
-  map(tidy) %>% 
-  bind_rows(.id = "test") %>%
-  select(test, p.value) %>% 
+clove_tbl |> 
+  split(~clove_strain) |> 
+  map(~shapiro.test(.x$germ_rate)) |> 
+  map(tidy) |> 
+  bind_rows(.id = "test") |>
+  select(test, p.value) |> 
   mutate(decision = ifelse(p.value <= 0.05, "reject normal", "normal"),
          p.value = pvalue(p.value, accuracy = 0.001))
 
@@ -563,7 +562,7 @@ Tja und schon haben wir in der @fig-pretest-check-model mehr als wir eigentlich 
 #| fig-height: 8
 #| fig-width: 8
 #| fig-cap: "Übersicht der Plots zu der Modellgüte aus der Funktion `check_model()` nach der Modellierung mit der Funktion `lm()` und der Annahme der Varianzhomogenität."
-lm_fit %>% check_model(check = c("normality", "linearity", "homogeneity", "qq"))
+lm_fit |> check_model(check = c("normality", "linearity", "homogeneity", "qq"))
 
 ```
 
@@ -587,7 +586,7 @@ In der @fig-pretest-check-model-gls sehen wir das Ergebnis der Modellanpassung. 
 #| fig-height: 8
 #| fig-width: 8
 #| fig-cap: "Übersicht der Plots zu der Modellgüte aus der Funktion `check_model()` nach der Modellierung mit der Funktion `gls()` und der Annahme der Varianzheterogenität über die Gruppen von `clove_strain`."
-gls_fit %>% check_model(check = c("normality", "linearity", "qq"))
+gls_fit |> check_model(check = c("normality", "linearity", "qq"))
 
 ```
 
