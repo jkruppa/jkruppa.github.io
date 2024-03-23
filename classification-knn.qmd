@@ -16,12 +16,6 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 pacman::p_load(tidyverse, tidymodels, magrittr, see,
                caret, kknn, MachineShop, conflicted)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
-conflict_prefer("extract", "magrittr")
-conflict_prefer("fit", "parsnip")
-conflict_prefer("contr.dummy", "kknn")
 ##
 set.seed(2025429)
 ```
@@ -33,9 +27,9 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 In dieser Einführung nehmen wir die infizierten Ferkel als Beispiel um einmal die verschiedenen Verfahren zu demonstrieren. Ich füge hier noch die ID mit ein, die nichts anderes ist, als die Zeilennummer. Dann habe ich noch die ID an den Anfang gestellt.
 
 ```{r}
-pig_tbl <- read_excel("data/infected_pigs.xlsx") %>% 
+pig_tbl <- read_excel("data/infected_pigs.xlsx") |> 
   mutate(pig_id = 1:n(),
-         infected = as_factor(infected)) %>% 
+         infected = as_factor(infected)) |> 
   select(pig_id, infected, everything())  
 ```
 
@@ -49,12 +43,12 @@ In @tbl-ml-basic-pig siehst du nochmal einen Auschnitt aus den Daten. Wir haben 
 #| tbl-cap: Auszug aus dem Daten zu den kranken Ferkeln.
 #| column: page
 
-pig_raw_tbl <- pig_tbl %>% 
+pig_raw_tbl <- pig_tbl |> 
   mutate(infected = as.character(infected))
 
 rbind(head(pig_raw_tbl),
       rep("...", times = ncol(pig_raw_tbl)),
-      tail(pig_raw_tbl)) %>% 
+      tail(pig_raw_tbl)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -78,7 +72,7 @@ In der @fig-class-knn-04 sehen wir, dass wir jetzt $k = 3$ Nachbarn betrachten. 
 
 ![Die Klassifizierung mit $k = 3$ nächsten Nachbarn. Wir erhalten hier eine , wenn auch knappe, Entscheidung für den schwarzen Status und damit krank.](images/class-knn-04.png){#fig-class-knn-04 fig-align="center" width="70%"}
 
-Soweit so gut. Und wie entscheide ich jetzt was weit weg ist? Wenn wir uns mit dem $k$-NN Algorithmus näher beschäftigen würden, dann werden wir feststellen, dass es eine Vielzahl an Abstandsmaßen gibt. Wir du dir vorstellen kannst, kann man die Entfernung zwischen zwei Punkten als den absoluten Abstand messen. Oder aber als den quadratischen Abstand. Es wäre auch möglich einen gewichteten Abstand einzuführen, so dass nähere Beobachtungen einen größeren Einfluss auf die Vorhersage haben als weiter entfernte Beobachtungen. Dann würden wir auch das Problem von geraden $k$ Anzahlen lösen. Du musst dann leider in den jeweiligen R Paketen schauen, welche Optionen es dort geben mag. Wir werden uns hier auf eins der R Pakete mit `kknn` konzentrieren.
+Soweit so gut. Und wie entscheide ich jetzt was weit weg ist? Wenn wir uns mit dem $k$-NN Algorithmus näher beschäftigen würden, dann werden wir feststellen, dass es eine Vielzahl an Abstandsmaßen gibt. Wir du dir vorstellen kannst, kann man die Entfernung zwischen zwei Punkten als den absoluten Abstand messen. Oder aber als den quadratischen Abstand. Es wäre auch möglich einen gewichteten Abstand einzuführen, so dass nähere Beobachtungen einen größeren Einfluss auf die Vorhersage haben als weiter entfernte Beobachtungen. Dann würden wir auch das Problem von geraden $k$ Anzahlen lösen. Du musst dann leider in den jeweiligen R Paketen schauen, welche Optionen es dort geben mag. Wir werden uns hier auf eins der R Pakete mit `{kknn}` konzentrieren.
 
 ## Klassifikation
 
@@ -102,39 +96,39 @@ Nachdem wir dann das Rezept haben, wollen wir noch alle numerischen Prädiktoren
 ```{r}
 pig_rec <- recipe(infected ~ age + sex + location + activity + crp + 
                    frailty + bloodpressure + weight + creatinin,
-                  data = pig_train_data) %>% 
- step_range(all_numeric_predictors(), min = 0, max = 1) %>% 
- step_dummy(all_nominal_predictors()) %>% 
+                  data = pig_train_data) |> 
+ step_range(all_numeric_predictors(), min = 0, max = 1) |> 
+ step_dummy(all_nominal_predictors()) |> 
  step_nzv(all_predictors())
 ```
 
 Jetzt kommen wir zu dem Modell. Wir wollen den $k$-NN Algorithmus rechnen und nutzen deshalb die Funktion `nearest_neighbor()`. Wir wollen dann `neighbors = 11` in dem Algorithmus nutzen. In der Funktion heißt dann das $k$ eben `neighbors`. Ist zwar nicht schön, aber das kennen wir ja schon alles von anderen Funktionen. Dann nutzen wir die `kknn` Engine und wollen eine Klassifikation rechnen. Wir rechnen eine Klassifikation, da wir als Outcome die Variable `infected` vorliegen haben und diese Variable binär ist.
 
 ```{r}
-knn_mod <- nearest_neighbor(neighbors = 11) %>% 
-  set_engine("kknn") %>% 
+knn_mod <- nearest_neighbor(neighbors = 11) |> 
+  set_engine("kknn") |> 
   set_mode("classification") 
 ```
 
 Dann haben wir also unser Modell definiert. Auch haben wir dann auch das Rezept, was wir ausführen wollen. Wir kombinieren jetzt das Modell zusammen mit dem Rezept in einen Workflow durch die Funktion `workflow()`. Bis jetzt haben wir noch nichts gerechnet. Das Rechnen kommt jetzt im nächsten Schritt.
 
 ```{r}
-pig_wflow <- workflow() %>% 
-  add_model(knn_mod) %>% 
+pig_wflow <- workflow() |> 
+  add_model(knn_mod) |> 
   add_recipe(pig_rec)
 ```
 
-Wir wollen jetzt den Workflow auf den Trainingsdaten ausführen. Dazu nutzen wir die Funktion `fit()`. Da es leider sehr viele R Pakete gibt, die die Funktion `fit()` implementiert haben, lege ich mit `parsnip::fit()` definitiv fest, dass wir die `fit()` Funktion aus dem R Paket `parsnip` nutzen wollen.
+Wir wollen jetzt den Workflow auf den Trainingsdaten ausführen. Dazu nutzen wir die Funktion `fit()`. Da es leider sehr viele R Pakete gibt, die die Funktion `fit()` implementiert haben, lege ich mit `parsnip::fit()` definitiv fest, dass wir die `fit()` Funktion aus dem R Paket `{parsnip}` nutzen wollen.
 
 ```{r}
-pig_fit <- pig_wflow %>% 
+pig_fit <- pig_wflow |> 
   parsnip::fit(pig_train_data)
 ```
 
 Jetzt haben wir den Fit des Modells vorliegen. Mit dem Modell werden wir jetzt schauen, wie gut wir das Outcome `infected` in den Testdaten vorhersagen können. Wir nutzen dazu die Funktion `augment()`. Die Funktion verbindet den Testdatensatz mit den Information aus der Vorhersage. Wie immer brauchen wir nicht alles, was wir wiedergegeben kriegen. Daher wählen wir nur die Spalte `infected`, da stehen ja unsere wahren Werte für den Infektionsstatus drin und die Vorhersagen aus dem Modell. Die Vorhersagen des Modells haben alle ein `pred` im Namen, also können wir die Funktion `matches()` nutzen um diese Spalten auszuwählen.
 
 ```{r}
-pig_aug <- augment(pig_fit, pig_test_data ) %>% 
+pig_aug <- augment(pig_fit, pig_test_data ) |> 
   select(infected, matches("pred"))
 
 pig_aug
@@ -152,8 +146,8 @@ Wir erhalten also den Infektionsstatus der Testdaten, den vorhergesagte Infektio
 #| fig-width: 5
 #| fig-cap: "ROC Kurve für den `kknn` Algorithmus."
 
-pig_aug %>% 
-  roc_curve(truth = infected, .pred_1, event_level = "second") %>% 
+pig_aug |> 
+  roc_curve(truth = infected, .pred_1, event_level = "second") |> 
   autoplot()
 ```
 
@@ -162,7 +156,7 @@ Leider sieht die ROC Kurve nicht sehr gut aus. Eine sehr gute Vorhersage hat ein
 Wenn wir jezt noch wissen wollen, wie groß die Fläche unter der Kurve ist (eng. *area under the curve*, abk. *AUC*) können wir die Funktion `roc_auc()` nutzen. Auch hier müssen wir das `event_level` richtig definieren. Wir kopieren hier den Code einfach rüber.
 
 ```{r}
-pig_aug %>% 
+pig_aug |> 
   yardstick::roc_auc(truth = infected, .pred_1, event_level = "second")
 ```
 
@@ -171,7 +165,7 @@ Wie wir oben schon in der ROC Kurve gesehen haben ist ein Wert von $0.673$ für 
 Auch können wir uns die Genauigkeit (eng. *accuary*) berechnen lassen. Die Accuary beschreibt wie viel Prozent des Infektionsstatus wir richtig vorhergesagt haben. Wenn wir eine Accuary von 1 haben, dann haben wir alle Label korrekt vorhergesagt. Die Spalte `infected` enthält die gleichen Werte wie die Spalte `.pred_class` aus der Funktion `augment()`. Wenn wir eine Accuary von 0 vorliegen haben, dann konnten wir kein Label richtig vorhersagen.
 
 ```{r}
-pig_aug %>% 
+pig_aug |> 
   yardstick::accuracy(truth = infected, .pred_class)
 ```
 
@@ -180,7 +174,7 @@ Wir auch die AUC ist auch die Accuary nicht besonders gut. Wir können nur ca. $
 Wir können auch *ganz viele* Beurteilungskriterien für die Klassifikation in einer [Confusion matrix](https://en.wikipedia.org/wiki/Confusion_matrix) berechnen lassen. Dabei ist wichtig, das wir hier eine binäre Klassifikation vorliegen haben. Unser Infektionsstatus hat eben nur zwei Ausprägungen. Die Ferkel sind entweder krank oder gesund. Wir können die Funktion `conf_mat()` nutzen um uns die 2x2 Tabelle erstellen zu lassen.
 
 ```{r}
-pig_cm <- pig_aug %>% 
+pig_cm <- pig_aug |> 
   conf_mat(infected, .pred_class)
 
 pig_cm
@@ -189,7 +183,7 @@ pig_cm
 Wenn wir dann die Funktion `summary()` nutzen, dann erhalten wir insgesamt dreizehn Beurteilungskriterien für die Klassifikation. Wir gehen jetzt nicht auf alle Kriterien ein, das sprengt hier den Rahmen. Wir schauen uns die Kriterien dann in dem @sec-class-model-compare nochmal teilweise an. Wie immer musst du nicht alle Kriterien angeben sondern nur die Kriterien, die der Fragestellung dienen.
 
 ```{r}
-pig_cm %>% summary()
+pig_cm |> summary()
 ```
 
 Wie immer können wir uns eine 2x2 Tabelle auch mit einem Mosaicplot visualisieren. Das machen wir dann auch mit der Funktion `autoplot()`. Wir können natürlich auch die `ggplot` Funktionen nutzen, aber wir nutzen hier ja die Visualisierung nur um unsere Klassifikation zu überprüfen. Dann reicht auch die schnellere Variante.
@@ -220,7 +214,7 @@ folds
 Dank der Funktion `fit_resample()` können wir einen Workflow nicht nur auf einen Datensatz wie mit der Funktion `fit()` anwenden, sondern auf ein ganzes Set an Validierungsdaten. Die Funktion `fit_resample()` rechnet jetzt auf jenden der zehn Validierungsdatensätze einen $k$-NN Algorithmus wie im Workflow beschreiben.
 
 ```{r}
-pig_cv_fit <- pig_wflow %>% 
+pig_cv_fit <- pig_wflow |> 
   fit_resamples(folds)
 ```
 
@@ -240,15 +234,15 @@ Was heißt Tuning? Wie bei einem Auto können wir an verschiedenen Stellschraube
 -   `weight_func` ein Wort für den Typ der Kernel-Funktion, die zur Gewichtung der Abstände zwischen den Beobachtungen verwendet wird.
 -   `dist_power`, eine einzelne Zahl für den Parameter, der bei der Berechnung der Minkowski-Distanz verwendet wird. Wir nutzen also die `dist_power` nicht bei jedem Tuningschritt, da nicht jede Gewichtsfunktion eine `dist_power` braucht.
 
-Nun ist es so, dass wir natürlich nicht händisch alle möglichen Kombinationen von der Anzahl der Nachbarn, der Distanzfunktion und der Gewichtung der Distanz berechnen wollen. Das sind ziemlich viele Kombinationen und wir kommen dann vermutlich schnell durcheinander. Deshalb gibt es die Funktion `tune()` aus dem R Paket `tune`, die uns einen Prozess anbietet, das Tuning automatisiert durchzuführen.
+Nun ist es so, dass wir natürlich nicht händisch alle möglichen Kombinationen von der Anzahl der Nachbarn, der Distanzfunktion und der Gewichtung der Distanz berechnen wollen. Das sind ziemlich viele Kombinationen und wir kommen dann vermutlich schnell durcheinander. Deshalb gibt es die Funktion `tune()` aus dem R Paket `{tune}`, die uns einen Prozess anbietet, das Tuning automatisiert durchzuführen.
 
 Als erstes müssen wir uns ein Objekt bauen, das aussieht wie ein ganz normales Modell in der Klassifikation. Aber wir ergänzen jetzt noch hinter jeder zu tunenden Option noch die Funktion `tune()`. Das sind die Parameter des Algorithmus, die wir später tunen wollen.
 
 ```{r}
 tune_spec <- nearest_neighbor(neighbors = tune(),
                               weight_func = tune(), 
-                              dist_power = tune()) %>% 
-  set_engine("kknn") %>% 
+                              dist_power = tune()) |> 
+  set_engine("kknn") |> 
   set_mode("classification") 
 
 tune_spec
@@ -257,12 +251,12 @@ tune_spec
 Jetzt bauen wir uns den Workflow indem wir statt unserem Modell, die Tuninganweisung in den Workflow reinnehmen. Echt simpel und straightforward. Das Rezept bleibt ja das Gleiche.
 
 ```{r}
-pig_tune_wflow <- workflow() %>% 
-  add_model(tune_spec) %>% 
+pig_tune_wflow <- workflow() |> 
+  add_model(tune_spec) |> 
   add_recipe(pig_rec)
 ```
 
-Jetzt müssen wir noch alle Kombinationen aus den drei Parametern `neighbors`, `weight_func` und `dist_power` ermitteln. Das macht die Funktion `grid_regular()`. Es gibt da noch andere Funktionen in dem R Paket `tune`, aber ich konzentriere mich hier auf die einfachste. Jetzt müssen wir noch die Anzahl an Kombinationen festlegen. Ich möchte für jeden Parameter fünf Werte tunen. Daher nutze ich hier die Option `levels = 5` auch damit hier die Ausführung nicht so lange läuft. Fange am besten mit `levels = 5` an und schaue, wie lange das zusammen mit der Kreuzvalidierung dann dauert. Dann kannst du die Levels noch hochschrauben. Beachte aber, dass mehr Level nur mehr *Zwischenschritte* bedeutet. Jede Option hat eine Spannweite `range`, die du dann anpassen musst, wenn du *höhere* Werte haben willst. In unserem Fall ist die default Anzahl an `neighbors` auf 1 bis 10 gesetzt. Mehr Level würden nur mehr Zwischenschritte bedeuten. Deshalb habe ich die Spannweite auf 1 bis 20 Nachbarn gesetzt. Jetzt wählt die Funktion fünf Zwischenschritte (`levels = 5`) zwischen ein und zwanzig aus (`range = c(1, 20)`).
+Jetzt müssen wir noch alle Kombinationen aus den drei Parametern `neighbors`, `weight_func` und `dist_power` ermitteln. Das macht die Funktion `grid_regular()`. Es gibt da noch andere Funktionen in dem R Paket `{tune}`, aber ich konzentriere mich hier auf die einfachste. Jetzt müssen wir noch die Anzahl an Kombinationen festlegen. Ich möchte für jeden Parameter fünf Werte tunen. Daher nutze ich hier die Option `levels = 5` auch damit hier die Ausführung nicht so lange läuft. Fange am besten mit `levels = 5` an und schaue, wie lange das zusammen mit der Kreuzvalidierung dann dauert. Dann kannst du die Levels noch hochschrauben. Beachte aber, dass mehr Level nur mehr *Zwischenschritte* bedeutet. Jede Option hat eine Spannweite `range`, die du dann anpassen musst, wenn du *höhere* Werte haben willst. In unserem Fall ist die default Anzahl an `neighbors` auf 1 bis 10 gesetzt. Mehr Level würden nur mehr Zwischenschritte bedeuten. Deshalb habe ich die Spannweite auf 1 bis 20 Nachbarn gesetzt. Jetzt wählt die Funktion fünf Zwischenschritte (`levels = 5`) zwischen ein und zwanzig aus (`range = c(1, 20)`).
 
 ```{r}
 pig_grid <- grid_regular(neighbors(range = c(1, 20)),
@@ -281,7 +275,7 @@ Nun bringen wir den Workflow zusammen mit dem Tuninggrid und unseren Sets der Kr
 
 ```{r}
 #| eval: false
-pig_tune_res <- pig_tune_wflow %>% 
+pig_tune_res <- pig_tune_wflow |> 
    tune_grid(resamples = pig_folds,
              grid = pig_grid,
              control = control_grid(verbose = FALSE))
@@ -312,10 +306,10 @@ Nachdem das Tuning durchgelaufen ist, können wir uns über die Funktion `collec
 #| fig-width: 6
 #| fig-cap: "Tuning Kurven für den `kknn` Algorithmus."
 
-pig_tune_res %>%
-  collect_metrics() %>%
+pig_tune_res |>
+  collect_metrics() |>
   mutate(weight_func = as_factor(weight_func),
-         dist_power = as_factor(dist_power)) %>%
+         dist_power = as_factor(dist_power)) |>
   ggplot(aes(neighbors, mean, color = weight_func, linetype = dist_power)) +
   theme_minimal() +
   geom_line(alpha = 0.6) +
@@ -328,14 +322,14 @@ pig_tune_res %>%
 Damit wir nicht händisch uns die beste Kombination raussuchen müssen, können wir die Funktion `show_best()` nutzen. Wir wählen hier die beste Accuarcy und erhalten dann die sortierten Ergebnisse nach der Accuarcy des Tunings.
 
 ```{r}
-pig_tune_res %>%
+pig_tune_res |>
   show_best("accuracy")
 ```
 
 Das war die Funktion `show_best()` aber wir können uns auch die gleich die besten Parameter nach der Accuracy raus ziehen. Das Rausziehen der besten Parameter macht für uns die Funktion `select_best()`.
 
 ```{r}
-best_knn <- pig_tune_res %>%
+best_knn <- pig_tune_res |>
   select_best("accuracy")
 
 best_knn
@@ -344,7 +338,7 @@ best_knn
 Wir sehen, dass wir `neighbors = 15` wählen sollten. Dann müssen wir als Gewichtungsfunktion `rectangular` nutzen. Die Gewichtung der Distanz wäre dann `1.25`. Müssen wir jetzt die Zahlen wieder in ein Modell eingeben? Nein, müssen wir nicht. Mit der Funktion `finalize_workflow()` können wir dann die besten Parameter aus unserem Tuning gleich mit dem Workflow kombinieren. Dann haben wir unseren finalen, getunten Workflow. Du siehst dann auch in der Ausgabe, dass die neuen Parameter in dem $k$-NN Algorithmus übernommen wurden
 
 ```{r}
-final_pig_wf <- pig_tune_wflow %>% 
+final_pig_wf <- pig_tune_wflow |> 
   finalize_workflow(best_knn)
 
 final_pig_wf 
@@ -353,18 +347,18 @@ final_pig_wf
 Jetzt bleibt uns nur noch der letzte Fit übrig. Wir wollen unseren finalen, getunten Workflow auf die Testdaten anwenden. Dafür gibt es dann auch die passende Funktion. Das macht für uns die Funktion `last_fit()`, die sich dann die Informationen für die Trainings- und Testdaten aus unserem Datensplit von ganz am Anfang extrahiert.
 
 ```{r}
-final_fit <- final_pig_wf %>%
+final_fit <- final_pig_wf |>
   last_fit(pig_data_split) 
 ```
 
 Da wir immer noch eine Kreuzvaldierung rechnen, müssen wir dann natürlich wieder alle Informationen über alle Kreuzvaldierungsdatensätze einsammeln. Dann erhalten wir unsere beiden Gütekriterien für die Klassifikation der Infektion von Ferkeln nach dem $k$-NN Algorithmus. So super sind die Zahlen nicht. Eine Accuracy von 73% bedeutet das wir nur knapp drei von vier Ferkeln richtig klassifizieren. Die AUC ist auch nicht berauschend, wir bringen also eine Menge Label durcheinander. Wir klassifizieren also gesunde Ferkeln als krank und umgekehrt.
 
 ```{r}
-final_fit %>%
+final_fit |>
   collect_metrics()
 ```
 
-Dann bleibt uns nur noch die ROC Kurve zu visualisieren. Da wir wieder etwas faul sind, nutzen wir die Funktion `autoplot()`. Als Alternative geht natürlich auch das [R Paket `pROC`](https://web.expasy.org/pROC/screenshots.html), was eine Menge mehr Funktionen und Möglichkeiten bietet.
+Dann bleibt uns nur noch die ROC Kurve zu visualisieren. Da wir wieder etwas faul sind, nutzen wir die Funktion `autoplot()`. Als Alternative geht natürlich auch das [R Paket `{pROC}`](https://web.expasy.org/pROC/screenshots.html), was eine Menge mehr Funktionen und Möglichkeiten bietet.
 
 ```{r}
 #| echo: true
@@ -376,9 +370,9 @@ Dann bleibt uns nur noch die ROC Kurve zu visualisieren. Da wir wieder etwas fau
 #| fig-width: 5
 #| fig-cap: "ROC Kurve für den `kknn` Algorithmus nach der Kreuvalidierung und dem Tuning."
 
-final_fit %>%
-  collect_predictions() %>% 
-  roc_curve(infected, .pred_1, event_level = "second") %>% 
+final_fit |>
+  collect_predictions() |> 
+  roc_curve(infected, .pred_1, event_level = "second") |> 
   autoplot() +
   theme_minimal()
 ```
@@ -394,15 +388,15 @@ Für Clusterbildung können wir nur numerische Variablen verwenden. Daher müsse
 ```{r}
 pig_kmeans_rec <- recipe(infected ~ age + sex + location + activity + crp + 
                            frailty + bloodpressure + weight + creatinin,
-                         data = pig_train_data) %>% 
+                         data = pig_train_data) |> 
   step_dummy(all_nominal_predictors()) 
 ```
 
 Dann müssen wir noch unser Rezept auf Daten anwenden. Da wir hier die gleichen Daten nutzen wollen, auf denen wir auch das Rezept definiert haben, nutzen wir die Funktion `juice()`. Sonst müssten wir in der Funktion `bake()` einen neuen Datensatz definieren.
 
 ```{r}
-pig_dummy_tbl <- pig_kmeans_rec %>% 
-  prep %>% 
+pig_dummy_tbl <- pig_kmeans_rec |> 
+  prep() |> 
   juice()
 ```
 
@@ -415,9 +409,9 @@ kmeans_obj <- kmeans(pig_dummy_tbl, centers = 3)
 Jetzt ziehen wir uns aus dem Objekt `kmeans_obj` noch die Cluster raus und kombinieren die Information welche Beobachtung in welchen Cluster fällt mit den ursprünglichen Daten. Damit sind wir dann hier schon fertig. Häufig wird die Funktion `kmeans` in der [Detektion von Ausreißern](#sec-outlier) zusammen mit dem Multidimensional Scaling verwendet.
 
 ```{r}
-pig_dummy_tbl %>% 
-  bind_cols(cluster = pluck(kmeans_obj, "cluster")) %>% 
+pig_dummy_tbl |> 
+  bind_cols(cluster = pluck(kmeans_obj, "cluster")) |> 
   select(cluster, everything())
 ```
 
-Das [R Paket `embed`](https://cran.r-project.org/web/packages/embed/embed.pdf) bietet noch eine Vielzahl an weiteren Funktionen für die Erstellung von kategorialen Variablen. Bier musst du schauen, ob die Funktionen dann *univariat* sind und dhaer immer nur eine variable nutzen oder aber *multivariat* und daher mehrere Spalten simultan. Der Vorteil von `kmeans` ist ja, das der Algorithmus mehrere numerische Spalten für die Clusterbildung nutzen kann.
+Das [R Paket `{embed}`](https://cran.r-project.org/web/packages/embed/embed.pdf) bietet noch eine Vielzahl an weiteren Funktionen für die Erstellung von kategorialen Variablen. Bier musst du schauen, ob die Funktionen dann *univariat* sind und daher immer nur eine Variable nutzen oder aber *multivariat* und daher mehrere Spalten simultan. Der Vorteil von `kmeans` ist ja, das der Algorithmus mehrere numerische Spalten für die Clusterbildung nutzen kann.

@@ -17,10 +17,6 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, tidymodels, magrittr, conflicted)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
-conflict_prefer("extract", "magrittr")
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
@@ -30,10 +26,10 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 In dieser Einführung nehmen wir die infizierten Ferkel als Beispiel um einmal die verschiedenen Verfahren zu demonstrieren. Ich füge hier noch die ID mit ein, die nichts anderes ist, als die Zeilennummer. Dann habe ich noch die ID an den Anfang gestellt. Wir wählen auch nur ein kleines Subset aus den Daten aus, da wir in diesem Kapitel nur Funktion demonstrieren und nicht die Ergebnisse interpretieren.
 
 ```{r}
-pig_tbl <- read_excel("data/infected_pigs.xlsx") %>% 
+pig_tbl <- read_excel("data/infected_pigs.xlsx") |> 
   mutate(pig_id = 1:n(),
-         infected = as_factor(infected)) %>% 
-  select(pig_id, infected, age:crp) %>% 
+         infected = as_factor(infected)) |> 
+  select(pig_id, infected, age:crp) |> 
   select(pig_id, infected, everything())  
 ```
 
@@ -46,12 +42,12 @@ In @tbl-ml-basic-pig siehst du nochmal einen Auschnitt aus den Daten. Wir haben 
 #| label: tbl-ml-basic-pig
 #| tbl-cap: Auszug aus dem Daten zu den kranken Ferkeln.
 
-pig_raw_tbl <- pig_tbl %>% 
+pig_raw_tbl <- pig_tbl |> 
   mutate(infected = as.character(infected))
 
 rbind(head(pig_raw_tbl),
       rep("...", times = ncol(pig_raw_tbl)),
-      tail(pig_raw_tbl)) %>% 
+      tail(pig_raw_tbl)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -206,19 +202,19 @@ Unter Normalisierung der Daten fassen wir eigentlich ein *preprocessing* der Dat
 | 1   | 0.4   | 2903  | 16.89 |
 | 1   | 0.2   | 7861  | 12.98 |
 
-: Beispieldatensatz für einen Datensatz der nomiert werden muss. Die einzelenen Spalten haben sehr unterschiedliche Wertebereiche eingetragen. {#tbl-class-normal}
+: Beispieldatensatz für einen Datensatz der normiert werden muss. Die einzelnen Spalten haben sehr unterschiedliche Wertebereiche eingetragen. {#tbl-class-normal}
 
-Warum müssen diese Daten normalisiert werden? Wir haben mit $x_1$ eine Variable vorliegen, die im Iterval $[0;1]$ liegt. Die Variable $x_2$ liegt in einem zehntausendfach größeren Wertebereich. Die Werte der Variable $x_3$ ist auch im Vergleich immer noch hundertfach im Wertebereich unterschiedlich. Dieser großen Unterschiede im Wertebereich führen zu fehlern bei Modellieren. Wir können hierzu das @sec-eda-transform betrachten. Dort werden gängige Transformationen einmal erklärt. Wir gehen hier nicht nochmal auf alle Verfahren ein, sondern konzentrieren uns auf die häufigsten Anwendungen.
+Warum müssen diese Daten normalisiert werden? Wir haben mit $x_1$ eine Variable vorliegen, die im Iterval $[0;1]$ liegt. Die Variable $x_2$ liegt in einem zehntausendfach größeren Wertebereich. Die Werte der Variable $x_3$ ist auch im Vergleich immer noch hundertfach im Wertebereich unterschiedlich. Dieser großen Unterschiede im Wertebereich führen zu Fehlern bei Modellieren. Wir können hierzu das @sec-eda-transform betrachten. Dort werden gängige Transformationen einmal erklärt. Wir gehen hier nicht nochmal auf alle Verfahren ein, sondern konzentrieren uns auf die häufigsten Anwendungen.
 
 ## Das Rezept mit `recipe()`
 
-Wenn wir jetzt in den folgenden Kapiteln mit den maschinellen Lernverfahren arbeiten werden, nutzen wir das R Paket `recipes` um uns mit der Funktion `recipe()` ein Rezept der Klassifikation zu erstellen. Warum brauchen wir das? Wir werden sehen, dass wir auf verschiedene Datensätze immer wieder die gleichen Algorithmen anwenden. Auch wollen wir eine Reihe von Vorverarbeitungsschritten (eng. *preprocessing steps*) auf unsere Daten anwenden. Dann ist es einfacher, wenn wir alles an einem Ort abgelegt haben. Am Ende haben wir auch verschiedene Spalten in unseren Daten. Meistens eine Spalte mit dem Label und dann sehr viele Spalten für unsere Features oder Prediktoren. Vielleiht noch eine Spalte für die ID der Beobachtungen. Das macht alles sehr unübersichtlich. Deshalb nutzen wir `recipes` um mehr Ordnung in unsere Klassifikation zu bekommen.
+Wenn wir jetzt in den folgenden Kapiteln mit den maschinellen Lernverfahren arbeiten werden, nutzen wir das R Paket `{recipes}` um uns mit der Funktion `recipe()` ein Rezept der Klassifikation zu erstellen. Warum brauchen wir das? Wir werden sehen, dass wir auf verschiedene Datensätze immer wieder die gleichen Algorithmen anwenden. Auch wollen wir eine Reihe von Vorverarbeitungsschritten (eng. *preprocessing steps*) auf unsere Daten anwenden. Dann ist es einfacher, wenn wir alles an einem Ort abgelegt haben. Am Ende haben wir auch verschiedene Spalten in unseren Daten. Meistens eine Spalte mit dem Label und dann sehr viele Spalten für unsere Features oder Prediktoren. Vielleicht noch eine Spalte für die ID der Beobachtungen. Das macht alles sehr unübersichtlich. Deshalb nutzen wir `recipes` um mehr Ordnung in unsere Klassifikation zu bekommen.
 
 ::: column-margin
 Du findest hier die [Introduction to recipes](https://recipes.tidymodels.org/) und dann eine Idee wie `recipes` funktionieren mit [Preprocess your data with recipes](https://www.tidymodels.org/start/recipes/).
 :::
 
-Wir gehen nun folgende vier Schritte für die Erstellung eines Modellfits mit dem R Paket `recipe` einmal durch. Am Ende haben wir dann unsere Klassifikation durchgeführt. Vorher haben wir aber unseren Algorithmus und damit unser Modell definiert und auch festgelegt, was in den Daten noch angepasst und transformiert werden soll. Alles zusammen bringen wir dann in ein `workflow` Objekt in dem alles, was wir mit den Daten machen wollen, gespeichert ist.
+Wir gehen nun folgende vier Schritte für die Erstellung eines Modellfits mit dem R Paket `{recipe}` einmal durch. Am Ende haben wir dann unsere Klassifikation durchgeführt. Vorher haben wir aber unseren Algorithmus und damit unser Modell definiert und auch festgelegt, was in den Daten noch angepasst und transformiert werden soll. Alles zusammen bringen wir dann in ein `workflow` Objekt in dem alles, was wir mit den Daten machen wollen, gespeichert ist.
 
 1)  Erstellen des Modells (`logreg_mod`),
 2)  ein Vorverarbeitungsrezept (eng. *preprocessing*) für unseren Datensatz `pig_tbl` erstellen (`pig_rec`),
@@ -232,16 +228,16 @@ Du findest auf [Fitting and predicting with parsnip](https://parsnip.tidymodels.
 :::
 
 ```{r}
-logreg_mod <- logistic_reg() %>% 
+logreg_mod <- logistic_reg() |> 
   set_engine("glm")
 ```
 
 Nachdem wir den Algorithmus für unser Modell definiert haben, wollen wir natürlich noch festlegen, was jetzt gerechnet werden soll. Unser Modell definieren wir in der Funktion `recipe()`. Hier haben wir definiert, was in das Modell soll. Links steht das Outcome und rechts nur ein `.`. Damit haben wir alle anderen Spalten als Einflussvariablen ausgewählt. Das stimmt aber nur halb. Den in dem Rezept können wir auch Rollen für unsere Variablen definieren. Mit der Funktion `update_role()` definieren wir die Variable `pig_id` als `"ID"`. In der Klassifikation wird jetzt diese Variable nicht mehr berücksichtigt. Dann können wir noch Variablen transfomationen definieren. Wir wollen hier eine Dummykodierung für alle nominalen Prädiktoren, daher Faktoren, durchführen. Und wir wollen alle Variablen entfernen, in denen wir nur einen Eintrag haben oder eben eine Varianz von Null.
 
 ```{r}
-pig_rec <- recipe(infected ~ ., data = pig_tbl) %>% 
-  update_role(pig_id, new_role = "ID")  %>% 
-  step_dummy(all_nominal_predictors()) %>% 
+pig_rec <- recipe(infected ~ ., data = pig_tbl) |> 
+  update_role(pig_id, new_role = "ID")  |> 
+  step_dummy(all_nominal_predictors()) |> 
   step_zv(all_predictors())
 
 pig_rec
@@ -258,8 +254,8 @@ Du siehst, dass die Variable `pig_id` eine ID ist und die Variable `infected` da
 Im nächsten Schritt bringen wir das Modell `logreg_mod` und das Rezept `pig_rec` mit den Informationen über die Variablen und die notwendigen Transformationsschritte in einem `workflow()` zusammen. In diesem `workflow()` sind alle wichtigen Information drin und wir können den Workflow mit immer wieder neuen Subsets von unseren ursprünglichen Daten füttern.
 
 ```{r}
-pig_wflow <- workflow() %>% 
-  add_model(logreg_mod) %>% 
+pig_wflow <- workflow() |> 
+  add_model(logreg_mod) |> 
   add_recipe(pig_rec)
 
 pig_wflow
@@ -268,7 +264,7 @@ pig_wflow
 Nun heißt es noch den Wirkflow mit echten Daten zu füttern. Wir rechnen also erst jetzt mit echten Daten. Vorher aber wir nur gesagt, was wir machen wollen. Erst die Funktion `fit()` rechnet das Modell auf den Daten mit den Regeln in dem Rezept. Wir nehmen hier wieder unsere ursprünglichen Daten, aber du könntest hier auch den Traingsdatensatz nehmen.
 
 ```{r}
-pig_fit <- pig_wflow %>% 
+pig_fit <- pig_wflow |> 
   fit(data = pig_tbl)
 
 pig_fit
@@ -277,9 +273,9 @@ pig_fit
 Wir erhalten den klassischen Fit einer logististischen Regression wieder, wenn wir die Funktion `extract_fit_parsnip()` verwenden. Die Funktion gibt uns dann alle Informationen wieder. Dann können wir uns über die Funktion `tidy()` auch eine aufgeräumte Wiedergabe erstellen lassen.
 
 ```{r}
-pig_fit %>% 
-  extract_fit_parsnip() %>% 
-  tidy() %>% 
+pig_fit |> 
+  extract_fit_parsnip() |> 
+  tidy() |> 
   mutate(across(where(is.numeric), round, 2),
          p.value = pvalue(p.value))
 
@@ -288,8 +284,8 @@ pig_fit %>%
 Und was ist jetzt mit der Prädiktion? Dafür können wir entweder die Funktion `predict()` nutzen oder aber die Funktion `augment()`. Mir persönlich gefällt die Funktion `augment()` besser, da ich hier mehr Informationen zu den vorhergesagten Werten erhalte. Ich wähle mir dann die Spalte `infected` aus und alle Spalten, die ein `.pred` beinhalten. Dann runde ich noch auf die zweite Kommastelle.
 
 ```{r}
-augment(pig_fit, new_data = pig_tbl) %>% 
-  select(infected, matches(".pred")) %>% 
+augment(pig_fit, new_data = pig_tbl) |> 
+  select(infected, matches(".pred")) |> 
   mutate(across(where(is.numeric), round, 2))
 ```
 

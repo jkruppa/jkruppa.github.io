@@ -8,7 +8,7 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 So, das war ein ganz schönes Brett, TensorFlow bzw. Keras auf dem Rechner zu installieren. Es gibt zwar einen [Quick start um Tensorflow zu installieren](https://tensorflow.rstudio.com/install/) aber dann hatte ich das schöne Problem der GPU auf dem macOS mit M1 Chip. Die Lösung für die [Local GPU](https://tensorflow.rstudio.com/install/local_gpu) hat mich auf dem macOS einen Tag Nerven gekostet. Das mag dann auf einem Windows Rechner anders sein bzw. andere Probleme verursachen. Schlussendlich ist die Nutzung von *neural networks* auf keinen Laptops vielleicht auch nicht so die beste Idee. Wir würden die Algorithmen eher auf Hochleistungsrechner durchführen und dann vermutlich eine Linuxdistribution verwenden. Dennoch werde ich hier einmal Tensorflow in R vorstellen. Die Pakete für die Integration von dem eigenständigen Algorithmus Tensorflow gibt es und wenn es dann mal installiert ist, funktioniert auch alles super. Da Tensorflow in Phyton programmiert ist, muss auch Phyton auf dem Rechner installiert sein. Du siehst also, es ist einiges einzurichten, damit wir Deep learning betreiben können. Hier möchte ich dann auch gerne auf @mueller2019deep verweisen, der zu dem Thema Deep learning einen guten Einstieg liefert. Denn wir machen hier eigentlich kein Deep learning, denn unsere neuronalen Netzwerke werden nicht viele Schichten haben, dass würde hier mein kleiner Rechner auch gar nicht schaffen.
 
-Neben TensorFlow / Keras zeige ich auch nochmal die Anwendung der etwas veralteten R Pakete `neuralnet` und `nnet`. Wie immer musst du selber entscheiden, was du brauchst. Der Vorteil des Paketes `nnet` ist, dass wir das Paket zum einen mit Rezepten und Tuning gut nutzen können. Zum anderen brauchen wir aber nicht diesen Installationsmarathon wie bei TensorFlow / Keras. Ich präsnetiere hier einfach die Auswahl und du schaust dann was passt.
+Neben TensorFlow / Keras zeige ich auch nochmal die Anwendung der etwas veralteten R Pakete `{neuralnet}` und `{nnet}`. Wie immer musst du selber entscheiden, was du brauchst. Der Vorteil des Paketes `{nnet}` ist, dass wir das Paket zum einen mit Rezepten und Tuning gut nutzen können. Zum anderen brauchen wir aber nicht diesen Installationsmarathon wie bei TensorFlow / Keras. Ich präsnetiere hier einfach die Auswahl und du schaust dann was passt.
 
 ::: column-margin
 Wir immer basiert dieser Text zum Teilen auch auf guten Tutorien im Netz. Zum einen ist es das Tutorium [Understanding the Magic of Neural Networks](https://blog.ephorie.de/understanding-the-magic-of-neural-networks) und das Tutorium [A Beginner's Guide to Neural Networks and Deep Learning](https://wiki.pathmind.com/neural-network). Beide Tutorien sind in Englisch und Teile beider Tutorien hat auch diesen Text hier inspiriert. Nicht zu vergessen das Tutorium [A Quick Introduction to Neural Networks](https://ujjwalkarn.me/2016/08/09/quick-intro-neural-networks/).
@@ -25,10 +25,6 @@ pacman::p_load(tidyverse, tidymodels, magrittr,
                neuralnet, NeuralNetTools,
                OneR, readxl, 
                conflicted)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
-conflict_prefer("extract", "magrittr")
 ##
 set.seed(2025429)
 ```
@@ -122,14 +118,14 @@ In der @tbl-little_red_data sehen wir die Daten nbochmal in das Input Layer und 
 #|   - "Daten des Output Layers."
 #| layout-ncol: 2
 
-little_red_tbl %>% 
-  select(grosse_ohren:gutaussehend) %>% 
-  t() %>% 
+little_red_tbl |> 
+  select(grosse_ohren:gutaussehend) |> 
+  t() |> 
   kable(align = "c", "pipe")
 
-little_red_tbl %>% 
-  select(renn_weg:rettung) %>% 
-  t() %>% 
+little_red_tbl |> 
+  select(renn_weg:rettung) |> 
+  t() |> 
   kable(align = "c", "pipe")
 ```
 
@@ -296,10 +292,10 @@ Wir erhalten eine perfekte Übereinstimmung von der Vorhersage mit unseren Train
 In Folgenden wollen wir uns aber mal auf einen echten Datensatz konzentrieren. Wir nutzen daher einmal den Gummibärchendatensatz. Als unser Label und daher als unser Outcome nehmen wir das Geschlecht `gender`. Dabei wollen wir dann die weiblichen Studierenden vorhersagen. Im Weiteren nehmen wir nur die Spalte Geschlecht sowie als Prädiktoren die Spalten `most_liked`, `age`, `semester`, und `height`.
 
 ```{r}
-gummi_tbl <- read_excel("data/gummibears.xlsx") %>% 
+gummi_tbl <- read_excel("data/gummibears.xlsx") |> 
   mutate(gender = as_factor(gender),
-         most_liked = as_factor(most_liked)) %>% 
-  select(gender, most_liked, age, semester, height) %>% 
+         most_liked = as_factor(most_liked)) |> 
+  select(gender, most_liked, age, semester, height) |> 
   drop_na(gender)
 
 ```
@@ -313,13 +309,13 @@ Wir dürfen keine fehlenden Werte in den Daten haben. Wir können für die Präd
 #| label: tbl-gummi-model-compare
 #| tbl-cap: Auszug aus dem Daten zu den Gummibärchendaten.
 
-gummi_raw_tbl <- gummi_tbl %>% 
+gummi_raw_tbl <- gummi_tbl |> 
   mutate(gender = as.character(gender),
          most_liked = as.character(most_liked))
 
 rbind(head(gummi_raw_tbl),
       rep("...", times = ncol(gummi_raw_tbl)),
-      tail(gummi_raw_tbl)) %>% 
+      tail(gummi_raw_tbl)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -339,14 +335,14 @@ gummi_test_data  <- testing(gummi_data_split)
 Nachdem wir die Daten vorbereitet haben, müssen wir noch das Rezept mit den Vorverabreitungsschritten definieren. Wir schreiben, dass wir das Geschlecht `gender` als unser Label haben wollen. Daneben nehmen wir alle anderen Spalten als Prädiktoren mit in unser Modell, das machen wir dann mit dem `.` Symbol. Da wir noch fehlende Werte in unseren Prädiktoren haben, imputieren wir noch die numerischen Variablen mit der Mittelwertsimputation und die nominalen fehlenden Werte mit Entscheidungsbäumen. Dann müssen wir noch alle numerischen Variablen normalisieren und alle nominalen Variablen dummykodieren. Am Ende werde ich nochmal alle Variablen entfernen, sollte die Varianz in einer Variable nahe der Null sein.
 
 ```{r}
-gummi_rec <- recipe(gender ~ ., data = gummi_train_data) %>% 
-  step_impute_mean(all_numeric_predictors()) %>% 
-  step_impute_bag(all_nominal_predictors()) %>% 
-  step_range(all_numeric_predictors(), min = 0, max = 1) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
+gummi_rec <- recipe(gender ~ ., data = gummi_train_data) |> 
+  step_impute_mean(all_numeric_predictors()) |> 
+  step_impute_bag(all_nominal_predictors()) |> 
+  step_range(all_numeric_predictors(), min = 0, max = 1) |> 
+  step_dummy(all_nominal_predictors()) |> 
   step_nzv(all_predictors())
 
-gummi_rec %>% summary()
+gummi_rec |> summary()
 
 ```
 
@@ -354,22 +350,22 @@ Alles in allem haben wir ein sehr kleines Modell. Wir haben ja nur ein Outcome u
 
 ## Neuronale Netze mit `neuralnet`
 
-Neuronale Netze mit den R Paketen `neuralnet` und dem R Paket `nnet` sind mehr oder minder veraltet (eng. *outdated*). Wir können das Paket `neuralnet` nicht über die `parsnip` Umgebung nutzen. Deshalb hier einmal zu Fuß mit all den Komplikationen, die das so mit sich bringt. Auf der anderen Seite liefert das Paket `neuralnet` auch gute Ergebnisse mit wenig rechenlaufzeit. Da musst du dann einmal abwägen, was du in deiner Arbei so brauchst.
+Neuronale Netze mit den R Paketen `{neuralnet}` und dem R Paket `{nnet}` sind mehr oder minder veraltet (eng. *outdated*). Wir können das Paket `{neuralnet}` nicht über die `{parsnip}` Umgebung nutzen. Deshalb hier einmal zu Fuß mit all den Komplikationen, die das so mit sich bringt. Auf der anderen Seite liefert das Paket `{neuralnet}` auch gute Ergebnisse mit wenig rechenlaufzeit. Da musst du dann einmal abwägen, was du in deiner Arbei so brauchst.
 
 Das die Funktion `neuralnet()` nicht mit den Workflow kann, müssen wir uns erstmal wieder den Traingsdatendatz und den Testdatensatz aus unserem Rezept extrahieren. Den Traingsdatensatz können wir uns über die Funktion `juice()` einmal aus dem Rezept ziehen.
 
 ```{r}
-gummi_train_tbl <- gummi_rec %>% 
-  prep %>% 
+gummi_train_tbl <- gummi_rec |> 
+  prep() |> 
   juice()
 ```
 
 Den Testdatensatz müssen wir mit dem Rezept einmal backen. Dann müssen wir noch die Spalte `gender` in eine numerische Spalte umwandeln. Sonst klappt das später nicht mit der Prädiktion und der Konfusionsmatrix.
 
 ```{r}
-gummi_test_tbl <- gummi_rec %>% 
-  prep %>% 
-  bake(gummi_test_data) %>% 
+gummi_test_tbl <- gummi_rec |> 
+  prep() |> 
+  bake(gummi_test_data) |> 
   mutate(gender = as_factor(ifelse(gender == "m", 0, 1)))
 ```
 
@@ -405,7 +401,7 @@ plotnet(neuralnet_fit, rep = "best", bias = FALSE, pad_x = 0.59)
 Am Ende machen wir das Ganze ja nicht um etwas *interpretieren* zu können, sondern um eine Vorhersage zu treffen. Das machen wir mit der Funktion `predict()`. Jetzt wird es wieder nervig. Wir müssen usn merken, dass unser Faktor zwei Level hat mit `0` und `1` wobei die `m = 0` und `w = 1` ist. Als wäre das nicht schon nervig genug, haben wir dann in der Ausgabe von `predict()` nur eine Matrix mit zwei Spalten. Wir brauchen die zweite Spalte, da wir das Geschlecht `w` vorhersagen wollen.
 
 ```{r}
-neuralnet_pred <- predict(neuralnet_fit, gummi_test_tbl) %>% 
+neuralnet_pred <- predict(neuralnet_fit, gummi_test_tbl) |> 
   round(2)
 ```
 
@@ -438,8 +434,8 @@ Dann können wir uns die Konfusionsmatrix auch einmal wiedergeben lassen. Ich w�
 
 ```{r}
 #| eval: false
-neuralnet_cm %>% 
-  summary %>% 
+neuralnet_cm |> 
+  summary |> 
   mutate_if(is.numeric, round, 2)
 ```
 
@@ -447,21 +443,21 @@ Hier ist also wirklich Vorsicht geboten, wenn wir uns die Ergebnisse anschauen. 
 
 ## Neuronale Netze mit `nnet`
 
-Wir können aber das R Paket `nnet` mit unserer bekannten Rezeptumgebung nutzen und uns damit das Leben einfacher machen. Das macht auch in diesem Fall sehr viel mehr Sinn, da wir ja nur komische Wahrscheinlichkeiten der Klassenzugehörigkeit aus der Funktion `neuralnet()` wiederbekommen. Also das ganze einmal ohne wildes Installieren von Tensorflow / Keras. Ein simples neurales Netzwerk in R mit der Engine aus `nnet`.
+Wir können aber das R Paket `{nnet}` mit unserer bekannten Rezeptumgebung nutzen und uns damit das Leben einfacher machen. Das macht auch in diesem Fall sehr viel mehr Sinn, da wir ja nur komische Wahrscheinlichkeiten der Klassenzugehörigkeit aus der Funktion `neuralnet()` wiederbekommen. Also das ganze einmal ohne wildes Installieren von Tensorflow / Keras. Ein simples neurales Netzwerk in R mit der Engine aus `nnet`.
 
 In unserem Beispiel lassen wir einhundert Replikationen laufen (`epoch = 100`) und wählen auch hier mal fünf Hidden Layers (`hidden_units = 5`). Dann wollen wir natürlich eine Klassifikation rechnen.
 
 ```{r}
-nnet_mod <- mlp(epochs = 100, hidden_units = 5) %>% 
-  set_engine("nnet") %>% 
+nnet_mod <- mlp(epochs = 100, hidden_units = 5) |> 
+  set_engine("nnet") |> 
   set_mode("classification")
 ```
 
 Wir bringen wieder unser Modell mit dem Rezept des Gummibärchendatensatzes zusammen und können dann den Workflow abspeicherb.
 
 ```{r}
-nnet_wflow <- workflow() %>% 
-  add_model(nnet_mod) %>% 
+nnet_wflow <- workflow() |> 
+  add_model(nnet_mod) |> 
   add_recipe(gummi_rec)
 ```
 
@@ -471,7 +467,7 @@ Wie immer starten wir dann den Workflow mit der Funktion `fit()` und erhalten da
 #| message: false
 #| warning: false
 
-nnet_fit <- nnet_wflow %>% 
+nnet_fit <- nnet_wflow |> 
   parsnip::fit(gummi_train_data)
 
 ```
@@ -485,13 +481,13 @@ nnet_aug <- augment(nnet_fit, gummi_test_data )
 Da wir hier etwas vorsichtig geworden sind, nochmal schnell schauen, ob unsere Wahrscheinlichkeiten der Klassenzugehörigkeit auch wirklich eine Wahrscheinlichkeit ist.
 
 ```{r}
-pluck(nnet_aug, ".pred_w") %>% range()
+pluck(nnet_aug, ".pred_w") |> range()
 ```
 
 Ja, das passt soweit und wir können uns dann die Konfusionsmatrix berechnen lassen. Die Ergebnisse sind jetzt nicht so berauschend, aber auf der anderen Seite richtiger als in der Funktion `neuralnet()`.
 
 ```{r}
-nnet_cm <- nnet_aug %>% 
+nnet_cm <- nnet_aug |> 
   conf_mat(gender, .pred_class)
 
 nnet_cm
@@ -500,7 +496,7 @@ nnet_cm
 Dann schauen wir uns nochmal die ganzen anderen Gütekriterien aus der Konfusionsmatrix einmal an.
 
 ```{r}
-nnet_cm %>% summary()
+nnet_cm |> summary()
 ```
 
 Die Ergebnisse sind höchstens okay. Die Accuracy ist nicht sehr hoch und auch der Rest der Werte ist eher mittelmäßig. Das Ganze sehen wir dann in @fig-class-nnet-01 auch nochmal entsprechend in der ROC Kurve visualisiert. Die ROC Kurve sieht nur mittelmäßig aus. Wir müssten hier auf jeden Fall nochmal über Kreuzvalidierung und Tuning nachdenken. Ohne Kreuzvalidierung und Tuning würde ich das Modell nicht anwenden.
@@ -515,8 +511,8 @@ Die Ergebnisse sind höchstens okay. Die Accuracy ist nicht sehr hoch und auch d
 #| fig-width: 5
 #| fig-cap: "ROC Kurve für den `nnet` Algorithmus."
 
-nnet_aug %>% 
-  roc_curve(gender, .pred_w, event_level = "second") %>% 
+nnet_aug |> 
+  roc_curve(gender, .pred_w, event_level = "second") |> 
   autoplot()
 ```
 
@@ -531,16 +527,16 @@ Wenn du richtig Tensorflow mit R nutzen willst, dann gibt es hier noch das umfan
 Die Funktion `mlp()` erlaubt uns als Engine `keras` zu verweden und damit ein neurales Netzwerk mit dem Tensorflow Algorithmus zu rechnen. Mehr brauchen wir an dieser Stelle erstaml nicht tun. Wir werden hier erstmal keine Tuning Parameter angeben. Später im Kapitel werden wir dann noch ein Tuning für den Algorithmus rechnen.
 
 ```{r}
-keras_mod <- mlp() %>% 
-  set_engine("keras") %>% 
+keras_mod <- mlp() |> 
+  set_engine("keras") |> 
   set_mode("classification")
 ```
 
 Jetzt bringen wir noch das Rezept des Gummibärchendatensatzes mit dem Modell in einem Workflow zusammen.
 
 ```{r}
-keras_wflow <- workflow() %>% 
-  add_model(keras_mod) %>% 
+keras_wflow <- workflow() |> 
+  add_model(keras_mod) |> 
   add_recipe(gummi_rec)
 ```
 
@@ -552,7 +548,7 @@ Jetzt können mit mit der Funktion `fit()` das Modell rechnen. Wenn du Keras und
 #| cache: true
 #| echo: false
 
-keras_fit <- keras_wflow %>% 
+keras_fit <- keras_wflow |> 
   parsnip::fit(gummi_train_data)
 
 keras_aug <- augment(keras_fit, gummi_test_data) 
@@ -560,7 +556,7 @@ keras_aug <- augment(keras_fit, gummi_test_data)
 
 ```{r}
 #| eval: false
-keras_fit <- keras_wflow %>% 
+keras_fit <- keras_wflow |> 
   parsnip::fit(gummi_train_data)
 ```
 
@@ -574,7 +570,7 @@ keras_aug <- augment(keras_fit, gummi_test_data)
 Wir lassen uns dann wieder die Konfusionsmatrix wiedergeben. Wir sehen, dass wir sehr mies dran sind. Wir haben eine nahezu zufällige Einteilung der Geschlechter durch die Vorhersage.
 
 ```{r}
-keras_cm <- keras_aug %>% 
+keras_cm <- keras_aug |> 
   conf_mat(gender, .pred_class)
 
 keras_cm
@@ -583,7 +579,7 @@ keras_cm
 Was schon in der Konfusionsmatrix ziemlich mies aussah, wird natürlich auch so in der Zusammenfassung wiedergegeben.
 
 ```{r}
-keras_cm %>% summary()
+keras_cm |> summary()
 ```
 
 Was sehen wir? Wir sehen, dass unsere Accuracy mit unter 50% schon mehr schlecht ist. Die Zuordnung der Geschlechter wird vom Algorithmus rein zufällig durchgeführt. Wir können daher nicht von einem guten Algorithmus sprechen. In @fig-class-keras-01 sehen wir die gewollt schlechte ROC Kurve aus einem `keras` Algorithmus ohne Tuning. Warum war die nochmal gewollt schlecht? Ich will hier einmal zeigen, dass ein neuronales Netz aus dem Tensorflow Algorithmus meistens ohne ein Tuning sehr schlecht ist. Das kann sich aber durch ein Tuning sehr schnell drehen.
@@ -598,8 +594,8 @@ Was sehen wir? Wir sehen, dass unsere Accuracy mit unter 50% schon mehr schlecht
 #| fig-width: 5
 #| fig-cap: "ROC Kurve für den `keras` Algorithmus."
 
-keras_aug %>% 
-  roc_curve(gender, .pred_w, event_level = "second") %>% 
+keras_aug |> 
+  roc_curve(gender, .pred_w, event_level = "second") |> 
   autoplot()
 ```
 
@@ -617,7 +613,7 @@ Was heißt Tuning? Wie bei einem Auto können wir an verschiedenen Stellschraube
 -   `penalty`, ein Wert für die Regulierung des neuronalen Netzwerk.
 -   `epochs`, bezieht sich auf einen Zyklus durch die Layer für den gesamten Trainingsdatensatz. Wie oft rechnen wir den Trainingsdatensatz und trainieren unser Netzwerk?
 
-Nun ist es so, dass wir natürlich nicht händisch alle möglichen Kombinationen von der Anzahl der ausgewählten Variablen pro Baum, der kleinsten Knotengröße und der Anzahl der Bäume berechnen wollen. Das sind ziemlich viele Kombinationen und wir kommen dann vermutlich schnell durcheinander. Deshalb gibt es die Funktion `tune()` aus dem R Paket `tune`, die uns einen Prozess anbietet, das Tuning automatisiert durchzuführen.
+Nun ist es so, dass wir natürlich nicht händisch alle möglichen Kombinationen von der Anzahl der ausgewählten Variablen pro Baum, der kleinsten Knotengröße und der Anzahl der Bäume berechnen wollen. Das sind ziemlich viele Kombinationen und wir kommen dann vermutlich schnell durcheinander. Deshalb gibt es die Funktion `tune()` aus dem R Paket `{tune}`, die uns einen Prozess anbietet, das Tuning automatisiert durchzuführen.
 
 Da ich nicht ewig warten wollte, habe ich noch das parallele Rechnern aktiviert, in dem ich mir die Anzahl an Rechenkernen minus eins wiedergeben habe lassen.
 
@@ -630,8 +626,8 @@ Als erstes müssen wir uns ein Objekt bauen, das aussieht wie ein ganz normales 
 ```{r}
 tune_spec <- mlp(hidden_units = tune(),
                  penalty = tune(), 
-                 epochs = tune()) %>% 
-  set_engine("keras", num.threads = cores) %>% 
+                 epochs = tune()) |> 
+  set_engine("keras", num.threads = cores) |> 
   set_mode("classification") 
 
 tune_spec
@@ -640,12 +636,12 @@ tune_spec
 Jetzt bauen wir uns den Workflow indem wir statt unserem Modell, die Tuninganweisung in den Workflow reinnehmen. Echt simpel und straightforward. Das Rezept bleibt ja das Gleiche.
 
 ```{r}
-gummi_tune_wflow <- workflow() %>% 
-  add_model(tune_spec) %>% 
+gummi_tune_wflow <- workflow() |> 
+  add_model(tune_spec) |> 
   add_recipe(gummi_rec)
 ```
 
-Jetzt müssen wir noch alle Kombinationen aus den drei Parametern `hidden_units`, `penalty` und `epochs` ermitteln. Das macht die Funktion `grid_regular()`. Es gibt da noch andere Funktionen in dem R Paket `tune`, aber ich konzentriere mich hier auf die einfachste. Jetzt müssen wir noch die Anzahl an Kombinationen festlegen. Ich möchte für jeden Parameter fünf Werte tunen. Daher nutze ich hier die Option `levels = 5` auch damit hier die Ausführung nicht so lange läuft. Fange am besten mit `levels = 5` an und schaue, wie lange das zusammen mit der Kreuzvalidierung dann dauert. Dann kannst du die Levels noch hochschrauben. Beachte aber, dass mehr Level nur mehr *Zwischenschritte* bedeutet. Jede Option hat eine Spannweite `range`, die du dann anpassen musst, wenn du *höhere* Werte haben willst. Mehr Level würden nur mehr Zwischenschritte bedeuten.
+Jetzt müssen wir noch alle Kombinationen aus den drei Parametern `hidden_units`, `penalty` und `epochs` ermitteln. Das macht die Funktion `grid_regular()`. Es gibt da noch andere Funktionen in dem R Paket `{tune}`, aber ich konzentriere mich hier auf die einfachste. Jetzt müssen wir noch die Anzahl an Kombinationen festlegen. Ich möchte für jeden Parameter fünf Werte tunen. Daher nutze ich hier die Option `levels = 5` auch damit hier die Ausführung nicht so lange läuft. Fange am besten mit `levels = 5` an und schaue, wie lange das zusammen mit der Kreuzvalidierung dann dauert. Dann kannst du die Levels noch hochschrauben. Beachte aber, dass mehr Level nur mehr *Zwischenschritte* bedeutet. Jede Option hat eine Spannweite `range`, die du dann anpassen musst, wenn du *höhere* Werte haben willst. Mehr Level würden nur mehr Zwischenschritte bedeuten.
 
 ```{r}
 gummi_grid <- grid_regular(hidden_units(range = c(1, 100)),
@@ -664,7 +660,7 @@ Nun bringen wir den Workflow zusammen mit dem Tuninggrid und unseren Sets der Kr
 
 ```{r}
 #| eval: false
-gummi_tune_res <- gummi_tune_wflow %>% 
+gummi_tune_res <- gummi_tune_wflow |> 
    tune_grid(resamples = gummi_folds,
              grid = gummi_grid,
              control = control_grid(verbose = FALSE))
@@ -697,10 +693,10 @@ Nachdem das Tuning durchgelaufen ist, können wir uns über die Funktion `collec
 #| fig-width: 6
 #| fig-cap: "Tuning Kurven für den `keras` Algorithmus."
 
-gummi_tune_res %>%
-  collect_metrics() %>%
+gummi_tune_res |>
+  collect_metrics() |>
   mutate(hidden_units = as_factor(hidden_units),
-         penalty = as_factor(penalty)) %>%
+         penalty = as_factor(penalty)) |>
   ggplot(aes(epochs, mean, color = hidden_units, linetype = penalty)) +
   theme_minimal() +
   geom_line(alpha = 0.6) +
@@ -713,14 +709,14 @@ gummi_tune_res %>%
 Damit wir nicht händisch uns die beste Kombination raussuchen müssen, können wir die Funktion `show_best()` nutzen. Wir wählen hier die beste Accuarcy und erhalten dann die sortierten Ergebnisse nach der Accuarcy des Tunings.
 
 ```{r}
-gummi_tune_res %>%
+gummi_tune_res |>
   show_best("accuracy")
 ```
 
 Das war die Funktion `show_best()` aber wir können uns auch die gleich die besten Parameter nach der Accuracy raus ziehen. Das Rausziehen der besten Parameter macht für uns die Funktion `select_best()`.
 
 ```{r}
-best_keras <- gummi_tune_res %>%
+best_keras <- gummi_tune_res |>
   select_best("accuracy")
 
 best_keras
@@ -729,7 +725,7 @@ best_keras
 Wir sehen, dass wir `hidden_units = 75` wählen sollten. Dann müssen wir als Penalty `penalty = 0.0000000001` nutzen. Die Anzahl an Durchläufen pro Training ist dann `epochs = 200`. Müssen wir jetzt die Zahlen wieder in ein Modell eingeben? Nein, müssen wir nicht. Mit der Funktion `finalize_workflow()` können wir dann die besten Parameter aus unserem Tuning gleich mit dem Workflow kombinieren. Dann haben wir unseren finalen, getunten Workflow. Du siehst dann auch in der Ausgabe, dass die neuen Parameter in dem keras Algorithmus übernommen wurden
 
 ```{r}
-final_gummi_wf <- gummi_tune_wflow %>% 
+final_gummi_wf <- gummi_tune_wflow |> 
   finalize_workflow(best_keras)
 
 final_gummi_wf 
@@ -742,18 +738,18 @@ Jetzt bleibt uns nur noch der letzte Fit übrig. Wir wollen unseren finalen, get
 #| message: false
 #| warning: false
 
-final_fit <- final_gummi_wf %>%
+final_fit <- final_gummi_wf |>
   last_fit(gummi_data_split) 
 ```
 
 Da wir immer noch eine Kreuzvaldierung rechnen, müssen wir dann natürlich wieder alle Informationen über alle Kreuzvaldierungsdatensätze einsammeln. Dann erhalten wir unsere beiden Gütekriterien für die Klassifikation des Geschlechts unser Studierenden nach dem keras Algorithmus. Die Zahlen sind schon gut für echte Daten. Eine Accuracy von 81% bedeutet das wir über acht von zehn Studierenden richtig klassifizieren. Die AUC ist auch schon fast hervorragend, wir bringen kaum Label durcheinander.
 
 ```{r}
-final_fit %>%
+final_fit |>
   collect_metrics()
 ```
 
-Dann bleibt uns nur noch die ROC Kurve zu visualisieren. Da wir wieder etwas faul sind, nutzen wir die Funktion `autoplot()`. Als Alternative geht natürlich auch das [R Paket `pROC`](https://web.expasy.org/pROC/screenshots.html), was eine Menge mehr Funktionen und Möglichkeiten bietet.
+Dann bleibt uns nur noch die ROC Kurve zu visualisieren. Da wir wieder etwas faul sind, nutzen wir die Funktion `autoplot()`. Als Alternative geht natürlich auch das [R Paket `{pROC}`](https://web.expasy.org/pROC/screenshots.html), was eine Menge mehr Funktionen und Möglichkeiten bietet.
 
 ```{r}
 #| echo: true
@@ -765,9 +761,9 @@ Dann bleibt uns nur noch die ROC Kurve zu visualisieren. Da wir wieder etwas fau
 #| fig-width: 5
 #| fig-cap: "ROC Kurve für den `keras` Algorithmus nach der Kreuvalidierung und dem Tuning."
 
-final_fit %>%
-  collect_predictions() %>% 
-  roc_curve(gender, .pred_w, event_level = "second") %>% 
+final_fit |>
+  collect_predictions() |> 
+  roc_curve(gender, .pred_w, event_level = "second") |> 
   autoplot()
 ```
 

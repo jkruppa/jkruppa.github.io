@@ -41,10 +41,6 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, tidymodels, magrittr, 
                janitor,
                conflicted)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
-conflict_prefer("extract", "magrittr")
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
@@ -54,9 +50,9 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 In dieser Einführung nehmen wir die infizierten Ferkel als Beispiel um einmal die verschiedenen Verfahren zu demonstrieren. Ich füge hier noch die ID mit ein, die nichts anderes ist, als die Zeilennummer. Dann habe ich noch die ID an den Anfang gestellt. Wir wählen auch nur ein kleines Subset aus den Daten aus, da wir in diesem Kapitel nur Funktion demonstrieren und nicht die Ergebnisse interpretieren.
 
 ```{r}
-pig_tbl <- read_excel("data/infected_pigs.xlsx") %>% 
-  mutate(pig_id = 1:n()) %>% 
-  select(pig_id, infected, age, crp, sex, frailty) %>% 
+pig_tbl <- read_excel("data/infected_pigs.xlsx") |> 
+  mutate(pig_id = 1:n()) |> 
+  select(pig_id, infected, age, crp, sex, frailty) |> 
   select(pig_id, infected, everything())  
 ```
 
@@ -71,7 +67,7 @@ In @tbl-ml-basic-pig siehst du nochmal einen Ausschnitt aus den Daten. Wir haben
 
 rbind(head(pig_tbl),
       rep("...", times = ncol(pig_tbl)),
-      tail(pig_tbl)) %>% 
+      tail(pig_tbl)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -82,10 +78,10 @@ Gehen wir jetzt mal die Preprocessing Schritte, die wir für das maschinelle Ler
 In dem Einführungskapitel zur Klassifikation haben wir uns ja mit dem Rezept und dem Workflow schon mal beschäftigt. Hier möchte ich dann nochmal etwas mehr auf das Rezept eingehen und zeigen, wie das Rezept für Daten dann mit den Daten zusammenkommt. Wir bauen uns wie immer mit der Funktion `recipe()` das Datenrezept in R zusammen. Ich empfehle grundsätzlich vorab einen `select()` Schritt durchzuführen und nur die Variablen in den Daten zu behalten, die wir wirklich brauchen. Dann können wir auch mit dem `.` einfach alle Spalten ohne das Outcome als Prädiktoren definieren.
 
 ```{r}
-pig_rec <- recipe(infected ~ ., data = pig_tbl) %>% 
+pig_rec <- recipe(infected ~ ., data = pig_tbl) |> 
   update_role(pig_id, new_role = "ID")
 
-pig_rec %>% summary()
+pig_rec |> summary()
 ```
 
 Nachdem wir dann unser Rezept definiert haben, können wir auch noch Rollen vergeben. Die Rollen sind nützlich, wenn wir später auf bestimmten Variablen etwas rechnen wollen oder eben nicht. Wir können die Rollen selber definieren und diese Rollen dann auch über die Funktion `has_role()` ein- oder ausschließen. Neben dieser Möglichkeit gezielt Variablen nach der Rolle anzusprechen, können wir auch *alle* Prädiktoren oder *alle* Outcomes auswählen.
@@ -180,7 +176,7 @@ Wenn wir einen Faktor mit $l$ Leveln haben, erhalten wir immer $l-1$ Spalten nac
 Wir nutzen dann die Funktion `step_dummy()` um eine Dummaycodierung für alle nominalen Prädiktoren spezifiziert durch `all_nominal_predictors()` durchzuführen. Das tolle ist hier, dass wir durch die Helferfunktionen immer genau sagen können welche Typen von Spalten bearbeitet werden sollen.
 
 ```{r}
-pig_dummy_rec <- pig_rec %>% 
+pig_dummy_rec <- pig_rec |> 
   step_dummy(all_nominal_predictors()) 
 
 pig_dummy_rec 
@@ -189,8 +185,8 @@ pig_dummy_rec
 Wenn wir das Rezept fertig haben, dann können wir uns die Daten einmal anschauen. Durch die Funktion `prep()` initialisieren wir das Rezept und mit der Funktion `juice()` teilen wir mit, dass wir das Rezept gleich auf die Trainingsdaten mit denen wir das Rezept gebaut haben, anweden wollen.
 
 ```{r}
-pig_dummy_rec %>%
-  prep() %>%
+pig_dummy_rec |>
+  prep() |>
   juice() 
 ```
 
@@ -207,8 +203,8 @@ Mehr Information zu [Zero Variance Filter](https://recipes.tidymodels.org/refere
 Wir haben die Auswahl zwischen `step_zv()`, die Funktion entfernt Spalten mit einer Vaianz von Null. Das mag seltener vorkommen, als eine sehr kleine Varianz. Hier hilft die Funktion `step_nzv()`. Wir können beide Funktionen auf alle Arten von Prädiktoren anwenden, nur eben nicht *gleichzeitig*.
 
 ```{r}
-pig_zero_rec <- pig_rec %>% 
-  step_zv(all_predictors()) %>% 
+pig_zero_rec <- pig_rec |> 
+  step_zv(all_predictors()) |> 
   step_nzv(all_predictors())
 
 pig_zero_rec
@@ -225,8 +221,8 @@ Mehr Information zu [Scaling Numeric Data](https://recipes.tidymodels.org/refere
 :::
 
 ```{r}
-pig_scale_center_rec <- pig_rec %>% 
-  step_center(all_numeric_predictors()) %>% 
+pig_scale_center_rec <- pig_rec |> 
+  step_center(all_numeric_predictors()) |> 
   step_scale(all_numeric_predictors()) 
 
 pig_scale_center_rec 
@@ -235,7 +231,7 @@ pig_scale_center_rec
 Wenn wir aber auf eine getrennte Durchführung keine Lust haben, gibt es auch die etwas schief benannte Funktion *step_normalize()*, die beide Schritte kombiniert und uns damit die Daten auf eine Standardnormalverteilung transformiert. Ich persönlich nutze dann meist die zweite Variante, dann hat man alles in einem Schritt zusammen. Das hängt aber sehr vom Anwendungsfall ab und du musst dann schauen, was besser für dich und deine Daten dann passt.
 
 ```{r}
-pig_scale_center_rec <- pig_rec %>% 
+pig_scale_center_rec <- pig_rec |> 
   step_normalize(all_numeric_predictors()) 
 
 pig_scale_center_rec 
@@ -244,9 +240,11 @@ pig_scale_center_rec
 Jetzt können wir noch die Daten generieren und sehen, dass wir alle numerischen Spalten in eine Standardnormalverteilung transformiert haben. Wir runden hier nochmal alle numerischen Variablen, damit wir nicht so einen breiten Datensatz erhalten. Das hat jetzt aber eher was mit der Ausgabe hier auf der Webseite zu tun. Wir müssen nicht runden um die Daten dann zu verwenden.
 
 ```{r}
-pig_scale_center_rec %>%
-  prep() %>%
-  juice() %>% 
+#| warning: false
+#| message: false
+pig_scale_center_rec |>
+  prep() |>
+  juice() |> 
   mutate(across(where(is.numeric), round, 2))
 ```
 
@@ -259,7 +257,7 @@ Mehr Information zu [Scaling Numeric Data to a Specific Range](https://recipes.t
 :::
 
 ```{r}
-pig_range_rec <- pig_rec %>% 
+pig_range_rec <- pig_rec |> 
   step_range(all_numeric_predictors(), min = 0, max = 1) 
 
 pig_range_rec 
@@ -268,9 +266,9 @@ pig_range_rec
 Auch hier können wir dann die Daten generieren und uns einmal anschauen. Im Gegensatz zu der Standardisierung treten jetzt in unseren Spalten keine negativen Werte mehr auf. Wir runden hier ebenfalls nochmal alle numerischen Variablen, damit wir nicht so einen breiten Datensatz erhalten. Das hat jetzt aber eher was mit der Ausgabe hier auf der Webseite zu tun. Wir müssen nicht runden um die Daten dann zu verwenden.
 
 ```{r}
-pig_range_rec %>%
-  prep() %>%
-  juice() %>% 
+pig_range_rec |>
+  prep() |>
+  juice() |> 
   mutate(across(where(is.numeric), round, 2))
 ```
 
@@ -285,8 +283,8 @@ Mehr Information zu [Step Functions - Imputation](https://recipes.tidymodels.org
 Da wir es uns in diesem Schritt sehr einfach machen, nutzen wir die Funktionen `step_impute_mean()` auf allen numerischen Variablen und die Funktion `step_impute_mode()` auf alle nominalen Variablen. Es geht wie immer natürlich besser, das heißt auch komplexerer. Hier ist es auch wieder schwierig zu sagen, welche Methode die *beste* Methode zur Imputation von fehlenden Werten ist. Hier hilft es dann nichts, du musst dir die imputierten Daten anschauen.
 
 ```{r}
-pig_imp_rec <- pig_rec %>% 
-  step_impute_mean(all_numeric_predictors()) %>% 
+pig_imp_rec <- pig_rec |> 
+  step_impute_mean(all_numeric_predictors()) |> 
   step_impute_mode(all_nominal_predictors())
 
 pig_imp_rec 
@@ -295,9 +293,9 @@ pig_imp_rec
 Dann können wir uns auch schon die Daten generieren. Wir sehen, dass wir keine fehlenden Werte mehr in unseren Daten vorliegen haben. Wie immer können wir uns die gerundeten Daten dann einmal anschauen.
 
 ```{r}
-pig_imp_rec  %>%
-  prep() %>%
-  juice() %>% 
+pig_imp_rec  |>
+  prep() |>
+  juice() |> 
   mutate(across(where(is.numeric), round, 2))
 ```
 
@@ -305,7 +303,7 @@ Die Imputationrezepte bieten sich natürlich auch für die ganz normale Statisti
 
 ## Kategorisierung {#sec-preprocess-discrete}
 
-Manchmal wollen wir nicht mit numerischen Variablen arbeiten sondern uns nominale Variablen erschaffen. Das sollten wir eigentlich nicht so häufig tun, denn die numerischen Variablen haben meist mehr Informationen als nominale Variablen. Wir müssen dann ja unsere nominalen Daten dann wieder in Dummies umkodieren. Das sind dann zwei zusätzliche Schritte. Aber wie immer in der Datenanalyse, es gibt Fälle in denen es Sinn macht und wir eben keine numerischen Variablen haben wollen. Dann können wir eben die Funktion `step_discretize()` nutzen um verschiedene Gruppen oder `bins` (eng. *Dosen*) zu bilden. Das [R Paket `embed`](https://cran.r-project.org/web/packages/embed/embed.pdf) bietet noch eine Vielzahl an weiteren Funktionen für die Erstellung von kategorialen Variablen.
+Manchmal wollen wir nicht mit numerischen Variablen arbeiten sondern uns nominale Variablen erschaffen. Das sollten wir eigentlich nicht so häufig tun, denn die numerischen Variablen haben meist mehr Informationen als nominale Variablen. Wir müssen dann ja unsere nominalen Daten dann wieder in Dummies umkodieren. Das sind dann zwei zusätzliche Schritte. Aber wie immer in der Datenanalyse, es gibt Fälle in denen es Sinn macht und wir eben keine numerischen Variablen haben wollen. Dann können wir eben die Funktion `step_discretize()` nutzen um verschiedene Gruppen oder `bins` (eng. *Dosen*) zu bilden. Das [R Paket `{embed}`](https://cran.r-project.org/web/packages/embed/embed.pdf) bietet noch eine Vielzahl an weiteren Funktionen für die Erstellung von kategorialen Variablen.
 
 Es kann natürlich sinnvoll sein aus einer numerischen Outcomevariablen eine binäre Outcomevariable zu erzeugen. Dann können wir wieder eine Klassifikation rechnen. Aber auch hier musst du überlegen, ob das binäre Outcome dann dem numerischen Outcome inhaltlich entspricht. Wir können natürlich aus dem numerischen Lichteinfall die binäre Variable wenig/viel Licht transformieren. Dann muss die neue binäre Variable aber auch zur Fragestellung passen. Oder aus Noten auf der Likert-Skala nur zwei Noten mit schlecht/gut erschaffen.
 
@@ -316,7 +314,7 @@ Mehr Information zu [Step Functions - Discretization](https://recipes.tidymodels
 Wir wollen jetzt die Spalten `age` und `crp` in mindestens drei gleich große Gruppen aufspalten. Wenn wir mehr Gruppen brauchen, dann werden es mehr Gruppen werden. Das wichtige ist hier, dass wir gleich große Gruppen haben wollen.
 
 ```{r}
-pig_discrete_rec <- pig_rec %>%
+pig_discrete_rec <- pig_rec |>
   step_discretize(crp, age, min_unique = 3)
 
 pig_discrete_rec 
@@ -325,16 +323,16 @@ pig_discrete_rec
 Und dann können wir uns auch schon die Daten generieren. Wir immer gibt es noch andere Möglichkeiten um aus einer numerischen Spalte eine nominale Spalte zu generieren. Du musst dann abgleichen, welche Variante dir am besten passt.
 
 ```{r}
-pig_discrete_tbl <- pig_discrete_rec  %>%
-  prep() %>%
+pig_discrete_tbl <- pig_discrete_rec  |>
+  prep() |>
   juice() 
 ```
 
 Wir sehen, dass wir dann jeweils vier `bins` erhalten mit gut 25% Beobachtungen in jedem `bin`. Wir können dann mit der neuen Variable weiterrechnen und zum Beispiel diese neue nominale Variable dann in eine Dummykodierung umwandeln. Hier siehst du, dass du gewisse Schritte in einem Rezept in der richtigen Reihenfolge durchführen musst.
 
 ```{r}
-pig_discrete_tbl %>% pull(crp) %>% tabyl()
-pig_discrete_tbl %>% pull(age) %>% tabyl()
+pig_discrete_tbl |> pull(crp) |> tabyl()
+pig_discrete_tbl |> pull(age) |> tabyl()
 ```
 
 ## Korrelation zwischen Variablen {#sec-preprocess-corr}
@@ -348,7 +346,7 @@ Mehr Information zu [High Correlation Filter](https://recipes.tidymodels.org/ref
 In der Klassifikation müssen wir schauen, dass wir keine numerischen Variablen haben, die im Prinzip das gleiche Aussagen also hoch miteinander korreliert sind. Die Variablen müssen wir dann entfernen. Oder besser eine von den beiden Variablen. Wir können den Schritt mit der Funktion `step_corr()` durchführen und einen Threshold für die Entfernung von numerischen Variablen festlegen. Wir nehmen hier ein $\rho = 0.5$. Nochmal, das ist nicht sehr gut blind Vairablen zu entfernen. Schaue dir vorher einen paarweisen Korrelationsplot an und entscheide dann, ob du und welche Variablen du entfernen möchtest.
 
 ```{r}
-pig_corr_rec <- pig_rec %>% 
+pig_corr_rec <- pig_rec |> 
   step_corr(all_numeric_predictors(), threshold = 0.5)
 
 pig_corr_rec 
@@ -357,9 +355,9 @@ pig_corr_rec
 Dann können wir auch schon die Daten generieren. In unserem Fall wurde keine Variable entfernt. Die Korrelation untereinander ist nicht so groß. Wir runden hier wieder, damit sich die Tabelle nicht so in die Breite auf der Webseite entwickelt.
 
 ```{r}
-pig_corr_tbl <- pig_corr_rec  %>%
-  prep() %>%
-  juice() %>% 
+pig_corr_tbl <- pig_corr_rec  |>
+  prep() |>
+  juice() |> 
   mutate(across(where(is.numeric), round, 2)) 
 
 ```
@@ -369,11 +367,11 @@ pig_corr_tbl <- pig_corr_rec  %>%
 Schauen wir uns ein Rezept einmal in einem Rutsch auf den Gummibärchendaten einmal an. Wir müssen natürlich erstmal alle nominalen Variablen auch als solche umwandeln. Wir erschaffen also die passenden Faktoren für das Geschlecht und den Lieblingsgeschmack. Dann erschaffen wir noch eine ID für die Studierenden. Am Ende wählen wir noch ein paar Spalten aus, damit wir nicht alle Variablen vorliegen haben. Sonst wird der endgültige Datensatz sehr breit. Wir entfernen dann noch alle Beobachtungen aus den Daten, die einen fehlenden Wert bei dem Geschlecht haben. Das machen wir immer für die Variable, die dann unser Outcome sein soll.
 
 ```{r}
-gummi_tbl <- read_excel("data/gummibears.xlsx") %>% 
+gummi_tbl <- read_excel("data/gummibears.xlsx") |> 
   mutate(gender = as_factor(gender),
          most_liked = as_factor(most_liked),
-         student_id = 1:n()) %>% 
-  select(student_id, gender, most_liked, age, semester, height) %>%  
+         student_id = 1:n()) |> 
+  select(student_id, gender, most_liked, age, semester, height) |>  
   drop_na(gender)
 
 ```
@@ -387,34 +385,34 @@ In @tbl-gummi-prepro sehen wir dann die Daten nochmal vor dem Preprocessing darg
 #| label: tbl-gummi-prepro
 #| tbl-cap: Auszug aus dem Daten zu den Gummibärchendaten.
 
-gummi_raw_tbl <- gummi_tbl %>% 
+gummi_raw_tbl <- gummi_tbl |> 
   mutate(gender = as.character(gender),
          most_liked = as.character(most_liked))
 
 rbind(head(gummi_raw_tbl),
       rep("...", times = ncol(gummi_raw_tbl)),
-      tail(gummi_raw_tbl)) %>% 
+      tail(gummi_raw_tbl)) |> 
   kable(align = "c", "pipe")
 ```
 
 Wir erschaffen uns nun das Rezept in dem wie definieren, dass das `gender` unser Label ist und der Rest der Vairablen unsere Features. Da wir noch die Spalte `student_id` haben, geben wir dieser Spalte noch die Rolle `ID`. Wir können dann in den Rezeptschritten dann immer diese Rolle `ID` aus dem Prozess der Transformation ausschließen.
 
 ```{r}
-gummi_rec <- recipe(gender ~ ., data = gummi_tbl) %>% 
+gummi_rec <- recipe(gender ~ ., data = gummi_tbl) |> 
   update_role(student_id, new_role = "ID")
 
-gummi_rec %>% summary()
+gummi_rec |> summary()
 ```
 
 Und dann haben wir hier alle Schritte einmal zusammen in einem Block. Wir imputieren die fehlenden Werte für die numerischen und nominalen Variablen getrennt. Dann verwandeln wir das Semester in mindestens vier Gruppen. Im nächsten Schritt werden dann alle numerischen Variablen auf eine Spannweite von $[0;1]$ gebracht. Wir erschaffen dann noch die Dummies für die nominalen Daten. Am Ende wollen wir dann alle Variablen mit fast keiner Varianz entfernen. Wir wollen dann immer die Spalte `ID` aus den Schritten ausschließen. Wir machen das mit der Funktion `has_role()` und dem `-` vor der Funktion. Damit schließen wir die Rolle `ID` aus dem Transformationsschritt aus.
 
 ```{r}
-gummi_full_rec <- gummi_rec %>% 
-  step_impute_mean(all_numeric_predictors(), -has_role("ID")) %>% 
-  step_impute_bag(all_nominal_predictors(), -has_role("ID")) %>% 
-  step_discretize(semester, num_breaks = 3, min_unique = 4) %>% 
-  step_range(all_numeric_predictors(), min = 0, max = 1, -has_role("ID")) %>% 
-  step_dummy(all_nominal_predictors(), -has_role("ID")) %>% 
+gummi_full_rec <- gummi_rec |> 
+  step_impute_mean(all_numeric_predictors(), -has_role("ID")) |> 
+  step_impute_bag(all_nominal_predictors(), -has_role("ID")) |> 
+  step_discretize(semester, num_breaks = 3, min_unique = 4) |> 
+  step_range(all_numeric_predictors(), min = 0, max = 1, -has_role("ID")) |> 
+  step_dummy(all_nominal_predictors(), -has_role("ID")) |> 
   step_nzv(all_predictors(), -has_role("ID"))
 
 gummi_full_rec
@@ -423,9 +421,9 @@ gummi_full_rec
 Dann können wir wieder unsere Daten generieren. Ich runde hier wieder, da wir schnell sehr viele Kommastellen produzieren. In der Anwendung machen wir das natürlich dann nicht.
 
 ```{r}
-gummi_class_tbl <- gummi_full_rec %>%
-  prep() %>%
-  juice() %>% 
+gummi_class_tbl <- gummi_full_rec |>
+  prep() |>
+  juice() |> 
   mutate(across(where(is.numeric), round, 2)) 
 
 ```
@@ -440,13 +438,13 @@ In der @tbl-gummi-prepro-trans können wir uns die transformierten Daten einmal 
 #| tbl-cap: Der transformierte Gummibärchendatensatz nach der Anwendung des Rezepts. 
 #| column: page
 
-gummi_class_tbl <- gummi_class_tbl %>% 
+gummi_class_tbl <- gummi_class_tbl |> 
   mutate(gender = as.character(gender),
          student_id = 1:n())
 
 rbind(head(gummi_class_tbl),
       rep("...", times = ncol(gummi_class_tbl)),
-      tail(gummi_class_tbl)) %>% 
+      tail(gummi_class_tbl)) |> 
   kable(align = "c", "pipe")
 ```
 

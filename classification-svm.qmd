@@ -18,11 +18,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 pacman::p_load(tidyverse, tidymodels, magrittr, 
                janitor, see, conflicted)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
-conflict_prefer("extract", "magrittr")
-conflict_prefer("set_names", "magrittr")
+conflicts_prefer(magrittr::set_names)
 ##
 set.seed(2025429)
 ```
@@ -34,10 +30,10 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 In diesem Kapitel wollen wir uns auch auf einen echten Datensatz konzentrieren. Wir nutzen daher einmal den Gummibärchendatensatz. Als unser Label und daher als unser Outcome nehmen wir das Geschlecht `gender`. Dabei wollen wir dann die weiblichen Studierenden vorhersagen. Im Weiteren nehmen wir nur die Spalte Geschlecht sowie als Prädiktoren die Spalten `most_liked`, `age`, `semester`, und `height`.
 
 ```{r}
-gummi_tbl <- read_excel("data/gummibears.xlsx") %>% 
+gummi_tbl <- read_excel("data/gummibears.xlsx") |> 
   mutate(gender = as_factor(gender),
-         most_liked = as_factor(most_liked)) %>% 
-  select(gender, most_liked, age, semester, height) %>% 
+         most_liked = as_factor(most_liked)) |> 
+  select(gender, most_liked, age, semester, height) |> 
   drop_na(gender)
 
 ```
@@ -51,13 +47,13 @@ Wir dürfen keine fehlenden Werte in den Daten haben. Wir können für die Präd
 #| label: tbl-gummi-model-compare
 #| tbl-cap: Auszug aus dem Daten zu den Gummibärchendaten.
 
-gummi_raw_tbl <- gummi_tbl %>% 
+gummi_raw_tbl <- gummi_tbl |> 
   mutate(gender = as.character(gender),
          most_liked = as.character(most_liked))
 
 rbind(head(gummi_raw_tbl),
       rep("...", times = ncol(gummi_raw_tbl)),
-      tail(gummi_raw_tbl)) %>% 
+      tail(gummi_raw_tbl)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -79,11 +75,11 @@ gummi_test_data  <- testing(gummi_data_split)
 Nachdem wir die Daten vorbereitet haben, müssen wir noch das Rezept mit den Vorverabreitungsschritten definieren. Wir schreiben, dass wir das Geschlecht `gender` als unser Label haben wollen. Daneben nehmen wir alle anderen Spalten als Prädiktoren mit in unser Modell, das machen wir dann mit dem `.` Symbol. Da wir noch fehlende Werte in unseren Prädiktoren haben, imputieren wir noch die numerischen Variablen mit der Mittelwertsimputation und die nominalen fehlenden Werte mit Entscheidungsbäumen. Dann müssen wir noch alle numerischen Variablen normalisieren und alle nominalen Variablen dummykodieren. Am Ende werde ich nochmal alle Variablen entfernen, sollte die Varianz in einer Variable nahe der Null sein.
 
 ```{r}
-gummi_rec <- recipe(gender ~ ., data = gummi_train_data) %>% 
-  step_impute_mean(all_numeric_predictors()) %>% 
-  step_impute_bag(all_nominal_predictors()) %>% 
-  step_range(all_numeric_predictors(), min = 0, max = 1) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
+gummi_rec <- recipe(gender ~ ., data = gummi_train_data) |> 
+  step_impute_mean(all_numeric_predictors()) |> 
+  step_impute_bag(all_nominal_predictors()) |> 
+  step_range(all_numeric_predictors(), min = 0, max = 1) |> 
+  step_dummy(all_nominal_predictors()) |> 
   step_nzv(all_predictors())
 
 gummi_rec
@@ -149,8 +145,8 @@ Als erstes wollen wir den linearen Kernel einmal definieren. Wir haben hier zwei
 #| message: false
 #| warning: false
 
-svm_lin_mod <- svm_linear(cost = 1, margin = 0.1) %>% 
-  set_engine("kernlab") %>% 
+svm_lin_mod <- svm_linear(cost = 1, margin = 0.1) |> 
+  set_engine("kernlab") |> 
   set_mode("classification") 
 ```
 
@@ -160,8 +156,8 @@ Als zweites schauen wir uns den polynominale Kernel an und setzen einmal den Gra
 #| message: false
 #| warning: false
 
-svm_poly_mod <- svm_poly(cost = 1, margin = 0.1, degree = 3) %>% 
-  set_engine("kernlab") %>% 
+svm_poly_mod <- svm_poly(cost = 1, margin = 0.1, degree = 3) |> 
+  set_engine("kernlab") |> 
   set_mode("classification") 
 ```
 
@@ -171,8 +167,8 @@ Als letztes schauen wir uns noch den radialen Kernel einmal an. Auch hier haben 
 #| message: false
 #| warning: false
 
-svm_rbf_mod <- svm_rbf(cost = 1, margin = 0.1) %>% 
-  set_engine("kernlab") %>% 
+svm_rbf_mod <- svm_rbf(cost = 1, margin = 0.1) |> 
+  set_engine("kernlab") |> 
   set_mode("classification") 
 ```
 
@@ -184,10 +180,10 @@ Jetzt machen wir alles in einem Schritt. Was wir vorher in mehreren Schritten ge
 
 svm_aug_lst <- lst(svm_lin_mod,
                    svm_poly_mod,
-                   svm_rbf_mod) %>% 
-  map(~workflow(gummi_rec, .x)) %>% 
-  map(~fit(.x, gummi_train_data)) %>% 
-  map(~augment(.x, gummi_test_data)) %>% 
+                   svm_rbf_mod) |> 
+  map(~workflow(gummi_rec, .x)) |> 
+  map(~fit(.x, gummi_train_data)) |> 
+  map(~augment(.x, gummi_test_data)) |> 
   map(~select(.x, gender, matches("pred")))
 
 svm_aug_lst
@@ -204,7 +200,7 @@ Ja, kannst du. Wenn du *nur* eine Kreuzvalidierung durchführen willst, findest 
 Jetzt lassen wir uns auf der Liste der Vorhersagen nochmal für alle Kernel der SVM Algorithmen die Konfusionsmatrizen ausgeben.
 
 ```{r}
-svm_cm <- svm_aug_lst %>%
+svm_cm <- svm_aug_lst |>
   map(~conf_mat(.x, gender, .pred_class))
 svm_cm
 ```
@@ -214,11 +210,11 @@ Das sieht doch recht gut aus. Nur unser Polynomerkernel hat anscheinend Probleme
 Im folgenden Schritt müssen wir uns etwas strecken. Ich will nämlich die `summary()` Funktion auf die Konfusionsmatrizen anwenden und dann die drei Ausgaben in einem Datensatz zusammenführen. Wir haben dann die Metriknamen als eine Spalte und dann die drei Spalten für die Zahlenwerte der drei Methoden.
 
 ```{r}
-svm_cm %>% 
-  map(summary)  %>% 
-  map(~select(.x, .metric, .estimate)) %>% 
-  reduce(left_join, by = ".metric") %>% 
-  set_names(c("metric", "linear", "poly", "radial")) %>% 
+svm_cm |> 
+  map(summary)  |> 
+  map(~select(.x, .metric, .estimate)) |> 
+  reduce(left_join, by = ".metric") |> 
+  set_names(c("metric", "linear", "poly", "radial")) |> 
   mutate(across(where(is.numeric), round, 3))
 ```
 
@@ -227,8 +223,8 @@ Wenn wir wieder auf unsere Accuracy als unser primäres Gütemaß schauen, dann 
 Schauen wir uns in einem letzten Schritt noch die ROC Kurven für die drei Kernels an. Dafür müssen wir einen Datensatz aus der Liste bilden nachdem wir die Sensitivität und Spezifität für die drei Kernels in der Listenform berechnet haben. Wir können dafür die Funktion `bind_rows()` nutzen.
 
 ```{r}
-roc_tbl <- svm_aug_lst %>% 
-  map(~roc_curve(.x, gender, .pred_w, event_level = "second")) %>% 
+roc_tbl <- svm_aug_lst |> 
+  map(~roc_curve(.x, gender, .pred_w, event_level = "second")) |> 
   bind_rows(.id = "model")
 ```
 
@@ -244,7 +240,7 @@ In @fig-roc-svm sehen wir die drei ROC Kurven für die drei Kernels. Wie zu erwa
 #| label: fig-roc-svm
 #| fig-cap: "Darstellung der Vorhersagegüte der drei Modelle linear, polynomial und radial."
 
-roc_tbl %>% 
+roc_tbl |> 
   ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
   theme_minimal() +
   geom_path() +
@@ -253,4 +249,4 @@ roc_tbl %>%
 
 ```
 
-Damit wären wir auch schon am Ende des Kapitels über den SVM Algorithmus. Wie du schon merkst, müssen wir viel rechnen, wenn wir mit den SVM Kerneln was Vorhersagen wollen. Wenn wir den richtigen Kernel gefunden haben, dann können wir auch eine gute Vorhersage erreichen. Nun müssen auch diesen Kernel erstmal algorithmisch finden, dass heißt also viele Kernels ausprobieren. Und am Ende ist natürlich die Implementierung hier im genutzten R Paket `parsnip` nicht die Weisheit letzter Schluss. Es gibt noch sehr viel mehr R Pakete, die sich mit SVM Algorithmen beschäftigen. Aber das wäre dann eine Literatursuche für dich. Vorerst endet das Kapitel jetzt hier.
+Damit wären wir auch schon am Ende des Kapitels über den SVM Algorithmus. Wie du schon merkst, müssen wir viel rechnen, wenn wir mit den SVM Kerneln was Vorhersagen wollen. Wenn wir den richtigen Kernel gefunden haben, dann können wir auch eine gute Vorhersage erreichen. Nun müssen auch diesen Kernel erstmal algorithmisch finden, dass heißt also viele Kernels ausprobieren. Und am Ende ist natürlich die Implementierung hier im genutzten R Paket `{parsnip}` nicht die Weisheit letzter Schluss. Es gibt noch sehr viel mehr R Pakete, die sich mit SVM Algorithmen beschäftigen. Aber das wäre dann eine Literatursuche für dich. Vorerst endet das Kapitel jetzt hier.

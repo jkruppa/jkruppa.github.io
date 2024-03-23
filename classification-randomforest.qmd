@@ -29,10 +29,6 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, tidymodels, magrittr, 
                janitor, vip, rpart.plot, see,
                xgboost, Ckmeans.1d.dp, conflicted)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
-conflict_prefer("extract", "magrittr")
 ##
 set.seed(2025429)
 ```
@@ -44,10 +40,10 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 Bei dem vorherigen Beispielen haben wir immer unseren Datensatz zu den infizierten Ferkeln genutzt. In diesem Kapitel wolle wir uns aber mal auf einen echten Datensatz anschauen. Wir nutzen daher einmal den Gummibärchendatensatz. Als unser Label und daher als unser Outcome nehmen wir das Geschlecht `gender`. Dabei wollen wir dann die weiblichen Studierenden vorhersagen. Im Weiteren nehmen wir nur die Spalte Geschlecht sowie als Prädiktoren die Spalten `most_liked`, `age`, `semester`, und `height`.
 
 ```{r}
-gummi_tbl <- read_excel("data/gummibears.xlsx") %>% 
+gummi_tbl <- read_excel("data/gummibears.xlsx") |> 
   mutate(gender = as_factor(gender),
-         most_liked = as_factor(most_liked)) %>% 
-  select(gender, most_liked, age, semester, height) %>% 
+         most_liked = as_factor(most_liked)) |> 
+  select(gender, most_liked, age, semester, height) |> 
   drop_na(gender)
 
 ```
@@ -61,13 +57,13 @@ Wir dürfen keine fehlenden Werte in den Daten haben. Wir können für die Präd
 #| label: tbl-gummi-model-rf
 #| tbl-cap: Auszug aus dem Daten zu den Gummibärchendaten.
 
-gummi_raw_tbl <- gummi_tbl %>% 
+gummi_raw_tbl <- gummi_tbl |> 
   mutate(gender = as.character(gender),
          most_liked = as.character(most_liked))
 
 rbind(head(gummi_raw_tbl),
       rep("...", times = ncol(gummi_raw_tbl)),
-      tail(gummi_raw_tbl)) %>% 
+      tail(gummi_raw_tbl)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -89,11 +85,11 @@ gummi_test_data  <- testing(gummi_data_split)
 Nachdem wir die Daten vorbereitet haben, müssen wir noch das Rezept mit den Vorverabreitungsschritten definieren. Wir schreiben, dass wir das Geschlecht `gender` als unser Label haben wollen. Daneben nehmen wir alle anderen Spalten als Prädiktoren mit in unser Modell, das machen wir dann mit dem `.` Symbol. Da wir noch fehlende Werte in unseren Prädiktoren haben, imputieren wir noch die numerischen Variablen mit der Mittelwertsimputation und die nominalen fehlenden Werte mit Entscheidungsbäumen. Es gibt wie immer noch andere Imputationsmöglichkeiten, ich habe mich jetzt aus praktischen Gründen für dies beiden Verfahren entschieden. Ich überspringe hier auch die Diagnose der Imputation, also ob das jetzt eine gute und sinnvolle Imputation der fehlenden Werte war oder nicht. Die Diagnoseschritte müsstest du im Anwendungsfall nochmal im [Kapitel zur Imputation](#sec-missing) nachlesen und anwenden. Dann müssen wir noch alle numerischen Variablen normalisieren und alle nominalen Variablen dummykodieren. Am Ende werde ich nochmal alle Variablen entfernen, sollte die Varianz in einer Variable nahe der Null sein.
 
 ```{r}
-gummi_rec <- recipe(gender ~ ., data = gummi_train_data) %>% 
-  step_impute_mean(all_numeric_predictors()) %>% 
-  step_impute_bag(all_nominal_predictors()) %>% 
-  step_range(all_numeric_predictors(), min = 0, max = 1) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
+gummi_rec <- recipe(gender ~ ., data = gummi_train_data) |> 
+  step_impute_mean(all_numeric_predictors()) |> 
+  step_impute_bag(all_nominal_predictors()) |> 
+  step_range(all_numeric_predictors(), min = 0, max = 1) |> 
+  step_dummy(all_nominal_predictors()) |> 
   step_nzv(all_predictors())
 
 gummi_rec
@@ -106,9 +102,9 @@ Alles in allem haben wir ein sehr kleines Modell. Wir haben ja nur ein Outcome u
 Wie funktioniert nun ein Entscheidungsbaum? Ein Entscheidungsbaum besteht aus Knoten (eng. *nodes*) und Ästen (eng. *edge*). Dabei hat immer ein Knoten zwei Äste. Die Beobachtungen in einem Knoten fallen nach einer Entscheidungsregel anhand eines Prädiktors in entlang zweier Äste in zwei separate Knoten. So können wir unsere $n = `r nrow(gummi_tbl)`$ zum Beispiel anhand des Alters in zwei Gruppen aufteilen. Wir legen willkürlich die Altersgrenze bei 22 fest.
 
 ```{r}
-gummi_tbl %>% 
-  mutate(grp = if_else(age >= 22, 1, 0)) %>% 
-  pull(grp) %>% 
+gummi_tbl |> 
+  mutate(grp = if_else(age >= 22, 1, 0)) |> 
+  pull(grp) |> 
   tabyl()
 ```
 
@@ -132,26 +128,26 @@ In @fig-class-rf-04 sehen wir jetzt eine neue Beobachtung `?` die mit gegebenen 
 
 Damit haben wir einmal den simplen Fall mit zwei numerischen Prädiktoren durchgespielt. Auch haben wir wenige Beobachtungen und sind schnell zu reinen Knoten gekommen. Wenn wir jetzt natürlich sehr viel mehr Beobachtungen haben oder sehr viele Prädiktoren dann wird die Sache sehr schnell sehr rechenintensiv. Dafür haben wir dann eben R.
 
-Wenn wir in R einen Entscheidungsbaum rechnen wollen, dann nutzen wir die Funktion `decision_tree()` wir wollen nur eine maximale Tiefe von 5 Knoten haben und/oder mindestens 10 Beobachtungen in einem Knoten. Je nachdem welche Bedingung wir eher erreichen. Ebenfalls können wir das Wachstum mit dem Parameter `cost_complexity` kontrollieren. Sollte sich das Modell nicht um mindestens 0.001 verbessern, dann werden wir den nächsten Knoten nicht anlegen. Wir wählen als Engine den Algorithmus `rpart`, da wir uns diese Art von Algorithmus gut mit dem R Paket `rpart.plot` visualisieren können.
+Wenn wir in R einen Entscheidungsbaum rechnen wollen, dann nutzen wir die Funktion `decision_tree()` wir wollen nur eine maximale Tiefe von 5 Knoten haben und/oder mindestens 10 Beobachtungen in einem Knoten. Je nachdem welche Bedingung wir eher erreichen. Ebenfalls können wir das Wachstum mit dem Parameter `cost_complexity` kontrollieren. Sollte sich das Modell nicht um mindestens 0.001 verbessern, dann werden wir den nächsten Knoten nicht anlegen. Wir wählen als Engine den Algorithmus `rpart`, da wir uns diese Art von Algorithmus gut mit dem R Paket `{rpart.plot}` visualisieren können.
 
 ```{r}
-rpart_mod <- decision_tree(tree_depth = 5, min_n = 10, cost_complexity = 0.001) %>% 
-  set_engine("rpart") %>% 
+rpart_mod <- decision_tree(tree_depth = 5, min_n = 10, cost_complexity = 0.001) |> 
+  set_engine("rpart") |> 
   set_mode("classification")
 ```
 
 Jetzt kommt wieder das Modell zusammen mit dem Rezept. Wir speichern wieder beides in einen Workflow.
 
 ```{r}
-rpart_wflow <- workflow() %>% 
-  add_model(rpart_mod) %>% 
+rpart_wflow <- workflow() |> 
+  add_model(rpart_mod) |> 
   add_recipe(gummi_rec)
 ```
 
 Den Workflow können wir dann mit dem Traingsdatensatz einmal durchlaufen lassen und uns das gefittete Modell wiedergeben lassen.
 
 ```{r}
-rpart_fit <- rpart_wflow %>% 
+rpart_fit <- rpart_wflow |> 
   parsnip::fit(gummi_train_data)
 ```
 
@@ -164,7 +160,7 @@ rpart_aug <- augment(rpart_fit, gummi_test_data )
 Jetzt geht es los und wir schauen uns einmal an, wie gut die Klassifizierung mit dem Modell funktioniert hat. Als erstes bauen wir uns einmal die [Konfusionsmatrix](https://en.wikipedia.org/wiki/Confusion_matrix) um zu sehen wie gut die beiden Geschlechter in dem Testdatensatz vorhergesagt wurden.
 
 ```{r}
-rpart_cm <- rpart_aug %>% 
+rpart_cm <- rpart_aug |> 
   conf_mat(gender, .pred_class)
 
 rpart_cm
@@ -173,7 +169,7 @@ rpart_cm
 Das freut einen doch. Das sieht ziemlich gut aus. Wir haben auf der Diagonalen fast alle Beoabchtungen und nur sehr wenige falsche Vorhersagen auf der Nichtdiagonalen. Jetzt können wir uns noch eine ganze Reihe an anderen Gütekriterien für den [Vergleich von Modellen](#sec-class-model-compare) ausgeben lassen.
 
 ```{r}
-rpart_cm %>% summary()
+rpart_cm |> summary()
 ```
 
 Wir besprechen hier nicht alle, du kannst dann gerne nochmal in dem Kapitel über die Modellvergleiche nachlesen, was die ganze Gütekriterien alles bedeuten. Wenn wir uns auf die Accuarcy konzentrieren, erhalten wir einen guten Wert von 83% richtig klassifizierter Geschlechter. Das ist für echte Daten ohne Tuning und Kreuzvaldierung schon ein echt guter Wert.
@@ -189,12 +185,12 @@ Nun schauen wir uns noch schnell die ROC Kurve an und sehen, dass die Kurve scho
 #| fig-height: 5
 #| fig-width: 5
 #| fig-cap: "ROC Kurve für den Entscheidungsbaum mit dem `rpart` Algorithmus."
-rpart_aug %>% 
-  roc_curve(gender, .pred_w, event_level = "second") %>% 
+rpart_aug |> 
+  roc_curve(gender, .pred_w, event_level = "second") |> 
   autoplot()
 ```
 
-Es gibt viele Möglichkeiten sich einen Entscheidungsbaum anzuschauen. Wir nutzen hier das R Paket `rpart.plot` und die gleichnamige Funktion `rpart.plot()`. Die vielen Möglichkeiten der Darstellung und der Optionen findest in der Vignette [Plotting rpart trees with the rpart.plot package.](http://127.0.0.1:52037/help/library/rpart.plot/doc/prp.pdf). Wir gehen hier einmal auf die Variante `extra = 101` ein. Es gibt insgesamt elf verschiedene Arten plus eben noch die Möglichkeit 100 zu einer der elf genannten Varianten hinzufügen, um auch den Prozentsatz der Beobachtungen im Knoten anzuzeigen. Zum Beispiel zeigt `extra = 101` die Anzahl und den Prozentsatz der Beobachtungen in dem Knoten an.
+Es gibt viele Möglichkeiten sich einen Entscheidungsbaum anzuschauen. Wir nutzen hier das R Paket `{rpart.plot}` und die gleichnamige Funktion `rpart.plot()`. Die vielen Möglichkeiten der Darstellung und der Optionen findest in der Vignette [Plotting rpart trees with the rpart.plot package.](http://127.0.0.1:52037/help/library/rpart.plot/doc/prp.pdf). Wir gehen hier einmal auf die Variante `extra = 101` ein. Es gibt insgesamt elf verschiedene Arten plus eben noch die Möglichkeit 100 zu einer der elf genannten Varianten hinzufügen, um auch den Prozentsatz der Beobachtungen im Knoten anzuzeigen. Zum Beispiel zeigt `extra = 101` die Anzahl und den Prozentsatz der Beobachtungen in dem Knoten an.
 
 ```{r}
 #| echo: true
@@ -205,8 +201,8 @@ Es gibt viele Möglichkeiten sich einen Entscheidungsbaum anzuschauen. Wir nutze
 #| fig-height: 5
 #| fig-width: 5
 #| fig-cap: "Visualisierung des finalen `rpart` Entscheidungsbaums."
-rpart_fit %>%
-  extract_fit_engine() %>%
+rpart_fit |>
+  extract_fit_engine() |>
   rpart.plot(roundint = FALSE, extra = 101)
 ```
 
@@ -228,7 +224,7 @@ Im maschinellen Lernen nennen wir diese Methode *Bagging*. Das Wort *Bagging* st
 ::: {.callout-caution collapse="true"}
 ## Parallele CPU Nutzung
 
-Wenn wir wirklich viele Bäume wachsen lassen wollen, dann bietet sich die parallele Berechnung an. Das können wir über das R Paket `parallel` realisieren. Wir detektieren erstmal wie viele Kerne wir auf dem Rechner zu Verfügung haben.
+Wenn wir wirklich viele Bäume wachsen lassen wollen, dann bietet sich die parallele Berechnung an. Das können wir über das R Paket `{parallel}` realisieren. Wir detektieren erstmal wie viele Kerne wir auf dem Rechner zu Verfügung haben.
 
 ```{r}
 cores <- parallel::detectCores()
@@ -241,23 +237,23 @@ Wenn wir das gemacht haben, dann können wir in `set_engine("ranger", num.thread
 Auch hier ist es so, dass es verschiedene Algorithmen für den Random Forest gibt. Wir nehmen hier dann den `ranger` Algorithmus. Du kannst wie immer schauen, welche Algorithmen es noch gibt und auch wiederum verschiedene Algorithmen ausprobieren. In jedem Baum sollen drei Prädiktoren (`mtry = 3`) und einer Anzahl von mindestens zehn Beobachtungen je Knoten (`min_n = 10`) und wir wollen insgesamt eintausend Bäume wachsen lassen (`trees = 1000`). Darüber hinaus wollen wir uns auch die *Variable Importance* wiedergeben lassen. Die Variable Importance beschreibt, wie gut ein Prädiktor über alle Bäume des Waldes, in der Lage war Splits in möglichst reine Knoten durchzuführen. Ein Prädiktor mit einer hohen Variable Importance, ist also besonders geeignet für gute Splits mit hoher Reinheit.
 
 ```{r}
-ranger_mod <- rand_forest(mtry = 3, min_n = 10, trees = 1000) %>% 
-  set_engine("ranger", importance = "impurity") %>% 
+ranger_mod <- rand_forest(mtry = 3, min_n = 10, trees = 1000) |> 
+  set_engine("ranger", importance = "impurity") |> 
   set_mode("classification")
 ```
 
 Nun bauen wir uns wieder unseren Workflow indem wir das Modell mit dem Rezept für die Gummidatensatz verbinden. Das tolle ist jetzt, dass wir hier wieder des Rezept vom Anfang verwenden können. Wir müssen also nicht das Rezept neu definieren. Wir bauen uns also einfach nur einen neuen Workflow.
 
 ```{r}
-ranger_wflow <- workflow() %>% 
-  add_model(ranger_mod) %>% 
+ranger_wflow <- workflow() |> 
+  add_model(ranger_mod) |> 
   add_recipe(gummi_rec)
 ```
 
 Wenn wir den Workflow haben, dann können wir wieder mit der Funktion `fit()` unser Modell anpassen.
 
 ```{r}
-ranger_fit <- ranger_wflow %>% 
+ranger_fit <- ranger_wflow |> 
   parsnip::fit(gummi_train_data)
 
 ```
@@ -274,8 +270,8 @@ In der @fig-class-rf-07 sehen wir dann die Variable Importance sortiert für all
 #| fig-width: 6
 #| fig-cap: "Visualisierung der *Variable Importance* aus unseren `ranger` Algorithmus."
 
-ranger_fit %>% 
-  extract_fit_parsnip() %>% 
+ranger_fit |> 
+  extract_fit_parsnip() |> 
   vip(num_features = 20) +
   theme_minimal()
 ```
@@ -289,7 +285,7 @@ ranger_aug <- augment(ranger_fit, gummi_test_data )
 Nun schauen wir uns an wie gut die Klassifizierung mit dem `ranger` Modell funktioniert hat. Als erstes bauen wir uns einmal die [Konfusionsmatrix](https://en.wikipedia.org/wiki/Confusion_matrix) um zu sehen wie gut die beiden Geschlechter in dem Testdatensatz vorhergesagt wurden.
 
 ```{r}
-ranger_cm <- ranger_aug %>% 
+ranger_cm <- ranger_aug |> 
   conf_mat(gender, .pred_class)
 
 ranger_cm
@@ -298,7 +294,7 @@ ranger_cm
 Ja, das sieht ähnlich gut aus wie der `rpart` Algorithmus. Wir haben eine gute Aufspaltung nach dem Geschlechtern. Viele der Beobachtungen liegen auf der Diagonalen und nur wenige Beobachtungen wurden falsch klassifiziert. Jetzt können wir uns noch eine ganze Reihe an anderen Gütekriterien für den [Vergleich von Modellen](#sec-class-model-compare) ausgeben lassen.
 
 ```{r}
-ranger_cm %>% summary()
+ranger_cm |> summary()
 ```
 
 Wir besprechen wie beim `rpart` Algorithmus nicht alle Kriterien, du kannst dann gerne nochmal in dem Kapitel über die Modellvergleiche nachlesen, was die ganze Gütekriterien alles bedeuten. Wenn wir uns auf die Accuarcy konzentrieren, erhalten wir einen guten Wert von 84% richtig klassifizierter Geschlechter. Das ist für echte Daten ohne Tuning und Kreuzvaldierung schon ein echt guter Wert.
@@ -315,8 +311,8 @@ Nun schauen wir uns noch schnell die ROC Kurve an und sehen, dass die Kurve scho
 #| fig-width: 5
 #| fig-cap: "ROC Kurve für den Random Forest mit dem `ranger` Algorithmus."
 
-ranger_aug %>% 
-  roc_curve(gender, .pred_w, event_level = "second") %>% 
+ranger_aug |> 
+  roc_curve(gender, .pred_w, event_level = "second") |> 
   autoplot()
 ```
 
@@ -343,23 +339,23 @@ In der @fig-class-gradientboost sehen wir die Idee des gradient Boosting einmal 
 Nach dieser theoretischen Einführung wollen wir uns einmal mit der Implementierung beschäftigen. Wir nutzen hier einmal die bekannten Parameter aus dem Random Forest Algorithmus um unseren `xgboost` Algorithmus zu trainieren. Wie wir gleich noch im Tuning sehen werden, hatr der `xgboost` Algorithmus noch mehr Parameter an denen du schrauben kannst. In jedem Baum sollen drei Prädiktoren (`mtry = 3`) und einer Anzahl von mindestens zehn Beobachtungen je Knoten (`min_n = 10`) und wir wollen insgesamt eintausend Bäume wachsen lassen (`trees = 1000`).
 
 ```{r}
-xgboost_mod <- boost_tree(mtry = 3, min_n = 10, trees = 1000) %>% 
-  set_engine("xgboost") %>% 
+xgboost_mod <- boost_tree(mtry = 3, min_n = 10, trees = 1000) |> 
+  set_engine("xgboost") |> 
   set_mode("classification")
 ```
 
 Nun bauen wir uns wieder unseren Workflow indem wir das Modell mit dem Rezept für die Gummidatensatz verbinden. Das tolle ist jetzt, dass wir hier wieder des Rezept vom Anfang verwenden können. Wir müssen also nicht das Rezept neu definieren. Wir bauen uns also einfach nur einen neuen Workflow.
 
 ```{r}
-xgboost_wflow <- workflow() %>% 
-  add_model(xgboost_mod) %>% 
+xgboost_wflow <- workflow() |> 
+  add_model(xgboost_mod) |> 
   add_recipe(gummi_rec)
 ```
 
 Wenn wir den Workflow haben, dann können wir wieder mit der Funktion `fit()` unser Modell anpassen. Es ist eine wahre Freude. Ich mache das ja jetzt auch schon hier eine Weile im Skript und es ist echt super, wie gut das funktioniert.
 
 ```{r}
-xgboost_fit <- xgboost_wflow %>% 
+xgboost_fit <- xgboost_wflow |> 
   parsnip::fit(gummi_train_data)
 ```
 
@@ -374,9 +370,9 @@ Schauen wir uns also einmal die Kriterien der Variable Importance für unsere Gu
 ```{r}
 #| message: false
 #| warning: false
-xg_imp <- xgboost_fit %>% 
+xg_imp <- xgboost_fit |> 
 extract_fit_parsnip() %$% 
-  xgboost::xgb.importance(model = fit) %>% 
+  xgboost::xgb.importance(model = fit) |> 
   mutate(across(where(is.numeric), round, 2))
 
 xg_imp
@@ -394,7 +390,7 @@ In der @fig-class-rf-08 sehen wir dann die Variable Importance sortiert für all
 #| fig-width: 6
 #| fig-cap: "Visualisierung der *Variable Importance* aus unseren `xgboost` Algorithmus. Wir sehen, dass sich grob drei Gruppen für Bedeutung der Variablen für die Klassifikation gebildet haben."
 
-xg_imp %>% 
+xg_imp |> 
   xgb.ggplot.importance() +
   theme_minimal() +
   scale_fill_okabeito()
@@ -409,7 +405,7 @@ xgboost_aug <- augment(xgboost_fit, gummi_test_data )
 Nun schauen wir uns an wie gut die Klassifizierung mit dem xgboost Modell funktioniert hat. Als erstes bauen wir uns einmal die [Konfusionsmatrix](https://en.wikipedia.org/wiki/Confusion_matrix) um zu sehen wie gut die beiden Geschlechter in dem Testdatensatz vorhergesagt wurden.
 
 ```{r}
-xgboost_cm <- xgboost_aug %>% 
+xgboost_cm <- xgboost_aug |> 
   conf_mat(gender, .pred_class)
 
 xgboost_cm
@@ -418,7 +414,7 @@ xgboost_cm
 Ja, das sieht ähnlich gut aus wie der Random Forest Algorithmus. Wir haben eine gute Aufspaltung nach dem Geschlechtern. Viele der Beobachtungen liegen auf der Diagonalen und nur wenige Beobachtungen wurden falsch klassifiziert. Jetzt können wir uns noch eine ganze Reihe an anderen Gütekriterien für den [Vergleich von Modellen](#sec-class-model-compare) ausgeben lassen.
 
 ```{r}
-xgboost_cm %>% summary()
+xgboost_cm |> summary()
 ```
 
 Wier vorher schon besprechen wir nicht alle Kriterien, du kannst dann gerne nochmal in dem Kapitel über die Modellvergleiche nachlesen, was die ganze Gütekriterien alles bedeuten. Wenn wir uns auf die Accuarcy konzentrieren, erhalten wir einen guten Wert von 86% richtig klassifizierter Geschlechter. Besonders die Sensitivität ist mit 92% sehr gut. Die Sensitivität gibt ja an, wie zuverlässig unser xgboost Algorithmus erkennt, ob man eine Frau ist. Die Spezifität ist etwas niedriger, also die Fähigkeit die Männer auch als Männer zu erkennen. Das ist für echte Daten ohne Tuning und Kreuzvaldierung schon ein echt sehr guter Wert. Da sind wir noch besser als beim Random Forest.
@@ -435,8 +431,8 @@ Nun schauen wir uns noch schnell die ROC Kurve an und sehen, dass die Kurve scho
 #| fig-width: 5
 #| fig-cap: "ROC Kurve für den Entscheidungsbaum mit dem `xgboost` Algorithmus."
 
-xgboost_aug %>% 
-  roc_curve(gender, .pred_w, event_level = "second") %>% 
+xgboost_aug |> 
+  roc_curve(gender, .pred_w, event_level = "second") |> 
   autoplot()
 ```
 
@@ -454,15 +450,15 @@ Was heißt Tuning? Wie bei einem Auto können wir an verschiedenen Stellschraube
 -   `min_n`, kleinste Knotengröße, die noch akzeptiert wird. Wenn ein Knoten unter `min_n` fällt, dann endet hier das Wachstum des Baumes.
 -   `trees`, Anzahl der Bäume die in einem xgboost Algorithmus erstellt werden.
 
-Nun ist es so, dass wir natürlich nicht händisch alle möglichen Kombinationen von der Anzahl der ausgewählten Variablen pro Baum, der kleinsten Knotengröße und der Anzahl der Bäume berechnen wollen. Das sind ziemlich viele Kombinationen und wir kommen dann vermutlich schnell durcheinander. Deshalb gibt es die Funktion `tune()` aus dem R Paket `tune`, die uns einen Prozess anbietet, das Tuning automatisiert durchzuführen.
+Nun ist es so, dass wir natürlich nicht händisch alle möglichen Kombinationen von der Anzahl der ausgewählten Variablen pro Baum, der kleinsten Knotengröße und der Anzahl der Bäume berechnen wollen. Das sind ziemlich viele Kombinationen und wir kommen dann vermutlich schnell durcheinander. Deshalb gibt es die Funktion `tune()` aus dem R Paket `{tune}`, die uns einen Prozess anbietet, das Tuning automatisiert durchzuführen.
 
 Als erstes müssen wir uns ein Objekt bauen, das aussieht wie ein ganz normales Modell in der Klassifikation. Aber wir ergänzen jetzt noch hinter jeder zu tunenden Option noch die Funktion `tune()`. Das sind die Parameter des Algorithmus, die wir später tunen wollen.
 
 ```{r}
 tune_spec <-  boost_tree(mtry = tune(), 
                          min_n = tune(), 
-                         trees = tune()) %>% 
-  set_engine("xgboost") %>% 
+                         trees = tune()) |> 
+  set_engine("xgboost") |> 
   set_mode("classification")
 
 tune_spec
@@ -471,12 +467,12 @@ tune_spec
 Jetzt bauen wir uns den Workflow indem wir statt unserem Modell, die Tuninganweisung in den Workflow reinnehmen. Echt simpel und straightforward. Das Rezept bleibt ja das Gleiche.
 
 ```{r}
-gummi_tune_wflow <- workflow() %>% 
-  add_model(tune_spec) %>% 
+gummi_tune_wflow <- workflow() |> 
+  add_model(tune_spec) |> 
   add_recipe(gummi_rec)
 ```
 
-Jetzt müssen wir noch alle Kombinationen aus den drei Parametern `mtry`, `min_n` und `trees` ermitteln. Das macht die Funktion `grid_regular()`. Es gibt da noch andere Funktionen in dem R Paket `tune`, aber ich konzentriere mich hier auf die einfachste. Jetzt müssen wir noch die Anzahl an Kombinationen festlegen. Ich möchte für jeden Parameter fünf Werte tunen. Daher nutze ich hier die Option `levels = 5` auch damit hier die Ausführung nicht so lange läuft. Fange am besten mit `levels = 5` an und schaue, wie lange das zusammen mit der Kreuzvalidierung dann dauert. Dann kannst du die Levels noch hochschrauben. Beachte aber, dass mehr Level nur mehr *Zwischenschritte* bedeutet. Jede Option hat eine Spannweite `range`, die du dann anpassen musst, wenn du *höhere* Werte haben willst. Mehr Level würden nur mehr Zwischenschritte bedeuten. In unserem Fall weiß zum Beispiel die Funktion `mtry()` nicht, wie viele Variablen in dem Datensatz sind. Wir müssen also die `range` für die Anzahl an ausgewählten Variablen selber setzen. Ich wähle daher eine Variable bis vier Variablen.
+Jetzt müssen wir noch alle Kombinationen aus den drei Parametern `mtry`, `min_n` und `trees` ermitteln. Das macht die Funktion `grid_regular()`. Es gibt da noch andere Funktionen in dem R Paket `{tune}`, aber ich konzentriere mich hier auf die einfachste. Jetzt müssen wir noch die Anzahl an Kombinationen festlegen. Ich möchte für jeden Parameter fünf Werte tunen. Daher nutze ich hier die Option `levels = 5` auch damit hier die Ausführung nicht so lange läuft. Fange am besten mit `levels = 5` an und schaue, wie lange das zusammen mit der Kreuzvalidierung dann dauert. Dann kannst du die Levels noch hochschrauben. Beachte aber, dass mehr Level nur mehr *Zwischenschritte* bedeutet. Jede Option hat eine Spannweite `range`, die du dann anpassen musst, wenn du *höhere* Werte haben willst. Mehr Level würden nur mehr Zwischenschritte bedeuten. In unserem Fall weiß zum Beispiel die Funktion `mtry()` nicht, wie viele Variablen in dem Datensatz sind. Wir müssen also die `range` für die Anzahl an ausgewählten Variablen selber setzen. Ich wähle daher eine Variable bis vier Variablen.
 
 ```{r}
 gummi_grid <- grid_regular(mtry(range = c(1, 4)),
@@ -495,7 +491,7 @@ Nun bringen wir den Workflow zusammen mit dem Tuninggrid und unseren Sets der Kr
 
 ```{r}
 #| eval: false
-gummi_tune_res <- gummi_tune_wflow %>% 
+gummi_tune_res <- gummi_tune_wflow |> 
    tune_grid(resamples = gummi_folds,
              grid = gummi_grid,
              control = control_grid(verbose = FALSE))
@@ -528,10 +524,10 @@ Nachdem das Tuning durchgelaufen ist, können wir uns über die Funktion `collec
 #| fig-width: 6
 #| fig-cap: "Tuning Kurven für den `xgboost` Algorithmus."
 
-gummi_tune_res %>%
-  collect_metrics() %>%
+gummi_tune_res |>
+  collect_metrics() |>
   mutate(trees = as_factor(trees),
-         min_n = as_factor(min_n)) %>%
+         min_n = as_factor(min_n)) |>
   ggplot(aes(mtry, mean, color = min_n, linetype = trees)) +
   theme_minimal() +
   geom_line(alpha = 0.6) +
@@ -544,14 +540,14 @@ gummi_tune_res %>%
 Damit wir nicht händisch uns die beste Kombination raussuchen müssen, können wir die Funktion `show_best()` nutzen. Wir wählen hier die beste Accuarcy und erhalten dann die sortierten Ergebnisse nach der Accuarcy des Tunings.
 
 ```{r}
-gummi_tune_res %>%
+gummi_tune_res |>
   show_best("accuracy")
 ```
 
 Das war die Funktion `show_best()` aber wir können uns auch die gleich die besten Parameter nach der Accuracy raus ziehen. Das Rausziehen der besten Parameter macht für uns die Funktion `select_best()`.
 
 ```{r}
-best_xgboost <- gummi_tune_res %>%
+best_xgboost <- gummi_tune_res |>
   select_best("accuracy")
 
 best_xgboost
@@ -560,7 +556,7 @@ best_xgboost
 Wir sehen, dass wir `mtry = 3` wählen sollten. Dann müssen wir als Anzahl der Bäume `trees = 1000` nutzen. Die minimale Anzahl an Beobachtungen pro Knoten ist dann `11`. Müssen wir jetzt die Zahlen wieder in ein Modell eingeben? Nein, müssen wir nicht. Mit der Funktion `finalize_workflow()` können wir dann die besten Parameter aus unserem Tuning gleich mit dem Workflow kombinieren. Dann haben wir unseren finalen, getunten Workflow. Du siehst dann auch in der Ausgabe, dass die neuen Parameter in dem xgboost Algorithmus übernommen wurden.
 
 ```{r}
-final_gummi_wf <- gummi_tune_wflow %>% 
+final_gummi_wf <- gummi_tune_wflow |> 
   finalize_workflow(best_xgboost)
 
 final_gummi_wf 
@@ -569,18 +565,18 @@ final_gummi_wf
 Jetzt bleibt uns nur noch der letzte Fit übrig. Wir wollen unseren finalen, getunten Workflow auf die Testdaten anwenden. Dafür gibt es dann auch die passende Funktion. Das macht für uns die Funktion `last_fit()`, die sich dann die Informationen für die Trainings- und Testdaten aus unserem Datensplit von ganz am Anfang extrahiert.
 
 ```{r}
-final_fit <- final_gummi_wf %>%
+final_fit <- final_gummi_wf |>
   last_fit(gummi_data_split) 
 ```
 
 Da wir immer noch eine Kreuzvaldierung rechnen, müssen wir dann natürlich wieder alle Informationen über alle Kreuzvaldierungsdatensätze einsammeln. Dann erhalten wir unsere beiden Gütekriterien für die Klassifikation des Geschlechts unser Studierenden nach dem xgboost Algorithmus. Die Zahlen sind schon gut für echte Daten. Eine Accuracy von 84% bedeutet das wir über acht von zehn Studierenden richtig klassifizieren. Die AUC ist auch schon fast hervorragend, wir bringen kaum Label durcheinander.
 
 ```{r}
-final_fit %>%
+final_fit |>
   collect_metrics()
 ```
 
-Dann bleibt uns nur noch die ROC Kurve zu visualisieren. Da wir wieder etwas faul sind, nutzen wir die Funktion `autoplot()`. Als Alternative geht natürlich auch das [R Paket `pROC`](https://web.expasy.org/pROC/screenshots.html), was eine Menge mehr Funktionen und Möglichkeiten bietet.
+Dann bleibt uns nur noch die ROC Kurve zu visualisieren. Da wir wieder etwas faul sind, nutzen wir die Funktion `autoplot()`. Als Alternative geht natürlich auch das [R Paket `{pROC}`](https://web.expasy.org/pROC/screenshots.html), was eine Menge mehr Funktionen und Möglichkeiten bietet.
 
 ```{r}
 #| echo: true
@@ -592,9 +588,9 @@ Dann bleibt uns nur noch die ROC Kurve zu visualisieren. Da wir wieder etwas fau
 #| fig-width: 5
 #| fig-cap: "ROC Kurve für den Entscheidungsbaum mit dem `xgboost` Algorithmus nach der Kreuvalidierung und dem Tuning."
 
-final_fit %>%
-  collect_predictions() %>% 
-  roc_curve(gender, .pred_w, event_level = "second") %>% 
+final_fit |>
+  collect_predictions() |> 
+  roc_curve(gender, .pred_w, event_level = "second") |> 
   autoplot()
 ```
 

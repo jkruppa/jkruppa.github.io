@@ -833,7 +833,7 @@ window.Quarto = {
 </header>
 
 
-<p><em>Letzte Änderung am 23. March 2024 um 15:19:29</em></p>
+<p><em>Letzte Änderung am 23. March 2024 um 21:50:09</em></p>
 <p>In diesem Kapitel wollen wir drei ausgewählte Algorithmen miteinander vergleichen. Ich habe hier den <a href="classification-knn.html"><span class="math inline">\(k\)</span>-NN Algorithmus</a>, den <a href="#sec-class-rf">Random Forest Algorithmus</a> und den <a href="classification-randomforest.html#sec-xgboost">xgboost Algorithmus</a> ausgewählt. Das ist eigentlich eine relativ willkürliche Auswahl. Aber dann haben wir drei Modelle, die wir mit statistischen Maßzahlen vergleichen können. Ich rechne die Algorithmen hier relativ flott durch, wenn du mehr über die Algorithmen wissen willst, schau bitte dann in die entsprechenden Kapitel. Hier fallen also viele Dinge einfach so aus dem Himmel. Mir geht es aber auch am Ende darum, einmal die drei Algorithmen zu vergleichen.</p>
 <p>Häufig stellt sich natürlich die Frage, welche der statistischen Maßzahlen soll ich denn nun nehmen? Wie immer ist die Antwort, kommt drauf an. Ich würde dir empfehlen, die ROC Kurve für die Klassifikation zu nehmen. Dann wird auch häufig die Accuarcy berichtet. Danach wird es dann schon schwammiger und es kommt dann auch darauf an an <em>wen</em> du berichtest. Schreibst du also deine Abschlussarbeit, dann musst du dich mit deinen Betreuern abstimmen. Bei einer wissenschaftlichen Veröffentlichung würde ich in den anderen Veröffentlichungen des Journals schauen, was dort im Rahmen des maschinellen Lernens für Gütekriterien veröffentlicht werden. In diesem Kapitel gehen wir jedenfalls eine Menge Maßzahlen für die Klassifikation einmal durch.</p>
 <p>Für viele der Maßzahlen gibt es auf <a href="https://en.wikipedia.org/wiki/Confusion_matrix">Wikipedia zur Konfusionamtrix</a> weitreichende Erklärungen. Ich werde mich hier kurz halten und die Werte anhand eines Beispiels nochmal herleiten. Wenn du dann mehr zu den einzelnen Gütekriterien wissen willst, musst du nochmal extern nachlesen.</p>
@@ -857,13 +857,9 @@ Tuning und Resampling?
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(tidyverse, tidymodels, magrittr, </span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>               janitor, xgboost, ranger, kknn,</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>               see, conflicted)</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">conflict_prefer</span>(<span class="st">"select"</span>, <span class="st">"dplyr"</span>)</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">conflict_prefer</span>(<span class="st">"filter"</span>, <span class="st">"dplyr"</span>)</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">conflict_prefer</span>(<span class="st">"mutate"</span>, <span class="st">"dplyr"</span>)</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">conflict_prefer</span>(<span class="st">"extract"</span>, <span class="st">"magrittr"</span>)</span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">conflict_prefer</span>(<span class="st">"set_names"</span>, <span class="st">"magrittr"</span>)</span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="do">##</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">20234534</span>)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">conflicts_prefer</span>(magrittr<span class="sc">::</span>set_names)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="do">##</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">20234534</span>)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>An der Seite des Kapitels findest du den Link <em>Quellcode anzeigen</em>, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.</p>
 </section>
@@ -871,10 +867,10 @@ Tuning und Resampling?
 <h2 data-number="68.2" class="anchored" data-anchor-id="daten"><span class="header-section-number">68.2</span> Daten</h2>
 <p>In diesem Kapitel wolle wir uns aber mal auf einen echten Datensatz anschauen und sehen wie sich drei Algorithmen auf diesem Daten so schlagen. Welcher Algorithmus ist am besten für die Klassifikation geeignet? Wir nutzen daher hier einmal als echten Datensatz den Gummibärchendatensatz. Als unser Label nehmen wir das Geschlecht <code>gender</code>. Dabei wollen wir dann die weiblichen Studierenden vorhersagen. Im Weiteren nehmen wir als Prädiktoren die Spalten <code>most_liked</code>, <code>age</code>, <code>semester</code>, und <code>height</code> mit in unsere Analysedaten.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>gummi_tbl <span class="ot">&lt;-</span> <span class="fu">read_excel</span>(<span class="st">"data/gummibears.xlsx"</span>) <span class="sc">%&gt;%</span> </span>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>gummi_tbl <span class="ot">&lt;-</span> <span class="fu">read_excel</span>(<span class="st">"data/gummibears.xlsx"</span>) <span class="sc">|&gt;</span> </span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">gender =</span> <span class="fu">as_factor</span>(gender),</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>         <span class="at">most_liked =</span> <span class="fu">as_factor</span>(most_liked)) <span class="sc">%&gt;%</span> </span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(gender, most_liked, age, semester, height) <span class="sc">%&gt;%</span> </span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>         <span class="at">most_liked =</span> <span class="fu">as_factor</span>(most_liked)) <span class="sc">|&gt;</span> </span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(gender, most_liked, age, semester, height) <span class="sc">|&gt;</span> </span>
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">drop_na</span>(gender)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Wir dürfen keine fehlenden Werte in den Daten haben. Wir können für die Prädiktoren später die fehlenden Werte imputieren. Aber wir können keine Labels imputieren. Daher entfernen wir alle Beobachtungen, die ein <code>NA</code> in der Variable <code>gender</code> haben. Wir haben dann insgesamt <span class="math inline">\(n = 699\)</span> Beobachtungen vorliegen. In <a href="classification-neural-networks.html#tbl-gummi-model-compare" class="quarto-xref">Tabelle&nbsp;<span>72.3</span></a> sehen wir nochmal die Auswahl des Datensatzes in gekürzter Form.</p>
@@ -1006,14 +1002,14 @@ Tabelle&nbsp;68.1— Auszug aus dem Daten zu den Gummibärchendaten.
 </div>
 <p>Nachdem wir die Daten vorbereitet haben, müssen wir noch das Rezept mit den Vorverabreitungsschritten definieren. Wir schreiben, dass wir das Geschlecht <code>gender</code> als unser Label haben wollen. Daneben nehmen wir alle anderen Spalten als Prädiktoren mit in unser Modell, das machen wir dann mit dem <code>.</code> Symbol. Da wir noch fehlende Werte in unseren Prädiktoren haben, imputieren wir noch die numerischen Variablen mit der Mittelwertsimputation und die nominalen fehlenden Werte mit Entscheidungsbäumen. Dann müssen wir noch alle numerischen Variablen normalisieren und alle nominalen Variablen dummykodieren. Am Ende werde ich nochmal alle Variablen entfernen, sollte die Varianz in einer Variable nahe der Null sein.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>gummi_rec <span class="ot">&lt;-</span> <span class="fu">recipe</span>(gender <span class="sc">~</span> ., <span class="at">data =</span> gummi_train_data) <span class="sc">%&gt;%</span> </span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">step_impute_mean</span>(<span class="fu">all_numeric_predictors</span>()) <span class="sc">%&gt;%</span> </span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">step_impute_bag</span>(<span class="fu">all_nominal_predictors</span>()) <span class="sc">%&gt;%</span> </span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">step_range</span>(<span class="fu">all_numeric_predictors</span>(), <span class="at">min =</span> <span class="dv">0</span>, <span class="at">max =</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">step_dummy</span>(<span class="fu">all_nominal_predictors</span>()) <span class="sc">%&gt;%</span> </span>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>gummi_rec <span class="ot">&lt;-</span> <span class="fu">recipe</span>(gender <span class="sc">~</span> ., <span class="at">data =</span> gummi_train_data) <span class="sc">|&gt;</span> </span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">step_impute_mean</span>(<span class="fu">all_numeric_predictors</span>()) <span class="sc">|&gt;</span> </span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">step_impute_bag</span>(<span class="fu">all_nominal_predictors</span>()) <span class="sc">|&gt;</span> </span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">step_range</span>(<span class="fu">all_numeric_predictors</span>(), <span class="at">min =</span> <span class="dv">0</span>, <span class="at">max =</span> <span class="dv">1</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">step_dummy</span>(<span class="fu">all_nominal_predictors</span>()) <span class="sc">|&gt;</span> </span>
 <span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">step_nzv</span>(<span class="fu">all_predictors</span>())</span>
 <span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>gummi_rec <span class="sc">%&gt;%</span> <span class="fu">summary</span>()</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>gummi_rec <span class="sc">|&gt;</span> <span class="fu">summary</span>()</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code># A tibble: 5 × 4
   variable   type      role      source  
@@ -1044,20 +1040,20 @@ Huch, der Code ist aber sehr kurz…
 </div>
 <p>Für den <span class="math inline">\(k\)</span>-NN Algorithmus nutzen wir <span class="math inline">\(k=11\)</span> Nachbarn. Mehr brauchen wir hier nicht angeben.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>knn_mod <span class="ot">&lt;-</span> <span class="fu">nearest_neighbor</span>(<span class="at">neighbors =</span> <span class="dv">11</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_engine</span>(<span class="st">"kknn"</span>) <span class="sc">%&gt;%</span> </span>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>knn_mod <span class="ot">&lt;-</span> <span class="fu">nearest_neighbor</span>(<span class="at">neighbors =</span> <span class="dv">11</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_engine</span>(<span class="st">"kknn"</span>) <span class="sc">|&gt;</span> </span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_mode</span>(<span class="st">"classification"</span>) </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Dann nehmen wir das Modell für den <span class="math inline">\(k\)</span>-NN Algorithmus und verbinden das Modell mit dem Rezept für die Gummibärchendaten in einem Workflow.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>knn_wflow <span class="ot">&lt;-</span> <span class="fu">workflow</span>() <span class="sc">%&gt;%</span> </span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">add_model</span>(knn_mod) <span class="sc">%&gt;%</span> </span>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>knn_wflow <span class="ot">&lt;-</span> <span class="fu">workflow</span>() <span class="sc">|&gt;</span> </span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">add_model</span>(knn_mod) <span class="sc">|&gt;</span> </span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">add_recipe</span>(gummi_rec)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Nun können wir auch schon den Fit des Modells rechnen und in einem Rutsch den Fit auch gleich auf die Testdaten anwenden.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>knn_aug <span class="ot">&lt;-</span> knn_wflow <span class="sc">%&gt;%</span> </span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  parsnip<span class="sc">::</span><span class="fu">fit</span>(gummi_train_data) <span class="sc">%&gt;%</span> </span>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>knn_aug <span class="ot">&lt;-</span> knn_wflow <span class="sc">|&gt;</span> </span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  parsnip<span class="sc">::</span><span class="fu">fit</span>(gummi_train_data) <span class="sc">|&gt;</span> </span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>   <span class="fu">augment</span>(gummi_test_data)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Mehr wollen wir hier auch nicht. Wir brauchen nur die Prädiktion, da wir hier ja nur das Konzept der Modellvergleiche einmal durchgehen wollen.</p>
@@ -1079,20 +1075,20 @@ Huch, der Code ist aber sehr kurz…
 </div>
 <p>Für den Random Forest Algorithmus nutzen wir drei Variablen je Baum (<code>mtry = 3</code>), mindestens zehn Beobachtungen je Knoten (<code>min_n = 10</code>) sowie eintausend gewachsene Bäume in unserem Wald (<code>trees = 1000</code>). Mehr brauchen wir hier nicht angeben.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>ranger_mod <span class="ot">&lt;-</span> <span class="fu">rand_forest</span>(<span class="at">mtry =</span> <span class="dv">3</span>, <span class="at">min_n =</span> <span class="dv">10</span>, <span class="at">trees =</span> <span class="dv">1000</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_engine</span>(<span class="st">"ranger"</span>) <span class="sc">%&gt;%</span> </span>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>ranger_mod <span class="ot">&lt;-</span> <span class="fu">rand_forest</span>(<span class="at">mtry =</span> <span class="dv">3</span>, <span class="at">min_n =</span> <span class="dv">10</span>, <span class="at">trees =</span> <span class="dv">1000</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_engine</span>(<span class="st">"ranger"</span>) <span class="sc">|&gt;</span> </span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_mode</span>(<span class="st">"classification"</span>)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Dann nehmen wir das Modell für den Random Forest Algorithmus und verbinden das Modell mit dem Rezept für die Gummibärchendaten in einem Workflow.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>ranger_wflow <span class="ot">&lt;-</span> <span class="fu">workflow</span>() <span class="sc">%&gt;%</span> </span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">add_model</span>(ranger_mod) <span class="sc">%&gt;%</span> </span>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>ranger_wflow <span class="ot">&lt;-</span> <span class="fu">workflow</span>() <span class="sc">|&gt;</span> </span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">add_model</span>(ranger_mod) <span class="sc">|&gt;</span> </span>
 <span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">add_recipe</span>(gummi_rec)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Nun können wir auch schon den Fit des Modells rechnen und in einem Rutsch den Fit auch gleich auf die Testdaten anwenden.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>ranger_aug <span class="ot">&lt;-</span> ranger_wflow <span class="sc">%&gt;%</span> </span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  parsnip<span class="sc">::</span><span class="fu">fit</span>(gummi_train_data) <span class="sc">%&gt;%</span> </span>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>ranger_aug <span class="ot">&lt;-</span> ranger_wflow <span class="sc">|&gt;</span> </span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  parsnip<span class="sc">::</span><span class="fu">fit</span>(gummi_train_data) <span class="sc">|&gt;</span> </span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">augment</span>(gummi_test_data ) </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Mehr wollen wir hier auch nicht von dem Random Forest Algorithmus. Wir brauchen nur die Prädiktion, da wir hier ja nur das Konzept der Modellvergleiche einmal durchgehen wollen.</p>
@@ -1114,27 +1110,27 @@ Huch, der Code ist aber sehr kurz…
 </div>
 <p>Für den xgboost Algorithmus nutzen wir drei Variablen je Baum (<code>mtry = 3</code>), mindestens zehn Beobachtungen je Knoten (<code>min_n = 10</code>) sowie eintausend gewachsene Bäume in unserem Wald (<code>trees = 1000</code>). Mehr brauchen wir hier nicht angeben.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>xgboost_mod <span class="ot">&lt;-</span> <span class="fu">boost_tree</span>(<span class="at">mtry =</span> <span class="dv">3</span>, <span class="at">min_n =</span> <span class="dv">10</span>, <span class="at">trees =</span> <span class="dv">1000</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_engine</span>(<span class="st">"xgboost"</span>) <span class="sc">%&gt;%</span> </span>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>xgboost_mod <span class="ot">&lt;-</span> <span class="fu">boost_tree</span>(<span class="at">mtry =</span> <span class="dv">3</span>, <span class="at">min_n =</span> <span class="dv">10</span>, <span class="at">trees =</span> <span class="dv">1000</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_engine</span>(<span class="st">"xgboost"</span>) <span class="sc">|&gt;</span> </span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_mode</span>(<span class="st">"classification"</span>)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Dann nehmen wir das Modell für den xgboost Algorithmus und verbinden das Modell mit dem Rezept für die Gummibärchendaten in einem Workflow.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>xgboost_wflow <span class="ot">&lt;-</span> <span class="fu">workflow</span>() <span class="sc">%&gt;%</span> </span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">add_model</span>(xgboost_mod) <span class="sc">%&gt;%</span> </span>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>xgboost_wflow <span class="ot">&lt;-</span> <span class="fu">workflow</span>() <span class="sc">|&gt;</span> </span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">add_model</span>(xgboost_mod) <span class="sc">|&gt;</span> </span>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">add_recipe</span>(gummi_rec)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Nun können wir auch schon den Fit des Modells rechnen und in einem Rutsch den Fit auch gleich auf die Testdaten anwenden.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>xgboost_aug <span class="ot">&lt;-</span> xgboost_wflow <span class="sc">%&gt;%</span> </span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  parsnip<span class="sc">::</span><span class="fu">fit</span>(gummi_train_data) <span class="sc">%&gt;%</span> </span>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>xgboost_aug <span class="ot">&lt;-</span> xgboost_wflow <span class="sc">|&gt;</span> </span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  parsnip<span class="sc">::</span><span class="fu">fit</span>(gummi_train_data) <span class="sc">|&gt;</span> </span>
 <span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">augment</span>(gummi_test_data ) </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Das war jetzt der dritte und letzte Algorithmus. Wir brauchen auch hier nur die Prädiktion, da wir hier ja nur das Konzept der Modellvergleiche einmal durchgehen wollen.</p>
 </section>
 <section id="sec-class-model-compare" class="level2 page-columns page-full" data-number="68.6">
 <h2 data-number="68.6" class="anchored" data-anchor-id="sec-class-model-compare"><span class="header-section-number">68.6</span> Vergleich der Modelle</h2>
-<p>In der folgenden Liste haben wir einmal alle vorhergesagten Werte der drei Algorithmen zusammengefügt. Wir können jetzt auf der Liste <code>aug_lst</code> mit der Funktion <code>map()</code> aus dem R Paket <code>purrr</code> schnell rechnen. Anstatt für jedes der Objekte in der Liste einzeln den Code anzugeben, können wir den Code über die Funktion <code>map()</code> bündeln.</p>
+<p>In der folgenden Liste haben wir einmal alle vorhergesagten Werte der drei Algorithmen zusammengefügt. Wir können jetzt auf der Liste <code>aug_lst</code> mit der Funktion <code>map()</code> aus dem R Paket <code>{purrr}</code> schnell rechnen. Anstatt für jedes der Objekte in der Liste einzeln den Code anzugeben, können wir den Code über die Funktion <code>map()</code> bündeln.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>aug_lst <span class="ot">&lt;-</span> <span class="fu">lst</span>(<span class="at">knn =</span> knn_aug,</span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>               <span class="at">rf =</span> ranger_aug,</span>
@@ -1142,16 +1138,16 @@ Huch, der Code ist aber sehr kurz…
 </div>
 <p>Im folgenden Schritt berechnen wir für alle Algorithmen die <a href="https://en.wikipedia.org/wiki/Confusion_matrix">Konfusionsmatrix</a> als eine 2x2 Tabelle. Wir schauen uns gleich einmal die Konfusionsmatrix nur für den xgboost Algorithmus an. Auf der Konfusionsmatrix können wir <em>viele</em> Gütekriterien für die Klassifikation berechnen.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>conf_mat_lst <span class="ot">&lt;-</span> aug_lst <span class="sc">%&gt;%</span> </span>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>conf_mat_lst <span class="ot">&lt;-</span> aug_lst <span class="sc">|&gt;</span> </span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map</span>(<span class="sc">~</span><span class="fu">conf_mat</span>(.x, gender, .pred_class))</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Und diese große Anzahl an Gütekriterien berechnen wir dann auch gleich. Die Funktion <code>summary()</code> gibt uns die Gütekriterien für alle Algorithmen wieder. Wir müssen dann noch etwas aufräumen und die Wiedergaben dann passend zusammenfassen, so dass wir eine schöne Tabelle wiedergegeben kriegen. So das sind jetzt aber ganz schön viele Maßzahlen.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>conf_mat_lst <span class="sc">%&gt;%</span> </span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map</span>(summary) <span class="sc">%&gt;%</span> </span>
-<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map</span>(<span class="sc">~</span><span class="fu">select</span>(.x, .metric, .estimate)) <span class="sc">%&gt;%</span> </span>
-<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">reduce</span>(left_join, <span class="at">by =</span> <span class="st">".metric"</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_names</span>(<span class="fu">c</span>(<span class="st">"metric"</span>, <span class="st">"knn"</span>, <span class="st">"rf"</span>, <span class="st">"xboost"</span>)) <span class="sc">%&gt;%</span> </span>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>conf_mat_lst <span class="sc">|&gt;</span> </span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map</span>(summary) <span class="sc">|&gt;</span> </span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map</span>(<span class="sc">~</span><span class="fu">select</span>(.x, .metric, .estimate)) <span class="sc">|&gt;</span> </span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">reduce</span>(left_join, <span class="at">by =</span> <span class="st">".metric"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_names</span>(<span class="fu">c</span>(<span class="st">"metric"</span>, <span class="st">"knn"</span>, <span class="st">"rf"</span>, <span class="st">"xboost"</span>)) <span class="sc">|&gt;</span> </span>
 <span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">where</span>(is.numeric), round, <span class="dv">3</span>))</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code># A tibble: 13 × 4
@@ -1426,26 +1422,26 @@ F_1 = \cfrac{2 \cdot TP}{2 \cdot TP + FP + FN} = \cfrac{2 \cdot 51}{2 \cdot 51 +
 </dl>
 <div class="page-columns page-full"><p></p><div class="no-row-height column-margin column-container"><span class="margin-aside">In dem <a href="stat-tests-diagnostic.html" class="quarto-xref"><span>Kapitel 35</span></a> erfährst du mehr darüber was eine ROC Kurve ist und wie du die ROC Kurve interpretieren kannst.</span></div></div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>roc_tbl <span class="ot">&lt;-</span> aug_lst <span class="sc">%&gt;%</span> </span>
-<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map</span>(<span class="sc">~</span><span class="fu">roc_curve</span>(.x, gender, .pred_w, <span class="at">event_level =</span> <span class="st">"second"</span>)) <span class="sc">%&gt;%</span> </span>
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>roc_tbl <span class="ot">&lt;-</span> aug_lst <span class="sc">|&gt;</span> </span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map</span>(<span class="sc">~</span><span class="fu">roc_curve</span>(.x, gender, .pred_w, <span class="at">event_level =</span> <span class="st">"second"</span>)) <span class="sc">|&gt;</span> </span>
 <span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_rows</span>(<span class="at">.id =</span> <span class="st">"model"</span>)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Die PR Kurve, für die Darstellung der Precision und des Recalls können wir dann die Funktion <code>pr_curve()</code> nutzen. Im Gegesatz zu der ROC Kurve wollen wir das die PR Kurve erstmal waagerecht verlauft und am Ende senkrecht nach unten fällt. Die Spitzen und Zacken in der Kurve sind normal und hat mit der Berechnung der beiden Werte zu tun. Wir wollen aber auch hier eine möglichst große Fläche unter der Kurve haben.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>pr_tbl <span class="ot">&lt;-</span> aug_lst <span class="sc">%&gt;%</span> </span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map</span>(<span class="sc">~</span><span class="fu">pr_curve</span>(.x, gender, .pred_w, <span class="at">event_level =</span> <span class="st">"second"</span>)) <span class="sc">%&gt;%</span> </span>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>pr_tbl <span class="ot">&lt;-</span> aug_lst <span class="sc">|&gt;</span> </span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map</span>(<span class="sc">~</span><span class="fu">pr_curve</span>(.x, gender, .pred_w, <span class="at">event_level =</span> <span class="st">"second"</span>)) <span class="sc">|&gt;</span> </span>
 <span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_rows</span>(<span class="at">.id =</span> <span class="st">"model"</span>)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>In der <a href="#fig-roc-pr-compare" class="quarto-xref">Abbildung&nbsp;<span>68.2</span></a> sind die ROC Kurven und die PR Kurven für die drei Algorithmen nochmal dargestellt. Zum einen sehen wir, dass wir nicht das beste Modell haben. Alle Modelle laufen übereinander und sind sich recht ähnlich. Das Bild wiederholt sich dann auch bei der PR Kurve wie bei der ROC Kurve. Dennoch sind die Algorithmen einigermaßen gut, denn wir haben ja weder eine Kreuzvalidierung noch ein Tuning durchgeführt. Wir bewerten die Modelle als gut, da die Flächen unter der Kurve relativ groß sind. Wenn es ein Modell gibt, was im Verhältnis zu den anderen Modellen abfällt, dann ist es das <span class="math inline">\(k\)</span>-NN Modell. Das <span class="math inline">\(k\)</span>-NN Modell hat einen starken Abfall zu Beginn der PR-Kurve.</p>
 <div class="cell page-columns page-full" data-layout-nrow="1" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>roc_tbl <span class="sc">%&gt;%</span> </span>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>roc_tbl <span class="sc">|&gt;</span> </span>
 <span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">1</span> <span class="sc">-</span> specificity, <span class="at">y =</span> sensitivity, <span class="at">col =</span> model)) <span class="sc">+</span> </span>
 <span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
 <span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_path</span>() <span class="sc">+</span></span>
 <span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_abline</span>(<span class="at">lty =</span> <span class="dv">3</span>) <span class="sc">+</span> </span>
 <span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_okabeito</span>()</span>
 <span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a>pr_tbl <span class="sc">%&gt;%</span> </span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a>pr_tbl <span class="sc">|&gt;</span> </span>
 <span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> recall, <span class="at">y =</span> precision, <span class="at">col =</span> model)) <span class="sc">+</span> </span>
 <span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
 <span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_path</span>() <span class="sc">+</span></span>
@@ -2100,7 +2096,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 </div>
   </div>
 </footer>
-<script>var lightboxQuarto = GLightbox({"descPosition":"bottom","selector":".lightbox","loop":false,"closeEffect":"zoom","openEffect":"zoom"});
+<script>var lightboxQuarto = GLightbox({"descPosition":"bottom","openEffect":"zoom","selector":".lightbox","closeEffect":"zoom","loop":false});
 window.onload = () => {
   lightboxQuarto.on('slide_before_load', (data) => {
     const { slideIndex, slideNode, slideConfig, player, trigger } = data;

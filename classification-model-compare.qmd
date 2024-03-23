@@ -27,11 +27,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, tidymodels, magrittr, 
                janitor, xgboost, ranger, kknn,
                see, conflicted)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
-conflict_prefer("extract", "magrittr")
-conflict_prefer("set_names", "magrittr")
+conflicts_prefer(magrittr::set_names)
 ##
 set.seed(20234534)
 ```
@@ -43,10 +39,10 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 In diesem Kapitel wolle wir uns aber mal auf einen echten Datensatz anschauen und sehen wie sich drei Algorithmen auf diesem Daten so schlagen. Welcher Algorithmus ist am besten für die Klassifikation geeignet? Wir nutzen daher hier einmal als echten Datensatz den Gummibärchendatensatz. Als unser Label nehmen wir das Geschlecht `gender`. Dabei wollen wir dann die weiblichen Studierenden vorhersagen. Im Weiteren nehmen wir als Prädiktoren die Spalten `most_liked`, `age`, `semester`, und `height` mit in unsere Analysedaten.
 
 ```{r}
-gummi_tbl <- read_excel("data/gummibears.xlsx") %>% 
+gummi_tbl <- read_excel("data/gummibears.xlsx") |> 
   mutate(gender = as_factor(gender),
-         most_liked = as_factor(most_liked)) %>% 
-  select(gender, most_liked, age, semester, height) %>% 
+         most_liked = as_factor(most_liked)) |> 
+  select(gender, most_liked, age, semester, height) |> 
   drop_na(gender)
 
 ```
@@ -60,13 +56,13 @@ Wir dürfen keine fehlenden Werte in den Daten haben. Wir können für die Präd
 #| label: tbl-gummi-model-compare
 #| tbl-cap: Auszug aus dem Daten zu den Gummibärchendaten.
 
-gummi_raw_tbl <- gummi_tbl %>% 
+gummi_raw_tbl <- gummi_tbl |> 
   mutate(gender = as.character(gender),
          most_liked = as.character(most_liked))
 
 rbind(head(gummi_raw_tbl),
       rep("...", times = ncol(gummi_raw_tbl)),
-      tail(gummi_raw_tbl)) %>% 
+      tail(gummi_raw_tbl)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -86,14 +82,14 @@ gummi_test_data  <- testing(gummi_data_split)
 Nachdem wir die Daten vorbereitet haben, müssen wir noch das Rezept mit den Vorverabreitungsschritten definieren. Wir schreiben, dass wir das Geschlecht `gender` als unser Label haben wollen. Daneben nehmen wir alle anderen Spalten als Prädiktoren mit in unser Modell, das machen wir dann mit dem `.` Symbol. Da wir noch fehlende Werte in unseren Prädiktoren haben, imputieren wir noch die numerischen Variablen mit der Mittelwertsimputation und die nominalen fehlenden Werte mit Entscheidungsbäumen. Dann müssen wir noch alle numerischen Variablen normalisieren und alle nominalen Variablen dummykodieren. Am Ende werde ich nochmal alle Variablen entfernen, sollte die Varianz in einer Variable nahe der Null sein.
 
 ```{r}
-gummi_rec <- recipe(gender ~ ., data = gummi_train_data) %>% 
-  step_impute_mean(all_numeric_predictors()) %>% 
-  step_impute_bag(all_nominal_predictors()) %>% 
-  step_range(all_numeric_predictors(), min = 0, max = 1) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
+gummi_rec <- recipe(gender ~ ., data = gummi_train_data) |> 
+  step_impute_mean(all_numeric_predictors()) |> 
+  step_impute_bag(all_nominal_predictors()) |> 
+  step_range(all_numeric_predictors(), min = 0, max = 1) |> 
+  step_dummy(all_nominal_predictors()) |> 
   step_nzv(all_predictors())
 
-gummi_rec %>% summary()
+gummi_rec |> summary()
 
 ```
 
@@ -110,24 +106,24 @@ In diesem Teil halte ich den R Code sehr kurz, wenn du mehr über den $k$-NN Alg
 Für den $k$-NN Algorithmus nutzen wir $k=11$ Nachbarn. Mehr brauchen wir hier nicht angeben.
 
 ```{r}
-knn_mod <- nearest_neighbor(neighbors = 11) %>% 
-  set_engine("kknn") %>% 
+knn_mod <- nearest_neighbor(neighbors = 11) |> 
+  set_engine("kknn") |> 
   set_mode("classification") 
 ```
 
 Dann nehmen wir das Modell für den $k$-NN Algorithmus und verbinden das Modell mit dem Rezept für die Gummibärchendaten in einem Workflow.
 
 ```{r}
-knn_wflow <- workflow() %>% 
-  add_model(knn_mod) %>% 
+knn_wflow <- workflow() |> 
+  add_model(knn_mod) |> 
   add_recipe(gummi_rec)
 ```
 
 Nun können wir auch schon den Fit des Modells rechnen und in einem Rutsch den Fit auch gleich auf die Testdaten anwenden.
 
 ```{r}
-knn_aug <- knn_wflow %>% 
-  parsnip::fit(gummi_train_data) %>% 
+knn_aug <- knn_wflow |> 
+  parsnip::fit(gummi_train_data) |> 
    augment(gummi_test_data)
 ```
 
@@ -144,24 +140,24 @@ In diesem Teil halte ich den R Code sehr kurz, wenn du mehr über den Random For
 Für den Random Forest Algorithmus nutzen wir drei Variablen je Baum (`mtry = 3`), mindestens zehn Beobachtungen je Knoten (`min_n = 10`) sowie eintausend gewachsene Bäume in unserem Wald (`trees = 1000`). Mehr brauchen wir hier nicht angeben.
 
 ```{r}
-ranger_mod <- rand_forest(mtry = 3, min_n = 10, trees = 1000) %>% 
-  set_engine("ranger") %>% 
+ranger_mod <- rand_forest(mtry = 3, min_n = 10, trees = 1000) |> 
+  set_engine("ranger") |> 
   set_mode("classification")
 ```
 
 Dann nehmen wir das Modell für den Random Forest Algorithmus und verbinden das Modell mit dem Rezept für die Gummibärchendaten in einem Workflow.
 
 ```{r}
-ranger_wflow <- workflow() %>% 
-  add_model(ranger_mod) %>% 
+ranger_wflow <- workflow() |> 
+  add_model(ranger_mod) |> 
   add_recipe(gummi_rec)
 ```
 
 Nun können wir auch schon den Fit des Modells rechnen und in einem Rutsch den Fit auch gleich auf die Testdaten anwenden.
 
 ```{r}
-ranger_aug <- ranger_wflow %>% 
-  parsnip::fit(gummi_train_data) %>% 
+ranger_aug <- ranger_wflow |> 
+  parsnip::fit(gummi_train_data) |> 
   augment(gummi_test_data ) 
 ```
 
@@ -178,24 +174,24 @@ In diesem Teil halte ich den R Code sehr kurz, wenn du mehr über den xgboost Al
 Für den xgboost Algorithmus nutzen wir drei Variablen je Baum (`mtry = 3`), mindestens zehn Beobachtungen je Knoten (`min_n = 10`) sowie eintausend gewachsene Bäume in unserem Wald (`trees = 1000`). Mehr brauchen wir hier nicht angeben.
 
 ```{r}
-xgboost_mod <- boost_tree(mtry = 3, min_n = 10, trees = 1000) %>% 
-  set_engine("xgboost") %>% 
+xgboost_mod <- boost_tree(mtry = 3, min_n = 10, trees = 1000) |> 
+  set_engine("xgboost") |> 
   set_mode("classification")
 ```
 
 Dann nehmen wir das Modell für den xgboost Algorithmus und verbinden das Modell mit dem Rezept für die Gummibärchendaten in einem Workflow.
 
 ```{r}
-xgboost_wflow <- workflow() %>% 
-  add_model(xgboost_mod) %>% 
+xgboost_wflow <- workflow() |> 
+  add_model(xgboost_mod) |> 
   add_recipe(gummi_rec)
 ```
 
 Nun können wir auch schon den Fit des Modells rechnen und in einem Rutsch den Fit auch gleich auf die Testdaten anwenden.
 
 ```{r}
-xgboost_aug <- xgboost_wflow %>% 
-  parsnip::fit(gummi_train_data) %>% 
+xgboost_aug <- xgboost_wflow |> 
+  parsnip::fit(gummi_train_data) |> 
   augment(gummi_test_data ) 
 ```
 
@@ -203,7 +199,7 @@ Das war jetzt der dritte und letzte Algorithmus. Wir brauchen auch hier nur die 
 
 ## Vergleich der Modelle {#sec-class-model-compare}
 
-In der folgenden Liste haben wir einmal alle vorhergesagten Werte der drei Algorithmen zusammengefügt. Wir können jetzt auf der Liste `aug_lst` mit der Funktion `map()` aus dem R Paket `purrr` schnell rechnen. Anstatt für jedes der Objekte in der Liste einzeln den Code anzugeben, können wir den Code über die Funktion `map()` bündeln.
+In der folgenden Liste haben wir einmal alle vorhergesagten Werte der drei Algorithmen zusammengefügt. Wir können jetzt auf der Liste `aug_lst` mit der Funktion `map()` aus dem R Paket `{purrr}` schnell rechnen. Anstatt für jedes der Objekte in der Liste einzeln den Code anzugeben, können wir den Code über die Funktion `map()` bündeln.
 
 ```{r}
 aug_lst <- lst(knn = knn_aug,
@@ -214,7 +210,7 @@ aug_lst <- lst(knn = knn_aug,
 Im folgenden Schritt berechnen wir für alle Algorithmen die [Konfusionsmatrix](https://en.wikipedia.org/wiki/Confusion_matrix) als eine 2x2 Tabelle. Wir schauen uns gleich einmal die Konfusionsmatrix nur für den xgboost Algorithmus an. Auf der Konfusionsmatrix können wir *viele* Gütekriterien für die Klassifikation berechnen.
 
 ```{r}
-conf_mat_lst <- aug_lst %>% 
+conf_mat_lst <- aug_lst |> 
   map(~conf_mat(.x, gender, .pred_class))
 ```
 
@@ -223,11 +219,11 @@ Und diese große Anzahl an Gütekriterien berechnen wir dann auch gleich. Die Fu
 ```{r}
 #| message: false
 #| warning: false
-conf_mat_lst %>% 
-  map(summary) %>% 
-  map(~select(.x, .metric, .estimate)) %>% 
-  reduce(left_join, by = ".metric") %>% 
-  set_names(c("metric", "knn", "rf", "xboost")) %>% 
+conf_mat_lst |> 
+  map(summary) |> 
+  map(~select(.x, .metric, .estimate)) |> 
+  reduce(left_join, by = ".metric") |> 
+  set_names(c("metric", "knn", "rf", "xboost")) |> 
   mutate(across(where(is.numeric), round, 3))
 
 ```
@@ -375,8 +371,8 @@ ROC & Precision recall Kurven
 ```{r}
 #| message: false
 #| warning: false
-roc_tbl <- aug_lst %>% 
-  map(~roc_curve(.x, gender, .pred_w, event_level = "second")) %>% 
+roc_tbl <- aug_lst |> 
+  map(~roc_curve(.x, gender, .pred_w, event_level = "second")) |> 
   bind_rows(.id = "model")
 ```
 
@@ -385,8 +381,8 @@ Die PR Kurve, für die Darstellung der Precision und des Recalls können wir dan
 ```{r}
 #| message: false
 #| warning: false
-pr_tbl <- aug_lst %>% 
-  map(~pr_curve(.x, gender, .pred_w, event_level = "second")) %>% 
+pr_tbl <- aug_lst |> 
+  map(~pr_curve(.x, gender, .pred_w, event_level = "second")) |> 
   bind_rows(.id = "model")
 ```
 
@@ -407,14 +403,14 @@ In der @fig-roc-pr-compare sind die ROC Kurven und die PR Kurven für die drei A
 #| layout-nrow: 1
 #| column: page
 
-roc_tbl %>% 
+roc_tbl |> 
   ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
   theme_minimal() +
   geom_path() +
   geom_abline(lty = 3) + 
   scale_color_okabeito()
 
-pr_tbl %>% 
+pr_tbl |> 
   ggplot(aes(x = recall, y = precision, col = model)) + 
   theme_minimal() +
   geom_path() +
