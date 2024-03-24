@@ -36,9 +36,7 @@ pacman::p_load(tidyverse, magrittr, broom,
                see, performance, scales, parameters,
                olsrr, readxl, car, gtsummary, emmeans,
                multcomp, conflicted)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
+conflicts_prefer(dplyr::select)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
@@ -64,14 +62,12 @@ In der @tbl-gaussian-chickpea ist der Datensatz `chickenpea_tbl` nochmal als Aus
 #| warning: false
 #| label: tbl-gaussian-chickpea
 #| tbl-cap: Auszug aus dem Daten zu den Kichererbsen in Brandenburg.
-#| column: page
-
 
 chickpea_tbl <- read_excel("data/chickpeas.xlsx") 
 
 rbind(head(chickpea_tbl, 4),
       rep("...", times = ncol(chickpea_tbl)),
-      tail(chickpea_tbl, 4)) %>% 
+      tail(chickpea_tbl, 4)) |> 
   kable(align = "c", "pipe")
 
 ```
@@ -150,7 +146,7 @@ Nachdem wir nun sicher sind, dass das Modell unseren statistischen Ansprüchen g
 ```{r}
 #| message: false
 
-chickenpea_fit %>% 
+chickenpea_fit |> 
   model_parameters()
 ```
 
@@ -193,15 +189,15 @@ Eigentlich ist es recht einfach, wie wir anfangen. Wir rechnen jetzt als erstes 
 #| message: false
 #| warning: false
 
-lm_fit %>% 
-  anova() %>% 
+lm_fit |> 
+  anova() |> 
   model_parameters()
 ```
 
 Im Folgenden nutzen wir das R Paket `{emmeans}` um die mittleren Gewichte der Flöhe zu berechnen.
 
 ```{r}
-emm_obj <- lm_fit %>% 
+emm_obj <- lm_fit |> 
   emmeans(~ animal)
 emm_obj
 ```
@@ -209,7 +205,7 @@ emm_obj
 Wir rechnen jetzt den paarweisen Vergleich für alle Tierarten und schauen uns dann an, was wir erhalten haben. Wie du gleich siehst, erhalten wir die Differenzen der Mittelwerte der Flohgewichte für die verschiedenen Tierarten. Hier also einmal die paarweisen Vergleiche, darunter dann gleich das *compact letter display*.
 
 ```{r}
-emm_obj %>% 
+emm_obj |> 
   pairs(adjust = "bonferroni")
 ```
 
@@ -218,7 +214,7 @@ Und fast am Ende können wir uns auch das *compact letter display* erstellen. Au
 ```{r}
 #| message: false
 #| warning: false
-emm_obj %>%
+emm_obj |>
   cld(Letters = letters, adjust = "none")
 ```
 
@@ -232,10 +228,10 @@ Damit sind wir einmal mit unserem Gruppenvergleich für die Gaussian Regression 
 Im folgenden Beispiel schauen wir uns nochmal ein praktische Auswertung von einem agrarwissenschaftlichen Beispiel mit Brokkoli an. Wir haben uns in diesem Experiment verschiedene Dosen `fert_amount` von einem Dünger aufgebracht sowie verschiedene Zeitpunkte der Düngung `fert_time` berücksichtigt. Auch hier haben wir einige Besonderheiten in den Daten, da nicht jede Faktorkombination vorliegt. Wir ignorieren aber diese Probleme und rechnen einfach stumpf unseren Gruppenvergleich.
 
 ```{r}
-broc_tbl <- read_excel("data/broccoli_weight.xlsx") %>% 
+broc_tbl <- read_excel("data/broccoli_weight.xlsx") |> 
   mutate(fert_time = factor(fert_time, levels = c("none", "early", "late")),
          fert_amount = as_factor(fert_amount),
-         block = as_factor(block)) %>%
+         block = as_factor(block)) |>
   select(-stem_hollowness) 
 ```
 
@@ -254,8 +250,8 @@ Jetzt rechnen wir in den beiden folgenden Tabs einmal die ANOVA und dann auch de
 Wir rechnen hier einmal die ANOVA und nutzen den $\mathcal{X}^2$-Test für die Ermittelung der p-Werte. Wir müssen hier einen Test auswählen, da per Standardeinstellung kein Test gerechnet wird. Wir machen dann die Ausgabe nochmal schöner und fertig sind wir.
 
 ```{r}
-lm_fit %>% 
-  anova() %>% 
+lm_fit |> 
+  anova() |> 
   model_parameters()
 ```
 
@@ -266,8 +262,8 @@ Wir sehen, dass der Effekt der Düngerzeit und die Menge des Düngers signifikan
 Im Folgenden rechnen wir einmal über alle Faktorkombinationen von `fert_time` und `fert_amount` einen Gruppenvergleich. Dafür nutzen wir die Option `fert_time * fert_amount`. Wenn du die Analyse *getrennt* für die Menge und den Zeitpunkt durchführen willst, dann nutze die Option `fert_time | fert_amount`. Dann adjustieren wir noch nach Bonferroni und sind fertig.
 
 ```{r}
-emm_obj <- lm_fit %>% 
-  emmeans(~ fert_time * fert_amount) %>%
+emm_obj <- lm_fit |> 
+  emmeans(~ fert_time * fert_amount) |>
   cld(Letters = letters, adjust = "bonferroni")
 emm_obj
 ```
@@ -287,8 +283,8 @@ In der @fig-log-mod-gaussian-broc siehst du das Ergebnis der Auswertung in einem
 #| fig-width: 6
 #| fig-cap: "Säulendigramm der mittleren Brokkoligewichte aus einer Gaussian Regression. Das `lm()`-Modell berechnet das mittler Gewicht des Brokkoli in jeder Faktorkombination. Das *compact letter display* wird dann in `{emmeans}` generiert. Wir nutzen hier den Standardfehler, da die Standardabweichung mit der großen Fallzahl rießig wäre. Wir haben noch ein Mindestgewicht von 500g ergänzt."
 
-emm_obj %>% 
-  as_tibble() %>% 
+emm_obj |> 
+  as_tibble() |> 
   ggplot(aes(x = fert_time, y = emmean, fill = fert_amount)) +
   theme_minimal() + 
   labs(y = "Mittleres Gewicht [g] des Brokkoli", x = "Düngezeitpunkt",
