@@ -12,7 +12,7 @@ In diesem Kapitel geht es um zwei Arten der Regression, die immer wieder genannt
 
 Der Charme der Quantilesregression ist ja am Ende, dass wir auch den Median als Quantile auswählen können. So haben wir dann die Möglichkeit eine Regression auf den Medianen zu rechnen. Wir vergleichen damit dann auch die Mediane und sind so nicht mehr auf die Normalverteilung unseres Outcomes wie in der gewöhnlichen Regression angewiesen. Also eigentlich eine tolle Sache, wenn wir nur an den Mittelwertsvergleichen interessiert sind. Eine klassische ANOVA geht leider nicht auf einer Medianregression. Eine klassische ANOVA wäre aber mit nicht parametrischen Methoden sowieso nicht möglich gewesen. Wir verlieren also nicht so viel, gewinnen aber etwas, wenn das Modell konvergiert und ein Ergebnis liefert.
 
-In diesem Kapitel brechen wir etwas die bisherige Struktur der Regressionskapitel auf. Wir schauen uns hier zuerst die beiden Modelle an und entscheiden dann, ob wir die Modelle für die ANOVA oder den Gruppenvergleich *überhaupt* nutzen können. Am Ende vergleichen wir dann einmal alle Modell mit dem fantastische Paket `modelsummary` mit der gleichnamigen Funktion. Hier hilft dann wie immer die tolle [Hilfsseite von modelsummary](https://vincentarelbundock.github.io/modelsummary/articles/modelsummary.html) zu besuchen.
+In diesem Kapitel brechen wir etwas die bisherige Struktur der Regressionskapitel auf. Wir schauen uns hier zuerst die beiden Modelle an und entscheiden dann, ob wir die Modelle für die ANOVA oder den Gruppenvergleich *überhaupt* nutzen können. Am Ende vergleichen wir dann einmal alle Modell mit dem fantastische Paket `{modelsummary}` mit der gleichnamigen Funktion. Hier hilft dann wie immer die tolle [Hilfsseite von modelsummary](https://vincentarelbundock.github.io/modelsummary/articles/modelsummary.html) zu besuchen.
 
 ## Genutzte R Pakete
 
@@ -23,12 +23,11 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, conflicted, broom, quantreg,
                see, performance, emmeans, multcomp, janitor,
                parameters, effectsize, MASS, modelsummary,
-               robustbase, multcompView)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
-cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
-                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+               robustbase, multcompView, conflicted)
+conflicts_prefer(dplyr::select)
+conflicts_prefer(dplyr::filter)
+#cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+#                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
@@ -38,9 +37,9 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 Für unser erstes Beispiel nutzen wir die Daten aus einem Wachstumsversuch mit Basilikum mit vier Bodenbehandlungen und vier Blöcken, die Blöcke sind eigentlich Gewächshaustische. Wir wollen also einen klassischen Gruppenvergleich mit Berücksichtigung der Blockstruktur rechnen.
 
 ```{r}
-basi_tbl <- read_excel("data/keimversuch_basilikum_block.xlsx") %>%
-  clean_names() %>% 
-  mutate(versuchsgruppe = as_factor(versuchsgruppe)) %>% 
+basi_tbl <- read_excel("data/keimversuch_basilikum_block.xlsx") |>
+  clean_names() |> 
+  mutate(versuchsgruppe = as_factor(versuchsgruppe)) |> 
   select(versuchsgruppe, block_1:block_4)
 ```
 
@@ -52,11 +51,11 @@ In @tbl-model-1 sehen wir einmal die Daten im Wide-Format. Wir haben also das Fr
 #| tbl-cap: "Datensatz des Frischegewichts von Basilikumpflanzen auf vier Tischen bzw. Blöcken in vier Versuchsgruppen."
 #| label: tbl-model-1
 
-basi_raw_tbl <- basi_tbl %>% 
+basi_raw_tbl <- basi_tbl |> 
   mutate(versuchsgruppe = as.character(versuchsgruppe))
 rbind(head(basi_raw_tbl),
       rep("...", times = ncol(basi_raw_tbl)),
-      tail(basi_raw_tbl)) %>% 
+      tail(basi_raw_tbl)) |> 
   kable(align = "c", "pipe")
 
 ```
@@ -66,10 +65,10 @@ Da wir die Daten im Wide-Format vorliegen haben, müssen wir die Daten nochmal i
 ```{r}
 #| message: false
 #| warning: false
-basi_block_tbl <- basi_tbl %>% 
+basi_block_tbl <- basi_tbl |> 
   pivot_longer(cols = block_1:block_4,
                values_to = "weight",
-               names_to = "block") %>% 
+               names_to = "block") |> 
   mutate(block = as_factor(block))
 ```
 
@@ -107,10 +106,10 @@ Im Weiteren haben wir zwei Typen von Daten für das Gurkenwachstum. Einmal messe
 #| message: false
 #| warning: false
 
-gurke_raw_tbl <- read_excel("data/wachstum_gurke.xlsx") %>% 
-  clean_names() %>% 
-  filter(str_detect(versuchsgruppe, "L$")) %>% 
-  select(-pfl, -erntegewicht) %>% 
+gurke_raw_tbl <- read_excel("data/wachstum_gurke.xlsx") |> 
+  clean_names() |> 
+  filter(str_detect(versuchsgruppe, "L$")) |> 
+  select(-pfl, -erntegewicht) |> 
   mutate(versuchsgruppe = factor(versuchsgruppe, 
                                  labels = c("Katrina", "Proloog", "Quarto"))) 
 ```
@@ -123,11 +122,11 @@ In der @tbl-model-2 sehen wir einmal die rohen Daten dargestellt.
 #| tbl-cap: "Datensatz zu dem Längen- und Dickenwachstum von Gurken."
 #| label: tbl-model-2
 
-gurke_raw_2_tbl <- gurke_raw_tbl %>% 
+gurke_raw_2_tbl <- gurke_raw_tbl |> 
   mutate(versuchsgruppe = as.character(versuchsgruppe))
 rbind(head(gurke_raw_2_tbl),
       rep("...", times = ncol(gurke_raw_2_tbl)),
-      tail(gurke_raw_2_tbl)) %>% 
+      tail(gurke_raw_2_tbl)) |> 
   kable(align = "c", "pipe")
 
 ```
@@ -135,12 +134,12 @@ rbind(head(gurke_raw_2_tbl),
 Dann müssen wir die Daten noch in Long-Format bringen. Da wir dann auch noch auf zwei Arten die Daten über die Zeit darstellen wollen, brauchen wir einmal die Zeit als Faktor `time_fct` und einmal als numerisch `time_num`. Leider haben wir auch Gurken mit einer Länge von 0 cm, diese Gruken lassen wir jetzt mal drin, da wir ja eine robuste Regression noch rechnen wollen. Auch haben wir ab Woche 14 keine Messungen mehr in der Versuchsgruppe `Prolong`, also nehmen wir auch nur die Daten bis zur vierzehnten Woche.
 
 ```{r}
-gurke_time_len_tbl <- gurke_raw_tbl %>% 
+gurke_time_len_tbl <- gurke_raw_tbl |> 
   pivot_longer(cols = t1:t17,
                values_to = "length",
-               names_to = "time") %>% 
+               names_to = "time") |> 
   mutate(time_fct = as_factor(time),
-         time_num = as.numeric(time_fct)) %>% 
+         time_num = as.numeric(time_fct)) |> 
   filter(time_num <= 14)
 ```
 
@@ -177,7 +176,7 @@ basi_lm_fit <- lm(weight ~ versuchsgruppe + block + versuchsgruppe:block, basi_b
 
 ### ANOVA
 
-Dann schauen wir uns nochmal den Interaktionsplot in @fig-stat-robust mit der Funktion `emmip()` aus dem R Paket `emmeans` an. Wir sehen, das wir eventuell eine leichte Interaktion vorliegen haben könnten, da sich einige der Geraden überschneiden.
+Dann schauen wir uns nochmal den Interaktionsplot in @fig-stat-robust mit der Funktion `emmip()` aus dem R Paket `{emmeans}` an. Wir sehen, das wir eventuell eine leichte Interaktion vorliegen haben könnten, da sich einige der Geraden überschneiden.
 
 ```{r}
 #| message: false
@@ -199,8 +198,8 @@ Schauen wir einmal in eine zweifaktorielle ANOVA, ob sich unser leichter Verdach
 ```{r}
 #| message: false
 #| warning: false
-basi_lm_fit %>% 
-  anova() %>% 
+basi_lm_fit |> 
+  anova() |> 
   model_parameters()
 ```
 
@@ -209,7 +208,7 @@ Wir sehen, dass wir mindestens einen paarweisen Unterschied zwischen den Versuch
 ```{r}
 #| message: false
 #| warning: false
-basi_lm_fit %>% 
+basi_lm_fit |> 
   eta_squared()
 ```
 
@@ -222,8 +221,8 @@ Wir haben keine Interaktion vorliegen, alos mitteln wir einmal über alle Blöck
 ```{r}
 #| message: false
 #| warning: false
-basi_lm_fit %>% 
-  emmeans(specs = ~ versuchsgruppe) %>%
+basi_lm_fit |> 
+  emmeans(specs = ~ versuchsgruppe) |>
   cld(Letters = letters, adjust = "none") 
 ```
 
@@ -254,7 +253,7 @@ reg_tbl <- tibble(x = c(0, 1, 2, 3, 4, 5, 6, 7),
                   y = c(1, 1.4, 2.5, 2.7, 4.3, 5.2, 0, 6.7))
 ```
 
-Wir rechnen jetzt einmal eine gewöhnliche lineare Regression mit der Funktion `lm()` und eine robuste Regression mit dem Paket `MASS` und der Funtkion `rlm()`. Es gibt noch das R Paket `robustbase` und der Funktion `rq()` aber wir können die Ergebnisse dann nicht in `emmeans` weiter nutzen, was uns dann etwas den Weg mit versperrt. Wir können aber für die multiplen Mittelwertsvergleich mit `robustbase` das R Paket `multcomp` nutzen. Aber fangen wir hier erstmal mit dem Beispiel an und vergleichen die beiden Implementierungen der robusten Regression zu der gewöhnlichen Regression
+Wir rechnen jetzt einmal eine gewöhnliche lineare Regression mit der Funktion `lm()` und eine robuste Regression mit dem Paket `{MASS}` und der Funtkion `rlm()`. Es gibt noch das R Paket `{robustbase}` und der Funktion `rq()` aber wir können die Ergebnisse dann nicht in `{emmeans}` weiter nutzen, was uns dann etwas den Weg mit versperrt. Wir können aber für die multiplen Mittelwertsvergleich mit `{robustbase}` das R Paket `{multcomp}` nutzen. Aber fangen wir hier erstmal mit dem Beispiel an und vergleichen die beiden Implementierungen der robusten Regression zu der gewöhnlichen Regression
 
 ```{r}
 #| message: false
@@ -293,7 +292,7 @@ Okay, soweit lernt es jeder und die Idee der robusten Regression ist auch ziemli
 
 Warum so unbeliebt? Das ist eine gute Frage. Zu der robusten Regression gibt es eine lange Geschichte mit vielen Wirrungen und Irrungen. Am Ende kannst du in Wikipedia noch etwas zur [History and unpopularity of robust regression](https://en.wikipedia.org/wiki/Robust_regression#History_and_unpopularity_of_robust_regression) nachlesen. Nach @stromberg2004write hat es auch etwas mit der schlechten und mangelhaften Implementierung in gängiger Statistiksoftware zu tun. Das merke ich hier auch gerade, als ich versuche die Funktionen zusammen zubauen und miteinander zu vernetzen. Sicherlich gibt es auch die biologische Diskussion. Gibt es in biologischen Daten eigentlich überhaupt Ausreißer? Oder müssten wir nicht Ausreißer besonders betrachten, weil die Ausreißer dann doch mehr über die Daten verraten? Macht es also Sinn die Ausreißer einfach platt zu bügeln und nicht mehr weiter zu beachten oder ist nicht die Beobachtung Nr.6 oben von Interesse? Denn vielleicht ist was mit dem Experiment schief gelaufen und diese Beobachtung ist gerade ein Anzeichen dafür. Dann müssten auch die anderen Messwerte kritisch hinterfragt werden.
 
-Wie immer es auch sein. Wir fitten jetzt mal die beiden robusten Regression in der Standardausstattung mit der Funktion `MASS::rlm()` aus dem Paket `MASS` wie folgt.
+Wie immer es auch sein. Wir fitten jetzt mal die beiden robusten Regression in der Standardausstattung mit der Funktion `MASS::rlm()` aus dem Paket `{MASS}` wie folgt.
 
 ```{r}
 #| message: false
@@ -301,7 +300,7 @@ Wie immer es auch sein. Wir fitten jetzt mal die beiden robusten Regression in d
 basi_rlm_fit <- rlm(weight ~ versuchsgruppe + block + versuchsgruppe:block, basi_block_tbl)
 ```
 
-Dann natürlich noch die Funktion `robustbase::lmrob()` aus dem Paket `robustbase`. Hinter dem Paket `robusbase` steht ein ganzen Buch von @maronna2019robust, aber leider keine gute Internetseite mit Beispielen und Anwendungen in R, wie es eigentlich heutzutage üblich ist. Aber dennoch, hier einmal das Modell.
+Dann natürlich noch die Funktion `robustbase::lmrob()` aus dem Paket `{robustbase}`. Hinter dem Paket `{robusbase}` steht ein ganzen Buch von @maronna2019robust, aber leider keine gute Internetseite mit Beispielen und Anwendungen in R, wie es eigentlich heutzutage üblich ist. Aber dennoch, hier einmal das Modell.
 
 ```{r}
 #| message: false
@@ -316,8 +315,8 @@ Dann wollen wir einmal eine zweifaktorielle ANOVA auf den Modell der robusten Re
 ```{r}
 #| message: false
 #| warning: false
-basi_rlm_aov <- basi_rlm_fit %>% 
-  anova() %>% 
+basi_rlm_aov <- basi_rlm_fit |> 
+  anova() |> 
   tidy()
 basi_rlm_aov
 ```
@@ -337,20 +336,20 @@ f_calc <- basi_rlm_aov$meansq / ms_resid
 Wie kriegen wir jetzt aus den ganzen berechneten $F$-Werten die entsprechenden $p$-Werte? Die $p$-Werte sind die Fläche rechts von den berechneten Werten. Wir können die Funktion `pf()` nutzen um diese Flächen zu berechnen. Wir machen das einmal beispielhaft für einen $F_{calc} = 3.41$ für 4 Gruppen mit $df_1 = 4 - 1 = 3$ und 12 Beobachtungen $df_2 = 12$. Die Berechnung von $df_2$ ist statistisch *falsch* aber für unseren MacGyver Hack hinreichend.
 
 ```{r}
-pf(3.41, 3, 12, lower.tail = FALSE) %>% round(3)
+pf(3.41, 3, 12, lower.tail = FALSE) |> round(3)
 ```
 
 Und siehe da, wir erhalten einen $p$-Wert von $0.053$. Nun können wir das nicht nur für einzelnen $F$-Werte machen sondern auch für unseren ganzen Vektor `f_calc`. Als $df_2$ setzen wir die Anzahl an Basilikumpflanzen.
 
 ```{r}
-p_vec <- pf(f_calc, c(3, 3, 9), c(80, 80, 80), lower.tail = FALSE) %>% 
+p_vec <- pf(f_calc, c(3, 3, 9), c(80, 80, 80), lower.tail = FALSE) |> 
   scales::pvalue()
 ```
 
 Die berechneten $F$-Werte und $p$-Werte können wir jetzt in die ANOVA Tabelle ergänzen.
 
 ```{r}
-basi_rlm_aov %>% 
+basi_rlm_aov |> 
   mutate(statistic = f_calc, 
          p.value = p_vec)
 ```
@@ -362,7 +361,7 @@ Glücklicherweise können wir aus den Sum of squares dann unsere $\eta^2$-Werte 
 ```{r}
 #| message: false
 #| warning: false
-basi_rlm_fit %>% 
+basi_rlm_fit |> 
   eta_squared()
 ```
 
@@ -375,14 +374,14 @@ Dafür geht der Gruppenvergleich für die robuste Regression mit `MASS::rlm()` w
 ```{r}
 #| message: false
 #| warning: false
-basi_rlm_fit %>% 
-  emmeans(specs = ~ versuchsgruppe) %>%
+basi_rlm_fit |> 
+  emmeans(specs = ~ versuchsgruppe) |>
   cld(Letters = letters, adjust = "none") 
 ```
 
 Wir sehen also, dass sich Erde+Fließ und Erde nicht unterscheiden. Die beiden aber dann von Perlite+Fließ sowie Erde+Perlite. Am Ende unterscheiden sich Perlite+Fließ und Erde+Perlite nicht.
 
-Für die Funktion `robustbase::lmrob()` müssen wir dann auf das R Paket `multcomp` umswitchen. Hier kriegen wir dann ein Problem, wenn wir eine Interaktion vorliegen ahben, da ist `multcomp` nicht so schön anzuwenden, wie dann `emmeans`. Aber hier schauen wir uns dann mal die einfache Implementierung ohne Interaktion an. Bei einer Interaktion müssten wir dann händisch über die Funktion `filter()` die Analysen für die einzelnen Blöcke aufspalten.
+Für die Funktion `robustbase::lmrob()` müssen wir dann auf das R Paket `{multcomp}` umswitchen. Hier kriegen wir dann ein Problem, wenn wir eine Interaktion vorliegen ahben, da ist `{multcomp}` nicht so schön anzuwenden, wie dann `{emmeans}`. Aber hier schauen wir uns dann mal die einfache Implementierung ohne Interaktion an. Bei einer Interaktion müssten wir dann händisch über die Funktion `filter()` die Analysen für die einzelnen Blöcke aufspalten.
 
 Wir lassen jetzt aber erstmal auf dem Modell aus der Funktion `robustbase::lmrob()` den paarweisen Vergleich nach Tukey laufen.
 
@@ -397,8 +396,8 @@ Das erhaltende Objekt können wir dann mit `tidy()` aufräumen und uns dann die 
 ```{r}
 #| message: false
 #| warning: false
-mult_lmrob_tbl <- mult_lmrob %>% 
-  tidy(conf.int = TRUE) %>% 
+mult_lmrob_tbl <- mult_lmrob |> 
+  tidy(conf.int = TRUE) |> 
   select(contrast, estimate, conf.low, conf.high, adj.p.value) 
 
 mult_lmrob_tbl
@@ -409,10 +408,10 @@ Wir sehen, dass wir mit der Adjustierung keinen signifikanten Unterschied zwisch
 ```{r}
 #| message: false
 #| warning: false
-mult_lmrob_tbl %>% 
-  mutate(contrast = str_replace_all(contrast, "\\s", "")) %>% 
-  pull(adj.p.value, contrast) %>% 
-  multcompLetters() %>% 
+mult_lmrob_tbl |> 
+  mutate(contrast = str_replace_all(contrast, "\\s", "")) |> 
+  pull(adj.p.value, contrast) |> 
+  multcompLetters() |> 
   pluck("Letters")
 ```
 
@@ -421,11 +420,11 @@ Auch hier sehen wir keinen Unterschied im *compact letter display* für die adju
 ```{r}
 #| message: false
 #| warning: false
-summary(mult_lmrob, test = adjusted("none")) %>% 
-  tidy() %>% 
-  mutate(contrast = str_replace_all(contrast, "\\s", "")) %>% 
-  pull(p.value, contrast) %>% 
-  multcompLetters() %>% 
+summary(mult_lmrob, test = adjusted("none")) |> 
+  tidy() |> 
+  mutate(contrast = str_replace_all(contrast, "\\s", "")) |> 
+  pull(p.value, contrast) |> 
+  multcompLetters() |> 
   pluck("Letters")
 ```
 
@@ -439,7 +438,7 @@ Jetzt wollen wir uns als Spezialfall der robusten Regression einmal die Quantile
 Ein englisches Tutorium gibt es dann nochmal ausführlicher unter [Quantile Regression as an useful Alternative for Ordinary Linear Regression](https://yuzar-blog.netlify.app/posts/2022-12-01-quantileregression/)
 :::
 
-Um die Quantilesregression zu rechnen nutzen wir das R Paket `quantreg` und die Funktion `rq()`. Wichtig ist hier, dass wir das `tau` auf $0.5$ setzen und somit dann eine Median-Regression rechnen. Wir können theoretisch auch andere Quantile als Referenz wählen, aber dann passt es nicht mehr mit `emmeans()`. Wir nutzen hier auch nochmal die Gelegenheit zwei Modelle mit anzupassen. Wir rechnen einmal ein Modell mit einer linearen Komponente der Zeit `time_num` und einmal ein Modell mit der quadratischen Komponente der Zeit mit `poly(time_num, 2)` was nicht anderes als `time_num`$^2$ ist. Neben dieser Variante ist mit `nlrq()` auch eine Möglichkeit implementiert um noch komplexere nicht lineare Zusammenhänge zu modellieren. Hier dann einfach mal die Hilfeseite von `?nlrq` anschauen.
+Um die Quantilesregression zu rechnen nutzen wir das R Paket `{quantreg}` und die Funktion `rq()`. Wichtig ist hier, dass wir das `tau` auf $0.5$ setzen und somit dann eine Median-Regression rechnen. Wir können theoretisch auch andere Quantile als Referenz wählen, aber dann passt es nicht mehr mit `emmeans()`. Wir nutzen hier auch nochmal die Gelegenheit zwei Modelle mit anzupassen. Wir rechnen einmal ein Modell mit einer linearen Komponente der Zeit `time_num` und einmal ein Modell mit der quadratischen Komponente der Zeit mit `poly(time_num, 2)` was nicht anderes als `time_num`$^2$ ist. Neben dieser Variante ist mit `nlrq()` auch eine Möglichkeit implementiert um noch komplexere nicht lineare Zusammenhänge zu modellieren. Hier dann einfach mal die Hilfeseite von `?nlrq` anschauen.
 
 ```{r}
 #| message: false
@@ -474,7 +473,7 @@ ggplot(gurke_time_len_tbl, aes(time_num, length, color = versuchsgruppe)) +
 
 ### ANOVA
 
-Machen wir es kurz. Die ANOVA ist für die Quantilsregression nicht implementiert und damit auch nicht anwendbar. Damit können wir aber leben, wenn wir die ANOVA nur als Vortest ansehen. Wir müssen dann eine mögliche Interaktion visuell überprüfen. Um die Interaktion visuell zu überprüfen nutzen wir die Funktion `emimp()` aus dem R Paket `emmeans`. Wir sehen in der @fig-rob-inter-time, dass sich die Gerade für die Versuchsgruppen über die Zeit nicht schneiden, was gegen eine starke Interaktion spricht. Die Steigung ist aber für alle drei Versuchsgruppen über die Zeit nicht gleich, wir haben zumindest eine mittlere Interaktion.
+Machen wir es kurz. Die ANOVA ist für die Quantilsregression nicht implementiert und damit auch nicht anwendbar. Damit können wir aber leben, wenn wir die ANOVA nur als Vortest ansehen. Wir müssen dann eine mögliche Interaktion visuell überprüfen. Um die Interaktion visuell zu überprüfen nutzen wir die Funktion `emimp()` aus dem R Paket `{emmeans}`. Wir sehen in der @fig-rob-inter-time, dass sich die Gerade für die Versuchsgruppen über die Zeit nicht schneiden, was gegen eine starke Interaktion spricht. Die Steigung ist aber für alle drei Versuchsgruppen über die Zeit nicht gleich, wir haben zumindest eine mittlere Interaktion.
 
 ```{r}
 #| message: false
@@ -510,9 +509,9 @@ Wenn wir den Gruppenvergleich in `emmeans()` rechnen wollen, dann geht es nur de
 #| message: false
 #| warning: false
 
-time_rq_quad_fit %>% 
+time_rq_quad_fit |> 
   emmeans(~ versuchsgruppe | time_num, 
-          adjust = "none", at = list(time_num = c(1, 7, 14))) %>%
+          adjust = "none", at = list(time_num = c(1, 7, 14))) |>
   cld(Letters = letters, adjust = "none") 
 
 ```
@@ -525,8 +524,8 @@ Aber Achtung, die Spalte `emmean` beschriebt hier die Mediane. Wir haben also hi
 #| message: false
 #| warning: false
 
-time_rq_quad_fit %>% 
-  emmeans(~ versuchsgruppe | time_num, adjust = "none") %>%
+time_rq_quad_fit |> 
+  emmeans(~ versuchsgruppe | time_num, adjust = "none") |>
   pwpm()
 
 ```
@@ -549,7 +548,7 @@ basi_rq_fit <- rq(weight ~ versuchsgruppe + block + versuchsgruppe:block, basi_b
                   tau = 0.5)
 ```
 
-Im Folgenden nutzen wir dann das fantastische Paket `modelsummary` mit der gleichnamigen Funktion um uns einmal die Modelle im Vergleich anzuschauen. Hier hilft dann wie immer die tolle [Hilfsseite von modelsummary](https://vincentarelbundock.github.io/modelsummary/articles/modelsummary.html) zu besuchen. Ich möchte nur nicht den Intercept und die Schätzer für die Blöcke haben, deshalb fliegen die hier einmal raus.
+Im Folgenden nutzen wir dann das fantastische Paket `{modelsummary}` mit der gleichnamigen Funktion um uns einmal die Modelle im Vergleich anzuschauen. Hier hilft dann wie immer die tolle [Hilfsseite von `{modelsummary}`](https://vincentarelbundock.github.io/modelsummary/articles/modelsummary.html) zu besuchen. Ich möchte nur nicht den Intercept und die Schätzer für die Blöcke haben, deshalb fliegen die hier einmal raus.
 
 ```{r}
 modelsummary(lst("Ordinary" = basi_lm_fit,
@@ -564,7 +563,7 @@ modelsummary(lst("Ordinary" = basi_lm_fit,
              coef_omit = "Intercept|block")
 ```
 
-Wie wir sehen sehen haben nicht alle Modelle die gleichen Informationen zurück gegeben. Insbesondere das fehlen des Bestimmtheitsmaßes $R^2$ bei der robusten Regression `MASS::rlm` ist schmerzlich, da wir hier dann nicht die Möglichkeit haben eine Aussage über die erklärte Varianz der robusten Regression zu treffen. Auch fehlt bei der Medianregression das adjustierte $R^2$, was die Nutzung bei Modellen mit mehr als einer Einflussvariable $x$ im Modell erschwert bis nutzlos macht. Da ist dann die Funktion aus dem Paket `robustbase` besser, hier haben wir dann ein $R^2$ vorliegen. Daher bleibt uns am Ende nur das AIC oder BIC, wobei wir dort den kleinsten Wert als besser erachten. Die AIC und BIC Werte sind somit am besten für die Quantilesregression. Für die Funktion `robustbase::lmrob` haben wir dann kein AIC. Dafür ist dann aber der Fehler RMSE bei der gewöhnlichen Regressionzusammen mit der Funktion `robustbase::lmrob` am niedrigsten. Und so stehe ich wieder davor und weiß nicht was das beste Modell ist. Hier müsste ich dann nochmal überlegen, ob ich lieber über Mittelwerte oder Mediane berichten möchte und das ist ohne die Forschungsfrage nicht hier zu lösen.
+Wie wir sehen sehen haben nicht alle Modelle die gleichen Informationen zurück gegeben. Insbesondere das fehlen des Bestimmtheitsmaßes $R^2$ bei der robusten Regression `MASS::rlm` ist schmerzlich, da wir hier dann nicht die Möglichkeit haben eine Aussage über die erklärte Varianz der robusten Regression zu treffen. Auch fehlt bei der Medianregression das adjustierte $R^2$, was die Nutzung bei Modellen mit mehr als einer Einflussvariable $x$ im Modell erschwert bis nutzlos macht. Da ist dann die Funktion aus dem Paket `{robustbase}` besser, hier haben wir dann ein $R^2$ vorliegen. Daher bleibt uns am Ende nur das AIC oder BIC, wobei wir dort den kleinsten Wert als besser erachten. Die AIC und BIC Werte sind somit am besten für die Quantilesregression. Für die Funktion `robustbase::lmrob` haben wir dann kein AIC. Dafür ist dann aber der Fehler RMSE bei der gewöhnlichen Regressionzusammen mit der Funktion `robustbase::lmrob` am niedrigsten. Und so stehe ich wieder davor und weiß nicht was das beste Modell ist. Hier müsste ich dann nochmal überlegen, ob ich lieber über Mittelwerte oder Mediane berichten möchte und das ist ohne die Forschungsfrage nicht hier zu lösen.
 
 ### Gurkendaten
 
@@ -581,7 +580,7 @@ time_rq_quad_fit <- rq(length ~ versuchsgruppe * poly(time_num, 2), tau = 0.5,
                        gurke_time_len_tbl)
 ```
 
-Auch hier nutzen wir dann das fantastische Paket `modelsummary` mit der gleichnamigen Funktion um uns einmal die Modelle im Vergleich anzuschauen.
+Auch hier nutzen wir dann das fantastische Paket `{modelsummary}` mit der gleichnamigen Funktion um uns einmal die Modelle im Vergleich anzuschauen.
 
 ```{r}
 modelsummary(lst("Ordinary" = time_lm_fit,
