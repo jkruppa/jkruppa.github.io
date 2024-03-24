@@ -33,7 +33,7 @@ Am Ende nochmal ein paar Links, die noch von Interesse sein könnten und die ich
 -   [TOSTER](https://aaroncaldwell.us/TOSTERpkg/) und die dazugehörigen Referenzen auf der Seite geben nochmal einen super Überblick.
 -   [Marginal Effects Zoo - Equivalence Tests](https://marginaleffects.com/vignettes/equivalence.html#marginal-means-and-emmeans) liefert nochmal einen guten Ansatzpunkt für das Testen auf Gleichheit. Hier wird auch auf die Anwendung von `{emmeans}` eingegangen.
 -   Der alte Blogpost zu [TOST equivalence testing R package (TOSTER) and spreadsheet](https://daniellakens.blogspot.com/2016/12/tost-equivalence-testing-r-package.html).
--   Mehr Informationen zu [Region of Practical Equivalence (ROPE)](https://easystats.github.io/bayestestR/articles/region_of_practical_equivalence.html) aus dem R Paket `bayestestR`.
+-   Mehr Informationen zu [Region of Practical Equivalence (ROPE)](https://easystats.github.io/bayestestR/articles/region_of_practical_equivalence.html) aus dem R Paket `{bayestestR}`.
 :::
 
 Zum Einstieg in die technische Gleichheit mag dir folgendes Beispiel der Zerforschung einer einfachen linearen Regression dienen. Hier geht es darum den Iodgehalt vor dem Waschen und nach dem Waschen von zwei Kräutern zu vergleichen und zu schauen, ob die beides gleich ist.
@@ -74,8 +74,8 @@ Als erstes wollen wir uns einmal die Daten für die Überprüfung der technische
 set.seed(20230564)
 drone_tbl <- tibble(pressure_stick = rnorm(317, 1000, 200),
                     drone_rgb = -1000 + 1.20 * pressure_stick + rnorm(length(pressure_stick), 100, 60),
-                    drone_cmyk = -1200 + 0.2 * pressure_stick + rpois(length(pressure_stick), 1200)) %>% 
-  mutate_if(is.numeric, round, 2) %>% 
+                    drone_cmyk = -1200 + 0.2 * pressure_stick + rpois(length(pressure_stick), 1200)) |> 
+  mutate_if(is.numeric, round, 2) |> 
   filter(drone_rgb > 1 & drone_cmyk > 1)
 
 write.xlsx(drone_tbl, "data/drone_tech.xlsx", rowNames = FALSE)
@@ -89,7 +89,7 @@ write.xlsx(drone_tbl, "data/drone_tech.xlsx", rowNames = FALSE)
 
 rbind(head(drone_tbl, n = 3),
       rep("...", times = ncol(drone_tbl)),
-      tail(drone_tbl, n = 3)) %>% 
+      tail(drone_tbl, n = 3)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -98,7 +98,7 @@ In unserem zweiten Datenbeispiel schauen wir uns die Keimungsdaten nach Behandlu
 ```{r}
 #| message: false
 #| echo: false
-cold_seed_raw_tbl <- read_excel("data/cold_seeds.xlsx") %>% 
+cold_seed_raw_tbl <- read_excel("data/cold_seeds.xlsx") |> 
   mutate_if(is.numeric, round, 2)
 
 cold_seed_tbl <- cold_seed_raw_tbl
@@ -112,16 +112,16 @@ cold_seed_tbl <- cold_seed_raw_tbl
 
 rbind(head(cold_seed_raw_tbl, n = 6),
       rep("...", times = ncol(cold_seed_raw_tbl)),
-      tail(cold_seed_raw_tbl, n = 6)) %>% 
+      tail(cold_seed_raw_tbl, n = 6)) |> 
   kable(align = "c", "pipe")
 ```
 
 Wir müssen jetzt leider nochmal ran und die Daten etwas aufräumen. Zum einen muss die erste Behandlung raus, hier handelt es sich nur um eine positive Kontrolle, ob überhaupt etwas gewachsen ist. Dann wollen wir uns die Daten auch log-transformieren. Das hat den Grund, dass die statistischen Verfahren in der Äquivalenzanalyse eine Normalverteilung verlangen. Mit der log-Transformation erreichen wir log-normalverteilte Daten, die einer Normalverteilung recht nahe kommen. Am Ende wollen wir dann auch die zweite Behandlung so benennen, dass wir auch immer die Kontrolle erkennen.
 
 ```{r}
-cold_seed_tbl <- cold_seed_tbl %>%   
-  clean_names %>% 
-  filter(trt != 1) %>% 
+cold_seed_tbl <- cold_seed_tbl |>   
+  clean_names() |> 
+  filter(trt != 1) |> 
   mutate(trt = as_factor(trt),
          log_cold = log(cold),
          log_non_cold = log(non_cold),
@@ -136,13 +136,13 @@ Es ergibt sich dann die @tbl-noninf-02. Wir werden dann in der folgenden Analyse
 #| tbl-cap: "Transformierter Datensatz zu dem Keimungsexperiment mit biologischen Pilzpräparaten."
 #| label: tbl-noninf-02
 
-cold_seed_tab_tbl <- cold_seed_tbl %>% 
-  mutate(trt = as.character(trt)) %>% 
+cold_seed_tab_tbl <- cold_seed_tbl |> 
+  mutate(trt = as.character(trt)) |> 
   mutate_if(is.numeric, round, 2)
 
 rbind(head(cold_seed_tab_tbl, n = 4),
       rep("...", times = ncol(cold_seed_tab_tbl)),
-      tail(cold_seed_tab_tbl, n = 4)) %>% 
+      tail(cold_seed_tab_tbl, n = 4)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -188,7 +188,7 @@ Für die genaueren Werte der linearen Funktion nutzen wir dann die Funktion `lm(
 #| message: false
 #| warning: false
 fit_drone <- lm(pressure_stick ~ drone_rgb, data = drone_tbl)
-fit_drone %>% model_parameters()
+fit_drone |> model_parameters()
 ```
 
 Zum einen können wir uns jetzt auch die lineare Funktion und damit den Zusammenhang von dem Druckstab zu der RGB-Farbskala erstellen. Mir der folgenden Formel können wir dann die Werte der Dronen RGB-Farbskala in die Werte des Druckstabes umrechnen.
@@ -215,8 +215,8 @@ Wir können die Funktion `glance()` nutzen um uns das `r.squared` und das `adj.r
 ```{r}
 #| message: false
 
-fit_drone %>% 
-  glance() %>% 
+fit_drone |> 
+  glance() |> 
   select(r.squared)
 ```
 
@@ -230,11 +230,11 @@ Wir können hier verschiedene Korrelationsmaße berechnen. Am häufigsten werden
 
 ```{r}
 drone_tbl %$% 
-  cor(pressure_stick, drone_rgb, method = "pearson") %>% 
+  cor(pressure_stick, drone_rgb, method = "pearson") |> 
   round(2)
 
 drone_tbl %$% 
-  cor(pressure_stick, drone_rgb, method = "spearman") %>% 
+  cor(pressure_stick, drone_rgb, method = "spearman") |> 
   round(2)
 ```
 
@@ -268,7 +268,7 @@ Der RMSE ist ein gewichtetes Maß für die Modellgenauigkeit, das auf der gleich
 Je näher der RMSE-Wert bei 0 liegt, desto genauer ist das Modell. Der RMSE-Wert wird auf derselben Skala zurückgegeben wie die Werte, für das du Vorhersagen treffen willst. Es gibt jedoch keine allgemeine Regel für die Interpretation von den Wertebereichen des RMSE. Die Interpretation des RMSE kann nur innerhalb deines Datensatzes bewertet werden.
 
 ```{r}
-drone_tbl %>%
+drone_tbl |>
   rmse(pressure_stick, drone_rgb)
 ```
 
@@ -289,24 +289,24 @@ $$
 Der MAE hat gegenüber dem RMSE Vorteile in der Interpretierbarkeit. Der MAE ist der Durchschnitt der absoluten Werte der Fehler. MAE ist grundsätzlich leichter zu verstehen als die Quadratwurzel aus dem Durchschnitt der quadrierten Fehler. Außerdem beeinflusst jede einzelne Abweichung den MAE in direktem Verhältnis zum absoluten Wert der Abweichung, was bei der RMSE nicht der Fall ist. Der MAE ist nicht identisch mit dem mittleren quadratischen Fehler (RMSE), auch wenn einige Forscher ihn so angeben und interpretieren. MAE ist konzeptionell einfacher und auch leichter zu interpretieren als RMSE: Es ist einfach der durchschnittliche absolute vertikale oder horizontale Abstand zwischen jedem Punkt in einem Streudiagramm und der Geraden.
 
 ```{r}
-drone_tbl %>%
+drone_tbl |>
   mae(pressure_stick, drone_rgb)
 ```
 
 Wir können uns mit der Funktion `metrics()` auch die Fehler zusammenausgeben lassen.
 
 ```{r}
-drone_tbl %>%
+drone_tbl |>
   metrics(pressure_stick, drone_rgb)
 ```
 
 Wie schon oben geschrieben, der MSE und Co. sind nur in einem Vergleich sinnvoll. Deshalb hier nochmal der Vergleich der beiden Farbskalen der Dronenbilder.
 
 ```{r}
-drone_tbl %>%
+drone_tbl |>
   metrics(pressure_stick, drone_rgb)
 
-drone_tbl %>%
+drone_tbl |>
   metrics(pressure_stick, drone_cmyk)
 ```
 
@@ -374,11 +374,11 @@ Schauen wir uns nun nochmal unsere Keimungsdaten nach Behandlung mit sechs biolo
 #| fig-width: 6
 #| fig-cap: "Boxplots der Wachstumsraten des Pilzes in der Standardkontrolle sowie den sechs neunen Präparaten. Die oberen Abbildungen sind auf der normalen Datenskala, die unteren Abbildungen sind $\\log$-transformiert."
 
-cold_seed_tbl %>% 
+cold_seed_tbl |> 
   pivot_longer(cold:last_col(),
                names_to = "type",
-               values_to = "growth") %>% 
-  mutate(type = as_factor(type)) %>% 
+               values_to = "growth") |> 
+  mutate(type = as_factor(type)) |> 
   ggplot(aes(trt, growth, fill = trt)) +
   theme_minimal() +
   geom_boxplot() +
@@ -399,7 +399,7 @@ Schauen wir uns dazu einmal die zwei einfaktoriellen ANOVA's für die kälte und
 #| message: false
 lm_non_cold_fit <- lm(log_non_cold ~ trt, data = cold_seed_tbl)
 
-lm_non_cold_fit %>% anova %>% model_parameters()
+lm_non_cold_fit |> anova() |> model_parameters()
 ```
 
 Da der $p$- Wert kleiner ist als das Signifikanzniveau $\alpha$ müssen wir die Nullhypothese der Gleichheit ablehnen. Mindestens einen paarweisen Unterschied zwischen den Gruppen gibt es. Prinzipiell könnten wir natürlich hoffen, dass alle Gruppen gleich zur Kontrolle sind und sich nur zwei Behandlungsgruppen unterscheiden, aber es ist schonmal ein schlechtes Zeichen, wenn wir eine signifikante ANOVA vorliegen haben und auf Gleichheit der Behandlungen zur Kontrolle aus sind.
@@ -408,7 +408,7 @@ Schauen wir nochmal auf den Effekt. Wenn wir einen großen Effekt der Behandlung
 
 ```{r}
 #| message: false
-lm_non_cold_fit %>% eta_squared() 
+lm_non_cold_fit |> eta_squared() 
 ```
 
 Wir sehen, dass wir nur 18% der Varianz durch unsere Behandlungsgruppen erklären. Daher würden wir hier nicht von einem großen Effekt ausgehen. Würde auch hier viel Varianz erklärt, dann könnten wir hier auch aufhören. Schauen wir uns nochmal die andere Art der Vorbehandlung an.
@@ -419,9 +419,9 @@ Jetzt schauen wir nochmal wo die paarweisen Unterschiede sind. Wir nutzen dazu d
 #| message: false
 cold_seed_tbl %$%
   pairwise.t.test(log_non_cold, trt, pool.sd = FALSE,
-                  p.adjust.method = "none") %>% 
-  extract2("p.value") %>% 
-  fullPTable() %>% 
+                  p.adjust.method = "none") |> 
+  extract2("p.value") |> 
+  fullPTable() |> 
   multcompLetters()
 ```
 
@@ -433,23 +433,23 @@ Den gleichen Ablauf können wir jetzt auch einmal für die kälte-behandleten Sa
 #| message: false
 lm_cold_fit <- lm(log_cold ~ trt, data = cold_seed_tbl)
 
-lm_cold_fit %>% anova %>% model_parameters()
+lm_cold_fit |> anova() |> model_parameters()
 ```
 
 Auch hier zeigt die signifikante ANOVA, dass wir mindestens einen paarweisen Mittelwertsunterschied zwischen den Behandlungsgruppen haben. Welche Gruppen sich nun unterscheiden werden wir dann gleich einmal in dem paarweisen t-Test uns anschauen. Vorher nochmal schauen wir nochmal wie stark der Effekt der Behandlungsgruppen ist.
 
 ```{r}
 #| message: false
-lm_cold_fit %>% eta_squared()
+lm_cold_fit |> eta_squared()
 ```
 
 Auch hier können wir 18% der Varianz in dem Wachstum durch die Behandlungsgruppen erklären. Das ist recht wenig. Schauen wir aber jetzt einmal den paarweisen t-Test an. Die Varianzen sind ungefähr gleich in den Gruppen, die Boxplots haben ungefähr die gleiche Ausdehnung nach der Logarithmierung. Deshalb nutzen wir hier einmal die Funktionalität von `{emmeans}`. Wir können bei der [Funktion `emeans()` eine Deltaschranke](https://cran.r-project.org/web/packages/emmeans/vignettes/re-engineering-clds.html#equiv-CLDs) einführen. Dann haben wir mit dem *compact letter display* ein Test auf Nichtunterlegenheit oder eben Gleichheit. Ich wähle hier mal eine Option von `delta = 1` in der Funktion `cld()` um einfach mal zu zeigen, wie es dann aussieht.
 
 ```{r}
 #| message: false
-lm_cold_fit %>% 
-  emmeans(~ trt) %>%
-  cld(Letters = letters, adjust = "none", delta = 1) %>% 
+lm_cold_fit |> 
+  emmeans(~ trt) |>
+  cld(Letters = letters, adjust = "none", delta = 1) |> 
   arrange()
 ```
 
@@ -457,8 +457,8 @@ Hier unterscheiden sich nun alle Behandlungsgruppen von der Kontrolle. Die neuen
 
 ```{r}
 #| message: false
-lm_cold_fit %>% 
-  emmeans(~ trt) %>% 
+lm_cold_fit |> 
+  emmeans(~ trt) |> 
   pwpm(adjust = "none")
 ```
 
@@ -470,8 +470,8 @@ Das war jetzt hier natürlich die Version für Arme bzw. wenn wir im Rahmen eine
 
 Wenn wir wirklich in unserem Experiment oder Studie einen Äquivalenztest gleich von Anfang an rechnen wollen, dann können wir auch in R auf ein weitreichendes Angebot an Paketen und Funktionen zurückgreifen. Wie immer ist die Frage, was wollen wir? Wichtig ist, dass wir immer eine Gruppe brauchen zu der wir die Äquivalenz oder Gleichheit bestimmen wollen. Im Weiteren haben wir die Wahl zwischen zwei Ansätzen. Einmal den frequentistischen Ansatz sowie die bayesianische Variante. Ich möchte hier nicht mehr so ins Detail gehen, wir nutzen den frequentistischen Ansatz. Das hat auch den Vorteil, dass wir die Äquivalenz an 95% Konfidenzintervallen überprüfen. Mehr gibt es dann jeweils auf den beiden Hilfeseiten der Funktionen.
 
--   Einmal den frequentistischen Ansatz aus dem Paket `parameters` durch die Funktion [parameters::equivalence_test()](https://easystats.github.io/parameters/reference/equivalence_test.lm.html)
--   Oder die bayesianische Variante aus dem R Paket `bayestestR` durch die Funktion [bayestestR::equivalence_test()](https://easystats.github.io/bayestestR/reference/equivalence_test.html)
+-   Einmal den frequentistischen Ansatz aus dem Paket `{parameters}` durch die Funktion [parameters::equivalence_test()](https://easystats.github.io/parameters/reference/equivalence_test.lm.html)
+-   Oder die bayesianische Variante aus dem R Paket `{bayestestR}` durch die Funktion [bayestestR::equivalence_test()](https://easystats.github.io/bayestestR/reference/equivalence_test.html)
 
 Wichtig ist, dass wir immer zum ersten Level des Faktors der Behandlung vergleichen! Das heißt, deine Kontrollgruppe sollte immer die erste Gruppe sein und das erste Level haben. Du kannst sonst mit der Funktion `fct_relevel()` und `mutate()` die Level neu anordnen. Wir haben hier aber das Glück, dass wir die Kontrolle als erstes Level der Behandlung `trt` vorliegen haben.
 

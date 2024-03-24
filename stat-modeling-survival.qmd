@@ -35,9 +35,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, conflicted, broom,
                survminer, survival, parameters,
                gtsummary, janitor, ranger)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
+conflicts_prefer(dplyr::filter)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
@@ -66,7 +64,7 @@ dodo_raw_tbl <- bind_rows(tibble(dol = 1:55,
                      tibble(dol = 1:55,
                             death = c(rep(0, 5), rpois(50, 1.75)),
                             count = cumsum(c(n_dodo, -1*death[-1])),
-                            trt = "clipped")) %>% 
+                            trt = "clipped")) |> 
   select(trt, dol, count, death)
 
 write.xlsx(dodo_raw_tbl, "data/dodo_raw.xlsx", rowNames = FALSE)
@@ -80,7 +78,7 @@ write.xlsx(dodo_raw_tbl, "data/dodo_raw.xlsx", rowNames = FALSE)
 
 rbind(head(dodo_raw_tbl, n = 6),
       rep("...", times = ncol(dodo_raw_tbl)),
-      tail(dodo_raw_tbl, n = 6)) %>% 
+      tail(dodo_raw_tbl, n = 6)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -110,19 +108,19 @@ Wir haben somit $n = `r 2*n_dodo`$ beobachtete Dodos mit jeweils `r n_dodo` für
 Fangen wir also mit der Information an, die wir haben. Wir wissen wie viele Dodos jeweils zu einem bestimmten Lebenstag gestorben sind. Daher können wir anhand der Spalte `death` die Anzahl an Zeilen entsprechend vervielfältigen. Sind an einem Lebenstag drei Dodos gestorben, dann brauchen wir dreimal eine Zeile mit der Information des Lebenstages und dass an diesem Tag ein Dodo gestorben ist. Wir nutzen dazu die Funktion `uncount()`. Dann erschaffen wir noch eine Spalte `death` in der einfach immer eine `1` steht, da ja an diesem Lebenstag ein Dodo verstorben ist.
 
 ```{r}
-death_tbl <- dodo_raw_tbl %>% 
-  uncount(death) %>% 
-  mutate(death = c(rep(1, length(.$dol))))
+death_tbl <- dodo_raw_tbl |> 
+  uncount(death) |>  
+  mutate(death = 1) 
 ```
 
 Im nächsten Schritt müssen wir die lebenden Dodos *separat für jede Behandlung* ergänzen. Daher spalten wir uns die Daten in eine Liste auf und ergänzen dann die Informationen zu den fehlenden, lebenden Dodos. Alle lebenden Dodos haben die maximale Lebenszeit, sind nicht gestorben und damit bleibt die Anzahl auch konstant.
 
 ```{r}
-alive_tbl <- death_tbl %>% 
-  split(.$trt) %>% 
+alive_tbl <- death_tbl |> 
+  split(~trt) |> 
   map(~tibble(dol = max(.x$dol),
               death = rep(0, last(.x$count)),
-              count = last(.x$count))) %>% 
+              count = last(.x$count))) |> 
   bind_rows(.id = "trt")
 ```
 
@@ -142,7 +140,7 @@ In der @tbl-surv-dodo-2 sehen wir den finalen Dododatensatz, den wir uns aus den
 
 rbind(head(dodo_tbl, n = 6),
       rep("...", times = ncol(dodo_tbl)),
-      tail(dodo_tbl, n = 6)) %>% 
+      tail(dodo_tbl, n = 6)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -161,9 +159,9 @@ fruitfly_tbl <- tibble(times_raw = round(c(rpois(50, 10), rpois(50, 14))),
                        sex = sample(factor(gl(2, 50), labels = c("male", "female"))),
                        time = ifelse(sex == "male", times_raw - 2, times_raw + 5),
                        weight = round(c(rnorm(50, 11, 3), rnorm(50, 19, 3)), 2),
-                       weight_bin = ifelse(weight <= 15, "low", "high")) %>% 
-  select(-times_raw) %>% 
-  select(trt, time, status, everything()) %>% 
+                       weight_bin = ifelse(weight <= 15, "low", "high")) |> 
+  select(-times_raw) |> 
+  select(trt, time, status, everything()) |> 
   arrange(trt, time)
 
 write.xlsx(fruitfly_tbl, "data/fruitfly.xlsx", rowNames = FALSE)
@@ -183,13 +181,13 @@ Damit arbeiten wir dann im Folgenden weiter.
 #| tbl-cap: Fruchtfliegendatensatz mit verschiedenen Covariaten zu der Behandlung, der Zeit und dem Status der Fruchtfliegen.
 #| label: tbl-surv-2
 
-fruitfly_raw_tbl <- fruitfly_tbl %>% 
+fruitfly_raw_tbl <- fruitfly_tbl |> 
   mutate(trt = as.character(trt),
          sex = as.character(sex))
 
 rbind(head(fruitfly_raw_tbl, n = 4),
       rep("...", times = ncol(fruitfly_raw_tbl)),
-      tail(fruitfly_raw_tbl, n = 4)) %>% 
+      tail(fruitfly_raw_tbl, n = 4)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -204,7 +202,7 @@ Unsere Daten zu den Fruchtfliegen beinhalten die folgenden Spalten mit den entsp
 
 ### Überleben von Lungenkrebs
 
-Zum Abschluss möchte ich noch den Datensatz `lung` in der @tbl-surv-3 aus dem R Paket `survival` vorstellen. Das hat vor allem den Grund, dass es sich hier um einen klassischen Datensatz zur Überlebenszeitanalyse handelt und ich auch dieses Teilgebiet einmal mit abdecken möchte. Wie schon weiter oben gesagt, Überlebenszeitanalysen kommen eher in dem Humanbereich vor. Darüber hinaus bedienen sich fast alle anderen Tutorien im Internet diesem Datensatz, so dass du dann einfacher die englischen Texte nachvollziehen kannst.
+Zum Abschluss möchte ich noch den Datensatz `lung` in der @tbl-surv-3 aus dem R Paket `{survival}` vorstellen. Das hat vor allem den Grund, dass es sich hier um einen klassischen Datensatz zur Überlebenszeitanalyse handelt und ich auch dieses Teilgebiet einmal mit abdecken möchte. Wie schon weiter oben gesagt, Überlebenszeitanalysen kommen eher in dem Humanbereich vor. Darüber hinaus bedienen sich fast alle anderen Tutorien im Internet diesem Datensatz, so dass du dann einfacher die englischen Texte nachvollziehen kannst.
 
 ```{r}
 #| message: false
@@ -214,7 +212,7 @@ Zum Abschluss möchte ich noch den Datensatz `lung` in der @tbl-surv-3 aus dem R
 
 rbind(head(as_tibble(lung), n = 4),
       rep("...", times = ncol(lung)),
-      tail(as_tibble(lung), n = 4)) %>% 
+      tail(as_tibble(lung), n = 4)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -232,10 +230,10 @@ rbind(head(as_tibble(lung), n = 4),
 Trotz seiner Prominenz hat der Datensatz einen Fehler. Wir wollen den Status nicht auf 1/2 kodiert haben sondern auf 0/1. Ebenso wollen wir die Spalte `inst` nicht, da wir die Informationen nicht brauchen. Dann sind noch die Namen der Spalten hässlich, so dass wir da die Funktion `clean_names()` nutzen um einmal aufzuräumen.
 
 ```{r}
-lung_tbl <- lung %>% 
-  as_tibble() %>% 
-  mutate(status = recode(status, `1` = 0, `2` = 1)) %>% 
-  clean_names() %>% 
+lung_tbl <- lung |> 
+  as_tibble() |> 
+  mutate(status = recode(status, `1` = 0, `2` = 1)) |> 
+  clean_names() |> 
   select(-inst)
 ```
 
@@ -281,7 +279,7 @@ Wir können nur kategoriale Variablen in einer Kaplan Meier Kurve darstellen. Da
 
 Ein häufiger Fehler bei der Betrachtung der Kaplan Meier Kurve ist diese als die simple lineare Regression der Überlebenszeitanalyse anzusehen. Wir können zwar mit der Kaplan Meier Kurve immer nur *ein* $X$ betrachten aber der Algorithmus basiert auf dem $\mathcal{X}^2$-Test und hat nichts mit einer Regression zu tun. Daher *kann* es sein, dass du unterschiedliche Ergebnisse in der Visualisierung mit Kaplan Meier Kurven und dann der Analyse mit dem Cox Proportional-Hazards Modell erhälst.
 
-In R nutzen wir das Paket `survminer` und die Funktion `ggsurvplot()` für die Visualisierung der Kaplan Meier Kurven.
+In R nutzen wir das Paket `{survminer}` und die Funktion `ggsurvplot()` für die Visualisierung der Kaplan Meier Kurven.
 
 ### Dodos
 
@@ -395,7 +393,7 @@ null_fit
 Wir sehen, dass wir ein medianes Überleben von $310$ Tagen haben. Es gibt insgesamt $165$ Ereignisse zu beobachten von insgesamt $228$ in die Studie eingeschlossenen Patienten. Wir können uns auch für bestimmte Zeitpunkte das Überleben wiedergeben lassen. Wir schauen uns hier einmal das Überleben nach einem Jahr bzw. $365.25$ Tagen an.
 
 ```{r}
-null_fit %>% 
+null_fit |> 
   summary(times = 365.25)
 ```
 
@@ -468,7 +466,7 @@ In R nutzen wir die Funktion `coxph()` um ein Cox Proportional-Hazards Modell an
 #| message: false
 
 fit_1 <- coxph(Surv(time, status) ~ trt + sex + weight, data = fruitfly_tbl) 
-fit_1 %>% 
+fit_1 |> 
   model_parameters(exponentiate = TRUE)
 ```
 
@@ -482,7 +480,7 @@ Ich habe nochmal als Vergleich die Variable `weight` in das Modell genommen und 
 #| message: false
 
 fit_2 <- coxph(Surv(time, status) ~ trt + sex + weight_bin, data = fruitfly_tbl) 
-fit_2 %>% 
+fit_2 |> 
   model_parameters(exponentiate = TRUE)
 ```
 
@@ -520,7 +518,7 @@ Was schon wieder die logistische Regression? Ja, schon wieder die logistische Re
 Im ersten Schritt bauen wir uns eine neue Variable `died_3_m` für den Lingenkrebsdatensatz. Da in einer logistsichen Regression das *Schlechte* immer 1 ist, fragen wir, wer nach 90 Tagen verstorben ist. Also eine Lebenszeit unter 90 Tagen hatte. Diese Beobachtungen kriegen dann eine 1 und die anderen Beobachtungen eine 0.
 
 ```{r}
-lung_logreg_tbl <- lung_tbl %>% 
+lung_logreg_tbl <- lung_tbl |> 
   mutate(died_3_m = ifelse(time < 90, 1, 0))
 ```
 
@@ -529,7 +527,7 @@ Nachdem wir uns recht schnell eine neue Variable gebaut haben, können wir dann 
 ```{r}
 #| message: false
 
-glm(died_3_m ~ age + sex + ph_ecog, data = lung_logreg_tbl, family = binomial) %>% 
+glm(died_3_m ~ age + sex + ph_ecog, data = lung_logreg_tbl, family = binomial) |> 
   model_parameters(exponentiate = TRUE)
 ```
 
