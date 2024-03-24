@@ -7,29 +7,23 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 *Letzte Änderung am `r format(fs::file_info("stat-modeling-meta.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*
 
 ::: callout-caution
-## Stand des Kapitels im September 2023
+## Stand des Kapitels
 
 ![](images/caution.png){fig-align="center" width="50%"}
 
-Das Thema Metaanalysen ist erstmal auf Stand-By gesetzt, bis mir klar ist, wohin ich mit dem Kapitel zum Ende hin will. Die Daten sind da und der Code funktioniert auch. Zur Interpretation bitte dann die verlinkten Tutorien besuchen.
+**Das Thema Metaanalysen ist erstmal auf Stand-By gesetzt, bis mir klar ist, wohin ich mit dem Kapitel zum Ende hin will. Die Daten sind da und der Code funktioniert auch. Zur Interpretation bitte dann die verlinkten Tutorien besuchen.**
 :::
 
 > *"The only way to test a hypothesis is to look for all the information that disagrees with it." --- Karl Popper*
-
-::: callout-important
-## Disclaimer - Wichtig! Lesen!
-
-Der folgende Text ist ein *Lehr*text für Studierende. Es handelt sich keinesfalls um eine textliche Beratung für Metaanalysen in einem wissenschaftlichen oder medizinischen Reviewprozess. Alle Beispiel sind im Zweifel an den Haaren herbeigezogen und dienen nur der Veranschaulichung *möglicher* Sachverhalte.
-:::
 
 In diesem Kapitel wollen wir uns einmal die Metaanalyse oder indirekte Vergleiche anschauen. Wir halten das Kapitel bewusst kurz, denn wenn wir das Thema *ausführlich* behandeln wollten, dann wäre es ein eigenes Buch. Das wollen wir aber nicht, es reicht, wenn wir hier die Grundlagen verstehen. Das heißt vor allem, dass wir die Daten so erstellt kriegen, dass wir selber eine Marktanalyse rechnen können. Der Fokus ist hier auf den Agrarwissenschaften, aber die Beispiele wurden von mir aus dem "Doing Meta-Analysis with R: A Hands-On Guide" von @harrer2021doing adaptiert und in einen neuen Kontext gesetzt. Wenn du wirklich eine Metaanalyse rechnen willst, dann musst du nochmal durch das Buch von @harrer2021doing oder den Artikel von @balduzzi2019perform durcharbeiten.
 
 Also gut, was macht also eine Metananalyse oder warum heißt es den indirekter Vergleich? Wenn wir normalerweise ein Experiment durchführen, dann messen wir verschiedene Outcomes und Einflussvariablen, rechnen ein Modell oder einen einfacheren statistischen Test und berichten die Effektschätzer und den $p$-Wert in einer wissenschaftlichen Veröffentlichung. Hier setzt die Metaanalyse dann an. Wir kombinieren nämlich die Ergebnisse und damit die Effektschätzer verschiedener Studien in einer riesigen Studie. Und diese riesige Studie nennen wir dann Metaanalyse. Wir kombinieren hierbei nur die Effektschätzer aus den verschiedenen Studien. Der algorithmische Prozess ist nicht so simple, basiert aber auf der wichtigen Annahme, dass die Studien alle in etwa homogen sind. Der Begriff ist hier sehr weit gefasst. Alle Studien müssen natürlich das gleiche Outcome haben, die gleichen Menschen, Tiere oder Pflanzen beobachten sowie das statistische Modell muss das Gleiche sein. Du siehst schnell, bevor du eine Metaanalyse rechnen kannst, geht sehr viel Zeit in die Suche nach passenden wissenschaftlichen Veröffentlichungen. Daher ist jeder Metaanalyse eigentlich eine systematische Literaturrecherche (*eng. systematic review*) vorgeschaltet. Wenn du mehr darüber lesen möchtest, dann kann dir @tawfik2019step einen Einstieg liefern.
 
-::: column-margin
-![](images/angel_01.png){fig-align="center" width="50%"}
+::: {layout="[15,85]" layout-valign="top"}
+![](images/angel_01.png){fig-align="center" width="100%"}
 
-Das ist hier natürlich eine Metanalyse für Arme. Wie man es richtig umfangreich macht, findest du in einem sehr gutem und umfangreichen Tutorial zu [Doing Meta-Analysis in R: A Hands-on Guide](https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/)
+> Das ist hier natürlich eine Metanalyse für Arme. Wie man es richtig umfangreich macht, findest du in einem sehr gutem und umfangreichen Tutorial zu [Doing Meta-Analysis in R: A Hands-on Guide](https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/)
 :::
 
 Noch als kleine Randbemerkung, wenn du aus den medizinischen Bereich kommst, dann solltest du die Leitlinien in den [Allgemeinen Methoden des Institut für Qualität und Wirtschaftlichkeit im Gesundheitswesen (IQWiG)](https://www.iqwig.de/ueber-uns/methoden/methodenpapier/) zu den Metaanalysen oder indirketen Vergleichen kennen. Wir können hier leider nicht in die Tiefe der Leitlinien abtauchen.
@@ -40,13 +34,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, conflicted, 
-               meta)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
-cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
-                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+pacman::p_load(tidyverse, magrittr, meta, conflicted)
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
@@ -74,7 +62,7 @@ Schauen wir uns nochmal die Daten genauer an. Hier ist es besonders wichtig zu b
 #| label: tbl-meta-drymatter
 #| tbl-cap: "Daten zu den Weizenerträgen nach der Gabe von einer Eisendosis mit $10\\mu mol$. In allen Studien wurde die gleiche Dosis auf die $n$ Pflanzen gegeben."
 
-drymatter_tbl %>% 
+drymatter_tbl |> 
   kable(align = "lrrr", "pipe")
 ```
 
@@ -93,7 +81,7 @@ Auch hier haben wir einmal in die ganzen Studien zu dem Wirkstoff MoldEx geschau
 #| label: tbl-meta-sunflower
 #| tbl-cap: "Daten zu den mit Mehltau infizierten Sonnenblumensamen nach der Behandlung mit MoldEx."
 
-sunflower_tbl %>% 
+sunflower_tbl |> 
   kable(align = "lrr", "pipe")
 ```
 
@@ -114,8 +102,8 @@ Schauen wir uns nochmal einen Ausschnitt der Daten in der zu dem Euterkrebs von 
 #| label: tbl-meta-cow
 #| tbl-cap: "Daten zum Euterkrebs von Kühen nach der Behandlung mit einer Chemotherapie zu einer Kontrolle."
 
-cow_tbl %>% 
-  mutate_if(is.numeric, round, 2)  %>% 
+cow_tbl |> 
+  mutate_if(is.numeric, round, 2)  |> 
   kable(align = "lrr", "pipe")
 ```
 
