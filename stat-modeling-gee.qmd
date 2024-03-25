@@ -22,7 +22,7 @@ Im folgenden Kapitel zu den Generalized Estimating Equations (GEE) gehen wir dav
 -   Wenn du denkst, dass du Ausreißer oder auffälige Werte in deinen Daten hast, dann schaue doch bitte nochmal in das @sec-outlier zu Ausreißer in den Daten.
 -   Wenn du denkst, dass du zu viele Variablen in deinem Modell hast, dann hilft dir das @sec-variable-selection bei der Variablenselektion.
 
-Grundsätzlich ist das Thema GEE eher ein stiefmütterliches statistisches Thema. Ich selber habe gar nicht so viel zu GEE's gefunden, so dass wie immer gilt: *Augen auf im statistischen Straßenverkehr*! Besonders die Variablenselektion, die ja an die Modellklasse gebunden ist, mag nicht so funktionieren wie gewollt. Bitte bei GEE Fragestellungen keine automatisierte Selektion anwenden. Dann lieber über `compare_models()` aus dem R Paket `parameters` die Modellvergleiche direkt vergleichen.
+Grundsätzlich ist das Thema GEE eher ein stiefmütterliches statistisches Thema. Ich selber habe gar nicht so viel zu GEE's gefunden, so dass wie immer gilt: *Augen auf im statistischen Straßenverkehr*! Besonders die Variablenselektion, die ja an die Modellklasse gebunden ist, mag nicht so funktionieren wie gewollt. Bitte bei GEE Fragestellungen keine automatisierte Selektion anwenden. Dann lieber über `compare_models()` aus dem R Paket `{parameters}` die Modellvergleiche direkt vergleichen.
 
 ## Genutzte R Pakete
 
@@ -30,16 +30,14 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, conflicted, broom,
+pacman::p_load(tidyverse, magrittr, broom,
                parameters, performance, geepack, gee,
-               geesmv, multcomp, emmeans, scales)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
-conflict_prefer("extract", "magrittr")
-conflict_prefer("set_names", "magrittr")
-cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
-                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+               geesmv, multcomp, emmeans, scales, conflicted)
+conflicts_prefer(dplyr::select)
+conflicts_prefer(magrittr::set_names)
+conflicts_prefer(dplyr::filter)
+#cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+#                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
@@ -52,11 +50,11 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 Ganz wichtig, sonst funktioniert das GEE nicht und du kriegst auch keine Warnmeldung! Du musst die Daten mit `arrange` für deine ID Spalte sortieren.
 :::
 
-Ich habe hier ienmal zwei Datenbeispiel mitgebracht. Wir werden uns aber im folgenden Abschnitt dann nur die Schweine anschauen, das Kuhbeispiel können wir dann nochmal anderweitig nutzen oder aber du rechnest nochmal selber mit den Kühen. Wichtig hierbei ist, dass wir sicher sind, dass wir die Daten nach der ID Spalte der Tiere sortiert haben. Das heist, dass alle Tier ID's Zeilen wirklich beieinander stehen. Das ist wichtig, sonst schafft GEE nur eine sehr seltsame Ausgaben zu produzieren. Leider ohne eine Warnung auszugeben. Deshalb nutzen wir die Funktion `arrange()` um nochmal nach der Spalte `pig_id` zu sortieren.
+Ich habe hier einmal zwei Datenbeispiel mitgebracht. Wir werden uns aber im folgenden Abschnitt dann nur die Schweine anschauen, das Kuhbeispiel können wir dann nochmal anderweitig nutzen oder aber du rechnest nochmal selber mit den Kühen. Wichtig hierbei ist, dass wir sicher sind, dass wir die Daten nach der ID Spalte der Tiere sortiert haben. Das heist, dass alle Tier ID's Zeilen wirklich beieinander stehen. Das ist wichtig, sonst schafft GEE nur eine sehr seltsame Ausgaben zu produzieren. Leider ohne eine Warnung auszugeben. Deshalb nutzen wir die Funktion `arrange()` um nochmal nach der Spalte `pig_id` zu sortieren.
 
 ```{r}
-pig_gain_tbl <- read_excel("data/pig_feed_data.xlsx") %>% 
-  mutate(weight_gain = round(weight_gain, 2)) %>% 
+pig_gain_tbl <- read_excel("data/pig_feed_data.xlsx") |> 
+  mutate(weight_gain = round(weight_gain, 2)) |> 
   arrange(pig_id)
 
 ```
@@ -73,7 +71,7 @@ In @tbl-gee-pigs sehen wir nochmal einen Auszug aus den Daten. Wir haben unsere 
 
 rbind(head(pig_gain_tbl, n = 4),
       rep("...", times = ncol(pig_gain_tbl)),
-      tail(pig_gain_tbl, n = 4)) %>% 
+      tail(pig_gain_tbl, n = 4)) |> 
   kable(align = "c", "pipe")
 
 ```
@@ -84,8 +82,8 @@ Das zweite Datenbeispiel dient zur Veranschaulichung eines weiteres Messwiederho
 #| message: false
 #| warning: false
 
-milk_tbl <- read_csv2("data/milk_feeding.csv") %>% 
-  rename(cow_id = id_cow) %>% 
+milk_tbl <- read_csv2("data/milk_feeding.csv") |> 
+  rename(cow_id = id_cow) |> 
   arrange(cow_id)
 
 ```
@@ -101,7 +99,7 @@ In @tbl-gee-milk sehen wir nochmal den Ausschnitt aus den Milchdaten. Wir haben 
 
 rbind(head(milk_tbl, n = 4),
       rep("...", times = ncol(milk_tbl)),
-      tail(milk_tbl, n = 4)) %>% 
+      tail(milk_tbl, n = 4)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -125,7 +123,7 @@ Ein großer Vorteil der GEE ist, dass wir eine Korrelation zwischen den wiederho
 
 Leider gibt es keine automatische Auswahl. Wir müssen also überlegen, welche Korrelationmatrix am besten passen würde. Da *unstructured* sehr viel Fallzahl benötigt um valide zu sein, nehme ich meistens *exchangeable*, wenn ich ein GEE rechne. Eine unabhänige Korrealtion anzunehmen macht wenig Sinn, dann brauche ich auch kein GEE rechnen. Die Korrelation ist ja die Stärke von einem GEE.
 
-Wir haben nun zwei R Pakete, die beide das gleiche tun, nämlich ein GEE rechnen. Wir haben die Wahl zwischen dem R Paket `gee` und der Funktion `gee()` sowie der Funktion `geeglm()` aus dem R Paket `geepack`. Ich neige zu dem letzteren Paket. Das R Paket `geepack` ist etwas neueren Ursprungs und funktioniert bisher recht reibungslos.
+Wir haben nun zwei R Pakete, die beide das gleiche tun, nämlich ein GEE rechnen. Wir haben die Wahl zwischen dem R Paket `gee` und der Funktion `gee()` sowie der Funktion `geeglm()` aus dem R Paket `{geepack}`. Ich neige zu dem letzteren Paket. Das R Paket `{geepack}` ist etwas neueren Ursprungs und funktioniert bisher recht reibungslos.
 
 ## Modellieren mit `gee()`
 
@@ -150,7 +148,7 @@ Nachdem wir das Modell gefittet haben, können wir uns einmal die Korrelationsst
 #| message: false
 #| warning: false
 
-pluck(gee_fit, "working.correlation") %>% 
+pluck(gee_fit, "working.correlation") |> 
   round(3)
 ```
 
@@ -162,7 +160,7 @@ Wir lassen uns jetzt noch die Modellparameter ausgeben und schauen uns einmal an
 #| message: false
 #| warning: false
 
-gee_fit %>% model_parameters()
+gee_fit |> model_parameters()
 ```
 
 Wir sehen, dass es einen signifikanten Unterschied in der Zeit gibt, das war ja auch zu erwarten, denn mit der Zeit werden die Ferkel schwerer. Wir haben aber auch einen schwach signifikanten Effekt zwischen `feed_10` und `feed_20` mit einem $p$-Wert von $0.041$. Hier machen wir kurz Stop, dann geht es aber in dem Abschnitt zu den Posthoc Tests mit dem Modell weiter. Wir wollen ja noch für alle Behanlungslevel einen paarweisen Vergleich rechnen.
@@ -198,14 +196,14 @@ Am Ende schauen wir uns dann nochmal den Fit aus dem `geeglm()` Modell an. Und s
 #| message: false
 #| warning: false
 
-geeglm_fit %>% model_parameters()
+geeglm_fit |> model_parameters()
 ```
 
 Wir haben also dann zwei Funktionen, die wir nutzen können. Am Ende kannst du dann beide ausprobieren. Machmal hat man mit `geeglm()` etwas mehr Glück, wenn die Daten einfach mal nicht wollen.
 
 ## Multipler Vergleich mit `emmeans`
 
-Gut, soweit sind wir dann gekommen. Wir haben unser Modell gefittet und meistens wollen wir dann noch einen all-pair Vergleich bzw. den paarweisen Vergleich rechnen. Das machen wir erst einmal mit der Funktionalität aus dem R Paket `emmeans`, das uns erlaubt auch das *compact letter display* wiederzugeben. Wenn dich mehr zum Prozess des Codes für die Nutzung von `emmeans` interessiert, dann schaue doch einfach nochmal ins @sec-posthoc. In dem Kapitel zu den multiplen Vergleichen erkläre ich dir nochmal genauer den Funktionsablauf.
+Gut, soweit sind wir dann gekommen. Wir haben unser Modell gefittet und meistens wollen wir dann noch einen all-pair Vergleich bzw. den paarweisen Vergleich rechnen. Das machen wir erst einmal mit der Funktionalität aus dem R Paket `{emmeans}`, das uns erlaubt auch das *compact letter display* wiederzugeben. Wenn dich mehr zum Prozess des Codes für die Nutzung von `{emmeans}` interessiert, dann schaue doch einfach nochmal ins @sec-posthoc. In dem Kapitel zu den multiplen Vergleichen erkläre ich dir nochmal genauer den Funktionsablauf.
 
 Wichtig ist, dass wir unsere Vergleiche mit Bonferroni adjustieren. Wenn du das nicht möchtest, dann musst du `adjust = "none"` auswählen. Sonst machen wir die Ausageb nochmal `tidy()` und dann runden wir noch. Wir erhalten dann das *compact letter display* wieder.
 
@@ -213,13 +211,13 @@ Wichtig ist, dass wir unsere Vergleiche mit Bonferroni adjustieren. Wenn du das 
 #| message: false
 #| warning: false
 
-res_gee <- geeglm_fit %>% 
+res_gee <- geeglm_fit |> 
   emmeans(~ treatment) 
 
-res_gee_cld <- res_gee %>% 
-  cld(adjust = "bonferroni", Letters = letters) %>% 
-  tidy() %>% 
-  select(treatment, estimate, conf.low, conf.high, .group) %>% 
+res_gee_cld <- res_gee |> 
+  cld(adjust = "bonferroni", Letters = letters) |> 
+  tidy() |> 
+  select(treatment, estimate, conf.low, conf.high, .group) |> 
   mutate(across(where(is.numeric), round, 2))
 
 res_gee_cld 
@@ -233,11 +231,11 @@ Wir sehen, dass sich die Gruppe `feed_10` von der Gruppe `feed_20` unterscheidet
 #| message: false
 #| warning: false
 
-res_gee_tbl <- res_gee %>% 
-  contrast(method = "pairwise", adjust = "bonferroni") %>% 
-  tidy(conf.int = TRUE) %>% 
+res_gee_tbl <- res_gee |> 
+  contrast(method = "pairwise", adjust = "bonferroni") |> 
+  tidy(conf.int = TRUE) |> 
   mutate(p.value = pvalue(adj.p.value),
-         across(where(is.numeric), round, 2)) %>% 
+         across(where(is.numeric), round, 2)) |> 
   select(contrast, estimate, 
          conf.low, conf.high, p.value) 
 
@@ -254,14 +252,14 @@ Natürlich haben wir uns nicht in den Details wie ein GEE funktioniert verloren.
 [geesmv: Modified Variance Estimators for Generalized Estimating Equations](https://rdrr.io/cran/geesmv/man/geesmv.html)
 :::
 
-Das R Paket `geesmv` bietet ganze neun Implementierungen von Schätzern für die Varianz/Covarianzstruktur der Daten an. Jetzt stellt sich die Frage, welche Implementierung für den Varianzschätzer denn nun nutzen? Zum einen hat natürlich die geschätzte Varianz einen nicht zu unterschätzenden Effekt auf die Signifikanz der Koeffizienten des GEE Models. Zum anderen ist aber der multiple Vergleich nach dem Schätzen des Modells und dem *getrennten* Schätzen der Varianz sehr mühselig. Leider helfen uns auch unsere Standardpakete nicht so richtig weiter. Die Funktionalität ist nicht für `geesmv` implementiert. Was wiederum dafür spricht, dass der Bedarf von Anwendern sehr eingeschränkt zu seien scheint. Nun müssen wir folgende epischen Schritte durchführen um einen multiplen Vergleich rechnen zu können.
+Das R Paket `{geesmv}` bietet ganze neun Implementierungen von Schätzern für die Varianz/Covarianzstruktur der Daten an. Jetzt stellt sich die Frage, welche Implementierung für den Varianzschätzer denn nun nutzen? Zum einen hat natürlich die geschätzte Varianz einen nicht zu unterschätzenden Effekt auf die Signifikanz der Koeffizienten des GEE Models. Zum anderen ist aber der multiple Vergleich nach dem Schätzen des Modells und dem *getrennten* Schätzen der Varianz sehr mühselig. Leider helfen uns auch unsere Standardpakete nicht so richtig weiter. Die Funktionalität ist nicht für `{geesmv}` implementiert. Was wiederum dafür spricht, dass der Bedarf von Anwendern sehr eingeschränkt zu seien scheint. Nun müssen wir folgende epischen Schritte durchführen um einen multiplen Vergleich rechnen zu können.
 
 1)  Wir fitten unser `geeglm()` Modell in der *mean parametrization*, dass heist wir entfernen den Intercept aus dem Modell und lassen unser Modell somit durch den Urspung laufen. Im Prinzip setzen wir den Intercept auf 0 und erhalten so die Mittelwerte jedes Levels des Faktors `treatment`.
 2)  Wir speichern die $\beta$-Koeffizienten von dem `treatment` aus unserem GEE Modell in einem Objekt ab.
 3)  Wir rechnen mit der gleichen Angabe wie vorher das `geeglm()` Modell eine der neun Funktion. Ich habe hier zufällig die Funktion `GEE.var.lz()` gewählt. Wir speichern die Ausgabe der Varianz der Koeffizienten in einem Objekt.
 4)  Wir kombinieren die $\beta$-Koeffizienten und die Varianz in einem Objekt mit der Funktion `left_join()`.
 5)  Wir bauen uns unsere eigene Kontrastmatrix in der steht welches Level der Behandlung mit welchen anderen Level verglichen werden soll.
-6)  Wir übergeben alle Einzelteile an die Funktion `glht()` aus dem R Paket `multcomp` und rechnen unseren multiplen Vergleich.
+6)  Wir übergeben alle Einzelteile an die Funktion `glht()` aus dem R Paket `{multcomp}` und rechnen unseren multiplen Vergleich.
 
 Na dann mal auf. Gehen wir die Schritte einmal nacheinander durch und schauen, was wir da so alles gemacht haben. Nochmal Achtung, hier musst du wirklich schauen, ob sich der Aufwand lohnt. Ich zeige es hier einmal, den in bestimmten Fällen kann sich eine andere Implementierung für die Schätzung der Varianz durchaus lohnen. Denn aus Erfahrung weiß ich, dass der Standardvarianzschätzer nicht immer der beste Schätzer sein muss [@kruppa2021comparison].
 
@@ -284,8 +282,8 @@ Wir speichern einmal die Koeffizienten in dem Objekt `beta_tbl`. Die brauchen wi
 #| message: false
 #| warning: false
 
-beta_tbl <- coef(geeglm_fit) %>% 
-  enframe
+beta_tbl <- coef(geeglm_fit) |> 
+  enframe()
 ```
 
 Um die Varianz der Koeffizienten zu schätzen nutzen wir jetzt *eine* der Implementierungen in `geesmv`. Ich habe mich etwas zufällig für die Implementierung `GEE.var.lz()` entschieden. Diese Funktion liefer *nur* die Varianz der Koeffizienten. Leider aber nicht auch gleich noch die Koeffizienten dazu... deshalb der blöde doppelte Schritt. Wir speichern dann die Varianzen in dem Objekt `vbeta_tbl`.
@@ -300,8 +298,8 @@ gee_lz_vcov <- GEE.var.lz(weight_gain ~ 0 + treatment + treatment * time,
                           family = gaussian,
                           corstr = "independence") 
 
-vbeta_tbl <- pluck(gee_lz_vcov, "cov.beta") %>% 
-  enframe
+vbeta_tbl <- pluck(gee_lz_vcov, "cov.beta") |> 
+  enframe()
 ```
 
 Jetzt verbinden wir noch die beiden Objekte `beta_tbl` und `vbeta_tbl` über die Funktion `left_join()`. Wir können mit der Funktion zwei Datensätze nach einer gemeinsamen Spalte zusammenführen. Dann müssen zwar die Einträge in der Spalte gleich sein, aber die Sortierung kann anders sein. Dann müssen wir noch die Zeilen rausfiltern in denen die Behandlungsmittelwerte sind. Am Ende benennen wir die Spalten noch sauber nach dem was die Spalten sind.
@@ -310,8 +308,8 @@ Jetzt verbinden wir noch die beiden Objekte `beta_tbl` und `vbeta_tbl` über die
 #| message: false
 #| warning: false
 
-coef_tbl <- left_join(beta_tbl, vbeta_tbl, by = "name") %>% 
-  filter(str_detect(name, "time", negate = TRUE)) %>% 
+coef_tbl <- left_join(beta_tbl, vbeta_tbl, by = "name") |> 
+  filter(str_detect(name, "time", negate = TRUE)) |> 
   set_names(c("parameter", "beta", "vbeta"))
 
 ```
@@ -323,13 +321,13 @@ Das war jetzt ein Angang. Leider geht es nicht so einfach weiter. Wir müssen un
 #| warning: false
 
 contrMat_n <- setNames(rep(1, length(coef_tbl$parameter)),
-                       coef_tbl$parameter) %>% 
+                       coef_tbl$parameter) |> 
   contrMat(type = "Tukey")
 
 contrMat_n 
 ```
 
-Nun können wir alles zusammenbringen. Wir nutzen die Helferfunktion `parm()` aus dem R Paket `multcomp` um diei Koeffizienten richtig in `glht()` zuzuordnen. Dann noch der Kontrast mit rein in die Funktion und wir können unseren Vergleich rechnen. Leider fehlen noch die Freiheitsgrade, die wären dann in unserem Fall null, das ist aber Unsinn. Wir ergänzen die Freiheitsgrade aus unserem ursprünglichen Modell für die Koeffizienten.
+Nun können wir alles zusammenbringen. Wir nutzen die Helferfunktion `parm()` aus dem R Paket `{multcomp}` um diei Koeffizienten richtig in `glht()` zuzuordnen. Dann noch der Kontrast mit rein in die Funktion und wir können unseren Vergleich rechnen. Leider fehlen noch die Freiheitsgrade, die wären dann in unserem Fall null, das ist aber Unsinn. Wir ergänzen die Freiheitsgrade aus unserem ursprünglichen Modell für die Koeffizienten.
 
 ```{r}
 #| message: false
@@ -347,8 +345,8 @@ Jetzt können wir uns die $p$-Werte und die 95% Konfidenzintervalle wiedergeben 
 #| message: false
 #| warning: false
 
-mult_gee %>% 
-  tidy(conf.int = TRUE) %>% 
+mult_gee |> 
+  tidy(conf.int = TRUE) |> 
   select(contrast, estimate, conf.low, conf.high, adj.p.value)
 ```
 

@@ -8,8 +8,6 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 > *"The amateur does not know what to do. The master knows what not to do." --- James Clear*
 
-{{< video https://youtu.be/CQQEXiYASUk >}}
-
 Was machen wir wenn wir ein Outcome haben mit mehr als zwei Kategorien. Wenn wir nur zwei Kategorien hätten, dann würden wir eine logistische Regression rechnen. Wenn wir mehr als zwei Kategorien haben, dann sind wir in dem Fall der multinomialen / ordinalen logistischen Regression. Wir rechnen eine multinomialen Regression, wenn wir keine Ordnung in den Kategorien in dem Outcome haben. Wenn wir eine Ordnung vorliegen haben, dann nutzen wir die ordinale Regression. Wir werden uns erstmal eine ordinale Regression anschauen mit nur drei geordneten Stufen. Dann schauen wir uns einmal wie wir eine ordinale Regression auf Boniturnoten in der Likert-Skala rechnen. Wir machen das getrennt, denn wir sind bei wenigen geordneten Kategorien meistens noch am Effekt zwischen den Kategorien interessiert. Im Gegensatz wollen wir bei einem Outcome mit Boniturnoten einen Gruppenvergleich rechnen. Dann interessiert uns der Unterschied und die Effekte zwischen den Boniturnoten nicht. Deshalb trennen wir das hier etwas auf.
 
 Im zweiten Teil wollen wir uns dann noch eine multinominale Regression auf ungeordneten Kategorien eines Outcomes anschauen. Korrekterweise tun wir nur so, als wäre unser vorher geordnetes Outcome dann eben ungeordnet. Das macht dann aber bei deiner Anwendung dann keinen großen Unterschied. Als eine Alternative zur multinationalen Regression stelle ich dann noch die logistische Regression vor. Wir können nämlich einfach unsere Daten nach dem Outcome jeweils in kleinere Datensätze mit nur jeweils zwei der Kategorien aufspalten. Das ist zwar nicht schön, aber auch eine Möglichkeit mit einem Problem umzugehen.
@@ -43,10 +41,9 @@ pacman::p_load(tidyverse, magrittr, broom,
                ordinal, janitor, MASS, nnet, flextable,
                emmeans, multcomp, ordinal, see, scales,
                janitor, conflicted)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
-conflict_prefer("extract", "magrittr")
+conflicts_prefer(dplyr::select)
+conflicts_prefer(dplyr::filter)
+conflicts_prefer(magrittr::extract)
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
@@ -56,9 +53,9 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 Im Folgenden wollen wir uns die Daten von den infizierten Ferkeln noch einmal anschauen. Wir nehmen als Outcome die Spalte `frailty` und damit die Gebrechlichkeit der Ferkel. Die Spalte ordnen wir einmal nach *robust*, *pre-frail* und *frail*. Wobei *robust* ein gesundes Ferkel beschreibt und *frail* ein gebrechliches Ferkel. Damit wir später die Richtung des Effekts richtig interpretieren können, müssen wir von *gut* nach *schlecht* sortieren. Das brauchen wir nicht, wenn wir Boniturnoten haben, dazu mehr in einem eigenen Abschnitt. Wir bauen uns dann noch einen Faktor mit ebenfalls der Spalte `frailty` in der wir so tun, als gebe es diese Ordnung nicht. Wir werden dann die ordinale Regression mit dem Outcome `frailty_ord` rechnen und die multinominale Regression dann mit dem Outcome `frailty_fac` durchführen.
 
 ```{r}
-pig_tbl <- read_excel("data/infected_pigs.xlsx") %>%
+pig_tbl <- read_excel("data/infected_pigs.xlsx") |>
   mutate(frailty_ord = ordered(frailty, levels = c("robust", "pre-frail", "frail")),
-         frailty_fac = as_factor(frailty)) %>% 
+         frailty_fac = as_factor(frailty)) |> 
   select(-infected)
 
 ```
@@ -73,13 +70,13 @@ Schauen wir uns nochmal einen Ausschnitt der Daten in der @tbl-multinom-pigs an.
 #| tbl-cap: Auszug aus dem Daten zu den kranken Ferkeln.
 #| column: page
 
-raw_pig_tbl <- pig_tbl %>% 
+raw_pig_tbl <- pig_tbl |> 
   mutate(frailty_ord = as.character(frailty_ord),
          frailty_fac = as.character(frailty_fac))
 
 rbind(head(raw_pig_tbl),
       rep("...", times = ncol(raw_pig_tbl)),
-      tail(raw_pig_tbl)) %>% 
+      tail(raw_pig_tbl)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -87,7 +84,7 @@ Das wären dann die Daten, die wir für unsere Modelle dann brauchen. Schauen wi
 
 ## Ordinale logistische Regression {#sec-ordinal}
 
-Es gibt sicherlich einiges an Paketen in R um eine ordinale Regression durchzuführen. Ich nutze gerne die Funktion `polr()` aus dem R Paket `{MASS}`. Daneben gibt es auch noch das R Paket `{ordina}l` mit der Funktion `clm()`, die wir dann noch im Anschluss besprechen werden. Ich nutze jetzt erstmal die Funktion `polr()`, da wir hier noch eine externe Referenz haben, die uns noch detailliertere Informationen liefern kann.
+Es gibt sicherlich einiges an Paketen in R um eine ordinale Regression durchzuführen. Ich nutze gerne die Funktion `polr()` aus dem R Paket `{MASS}`. Daneben gibt es auch noch das R Paket `{ordinal}` mit der Funktion `clm()`, die wir dann noch im Anschluss besprechen werden. Ich nutze jetzt erstmal die Funktion `polr()`, da wir hier noch eine externe Referenz haben, die uns noch detailliertere Informationen liefern kann.
 
 ::: column-margin
 Ich verweise gerne hier auf das tolle Tutorium [Ordinal Logistic Regression \| R Data Analysis Examples](https://stats.oarc.ucla.edu/r/dae/ordinal-logistic-regression/). Hier erfährst du noch mehr über die Analyse der ordinalen logistischen Regression.
@@ -110,7 +107,7 @@ Schauen wir uns einmal die Ausgabe des Modellfits der ordinalen Regression mit d
 ```{r}
 #| message: false
 #| warning: false
-ologit_fit %>% summary()
+ologit_fit |> summary()
 ```
 
 Unsere Ausgabe teilt sich in zwei Teile auf. In dem oberen Teil sehen wir die Koeffizienten des Modells zusammen mit dem Fehler und der Teststatistik. Was wir nicht sehen, ist ein $p$-Wert. Die Funktion rechnet uns keinen Signifikanztest aus. Das können wir aber gleich selber machen. In dem Abschnitt `Intercepts` finden wir die Werte für die Gruppeneinteilung auf der *link*-Funktion wieder. Wir transformieren ja unsere drei Outcomekategorien in einen kontinuierliche Zahlenzusammenhang. Trotzdem müssen ja die drei Gruppen auch wieder auftauchen. In dem Abschnitt `Intercepts` finden wir die Grenzen für die drei Gruppen auf der *link*-Funktion.
@@ -125,10 +122,10 @@ Berechnen wir jetzt einmal die $p$-Werte per Hand. Dafür brauchen wir die absol
 #| message: false
 #| warning: false
 
-coef_tbl <- summary(ologit_fit) %>% 
-  coef %>% 
-  as_tibble(rownames = "term") %>% 
-  clean_names() %>% 
+coef_tbl <- summary(ologit_fit) |> 
+  coef() |> 
+  as_tibble(rownames = "term") |> 
+  clean_names() |> 
   mutate(t_value = abs(t_value))
 
 coef_tbl
@@ -142,9 +139,9 @@ Im Folgenden setzte ich die Freiheitsgrade `df = 3` dammit wir was sehen. Bei so
 #| message: false
 #| warning: false
 
-coef_tbl %>% 
+coef_tbl |> 
   mutate(p_n = pnorm(t_value, lower.tail = FALSE) * 2,
-         p_t = pt(t_value, lower.tail = FALSE, df = 3) * 2) %>% 
+         p_t = pt(t_value, lower.tail = FALSE, df = 3) * 2) |> 
   mutate(across(where(is.numeric), round, 3))
 ```
 
@@ -153,8 +150,8 @@ Damit haben wir einmal händisch uns die $p$-Werte ausgerechnet. Jetzt könnte m
 ```{r}
 #| message: false
 #| warning: false
-ologit_fit %>% 
-  tidy(conf.int = TRUE, exponentiate = TRUE) %>% 
+ologit_fit |> 
+  tidy(conf.int = TRUE, exponentiate = TRUE) |> 
   select(-coef.type)
 ```
 
@@ -164,7 +161,7 @@ Um all dieses Berechnen zu umgehen, können wir dann auch die Funktion `model_pa
 #| message: false
 #| warning: false
 
-ologit_fit %>% 
+ologit_fit |> 
   model_parameters() 
 ```
 
@@ -176,8 +173,8 @@ In @tbl-regression-ordinal sehen wir nochmal die Ergebnisse der ordinalen Regres
 #| label: tbl-regression-ordinal
 #| tbl-cap: "Tabelle der Ergebnisse der ordinalen Regression."
 
-ologit_fit %>% 
-  tbl_regression(exponentiate = TRUE) %>% 
+ologit_fit |> 
+  tbl_regression(exponentiate = TRUE) |> 
   as_flex_table()
 ```
 
@@ -198,15 +195,15 @@ n_grp <- 20
 grade_tbl <- tibble(trt = gl(3, n_grp, labels = c("cat", "dog", "fox")),
                     likert = c(sample(1:5, size = n_grp, replace = TRUE, prob = c(0.2, 0.5, 0.2, 0.1, 0.0)),
                                sample(1:5, size = n_grp, replace = TRUE, prob = c(0.1, 0.2, 0.5, 0.2, 0.0)),
-                               sample(1:5, size = n_grp, replace = TRUE, prob = c(0.0, 0.0, 0.2, 0.5, 0.3)))) %>% 
+                               sample(1:5, size = n_grp, replace = TRUE, prob = c(0.0, 0.0, 0.2, 0.5, 0.3)))) |> 
   mutate(likert_ord = ordered(likert))
 ```
 
 Dann berechnen wir einmal die mittleren Boniturnoten für die drei Tierarten. Wir sehen, dass wir ziemlich gerade Durchschnittsnoten haben.
 
 ```{r}
-grade_tbl %>% 
-  group_by(trt) %>% 
+grade_tbl |> 
+  group_by(trt) |> 
   summarise(mean(likert))
 ```
 
@@ -226,14 +223,14 @@ anova(clm_fit)
 Dann können wir auch schon den multipen Gruppenvergleich rechnen. Da wir die mittleren Boniturnoten wiedergegeben haben wollen, nutzen wir die Option `mode = "mean.class"`. Sonst würden wir andere Werte erhalten, die dann wirklich schwer zu interpretieren sind. Wie du siehst, sind es die gleichen Werte die wir auch oben für unsere Mittelwerte über die Boniturnoten berechnet haben.
 
 ```{r}
-emm_obj <- clm_fit %>% 
+emm_obj <- clm_fit |> 
   emmeans(~ trt, mode = "mean.class")
 ```
 
 Dann können wir uns auch schon das *compact letter display* wiedergeben lassen. Auch hier gibt es keine Überraschung, die drei Tierarten unterscheiden sich. Mit der Ausgabe könnten wir dann auch gleich ein Säulendigramm erstellen, aber das zeige ich gleich mal in dem zweiten Beispiel für zwei Faktoren und der Bonitur von Weizen.
 
 ```{r}
-emm_obj %>% 
+emm_obj |> 
   cld(Letters = letters)
 ```
 
@@ -249,8 +246,8 @@ grade_tbl <- tibble(block = rep(c("I", "II", "III"), each = 3),
                     B = c(7, 9, 8, 9, 7, 8, 9, 6, 7),
                     C = c(6, 5, 5, 7, 5, 6, 4, 7, 6),
                     D = c(2, 3, 1, 2, 1, 1, 2, 2, 1),
-                    E = c(4, 3, 7, 5, 6, 4, 5, 7, 5)) %>%
-  gather(key = variety, value = grade, A:E) %>% 
+                    E = c(4, 3, 7, 5, 6, 4, 5, 7, 5)) |>
+  gather(key = variety, value = grade, A:E) |> 
   mutate(grade_ord = ordered(grade))
 
 ```
@@ -258,7 +255,7 @@ grade_tbl <- tibble(block = rep(c("I", "II", "III"), each = 3),
 Wir schauen uns nochmal den Datensatz an und sehen, dass wir einmal die Spalte `grade` als numerische Spalte vorliegen haben und einmal als geordneten Faktor. Wir brauchen die numerische Spalte um die Daten besser in `ggplot()` darstellen zu können.
 
 ```{r}
-grade_tbl %>% head(4)
+grade_tbl |> head(4)
 ```
 
 In @fig-clm-dot sehen wir einmal die Daten als Dotplot dargestellt. Auf der x-Achse sind die Weizensorten und auf der y-Achse die Boniturnoten. Ich habe noch die zusätzlichen Linien für jede einzelne Note mit eingezeichnet.
@@ -303,9 +300,9 @@ Jetzt nutzen wir wieder den Modellfit für unseren Gruppenvergleich in `{emmeans
 ```{r}
 #| message: false
 #| warning: false
-emm_obj <- clm_fit %>% 
-  emmeans(~ variety * block, mode = "mean.class") %>% 
-  cld(Letters = letters) %>% 
+emm_obj <- clm_fit |> 
+  emmeans(~ variety * block, mode = "mean.class") |> 
+  cld(Letters = letters) |> 
   arrange(variety)
 emm_obj
 ```
@@ -322,8 +319,8 @@ In der @fig-log-mod-ordinal-weizen siehst du dann einmal die Ausgabe des multipe
 #| fig-width: 6
 #| fig-cap: "Säulendigramm der mittleren Boniturnote des Weizen aus einer ordinalen Regression. Das *compact letter display* wird dann in `{emmeans}` generiert. Teilweise kommt das *compact letter display* an seine visuellen Grenzen. Hier wäre es dann schon fast sinnvoll über die Blöcke zu mitteln und daher den Block aus dem Modell zu nehmen."
 
-emm_obj %>% 
-  as_tibble() %>% 
+emm_obj |> 
+  as_tibble() |> 
   ggplot(aes(x = variety, y = mean.class, fill = block)) +
   theme_minimal() + 
   labs(y = "Mittlere Boniturnote", x = "Sorte",
@@ -344,22 +341,22 @@ emm_obj %>%
 Im folgenden Beispiel schauen wir uns nochmal ein praktische Auswertung von einem agrarwissenschaftlichen Beispiel mit Brokkoli an. Wir haben uns in diesem Experiment verschiedene Dosen `fert_amount` von einem Dünger aufgebracht sowie verschiedene Zeitpunkte der Düngung `fert_time` berücksichtigt. Ziel ist es die Boniturnoten für den Stamm von Brokkoli miteinander zu vergleichen. Auch hier haben wir einige Besonderheiten in den Daten, da nicht jede Faktorkombination vorliegt. Wir ignorieren aber diese Probleme und rechnen einfach stumpf unseren Gruppenvergleich. Wir müssen aber ein paar Anpassungen durchführen. Unsere Noten müssen ein geordneter Faktor sein, daher nutzen wir die Funktion `ordered`. Darüber hinaus schmeißen wir die Düngerzeit `early` aus den Daten, da wir zu dem Zeitpunkt keine hohlen Stämme bonitiert haben.
 
 ```{r}
-broc_tbl <- read_excel("data/broccoli_weight.xlsx") %>% 
+broc_tbl <- read_excel("data/broccoli_weight.xlsx") |> 
   mutate(fert_time = factor(fert_time, levels = c("none", "early", "late")),
          fert_amount = as_factor(fert_amount),
          block = as_factor(block),
          stem_hollowness_num = stem_hollowness,
-         stem_hollowness = ordered(stem_hollowness)) %>%
-  filter(fert_time == "early") %>% 
-  select(fert_time, fert_amount, block, stem_hollowness, stem_hollowness_num) %>% 
-  droplevels() %>% 
+         stem_hollowness = ordered(stem_hollowness)) |>
+  filter(fert_time == "early") |> 
+  select(fert_time, fert_amount, block, stem_hollowness, stem_hollowness_num) |> 
+  droplevels() |> 
   na.omit()
 ```
 
 Im Folgenden einmal die Tabelle mit `tabyl` aus dem R Paket `{janitor}`. Mehr dazu auf der Hilfeseite zu [tabyls: a tidy, fully-featured approach to counting things](https://cran.r-project.org/web/packages/janitor/vignettes/tabyls.html). Wir sehen, dass wir kaum schlechte Noten erhalten. Fast alle Brokkoliköpfe haben eine 1 erhalten, was für intakte Köpfe ohne einen hohlen Stamm spricht.
 
 ```{r}
-broc_tbl %>% 
+broc_tbl |> 
   tabyl(stem_hollowness, fert_amount) 
 ```
 
@@ -398,8 +395,8 @@ Jetzt rechnen wir in den beiden folgenden Tabs einmal die ANOVA und dann auch de
 Wir rechnen hier einmal die ANOVA und nutzen den $\mathcal{X}^2$-Test für die Ermittelung der p-Werte. Wir müssen hier einen Test auswählen, da per Standardeinstellung kein Test gerechnet wird. Wir machen dann die Ausgabe nochmal schöner und fertig sind wir.
 
 ```{r}
-clm_fit %>% 
-  anova() %>% 
+clm_fit |> 
+  anova() |> 
   model_parameters()
 ```
 
@@ -410,8 +407,8 @@ Wir sehen, dass der die Menge des Düngers signifikant ist. Wir haben nicht mehr
 Im Folgenden rechnen wir einmal für den Faktor `fert_amount` einen Gruppenvergleich. Wir setzen hier die Option `mean.class` damit wir dann die mittleren Noten wiedergegeben bekommen. Mit den mittleren Noten können wir dann ein Säulendiagramm erstellen. Dann adjustieren wir noch nach Bonferroni und sind fertig.
 
 ```{r}
-emm_obj <- clm_fit %>% 
-  emmeans(~ fert_amount, mode = "mean.class") %>%
+emm_obj <- clm_fit |> 
+  emmeans(~ fert_amount, mode = "mean.class") |>
   cld(Letters = letters, adjust = "bonferroni")
 emm_obj
 ```
@@ -421,8 +418,8 @@ Das `emm_obj` Objekt werden wir dann gleich einmal in `{ggplot}` visualisieren. 
 Gerade in diesem Beispiel bietet es sich an, dass wir explizit *mindestens* einen Noten*punkt*unterschied vorliegen haben wollen, damit wir von einem relevanten Unterschied sprechen können. Die Funktion `cld()` erlaubt es ein $\Delta$ zu definieren, dass mindestens überschritten sein muss, damit wir einen Unterschied feststellen. Alles was in dem Bereich $\pm\Delta$ liegt, gilt dann als gleich auch wenn es sonst signifikant wäre. Deshalb setzen wir die Option `delta = 1` um sicherzustellen, dass nur *relevante* Unterschiede auch als solche angezeigt werden. Daher haben wir nach der Anpassung auch keine signifikanten Unterschiede mehr. Alle Gruppen sind gleich.
 
 ```{r}
-clm_fit %>% 
-  emmeans(~ fert_amount, mode = "mean.class") %>%
+clm_fit |> 
+  emmeans(~ fert_amount, mode = "mean.class") |>
   cld(Letters = letters, adjust = "bonferroni", delta = 1)
 ```
 :::
@@ -443,8 +440,8 @@ In der @fig-log-mod-ordinal-broc siehst du das Ergebnis der Auswertung in einem 
 #|   - "Volle Boniturskala."
 #| layout-nrow: 1
 
-emm_obj %>% 
-  as_tibble() %>% 
+emm_obj |> 
+  as_tibble() |> 
   ggplot(aes(x = fert_amount, y = mean.class, fill = fert_amount)) +
   theme_minimal() + 
   labs(y = "Mittlere Boniturnote", x = "Düngemenge [mg/l]",
@@ -457,8 +454,8 @@ emm_obj %>%
   theme(legend.position = "none") +
   scale_y_continuous(breaks = c(0, 0.5, 1.0, 1.5, 2.0), limits = c(0, 2))
 
-emm_obj %>% 
-  as_tibble() %>% 
+emm_obj |> 
+  as_tibble() |> 
   ggplot(aes(x = fert_amount, y = mean.class, fill = fert_amount)) +
   theme_minimal() + 
   labs(y = "Mittlere Boniturnote", x = "Düngemenge [mg/l]",
@@ -486,11 +483,11 @@ Um eine Referenz in dem Outcome zu definieren nutzen wir die Funktion `relevel()
 ```{r}
 #| message: false
 #| warning: false
-pig_tbl <- pig_tbl %>% 
+pig_tbl <- pig_tbl |> 
   mutate(frailty_fac = relevel(frailty_fac, ref = "frail"))
 ```
 
-Nachdem wir unsere Referenz definiert haben, können wir wieder recht einfach mit der Funktion `multinom()` aus dem Paket `nnet` die multinominalen Regression rechnen. Ich mache keinen Hehl daraus. Ich mag die Funktion nicht, da die Ausgabe der Funktion sehr unsortiert ist und uns nicht gerade die Arbeit erleichtert. Auch schweigt die Funktion nicht, sondern muss immer eine Ausgabe wiedergeben. Finde ich sehr unschön.
+Nachdem wir unsere Referenz definiert haben, können wir wieder recht einfach mit der Funktion `multinom()` aus dem Paket `{nnet}` die multinominalen Regression rechnen. Ich mache keinen Hehl daraus. Ich mag die Funktion nicht, da die Ausgabe der Funktion sehr unsortiert ist und uns nicht gerade die Arbeit erleichtert. Auch schweigt die Funktion nicht, sondern muss immer eine Ausgabe wiedergeben. Finde ich sehr unschön.
 
 ```{r}
 #| message: false
@@ -514,7 +511,7 @@ Jetzt müssten wir diese $pp$-Werte aus der Matrix noch mit unseren Koeffiziente
 ```{r}
 #| message: false
 #| warning: false
-multinom_fit %>% model_parameters(exponentiate = TRUE)
+multinom_fit |> model_parameters(exponentiate = TRUE)
 ```
 
 Was sehen wir? Zuerst haben wir etwas Glück. Den unsere Referenzlevel macht dann doch Sinn. Wir vergleichen ja das Outcomelevel `robust` zu `frail` und das Outcomelevel `pre-frail` zu `frail`. Dann haben wir noch das Glück, dass durch unsere Ordnung dann auch `frail` das schlechtere Outcome ist, so dass wir die $OR$ als Risiko oder als protektiv interpretieren können. Nehmen wir als Beispiel einmal die Variable `crp`. Der CRP Wert höht das Risiko für `frail`. Das macht schonmal so Sinn. Und zum anderen ist der Effekt bei dem Vergleich von `pre-frail` zu `frail` mit $1.16$ nicht so große wie bei `robust` zu `frail` mit $1.26$. Das macht auch Sinn. Deshalb passt es hier einigermaßen.
@@ -527,8 +524,8 @@ In @tbl-tbl-regression-multinom sehen wir nochmal die Ausgabe von einer multinom
 #| label: tbl-tbl-regression-multinom
 #| tbl-cap: "Tabelle der Ergebnisse der multinominalen Regression."
 
-multinom_fit %>% 
-  tbl_regression(exponentiate = TRUE) %>% 
+multinom_fit |> 
+  tbl_regression(exponentiate = TRUE) |> 
   as_flex_table()
 ```
 
@@ -549,15 +546,15 @@ Schauen wir uns erstmal an, wie sich die Daten über die drei Kategorien in unse
 ```{r}
 #| message: false
 #| warning: false
-pig_tbl$frailty_fac %>% tabyl
+pig_tbl$frailty_fac |> tabyl()
 ```
 
 Wir haben nicht so viele Beobachtungen in der Kategorie `frail`. Wir könnten also auch die beiden Faktorlevel `pre-frail` und `frail` zusammenlegen. Das R Paket `{forcats}` liefert sehr viele Funktion, die dir helfen Faktoren zu kodieren und zu ändern.
 
 ```{r}
-pig_tbl$frailty_fac %>% 
-  fct_recode(frail_pre_frail = "frail", frail_pre_frail = "pre-frail") %>% 
-  tabyl
+pig_tbl$frailty_fac |> 
+  fct_recode(frail_pre_frail = "frail", frail_pre_frail = "pre-frail") |> 
+  tabyl()
 ```
 
 Das ist jetzt aber nur eine Demonstration für die Zusammenlegung. Wir wollen jetzt trotzdem unsere drei logistischen Regressionen rechnen. Warum drei? Wir haben ja drei Level in unserem Outcome und wir werden jetzt uns drei Datensätze so bauen, dass in jdem Datensatz unser Outcome immer nur zwei Level hat. Die einzelnen Datensätze speichern wir dann in einer Liste.
@@ -577,7 +574,7 @@ Wir können das auch fancy. Und das demonstriere ich dann mal hier. Wenn wir die
 #| message: false
 #| warning: false
 
-pig_fancy_lst <- combn(c("robust", "pre-frail", "frail"), 2, simplify = FALSE) %>% 
+pig_fancy_lst <- combn(c("robust", "pre-frail", "frail"), 2, simplify = FALSE) |> 
   map(~filter(pig_tbl, frailty_fac %in% .x)) 
 
 ```
@@ -587,11 +584,11 @@ Egal wie du auf die Liste gekommen bist, wir müssen noch die überflüssigen Le
 ```{r}
 #| message: false
 #| warning: false
-pig_lst %>% 
-  map(~mutate(.x, frailty_fac = fct_drop(frailty_fac))) %>% 
+pig_lst |> 
+  map(~mutate(.x, frailty_fac = fct_drop(frailty_fac))) |> 
   map(~glm(frailty_fac ~ age + sex + location + activity + crp + bloodpressure + weight + creatinin, 
-           data = .x, family = binomial)) %>% 
-  map(model_parameters, exponentiate = TRUE) %>% 
+           data = .x, family = binomial)) |> 
+  map(model_parameters, exponentiate = TRUE) |> 
   map(extract, -1, )
 ```
 

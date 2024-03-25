@@ -110,8 +110,8 @@ pacman::p_load(tidyverse, magrittr, broom, see, simstudy,
                multilevelmod, agridat, desplot, modelsummary,
                ggbeeswarm, ordinal, janitor, RVAideMemoire, 
                conflicted)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
+conflicts_prefer(dplyr::select)
+conflicts_prefer(dplyr::filter)
 conflicts_prefer(lme4::lmer)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
@@ -170,20 +170,20 @@ Dann können wir uns schon das Grid für die Daten erstellen. Dabei müssen wir 
 
 ```{r}
 school_grid_tbl <- tibble(s_id = 1:n_school,
-                          s_0 = rnorm(n_school, 0, sd_school)) %>% 
+                          s_0 = rnorm(n_school, 0, sd_school)) |> 
   add_column(trt = rep(1:n_trt, n_trt),
-             t_eff = rep(eff_trt, n_trt)) %>% 
-  expand_grid(c_per_s = 1:n_class_per_school) %>%
+             t_eff = rep(eff_trt, n_trt)) |> 
+  expand_grid(c_per_s = 1:n_class_per_school) |>
   mutate(c_id = 1:n_class,
-         c_0 = rnorm(n_class, 0, sd_class)) %>% 
+         c_0 = rnorm(n_class, 0, sd_class)) |> 
   expand_grid(reps = 1:n_reps)
 ```
 
 Jetzt können wir unseren Testscore berechnen, der sich aus den einzelnen Effekten der Schule $s_0$, der Klasse $c_0$ sowie dem Lehrformat $t_{eff}$ ergibt, berechnen. Am Ende addieren wir auf jeden Wert noch einen Fehler und runden die Werte des Tests auf zwei Stellen. Dann bauen wir uns noch die Faktorlevel für die Schulen, Klassen und dem Lehrformat.
 
 ```{r}
-school_tbl <- school_grid_tbl %>% 
-  arrange(trt) %>% 
+school_tbl <- school_grid_tbl |> 
+  arrange(trt) |> 
   mutate(test = round(50 + s_0 + c_0 + t_eff + rnorm(n(), 0, sd_error), 2),
          s_id = factor(s_id, labels = c("Springfield School", "Jacksonville High", "Franklin Country", 
                                         "Clinton Christian", "Arlington Academy", "Georgetown High", 
@@ -196,8 +196,8 @@ school_tbl <- school_grid_tbl %>%
 Dann schreiben wir die Daten noch in eine Exceldatei `school_testing.xlsx` und können diese dann im weiteren Verlauf der Analyse nutzen. Auch hier passen wir etwas die Namen der Spalten an, damit die Spalten etwas mehr Aussagekraft haben.
 
 ```{r}
-school_tbl %>% 
-  select(school_id = s_id, class_in_school_id = c_per_s, class_id = c_id, trt, test) %>% 
+school_tbl |> 
+  select(school_id = s_id, class_in_school_id = c_per_s, class_id = c_id, trt, test) |> 
   write_xlsx("data/school_testing.xlsx")
 ```
 :::
@@ -205,7 +205,7 @@ school_tbl %>%
 Die Schuldaten liegen dann in dem Datensatz `school_testing.xlsx` vor. Wir müssen hier dann nur noch die Faktoren bilden, damit wir dann auch die Visualisierungen sauber hinkriegen.
 
 ```{r}
-school_tbl <- read_excel("data/school_testing.xlsx") %>% 
+school_tbl <- read_excel("data/school_testing.xlsx") |> 
   mutate(school_id = as_factor(school_id),
          class_in_school_id = as_factor(class_in_school_id),
          class_id = as_factor(class_id),
@@ -225,7 +225,7 @@ school_raw_tbl <- read_excel("data/school_testing.xlsx")
 
 rbind(head(school_raw_tbl, n = 4),
       rep("...", times = ncol(school_raw_tbl)),
-      tail(school_raw_tbl, n = 4)) %>% 
+      tail(school_raw_tbl, n = 4)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -272,13 +272,13 @@ Ich erweitere noch den Datensatz um die einzelnen Pflanzenwerte indem ich für j
 
 ```{r}
 data(yates.oats)
-oats_tbl <- yates.oats %>% 
-  as_tibble() %>% 
+oats_tbl <- yates.oats |> 
+  as_tibble() |> 
   mutate(nitro = as_factor(nitro),
          row = as_factor(row),
-         col = as_factor(col)) %>% 
-  expand_grid(plant_id = 1:12) %>% 
-  mutate(plant_yield = round(rnorm(n(), yield, 2), 2)) %>% 
+         col = as_factor(col)) |> 
+  expand_grid(plant_id = 1:12) |> 
+  mutate(plant_yield = round(rnorm(n(), yield, 2), 2)) |> 
   select(row, col, block, nitro, gen, plant_id, plant_yield)
 ```
 
@@ -291,17 +291,17 @@ In der @tbl-yates siehst du nochmal einen Ausschnitt aus den Daten. Wir fokussie
 #| label: tbl-yates
 #| tbl-cap: "Haferdatensatz im Split plot Design für zwei Behandlungsfaktoren `nitro` und `gen` sowie drei Positionsfaktoren `row`, `col` und `block`. Wir schauen uns hier nur das Outcome Haferertrag `yield` an."
 
-yates_raw_tbl <- oats_tbl %>% 
+yates_raw_tbl <- oats_tbl |> 
   mutate(gen = as.character(gen),
          block = as.character(block),
          nitro = as.character(nitro),
          row = as.character(row),
-         col = as.character(col)) %>% 
+         col = as.character(col)) |> 
   as_tibble()
 
 rbind(head(yates_raw_tbl, n = 4),
       rep("...", times = ncol(yates_raw_tbl)),
-      tail(yates_raw_tbl, n = 4)) %>% 
+      tail(yates_raw_tbl, n = 4)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -324,12 +324,12 @@ Im Folgenden habe ich einmal die Daten geladen und die Mittelwerte der Parzellen
 
 ```{r}
 data(cochran.wireworms)
-wireworms_tbl <- cochran.wireworms %>% 
-  as_tibble() %>% 
+wireworms_tbl <- cochran.wireworms |> 
+  as_tibble() |> 
   mutate(trt = as_factor(trt),
          col = as_factor(col),
-         row = as_factor(row)) %>% 
-  expand_grid(site_id = 1:10) %>% 
+         row = as_factor(row)) |> 
+  expand_grid(site_id = 1:10) |> 
   mutate(count_worms = rpois(n(), worms))
 ```
 
@@ -342,15 +342,15 @@ Du erhälst dann folgenden Auszug in der @tbl-worms von den Wurmdaten. Hier sind
 #| label: tbl-worms
 #| tbl-cap: "Auszug aus den Wurmdaten in einem *latin square design* für fünf verschiedene Insektizide."
 
-worm_raw_tbl <- wireworms_tbl %>% 
+worm_raw_tbl <- wireworms_tbl |> 
   mutate(trt = as.character(trt),
          col = as.character(col),
-         row = as.character(row)) %>% 
+         row = as.character(row)) |> 
   as_tibble()
 
 rbind(head(worm_raw_tbl, n = 4),
       rep("...", times = ncol(worm_raw_tbl)),
-      tail(worm_raw_tbl, n = 4)) %>% 
+      tail(worm_raw_tbl, n = 4)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -555,8 +555,8 @@ Jetzt wollen wir nochmal schauen, ob wir auch eine Interaktion zwischen der Stic
 ```{r}
 #| message: false
 #| warning: false
-stat_oats_tbl <- oats_tbl %>% 
-  group_by(nitro, gen, block) %>% 
+stat_oats_tbl <- oats_tbl |> 
+  group_by(nitro, gen, block) |> 
   summarise(mean = mean(plant_yield))
 ```
 
@@ -687,8 +687,8 @@ Manchmal können wir das auch mit den gemischten Modellen einfach lassen und üb
 ```{r}
 #| warning: false
 #| message: false
-mean_school_tbl <- school_tbl %>% 
-  group_by(school_id, trt, class_id) %>% 
+mean_school_tbl <- school_tbl |> 
+  group_by(school_id, trt, class_id) |> 
   summarise(mean_test = mean(test))
 ```
 
@@ -722,7 +722,7 @@ Wie gut hat nun das Modell geklappt? Fangen wir einmal mit einem $R^2$ an. Ähnl
 ```{r}
 #| warning: false
 #| message: false
-lmer_2fac_fit %>% icc()
+lmer_2fac_fit |> icc()
 ```
 
 Das sieht gar nicht schlecht aus für einen ersten Versuch. Mit einem ICC von $0.88$ sind wir schon ziemlich weit oben an der Grenze. Jetzt müssen wir noch schauen, wie die anderen Maßzahlen aussehen. Eventuell reicht dieses einfache Modell schon aus um unsere Daten zu modellieren und zu erklären. Wir nutzen hier die Funktion [`model_performance()` aus dem R Paket `{performance}`](https://easystats.github.io/performance/reference/model_performance.lm.html) um zu schauen, wie gut unser Modell dann zu den Daten gepasst hat.
@@ -730,7 +730,7 @@ Das sieht gar nicht schlecht aus für einen ersten Versuch. Mit einem ICC von $0
 ```{r}
 #| warning: false
 #| message: false
-lmer_2fac_fit %>% model_performance()
+lmer_2fac_fit |> model_performance()
 ```
 
 Hier schauen wir einmal auf das `R2 (marg.)`, was auch eine andere Art des Bestimmtheitsmaßes für die festen Effekte ist. Also auch hier jetzt die Frage, wieviel Prozent der Varianz erklären meine festen Effekte? Hier liefert dann das `R2 (marg.)` eine Antwort. Das `R2 (cond.)` berücksichtigt sowohl die festen als auch die zufälligen Effekte bei der Berechnung des $R^2$. Damit haben wir hier die erklärte Varianz von festen und zufälligen Effekten bei $0.97$, also über $97\%$. Hier haben wir ein echt gutes Modell vorliegen. Die anderen Maßzahlen brauchen wir nur für einen direkten Vergleich von Modellen.
@@ -753,7 +753,7 @@ Auch hier berechnen wir dann einmal den *Intraclass Correlation Coefficient* (ab
 ```{r}
 #| warning: false
 #| message: false
-lmer_3fac_fit %>% icc()
+lmer_3fac_fit |> icc()
 ```
 
 Dann schauen wir uns nochmal die Werte für `R2 (cond.)` und `R2 (marg.)` an und sehen, dass wir hier auch nur eine kleine Steigerung in den Werten haben. Wir erklären zwar noch mehr Varianz, aber der Anteil ist doch recht gering.
@@ -761,7 +761,7 @@ Dann schauen wir uns nochmal die Werte für `R2 (cond.)` und `R2 (marg.)` an und
 ```{r}
 #| warning: false
 #| message: false
-lmer_3fac_fit %>% model_performance()
+lmer_3fac_fit |> model_performance()
 ```
 
 Am Ende musst du dann überlegen, ob sich hier noch eine weitere Modellierung lohnt. Wir kommen zwar noch höher mit den Werten für das Bestimmtheitsmaß, aber dann wird auch das Modell auch um einiges komplizierter. Daher kannst du dir als letztes noch das genestete Modell einmal anschauen.
@@ -783,7 +783,7 @@ Auch heir schauen wir dann einmal den *Intraclass Correlation Coefficient* (abk.
 ```{r}
 #| warning: false
 #| message: false
-lmer_3fac_nested_fit %>% icc()
+lmer_3fac_nested_fit |> icc()
 ```
 
 Und dann sehen wir auch, dass wir mit unseren Modell mit den genesteten zufälligen Effekten ein `R2 (cond.)` von über $99\%$ erreichen. Damit bildet unser genestetes Modell exakt die Abhängigkeitsstruktur wieder, mit der wir auch die Daten gebaut haben.
@@ -791,7 +791,7 @@ Und dann sehen wir auch, dass wir mit unseren Modell mit den genesteten zufälli
 ```{r}
 #| warning: false
 #| message: false
-lmer_3fac_nested_fit %>% model_performance()
+lmer_3fac_nested_fit |> model_performance()
 ```
 
 Damit habe ich gezeigt, dass wir auch ein perfektes Modell erhalten können, wenn wir wissen wie die Daten erschaffen wurden. Unsere anderen Modelle sind noch so gut, da ich ein sehr balanciertes Design für die Erstellung der Schuldaten gewählt habe. Wenn die Klassen unterschiedliche groß wären und auch unterschiedliche Anzahlen von Klassen pro Schule vorliegen würden, dann sehen die anderen Modelle bedeutend schlechter aus.
@@ -882,7 +882,7 @@ glmer_poisson_fit <- glmer(count_worms ~ trt + (1|row) + (1|col),
 Bevor wir überhaupt etwas machen, schauen wir erstmal ob Overdispersion in unseren Daten vorliegt. Wenn unser Modell Overdispersion anzeigt, dann können wir das Modell gleich lassen. Das ist sehr wichtig zu wissen, ein Modell mit einer Poissonfamilie und Overdispersion wird dir immer falsche Ergebnisse liefern. Insbesondere wenn es dir um die Gruppenvergleiche geht. Die Nichtberücksichtigung der Overdispersion lässt deine Fehler zu klein werden und damit findest du zu viele falsche signifikante Ergebnisse.
 
 ```{r}
-glmer_poisson_fit  %>% check_overdispersion()
+glmer_poisson_fit  |> check_overdispersion()
 ```
 
 Wir haben sehr starke Overdispersion vorliegen und gehen daher in den anderen Tab und rechnen eine Quasipoisson Regression in einem linearen gemischten Modell. Hier nutzen wir dann das R Paket `{glmmTMB}`. Nur wenn du keine Overdispersion vorliegen hast, dann kannst du eine eine reine Poissonregression rechnen.
@@ -903,13 +903,13 @@ Auch hier können wir einmal den *Intraclass Correlation Coefficient* (abk. *ICC
 ```{r}
 #| warning: false
 #| message: false
-glmmTMB_nbinom1_fit %>% icc()
+glmmTMB_nbinom1_fit |> icc()
 ```
 
 Dann schauen wir nochmal in das Bestimmtheitsmaß $R^2$ und sehen, dass wir auch hier eher bescheidene Werte erhalten. Wir können mit den festen und zufälligen Effekten zusammen nur $66.9\%$ der Varianz in den Wurmanzahlen erklären. Das ist auch hier kein guter Wert, aber wie immer besser als gar nichts.
 
 ```{r}
-glmmTMB_nbinom1_fit %>% r2()
+glmmTMB_nbinom1_fit |> r2()
 ```
 
 Wir nehmen dann auch das Modell hier mit in den Vergleich und schauen einmal welches Modell das beste Modell ist. Wie immer kann ein komplexeres Modell zwar besser sein, aber am Ende wollen wir dann doch eher ein einfaches Modell haben.
@@ -956,25 +956,25 @@ Das R Paket `{parsnip}` erlaubt verschiedene Modellierungen sehr schon zu verein
 Im Folgenden einmal als Beispiel die Weizendaten `oats_tbl`, die wir dann auch gleich nochmal in dem Gruppenvergleich nutzen. Hier als erstmal zwei lineare Regression. Wir rechnen jetzt einmal ein lineares gemischtes Modell und nutzen dafür die Funktion `set_engine("lmer")`. Danach rechnen wir dann als Vergleich dazu ein simples lineares Modell mit `set_engine("lm")`. Wir du siehst, ist die *engine* unabhängig vom Formelaufruf. Das heißt, wir können die *engine* jetzt immer wieder verwenden.
 
 ```{r}
-oats_lmer_spec <- linear_reg() %>% 
+oats_lmer_spec <- linear_reg() |> 
   set_engine("lmer")
-oats_lm_spec <- linear_reg() %>% 
+oats_lm_spec <- linear_reg() |> 
   set_engine("lm")
 ```
 
 Jetzt können wir mit der Funktion `fit()` verschiedene Modell anpassen. Ich habe mich jetzt für ein `lm()`-Modell sowie zwei `lmer()`-Modelle entschieden. Einmal ein `lmer()`-Modell mit Interaktionsterm und einmal ohne. Wir haben ja in der obigen Abbildung gesehen, dass wir eigentlich keine Interaktion zwischen den Behandlungen `nitro` und den Sorten `gen` vorliegen haben. Dann brauchen wir noch die Funktion `extract_fit_engine()` damit wir die Ausgabe der Funktion `fit()` auch für andere Pakete korrekt anwenden können.
 
 ```{r}
-oats_lm_fit <- oats_lm_spec %>% 
-  fit(plant_yield ~ nitro + gen + block, data = oats_tbl) %>% 
+oats_lm_fit <- oats_lm_spec |> 
+  fit(plant_yield ~ nitro + gen + block, data = oats_tbl) |> 
   extract_fit_engine()  
 
-oats_lmer_fit <- oats_lmer_spec %>% 
-  fit(plant_yield ~ nitro + gen + (1|block/gen), data = oats_tbl) %>% 
+oats_lmer_fit <- oats_lmer_spec |> 
+  fit(plant_yield ~ nitro + gen + (1|block/gen), data = oats_tbl) |> 
   extract_fit_engine()  
 
-oats_lmer_int_fit <- oats_lmer_spec %>% 
-  fit(plant_yield ~ nitro + gen + nitro:gen + (1|block/gen), data = oats_tbl) %>% 
+oats_lmer_int_fit <- oats_lmer_spec |> 
+  fit(plant_yield ~ nitro + gen + nitro:gen + (1|block/gen), data = oats_tbl) |> 
   extract_fit_engine()  
 ```
 
@@ -983,7 +983,7 @@ Damit sich hier nicht alles doppelt, einmal als Beispiel die Ausgabe des *Intrac
 ```{r}
 #| warning: false
 #| message: false
-oats_lmer_fit %>% icc()
+oats_lmer_fit |> icc()
 ```
 
 Und dann nochmal als Übersicht die Ergebnisse der Ausgabe der Funktion `model_performance()`. Auch das funktioniert wunderbar.
@@ -991,7 +991,7 @@ Und dann nochmal als Übersicht die Ergebnisse der Ausgabe der Funktion `model_p
 ```{r}
 #| warning: false
 #| message: false
-oats_lmer_fit %>% model_performance()
+oats_lmer_fit |> model_performance()
 ```
 
 Im folgenden Kasten findest du den Modellvergleich mit dem R Paket `{modelsummary}`. Auch hier sehen wir, dass das `glmer`-Modell mit und ohne Interaktion ungefähr den gleichen `RMSE` produziert. Der `RMSE` ist auch kleiner als beim `lm()`-Modell, deshalb ist das gemischte Modell vorzuziehen. Je kleiner das Modell ist, desto besser, deshalb wäre hier das Modell ohne Interaktion vorzuziehen. Da die Bestimmtheitsmaße $R^2$ zwischen den gemischten Modellen auch ungefähr gleich sind, passt es auch hier. Den etwas geringeren ICC-Wert nehmen wir dann in kauf, wenn dafür unser Modell etwas simpler ist.
@@ -1044,8 +1044,8 @@ Und schon können wir die ANOVA rechnen und erhalten dann auch über die Funktio
 ```{r}
 #| warning: false
 #| message: false
-lmer_fit %>% 
-  anova() %>% 
+lmer_fit |> 
+  anova() |> 
   model_parameters()
 ```
 
@@ -1055,8 +1055,8 @@ Einmal die paarweisen Vergleich für unsere Behandlung `nitro`. Wir sehen, dass 
 #| warning: false
 #| message: false
 
-lmer_fit %>% 
-  emmeans(~ nitro) %>% 
+lmer_fit |> 
+  emmeans(~ nitro) |> 
   pairs()
 ```
 
@@ -1066,8 +1066,8 @@ Dann die Vergleiche für die Sorten. Hier haben wir dann keinen signifikanten Un
 #| warning: false
 #| message: false
 
-lmer_fit %>% 
-  emmeans(~ gen) %>% 
+lmer_fit |> 
+  emmeans(~ gen) |> 
   pairs()
 ```
 
@@ -1077,8 +1077,8 @@ Abschließend machen wir dann noch das *compact letter display* fertig. Hier dan
 #| warning: false
 #| message: false
 
-lmer_fit %>% 
-  emmeans(~ nitro | gen) %>% 
+lmer_fit |> 
+  emmeans(~ nitro | gen) |> 
   cld(Letters = letters)
 ```
 
@@ -1099,8 +1099,8 @@ Und schon können wir die ANOVA rechnen und erhalten dann auch über die Funktio
 ```{r}
 #| warning: false
 #| message: false
-glmmTMB_fit %>% 
-  car::Anova() %>% 
+glmmTMB_fit |> 
+  car::Anova() |> 
   model_parameters()
 ```
 
@@ -1110,8 +1110,8 @@ Einmal die paarweisen Vergleich für unsere Behandlung `nitro`. Wir sehen, dass 
 #| warning: false
 #| message: false
 
-glmmTMB_fit %>% 
-  emmeans(~ nitro) %>% 
+glmmTMB_fit |> 
+  emmeans(~ nitro) |> 
   pairs()
 ```
 
@@ -1121,8 +1121,8 @@ Dann die Vergleiche für die Sorten. Hier haben wir dann keinen signifikanten Un
 #| warning: false
 #| message: false
 
-glmmTMB_fit %>% 
-  emmeans(~ gen) %>% 
+glmmTMB_fit |> 
+  emmeans(~ gen) |> 
   pairs()
 ```
 
@@ -1132,8 +1132,8 @@ Abschließend machen wir dann noch das *compact letter display* fertig. Für mic
 #| warning: false
 #| message: false
 
-glmmTMB_fit %>% 
-  emmeans(~ nitro | gen) %>% 
+glmmTMB_fit |> 
+  emmeans(~ nitro | gen) |> 
   cld(Letters = letters)
 ```
 
@@ -1148,10 +1148,10 @@ In den folgenden grünen Kästen schauen wir uns jetzt drei Anwenundungsbeispiel
 Im folgenden Beispiel schauen wir uns nochmal ein praktische Auswertung von einem agrarwissenschaftlichen Beispiel mit Brokkoli an. Wir haben uns in diesem Experiment verschiedene Dosen `fert_amount` von einem Dünger aufgebracht sowie verschiedene Zeitpunkte der Düngung `fert_time` berücksichtigt. Auch hier haben wir einige Besonderheiten in den Daten, da nicht jede Faktorkombination vorliegt. Wir ignorieren aber diese Probleme und rechnen einfach stumpf unseren Gruppenvergleich und ignorieren die fehlenden Faktorkombinationen. Wir haben aber mit den Gewicht ein normalverteiltes Outcome vorliegen und haben die Pflanzen in Blöcken randomisiert. Leider kennen wir nicht das experimentelle Design und müssen daher etwas blind modellieren.
 
 ```{r}
-broc_tbl <- read_excel("data/broccoli_weight.xlsx") %>% 
+broc_tbl <- read_excel("data/broccoli_weight.xlsx") |> 
   mutate(fert_time = factor(fert_time, levels = c("none", "early", "late")),
          fert_amount = as_factor(fert_amount),
-         block = as_factor(block)) %>%
+         block = as_factor(block)) |>
   select(-stem_hollowness) 
 ```
 
@@ -1167,19 +1167,19 @@ lmer_fit <- lmerTest::lmer(weight ~ fert_time + fert_amount + fert_time:fert_amo
 Dann berechnen wir auch einmal die $R^2$-Werte für unser Modell. Hier gibt es dann nochmal mehr Informationen auf [$R^2$ for Mixed Models -- Marginal vs. Conditional](https://easystats.github.io/performance/articles/r2.html#marginal-vs--conditional-r2). Wichtig ist, dass das `Conditional R2`, die gesamte erklärte Varianz von festen und zufälligen Effekten beschriebt und das `Marginal R2` nur die erklärte Varianz aus den festen Effekten. Tja, das Modell ist nun echt nicht gerade das beste Modell nach dem Bestimmtheitsmaß. Die festen Effekte, also unsere Behandlungen, erklären kaum etwas von der Varianz. Aber schauen wir mal weiter.
 
 ```{r}
-lmer_fit %>% r2()
+lmer_fit |> r2()
 ```
 
 Der [Intraclass Correlation Coefficient (ICC)](https://easystats.github.io/performance/reference/icc.html) ist dann das Bestimmtheitsmaß $R^2$ für die zufälligen Effekte. Auch hier sehen wir eher maue Werte. Wir haben anscheinend sehr viel Varianz in den Daten, die wir nicht durch unsere Faktoren erklären können.
 
 ```{r}
-lmer_fit %>% icc()
+lmer_fit |> icc()
 ```
 
 Mit der Funktion `model_performance()` können wir uns dann nochmal alles zusammen anschauen. Viele der Werte sind nur wichtig, wenn wir Modelle miteinander vergleichen. Das Bestimmtheitsmaß $R^2$ als einzelner Wert ist da schon wichtiger.
 
 ```{r}
-lmer_fit %>% 
+lmer_fit |> 
   model_performance()
 ```
 
@@ -1193,16 +1193,16 @@ Wir rechnen hier einmal die ANOVA und erhalten Dank der Nutzung des R Paketes `{
 ```{r}
 #| warning: false
 #| message: false
-lmer_fit %>% 
-  anova() %>% 
+lmer_fit |> 
+  anova() |> 
   model_parameters()
 ```
 
 Wir sehen, dass der Effekt der Düngerzeit und die Menge des Düngers signifikant ist, jedoch wir keinen signifikanten Einfluss durch die Interaktion haben. Wir haben aber also keine Interaktion vorliegen. Wir sehen hier den Block nicht mehr, da der Effekt des Blocks in den zufälligen Effekt ist und hier nicht mehr gezeigt wird. Für die ANOVA der zufälligen Effekte können wir dann die Funktion `ranova()` nutzen.
 
 ```{r}
-lmer_fit %>% 
-  ranova() %>% 
+lmer_fit |> 
+  ranova() |> 
   model_parameters(drop = "<none>")
 ```
 
@@ -1213,8 +1213,8 @@ Nun können wir auch erkennen, dass wir einen signifikanten Effekt des Blocks ha
 Im Folgenden rechnen wir einmal über alle Faktorkombinationen von `fert_time` und `fert_amount` einen Gruppenvergleich. Dafür nutzen wir die Option `fert_time * fert_amount`. Wenn du die Analyse *getrennt* für die Menge und den Zeitpunkt durchführen willst, dann nutze die Option `fert_time | fert_amount`. Dann adjustieren wir noch nach Bonferroni und sind schon fertig.
 
 ```{r}
-emm_obj <- lmer_fit %>% 
-  emmeans(~ fert_time * fert_amount) %>%
+emm_obj <- lmer_fit |> 
+  emmeans(~ fert_time * fert_amount) |>
   cld(Letters = letters, adjust = "bonferroni")
 emm_obj
 ```
@@ -1239,8 +1239,8 @@ Im Folgenden einmal die Barplots mit den Mittelwerten und dem Standardfehler. Hi
 #| fig-width: 6
 #| fig-cap: "Säulendigramm der mittleren Brokkoligewichte aus einem linearen gemischten Modell. Das `lmer()`-Modell berechnet das mittler Gewicht des Brokkoli in jeder Faktorkombination. Das *compact letter display* wird dann in `{emmeans}` generiert. Wir nutzen hier den Standardfehler, da die Standardabweichung mit der großen Fallzahl rießig wäre. Wir haben noch ein Mindestgewicht von 500g ergänzt."
 
-emm_obj %>% 
-  as_tibble() %>% 
+emm_obj |> 
+  as_tibble() |> 
   ggplot(aes(x = fert_time, y = emmean, fill = fert_amount)) +
   theme_minimal() + 
   labs(y = "Mittleres Gewicht [g] des Brokkoli", x = "Düngezeitpunkt",
@@ -1263,9 +1263,9 @@ emm_obj %>%
 Als erstes müssen wir nochmal das `emm_obj` in einen `tibble` umwandeln, damit wir dann das *compact letter display* direkt in die Grafik setzen können. Wir entfernen dann noch alle Faktorkombinationen, die wir nicht brauchen, damit wir dann auch gleich die Positionen richtig setzen können. Wichtig ist auch, dass die Faktoren richtig sortiert sind, sonst passt es gleich nicht mit dem Zufügen des *compact letter display* zu der Position.
 
 ```{r}
-emm_cld_tbl <- emm_obj %>% 
-  as_tibble() %>% 
-  arrange(fert_time, fert_amount) %>% 
+emm_cld_tbl <- emm_obj |> 
+  as_tibble() |> 
+  arrange(fert_time, fert_amount) |> 
   na.omit()
 ```
 
@@ -1274,9 +1274,9 @@ Die Positionen für das *compact letter display* berechnen wir uns aus dem Wert 
 ```{r}
 #| warning: false
 #| message: false
-cld_pos_tbl <- broc_tbl %>% 
-  group_by(fert_time, fert_amount) %>% 
-  summarise(quant_3rd = quantile(weight, 0.75)) %>% 
+cld_pos_tbl <- broc_tbl |> 
+  group_by(fert_time, fert_amount) |> 
+  summarise(quant_3rd = quantile(weight, 0.75)) |> 
   add_column(group = emm_cld_tbl$.group)
 ```
 
@@ -1317,11 +1317,11 @@ ggplot(broc_tbl, aes(x = fert_time, y = weight, fill = fert_amount)) +
 Im folgenden Beispiel schauen wir uns nochmal ein praktische Auswertung von einem agrarwissenschaftlichen Beispiel mit jungen Apfelbäumen an. Wir haben uns in diesem Experiment verschiedene Dosen `trt` von einem Insektizid aufgebracht sowie verschiedene Startanzahlen von Raubmilben als biologische Alternative untersucht. Dann haben wir noch fünf Zeitpunkte bestimmt, an denen wir die Anzahl an Thripsen auf den Blättern gezählt haben. Wir haben nicht die Blätter per se gezählt sondern Fallen waagerecht aufgestellt. Dann haben wir geschaut, wie viele Thripsen wir über `above` und unter `below` von den Fallen gefunden haben. In unserem Fall beschränken wir uns auf die obere Anzahl an Thripsen und schauen uns auch nur die Behandlung mit dem Insektizid an.
 
 ```{r}
-insects_tbl <- read_excel("data/insects_count.xlsx") %>% 
+insects_tbl <- read_excel("data/insects_count.xlsx") |> 
   mutate(timepoint = factor(timepoint, labels = c("1 Tag", "4 Tag", "7 Tag", "11 Tag", "14 Tag")),
          rep = as_factor(rep),
-         trt = as_factor(trt)) %>%
-  select(timepoint, trt, rep, thripse = thripse_above, mite = mite_above) %>% 
+         trt = as_factor(trt)) |>
+  select(timepoint, trt, rep, thripse = thripse_above, mite = mite_above) |> 
   filter(trt %in% c("10ml", "30ml", "60ml"))
 ```
 
@@ -1341,7 +1341,7 @@ insects_poisson_fit <- glmer(thripse ~ trt + timepoint + trt:timepoint + (1 | re
 Bevor wir uns das Modell mit `summary()` überhaupt anschauen, wollen wir erstmal überprüfen, ob wir überhaupt Overdispersion vorliegen haben. Wenn ja, dann können wir uns die `summary()` hier gleich sparen und wir können dann mit dem Modell auch keine Gruppenvergleiche rechnen. Also einmal geguckt, was die Overdispersion macht.
 
 ```{r}
-insects_poisson_fit %>% check_overdispersion()
+insects_poisson_fit |> check_overdispersion()
 ```
 
 Wir haben sehr starke Overdispersion vorliegen und gehen daher in den anderen Tab und rechnen eine Quasipoisson Regression mit dem R Paket `{glmmTMB}`. Nur wenn du keine Overdispersion vorliegen hast, dann kannst du eine eine Poissonregression mit `glmer()` rechnen.
@@ -1359,25 +1359,25 @@ insects_quasipoisson_fit <- glmmTMB(thripse ~ trt + timepoint + trt:timepoint + 
 Im Folgedne schauen wir nochmal, ob wir in unserem neuen Modell in `glmmTMB()` noch Overdispersion vorliegen haben.
 
 ```{r}
-insects_quasipoisson_fit %>% check_overdispersion()
+insects_quasipoisson_fit |> check_overdispersion()
 ```
 
 Das passt soweit. Wir haben keine Overdispersion mehr. Dann berechnen wir auch einmal die $R^2$-Werte für unser Modell. Hier gibt es dann nochmal mehr Informationen auf [$R^2$ for Mixed Models -- Marginal vs. Conditional](https://easystats.github.io/performance/articles/r2.html#marginal-vs--conditional-r2). Wichtig ist, dass das `Conditional R2`, die gesamte erklärte Varianz von festen und zufälligen Effekten beschriebt und das `Marginal R2` nur die erklärte Varianz aus den festen Effekten.
 
 ```{r}
-insects_quasipoisson_fit %>% r2()
+insects_quasipoisson_fit |> r2()
 ```
 
 Tja, das Modell ist nun echt nicht gerade das beste Modell nach dem Bestimmtheitsmaß. Die festen Effekte, also unsere Behandlungen, erklären kaum etwas von der Varianz. Aber schauen wir mal weiter. Der [Intraclass Correlation Coefficient (ICC)](https://easystats.github.io/performance/reference/icc.html) beschreibt nun die erklärte Varianz durch unsere zufälligen Effekte.
 
 ```{r}
-insects_quasipoisson_fit %>% icc()
+insects_quasipoisson_fit |> icc()
 ```
 
 Auch hier sind die Ergebnisse eher mau aus. Du kannst dir die gesamte Übersicht auch gleich in der Funktion `model_performance()` wiedergeben lassen. Das spart dann ein wenig Zeit und Code.
 
 ```{r}
-insects_quasipoisson_fit %>% 
+insects_quasipoisson_fit |> 
   model_performance()
 ```
 
@@ -1389,8 +1389,8 @@ Ich habe mich gerade in den obigen Tabs für eine Quasipoissonregression in eine
 Im Folgenden rechnen wir einmal über alle Faktorkombinationen von `trt` und `timepoint` einen Gruppenvergleich. Dafür nutzen wir die Opition `trt * timepoint`. Wenn du die Analyse *getrennt* für die Zeitpunkte durchführen willst, dann nutze die Option `trt | timepoint`. Wir wollen die Wahrscheinlichkeiten für das Auftreten einer Beschädigung von wiedergegeben bekommen, deshalb die Option `regrid = "response`. Dann adjustieren wir noch nach Bonferroni und sind fertig.
 
 ```{r}
-emm_obj <- insects_quasipoisson_fit %>% 
-  emmeans(~ trt * timepoint, type = "response") %>%
+emm_obj <- insects_quasipoisson_fit |> 
+  emmeans(~ trt * timepoint, type = "response") |>
   cld(Letters = letters, adjust = "bonferroni")
 emm_obj
 ```
@@ -1412,8 +1412,8 @@ In der @fig-log-mod-pois-insect siehst du das Ergebnis der Auswertung in einem S
 #| fig-width: 6
 #| fig-cap: "Säulendigramm der mittleren Zahl der Thripsen aus einer Quasipoissonregression mit einem gemischten Modell. Das `glmmTMB()`-Modell berechnet die mittlere Anzahl in jeder Faktorkombination. Das *compact letter display* wird dann in `{emmeans}` generiert."
 
-emm_obj %>% 
-  as_tibble() %>% 
+emm_obj |> 
+  as_tibble() |> 
   ggplot(aes(x = timepoint, y = response, fill = trt)) +
   theme_minimal() + 
   labs(y = "Mittlere Anzahl an Thripsen", x = "Messzeitpunkte der Zählungen",
@@ -1435,8 +1435,8 @@ Damit wir uns gleich einmal die Daten in einem Dotplot und Boxplot anschauen kö
 ```{r}
 #| warning: false
 #| message: false
-emm_cld_tbl <- emm_obj %>% 
-  as_tibble() %>% 
+emm_cld_tbl <- emm_obj |> 
+  as_tibble() |> 
   arrange(timepoint, trt)
 ```
 
@@ -1445,9 +1445,9 @@ Jetzt berechnen wir uns noch die Position. Ich setze hier das *compact letter di
 ```{r}
 #| warning: false
 #| message: false
-cld_pos_tbl <- insects_tbl %>% 
-  group_by(timepoint, trt) %>% 
-  summarise(quant_3rd = quantile(thripse, 0.75)) %>% 
+cld_pos_tbl <- insects_tbl |> 
+  group_by(timepoint, trt) |> 
+  summarise(quant_3rd = quantile(thripse, 0.75)) |> 
   add_column(group = emm_cld_tbl$.group)
 ```
 
@@ -1487,7 +1487,7 @@ ggplot(insects_tbl, aes(x = timepoint, y = thripse, fill = trt)) +
 In dem folgenden agrawissenschaftlichen Beispiel wollen wir uns einmal die Auswertung von verschiedenen Schweinerassen im Bezug auf ihre Fußgesundheit in zwei Platzangeboten in Ställen anschauen. Die Ställe haben dabei zwei Arten von Belegung vorliegen, nämlich einmal eine weite Belegung und einmal eine enge Belegung. Darüber hinaus ist die Studie in verschiedenen Ställen und und verschiedenen Orten durchgeführt worden. Es ergibt sich also ein recht komplexer Datensatz. Dabei sind die Ställe `barn` auf den Höfe `location` genestet. Darüber hinaus haben wir eine Behandlung `spacing` sowie die verschiedenen Schweinerassen `breed`. Ich habe hier nur eine Auswahl an Schweinerassen getroffen, da mir sonst das `clmm()`-Modell zu lange dauert bis es gerechnet ist. Wir brauchen dann später für unser `clmm()`-Modell das Outcome noch als geordneten Faktor. Wenn du den Code nutzt, dann kannst du gerne alle Schweinerassen mit in das Modell nehmen. Ebenfalls hilfreich ist das Tutorium [Ordinal regression in R: part 1](https://tdunn.ca/posts/2020-03-15-ordinal-regression-in-r-part-1/) auf das ich gerne verweisen möchte. Am Ende haben wir einen sehr großen Datensatz mit 2840 bonitierten Schweinen. Das sind wirklich eine Menge Schweine.
 
 ```{r}
-pig_tbl <- read_excel("data/bonitur_pig.xlsx") %>% 
+pig_tbl <- read_excel("data/bonitur_pig.xlsx") |> 
   mutate(breed = as_factor(breed),
          spacing = factor(spacing, labels = c("Weite Belegung", "Enge Belegung")),
          location = as_factor(location),
@@ -1540,8 +1540,8 @@ Wir rechnen hier einmal die ANOVA mit der Funktion `Anova.clmm()` aus dem R Pake
 ```{r}
 #| cache: true
 #| label: mixed-clmm-model-anova
-clmm_fit %>% 
-  Anova.clmm() %>%
+clmm_fit |> 
+  Anova.clmm() |>
   model_parameters()
 ```
 
@@ -1552,8 +1552,8 @@ Wir sehen, dass die Schweinerasse signifikant ist. Ebenso hat der Abstand in den
 Im Folgenden rechnen wir einmal für den Faktor `breed` getrennt für die beiden Platzangebote `spacing` einen Gruppenvergleich. Immerhin haben wir eine Interaktion vorliegen. Wir setzen hier die Option `mean.class` damit wir dann die mittleren Noten wiedergegeben bekommen. Mit den mittleren Noten können wir dann ein Säulendiagramm erstellen. Dann adjustieren wir *nicht* und sind auch schon fertig. Warum adjustieren wir hier nicht? Wenn du hier adjustierst ist am Ende nichts mehr signifikant, da du so viele Gruppenvergleiche rechnest, das hier die $p$-Werte nicht klein genug werden. Irgendwo ist dann auch eine Grenze. Die Effekte sind hier nicht stark genug sein um sie dann noch signifikant nachzuweisen.
 
 ```{r}
-emm_obj <- clmm_fit %>% 
-  emmeans(~ breed | spacing, mode = "mean.class") %>%
+emm_obj <- clmm_fit |> 
+  emmeans(~ breed | spacing, mode = "mean.class") |>
   cld(Letters = letters, adjust = "none")
 emm_obj
 ```
@@ -1573,8 +1573,8 @@ In der @fig-log-mod-ordinal-broc siehst du das Ergebnis der Auswertung in einem 
 #| fig-width: 7
 #| fig-cap: "Säulendigramm der mittleren Boniturnote der Fußgesundheit aus einer ordinalen gemischten Regression. Das `clmm()`-Modell berechnet das mittlere Boniturnote für den Faktor `breed` getrennt für die beiden Platzangebote `spacing`. Das *compact letter display* wird dann in `{emmeans}` generiert. Fraglich bleibt, ob die Unterschiede wirklich relevant sind, da die mittleren Boniturnoten sehr nahe beieinander liegen."
 
-emm_obj %>% 
-  as_tibble() %>% 
+emm_obj |> 
+  as_tibble() |> 
   ggplot(aes(x = breed, y = mean.class, fill = breed)) +
   theme_minimal() + 
   labs(y = "Mittlere Boniturnote", x = "Schweinerasse") +

@@ -20,9 +20,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, sandwich, lmtest, 
                emmeans, multcomp, see,
                performance, broom, conflicted)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
+conflicts_prefer(dplyr::select)
 conflicts_prefer(magrittr::extract)
 conflicts_prefer(magrittr::set_names)
 ```
@@ -36,7 +34,7 @@ In diesem Kapitel nutzen wir die infizierten Ferkel als Beispieldatensatz. Wir h
 ```{r}
 #| message: false
 
-pig_tbl <- read_excel("data/infected_pigs.xlsx") %>% 
+pig_tbl <- read_excel("data/infected_pigs.xlsx") |> 
   select(infected, crp, sex, age, frailty) 
 ```
 
@@ -51,7 +49,7 @@ Schauen wir uns nochmal einen Ausschnitt der Daten in der @tbl-lpm-pigs an.
 
 rbind(head(pig_tbl, 4),
       rep("...", times = ncol(pig_tbl)),
-      tail(pig_tbl, 4)) %>% 
+      tail(pig_tbl, 4)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -103,16 +101,16 @@ lm_fit <- lm(infected ~ crp + age + sex + frailty, data = pig_tbl)
 Schauen wir uns aber gleich mal die Modellausgabe an. Wie immer, du kannst alle Zahlen und Spalten in eine Funktion stecken und am Ende kommt dann was raus. Woher soll auch die Funktion wissen, dass es sich um einen Faktor handelt oder eine numerische Variable?
 
 ```{r}
-lm_fit %>% 
-  summary
+lm_fit |> 
+  summary()
 ```
 
 Neben der sehr schlechten Modellgüte, die wir am Bestimmtheitsmaß $R^2$ mit 0.24 erkennen, sind aber die Residuen nach den deskriptiven Maßzahlen einigermaßen okay. Wir werden aber gleich noch sehen, dass die Maßzahlen hier auch trügen können. Was ist den nun das Tolle am *probability model*? Wir können die Effektschätzer `Estimate` direkt als prozentuale Veränderung interpretieren. Das heißt, wir können sagen, dass pro Einheit `crp` die Wahrscheinlichkeit infiziert zu sein um 16.2087% ansteigt. Das ist natürlich eine sehr schöne Eigenschaft. Nur leider gibt es da meistens dann doch ein Problem. Dafür schauen wir uns einmal die Spannweite der vorhergesagten Werte an.
 
 ```{r}
-lm_fit %>% 
-  predict() %>% 
-  range() %>% 
+lm_fit |> 
+  predict() |> 
+  range() |> 
   round(2)
 ```
 
@@ -172,8 +170,8 @@ Jetzt kann man sich fragen, warum sind denn da so Bögen drin? Das kommt von den
 #| fig-width: 5
 #| fig-cap: "Etwas andere Darstellung der angepassten Werte `.fitted` und der Residuen `.resid` aus dem Modell `lm_fit`. Die Punkte sind nach dem Infektionsstatus eingefärbt."
 
-lm_fit %>% 
-  augment() %>% 
+lm_fit |> 
+  augment() |> 
   ggplot(aes(x = .fitted, y = .resid^2, color = as_factor(infected))) +
   theme_minimal() +
   geom_point() +
@@ -186,18 +184,18 @@ lm_fit %>%
 Wir haben ja schon einmal weiter oben in das Modell geschaut und eine Interpretation vorgenommen. Wir erinnern uns, wir können die Effektschätzer `Estimate` aus einem *probability model* direkt als prozentuale Veränderung interpretieren. Das heißt, wir können sagen, dass pro Einheit `crp` die Wahrscheinlichkeit infiziert zu sein um 16.2087% ansteigt. Das ist natürlich eine sehr schöne Eigenschaft. Dann haben wir auch noch gleich die Richtung mit drin, wenn wir also negative Effekte haben, dann senkt die Variable das Risiko pro Einheit um den prozentualen Wert. Bei kategorialen Variablen haben wir dann den Unterschied zu der nicht vorhandenen Gruppe. Daher sind männliche Ferkel um 5% *weniger* infiziert als weibliche Ferkel. Leider geht der t-Test, der die $p$-Werte produziert, von homogenen Varianzen aus. Die haben wir aber nicht vorliegen.
 
 ```{r}
-lm_fit %>% 
-  summary() %>% 
-  pluck("coefficients") %>% 
+lm_fit |> 
+  summary() |> 
+  pluck("coefficients") |> 
   round(4)
 ```
 
 Deshalb müssen wir nochmal ran. Wir können die Funktion `coeftest()` aus dem R Paket `{lmtest}` zusammen mit den R Paket `{sandwich}` nutzen um unsere Modellanpassung für die Varianzheterogenität zu adjustieren. Wir ändern also die Spalte `Strd. Error`. Es gibt aber sehr viele Möglichkeiten `type` die Varianz anzupassen. Das ist ein eigenes Kapitel worum wir uns hier nicht scheren. Wir nehmen mehr oder minder den Standard mit `HC1`.
 
 ```{r}
-lm_fit %>% 
-  coeftest(vcov. = vcovHC, type = "HC1") %>% 
-  round(4) %>% 
+lm_fit |> 
+  coeftest(vcov. = vcovHC, type = "HC1") |> 
+  round(4) |> 
   tidy()
 ```
 
@@ -210,17 +208,17 @@ Wir schauen also als erstes auf den Standardfehler und sehen, dass unsere Gaussi
 #| label: tbl-lpm-comp
 #| tbl-cap: "Vergleich der Standardfehler der Gaussian linear Regression mit der Annahme der homogenen Varianzen (OLS) und die Adjusterung der Fehler mit dem Sandwich-Schätzer (HC1)."
 
-bind_cols(names(coef(lm_fit))) %>% 
-  bind_cols(lm_fit %>% 
-              summary() %>% 
-              pluck("coefficients") %>% 
+bind_cols(names(coef(lm_fit))) |> 
+  bind_cols(lm_fit |> 
+              summary() |> 
+              pluck("coefficients") |> 
               extract(, 2),
-            lm_fit %>% 
-              coeftest(vcov. = vcovHC, type = "HC1") %>% 
-              tidy() %>% 
-              pluck("std.error")) %>% 
-  mutate_if(is.numeric, round, 4) %>% 
-  set_names(c("", "OLS", "HC1")) %>% 
+            lm_fit |> 
+              coeftest(vcov. = vcovHC, type = "HC1") |> 
+              tidy() |> 
+              pluck("std.error")) |> 
+  mutate_if(is.numeric, round, 4) |> 
+  set_names(c("", "OLS", "HC1")) |> 
   kable(align = "lcc", "pipe")  
 
 ```
@@ -229,10 +227,10 @@ bind_cols(names(coef(lm_fit))) %>%
 
 Häufig ist es ja so, dass wir das Modell nur schätzen um dann einen Gruppenvergleich zu rechnen. Das heißt, dass es uns interessiert, ob es einen Unterschied zwischen den Leveln eines Faktors gegeben dem Outcome $y$ gibt. Wir machen den Gruppenvergleich jetzt einmal an der Gebrechlichkeit `frailty` einmal durch. Wir habe die drei Gruppen `frail`, `pre-frail` und `robust` vorliegen. Danach schauen wir uns nochmal die prinzipielle Idee des Gruppenvergleichs auf mittleren Wahrscheinlichkeiten infiziert zu sein an.
 
-Eigentlich ist es recht einfach. Wir nehmen wieder unser lineares Modell, was wir oben schon angepasst haben. Wir schicken dann das Modell in die Funktion `emmeans()` um die Gruppenvergleiche zu rechnen. Jetzt müssen wir nur zwei Dinge noch machen. Zum einen wollen wir alle paarweisen Vergleiche zwischen den drei Leveln von dem Faktor `frailty` rechnen, deshalb setzen wir `method = "pairwise"`. Dann müssen wir noch dafür sorgen, dass wir nicht homogene Varianzen schätzen. Deshalb setzen wir die Option `vcov. = sandwich::vcovHAC`. Damit wählen wir aus dem Paket `sandwich` den Sandwichschätzer `vcovHAC` und berücksichtigen damit die Varianzheterogenität in den Daten. Wenn du das Paket `sandwich` schon geladen hast, dann musst du das Paket nicht mit Doppelpunkt vor die Funktion des Sandwich-Schätzers setzen.
+Eigentlich ist es recht einfach. Wir nehmen wieder unser lineares Modell, was wir oben schon angepasst haben. Wir schicken dann das Modell in die Funktion `emmeans()` um die Gruppenvergleiche zu rechnen. Jetzt müssen wir nur zwei Dinge noch machen. Zum einen wollen wir alle paarweisen Vergleiche zwischen den drei Leveln von dem Faktor `frailty` rechnen, deshalb setzen wir `method = "pairwise"`. Dann müssen wir noch dafür sorgen, dass wir nicht homogene Varianzen schätzen. Deshalb setzen wir die Option `vcov. = sandwich::vcovHAC`. Damit wählen wir aus dem Paket `{sandwich}` den Sandwichschätzer `vcovHAC` und berücksichtigen damit die Varianzheterogenität in den Daten. Wenn du das Paket `{sandwich}` schon geladen hast, dann musst du das Paket nicht mit Doppelpunkt vor die Funktion des Sandwich-Schätzers setzen.
 
 ```{r}
-em_obj <- lm_fit %>% 
+em_obj <- lm_fit |> 
   emmeans(~ frailty, method = "pairwise", vcov. = sandwich::vcovHAC)
 em_obj
 ```
@@ -240,7 +238,7 @@ em_obj
 Dann können wir auch schon uns die Kontraste und damit die Mittelwertsvergleiche wiedergeben lassen. Was heißt hier Mittelwertsvergleiche? Die Mittelwerte sind hier natürlich die mittlere Wahrscheinlichkeit infiziert zu sein. Wir adjustieren hier einmal die $p$-Werte für multiple Vergleiche nach Bonferroni, damit du auch mal die Optionen siehst.
 
 ```{r}
-em_obj %>% 
+em_obj |> 
   contrast(method = "pairwise", adjust = "bonferroni")
 ```
 
@@ -249,7 +247,7 @@ Wir sehen also, dass es einen prozentualen Unterschied zwischen `frail - (pre-fr
 Jetzt lassen wir uns nochmal das unadjustierte *compact letter display* wiedergeben. Aber auch in dem unadjustierten Fall finden wir keine signifikanten Unterschiede.
 
 ```{r}
-em_obj %>%
+em_obj |>
   cld(Letters = letters, adjust = "none")
 ```
 
@@ -299,7 +297,7 @@ coeftest(toy_fit, vcov. = vcovHC, type = "HC1")
 Wie schon oben gezeigt, können wir dann einfach `emmeans()` nutzen um die Gruppenvergleiche zu rechnen. Auch hier müssen wir einmal angeben, dass wir einen paarweisen Vergleich rechnen wollen. Wir wollen alle Gruppen miteinander vergleichen. Dann noch die Option `vcov. = sandwich::vcovHAC` gewählt um für heterogene Varianzen zu adjustieren.
 
 ```{r}
-em_obj <- toy_fit %>% 
+em_obj <- toy_fit |> 
   emmeans(~ trt, method = "pairwise", vcov. = sandwich::vcovHAC)
 em_obj 
 ```
@@ -307,14 +305,14 @@ em_obj
 Auch hier sehen wir die mittlere Wahrscheinlichkeit infiziert zu sein in der Spalte `emmean`. Die Standardfehler `SE` sind für jede Gruppe unterschiedlich, die Adjustierung für die Varianzheterogenität hat geklappt. Dann kannst du noch die paarweisen Gruppenvergleiche über einen Kontrasttest dir wiedergeben lassen.
 
 ```{r}
-em_obj %>% 
+em_obj |> 
   contrast(method = "pairwise", adjust = "none")
 ```
 
 Oder aber du nutzt das *compact letter display*.
 
 ```{r}
-em_obj %>%
+em_obj |>
   cld(Letters = letters, adjust = "none")
 ```
 
@@ -326,7 +324,7 @@ Da die Fallzahl sehr gering ist, können wir am Ende nur zeigen, dass sich die K
 Im folgenden Beispiel schauen wir uns nochmal ein praktische Auswertung von einem agrarwissenschaftlichen Beispiel mit Mais an. Wir haben uns in diesem Experiment verschiedene Arten `trt` von Ernteverfahren von Mais angeschaut. Dann haben wir nach vier Zeitpunkten bestimmt, ob der Mais durch das Ernetverfahren nachträglich beschädigt war. Die Beschädigung selber wurde dann etwas komplizierter mit einem Labortest festgestellt, aber wir schauen uns nur die Ausprägung ja/nein also $1/0$ als Outcome an. Durch einen Fehler im Labor müssen wir eine Kombination für den letzten Tag und der dritten Behandlung entfernen.
 
 ```{r}
-maize_tbl <- read_excel("data/maize_rate.xlsx") %>% 
+maize_tbl <- read_excel("data/maize_rate.xlsx") |> 
    mutate(damaged = ifelse(time == "5d" & trt == 3, NA, damaged),
           trt = factor(trt, labels = c("wenig", "mittel", "viel")))
 ```
@@ -343,10 +341,10 @@ Dann rechnen wir auch schon das `lm()` Modell und nutzen `{emmeans}` für den Gr
 #| fig-width: 6
 #| fig-cap: "Säulendigramm der Anteile des beschädigten Mais aus einem linearen Modell. Das `lm()`-Modell berechnet die Mittelwerte in jeder Faktorkombination, was dann die Anteile des beschädigten Mais entspricht. Das *compact letter display* wird dann in `{emmeans}` generiert."
 
-lm(damaged ~ trt + time + trt:time, data = maize_tbl) %>% 
-  emmeans(~ trt * time, vcov. = sandwich::vcovHAC) %>%
-  cld(Letters = letters, adjust = "bonferroni") %>% 
-  as_tibble() %>% 
+lm(damaged ~ trt + time + trt:time, data = maize_tbl) |> 
+  emmeans(~ trt * time, vcov. = sandwich::vcovHAC) |>
+  cld(Letters = letters, adjust = "bonferroni") |> 
+  as_tibble() |> 
   ggplot(aes(x = time, y = emmean, fill = trt)) +
   theme_minimal() + 
   labs(y = "Anteil beschädigter Mais", x = "Stunden nach Ernte",

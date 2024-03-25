@@ -73,8 +73,6 @@ pacman::p_load(tidyverse, magrittr, broom, nlraa, modelsummary,
                parameters, performance, see, mgcv, mfp, marginaleffects,
                gratia, readxl, nlstools, janitor, ggeffects, nls.multstart,
                conflicted)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
 cb_pal <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
             "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
@@ -102,7 +100,7 @@ In @tbl-chicken sehen wir nochmal die Daten für die ersten drei und die letzten
 
 rbind(head(chicken_tbl, n = 3),
       rep("...", times = ncol(chicken_tbl)),
-      tail(chicken_tbl, n = 3)) %>% 
+      tail(chicken_tbl, n = 3)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -125,7 +123,7 @@ In der @tbl-duckweeds siehst du dann einmal einen Auszug aus den Daten zu den Wa
 
 rbind(head(duckweeds_tbl, n = 3),
       rep("...", times = ncol(duckweeds_tbl)),
-      tail(duckweeds_tbl, n = 3)) %>% 
+      tail(duckweeds_tbl, n = 3)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -256,8 +254,8 @@ Wir nutzen wieder die Funktion `model_parameters()` aus dem R Paket `{parameters
 ```{r}
 #| message: false
 
-fit %>% 
-  model_parameters() %>% 
+fit |> 
+  model_parameters() |> 
   select(Parameter, Coefficient)
 ```
 
@@ -292,10 +290,10 @@ Nun könnte man argumentieren, dass wir vielleicht unterschiedliche Abschnitte d
 ```{r}
 #| results: hide
 
-nls_tbl <- chicken_tbl %>% 
-  mutate(grp = as_factor(cut_number(age, 4))) %>% 
-  group_by(grp) %>% 
-  nest() %>% 
+nls_tbl <- chicken_tbl |> 
+  mutate(grp = as_factor(cut_number(age, 4))) |> 
+  group_by(grp) |> 
+  nest() |> 
   mutate(nls_fit = map(data, ~nls(weight ~ b0 + I(age^b1), data = .x, 
                                   start = c(b0 = 1, b1 = 2))),
          pred = map(nls_fit, ~predict(.x))) 
@@ -305,7 +303,7 @@ nls_tbl <- chicken_tbl %>%
 Um den Codeblock oben kurz zu erklären. Wir rechnen vier nicht-lineare Regressionen auf den vier Altersgruppen. Dann müssen wir uns noch die vorhergesagten Werte wiedergeben lassen damit wir die gefittete Gerade zeichnen können. Wir nutzen dazu die Funktion `unnest()` um die Daten zusammen mit den vorhergesagten Werten zu erhalten.
 
 ```{r}
-nls_pred_tbl <- nls_tbl %>% 
+nls_pred_tbl <- nls_tbl |> 
   unnest(c(data, pred))
 ```
 
@@ -330,9 +328,9 @@ ggplot(chicken_tbl, aes(age, weight)) +
 Wir können uns jetzt noch die `b0` und `b1` für jede der vier Altergruppen wiedergeben lassen. Wir räumen etwas auf und geben über `select()` nur die Spalten wieder, die wir auch brauchen und uns interessieren.
 
 ```{r}
-nls_tbl %>% 
-  mutate(tidied = map(nls_fit, tidy)) %>% 
-  unnest(tidied) %>% 
+nls_tbl |> 
+  mutate(tidied = map(nls_fit, tidy)) |> 
+  unnest(tidied) |> 
   select(grp, term, estimate) 
 ```
 
@@ -371,7 +369,7 @@ Schauen wir uns einmal das Bestimmtheitsmaß $R^2$ für die Anpassung an. Das is
 ```{r}
 #| warning: false
 #| message: false
-duckweeds_nls_fit %>% r2()
+duckweeds_nls_fit |> r2()
 ```
 
 Dann können wir auch schon die mathematische Gleichung aufschreiben. Wir haben einen negativen $y$-Achsenabschnitt $a$ sowie eine *Power* kleiner als 1. Damit sollte unsere Kurve mit steigenden $x$-Werten abflachen. Ich kann mir immer nicht vorstellen, wie so eine Funktion aussehen würde, dafür fehlt mir die mathematische Phantasie.
@@ -448,10 +446,10 @@ Ich habe jetzt das Prädiktionsintervall und das Konfidenzintervall jeweils in e
 Um das Vorhersageintervall zu erstellen nutzen wir die Funktion `nlsBootPredict()` und übergeben als neue Daten unseren Datensatz. Dann müssen wir natürlich noch als Option `interval = "prediction"` wählen um das Vorhersageintervall wiedergegeben zu bekommen. Ich muss dann noch etwas aufräumen und auch die $x$-Werte wieder ergänzen damit wir gleich alles in `ggplot()` darstellen können. Auch nerven mich die doppelten Werte, die brauche ich nicht für die Darstellung und entferne sie über `distinct()`.
 
 ```{r}
-pred_plim_tbl <- nlsBootPredict(nls_boot_obj, newdata = duckweeds_tbl, interval = "prediction") %>% 
-  as_tibble %>% 
-  clean_names() %>% 
-  mutate(duckweeds_density = duckweeds_tbl$duckweeds_density) %>% 
+pred_plim_tbl <- nlsBootPredict(nls_boot_obj, newdata = duckweeds_tbl, interval = "prediction") |> 
+  as_tibble() |> 
+  clean_names() |> 
+  mutate(duckweeds_density = duckweeds_tbl$duckweeds_density) |> 
   distinct(duckweeds_density, .keep_all = TRUE)
 pred_plim_tbl
 ```
@@ -459,8 +457,8 @@ pred_plim_tbl
 Aus der mittleren Abweichung des Medians zu der unteren 2.5% Grenze `x2_5_percent` sowie zu der oberen 97.5% Grenze `x97_5_percent` lässt sich leicht noch eine Konstante $\phi$ errechnen, die wir dann zu unserer mathematischen Formel ergänzen können. Dann hätten wir auch die mathematische Formel für die obere und untere Kurve des Vorhersageintervalls. Im Prinzip ist das Vorhersageintervall ja nur eine verschobene Kurve der ursprünglichen Geradengleichung. Wir subtrahieren und addieren also unser $\phi$ jeweils zu dem $y$-Achsenabschnitt von $-1.1468$ aus dem `nls()`-Modell.
 
 ```{r}
-with(pred_plim_tbl, x2_5_percent - median) %>% mean()
-with(pred_plim_tbl, x97_5_percent - median) %>% mean()
+with(pred_plim_tbl, x2_5_percent - median) |> mean()
+with(pred_plim_tbl, x97_5_percent - median) |> mean()
 ```
 
 Damit hätten wir dann für die 2.5% und 97.% Grenzen des Vorhersageintervalls folgende mathematische Formel. Ich ersetze hier einmal $duckweeds\_density$ durch $x$ um die Formel etwas aufzuräumen und zu kürzen.
@@ -495,10 +493,10 @@ ggplot(duckweeds_tbl, aes(duckweeds_density, sensor)) +
 Um das Konfidenzintervall zu erstellen nutzen wir ebenfalls die Funktion `nlsBootPredict()` und übergeben als neue Daten unseren Datensatz. Dann müssen wir natürlich noch als Option `interval = "confidence"` auswählen um das Konfidenzintervall wiedergegeben zu bekommen. Ich muss dann auch hier aufräumen und die $x$-Werte wieder ergänzen damit wir gleich alles in `ggplot()` darstellen können. Auch nerven mich die doppelten Werte, die brauche ich nicht für die Darstellung und entferne sie über `distinct()`.
 
 ```{r}
-pred_clim_tbl <- nlsBootPredict(nls_boot_obj, newdata = duckweeds_tbl, interval = "confidence") %>% 
-  as_tibble %>% 
-  clean_names() %>% 
-  mutate(duckweeds_density = duckweeds_tbl$duckweeds_density) %>% 
+pred_clim_tbl <- nlsBootPredict(nls_boot_obj, newdata = duckweeds_tbl, interval = "confidence") |> 
+  as_tibble() |> 
+  clean_names() |> 
+  mutate(duckweeds_density = duckweeds_tbl$duckweeds_density) |> 
   distinct(duckweeds_density, .keep_all = TRUE)
 pred_clim_tbl 
 ```
@@ -506,15 +504,17 @@ pred_clim_tbl
 Aus der mittleren Abweichung des Medians zu der unteren 2.5% Grenze `x2_5_percent` sowie zu der oberen 97.5% Grenze `x97_5_percent` lässt sich leicht noch eine Konstante $\phi$ errechnen, die wir dann zu unserer mathematischen Formel ergänzen können. Dann hätten wir auch die mathematische Formel für die obere und untere Kurve des Konfidenzintervalls. Im Prinzip ist das Konfidenzintervall ja nur eine verschobene Kurve der ursprünglichen Geradengleichung. Wir subtrahieren und addieren also unser $\phi$ jeweils zu dem $y$-Achsenabschnitt von $-1.1468$ aus dem `nls()`-Modell.
 
 ```{r}
-with(pred_clim_tbl, x2_5_percent - median) %>% mean()
-with(pred_clim_tbl, x97_5_percent - median) %>% mean()
+with(pred_clim_tbl, x2_5_percent - median) |> mean()
+with(pred_clim_tbl, x97_5_percent - median) |> mean()
 ```
 
 Damit hätten wir dann für die 2.5% und 97.% Grenzen des Konfidenzintervalls folgende mathematische Formel. Ich ersetze hier einmal $duckweeds\_density$ durch $x$ um die Formel etwas aufzuräumen und zu kürzen.
 
 $$
 [-1.1978 + x^{0.298}; \; -1.1098 + x^{0.298}]
-$$ Wir machen es uns einfacher und nutzen hier dann die Funktion `geom_ribbon()` um die Fläche des Konfidenzintervalls. Wir nutzen hier also nicht die Informationen aus unserem `nls()`-Modell direkt sondern erschaffen uns die Informationen nochmal über eine Bootstrapsimulation. Es ist einfach noch ein Extraschritt, wenn du eben noch ein Intervall haben willst. Nicht immer ist es notwendig und die Breite des Konfidenzintervalls hängt auch maßgeblich von der Anzahl an Beobachtungen ab.
+$$
+
+Wir machen es uns einfacher und nutzen hier dann die Funktion `geom_ribbon()` um die Fläche des Konfidenzintervalls. Wir nutzen hier also nicht die Informationen aus unserem `nls()`-Modell direkt sondern erschaffen uns die Informationen nochmal über eine Bootstrapsimulation. Es ist einfach noch ein Extraschritt, wenn du eben noch ein Intervall haben willst. Nicht immer ist es notwendig und die Breite des Konfidenzintervalls hängt auch maßgeblich von der Anzahl an Beobachtungen ab.
 
 ```{r}
 #| echo: true
@@ -577,8 +577,8 @@ Wir können uns noch die Koeffizienten wiedergeben lassen und die Geradengleichu
 ```{r}
 #| message: false
 
-fit %>% 
-  model_parameters() %>% 
+fit |> 
+  model_parameters() |> 
   select(Parameter, Coefficient)
 ```
 
@@ -615,7 +615,7 @@ In diesem Abschnitt wollen wir uns mit dem Modellieren einer Sättigungskurve be
 ```{r}
 #| message: false
 
-enzyme_tbl <- read_csv2(file.path("data/enzyme.csv")) %>% 
+enzyme_tbl <- read_csv2(file.path("data/enzyme.csv")) |> 
   rename(S = concentration, v = rate)
 ```
 
@@ -630,7 +630,7 @@ In @tbl-enzyme sehen wir einen Auszug aus den Enzymedaten. Eigentlich relativ kl
 
 rbind(head(enzyme_tbl, n = 3),
       rep("...", times = ncol(enzyme_tbl)),
-      tail(enzyme_tbl, n = 3)) %>% 
+      tail(enzyme_tbl, n = 3)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -672,8 +672,8 @@ Wir können uns dann die Koeffizienten ausgeben lassen.
 ```{r}
 #| message: false
 
-enzyme_fit %>% 
-  model_parameters() %>% 
+enzyme_fit |> 
+  model_parameters() |> 
   select(Parameter, Coefficient)
 ```
 
@@ -800,13 +800,13 @@ modelsummary(lst("nls Modell" = nls_fit,
 Und am Ende nochmal, wie gut war die Anpassung des Modells an die Daten*punkte* eigentlich? Hier können wir dann wieder das Bestimmtheitsmaß $R^2$ nutzen. Wie immer siehst du Bestimmtheitsmaß $R^2$ auch in der `summary()` aber hier dann einmal als direkter Aufruf.
 
 ```{r}
-mfp_fit %>% r2
+mfp_fit |> r2()
 ```
 
 ```{r}
 #| message: false
 #| warning: false
-nls_fit %>% r2
+nls_fit |> r2()
 ```
 
 Da sich jetzt die beiden Bestimmtheitsmaße $R^2$ wirklich nicht unterscheiden, ist es wohl eher eine Frage des Geschmacks, welche mathematische Formel besser passt. In unserem Beispiel sind ja auch die eher jüngeren Hühner das Problem und nicht so die etwas älteren Hühner. Aber diese Frage lasse ich dann mal offen, du kannst oben die `map()` Funktion auch mit `mfp()` laufen lassen.
@@ -824,14 +824,14 @@ gam_fit <- gam(weight ~ s(age), data = chicken_tbl)
 Und dann können wir uns auch schon die Modellgüte des GAM einmal anschauen. Das ist eigentlich das Schöne der Implementierung in dem R Paket `{mgvc}`, dass wir hier auch alle Helferfunktionen der anderen Pakete nutzen können.
 
 ```{r}
-gam_fit %>% 
+gam_fit |> 
   model_performance()
 ```
 
 Wir sehen auch hier, dass wir ein sehr gutes Modell mit einem Bestimmtheitsmaße $R^2$ von $98\%$. Wir könnten uns auch die Modellkoeffizienten anschauen, aber leider kriegen wir hier nur die Information, ob der Intercept signifikant unterschiedliche von der Null ist und ob wir einen signifikanten Anstieg haben. Beides ist zwar nett, aber interessiert uns eher nicht in unsere Fragestellungen.
 
 ```{r}
-gam_fit %>% 
+gam_fit |> 
   model_parameters() 
 ```
 
@@ -898,9 +898,9 @@ Wenn wir GAM nutzen dann können wir uns auf verschiedenen Wegen ein Konfidenzin
 Das R Paket `{marginaleffects}` erlaubt es ziemlich direkt die vorhergesagten Werte über die Funktion `predictions()` aus den Daten zu erhalten. Es gibt auch eine Hilfeseite unter [GAM -- Estimate a Generalized Additive Model](https://marginaleffects.com/vignettes/gam.html). Wir müssen hier noch etwas aufräumen und die doppelten Werte für die Wasserlinsendichte über die Funktion `distinct()` entfernen. Wir erhalten hier auch etwas mehr Informationen also wir in den anderen Paekten wiedergegeben kriegen.
 
 ```{r}
-marg_pred_tbl <- predictions(duckweeds_gam_fit, newdata = duckweeds_tbl) %>% 
-  as_tibble() %>% 
-  select(duckweeds_density, sensor, estimate, std.error, conf.low, conf.high) %>% 
+marg_pred_tbl <- predictions(duckweeds_gam_fit, newdata = duckweeds_tbl) |> 
+  as_tibble() |> 
+  select(duckweeds_density, sensor, estimate, std.error, conf.low, conf.high) |> 
   distinct(duckweeds_density, .keep_all = TRUE)
 marg_pred_tbl 
 ```
@@ -913,8 +913,8 @@ Das R Paket `{gratia}` erlaubt mit der Funktion `confint()` die Konfidenzinterva
 
 ```{r}
 gratia_pred_tbl <- confint(duckweeds_gam_fit, parm = "s(duckweeds_density)", 
-                           shift = TRUE, type = "confidence", data = duckweeds_tbl) %>% 
-  select(duckweeds_density, est, se, lower, upper) %>% 
+                           shift = TRUE, type = "confidence", data = duckweeds_tbl) |> 
+  select(duckweeds_density, est, se, lower, upper) |> 
   distinct(duckweeds_density, .keep_all = TRUE)
 gratia_pred_tbl 
 ```
