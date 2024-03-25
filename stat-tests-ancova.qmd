@@ -40,12 +40,11 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, conflicted, broom, quantreg,
+pacman::p_load(tidyverse, magrittr, broom, quantreg,
                see, performance, emmeans, multcomp, janitor,
-               parameters)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
+               parameters, conflicted)
+conflicts_prefer(dplyr::select)
+conflicts_prefer(dplyr::filter)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
@@ -59,8 +58,8 @@ Für unser Beispiel nutzen wir die Daten der Sprungweite in \[cm\] von Flöhen a
 ```{r}
 #| message: false
 
-ancova_tbl <- read_csv2("data/flea_dog_cat_length_weight.csv") %>%
-  select(animal, sex, jump_length, weight) %>% 
+ancova_tbl <- read_csv2("data/flea_dog_cat_length_weight.csv") |>
+  select(animal, sex, jump_length, weight) |> 
   mutate(animal = as_factor(animal))
 ```
 
@@ -72,11 +71,11 @@ In der @tbl-model-1 ist der Datensatz `ancova_tbl` nochmal dargestellt.
 #| tbl-cap: Datensatz zu der Sprunglänge in [cm] von Flöhen auf Hunde-, Katzen- und Füchsen.
 #| label: tbl-model-1
 
-ancova_raw_tbl <- ancova_tbl %>% 
+ancova_raw_tbl <- ancova_tbl |> 
   mutate(animal = as.character(animal))
 rbind(head(ancova_raw_tbl),
       rep("...", times = ncol(ancova_raw_tbl)),
-      tail(ancova_raw_tbl)) %>% 
+      tail(ancova_raw_tbl)) |> 
   kable(align = "c", "pipe")
 
 ```
@@ -87,9 +86,9 @@ Unser zweiter Datensatz ist ein Anwendungsdatensatz aus dem Gemüsebau. Wir scha
 #| message: false
 #| warning: false
 
-gurke_raw_tbl <- read_excel("data/wachstum_gurke.xlsx") %>% 
-  clean_names() %>% 
-  select(-pfl, -erntegewicht) %>% 
+gurke_raw_tbl <- read_excel("data/wachstum_gurke.xlsx") |> 
+  clean_names() |> 
+  select(-pfl, -erntegewicht) |> 
   mutate(versuchsgruppe = as_factor(versuchsgruppe)) 
 ```
 
@@ -101,11 +100,11 @@ In der @tbl-model-2 sehen wir einmal die rohen Daten dargestellt.
 #| tbl-cap: "Datensatz zu dem Längen- und Dickenwachstum von Gurken."
 #| label: tbl-model-2
 
-ancova_raw_2_tbl <- gurke_raw_tbl %>% 
+ancova_raw_2_tbl <- gurke_raw_tbl |> 
   mutate(versuchsgruppe = as.character(versuchsgruppe))
 rbind(head(ancova_raw_2_tbl),
       rep("...", times = ncol(ancova_raw_2_tbl)),
-      tail(ancova_raw_2_tbl)) %>% 
+      tail(ancova_raw_2_tbl)) |> 
   kable(align = "c", "pipe")
 
 ```
@@ -113,16 +112,16 @@ rbind(head(ancova_raw_2_tbl),
 Wir haben zwei Typen von Daten für das Gurkenwachstum. Einmal messen wir den Durchmesser für jede Sorte (`D` im Namen der Versuchsgruppe) oder aber die Länge (`L` im Namen der Versuchsgruppe). Wir betrachten hier nur das Längenwachstum und deshalb filtern wir erstmal nach allen Versuchsgruppen mit einem `L` im Namen. Dann müssen wir die Daten noch in Long-Format bringen. Da wir dann auch noch auf zwei Arten die Daten über die Zeit darstellen wollen, brauchen wir einmal die Zeit als Faktor `time_fct` und einmal als numerisch `time_num`. Leider haben wir auch Gurken mit einer Länge von 0 cm. Diese Gurken schmeißen wir am Ende mal raus. Auch haben wir ab Woche 14 keine Messungen mehr in der Versuchsgruppe `Prolong`, also nehmen wir auch nur die Daten bis zur vierzehnten Woche.
 
 ```{r}
-gurke_time_len_tbl <- gurke_raw_tbl %>% 
-  filter(str_detect(versuchsgruppe, "L$")) %>% 
+gurke_time_len_tbl <- gurke_raw_tbl |> 
+  filter(str_detect(versuchsgruppe, "L$")) |> 
   mutate(versuchsgruppe = factor(versuchsgruppe, 
-                                 labels = c("Proloog", "Quarto", "Katrina"))) %>% 
+                                 labels = c("Proloog", "Quarto", "Katrina"))) |> 
   pivot_longer(cols = t1:t17,
                values_to = "length",
-               names_to = "time") %>% 
+               names_to = "time") |> 
   mutate(time_fct = as_factor(time),
-         time_num = as.numeric(time_fct)) %>% 
-  filter(length != 0) %>% 
+         time_num = as.numeric(time_fct)) |> 
+  filter(length != 0) |> 
   filter(time_num <= 14)
 ```
 
@@ -177,7 +176,7 @@ fit_1 <- lm(jump_length ~ animal + weight + animal:weight, data = ancova_tbl)
 Nachdem wir das Modell in dem Objekt `fit_1` gespeichert haben können wir dann das Modell in die Funktion `anova()` pipen. Die Funktion erkennt, das wir eine ANCOVA rechnen wollen, da wir in unserem Modell einen Faktor und eine Kovariate mit enthalten haben.
 
 ```{r}
-fit_1 %>% anova 
+fit_1 |> anova ()
 ```
 
 In der ANCOVA erkennne wir nun, dass der Faktor `animal` signifikant ist. Der $p$-Wert ist mit $<0.001$ kleiner das das Signifikanzniveau $\alpha$ von 5%. Ebenso ist die Kovariate `weight` signifikant. Der $p$-Wert ist ebenfalls mit $<0.001$ kleiner das das Signifikanzniveau $\alpha$ von 5%. Wir können also schlussfolgern, dass sich mindestens eine Gruppenvergleich der Level des Faktors `animal` voneinander unterscheidet. Wir wissen auch, dass mit der Zunahme des Gewichts, die Sprunglänge sich ändert.
@@ -223,7 +222,7 @@ fit_2 <- lm(jump_length ~ animal + sex + weight + animal:sex, data = ancova_tbl)
 Nach dem Fit können wir das Modell in dem Obkjekt `fit_2` in die Funktion `anova()` pipen. Die Funktion erkennt die Struktur des Modells und gibt uns eine ANCOVA Ausgabe wieder.
 
 ```{r}
-fit_2 %>% anova 
+fit_2 |> anova() 
 ```
 
 In der ANCOVA erkennne wir nun, dass der Faktor `animal` signifikant ist. Der $p$-Wert ist mit $<0.001$ kleiner das das Signifikanzniveau $\alpha$ von 5%. Ebenso ist der Faktor `sex` signifikant. Der $p$-Wert ist mit $<0.001$ kleiner das das Signifikanzniveau $\alpha$ von 5%. Die Kovariate `weight` ist nicht mehr signifikant. Der $p$-Wert ist mit $0.94$ größer das das Signifikanzniveau $\alpha$ von 5%. Wir können also schlussfolgern, dass sich mindestens eine Gruppenvergleich der Level des Faktors `animal` voneinander unterscheidet. Ebenso wie können wir schlussfolgern, dass sich mindestens eine Gruppenvergleich der Level des Faktors `site` voneinander unterscheidet. Da wir nur zwei Level in dem Faktor `sex` haben, wissenwir nun, dass sich die beiden Geschlechter der Flöhe in der Sprungweite unterscheiden. Wir wissen auch, dass mit der Zunahme des Gewichts, sich die Sprunglänge nicht ändert.
@@ -319,7 +318,7 @@ Nochmal kurz mit der ANOVA überprüft und wir sehen eine signifikante Interakti
 ```{r}
 #| message: false
 #| warning: false
-time_fct_fit %>% anova %>% model_parameters()
+time_fct_fit |> anova() |> model_parameters()
 ```
 
 Wir haben eben einmal die Zeit als Faktor mit ins Modell genommen, da wir so für jeden Zeitpunkt einen Mittelwert schätzen können. Wenn wir eine einfaktorielle ANCOVA rechnen, dann geht die Zeit als numerische Kovariate ($c_1$) linear in das Modell ein. Wir haben also von jedem Zeitpunkt zum nächsten den gleichen Anstieg. Wir modellieren ja auch einen linearen Zusammenhang. Hier einmal das Modell für die ANCOVA.
@@ -337,7 +336,7 @@ time_num_fit <- lm(length ~ versuchsgruppe + time_num + versuchsgruppe:time_num,
 Auch hier einmal die Überprüfung auf eine Interaktion mit der ANCOVA. Wir sehen, dass wir eine signifikante Interaktion zwischen den Versuchsgruppen und dem zeitlichen verlauf vorliegen haben.
 
 ```{r}
-time_num_fit %>% anova() %>% model_parameters()
+time_num_fit |> anova() |> model_parameters()
 ```
 
 In der @fig-stat-ancova-05 sehen wir dann nochmal das Modell im Interaktionsplot. In beiden Abbildungen sehe wir den linearen Zusammenhang. Die Interaktion drückt sich in der unterschiedlichen Steigung der Versuchsgruppen über den zeitlichen Verlauf aus. Wir können durch die Option `at =` entscheiden für welche Zeitpunkte wir uns die 95% Konfidenzintervalle anzeigen lassen wollen, wie in der linken Abbildung exemplarisch für die Zeitpunkte 1 Woche, 7 Wochen und 14 Wochen. Oder aber wir lassen uns alle durch die Option `cov.reduce = FALSE` anzeigen, wie in der rechten Abbildung gezeigt.
@@ -378,7 +377,7 @@ emtrends(time_num_fit, ~ versuchsgruppe, var = "time_num", infer = TRUE)
 Die Spalte `time_num.trend` zeigt uns jetzt den linearen Anstieg über die Zeit für die jeweilige Versuchsgruppe. Das heißt jede Woche wächst die Sorte Proloog um $1.857cm$ an Länge. In der gleichen Art können wir auch die anderen Werte in der Spalte interpretieren. Jetzt stellt sich natürlich die Frage, ob dieses Längenwachstum *untereinander* unterschiedlich ist. Dafür könne wir dann leicht den Code abändern und setzen das Wort `pairwise` vor die Tilde. Dann testet die Funktion auch alle paarweisen Vergleiche. Wir nutzen jetzt noch die Funktion `model_parameters()` um eine schönere Ausgabe zu erhalten.
 
 ```{r}
-emtrends(time_num_fit, pairwise ~ versuchsgruppe, var = "time_num", infer = TRUE) %>% 
+emtrends(time_num_fit, pairwise ~ versuchsgruppe, var = "time_num", infer = TRUE) |> 
   model_parameters()
 ```
 
@@ -417,7 +416,7 @@ Jetzt wollen wir die Analyse nochmal auf die Spitze treiben. Wir schauen uns jet
 
 ```{r}
 emmeans(time_num_poly_fit, pairwise ~ versuchsgruppe | time_num, 
-        at = list(time_num = c(1, 7, 14))) %>% 
+        at = list(time_num = c(1, 7, 14))) |> 
   cld(Letters = letters) 
 ```
 

@@ -31,10 +31,8 @@ pacman::p_load(tidyverse, magrittr, rstatix,
                readxl, tictoc, multcompView, 
                parameters, scales,
                conflicted)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
-conflict_prefer("extract", "magrittr")
+conflicts_prefer(magrittr::extract)
+conflicts_prefer(dplyr::filter)
 
 ```
 
@@ -47,12 +45,12 @@ Als Datenbeispiel schauen wir uns einmal ein einfaktoriellen Datensatz an und su
 ```{r}
 #| message: false
 #| warning: false
-soil_tbl <- read_excel("data/soil_1fac_data.xlsx") %>% 
+soil_tbl <- read_excel("data/soil_1fac_data.xlsx") |> 
   mutate(variante = str_c(variante, "_", amount),
          variante = as_factor(variante),
-         across(where(is.numeric), round, 2)) %>% 
-  select(-amount) %>%
-  extract(1:8, 1:4) %>% 
+         across(where(is.numeric), round, 2)) |> 
+  select(-amount) |>
+  extract(1:8, 1:4) |> 
   pivot_longer(cols = fe:no3, 
                names_to = "outcome",
                values_to = "rsp") 
@@ -61,13 +59,13 @@ soil_tbl <- read_excel("data/soil_1fac_data.xlsx") %>%
 Als zweiten Datensatz nehmen wir noch eine zweifaktorilles Design mit einem Behandlungs- und einem Blockeffekt. Darüberhinaus haben wir dann noch verschiedene Outcomes und diese Outcomes dann auch an zwei Orten, einmal im Blatt und einmal im Stiel, gemessen. Das heißt, wir haben immer eine Outcome/Sample-Kombination vorliegen. Bei drei Outcomes und zwei Messorten macht das dann sechs Kombinationen auf denen wir dann immer unsere zweifaktoriellen Analysen rechnen wollen.
 
 ```{r}
-spinach_tbl <- read_excel("data/spinach_metal_data.xlsx") %>% 
+spinach_tbl <- read_excel("data/spinach_metal_data.xlsx") |> 
   mutate(trt = as_factor(trt),
          sample = as_factor(sample),
-         block = as_factor(block)) %>% 
+         block = as_factor(block)) |> 
   pivot_longer(cols = fe:zn,
                names_to = "outcome",
-               values_to = "rsp") %>% 
+               values_to = "rsp") |> 
   mutate(outcome = as_factor(outcome))
 ```
 
@@ -80,8 +78,8 @@ In R haben wir zwei Möglichkeiten für `map()` die Daten aufzuteilen. Klar, wir
 Mit der Funktion `split()` können wir einen Datensatz nach *einer* Faktorspalte in eine Liste aufspalten. Die Liste ist dann auch gleich so benannt wie das Level es Faktors für das wir die Aufteilung gemacht haben. Die Benamung der Liste ist dann praktisch, wenn wir später wieder einen Datensatz aus den Ergebnissen bauen.
 
 ```{r}
-soil_lst <- soil_tbl %>%
-  split(.$outcome) 
+soil_lst <- soil_tbl |>
+  split(~outcome) 
 
 soil_lst
 ```
@@ -91,8 +89,8 @@ soil_lst
 Wenn wir mehr als eine Gruppierungsspalte haben, dann können wir die Funktion `nest()` nutzen. In unserem Beispiel haben wir die Spalte `outcome` und `sample`. Für jede Kombination der beiden Spalte wollen wir dann jeweils ein Modell rechnen. Hier meine ich mit Modell eine lineare Regression und dann eine ANOVA. Als erstes müssen wir unsere Daten gruppieren und dann können wir die Daten nesten. Mit `unnest()` lässt sich dann die genestete Struktur wieder in einen normalen Datensatz zurückführen.
 
 ```{r}
-spinach_nest_tbl <- spinach_tbl %>% 
-  group_by(sample, outcome) %>% 
+spinach_nest_tbl <- spinach_tbl |> 
+  group_by(sample, outcome) |> 
   nest() 
 
 spinach_nest_tbl
@@ -116,61 +114,61 @@ Wir können die Funktion `map()` und deren verwandete Funktionen nutzen um zügi
 Schauen wir uns die Anwendung von der Funktion `map()` auf eine Liste an. In folgenden Code entfernen wir einmal in *jedem* Listeneintrag die Spalte `outcome`. Dann lassen wir uns von *jedem* Listeneintrag die erste Zeile wiedergeben.
 
 ```{r}
-soil_lst %>%
-  map(select, -outcome) %>% 
+soil_lst |>
+  map(select, -outcome) |> 
   map(head, 1)
 ```
 
 Wir können zum einen `map(head, 1)` schreiben oder aber den Listeneintrag als `.x` direkt in die Funktion weiterleiten. Dann schreiben wir `map(~head(.x, 1))` und müssen noch die Tilde `~` vor die Funktion setzen.
 
 ```{r}
-soil_lst %>%
+soil_lst |>
   map(~head(.x, 1))
 ```
 
 Die richtige Stärke entwickelt dann `map()`, wenn wir mehrere Funktionen hineinander schalten. In unserem Fall rechnen wir einen Games-Howell Test und wollen uns dann das *compact letter display* wiedergeben lassen. Da wir am Ende dann einen Datensatz haben wollen, nutzen wir die Funktion `bind_rows()` um die Listeneinträge in einen Datensatz zusammen zukleben.
 
 ```{r}
-soil_lst %>% 
-  map(~games_howell_test(rsp ~ variante, data = .x)) %>% 
-  map(~mutate(.x, contrast = str_c(.x$group1, "-", .x$group2))) %>% 
-  map(pull, p.adj, contrast) %>% 
-  map(~multcompLetters(.x)$Letters) %>% 
+soil_lst |> 
+  map(~games_howell_test(rsp ~ variante, data = .x)) |> 
+  map(~mutate(.x, contrast = str_c(.x$group1, "-", .x$group2))) |> 
+  map(pull, p.adj, contrast) |> 
+  map(~multcompLetters(.x)$Letters) |> 
   bind_rows(.id = "outcome") 
 ```
 
 Wir können auch auch auf genesteten Daten die Funktion `map()` anwenden. In diesem Fall belieben wir die ganze Zeit in einem `tibble`. Wir lagern unsere Ergebnisse sozusagen immer in einer Zelle und können auf diese Einträge dann immer wieder zugreifen. Einmal zu Demonstration rechnen wir sechs Mal ein lineares Modell mit der Funktion `lm()` und speichern das Ergebnis in der Spalte `model`. Wir haben jetzt dort jeweils `<lm>` stehen. Damit wissen wir auch, dass wir dort unser Modell drin haben. Wir können jetzt auf der Spalte `model` weiterechnen und uns neue Spalten mit Ergebnissen erschaffen.
 
 ```{r}
-spinach_nest_tbl %>%
+spinach_nest_tbl |>
   mutate(model = map(data, ~lm(rsp ~ trt + block, data = .x)))
 ```
 
 Im Folgenden rechnen wir ein lineares Modell, dann eine ANOVA und lassen uns das Ergebnis der ANOVA mit der Funktion `model_parameters()` aufhübschen. Wie du siehst, geben wie immer den Spaltennamen eine Funktion weiter. Dann wählen wir noch die Spalten, die wir dann unnesten wollen.
 
 ```{r}
-spinach_nest_tbl %<>%
-  mutate(model = map(data, ~lm(rsp ~ trt + block, data = .x))) %>% 
-  mutate(anova = map(model, anova)) %>% 
-  mutate(parameter = map(anova, model_parameters)) %>% 
+spinach_nest_tbl <- spinach_nest_tbl |> 
+  mutate(model = map(data, ~lm(rsp ~ trt + block, data = .x))) |> 
+  mutate(anova = map(model, anova)) |> 
+  mutate(parameter = map(anova, model_parameters)) |> 
   select(sample, outcome, parameter) 
 ```
 
 Zum Abschluss nutzen wir die Funktion `unnest()` um uns die aufgehübschten Ergebnisse der ANOVA wiedergeben zu lassen. Dann will ich noch, dass die Namen alle klein geschrieben sind und auch sonst sauber sind. Dafür nutze ich dann die Funktion `clean_names()`. Abschließend filtere ich und runde ich noch die Ergebnisse. Am Ende will ich dann nur die Kombinationen aus `sample` und `outcome` haben sowie den $p$-Wert aus der ANOVA.
 
 ```{r}
-spinach_nest_tbl %>%
-  unnest(parameter) %>% 
-  clean_names() %>% 
-  mutate(across(where(is.numeric), round, 2)) %>% 
-  filter(parameter != "Residuals") %>% 
+spinach_nest_tbl |>
+  unnest(parameter) |> 
+  clean_names() |> 
+  mutate(across(where(is.numeric), round, 2)) |> 
+  filter(parameter != "Residuals") |> 
   select(sample, outcome, parameter, p)
 ```
 
 Hier noch ein weiteres Beispiel für `split()`, `nest()` und `nest_by()` zum Ausprobieren und rumspielen. Wir wollen für hier einmal auf ganze vielen Behandlungen den Shapiro-Wilk-Tests für die Abweichung von der Normalverteilung rechnen. Dazu laden wir uns einmal die Daten `clove_germ_rate.xlsx`.
 
 ```{r}
-clove_tbl <- read_excel("data/clove_germ_rate.xlsx") %>% 
+clove_tbl <- read_excel("data/clove_germ_rate.xlsx") |> 
   mutate(clove_strain = as_factor(clove_strain),
          germ_rate = as.numeric(germ_rate))
 ```
@@ -178,12 +176,12 @@ clove_tbl <- read_excel("data/clove_germ_rate.xlsx") %>%
 Wir rechnen einmal die Shapiro-Wilk-Tests über die Funktion `split()` und dann einer Liste.
 
 ```{r}
-clove_tbl %>% 
-  split(.$clove_strain) %>% 
-  map(~shapiro.test(.x$germ_rate)) %>% 
-  map(tidy) %>% 
-  bind_rows(.id = "test") %>%
-  select(test, p.value) %>% 
+clove_tbl |> 
+  split(~clove_strain) |> 
+  map(~shapiro.test(.x$germ_rate)) |> 
+  map(tidy) |> 
+  bind_rows(.id = "test") |>
+  select(test, p.value) |> 
   mutate(decision = ifelse(p.value <= 0.05, "reject normal", "normal"),
          p.value = pvalue(p.value, accuracy = 0.001))
 
@@ -192,21 +190,21 @@ clove_tbl %>%
 Dann das selbe nochmal mit der Funktion `nest_by()`, die jetzt Vektoren generiert.
 
 ```{r}
-clove_tbl %>% 
-  nest_by(clove_strain) %>% 
+clove_tbl |> 
+  nest_by(clove_strain) |> 
   mutate(shapiro = map(data, ~shapiro.test(.x)),
-         clean = tidy(shapiro)) %>% 
+         clean = tidy(shapiro)) |> 
   reframe(clean)
 ```
 
 Und nochmal mit der Pipe von `group_by()` zu `nest()`. Die Funktion `nest()` hate auch eine `.by =`-Option, so dass wir auch den Schritt mit `group_by()` weglassen könnten.
 
 ```{r}
-clove_tbl %>%
-  group_by(clove_strain) %>% 
-  nest() %>% 
+clove_tbl |>
+  group_by(clove_strain) |> 
+  nest() |> 
   mutate(shapiro = map(data, ~shapiro.test(.x$germ_rate)),
-         clean = map(shapiro, tidy)) %>% 
+         clean = map(shapiro, tidy)) |> 
   unnest(clean)
 ```
 
@@ -236,8 +234,8 @@ Das ist manchmal extrem praktisch, wenn eine Liste nur einen Eintrag hat. Dann k
 ```{r}
 lst(id237189 = 4,
     id7629w0 = 5,
-    id790182 = 3) %>% 
-  unlist() %>% 
+    id790182 = 3) |> 
+  unlist() |> 
   enframe()
 ```
 
@@ -250,7 +248,7 @@ data_lst <- lst(dog_tbl = tibble(id = c("id786", "id987", "id231", "id566"),
                                  cat = rep("cat", 2)),
                 fox_tbl = tibble(id = c("id786", "id987", "id776", "id129", "id231", "id566"),
                                  fox = rep("fox", 6)))
-data_lst %>% 
+data_lst |> 
   keep(\(x) nrow(x) > 2)
 ```
 
@@ -260,14 +258,14 @@ Wenn ich in einer Liste Einträge finde, die keinen Werte haben, also `NULL` sin
 data_null_lst <- lst(dog_tbl = tibble(animal = rep("dog", 4)),
                      cat_tbl = NULL,
                      fox_tbl = NULL)
-data_null_lst %>% 
+data_null_lst |> 
   compact()
 ```
 
 Die Funktion `reduce` und der [Dokumentation zu `reduce()`](https://purrr.tidyverse.org/reference/reduce.html) ermöglicht es mit Listeneinträge zu kombinieren. Wenn ich alle Listeneinträge nur untereinander packen will, dann nutze ich die Funktion `bind_rows()` oder gleich `map_dfr()`.
 
 ```{r}
-data_lst %>% 
+data_lst |> 
   reduce(left_join, by = "id")
 ```
 
@@ -283,7 +281,7 @@ data_tbl
 Dann möchte ich meist noch einen Datensatz nach einer externen Spalte sortieren. Dafür nutze ich die Funktion `arrange()` wie folgt.
 
 ```{r}
-data_tbl %>% 
+data_tbl |> 
   arrange(factor(animal, levels = sort_vec))
 ```
 
@@ -300,7 +298,7 @@ cow_tbl
 Wir nehmen also die Namen aus der Spalte `type` und kleben (eng. *glue*) erst den Namen der Spalte und dann mit einem Unterstrich getrennt den Namen der beiden anderen Spalten `rz` und `lfd_nr` dran. Wir wollen ja auch die Werte von den beiden Spalten dann in das Wide-Format übertragen.
 
 ```{r}
-cow_tbl %>% 
+cow_tbl |> 
   pivot_wider(names_from = type,
               names_glue = "{type}_{.value}",
               values_from = c(rz, lfd_nr))

@@ -9,10 +9,6 @@
 #| echo: false
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, see, conflicted,
                ggridges)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
-conflict_prefer("summarise", "dplyr")
 cbbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
@@ -47,7 +43,8 @@ In diesem Kapitel geht es erstmal um das Grundverständnis, das Daten einer Vert
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
-pacman::p_load(tidyverse, magrittr, see, readxl, ggbeeswarm)
+pacman::p_load(tidyverse, magrittr, see, readxl, ggbeeswarm, conflicted)
+conflicts_prefer(dplyr::filter)
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
@@ -59,11 +56,11 @@ Damit wir uns auch eine Verteilung anschauen können brauchen wir *viele* Beobac
 ```{r}
 #| message: false
 
-gummi_tbl <- read_excel("data/gummibears.xlsx")  %>%
+gummi_tbl <- read_excel("data/gummibears.xlsx")  |>
   select(year, module, gender, height, age, count_bears, 
-         count_color, most_liked ) %>% 
+         count_color, most_liked ) |> 
   mutate(gender = as_factor(gender),
-         module = as_factor(module)) %>% 
+         module = as_factor(module)) |> 
   na.omit()
 
 ```
@@ -76,27 +73,27 @@ Wir erhalten das Objekt `gummi_tbl` mit dem Datensatz in @tbl-data-dist-gummi no
 #| tbl-cap: Auszug aus den selektierten Daten zu den Gummibärchendaten.
 #| label: tbl-data-dist-gummi
 
-gummi_print_tbl <- gummi_tbl %>% 
+gummi_print_tbl <- gummi_tbl |> 
   mutate(gender = as.character(gender),
          module = as.character(module))
 rbind(head(gummi_print_tbl),
       rep("...", times = ncol(gummi_print_tbl)),
-      tail(gummi_print_tbl)) %>% 
+      tail(gummi_print_tbl)) |> 
   kable(align = "c", "pipe")
 ```
 
 ```{r}
 #| echo: false
-most_comm_mat <- read_excel("data/gummibears.xlsx") %>% 
-  select(year, gender, height, most_liked, age) %>% 
-  mutate(string = str_c(gender, height, most_liked, age, sep = "-")) %>% 
-  na.omit() %>% 
-  group_by(year, gender) %>% 
-  reframe(janitor::tabyl(string)) %>% 
-  group_by(gender) %>% 
-  arrange(desc(n)) %>% 
-  filter(n == max(n)) %>% 
-  pull(string) %>% 
+most_comm_mat <- read_excel("data/gummibears.xlsx") |> 
+  select(year, gender, height, most_liked, age) |> 
+  mutate(string = str_c(gender, height, most_liked, age, sep = "-")) |> 
+  na.omit() |> 
+  group_by(year, gender) |> 
+  reframe(janitor::tabyl(string)) |> 
+  group_by(gender) |> 
+  arrange(desc(n)) |> 
+  filter(n == max(n)) |> 
+  pull(string) |> 
   str_split("-", simplify = TRUE)
 
 col_switch <- c(green = "grün", none = "keine", darkred = "dunkelrot", lightred = "hellrot", 
@@ -150,7 +147,7 @@ In @fig-normal-02 sehen wir verschiedene Normalverteilungen mit unterschiedliche
 set.seed(20220789)
 norm_tbl <- tibble(n1 = rnorm(10000, 10, 2),
                    n2 = rnorm(10000, 20, 2),
-                   n3 = rnorm(10000, 0, 2)) %>% 
+                   n3 = rnorm(10000, 0, 2)) |> 
   gather()
 
 ggplot(data = norm_tbl, aes(x = value, fill = key)) +
@@ -170,7 +167,7 @@ ggplot(data = norm_tbl, aes(x = value, fill = key)) +
 set.seed(20220789)
 norm_tbl <- tibble(n1 = rnorm(10000, 10, 1),
                    n2 = rnorm(10000, 20, 3),
-                   n3 = rnorm(10000, 0, 6)) %>% 
+                   n3 = rnorm(10000, 0, 6)) |> 
   gather()
 
 ggplot(data = norm_tbl, aes(x = value, fill = key)) +
@@ -212,12 +209,12 @@ Schauen wir uns die Normalverteilung einmal am Beispiel unserer Gummibärchendat
 #| layout-nrow: 1
 #| column: page
 
-gummi_1_tbl <- gummi_tbl %>% 
-  select(height, gender) %>% 
+gummi_1_tbl <- gummi_tbl |> 
+  select(height, gender) |> 
   na.omit()
 
-mean_tbl <- gummi_1_tbl %>% 
-  group_by(gender) %>% 
+mean_tbl <- gummi_1_tbl |> 
+  group_by(gender) |> 
   summarise(mean = round(mean(height), 1)) 
 
 ggplot(data = gummi_1_tbl, aes(x = height, fill = gender)) +
@@ -259,7 +256,7 @@ Mehr gibt es dann in dem [Kapitel zum t-test](#sec-ttest). Dort findest du dann 
 Wir können die Funktion `rnorm()` nutzen um uns zufällige Zahlen aus der Normalverteilung ziehen zu lassen. Dazu müssen wir mit `n =` spezifizieren wie viele Beobachtungen wir wollen und den Mittelwert `mean =` und die gewünschte Standardabweichung mit `sd =` angeben. Im Folgenden einmal ein Beispiel für die Nutzung der Funktion `rnorm()` mit zehn Werten.
 
 ```{r}
-rnorm(n = 10, mean = 5, sd = 2) %>% round(2)
+rnorm(n = 10, mean = 5, sd = 2) |> round(2)
 ```
 
 Du kannst ja mal den Mittelwert und die Standardabweichung der zehn Zahlen ausrechnen. Da wir es hier mit einer Stichprobe mit zehn Beobachtungen zu tun haben, wird der Mittelwert $\bar{y}$ und die Standardabweichung $s_y$ sich von den vorher definierten Mittelwert $\mu_y = 5$ und Standardabweichung $\sigma_y = 2$ der Grundgesamtheit unterscheiden.
@@ -281,10 +278,10 @@ Wir können auch aus unseren Gummibärchendaten für die Körpergröße in \[cm\
 #| layout-nrow: 2
 #| column: page
 
-stat_tbl <- gummi_tbl %>% 
-  select(gender, height) %>% 
-  na.omit() %>% 
-  group_by(gender) %>% 
+stat_tbl <- gummi_tbl |> 
+  select(gender, height) |> 
+  na.omit() |> 
+  group_by(gender) |> 
   summarise(mean = mean(height),
             sd = sd(height),
             n = n())
@@ -353,8 +350,8 @@ In der @fig-beeswarm-dist-0 ist nochmal der Beeswarm für das Alter und die Kör
 #| layout-nrow: 1
 #| column: page
 
-na.omit(gummi_tbl) %>% 
-  mutate(gender = factor(gender, labels = c("männlich", "weiblich"))) %>% 
+na.omit(gummi_tbl) |> 
+  mutate(gender = factor(gender, labels = c("männlich", "weiblich"))) |> 
   ggplot(aes(x = gender, y = age,
                              color = gender)) +
   geom_beeswarm(size = 1) +
@@ -365,8 +362,8 @@ na.omit(gummi_tbl) %>%
   theme(legend.position = "none") +
   scale_y_continuous(breaks = seq(10, 70, 5))
 
-na.omit(gummi_tbl) %>% 
-  mutate(gender = factor(gender, labels = c("männlich", "weiblich"))) %>% 
+na.omit(gummi_tbl) |> 
+  mutate(gender = factor(gender, labels = c("männlich", "weiblich"))) |> 
   ggplot(aes(x = gender, y = height,
                              color = gender)) +
   geom_beeswarm(size = 1) +
@@ -391,21 +388,21 @@ Dann schauen wir uns einmal in der @fig-gummi-height-gender die verschiedenen Ku
 #| fig-width: 7
 #| fig-cap: "Densityplot der Körpergrößen für Männer und Frauen aufgeteilt nach einer Auswahl von Lehrveranstaltungen. Die schwarze Linie zeigt den aktuellen Durchschnitt der Körpergröße über alle Beobachtungen. Die gestrichelte Linie zeigt die durchschnittiche Körpergröße nach dem statistsischen Bundesamt mit $167.5cm$ für 20 bis 25 jährige Frauen sowie $181.4cm$ für 20 bis 25 jährige Männer."
 
-gummi_3_tbl <- gummi_tbl %>% 
-  select(height, gender, year, module) %>% 
+gummi_3_tbl <- gummi_tbl |> 
+  select(height, gender, year, module) |> 
   mutate(module = factor(module, 
                          labels = c("Bioinformatik", "Statistik für\n Bioverfahrenstechnik", 
                                     "Statistik & Versuchswesen",
                                     "Biostatistik", "Fakultätsinformationstag", "Mathematik & Statistik",
-                                    "Statistik", "Girl's Day", "PhD Borstel", "PhD Osnabrück"))) %>% 
+                                    "Statistik", "Girl's Day", "PhD Borstel", "PhD Osnabrück"))) |> 
   filter(module %in% c("Bioinformatik", "Statistik für\n Bioverfahrenstechnik", 
                                     "Biostatistik", "Mathematik & Statistik",
-                                    "Statistik", "PhD Borstel")) %>% 
-  na.omit() %>% 
+                                    "Statistik", "PhD Borstel")) |> 
+  na.omit() |> 
   droplevels()
 
-count_tbl <- gummi_3_tbl %>% 
-  pull(module) %>% 
+count_tbl <- gummi_3_tbl |> 
+  pull(module) |> 
   janitor::tabyl()
 
 ggplot(data = gummi_3_tbl, aes(x = height, y = fct_rev(as_factor(module)),
@@ -443,7 +440,7 @@ Folgende Eigenschaften sind der Standardnormalverteilung gegeben. Die Standardno
 In @fig-dist-t-01 haben wir eine Standardnormalverteilung gegeben. Können jetzt verschiedene Werte auf der $x$-Achse und die Flächen links und rechts von diesen Werten berechnen. Wir nutzen die Funktion `pnorm()` wenn wir die Fläche rechts oder links von einem Wert $q$ berechnen wollen.
 
 ```{r}
-pnorm(q = 1.96, mean = 0, sd = 1, lower.tail = FALSE) %>% 
+pnorm(q = 1.96, mean = 0, sd = 1, lower.tail = FALSE) |> 
   round(3)
 ```
 
@@ -452,14 +449,14 @@ Wir berechen die Fläche links von $q$ und damit auch die Wahrscheinlichkeit $Pr
 Wir können die Berechnung von $q$ zu $p$ auch umdrehen. Wir geben eine Fläche vor und wollen wissen wie der Wert auf der x-Achse zu der entsprechenden Fläche ist. In diesem Fall will ich die Werte zu den Flächen von $p = 0.025$ und $p = 0.05$. Da wir `lower.tail = FALSE` ausgewählt haben, sind wir auf der rechten Seite der Verteilung.
 
 ```{r}
-qnorm(p = c(0.025, 0.05), mean = 0, sd = 1, lower.tail = FALSE) %>% 
+qnorm(p = c(0.025, 0.05), mean = 0, sd = 1, lower.tail = FALSE) |> 
   round(3)
 ```
 
 Und hier einmal als Gegenprobe mit der Option `lower.tail = TRUE`. Wir springen dann damit auf die linke Seite der Verteilung und wie zu erwarten erhlaten wir dann auch den negativen Wert für die Fläche von $p = 0.05$.
 
 ```{r}
-qnorm(p = 0.05, mean = 0, sd = 1, lower.tail = TRUE) %>% 
+qnorm(p = 0.05, mean = 0, sd = 1, lower.tail = TRUE) |> 
   round(3)
 ```
 
@@ -476,14 +473,14 @@ Der Unterschied ist die Form der t-Verteilung. Wir geben mit der Option `df =` d
 Wie auch bei der Standardnormalverteilung gilt folgender Zusammenhang, wenn wir die Flächen anhand eines gegebenen t-Wertes berechnen wollen. Wenn wir die Fläche links von dem t-Wert berechnen wollen, also die Wahrscheinlichkeit $Pr(X \leq t)$, dann nutzen wir die Option `lower.tail = TRUE`. Wenn wir die Fläche auf der rechten Seite von unserem t-Wert berechnen wollen, dann nutzen wir mit $Pr(X > t)$ die Option `lower.tail = FALSE`. In der Funktion `pt()` ist das `q=` als `t=` zu lesen. Das macht das Verständnis vielleicht leichter.
 
 ```{r}
-pt(q = 2.571, df = 5, lower.tail = FALSE) %>% 
+pt(q = 2.571, df = 5, lower.tail = FALSE) |> 
   round(3)
 ```
 
 Neben der Berechnung der Wahrscheinlichkeit rechts und links eines gegebenen Wertes $t$ können wir auch $t$ berechnen, wenn wir eine Fläche vorgeben. Das kann uns dann die Funktion `qt()` liefern. Wir sehen, dass mit steigender Fallzahl und damit steigenden Freiheitsgrad sich der berechnete Wert sich dem Wert der Standardnormalverteilung von $1.96$ für $p = 0.05$ annähert.
 
 ```{r}
-qt(p = c(0.025), df = c(5, 10, 20, 100, 1000), lower.tail = FALSE) %>% 
+qt(p = c(0.025), df = c(5, 10, 20, 100, 1000), lower.tail = FALSE) |> 
   round(3)
 ```
 
@@ -520,7 +517,7 @@ Darüber hinaus kann eine Poissonverteilung nicht negativ werden. Es kann keine 
 set.seed(20220789)
 pois_tbl <- tibble(lambda1 = rpois(1000, 6),
               lambda2 = rpois(1000, 10),
-              lambda3 = rpois(1000, 1)) %>% 
+              lambda3 = rpois(1000, 1)) |> 
   gather()
 
 ggplot(data = pois_tbl, aes(x = value, fill = key)) +
@@ -555,8 +552,8 @@ Schauen wir uns nun einmal die Poissonverteilung im Beispiel an. In @fig-pois-01
 #| layout-nrow: 1
 #| column: page
 
-gummi_2_tbl <- gummi_tbl %>% 
-  select(count_bears, count_color) %>% 
+gummi_2_tbl <- gummi_tbl |> 
+  select(count_bears, count_color) |> 
   na.omit()
 
 height_max <- 375
@@ -603,11 +600,11 @@ Wir können nun auch aus unseren Gummibärchendaten für die Anzahl an Bärchen 
 #| column: page
 
 
-stat_color_tbl <- gummi_2_tbl %>% 
+stat_color_tbl <- gummi_2_tbl |> 
   summarise(mean = mean(count_color),
             n = n())
 
-stat_bears_tbl <- gummi_2_tbl %>% 
+stat_bears_tbl <- gummi_2_tbl |> 
   summarise(mean = mean(count_bears),
             n = n())
 
@@ -659,12 +656,12 @@ In @fig-gummi-years-count schauen wir uns nochmal an in wie weit sich die Füllu
 #| fig-width: 8
 #| fig-cap: "Densityplot der Anzahl an Bärchen in einer Tüte aufgetrennt nach den Jahren der Erhebung. Das Jahr 2020 fehlt bedingt durch die Coronapandemie."
 
-gummi_3_tbl <- gummi_tbl %>% 
-  select(count_bears, year) %>% 
+gummi_3_tbl <- gummi_tbl |> 
+  select(count_bears, year) |> 
   na.omit()
 
-count_tbl <- gummi_3_tbl %>% 
-  pull(year) %>% 
+count_tbl <- gummi_3_tbl |> 
+  pull(year) |> 
   janitor::tabyl()
 
 ggplot(data = gummi_3_tbl, aes(x = count_bears, y = fct_rev(as_factor(year)),
@@ -697,11 +694,11 @@ In @fig-gummi-mostliked betrachten wir die Verteilung der am meisten gemochten G
 #| layout-nrow: 1
 #| column: page
 
-gummi_4_tbl <- gummi_tbl %>% 
-  select(most_liked, gender) %>% 
+gummi_4_tbl <- gummi_tbl |> 
+  select(most_liked, gender) |> 
   mutate(most_liked = factor(most_liked, 
                              levels = c("darkred", "green", "white", "lightred",
-                                        "yellow", "orange", "none"))) %>% 
+                                        "yellow", "orange", "none"))) |> 
   na.omit()
 
 
@@ -717,12 +714,12 @@ ggplot(data = gummi_4_tbl, aes(x = most_liked, fill = gender)) +
                       labels = c("männlich", "weiblich"))
 
 
-gummi_color_tbl <- read_excel("data/gummibears.xlsx") %>% 
-  select(darkred:white) %>% 
+gummi_color_tbl <- read_excel("data/gummibears.xlsx") |> 
+  select(darkred:white) |> 
   gather(color, count)
 
-count_bag_tbl <- rep(gummi_color_tbl$color, gummi_color_tbl$count) %>% 
-  as_tibble() %>% 
+count_bag_tbl <- rep(gummi_color_tbl$color, gummi_color_tbl$count) |> 
+  as_tibble() |> 
   mutate(value = factor(value, 
                         levels = c("darkred", "green", "white", "lightred",
                                    "yellow", "orange", "none")))
@@ -841,8 +838,8 @@ Zum Abschluss schauen wir nochmal in unseren Gummibärchendaten, wie dort ein Hi
 #| fig-width: 5
 #| fig-cap: "Beispiel für eine Binomialverteilung anhand des Geschlechts. Die fehlenden Angaben wurden entfernt."
 
-na.omit(gummi_tbl) %>% 
-  mutate(gender = factor(gender, labels = c("männlich", "weiblich"))) %>% 
+na.omit(gummi_tbl) |> 
+  mutate(gender = factor(gender, labels = c("männlich", "weiblich"))) |> 
   ggplot(aes(gender, fill = gender)) +
   theme_minimal() +
   geom_bar() +
@@ -896,7 +893,7 @@ ggplot(count_bag_tbl, aes(value)) +
   geom_label(stat='count', aes(label=..count..), size = 5)
 
 tibble(y = rep(nrow(count_bag_tbl)/6, 6),
-       grp = as_factor(c("darkred", "green", "white", "lightred", "yellow", "orange"))) %>% 
+       grp = as_factor(c("darkred", "green", "white", "lightred", "yellow", "orange"))) |> 
   ggplot(aes(y = y, x = grp)) +
   theme_minimal() +
   ylim(c(0, 1500)) +

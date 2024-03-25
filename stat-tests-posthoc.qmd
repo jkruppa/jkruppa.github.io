@@ -95,9 +95,6 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, broom, nlme, 
                multcomp, emmeans, ggpubr, multcompView,
                rstatix, conflicted, see, rcompanion)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
@@ -109,8 +106,8 @@ Wir nutzen in diesem Kapitel den Datensatz aus dem Beispiel in @sec-example-3. W
 ```{r}
 #| message: false
 
-fac1_tbl <- read_csv2("data/flea_dog_cat_fox.csv") %>%
-  select(animal, jump_length, grade) %>% 
+fac1_tbl <- read_csv2("data/flea_dog_cat_fox.csv") |>
+  select(animal, jump_length, grade) |> 
   mutate(animal = as_factor(animal))
 ```
 
@@ -125,7 +122,7 @@ In der @tbl-data-posthoc-1 ist der Datensatz `fac1_tbl` nochmal dargestellt. Wir
 #| tbl-cap: Selektierter Datensatz mit einer normalverteilten Variable `jump_length` sowie der multinominalverteilten Variable `grade` und einem Faktor `animal` mit drei Leveln.
 #| label: tbl-data-posthoc-1
 
-fac1_tbl %>% kable(align = "c", "pipe")
+fac1_tbl |> kable(align = "c", "pipe")
 ```
 :::
 
@@ -175,8 +172,8 @@ Als Adjustierungsmethode für den $\alpha$ Fehler wählen wir die Bonferroni-Met
 ```{r}
 pairwise.t.test(fac1_tbl$jump_length, fac1_tbl$animal,
                 p.adjust.method = "bonferroni",
-                pool.sd = TRUE) %>% 
-  tidy %>% 
+                pool.sd = TRUE) |> 
+  tidy() |> 
   mutate_if(is.numeric, round, 3)
 ```
 
@@ -186,8 +183,8 @@ Und das ganze nochmal mit dem `%$%`-Operator aus dem R Paket `{magrittr}`. In di
 fac1_tbl %$%
   pairwise.t.test(jump_length, animal,
                   p.adjust.method = "bonferroni",
-                  pool.sd = TRUE) %>% 
-  tidy %>% 
+                  pool.sd = TRUE) |> 
+  tidy() |> 
   mutate_if(is.numeric, round, 3)
 ```
 
@@ -235,8 +232,8 @@ Als Adjustierungsmethode für den $\alpha$ Fehler wählen wir die Bonferroni-Met
 #| warning: false
 
 pairwise.wilcox.test(fac1_tbl$grade, fac1_tbl$animal,
-                     p.adjust.method = "bonferroni") %>% 
-  tidy %>% 
+                     p.adjust.method = "bonferroni") |> 
+  tidy() |> 
   mutate_if(is.numeric, round, 3)
 ```
 
@@ -286,8 +283,8 @@ fit_2 <- lm(jump_length ~ animal, data = fac1_tbl)
 Der multiple Vergleich in `emmeans` ist mehrschrittig. Wir pipen unser Modell aus `fit_2` in die Funktion `emmeans()`. Wir geben mit `~ animal` an, dass wir über die Level des Faktors `animal` einen Vergleich rechnen wollen. Wir adjustieren die $p$-Werte nach Bonferroni. Danach pipen wir weiter in die Funktion `contrast()` wo der eigentliche Vergleich festgelegt wird. In unserem Fall wollen wir einen *many-to-one* Vergleich rechnen. Alle Gruppen zu der Gruppe `fox`. Du kannst mit `ref =` auch ein anderes Level deines Faktors wählen.
 
 ```{r}
-comp_2_obj <- fit_2 %>% 
-  emmeans(~ animal) %>% 
+comp_2_obj <- fit_2 |> 
+  emmeans(~ animal) |> 
   contrast(method = "trt.vs.ctrl", ref = "fox", adjust = "bonferroni") 
 
 comp_2_obj
@@ -296,8 +293,8 @@ comp_2_obj
 Wir können auch einen anderen Kontrast wählen. Wir überschreiben jetzt das Objekt `comp_2_obj` mit dem Kontrast *all-pair*, der alle möglichen Vergleiche rechnet. In `emmeans` heißt der *all-pair* Kontrast *pairwise*. Die Ausgabe von `emmeans` können über die Funktion `tidy()` aufgeräumt werden. Mehr dazu unter der [Hilfeseite von `tidy`() zu emmeans](https://broom.tidymodels.org/reference/tidy.emmGrid.html).
 
 ```{r}
-comp_2_obj <- fit_2 %>% 
-  emmeans(~ animal) %>% 
+comp_2_obj <- fit_2 |> 
+  emmeans(~ animal) |> 
   contrast(method = "pairwise", adjust = "bonferroni") 
 
 comp_2_obj
@@ -308,9 +305,9 @@ Wir können das Ergebnis auch noch mit der Funktion `tidy()` weiter aufräumen u
 ```{r}
 #| message: false
 #| warning: false
-res_2_obj <- comp_2_obj %>% 
-  tidy(conf.int = TRUE) %>% 
-  select(contrast, estimate, adj.p.value, conf.low, conf.high) %>% 
+res_2_obj <- comp_2_obj |> 
+  tidy(conf.int = TRUE) |> 
+  select(contrast, estimate, adj.p.value, conf.low, conf.high) |> 
   mutate(across(where(is.numeric), round, 4))
 
 res_2_obj
@@ -348,8 +345,8 @@ In @fig-emmeans-3 sehen wir die Ergebnisse des multiplen Vergleiches nochmal and
 #| fig-cap: "Visualisierung der Ergebnisse im Pairwise P-value plot."
 #| label: fig-emmeans-3
 
-fit_2 %>% 
-  emmeans(~ animal) %>% 
+fit_2 |> 
+  emmeans(~ animal) |> 
   pwpp(adjust = "bonferroni") +
   theme_minimal()
 ```
@@ -357,8 +354,8 @@ fit_2 %>%
 Auch haben wir die Möglichkeit un die $p$-Werte mit der Funktion `pwpm()` als eine Matrix ausgeben zu lassen. Wir erhalten in dem oberen Triangel die $p$-Wert für den jeweiligen Vergleich. In dem unteren Triangel die geschätzten Mittelwertsunterschiede. Auf der Diagonalen dann die geschätzten Mittelwerte für die jeweilige Gruppe. So haben wir nochmal alles sehr kompakt zusammen dargestellt.
 
 ```{r}
-fit_2 %>% 
-  emmeans(~ animal) %>% 
+fit_2 |> 
+  emmeans(~ animal) |> 
   pwpm(adjust = "bonferroni")
 ```
 
@@ -367,8 +364,8 @@ Wir wollen uns noch einen etwas komplizierteren Fall anschauen, indem sich `emme
 ```{r}
 #| message: false
 
-fac2_tbl <- read_csv2("data/flea_dog_cat_fox_site.csv") %>% 
-  select(animal, site, jump_length) %>% 
+fac2_tbl <- read_csv2("data/flea_dog_cat_fox_site.csv") |> 
+  select(animal, site, jump_length) |> 
   mutate(animal = as_factor(animal),
          site = as_factor(site))
 ```
@@ -381,12 +378,12 @@ Wir erhalten das Objekt `fac2_tbl` mit dem Datensatz in @tbl-data-emmeans-1 noch
 #| tbl-cap: Selektierter Datensatz mit einer normalverteilten Variable `jump_length` und einem Faktor `animal` mit drei Leveln  sowie dem Faktor `site` mit vier Leveln.
 #| label: tbl-data-emmeans-1
 
-fac2_raw_tbl <- fac2_tbl %>% 
+fac2_raw_tbl <- fac2_tbl |> 
   mutate(animal = as.character(animal),
          site = as.character(site))
 rbind(head(fac2_raw_tbl),
       rep("...", times = ncol(fac2_raw_tbl)),
-      tail(fac2_raw_tbl)) %>% 
+      tail(fac2_raw_tbl)) |> 
   kable(align = "c", "pipe")
 
 ```
@@ -419,8 +416,8 @@ fit_3 <- lm(jump_length ~ animal + site + animal:site, data = fac2_tbl)
 Der Unterschied zu unserem vorherigen multiplen Vergleich ist nun, dass wir auch einen multiplen Vergleich für *animal nested in site* rechnen können. Dafür müssen wir den Vergleich in der Form `animal | site` schreiben. Wir erhalten dann die Vergleiche der Level des faktors `animal` *getrennt* für die Level es Faktors `site`.
 
 ```{r}
-comp_3_obj <- fit_3 %>% 
-  emmeans(~ animal | site) %>% 
+comp_3_obj <- fit_3 |> 
+  emmeans(~ animal | site) |> 
   contrast(method = "pairwise", adjust = "bonferroni") 
 
 comp_3_obj
@@ -429,19 +426,19 @@ comp_3_obj
 Wir können uns das Ergebnis auch etwas schöner ausgeben lassen. Wir nutzen hier noch die Funktion `format.pval()` um die $p$-Werte besser zu formatieren. Die $p$-Wert, die kleiner sind als 0.001 werden als `<0.001` ausgegeben und die anderen $p$-Werte auf zwei Nachstellen nach dem Komma gerundet.
 
 ```{r}
-comp_3_obj %>% 
-  summary %>% 
-  as_tibble %>% 
-  select(contrast, site, p.value) %>% 
+comp_3_obj |> 
+  summary() |> 
+  as_tibble() |> 
+  select(contrast, site, p.value) |> 
   mutate(p.value = format.pval(p.value, eps = 0.001, digits = 2))
 ```
 
 In der Ausgabe können wir erkennen, dass die Vergleich in der Stadt alle signifkant sind. Jedoch erkennen wir keine signifikanten Ergebnisse mehr in dem Dorf und im Feld ist nur der Vergleich `dog - fox` signifkant. Hier solltest du nochmal beachten, warum wir die Analyse getrennt machen. In der zweifaktoriellen ANOVA haben wir gesehen, dass ein signifkanter Interaktionsterm zwischen den beiden Faktoren `animal` und `site` vorliegt. Wir wollen uns noch über die Funktion `confint()` die 95% Konfidenzintervalle wiedergeben lassen.
 
 ```{r}
-res_3_obj <- comp_3_obj %>% 
-  confint() %>% 
-  as_tibble() %>% 
+res_3_obj <- comp_3_obj |> 
+  confint() |> 
+  as_tibble() |> 
   select(contrast, site, estimate, conf.low = lower.CL, conf.high = upper.CL) 
 
 res_3_obj
@@ -493,10 +490,10 @@ Mit dem Objekt `comp_1_fit` können wir noch nicht soviel anfangen. Der Inhalt i
 
 ```{r}
 #| message: false
-res_1_obj <- comp_1_obj %>% 
-  tidy(conf.int = TRUE) %>% 
+res_1_obj <- comp_1_obj |> 
+  tidy(conf.int = TRUE) |> 
   select(contrast, estimate, adj.p.value, 
-         conf.low, conf.high) %>% 
+         conf.low, conf.high) |> 
   mutate_if(is.numeric, round, 3)
 ```
 
@@ -515,7 +512,7 @@ Wenn es die unadjustierten $p$-Werte sein sollen, dann müssen wir nochmal das `
 ```{r}
 #| message: false
 #| warning: false
-summary(comp_1_obj, test = adjusted("none")) %>% 
+summary(comp_1_obj, test = adjusted("none")) |> 
   tidy() 
 ```
 
@@ -561,10 +558,10 @@ fit_4 <- games_howell_test(jump_length ~ animal, data = fac1_tbl)
 Wir wollen aber nicht mit der Ausgabe arbeiten sondern machen uns noch ein wenig Arbeit und passen die Ausgabe an. Zum einen brauchen wir noch die Kontraste und wir wollen die $p$-Werte auch ansprechend formatieren. Wir erhalten das Objekt `res_4_obj` und geben uns die Ausgabe wieder.
 
 ```{r}
-res_4_obj <- fit_4 %>% 
-  as_tibble %>% 
-  mutate(contrast = str_c(group1, "-", group2)) %>% 
-  select(contrast, estimate, p.adj, conf.low, conf.high) %>% 
+res_4_obj <- fit_4 |> 
+  as_tibble() |> 
+  mutate(contrast = str_c(group1, "-", group2)) |> 
+  select(contrast, estimate, p.adj, conf.low, conf.high) |> 
   mutate(p.adj = format.pval(p.adj, eps = 0.001, digits = 2))
 
 res_4_obj
@@ -611,7 +608,7 @@ gls_fac1_fit <- gls(jump_length ~ animal,
 Dann können wir die Modellanpasssung auch schon in `emmeans()` weiterleiten und schauen uns mal das Ergebnis gleich an. Wir achten jetzt auf die Spalte `SE`, die uns ja den Fehler der Mittelwerte für jede Gruppe wiedergibt.
 
 ```{r}
-gls_fac1_fit %>% 
+gls_fac1_fit |> 
   emmeans(~ animal)
 ```
 
@@ -626,7 +623,7 @@ gls_fac2_fit <- gls(jump_length ~ animal + site + animal:site,
 Dann können wir uns wieder die multiplen Vergleiche getrennt für die Interaktionsterme wiedergeben lassen. Blöderweise haben jetzt alle Messorte `site` die gleiche Varianz für jede Tierart, aber auch da können wir noch ran.
 
 ```{r}
-gls_fac2_fit %>% 
+gls_fac2_fit |> 
   emmeans(~ animal | site)
 ```
 
@@ -641,7 +638,7 @@ gls_fac2_fit <- gls(jump_length ~ animal + site + animal:site,
 Dann noch schnell in `emmeans()` gesteckt und sich das Ergebnis angeschaut.
 
 ```{r}
-gls_fac2_fit %>% 
+gls_fac2_fit |> 
   emmeans(~ animal | site)
 ```
 
@@ -664,7 +661,7 @@ lm_fac1_fit <- lm(jump_length ~ animal, data = fac1_tbl)
 Dann können wir auch schon für einen Gruppenvergleich direkt in der Funktion `emmeans()` für die Varianzheterogenität adjustieren. Es gibt verschiedene mögliche Sandwich-Schätzer, aber wir nehmen jetzt mal einen der häufigsten mit `vcovHC`. Wie immer gilt, es gibt ja nach Datenlage bessere und schlechtere Schätzer. Wir laden jetzt nicht das ganze Paket, sondern nur die Funktion mit `sandwich::vcovHAC`. Achtung, hinter der Option `vcov.` ist ein *Punkt*. Ohne den Aufruf `vcov. =` funktioniert die Funktion dann nicht.
 
 ```{r}
-em_obj <- lm_fac1_fit %>% 
+em_obj <- lm_fac1_fit |> 
   emmeans(~ animal, method = "pairwise", vcov. = sandwich::vcovHAC)
 em_obj
 ```
@@ -672,14 +669,14 @@ em_obj
 Wir du siehst, die Standardfehler sind jetzt nicht mehr über alle Gruppen gleich. Dann können wir uns auch die paarweisen Vergleiche ausgeben lassen.
 
 ```{r}
-contr_obj <- em_obj %>% 
+contr_obj <- em_obj |> 
   contrast(method = "pairwise", adjust = "none")
 ```
 
 Oder aber wir lassen uns das *compact letter display* wiedergeben.
 
 ```{r}
-cld_obj <- em_obj %>%
+cld_obj <- em_obj |>
   cld(Letters = letters, adjust = "none")
 ```
 
@@ -756,9 +753,9 @@ Wenn wir für die Funktionen `pairwise.*.test()` das *compact letter display* be
 
 ```{r}
 pairwise.t.test(fac1_tbl$jump_length, fac1_tbl$animal,
-                p.adjust.method = "bonferroni") %>% 
-  extract2("p.value") %>% 
-  fullPTable() %>% 
+                p.adjust.method = "bonferroni") |> 
+  extract2("p.value") |> 
+  fullPTable() |> 
   multcompLetters()
 ```
 
@@ -769,8 +766,8 @@ Als Ergebnis erhalten wir, dass Hund- und Fuchsflöhe gleich weit springen, beid
 In dem Paket `{emmeans}` ist das *compact letter display* ebenfalls implementiert und wir müssen nicht die Funktion `multcompLetters()` nutzen. Durch die direkte Implementierung ist es etwas einfacher sich das *compact letter display* anzeigen zu lassen. Das Problem ist dann später sich die Buchstaben zu extrahieren um die @fig-boxplot-cld-3 zu ergänzen. Wir nutzen in `{emmeans}` die Funktion `cld()` um das *compact letter display* zu erstellen.
 
 ```{r}
-emmeans_cld <- lm(rsp  ~ trt, data = data_tbl) %>%
-  emmeans(~ trt) %>%
+emmeans_cld <- lm(rsp  ~ trt, data = data_tbl) |>
+  emmeans(~ trt) |>
   cld(Letters = letters, adjust = "bonferroni")
 ```
 
@@ -809,9 +806,9 @@ Abschließend können wir die Buchstaben aus dem *compact letter display* noch i
 #| fig-cap: Boxplot der Beispieldaten zusammen mit den *compact letter display*.
 #| label: fig-boxplot-cld-3
 
-letters_tbl <- emmeans_cld %>% 
-  tidy %>% 
-  select(trt, label = .group) %>% 
+letters_tbl <- emmeans_cld |> 
+  tidy() |> 
+  select(trt, label = .group) |> 
   mutate(rsp = 0)
 
 ggplot(data_tbl, aes(x = trt, y = rsp, 
@@ -833,8 +830,8 @@ In dem kurzen Kapitel zu [Re-engineering CLDs](https://cran.r-project.org/web/pa
 Wenn wir das *compact letter display* in dem Sinne der Gleichheit der Behandlungen interpretieren wollen, also das der gleiche Buchstabe bedeutet, dass sich die Behandlungen nicht unterscheiden, dann müssen wir ein `delta` setzen in deren Bandbreite oder Intervall die Behandlungen gleich sind. Ich habe hier mal ein `delta` von 20 gewählt und wir adjustieren bei einem Test auf Gleichheit nicht.
 
 ```{r}
-emmeans_cld <- lm(rsp  ~ trt, data = data_tbl) %>%
-  emmeans(~ trt) %>%
+emmeans_cld <- lm(rsp  ~ trt, data = data_tbl) |>
+  emmeans(~ trt) |>
   cld(Letters = letters, adjust = "none", delta = 20)
 emmeans_cld 
 ```
@@ -844,24 +841,24 @@ Wie wir jetzt sehen, bedeuten gleiche Buchstaben, dass die Behandlungen gleich s
 Können wir uns auch signifikante Unterschiede anzeigen lassen? Ja, können wir auch, aber das ist meiner Meinung nach die schlechtere der beiden Anpassungen. Wir haben ja im Kopf, dass das *compact letter display* eben mit gleichen Buchstaben das Gleiche anzeigt. Jetzt würden wir diese Eigenschaften zu Unterschied ändern. Schauen wir uns das einmal an einem kleineren Datensatz einmal an.
 
 ```{r}
-small_fit <- data_tbl %>% 
-  filter(trt %in% c("pos_ctrl", "neg_ctrl", "treat_A", "treat_G")) %>% 
-  lm(rsp  ~ trt, data = .) 
+small_fit <- data_tbl |> 
+  filter(trt %in% c("pos_ctrl", "neg_ctrl", "treat_A", "treat_G")) |> 
+  lm(rsp  ~ trt, data = _) 
 ```
 
 Dann können wir uns hier einmal das Problem mit den Buchstaben anschauen. Wir kriegen jetzt mit der Option `signif = TRUE` wiedergeben `Estimates sharing the same symbol are significantly different` und das ist irgendwie auch wirr, dass *gleiche* Buchstaben einen Unterschied darstellen. Das *compact letter display* wird eben als Gleichheit gelesen, so dass wir hier mehr verwirrt werden als es hilft.
 
 ```{r}
-small_fit %>% 
-  emmeans(~ trt) %>%
+small_fit |> 
+  emmeans(~ trt) |>
   cld(Letters = letters, adjust = "bonferroni", signif = TRUE)
 ```
 
 Deshalb würde ich auf die Buchstaben verzichten und die Zahlen angeben, damit hier nicht noch mehr Verwirrung aufkommt. Wir nehmen also die Option für die Buchstaben einmal aus dem `cld()` Aufruf raus. Dann haben wir Zahlen als Gruppenzuweisung, was schon mal was anderes ist als die Buchstaben aus dem *compact letter display*.
 
 ```{r}
-small_fit %>% 
-  emmeans(~ trt) %>%
+small_fit |> 
+  emmeans(~ trt) |>
   cld(adjust = "bonferroni", signif = TRUE)
 ```
 
@@ -874,11 +871,11 @@ Wir schauen uns zuerst einmal die Implementierung des *compact letter display* i
 
 ```{r}
 #| warning: false
-multcomp_cld <- lm(rsp  ~ trt, data = data_tbl) %>%
-  glht(linfct = mcp(trt = "Tukey")) %>% 
-  tidy %>% 
-  mutate(contrast = str_replace_all(contrast, "\\s", "")) %>% 
-  pull(adj.p.value, contrast) %>% 
+multcomp_cld <- lm(rsp  ~ trt, data = data_tbl) |>
+  glht(linfct = mcp(trt = "Tukey")) |> 
+  tidy() |> 
+  mutate(contrast = str_replace_all(contrast, "\\s", "")) |> 
+  pull(adj.p.value, contrast) |> 
   multcompLetters() 
 ```
 
@@ -895,7 +892,7 @@ Leider sind diese Buchstaben in dieser Form schwer zu verstehen. Deshalb gibt es
 #| message: false
 #| results: hide
 
-multcomp_cld %>% plot
+multcomp_cld |> plot()
 ```
 
 In dem *compact letter display* bedeuten gleiche Buchstaben, dass die Behandlungen gleich sind. Es gilt die Nullhypothese für diesen Vergleich. Was sehen wir also hier? Kombinieren wir einmal das *compact letter display* mit den Leveln der Behandlung und den Mittelwerten der Behandlungen in einer @tbl-mean-to-letter-multcomp. Wenn die Mittelwerte *gleich* sind, dann erhalten die Behandlungslevel den gleichen Buchstaben. Die Mittelwerte vom `neg_ctrl`, `treat_A` und `treat_B` sind nahezu gleich, also damit nicht signifikant. Deshalb erhalten diese Behandlungslevel ein `a`. Ebenso sind die MIttelwerte von `treat_C` und `treat_D` nahezu gleich, dehalb erhalten beide ein `b`. Das machen wir immer so weiter und konzentrieren uns also auf die *nicht* signifikanten Ergebnisse. Denn gleiche Buchstaben bedeuten, dass die Behandlungen gleich sind. Wir sehen hier also, bei welchen Vergleichen die Nullhypothese gilt.
@@ -925,8 +922,8 @@ Wir können dann die Buchstaben auch in den Boxplot ergaänzen. Die y-Position k
 #| fig-cap: Boxplot der Beispieldaten zusammen mit den *compact letter display*.
 #| label: fig-boxplot-cld-2
 
-letters_tbl <- multcomp_cld$Letters %>% 
-  enframe("trt", "label") %>% 
+letters_tbl <- multcomp_cld$Letters |> 
+  enframe("trt", "label") |> 
   mutate(rsp = 0)
 
 ggplot(data_tbl, aes(x = trt, y = rsp, 
@@ -945,9 +942,9 @@ ggplot(data_tbl, aes(x = trt, y = rsp,
 Abschließend wollen wir uns die Implementierung des *compact letter display* für den Games-Howell-Test einmal anschauen. Es gilt vieles von dem in diesem Abschnitt schon gesagtes. Wir nutzen die Funktion `multcompLetters()` aus dem Paket `{multcompView}` um uns das *compact letter display* aus dem Games-Howell-Test wiedergeben zu lassen. Davor müssen wir noch einige Schritte an Sortierung und Umbenennung durchführen. Das hat den Grund, dass die Funktion `multcompLetters()` *nur* einen benannten Vektor mit $p$-Werten akzeptiert. Die Funktion `pull()` erlaubt uns einen Spalte als Vektor aus einem `tibble()` zu ziehen und dann nach der Spalte `contrast` zu benennen.
 
 ```{r}
-ght_cld <- games_howell_test(rsp ~ trt, data = data_tbl) %>% 
-  mutate(contrast = str_c(group1, "-", group2)) %>% 
-  pull(p.adj, contrast) %>% 
+ght_cld <- games_howell_test(rsp ~ trt, data = data_tbl) |> 
+  mutate(contrast = str_c(group1, "-", group2)) |> 
+  pull(p.adj, contrast) |> 
   multcompLetters() 
 ```
 
@@ -964,7 +961,7 @@ Wir können uns dann auch das *compact letter display* als übersichtlicheren Pl
 #| message: false
 #| results: hide
 
-ght_cld %>% plot
+ght_cld |> plot()
 ```
 
 Um die Zusammenhänge besser zu verstehen ist in @tbl-mean-to-letter-ght nochmal die Kombination der Level der Behandlungen und deren Mittelwerte zur Generieung sowie dem *compact letter display* dargestellt. Wir sehen wieder, dass sich `pos_crtl` von allen anderen Behandlungen unterscheidet, deshalb hat nur die Behandlung `pos_crtl` den Buchstaben `a`. Die Mittelwerte vom `neg_ctrl`, `treat_A` und `treat_B` sind nahezu gleich, also damit nicht signifikant. Deshalb erhalten diese Behandlungslevel ein `b`. In der Form können wir alle Vergleiche einmal durchgehen.
@@ -994,8 +991,8 @@ Wir können dann auch in @fig-boxplot-cld-4 sehen, wie das *compact letter displ
 #| fig-cap: Boxplot der Beispieldaten zusammen mit den *compact letter display*.
 #| label: fig-boxplot-cld-4
 
-letters_tbl <- ght_cld$Letters %>% 
-  enframe("trt", "label") %>% 
+letters_tbl <- ght_cld$Letters |> 
+  enframe("trt", "label") |> 
   mutate(rsp = 0)
 
 ggplot(data_tbl, aes(x = trt, y = rsp, 

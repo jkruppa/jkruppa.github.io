@@ -53,9 +53,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, conflicted, broom)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("mutate", "dplyr")
+conflicts_prefer(dplyr::filter)
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
@@ -67,9 +65,9 @@ Für unsere Demonstration des Permutationstest nutzen wir den Datensatz `flea_do
 ```{r}
 #| message: false
 
-model_tbl <- read_csv2("data/flea_dog_cat_length_weight.csv") %>%
-  select(animal, jump_length, weight) %>% 
-  filter(animal %in% c("dog", "cat")) %>% 
+model_tbl <- read_csv2("data/flea_dog_cat_length_weight.csv") |>
+  select(animal, jump_length, weight) |> 
+  filter(animal %in% c("dog", "cat")) |> 
   slice_sample(n = 20)
 ```
 
@@ -90,7 +88,7 @@ In der @tbl-duckweeds siehst du dann einmal einen Auszug aus den Daten zu den Wa
 
 rbind(head(duckweeds_tbl, n = 3),
       rep("...", times = ncol(duckweeds_tbl)),
-      tail(duckweeds_tbl, n = 3)) %>% 
+      tail(duckweeds_tbl, n = 3)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -121,10 +119,10 @@ Jetzt wollen wir uns den Permutationstest einmal ganz einfach anschauen. Wir wol
 Wir wollen zuerst einmal mit einem einfachen Mittelwertsvergleich anfangen. Im Prinzip bauen wir hier kompliziert einen t-Test nach. Der t-Test testet, ob es einen signifikanten Mittelwertsunterschied gibt. Anstatt jetzt den t-Test zu rechnen, berechnen wir erstmal das $\Delta$ und damit den Mittelwertsunterschied der Sprungweiten der Hunde- und Katzenflöhe.
 
 ```{r}
-model_tbl %>%
-  group_by(animal) %>% 
-  summarise(mean_jump = mean(jump_length)) %>% 
-  pull(mean_jump) %>% 
+model_tbl |>
+  group_by(animal) |> 
+  summarise(mean_jump = mean(jump_length)) |> 
+  pull(mean_jump) |> 
   diff()
 ```
 
@@ -133,7 +131,7 @@ Wir sehen, dass die Hunde- und Katzenflöhe im Mittel einen Unterschied in der S
 Jetzt wollen wir einmal einen Permutationstest rechnen. Die wichtigste Funktion hierfür ist die Funktion `sample()`. Die Funktion `sample()` durchmischt zufällig einen Vektor. Einmal ein Beispiel für die Zahlen 1 bis 10, die wir in die Funktion `sample()` pipen.
 
 ```{r}
-c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10) %>% 
+c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10) |> 
   sample()
 ```
 
@@ -143,13 +141,13 @@ Das gleiche Durchmischen findet auch in der Funktion `mutate()` statt. Wir durch
 n_sim <- 1000
 
 mean_perm_tbl <- map_dfr(1:n_sim, \(x) {
-  mean_diff <- model_tbl %>%
+  mean_diff <- model_tbl |>
     ## Permutation Start
-    mutate(animal = sample(animal)) %>% 
+    mutate(animal = sample(animal)) |> 
     ## Permutation Ende
-    group_by(animal) %>% 
-    summarise(mean_jump = mean(jump_length)) %>% 
-    pull(mean_jump) %>% 
+    group_by(animal) |> 
+    summarise(mean_jump = mean(jump_length)) |> 
+    pull(mean_jump) |> 
     diff()
   return(tibble(mean_diff))
 })
@@ -192,8 +190,8 @@ Teilweise wird diskutiert, ob der $p$-Wert hier noch mal 2 genommen werden muss,
 Dann das ganze nochmal mit einem Student t-Test verglichen und wir sehen, dass wir dem $p$-Wert aus einem Student t-Test sehr nahe kommen. Wenn du jetzt noch die Anzahl an Simulationen erhöhen würdest, dann würde sich der $p_{perm}$ dem $p_{t-Test}$ immer weiter annähern.
 
 ```{r}
-t.test(jump_length ~ animal, data = model_tbl) %>% 
-  pluck("p.value") %>% 
+t.test(jump_length ~ animal, data = model_tbl) |> 
+  pluck("p.value") |> 
   round(3)
 ```
 
@@ -209,8 +207,8 @@ Das vorherige Beispiel mit dem Mittelwertsvergleich war im Prinzip nur eine Fing
 
 ```{r}
 model_tbl %$%
-  lm(jump_length ~ weight) %>% 
-  glance() %>% 
+  lm(jump_length ~ weight) |> 
+  glance() |> 
   pull(r.squared)
 ```
 
@@ -220,12 +218,12 @@ Damit haben wir erstmal das Bestimmtheitsmaß aus unseren Daten berechnet. Jetzt
 n_sim <- 1000
 
 r2_perm_tbl <- map_dfr(1:n_sim, \(x) {
-  r2 <- model_tbl %>%
+  r2 <- model_tbl |>
     ## Permutation Start
     mutate(weight = sample(weight)) %$%
     ## Permutation Ende    
-    lm(jump_length ~ weight) %>% 
-    glance() %>% 
+    lm(jump_length ~ weight) |> 
+    glance() |> 
     pull(r.squared)
   return(tibble(r2))
 })
@@ -279,12 +277,12 @@ Wir können die Methode des Bootstraping nutzen um uns die 95% Konfidenzinterval
 n_boot <- 1000
 
 r2_boot_tbl <- map_dfr(1:n_boot, \(x) {
-  r2 <- model_tbl %>%
+  r2 <- model_tbl |>
     ## Bootstrap Start
     slice_sample(prop = 0.8, replace = TRUE) %$%
     ## Bootstrap Ende
-    lm(jump_length ~ weight) %>% 
-    glance() %>% 
+    lm(jump_length ~ weight) |> 
+    glance() |> 
     pull(r.squared)
   return(tibble(r2))
 })
@@ -294,7 +292,7 @@ Nachdem wir nun unser Bootstrap gerechnet haben und eintausend Bestimmtheitsmaß
 
 ```{r}
 r2_boot_tbl %$% 
-  quantile(r2, probs = c(0.025, 0.975)) %>% 
+  quantile(r2, probs = c(0.025, 0.975)) |> 
   round(3)
 ```
 
