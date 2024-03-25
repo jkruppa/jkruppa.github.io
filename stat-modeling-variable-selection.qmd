@@ -10,16 +10,16 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra)
 
 Die Selektion von Variablen in einem Modell. Ein schwieriges Thema. Entweder kenne ich mein Experiment und habe das Experiment so geplant, dass nur die bedeutenden Variablen mit in dem Experiment sind oder ich habe keine Ahnung. Gut, dass ist überspitzt und gemein formuliert. Wir wollen uns in diesem Kapitel den Fall anschauen, dass du sehr viele Variablen $x$ erhoben hast und nun *statistisch* bestimmen willst, welche Variablen nun mit in das finale Modell sollen. Achtung, ich spreche hier nicht von einem Blockdesign oder aber einem Feldexperiment. Da hat die Variablenselektion nichts zu suchen. Daher tritt der Fall der Variablenselektion eher in dem Feld Verhaltensbiologie oder aber auch Ökologie auf. Ebenfalls kann die Anwendung in automatisch erfassten Daten einen Sinn machen. Wir nutzen dann die Variablenselektion (eng. *feature selection*) zu Dimensionsreduktion des Datensatzes. Der Datensatz soll damit einfacher sein... ob der Datensatz das damit auch wird, ist wieder eine andere Frage.
 
-::: column-margin
-![](images/angel_01.png){fig-align="center" width="50%"}
+::: {layout="[15,85]" layout-valign="top"}
+![](images/angel_01.png){fig-align="center" width="100%"}
 
-In diesem Kapitel prügeln wir aber einen statistischen Engel. Wir werden hier mal schauen müssen, was alles geht und was nicht. Variablen Selektion ist faktisch nicht *ein* Kapitel sondern ein Regal(kilo)meter voll mit Büchern.
+> In diesem Kapitel prügeln wir aber einen statistischen Engel. Wir werden hier mal schauen müssen, was alles geht und was nicht. Variablen Selektion ist faktisch nicht *ein* Kapitel sondern ein Regal(kilo)meter voll mit Büchern.
 :::
 
 Zu der Frage welches Verfahren denn nun das richtige Verfahren zur Selektion von Variablen ist, gibt es die Standardantwort in der Statistik: *Es kommt auf die Fragestellung an...*. Oder aber was ist wie gut implementiert, dass wir das Verfahren einigermaßen gut nutzen können. Wir gehen daher von einfach zu kompliziert und du musst dann schauen, was du nutzen willst und kannst. Wir müssen zum Beispiel unterscheiden, welcher Verteilung das Outcome $y$ folgt. Wenn wir ein normalverteiltes $y$ haben, dann haben wir andere Möglichkeiten, als wenn wir uns ein poissonverteiltes oder binominalverteiltes $y$ anschauen.
 
 ::: column-margin
-Das [R Paket `olsrr`](https://olsrr.rsquaredacademy.com/articles/variable_selection.html) erlaubt eine weitreichende Variablen Selektion, wenn ein normalverteiltes Outcome $y$ vorliegt.
+Das [R Paket `{olsrr}`](https://olsrr.rsquaredacademy.com/articles/variable_selection.html) erlaubt eine weitreichende Variablen Selektion, wenn ein normalverteiltes Outcome $y$ vorliegt.
 :::
 
 Im Folgenden will ich *kurz* die fünf Mythen der Variablenselektion von @heinze2017five zusammenfassen. Wie immer ersetzt meine deutsche Zusammenfassung und Auswahl nicht das eigenständige Lesen der *englischen* Orgnialquelle, wenn du die Informationen in deiner Abschlussarbeit zitieren willst.
@@ -50,9 +50,8 @@ pacman::p_load(tidyverse, magrittr, dlookr,
                MASS, ranger, Boruta, broom, 
                scales, olsrr, gtsummary, parameters,
                conflicted)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("as_tibble", "dplyr")
+conflicts_prefer(dplyr::select)
+conflicts_prefer(dplyr::filter)
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
@@ -82,7 +81,7 @@ Wir sehen, dass wir sehr viele Variablen vorleigen haben. Sind denn jetzt alle V
 
 rbind(head(chickpea_tbl, 3),
       rep("...", times = ncol(chickpea_tbl)),
-      tail(chickpea_tbl, 3)) %>% 
+      tail(chickpea_tbl, 3)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -113,7 +112,7 @@ Das schöne an diesem Datensatz ist jetzt, dass wir mit $n = 412$ Beobachtungen 
 
 rbind(head(pig_tbl, 3),
       rep("...", times = ncol(pig_tbl)),
-      tail(pig_tbl, 3)) %>% 
+      tail(pig_tbl, 3)) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -149,14 +148,14 @@ Wir sehen also, eigentlich ist die univariate Variablensleketion nicht so das ge
 
 ```{r}
 
-chickpea_tbl %>%
-  select(-dryweight) %>%                   
-  map(~glm(dryweight ~ .x, data = chickpea_tbl, family = gaussian)) %>%    
-  map(tidy) %>%                          
-  map(filter, term != "(Intercept)") %>%       
-  map(select, -term, -std.error, -statistic) %>%                        
-  bind_rows(.id="term") %>% 
-  arrange(p.value) %>% 
+chickpea_tbl |>
+  select(-dryweight) |>                   
+  map(~glm(dryweight ~ .x, data = chickpea_tbl, family = gaussian)) |>    
+  map(tidy) |>                          
+  map(filter, term != "(Intercept)") |>       
+  map(select, -term, -std.error, -statistic) |>                        
+  bind_rows(.id="term") |> 
+  arrange(p.value) |> 
   mutate(p.value = pvalue(p.value),
          estimate = round(estimate, 2))
 
@@ -164,10 +163,10 @@ chickpea_tbl %>%
 
 Würden wir nur nach dem Signifikanzniveau von 5% gehen, dann hätten wir die Variablen `sand` und `location` selektiert. Bei der selektion mit dem $p$-Wert wird aber eher eine Schwelle von 15.7% vorgeschlagen [@heinze2017five, p. 9]. Daher würden wir auch noch `no3` und `temp` mit Selektieren und in unser Modell nehmen.
 
-Es gibt ja immer zwei Wege nach Rom. Deshalb hier auch nochmal die Funktion `tbl_uvregression()` aus dem R Paket `gtsummary`, die es erlaubt die univariaten Regressionen über alle Variablen laufen zu lassen. Wir kriegen dann auch eine schöne @tbl-chick-gt wieder.
+Es gibt ja immer zwei Wege nach Rom. Deshalb hier auch nochmal die Funktion `tbl_uvregression()` aus dem R Paket `{gtsummary}`, die es erlaubt die univariaten Regressionen über alle Variablen laufen zu lassen. Wir kriegen dann auch eine schöne @tbl-chick-gt wieder.
 
 ::: column-margin
-Das R Paket `gtsummary` erlaubt es Ergebnisse der Regression in dem [Tutorial: tbl_regression](https://www.danieldsjoberg.com/gtsummary/articles/tbl_regression.html) gut darzustellen.
+Das R Paket `{gtsummary}` erlaubt es Ergebnisse der Regression in dem [Tutorial: tbl_regression](https://www.danieldsjoberg.com/gtsummary/articles/tbl_regression.html) gut darzustellen.
 :::
 
 ```{r}
@@ -177,17 +176,17 @@ Das R Paket `gtsummary` erlaubt es Ergebnisse der Regression in dem [Tutorial: t
 #| label: tbl-chick-gt
 #| tbl-cap: "Univariate Regression mit der Funktion `tbl_uvregression()`."
 
-chickpea_tbl %>%
+chickpea_tbl |>
   tbl_uvregression(
     method = glm,
     y = dryweight,
     method.args = list(family = gaussian),
     pvalue_fun = ~style_pvalue(.x, digits = 2)
-  ) %>%
-  add_global_p() %>%  # add global p-value 
-  add_q() %>%         # adjusts global p-values for multiple testing
-  bold_p() %>%        # bold p-values under a given threshold (default 0.05)
-  bold_p(t = 0.10, q = TRUE) %>% # now bold q-values under the threshold of 0.10
+  ) |>
+  add_global_p() |>  # add global p-value 
+  add_q() |>         # adjusts global p-values for multiple testing
+  bold_p() |>        # bold p-values under a given threshold (default 0.05)
+  bold_p(t = 0.10, q = TRUE) |> # now bold q-values under the threshold of 0.10
   bold_labels()
 ```
 
@@ -195,14 +194,14 @@ Nun führen wir die univariate Regression erneut auf den Ferkeldaten aus. Hier �
 
 ```{r}
 
-pig_tbl %>%
-  select(-infected) %>%                   
-  map(~glm(infected ~ .x, data = pig_tbl, family = binomial)) %>%    
-  map(tidy) %>%                          
-  map(filter, term != "(Intercept)") %>%       
-  map(select, -term, -std.error, -statistic) %>%                        
-  bind_rows(.id="term") %>% 
-  arrange(p.value) %>% 
+pig_tbl |>
+  select(-infected) |>                   
+  map(~glm(infected ~ .x, data = pig_tbl, family = binomial)) |>    
+  map(tidy) |>                          
+  map(filter, term != "(Intercept)") |>       
+  map(select, -term, -std.error, -statistic) |>                        
+  bind_rows(.id="term") |> 
+  arrange(p.value) |> 
   mutate(p.value = pvalue(p.value),
          estimate = round(estimate, 2))
 
@@ -219,22 +218,22 @@ In der @tbl-pig-gt sehen wir dann nochmal die Anwendung der Funktion `tbl_uvregr
 #| label: tbl-pig-gt
 #| tbl-cap: "Univariate Regression mit der Funktion `tbl_uvregression()`."
 
-pig_tbl %>%
+pig_tbl |>
   tbl_uvregression(
     method = glm,
     y = infected,
     method.args = list(family = binomial),
     exponentiate = TRUE
-  ) %>%
-  add_global_p() %>%  # add global p-value 
-  add_nevent() %>%    # add number of events of the outcome
-  add_q() %>%         # adjusts global p-values for multiple testing
-  bold_p() %>%        # bold p-values under a given threshold (default 0.05)
-  bold_p(t = 0.10, q = TRUE) %>% # now bold q-values under the threshold of 0.10
+  ) |>
+  add_global_p() |>  # add global p-value 
+  add_nevent() |>    # add number of events of the outcome
+  add_q() |>         # adjusts global p-values for multiple testing
+  bold_p() |>        # bold p-values under a given threshold (default 0.05)
+  bold_p(t = 0.10, q = TRUE) |> # now bold q-values under the threshold of 0.10
   bold_labels()
 ```
 
-Neben der Berechnung von univariaten logistischen Regressionen ist auch die Darstellung der Daten in einer @tbl-pigs-table1 bei Medizinern sehr beliebt. Deshalb an dieser Stelle auch die Tabelle 1 (eng. *table 1*) für die Zusammenfasung der Daten getrennt nach dem Infektionsstatus zusammen mit dem $p$-Wert. Ich nutze hier die Funktion `tbl_summary()` aus dem R Paket `gtsummary`.
+Neben der Berechnung von univariaten logistischen Regressionen ist auch die Darstellung der Daten in einer @tbl-pigs-table1 bei Medizinern sehr beliebt. Deshalb an dieser Stelle auch die Tabelle 1 (eng. *table 1*) für die Zusammenfasung der Daten getrennt nach dem Infektionsstatus zusammen mit dem $p$-Wert. Ich nutze hier die Funktion `tbl_summary()` aus dem R Paket `{gtsummary}`.
 
 ```{r}
 #| echo: true
@@ -243,7 +242,7 @@ Neben der Berechnung von univariaten logistischen Regressionen ist auch die Dars
 #| label: tbl-pigs-table1
 #| tbl-cap: Zusammenfasung der Daten getrennt nach dem Infektionsstatus zusammen mit dem $p$-Wert.
 
-pig_tbl %>% tbl_summary(by = infected) %>% add_p()
+pig_tbl |> tbl_summary(by = infected) |> add_p()
 ```
 
 Tja, auch hier ist dann die Frage, wie sortiere ich Variablen. Da es sich bei dem *table 1*-Stil um eine Übersichtstabelle handelt, ist die Tabelle nach den Variablen sortiert. Auch hier finden wir dann die Variablen `crp` und `bloodpressure` wieder. Das Problem hierbei ist natürlich, dass sich die $p$-Werte unterscheiden. Das muss ja auch so sein, denn eine logitische Regression ist nun mal kein *Wilcoxon rank sum test* oder ein *Pearson's Chi-squared test*.
@@ -264,20 +263,20 @@ Schauen wir mal, was die anderen Algorithmen noch so finden.
 
 ### Sonderfall Gaussian linear Regression
 
-Für die gaussian lineare Regression gibt es mit dem R Paket `oslrr` eine große Auswahl an [Variable Selection Methods](https://olsrr.rsquaredacademy.com/articles/variable_selection.html). Einfach mal die Möglichkeiten anschauen, die dort angeboten werden. Wir nutzen jetzt nicht alles was din `oslrr` möglich ist, sondern nur eien Auswahl. Zuerst müssen wir wieder unser Modell fitten. Wir nehmen alle Variablen mit rein und nutzen die Funktion `lm()` für ein lineares Modell mit einem normalverteilten Outcome $y$ mit `dryweight`.
+Für die gaussian lineare Regression gibt es mit dem R Paket `{oslrr}` eine große Auswahl an [Variable Selection Methods](https://olsrr.rsquaredacademy.com/articles/variable_selection.html). Einfach mal die Möglichkeiten anschauen, die dort angeboten werden. Wir nutzen jetzt nicht alles was din `oslrr` möglich ist, sondern nur eien Auswahl. Zuerst müssen wir wieder unser Modell fitten. Wir nehmen alle Variablen mit rein und nutzen die Funktion `lm()` für ein lineares Modell mit einem normalverteilten Outcome $y$ mit `dryweight`.
 
 ```{r}
 chickenpea_fit <- lm(dryweight ~ temp + rained + location + no3 + fe + sand + forest, 
                      data = chickpea_tbl)
 ```
 
-Nun gibt es wirklich viele Lösungen in dem R Paket `oslrr`. Ich möchte einmal die Variante mit `ols_step_all_possible` präsentieren. In dem Fall rechnen wir alle Modelle die gehen. Und damit meine ich wirklich alle Modelle. Deshalb filtern wir noch nach dem $R^2_{adj}$ um nicht von dem Angebot erschlagen zu werden. Darüber hinaus möchte ich nur Modelle sehen, die maximal vier Variablen mit in dem Modell haben. Das ist zufällig von mir gewählt... ich will ja ein kleineres Modell haben.
+Nun gibt es wirklich viele Lösungen in dem R Paket `{oslrr}`. Ich möchte einmal die Variante mit `ols_step_all_possible` präsentieren. In dem Fall rechnen wir alle Modelle die gehen. Und damit meine ich wirklich alle Modelle. Deshalb filtern wir noch nach dem $R^2_{adj}$ um nicht von dem Angebot erschlagen zu werden. Darüber hinaus möchte ich nur Modelle sehen, die maximal vier Variablen mit in dem Modell haben. Das ist zufällig von mir gewählt... ich will ja ein kleineres Modell haben.
 
 ```{r}
-ols_step_all_possible(chickenpea_fit)$result %>%
-  as_tibble() %>%
-  arrange(desc(adjr)) %>%
-  filter(n <= 4) %>% 
+ols_step_all_possible(chickenpea_fit)$result |>
+  as_tibble() |>
+  arrange(desc(adjr)) |>
+  filter(n <= 4) |> 
   select(predictors, adjr, aic) 
 ```
 
@@ -307,7 +306,7 @@ Gut, und wie sieht nun unser finales Modell aus? Dafür müssen wir usn aus dem 
 #| message: false
 #| warning: false
 
-pluck(chick_step_aic, "model") %>% 
+pluck(chick_step_aic, "model") |> 
   model_parameters()
 ```
 
@@ -315,7 +314,7 @@ Spannenderweise ist `location` nicht mehr im finalen Modell plus die Variable `l
 
 ### Schrittweise mit `stepAIC`
 
-Was das R Paket `oslrr` für die gaussian linear Regression kann, kann das R Paket `MASS` mit der Funktion `stepAIC` für den Rest der möglichen Verteilungen. Da wir mit dem Fekerldatensatz ein binominales Outcome $y$ mit `infected` vorliegen haben nutzen wir un die Funktion `stepAIC()`. Wir hätten auch den Kichererbsendatensatz mit der Funktion bearbeiten können, aber im Falle der Normalverteilung stehen uns dann eben noch andere Algorithmen zu Verfügung. Wie immer müssen wir zuerst das volle Modell mit der Funktion `glm()` fitten. Wir geben noch die Verteilungsfamilie mit `family = binomial` noch mit an und definieren so eine logistische lineare Regression.
+Was das R Paket `{oslrr}` für die gaussian linear Regression kann, kann das R Paket `{MASS}` mit der Funktion `stepAIC` für den Rest der möglichen Verteilungen. Da wir mit dem Fekerldatensatz ein binominales Outcome $y$ mit `infected` vorliegen haben nutzen wir un die Funktion `stepAIC()`. Wir hätten auch den Kichererbsendatensatz mit der Funktion bearbeiten können, aber im Falle der Normalverteilung stehen uns dann eben noch andere Algorithmen zu Verfügung. Wie immer müssen wir zuerst das volle Modell mit der Funktion `glm()` fitten. Wir geben noch die Verteilungsfamilie mit `family = binomial` noch mit an und definieren so eine logistische lineare Regression.
 
 ```{r}
 #| echo: true
@@ -339,7 +338,7 @@ Jetzt ist die Selektion durchgelaufen und wir sehen in jeden Schritt welche Vari
 #| message: false
 #| warning: false
 
-fit_step %>% 
+fit_step |> 
   model_parameters()
 ```
 
@@ -355,10 +354,10 @@ In diesem Abschnitt wollen wir die Variablenselektion mit einem maschinellen Ler
 Eine Herausforderung für maschinelle Lernverfahren sind nicht normalisierte Daten. Das heist, dass wir Variablen haben, die kategorial oder kontinuierlich sein können oder aber sehr unterschiedlich von den Einheiten sind. Deshalb wird empfohlen die Daten vorher zu Standardisieren oder zu Normalisieren. In dem @sec-eda-transform kannst du mehr über das Transformieren von Daten nachlesen.
 :::
 
-Wir nutzen als erstes einen Random Forest Algorithmus wie er in @sec-class-tree beschrieben ist. Es bietet sich hier die Implementation im R Paket `ranger` an. Bevor wir aber einen Random Forest auf unsere Daten laufen lassen, Standardisieren wir unsere Daten nochmal. Überall wo wir einen numerischen Wert als Variableneintrag haben rechnen wir eine $z$-Transformation. Wir erhalten dann die standardisierten Daten zurück.
+Wir nutzen als erstes einen Random Forest Algorithmus wie er in @sec-class-tree beschrieben ist. Es bietet sich hier die Implementation im R Paket `{ranger}` an. Bevor wir aber einen Random Forest auf unsere Daten laufen lassen, Standardisieren wir unsere Daten nochmal. Überall wo wir einen numerischen Wert als Variableneintrag haben rechnen wir eine $z$-Transformation. Wir erhalten dann die standardisierten Daten zurück.
 
 ```{r}
-pig_norm_tbl <- pig_tbl %>% 
+pig_norm_tbl <- pig_tbl |> 
   mutate(across(where(is.character), as_factor),
          across(where(is.numeric), dlookr::transform, "zscore"))
 
@@ -375,8 +374,8 @@ Den Random Forest rechnen wir mit der Funktion `ranger()`. Dafür müssen wir wi
 fit_raw <- ranger(infected ~ age + sex + location + activity + crp + frailty + bloodpressure + weight + creatinin, 
                   data = pig_tbl, ntree = 1000, importance = "permutation")
 
-pluck(fit_raw, "variable.importance") %>% 
-  sort(decreasing = TRUE) %>% 
+pluck(fit_raw, "variable.importance") |> 
+  sort(decreasing = TRUE) |> 
   round(3)
 ```
 
@@ -390,8 +389,8 @@ Wir sehen, dass wir als wichtigste Variable wiederum `crp` zurückbekommen. Dana
 fit_norm <- ranger(infected ~ age + sex + location + activity + crp + frailty + bloodpressure + weight + creatinin, 
                   data = pig_norm_tbl, ntree = 1000, importance = "permutation")
 
-pluck(fit_norm , "variable.importance") %>% 
-  sort(decreasing = TRUE) %>% 
+pluck(fit_norm , "variable.importance") |> 
+  sort(decreasing = TRUE) |> 
   round(3)
 ```
 
