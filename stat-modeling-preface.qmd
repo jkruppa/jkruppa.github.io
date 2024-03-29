@@ -1,6 +1,6 @@
 ```{r echo = FALSE}
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, gghalves,
-               ggdist, patchwork, see)
+               ggdist, patchwork, see, ggmosaic)
 ```
 
 # Statistisches Modellieren {#sec-stat-model-preface}
@@ -68,6 +68,7 @@ Wir finden die Fälle 1) bis 4) in der @fig-reg-cross in den Zeilen wieder.
 ```{r}
 #| echo: false
 #| message: false
+#| warning: false
 #| label: fig-scatter-modeling-R-01
 #| fig-align: center
 #| fig-height: 5
@@ -80,52 +81,107 @@ cross_tbl <- tibble(x_num = seq(0, 5, 0.1),
                     x_fct = gl(3, 17, labels = c("A", "B", "C")),
                     y_normal = 0 + 0.8 * x_num + rnorm(length(x_num), 0, 1),
                     y_pois = round(y_normal),
-                    y_grad = ifelse(y_pois > 2, 2, y_pois))
+                    y_grad = ifelse(y_pois > 2, 2, y_pois),
+                    y_beta = (y_normal - min(y_normal))/(max(y_normal) - min(y_normal)),
+                    y_binom = ifelse(y_normal <= 1.6, 0, 1))
 
 gg_template <- ggplot() +
   theme_minimal() +
   theme(axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
-        axis.text.y = element_blank(),
-        axis.ticks.y = element_blank(),
+        #axis.text.y = element_blank(),
+        #axis.ticks.y = element_blank(),
         legend.position = "none") +
   scale_color_okabeito() +
   scale_fill_okabeito()
   
 
-gg_template %+%
-  cross_tbl + 
-  aes(x_num, y_normal) +
-  geom_point() 
-
-
 p11 <- gg_template %+%
   cross_tbl + 
-  aes(x_num, y_pois) +
+  aes(x_num, y_normal) +
   geom_point() 
 
 p12 <- gg_template %+%
   cross_tbl + 
   aes(x_fct, y_normal, fill = x_fct) +
   geom_boxplot(width = 0.15, outlier.shape = NA) +
-  stat_dots(side = "left", justification = 1.12, binwidth = 0.25,
-            dotsize = 0.7) 
+  stat_dots(side = "left", justification = 1.12, binwidth = 0.01,
+            dotsize = 15) 
 
 p13 <- gg_template %+%
   filter(cross_tbl, x_fct != "C") + 
   aes(x_fct, y_normal, fill = x_fct) +
   geom_boxplot(width = 0.15, outlier.shape = NA) +
-  stat_dots(side = "left", justification = 1.12, binwidth = 0.25,
-            dotsize = 0.7) 
+  stat_dots(side = "left", justification = 1.12, binwidth = 0.01,
+            dotsize = 12) 
 
 p11 + p12 + p13 +
   plot_layout(ncol = 3)
 
 
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-scatter-modeling-R-02
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 15
+#| fig-cap: "Verschiedene Ziele und Möglichkeiten des statistischen Modellierens. Grob können die Möglichkeiten in drei große thematische Zusammenhänge eingeteilt werden."
+
+p21 <- gg_template %+%
+  filter(cross_tbl, y_pois >= 0) + 
+  aes(x_num, y_pois) +
+  geom_point() 
+
+p22 <- gg_template %+%
+  filter(cross_tbl, y_pois >= 0) +  
+  aes(x_fct, y_pois, fill = x_fct) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_dots(side = "left", justification = 1.12, binwidth = 0.01,
+            dotsize = 15) 
+
+p23 <- gg_template %+%
+  filter(cross_tbl, x_fct != "C" & y_pois >= 0) + 
+  aes(x_fct, y_pois, fill = x_fct) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_dots(side = "left", justification = 1.12, binwidth = 0.01,
+            dotsize = 12) 
+
+p21 + p22 + p23 +
+  plot_layout(ncol = 3)
+```
+
+```{r}
+
 gg_template %+%
   filter(cross_tbl, y_grad >= 0) + 
   aes(x_num, y_grad) +
+  geom_point() +
+  scale_y_continuous(breaks = c(0, 1, 2), labels = c(1, 2, 3))
+
+gg_template %+%
+  cross_tbl + 
+  aes(x_num, y_beta) +
   geom_point() 
+
+gg_template %+%
+  cross_tbl + 
+  aes(x_num, y_binom) +
+  geom_point() 
+
+gg_template %+%
+  filter(cross_tbl, x_fct != "C") + 
+  geom_mosaic(aes(x = product(y_binom, x_fct), fill = x_fct)) 
+
+
+gg_template %+%
+  cross_tbl + 
+  geom_mosaic(aes(x = product(y_binom, x_fct), fill = x_fct)) 
+
 ```
 
 ![Das Regressionskreuz als allgemeine Übersicht der Möglichkeiten einer multiplen linearen Regression.](images/Regressionskreut_advanced.png){#fig-reg-cross fig-align="center" width="100%"}
