@@ -65,6 +65,8 @@ Neben dem $x$ müssen wir auch das $y$ in diesem Kapitel betrachten. Das $y$ kan
 
 Wir finden die Fälle 1) bis 4) in der @fig-reg-cross in den Zeilen wieder.
 
+## Gaussian
+
 ```{r}
 #| echo: false
 #| message: false
@@ -79,11 +81,13 @@ set.seed(20240329)
 
 cross_tbl <- tibble(x_num = seq(0, 5, 0.1),
                     x_fct = gl(3, 17, labels = c("A", "B", "C")),
-                    y_normal = 0 + 0.8 * x_num + rnorm(length(x_num), 0, 1),
-                    y_pois = round(y_normal),
-                    y_grad = ifelse(y_pois > 2, 2, y_pois),
+                    y_normal = 0 + 1.2 * x_num + rnorm(length(x_num), 0, 2),
+                    y_pois = round(0 + 0.8 * x_num + rnorm(length(x_num), 0, 1)),
+                    y_grad = case_when(y_normal < 1 ~ 0,
+                                       y_normal >= 1 & y_normal < 3 ~ 1,
+                                       y_normal >= 3 ~ 2),
                     y_beta = (y_normal - min(y_normal))/(max(y_normal) - min(y_normal)),
-                    y_binom = ifelse(y_normal <= 1.6, 0, 1))
+                    y_binom = ifelse(y_normal <= 3, 0, 1))
 
 gg_template <- ggplot() +
   theme_minimal() +
@@ -122,6 +126,8 @@ p11 + p12 + p13 +
 
 ```
 
+## Poisson
+
 ```{r}
 #| echo: false
 #| message: false
@@ -155,32 +161,102 @@ p21 + p22 + p23 +
   plot_layout(ncol = 3)
 ```
 
-```{r}
+## Beta
 
-gg_template %+%
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-scatter-modeling-R-03
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 15
+#| fig-cap: "Verschiedene Ziele und Möglichkeiten des statistischen Modellierens. Grob können die Möglichkeiten in drei große thematische Zusammenhänge eingeteilt werden."
+
+p31 <- gg_template %+%
+  filter(cross_tbl, y_beta >= 0) + 
+  aes(x_num, y_beta) +
+  geom_point() 
+
+p32 <- gg_template %+%
+  filter(cross_tbl, y_beta >= 0) +  
+  aes(x_fct, y_beta, fill = x_fct) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_dots(side = "left", justification = 1.12, binwidth = 0.005,
+            dotsize = 7) 
+
+p33 <- gg_template %+%
+  filter(cross_tbl, x_fct != "C" & y_beta >= 0) + 
+  aes(x_fct, y_beta, fill = x_fct) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_dots(side = "left", justification = 1.12, binwidth = 0.005,
+            dotsize = 7) +
+  scale_y_continuous(limits = c(0,1))
+
+p31 + p32 + p33 +
+  plot_layout(ncol = 3)
+```
+
+## Ordinal
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-scatter-modeling-R-04
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 15
+#| fig-cap: "Verschiedene Ziele und Möglichkeiten des statistischen Modellierens. Grob können die Möglichkeiten in drei große thematische Zusammenhänge eingeteilt werden."
+
+p41 <- gg_template %+%
   filter(cross_tbl, y_grad >= 0) + 
   aes(x_num, y_grad) +
   geom_point() +
   scale_y_continuous(breaks = c(0, 1, 2), labels = c(1, 2, 3))
 
-gg_template %+%
-  cross_tbl + 
-  aes(x_num, y_beta) +
-  geom_point() 
+p42 <- gg_template %+%
+  filter(cross_tbl, y_grad >= 0) + 
+  geom_mosaic(aes(x = product(y_grad, x_fct), fill = x_fct)) 
 
-gg_template %+%
-  cross_tbl + 
+p43 <- gg_template %+%
+  filter(cross_tbl, x_fct != "C" & y_grad >= 0) + 
+  geom_mosaic(aes(x = product(y_grad, x_fct), fill = x_fct)) 
+
+
+p41 + p42 + p43 +
+  plot_layout(ncol = 3)
+```
+
+## Binomial
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-scatter-modeling-R-05
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 15
+#| fig-cap: "Verschiedene Ziele und Möglichkeiten des statistischen Modellierens. Grob können die Möglichkeiten in drei große thematische Zusammenhänge eingeteilt werden."
+
+p51 <- gg_template %+%
+  filter(cross_tbl, y_binom >= 0) + 
   aes(x_num, y_binom) +
-  geom_point() 
+  geom_point() +
+  scale_y_continuous(breaks = c(0, 1), labels = c(0, 1))
 
-gg_template %+%
-  filter(cross_tbl, x_fct != "C") + 
+p52 <- gg_template %+%
+  filter(cross_tbl, y_binom >= 0) + 
+  geom_mosaic(aes(x = product(y_binom, x_fct), fill = x_fct)) 
+
+p53 <- gg_template %+%
+  filter(cross_tbl, x_fct != "C" & y_binom >= 0) + 
   geom_mosaic(aes(x = product(y_binom, x_fct), fill = x_fct)) 
 
 
-gg_template %+%
-  cross_tbl + 
-  geom_mosaic(aes(x = product(y_binom, x_fct), fill = x_fct)) 
+p51 + p52 + p53 +
+  plot_layout(ncol = 3)
 
 ```
 
