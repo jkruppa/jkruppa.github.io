@@ -1,6 +1,6 @@
 ```{r echo = FALSE}
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, see,
-               latex2exp)
+               latex2exp, patchwork)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
@@ -27,6 +27,8 @@ Was modellieren wir eigentlich?
 
 In diesem Kapitel wollen wir uns auch mit dem Thema marginale Effektmodelle (eng. *marginal effect models*) beschäftigen. Auch hier ist der deutsche Begriff nicht gebräuchlich, so dass ich mich hier dann immer auf die *marginal effect models* beziehen werde.
 
+"Kausales Modell -- Wie verändert sich $y$, wenn sich $x_1$ ändert? Wie ist der numerische Zusammenhang zwischen $y$ und $x$?" "Prädikitives Modell -- Wenn $y$ und $x$ gemessen wurden, wie sehen dann die Werte von $y$ für neue $x$-Werte aus? Können wir mit $x$ die Werte in $y$ vorhersagen?" "Clusteranalyse -- Haben wir in unseren Variablen $x_1$ und $x_2$ eine oder mehrere unbekannte Cluster vorliegen? Wie gehören die Beobachtungen gegeben $x_1$ und $x_2$ zusammen?"
+
 ```{r}
 #| echo: false
 #| message: false
@@ -34,13 +36,8 @@ In diesem Kapitel wollen wir uns auch mit dem Thema marginale Effektmodelle (eng
 #| label: fig-scatter-modeling-R-01
 #| fig-align: center
 #| fig-height: 5
-#| fig-width: 5
+#| fig-width: 15
 #| fig-cap: "Verschiedene Ziele und Möglichkeiten des statistischen Modellierens. Grob können die Möglichkeiten in drei große thematische Zusammenhänge eingeteilt werden."
-#| fig-subcap: 
-#|   - "Kausales Modell -- Wie verändert sich $y$, wenn sich $x_1$ ändert? Wie ist der numerische Zusammenhang zwischen $y$ und $x$?"
-#|   - "Prädikitives Modell -- Wenn $y$ und $x$ gemessen wurden, wie sehen dann die Werte von $y$ für neue $x$-Werte aus? Können wir mit $x$ die Werte in $y$ vorhersagen?"
-#|   - "Clusteranalyse -- Haben wir in unseren Variablen $x_1$ und $x_2$ eine oder mehrere unbekannte Cluster vorliegen? Wie gehören die Beobachtungen gegeben $x_1$ und $x_2$ zusammen?"
-#| layout-nrow: 1
 #| column: page
 
 simple_tbl <- tibble(jump_length = c(1.2, 1.5, 1.8, 1.3, 1.7, 2.6, 1.8, 2.7, 2.6),
@@ -55,18 +52,21 @@ pred_tbl <- bind_rows(mutate(simple_tbl, status = "beobachtet"),
                                                    newdata = tibble(weight)),
                              status = "vorhergesagt"))
 
-ggplot(filter(pred_tbl, status == "beobachtet"), 
+p11 <- ggplot(filter(pred_tbl, status == "beobachtet"), 
        aes(weight, jump_length, color = status, shape = status)) +
   stat_smooth(method = "lm", se = FALSE, fullrange = TRUE, 
               color = "gray") +
-  labs(x = expression(x[1]), y = "y", color = "", shape = "") +
+  labs(x = expression(x[1]), y = "y", color = "", shape = "",
+       title = "Kausales Modell") +
   geom_point(size = 4) +
   theme_minimal() +
   scale_color_okabeito() +
   xlim(0, 3.5) + ylim(0, 3.5) +
   theme(legend.position = "none",
         axis.text.x = element_blank(),
-        axis.text.y = element_blank()) +
+        axis.text.y = element_blank(),
+        axis.text = element_text(size = 12),
+        title = element_text(size = 14, face = "bold")) +
   annotate("text", x = 0.5, y = 3, hjust = "left", color = "black", size = 4, 
            label = TeX(r"($y = 0.02 + 1.04 \cdot x$)")) +
   annotate("text", x = 0.5, y = 2.8, hjust = "left", color = "black", size = 4, 
@@ -77,17 +77,20 @@ ggplot(filter(pred_tbl, status == "beobachtet"),
              arrow = arrow(length = unit(0.03, "npc")),
              curvature = -0.5, color = "black") 
 
-ggplot(pred_tbl, aes(weight, jump_length, color = status, shape = status)) +
+p12 <- ggplot(pred_tbl, aes(weight, jump_length, color = status, shape = status)) +
   stat_smooth(method = "lm", se = FALSE, fullrange = TRUE, 
               color = "gray", linetype = 2) +
-  labs(x = expression(x[1]), y = "y", color = "", shape = "") +
+  labs(x = expression(x[1]), y = "y", color = "", shape = "",
+       title = "Prädiktives Modell") +
   geom_point(size = 4) +
   theme_minimal() +
   scale_color_okabeito() +
   xlim(0, 3.5) + ylim(0, 3.5) +
   theme(legend.position = "none",
         axis.text.x = element_blank(),
-        axis.text.y = element_blank()) +
+        axis.text.y = element_blank(),
+        axis.text = element_text(size = 12),
+        title = element_text(size = 14, face = "bold")) +
   annotate("text", x = 0.5, y = 3, hjust = "left", color = cbbPalette[3], 
            size = 4, label = "vorhergesagt", fontface = 2) +
   annotate("text", x = 2, y = 0.5, hjust = "left", color = cbbPalette[2], 
@@ -99,21 +102,28 @@ ggplot(pred_tbl, aes(weight, jump_length, color = status, shape = status)) +
              arrow = arrow(length = unit(0.03, "npc")),
              curvature = -0.5, color = cbbPalette[2])  
 
-ggplot(filter(pred_tbl, status == "beobachtet"),
+p13 <- ggplot(filter(pred_tbl, status == "beobachtet"),
        aes(weight, jump_length, color = grp)) +
   stat_ellipse(level = 0.82) + 
-  labs(x = expression(x[1]), y = expression(x[2]), color = "Label") +
+  labs(x = expression(x[1]), y = expression(x[2]), color = "Label",
+       title = "Clusteranalyse") +
   geom_point(size = 4) +
   theme_minimal() +
   scale_color_okabeito() +
   xlim(0, 3.5) + ylim(0, 3.5) +
   theme(legend.position = "none",
         axis.text.x = element_blank(),
-        axis.text.y = element_blank()) +
+        axis.text.y = element_blank(),
+        axis.text = element_text(size = 12),
+        title = element_text(size = 14, face = "bold")) +
   annotate("text", x = 1, y = 1.5, hjust = "center", color = cbbPalette[2], 
            size = 20, label = "1", alpha = 0.5) +
   annotate("text", x = 2.5, y = 2.25, hjust = "center", color = cbbPalette[3], 
            size = 20, label = "2", alpha = 0.5)
+
+p11 + p12 + p13 +
+  plot_layout(ncol = 3) +
+  plot_annotation(tag_levels = 'A')
 
 ```
 
