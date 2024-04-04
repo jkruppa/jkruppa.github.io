@@ -1,6 +1,6 @@
 ```{r echo = FALSE}
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, see,
-               latex2exp, patchwork)
+               latex2exp, patchwork, parsnip)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
@@ -35,89 +35,9 @@ In diesem Kapitel wollen wir uns auch mit dem Thema marginale Effektmodelle (eng
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 15
-#| fig-cap: "Verschiedene Ziele und Möglichkeiten des statistischen Modellierens. Grob können die Möglichkeiten in drei große thematische Zusammenhänge eingeteilt werden. **(A)** *Kausales Modell* -- Wie verändert sich $y$, wenn sich $x_1$ ändert? Wie ist der numerische Zusammenhang zwischen $y$ und $x$? **(B)** *Prädikitives Modell* -- Wenn $y$ und $x$ gemessen wurden, wie sehen dann die Werte von $y$ für neue $x$-Werte aus? Können wir mit $x$ die Werte in $y$ vorhersagen? **(C)** *Clusteranalyse* -- Haben wir in unseren Variablen $x_1$ und $x_2$ eine oder mehrere unbekannte Cluster vorliegen? Wie gehören die Beobachtungen gegeben $x_1$ und $x_2$ zusammen?"
-#| column: page
+#| fig-cap: "Verschiedene Ziele und Möglichkeiten des statistischen Modellierens. Grob können die Möglichkeiten in drei große thematische Zusammenhänge eingeteilt werden. **(A)** *Kausales Modell* -- Wie verändert sich $y$, wenn sich $x_1$ ändert? Wie ist der numerische Zusammenhang zwischen $y$ und $x$? **(B)** *Prädikitives Modell* -- Wenn $y$ und $x$ gemessen wurden, wie sehen dann die Werte von $y$ für neue $x$-Werte aus? Können wir mit $x$ die Werte in $y$ vorhersagen? **(C)** *Clusteranalyse* -- Haben wir in unseren Variablen $x_1$ und $x_2$ eine oder mehrere unbekannte Cluster vorliegen? Wie gehören die Beobachtungen gegeben $x_1$ und $x_2$ zusammen? *[Zum Vergrößern anklicken]*"
 
-simple_tbl <- tibble(jump_length = c(1.2, 1.5, 1.8, 1.3, 1.7, 2.6, 1.8, 2.7, 2.6),
-                     weight = c(0.8, 0.9, 1, 1.2, 1.9, 2, 2.7, 2.8, 2.9),
-                     grp = as_factor(c("Gruppe 1", "Gruppe 1", "Gruppe 1", "Gruppe 1", "Gruppe 2", "Gruppe 2", "Gruppe 2", "Gruppe 2", "Gruppe 2")))
-
-fit_1 <- lm(jump_length ~ weight, data = simple_tbl)
-
-pred_tbl <- bind_rows(mutate(simple_tbl, status = "beobachtet"),
-                      tibble(weight = c(1.7, 1.4, 2.1, 3.0),
-                             jump_length = predict(fit_1, 
-                                                   newdata = tibble(weight)),
-                             status = "vorhergesagt"))
-
-p11 <- ggplot(filter(pred_tbl, status == "beobachtet"), 
-       aes(weight, jump_length, color = status, shape = status)) +
-  stat_smooth(method = "lm", se = FALSE, fullrange = TRUE, 
-              color = "gray") +
-  labs(x = expression(x[1]), y = "y", color = "", shape = "",
-       title = "Kausales Modell") +
-  geom_point(size = 4) +
-  theme_minimal() +
-  scale_color_okabeito() +
-  xlim(0, 3.5) + ylim(0, 3.5) +
-  theme(legend.position = "none",
-        axis.text.x = element_blank(),
-        axis.text.y = element_blank(),
-        axis.text = element_text(size = 12),
-        title = element_text(size = 14, face = "bold")) +
-  annotate("text", x = 0.5, y = 3, hjust = "left", color = "black", size = 4, 
-           label = TeX(r"($y = 0.02 + 1.04 \cdot x$)")) +
-  annotate("text", x = 0.5, y = 2.8, hjust = "left", color = "black", size = 4, 
-           label = TeX(r"($r = 0.76\; (p<0.001)$)")) +
-  annotate("text", x = 0.5, y = 2.6, hjust = "left", color = "black", size = 4, 
-           label = TeX(r"($R^2 = 0.58$)")) +
-  geom_curve(x = 1.6, y = 3, xend = 2.5, yend = 2.3,
-             arrow = arrow(length = unit(0.03, "npc")),
-             curvature = -0.5, color = "black") 
-
-p12 <- ggplot(pred_tbl, aes(weight, jump_length, color = status, shape = status)) +
-  stat_smooth(method = "lm", se = FALSE, fullrange = TRUE, 
-              color = "gray", linetype = 2) +
-  labs(x = expression(x[1]), y = "y", color = "", shape = "",
-       title = "Prädiktives Modell") +
-  geom_point(size = 4) +
-  theme_minimal() +
-  scale_color_okabeito() +
-  xlim(0, 3.5) + ylim(0, 3.5) +
-  theme(legend.position = "none",
-        axis.text.x = element_blank(),
-        axis.text.y = element_blank(),
-        axis.text = element_text(size = 12),
-        title = element_text(size = 14, face = "bold")) +
-  annotate("text", x = 0.5, y = 3, hjust = "left", color = cbbPalette[3], 
-           size = 4, label = "vorhergesagt", fontface = 2) +
-  annotate("text", x = 2, y = 0.5, hjust = "left", color = cbbPalette[2], 
-           size = 4, label = "beobachtet", fontface = 2) +
-  geom_curve(x = 1.4, y = 3, xend = 2.1, yend = 2.2,
-             arrow = arrow(length = unit(0.03, "npc")),
-             curvature = -0.5, color = cbbPalette[3]) +
-  geom_curve(x = 1.9, y = 0.5, xend = 0.8, yend = 1.1,
-             arrow = arrow(length = unit(0.03, "npc")),
-             curvature = -0.5, color = cbbPalette[2])  
-
-p13 <- ggplot(filter(pred_tbl, status == "beobachtet"),
-       aes(weight, jump_length, color = grp)) +
-  stat_ellipse(level = 0.82) + 
-  labs(x = expression(x[1]), y = expression(x[2]), color = "Label",
-       title = "Clusteranalyse") +
-  geom_point(size = 4) +
-  theme_minimal() +
-  scale_color_okabeito() +
-  xlim(0, 3.5) + ylim(0, 3.5) +
-  theme(legend.position = "none",
-        axis.text.x = element_blank(),
-        axis.text.y = element_blank(),
-        axis.text = element_text(size = 12),
-        title = element_text(size = 14, face = "bold")) +
-  annotate("text", x = 1, y = 1.5, hjust = "center", color = cbbPalette[2], 
-           size = 20, label = "1", alpha = 0.5) +
-  annotate("text", x = 2.5, y = 2.25, hjust = "center", color = cbbPalette[3], 
-           size = 20, label = "2", alpha = 0.5)
+source("images/R/stat-modeling-R-01.R")
 
 p11 + p12 + p13 +
   plot_layout(ncol = 3) +
@@ -129,22 +49,36 @@ Drei Abbildungen mit explorative, prädiktiv und Cluster
 
 in diesem Kapitel wollen Fokus auf `{parsnip}` und dann als Kasten in allen anderen möglichen Modellierungen ergänzen?
 
-::: callout-note
-## XX Regression in `{parsnip}`
+[Tidymodels, interactions and anova - a short tutorial](https://www.thomasvanhoey.com/post/2021-10-12-tidymodels-interactions/)
 
-Auch hier können wir die XX Regression einfach in dem R Paket `{parsnip}` realisieren. Ein Vorteil von `{parsnip}` ist, dass wir die Funktionen sehr gut mit dem `|>`-Operator nutzen können. Das ist bei den Funktionen `glm()` und `lm()` in der ursprünglichen Implementierung ja leider nur etwas umständlicher möglich. Deshalb hier einmal die *bessere* Implementierung.
+::: callout-note
+## Prädiktive Modelle in `{parsnip}`
+
+Auch hier können wir die XX Regression in dem R Paket `{parsnip}` realisieren. Ein Vorteil von `{parsnip}` ist, dass wir die Funktionen sehr gut mit dem `|>`-Operator nutzen können. Das ist bei den Funktionen `glm()` und `lm()` in der ursprünglichen Implementierung ja leider nur etwas umständlicher möglich. Deshalb hier einmal die *bessere* Implementierung.
 
 ::: panel-tabset
 ## `{parsnip}`
 
-text
+```{r}
+linreg_reg_fit <- linear_reg() |> 
+  set_engine("lm") |> 
+  fit(jump_length ~ grp, data = simple_tbl) 
+```
+
+Dann die ANOVA
+
+```{r}
+linreg_reg_fit|>  
+  extract_fit_engine() |> 
+  anova()
+```
 
 ## `{base}`
 
 text
 :::
 
-Eine detailliertere Einführung mit mehr Beispielen für die Nutzung vom [R Paket `{parsnip}`](https://parsnip.tidymodels.org/) findest du im Kapitel [Modellieren in R](#sec-modeling-R). Hier soll es dann bei der kurzen Gegenüberstellung bleiben.
+Eine detailliertere Einführung mit mehr Beispielen für die Nutzung vom [R Paket `{parsnip}`](https://parsnip.tidymodels.org/articles/Examples.html) findest du im Kapitel [Modellieren in R](#sec-modeling-R). Hier soll es dann bei der kurzen Gegenüberstellung bleiben.
 :::
 
 ## Marginal Effect Models
