@@ -1,10 +1,12 @@
 ```{r}
 #| echo: false
 #| message: false
-pacman::p_load(tidyverse, readxl, knitr, kableExtra, broom, conflicted)
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, broom, patchwork, conflicted)
 conflict_prefer("extract", "magrittr")
 data_tbl <- tibble(animal = gl(2, 4, labels = c("cat", "dog")),
                    jump_length = c(8.5, 9.9, 8.9, 9.4, 8.0, 7.2, 8.4, 7.5)) 
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
 # Die Testentscheidung {#sec-stat-entscheidung}
@@ -305,9 +307,63 @@ Wenn der p-Wert $\leq \alpha$ dann wird die Nullhypothese (H$_0$) abgelehnt. Das
 
 {{< video https://youtu.be/7I9Z8vK3hzY >}}
 
-Ein statistischer Test der eine Teststatistik $T$ berechnet liefert auch immer einen $p$-Wert. Nicht alle statistischen Tests ermöglichen es ein 95% Konfidenzintervall zu berechnen. @fig-ki-00 zeigt ein 95% Konfidenzintervall.
+Ein statistischer Test der eine Teststatistik $T$ berechnet liefert auch immer einen $p$-Wert. Nicht alle statistischen Tests ermöglichen es ein 95% Konfidenzintervall zu berechnen. @fig-test-basic-ki-00 zeigt ein 95% Konfidenzintervall.
 
-![Ein 95% Konfidenzintervall. Der Punkt in der Mitte entspricht dem Unterschied oder Effekt $\Delta$.](images/test_theory/ci-00.png){#fig-ki-00 fig-align="center" width="70%"}
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-test-basic-ki-00
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "Ein 95% Konfidenzintervall. Der Punkt in der Mitte entspricht dem Unterschied oder Effekt $\\Delta$ der beiden zu vergleichenden Gruppen. **(A)** Mittelwertsunterschied ($\\Delta_{y_1-y_2}$)  **(B)** Anteilsunterschied ($\\Delta_{y_1/y_2}$). *[Zum Vergrößern anklicken]*"
+
+ki_tbl <- tibble(delta = 2.4,
+                 arms = 1.5)
+
+p0 <- ggplot(ki_tbl) +
+  theme_minimal() +
+  geom_point() +
+  geom_errorbar(aes(ymin = delta - arms, ymax = delta + arms), 
+                width = 0.1) +
+  scale_y_continuous(limits = c(-1, 5), breaks = seq(-1, 5, 1)) +
+  annotate("text", x = 1.5, y = 1,
+           color = "black", vjust= 1.5, hjust = -0.5,
+           size = 4, label = "Untere", fontface = 3) +
+  annotate("text", x = 0.75, y = 3,
+           color = "black", vjust= 1.5, hjust = -0.5,
+           size = 4, label = "Obere", fontface = 3) +
+  annotate("text", x = 0.75, y = 1.5,
+           color = "black", vjust= 1.5, hjust = -0.5,
+           size = 6, label = expression(Delta)) +
+  coord_flip() +
+  geom_curve(x = 1.4, y = 1.3, xend = 1.1, yend = 0.9,
+             arrow = arrow(length = unit(0.03, "npc")),
+             curvature = 0.5) +
+  geom_curve(x = 0.65, y = 4.15, xend = 1, yend = 4,
+             arrow = arrow(length = unit(0.03, "npc")),
+             curvature = 0.8) +
+  geom_curve(x = 0.6, y = 1.9, xend = 0.9, yend = 2.4,
+             arrow = arrow(length = unit(0.03, "npc")),
+             curvature = 0.5) +
+  theme(axis.text = element_text(size = 12)) 
+
+p1 <- p0 +
+  aes(x = "2 - 1", y = delta) +
+  geom_hline(yintercept = 0, color = "#CC79A7", alpha = 0.8) +
+  labs(x = "", y = "Mittelwertsunterschied (Differenz)") 
+
+p2 <- p0 +
+  aes(x = "2 / 1", y = delta) +
+  geom_hline(yintercept = 1, color = "#CC79A7", alpha = 0.8) +
+  labs(x = "", y = "Anteilsunterschied (Quotient)") 
+  
+p1 + p2 +
+  plot_layout(nrow = 2) +
+  plot_annotation(tag_levels = 'A')
+
+```
 
 Mit *p-Werten* haben wir Wahrscheinlichkeitsaussagen und damit über die *Signifikanz*. Damit haben wir noch keine Aussage über die *Relevanz* des beobachteten Effekts. Mit der Teststatistik $T$ und dem damit verbundenen $p$-Wert haben wir uns *Wahrscheinlichkeiten* angeschaut und erhalten eine *Wahrscheinlichkeitsaussage*. Eine Wahrscheinlichkeitsaussage sagt aber nichts über den Effekt $\Delta$ aus. Also wie groß ist der mittlere Sprung*unterschied* zwischen Hunde- und Katzenflöhen. Die Idee von 95% Konfidenzintervallen ist es jetzt den Effekt mit der Wahrscheinlichkeitsaussage zusammenzubringen und beides in einer *Visualisierung* zu kombinieren. Im Folgenden sehen wir die vereinfachte Formel für das 95% Konfidenzintervall eines t-Tests.
 
@@ -406,7 +462,6 @@ $$
 
 Wir können uns nun die Frage stellen, wie ändert sich die Teststatistik $T_{calc}$ in Abhängigkeit vom Effekt $\Delta$, der Fallzahl $n$ und der Streuung $s$ in den Daten. Die @tbl-t-und-p zeigt die Zusammenhänge auf. Die Aussagen in der Tabelle lassen sich generalisieren. So bedeutet eine steigende Fallzahl meist mehr signifikante Ergebnisse. Eine steigende Streuung reduziert die Signifikanz eines Vergleichs. Ein Ansteigen des Effektes führt zu mehr signifikanten Ergebnissen. Ebenso verschiebt eine Veränderung des Effekt das 95% Konfidenzintervall, eine Erhöhung der Streuung macht das 95% Konfidenzintervall breiter, eine sinkende Streuung macht das 95% Konfidenzintervall schmaler. Bei der Fallzahl verhält es sich umgekehrt. Eine Erhöhung der Fallzahl macht das 95% Konfidenzintervall schmaler und eine sinkende Fallzahl das Konfidenzintervall breiter.
 
-::: column-page
 |                   | $\boldsymbol{T_{calc}}$ | $\boldsymbol{Pr(\geq T_{calc}|H_0)}$ | $KI_{1-\alpha}$ |                     | $\boldsymbol{T_{calc}}$ | $\boldsymbol{Pr(\geq T_{calc}|H_0)}$ | $KI_{1-\alpha}$ |
 |:-----------------:|:-----------------------:|:------------------------------------:|-----------------|:-------------------:|:-----------------------:|:------------------------------------:|-----------------|
 | $\Delta \uparrow$ |         steigt          |                sinkt                 | verschoben      | $\Delta \downarrow$ |          sinkt          |                steigt                | verschoben      |
@@ -414,6 +469,5 @@ Wir können uns nun die Frage stellen, wie ändert sich die Teststatistik $T_{ca
 |   $n \uparrow$    |         steigt          |                sinkt                 | schmaler        |   $n \downarrow$    |          sinkt          |                steigt                | breiter         |
 
 : Zusammenhang von der Teststatistik $T_{calc}$ und dem p-Wert $Pr(\geq T_{calc}|H_0)$ sowie dem $KI_{1-\alpha}$ in Abhängigkeit vom Effekt $\Delta$, der Fallzahl $n$ und der Streuung $s$. {#tbl-t-und-p}
-:::
 
 ## Referenzen {.unnumbered}
