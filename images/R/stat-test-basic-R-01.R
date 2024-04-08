@@ -103,7 +103,9 @@ p <- bind_rows(truth_tbl,
   geom_segment(x = 104, y = 5, xend = 104, yend = 10.5) +
   annotate("text", x = 91, y = 3, label = "0") +
   annotate("text", x = 104, y = 3, label = expression(T[D])) +
-  annotate("text", x = 91, y = -1, label = expression(Testverteilung~"("*T[1]*","*"..."*","*T[p]*")"), size = 5, 
+  annotate("text", x = 80, y = -2, label = "Testverteilung", size = 5, 
+           fontface = 2) +
+  annotate("text", x = 101, y = -2, label = expression("("*T[1]*","*"..."*","*T[p]*")"), size = 5, 
            fontface = 2) +
   annotate("text", x = 21.5, y = 12, label = "...", size = 12, fontface = 2,
            color = "gray") +
