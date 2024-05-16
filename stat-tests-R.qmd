@@ -1,4 +1,6 @@
 ```{r echo = FALSE}
+# set.seed(20267119)
+set.seed(2011654)
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, see,
                latex2exp, patchwork, parsnip)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
@@ -30,7 +32,8 @@ Dieses Startkapitel zu den statistischen Gruppenvergleichen gibt dir nochmal ein
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
-pacman::p_load(tidyverse, infer)
+pacman::p_load(tidyverse, infer, conflicted)
+theme_set(theme_minimal(base_size = 12))
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
@@ -64,18 +67,18 @@ Was habe ich beobachtet an Daten?
 ## Detailiert
 
 ```{r}
-z_hat <- gss %>% 
-  specify(college ~ sex, success = "no degree") %>%
+t_hat <- flea_tbl |> 
+  specify(jump_length ~ animal) |> 
   hypothesize(null = "independence") %>%
-  calculate(stat = "z", order = c("female", "male"))
+  calculate(stat = "t", order = c("dog", "cat"))
 ```
 
 ## `observed()`
 
 ```{r}
-z_hat <- gss %>% 
-  observe(college ~ sex, success = "no degree",
-          stat = "z", order = c("female", "male"))
+t_hat <- flea_tbl |>
+  observe(jump_length ~ animal,
+          stat = "t", order = c("dog", "cat"))
 ```
 :::
 
@@ -85,19 +88,19 @@ Was ist meine Nullhypothese
 ## Detailiert
 
 ```{r}
-null_dist <- gss %>%
-  specify(college ~ sex, success = "no degree") %>%
-  hypothesize(null = "independence") %>% 
-  generate(reps = 1000) %>% 
-  calculate(stat = "z", order = c("female", "male"))
+null_dist <- flea_tbl |> 
+  specify(jump_length ~ animal) |> 
+  hypothesize(null = "independence") %>%
+  generate(reps = 1000, type = "permute") %>% 
+  calculate(stat = "t", order = c("dog", "cat"))
 ```
 
 ## `assume()`
 
 ```{r}
-null_dist_theory <- gss %>%
-  specify(college ~ sex, success = "no degree") %>%
-  assume("z")
+null_dist_theory <- flea_tbl |> 
+  specify(jump_length ~ animal) |> 
+  assume("t")
 ```
 :::
 
@@ -108,40 +111,51 @@ Dann schauen wir uns die Daten einmal zusammen mit der Nullhypothese an.
 
 ```{r}
 visualize(null_dist) +
-  shade_p_value(obs_stat = z_hat, direction = "two-sided")
+  shade_p_value(obs_stat = t_hat, direction = "two-sided")
 ```
 
 ## test
 
 ```{r}
 visualize(null_dist_theory) +
-  shade_p_value(obs_stat = z_hat, direction = "two-sided")
+  shade_p_value(obs_stat = t_hat, direction = "two-sided")
 ```
 :::
 
+P Werte berechnen
+
 ```{r}
 null_dist %>%
-  get_p_value(obs_stat = z_hat, direction = "two-sided")
+  get_p_value(obs_stat = t_hat, direction = "two-sided")
+```
+
+Konfidenzintervall
+
+```{r}
+boot_dist <- flea_tbl |> 
+  specify(jump_length ~ animal) |> 
+  generate(reps = 1000, type = "bootstrap") %>% 
+  calculate(stat = "t", order = c("dog", "cat"))
 ```
 
 ::: panel-tabset
 ## Perzentile
 
 ```{r}
-percentile_ci <- z_hat |> 
+percentile_ci <- boot_dist |> 
   get_ci(type = "percentile")
 ```
 
 ## Standardfehler
 
 ```{r}
-standard_error_ci <- z_hat %>%
-  get_ci(type = "se", point_estimate = z_hat)
+standard_error_ci <- boot_dist %>%
+  get_ci(type = "se", point_estimate = t_hat)
 ```
 :::
 
 ```{r}
-visualize(z_hat) +
+visualize(boot_dist) +
   shade_confidence_interval(endpoints = percentile_ci)
 ```
 
