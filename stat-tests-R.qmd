@@ -48,7 +48,7 @@ flea_tbl <- read_excel("data/flea_dog_cat.xlsx") |>
 ```{r}
 #| echo: false
 #| message: false
-#| tbl-cap: Tabelle  der Sprunglängen [cm], Anzahl an Flöhen, Boniturnote sowie der Infektionsstatus von Hunden und Katzen.
+#| tbl-cap: "Tabelle  der Sprunglängen [cm] von Hunden und Katzen."
 #| label: tbl-data-ttest
 
 data_tbl <- read_excel("data/flea_dog_cat.xlsx") |> 
@@ -62,13 +62,40 @@ data_tbl |> kable(align = "c", "pipe")
 
 [Full infer Pipeline Examples](https://infer.netlify.app/articles/observed_stat_examples)
 
-Was habe ich beobachtet an Daten?
+Als erstes müssen wir uns natürlich unsere Teststatistik $T_D$ aus unseren Daten berechnen. Ich nutze hier als Beispiel den Weg über den t-Test. Deshalb auch gleich die Option `stat = "t"`. Wie du dann aber in den folgenden Kapiteln sehen wirst, geht da noch mehr.
+
+Aktuell haben wir folgende Optionen einmal in der @tbl-infer-option-calculate dargestellt. Das R Paket `{infer}` unterstützt dabei nur theoretische Tests für einen oder zwei Mittelwerte über die t-Verteilung oder einen oder zwei Anteile über die z-Verteilung. Wir können die Funktion [`calculate()`](https://infer.netlify.app/reference/calculate) nutzen um zwischen den verschiedenen statistischen Maßzahlen zu wählen, die wir Testen wollen.
+
+| Option `stat =` in `calculate()` | Beschreibung |
+|:--------------------------------:|:------------:|
+|             `"mean"`             |              |
+|            `"median"`            |              |
+|             `"sum"`              |              |
+|              `"sd"`              |              |
+|             `"prop"`             |              |
+|            `"count"`             |              |
+|        `"diff in means"`         |              |
+|       `"diff in medians"`        |              |
+|        `"diff in props"`         |              |
+|            `"chisq"`             |              |
+|              `"f"`               |              |
+|              `"t"`               |              |
+|              `"z"`               |              |
+|        `"ratio of props"`        |              |
+|            `"slope"`             |              |
+|          `"odds ratio"`          |              |
+|        `"ratio of means"`        |              |
+|         `"correlation"`          |              |
+
+: Mögliche statistische Maßzahlen, die sich mit dem R Paket `{infer}` und der Funktion [`calculate()`](https://infer.netlify.app/reference/calculate) statistisch Testen lassen. Teilweise muss die Nullhypothese nochmal gesondert numerisch spezifiziert werden. {#tbl-infer-option-calculate}
+
+### Berechung der Teststatistik $T_D$
 
 ::: panel-tabset
 ## Detailiert
 
 ```{r}
-t_hat <- flea_tbl |> 
+t_d <- flea_tbl |> 
   specify(jump_length ~ animal) |> 
   hypothesize(null = "independence") %>%
   calculate(stat = "t", order = c("dog", "cat"))
@@ -77,7 +104,7 @@ t_hat <- flea_tbl |>
 ## `observed()`
 
 ```{r}
-t_hat <- flea_tbl |>
+t_d <- flea_tbl |>
   observe(jump_length ~ animal,
           stat = "t", order = c("dog", "cat"))
 ```
@@ -86,7 +113,7 @@ t_hat <- flea_tbl |>
 Was ist meine Nullhypothese
 
 ::: panel-tabset
-## Detailiert
+## Simmulierte Null
 
 ```{r}
 null_dist <- flea_tbl |> 
@@ -96,7 +123,7 @@ null_dist <- flea_tbl |>
   calculate(stat = "t", order = c("dog", "cat"))
 ```
 
-## `assume()`
+## Theoretische Null
 
 ```{r}
 null_dist_theory <- flea_tbl |> 
@@ -108,29 +135,29 @@ null_dist_theory <- flea_tbl |>
 Dann schauen wir uns die Daten einmal zusammen mit der Nullhypothese an.
 
 ::: panel-tabset
-## Detailiert
+## Simmulierte Null mit $T_D$
 
 ```{r}
 visualize(null_dist) +
-  shade_p_value(obs_stat = t_hat, direction = "two-sided")
+  shade_p_value(obs_stat = t_d, direction = "two-sided")
 ```
 
-## test
+## Theoretische Null mit $T_D$
 
 ```{r}
 visualize(null_dist_theory) +
-  shade_p_value(obs_stat = t_hat, direction = "two-sided")
+  shade_p_value(obs_stat = t_d, direction = "two-sided")
 ```
 :::
 
-P Werte berechnen
+### Berechung vom $p$-Wert
 
 ```{r}
 null_dist %>%
-  get_p_value(obs_stat = t_hat, direction = "two-sided")
+  get_p_value(obs_stat = t_d, direction = "two-sided")
 ```
 
-Konfidenzintervall
+### Berechnung vom 95% Konfidenzintervall
 
 ```{r}
 boot_dist <- flea_tbl |> 
@@ -151,79 +178,13 @@ percentile_ci <- boot_dist |>
 
 ```{r}
 standard_error_ci <- boot_dist %>%
-  get_ci(type = "se", point_estimate = t_hat)
+  get_ci(type = "se", point_estimate = t_d)
 ```
 :::
 
 ```{r}
 visualize(boot_dist) +
   shade_confidence_interval(endpoints = percentile_ci)
-```
-
-## Alte Sachen
-
-```{r}
-observed_statistic <- flea_tbl |> 
-  specify(jump_length ~ animal) |> 
-  calculate(stat = "diff in means", order = c("dog", "cat"))
-
-observed_statistic
-```
-
-```{r}
-null_dist_2_sample <- flea_tbl |> 
-  specify(jump_length ~ animal) |> 
-  hypothesize(null = "independence") |> 
-  generate(reps = 1000, type = "permute") |> 
-  calculate(stat = "diff in means", order = c("dog", "cat"))
-```
-
-```{r}
-null_dist_2_sample %>%
-  visualize() + 
-  shade_p_value(observed_statistic,
-                direction = "two-sided")
-```
-
-```{r}
-p_value_2_sample <- null_dist_2_sample %>%
-  get_p_value(obs_stat = observed_statistic,
-              direction = "two-sided")
-
-p_value_2_sample
-```
-
-```{r}
-observed_t_statistic <- flea_tbl |> 
-  specify(jump_length ~ animal) |> 
-  calculate(stat = "t", order = c("dog", "cat"))
-
-```
-
-```{r}
-null_dist_theory <- flea_tbl |> 
-  specify(jump_length ~ animal) |> 
-  assume(distribution = "t")
-
-visualize(null_dist_theory) +
-  shade_p_value(observed_t_statistic,
-                direction = "greater") +
-  theme_minimal()
-```
-
-```{r}
-null_dist <- flea_tbl |> 
-  specify(jump_length ~ animal) |> 
-  hypothesize(null = "independence") |> 
-  generate(reps = 1000, type = "permute") |> 
-  calculate(stat = "t", order = c("dog", "cat"))
-```
-
-```{r}
-null_dist %>%
-  visualize(method = "both") + 
-  shade_p_value(observed_t_statistic,
-                direction = "greater")
 ```
 
 ::: callout-note
@@ -243,19 +204,3 @@ Eine detailliertere Einführung mit mehr Beispielen für die Nutzung vom [R Pake
 ## R Paket `{report}`
 
 [R Paket `{report}`](https://easystats.github.io/report/)
-
-## Genutzte R Pakete
-
-Wir wollen folgende R Pakete in diesem Kapitel nutzen.
-
-```{r echo = TRUE}
-#| message: false
-pacman::p_load(tidyverse, emmeans, multcomp, conflicted)
-conflicts_prefer(dplyr::select)
-```
-
-An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
-
-## Daten
-
-Wir
