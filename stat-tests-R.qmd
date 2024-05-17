@@ -20,18 +20,21 @@ cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 
 ------------------------------------------------------------------------
 
-Dieses Startkapitel zu den statistischen Gruppenvergleichen gibt dir nochmal eine Übersicht über das statistische Test in R.
+Wohin mit der Anwendung von statistischen Tests in R? Also der direkten Anwendung? Ich habe mich jetzt hier für ein einführendes zusätzliches Kapitel entschieden. Du erfährst hier nochmal, wie du einfache Gruppenvergleiche in R durchführst. Mit einfachen Gruppenvergleichen meine ich Gruppenvergleiche, die nur zwei Gruppen beinhalten. Konkret heißt es, dass du die Sprungweite von Hunde- und Katzenflöhen miteinander vergleichen möchtest. Wenn du dann noch Fuchsflöhe hast, dann hast du drei Gruppen und wir sind in dem [Kapitel zu multiplen Vergleichen & PostHoc-Tests](#sec-posthoc).
 
-[R Paket `{infer}`](https://infer.netlify.app/)
-
-[`calculate()`](https://infer.netlify.app/reference/calculate)
+Dieses Startkapitel zu den statistischen Gruppenvergleichen gibt dir somit nochmal eine Übersicht über das statistischen Test in R. Wir konzentrieren uns hier einmal auf das [R Paket `{infer}`](https://infer.netlify.app/). Natürlich kannst du auch alle statistischen Tests mit den Standardfunktionen in R rechnen. Das ist auch vollkommen in Ordnung. Für mich hat das R Paket `{infer}` aber ein paar Vorteile beim Erklären und Verstehen vom statistischen Testen. Du findest aber dann in den folgenden Kapiteln immer beide Varianten.
 
 ## Genutzte R Pakete
 
-Wir wollen folgende R Pakete in diesem Kapitel nutzen. Ich setze auch noch das Theme in `{ggplot}` global auf `theme_minimal()` um hier dann Code zu sparen.
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 pacman::p_load(tidyverse, infer, conflicted)
+```
+
+Ich setze auch noch das Theme in `{ggplot}` global auf `theme_minimal()` um hier dann bei den Abbildungen jeweils Code zu sparen.
+
+```{r echo = TRUE}
 theme_set(theme_minimal(base_size = 12))
 ```
 
@@ -39,16 +42,20 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 
 ## Daten
 
+Für dieses Übersichtskapitel nutzen wir die Daten der Hund- und Katzenflöhe für die Sprunglängen \[cm\], Anzahl an Flöhen, Gewicht der Flöhe, Boniturnote sowie der Infektionsstatus.
+
 ```{r}
 flea_tbl <- read_excel("data/flea_dog_cat.xlsx") |> 
   mutate(animal = as_factor(animal)) 
 ```
 
+In der @tbl-data-infer siehst du nochmal den Datensatz in voller Länge. Wir haben jeweils sieben Hunde sowwie sieben Katzenbeobachtungen vorliegen. An den jeweils sieben Beobachtungen haben wir dann unterschiedliche Outcomes $y$ gemessen. Betrachten wir also einmal im Folgenden verschiedene Möglichkeiten der Analyse von unseren verschiedenen Outcomes $y$ für die beiden Gruppen der Hunde- und Katzenflöhe.
+
 ```{r}
 #| echo: false
 #| message: false
 #| tbl-cap: "Tabelle  der Sprunglängen [cm], Anzahl an Flöhen, Gewicht der Flöhe, Boniturnote sowie der Infektionsstatus von Hunde- und Katzenflöhe."
-#| label: tbl-data-ttest
+#| label: tbl-data-infer
 
 data_tbl <- read_excel("data/flea_dog_cat.xlsx") |> 
   mutate(animal = as_factor(animal)) 
@@ -60,9 +67,9 @@ data_tbl |> kable(align = "c", "pipe")
 
 Wie du schon in der Einleitung zu diesen Kapiteln der statistischen Gruppenvergleiche gelesen hast, gibt es verschiedene Möglichkeiten statistische Maßzahlen zu testen. Zum einen können wir uns Mittelwerte anschauen und diese miteinander oder zu einem festen Wert vergleichen, wenn unser Outcome $y$ einer Normalverteilung folgt. Wenn unser Outcome $y$ jedoch nicht einer Normalverteilung folgt und damit auch der Mittelwert nicht die passende zu vergleichende Größe ist, können wir auch Mediane miteinander vergleichen. Etwas seltener haben wir dann den Fall vorliegen, dass wir Anteile oder Prozente in zwei Gruppen vergleichen wollen.
 
-### ... von Mittelwerten
+... von Mittelwerten
 
-Meine Daten sind normalverteilt. Wenn deine Daten normalverteilt sind, dann kannst du die Mittelwerte miteinander vergleichen. In unserem Beispiel ist die Sprunglänge `jump_length` oder das Gewicht der Flöhe `weight` normalverteilt. Wir können also mit einem statistischen Test die mittlere Sprunglänge zwischen Hunde- und Katzenflöhen miteinander vergleichen. Wir würden hier [einen t-Test](#sec-ttest) rechnen. Je nachdem, ob die Varianz in den beiden Tiergruppen gleich ist, würden wir uns bei gleicher Varianz für einen Student t-Test entscheiden oder aber bei ungleicher Varianz für einen Welche t-Test.
+:   Meine Daten sind normalverteilt. Wenn deine Daten normalverteilt sind, dann kannst du die Mittelwerte miteinander vergleichen. In unserem Beispiel ist die Sprunglänge `jump_length` oder das Gewicht der Flöhe `weight` normalverteilt. Wir können also mit einem statistischen Test die mittlere Sprunglänge zwischen Hunde- und Katzenflöhen miteinander vergleichen. Wir würden hier [einen t-Test](#sec-ttest) rechnen. Je nachdem, ob die Varianz in den beiden Tiergruppen gleich ist, würden wir uns bei gleicher Varianz für einen Student t-Test entscheiden oder aber bei ungleicher Varianz für einen Welche t-Test.
 
 ::: callout-note
 ## Was macht der t-Test?
@@ -70,9 +77,9 @@ Meine Daten sind normalverteilt. Wenn deine Daten normalverteilt sind, dann kann
 [Der t-Test](#sec-ttest) vergleicht zwei Mittelwerte, gewichtet nach der Standardabweichung und der Fallzahl, miteinander. Etwas statistisch genauer vergleicht der t-Test die Parameter zweier Normalverteilungen miteinander.
 :::
 
-### ... von Medianen
+... von Medianen
 
-Meine Daten sind nicht nromalverteilt. Wenn du Daten vorliegen hast, die keiner Normalverteilung folgen, dann kannst du die Mediane zwischen zwei Grupen miteinander Vergleichen. In unserem Datenbeispiel wäre es die Anzahl an Flöhen `flea_count` oder die Boniturnote `grade`, die sich als ein Vergleich der Mediane zwischen den Hunde- und Katzenflöhen anbieten würde. Wir würden in diesem Fall einen [Wilcoxon-Mann-Whitney-Test oder U-Test](#sec-utest) rechnen.
+:   Meine Daten sind nicht nromalverteilt. Wenn du Daten vorliegen hast, die keiner Normalverteilung folgen, dann kannst du die Mediane zwischen zwei Grupen miteinander Vergleichen. In unserem Datenbeispiel wäre es die Anzahl an Flöhen `flea_count` oder die Boniturnote `grade`, die sich als ein Vergleich der Mediane zwischen den Hunde- und Katzenflöhen anbieten würde. Wir würden in diesem Fall einen [Wilcoxon-Mann-Whitney-Test oder U-Test](#sec-utest) rechnen.
 
 ::: callout-note
 ## Was macht der U-Test?
@@ -80,9 +87,9 @@ Meine Daten sind nicht nromalverteilt. Wenn du Daten vorliegen hast, die keiner 
 [Der U-Test](#sec-utest) vergleicht die Mediane zweier beliebiger Verteilungen miteinander.
 :::
 
-### ... von Anteilen
+... von Anteilen
 
-Du bist an einem Vergleich eines Anteils zwischen zwei Gruppen interessiert. Diese Frage kommt in den Agrarwissenschaften eher selten vor. In unserem Beispiel würden wir wissen wollen, ob wir den gleichen Anteil an infizirter Hunde wie auch Katzen in der Spalte `infected` vorliegen haben. Dafür würden wir die `1` in jeder Gruppe zählen und deren Anteil an der Gesamtzahl an Hunde- oder Katzenflöhen bestimmen. Dann können wir einen [$\mathcal{X}^2$-Test](#sec-chi-test) oder einen Anteilstest rechnen.
+:   Du bist an einem Vergleich eines Anteils zwischen zwei Gruppen interessiert. Diese Frage kommt in den Agrarwissenschaften eher selten vor. In unserem Beispiel würden wir wissen wollen, ob wir den gleichen Anteil an infizirter Hunde wie auch Katzen in der Spalte `infected` vorliegen haben. Dafür würden wir die `1` in jeder Gruppe zählen und deren Anteil an der Gesamtzahl an Hunde- oder Katzenflöhen bestimmen. Dann können wir einen [$\mathcal{X}^2$-Test](#sec-chi-test) oder einen Anteilstest rechnen.
 
 ::: callout-note
 ## Was macht der $\mathcal{X}^2$-Test?
