@@ -12,24 +12,63 @@ cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 
 > *"Alles andere wäre auch Wahnsinn." --- Bjarne Mädel, Der Tatortreiniger*
 
-------------------------------------------------------------------------
+Wohin mit der Anwendung von statistischen Tests in R? Ich habe mich jetzt hier für ein einführendes zusätzliches Kapitel entschieden. Du erfährst hier nochmal, wie du einfache Gruppenvergleiche in R durchführst. Mit einfachen Gruppenvergleichen meine ich Gruppenvergleiche, die nur zwei Gruppen beinhalten. Konkret heißt es, dass du die Sprungweite von Hunde- und Katzenflöhen miteinander vergleichen möchtest. Wenn du dann noch Fuchsflöhe hast, dann hast du drei Gruppen und wir sind in dem [Kapitel zu multiplen Vergleichen & PostHoc-Tests](#sec-posthoc).
 
-![](images/caution.png){fig-align="center" width="50%"}
+Dieses Startkapitel zu den statistischen Gruppenvergleichen gibt dir somit nochmal eine Übersicht über das statistischen Test in R. Wir konzentrieren uns hier einmal auf das [R Paket `{infer}`](https://infer.netlify.app/). Natürlich kannst du auch alle statistischen Tests mit den Standardfunktionen in R rechnen. Das ist auch vollkommen in Ordnung. Für mich hat das R Paket `{infer}` aber ein paar Vorteile beim Erklären und Verstehen vom statistischen Testen. Du findest aber dann in den folgenden Kapiteln immer beide Varianten. Eine allgemeine Übersicht findest du auf der Hilfeseite mit den [Full `{infer}` Pipeline Examples](https://infer.netlify.app/articles/observed_stat_examples). Daher siehst du dann auch immer mal diesen Kasten hier in den folgenden Kapiteln. Beispielsweise zeige ich hier dann einmal den Kasten für den t-Test. Du hast dann immer die Wahl, ob du die Standardfunktion aus `{base}` oder aber die Implementierung in `{infer}` nutzt.
 
-**Dieses Kapitel wird ist eine Baustelle und wird es vermutlich auch über das Jahr 2024 bleiben. Aktuell weiß ich nämlich noch nicht, wo ich mit dem Kapitel hin will und wo es stehen sollte. Daher können Teile des Codes und des Textes kurzfristig keinen Sinn ergeben oder nicht funktional sein. Es ist geplant eine fertige Version noch 2024 vorliegen zu haben.**
+::: callout-note
+## Der t-Test in `{infer}`
 
-------------------------------------------------------------------------
+Auch hier können wir den t-Test in dem R Paket `{infer}` realisieren. Ein Vorteil von `{infer}` ist, dass wir die Funktionen sehr gut mit dem `|>` Operator nutzen können. Deshalb hier einmal die *bessere* Implementierung, da ich finde, dass die Implementierung in `{infer}` intuitiver zu verstehen ist.
 
-Wohin mit der Anwendung von statistischen Tests in R? Also der direkten Anwendung? Ich habe mich jetzt hier für ein einführendes zusätzliches Kapitel entschieden. Du erfährst hier nochmal, wie du einfache Gruppenvergleiche in R durchführst. Mit einfachen Gruppenvergleichen meine ich Gruppenvergleiche, die nur zwei Gruppen beinhalten. Konkret heißt es, dass du die Sprungweite von Hunde- und Katzenflöhen miteinander vergleichen möchtest. Wenn du dann noch Fuchsflöhe hast, dann hast du drei Gruppen und wir sind in dem [Kapitel zu multiplen Vergleichen & PostHoc-Tests](#sec-posthoc).
+::: panel-tabset
+## `{infer}`
 
-Dieses Startkapitel zu den statistischen Gruppenvergleichen gibt dir somit nochmal eine Übersicht über das statistischen Test in R. Wir konzentrieren uns hier einmal auf das [R Paket `{infer}`](https://infer.netlify.app/). Natürlich kannst du auch alle statistischen Tests mit den Standardfunktionen in R rechnen. Das ist auch vollkommen in Ordnung. Für mich hat das R Paket `{infer}` aber ein paar Vorteile beim Erklären und Verstehen vom statistischen Testen. Du findest aber dann in den folgenden Kapiteln immer beide Varianten. Eine allgemeine Übersicht findest du auf der Hilfsseite mit den [Full `{infer}` Pipeline Examples](https://infer.netlify.app/articles/observed_stat_examples)
+Wir berechnen die Teststatistik für den t-Test $T_D$ aus den beobachteten Daten.
+
+```{r}
+#| eval: false
+t_d <- flea_tbl |> 
+  specify(jump_length ~ animal) |> 
+  calculate(stat = "t", order = c("dog", "cat"))
+```
+
+Dann bestimmen wir die Verteilung der Nullhypothese zu der wir unsere berechnete Teststatistik $T_D$ aus den Daten vergleichen.
+
+```{r}
+#| eval: false
+null_dist_theory <- flea_tbl |> 
+  specify(jump_length ~ animal) |> 
+  assume("t")
+```
+
+Dann wollen wir noch die Fläche neben unsere berechnete Teststatistik $T_D$ um damit den $p$-Wert zu bestimmen.
+
+```{r}
+#| eval: false
+null_dist_theory %>%
+  get_p_value(obs_stat = t_d, direction = "two-sided")
+```
+
+## `{base}`
+
+In der Standardfunktion ist natürlich alles super kurz. Leider fehlt auch die Idee was wir eigentlich machen. Wenn du das verstanden hast, dann geht die Funktion `t.test()` in `{base}` natürlich schneller.
+
+```{r}
+#| eval: false
+t.test(jump_length ~ animal, data = data_tbl)
+```
+:::
+
+Eine detailliertere Einführung mit mehr Beispielen für die Nutzung vom [R Paket `{infer}`](https://infer.netlify.app/) findest du im Kapitel [Testen in R](#sec-test-R). Hier soll es dann bei der kurzen Gegenüberstellung bleiben.
+:::
 
 ## Genutzte R Pakete
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
-pacman::p_load(tidyverse, infer, conflicted)
+pacman::p_load(tidyverse, infer, report, conflicted)
 ```
 
 Ich setze auch noch das Theme in `{ggplot}` global auf `theme_minimal()` um hier dann bei den Abbildungen jeweils Code zu sparen.
@@ -174,7 +213,6 @@ Damit haben wir dann auch alles zusammen und können einmal für unseren Sprungl
 ```{r}
 t_d <- flea_tbl |> 
   specify(jump_length ~ animal) |> 
-  hypothesize(null = "independence") %>%
   calculate(stat = "t", order = c("dog", "cat"))
 ```
 
@@ -297,7 +335,7 @@ Als Fazit lässt sich ziehen, dass beide $p$-Werte einen signifikanten Unterschi
 
 ### Berechnung vom 95% Konfidenzintervall
 
-Im Folgenden wollen wir einmal das 95% Konfidenzintervall für einen Mittelwertsvergleich `"diff in means"` berechnen. Wir machen das jetzt nicht für eine Teststatistik `t`, da uns ehrlicherweise nicht interessiert, in wie weit unsere beobachtete Teststatistik $T_D$ in ein 95% Konfidenzintervall fällt. Daher müssen wir nochmal eine neue Teststatistik aus unseren Daten berechnen. Diesmal nehmen wir also als statistische Maßzahl, für die wir dir Statistik $T_D$ berechnen wollen, den Unterschied in den Mittelwerten der Sprungweite zwischen den Hunde- und Katzenflöhen.
+Im Folgenden wollen wir einmal das 95% Konfidenzintervall für einen Mittelwertsvergleich `"diff in means"` berechnen. Auch hier helfen dann die [Beispiele von `{infer}`](https://infer.netlify.app/articles/observed_stat_examples#confidence-intervals) zu den Konfidenzintervallen. Wir machen das jetzt nicht für eine Teststatistik `t`, da uns ehrlicherweise nicht interessiert, in wie weit unsere beobachtete Teststatistik $T_D$ in ein 95% Konfidenzintervall fällt. Daher müssen wir nochmal eine neue Teststatistik aus unseren Daten berechnen. Diesmal nehmen wir also als statistische Maßzahl, für die wir dir Statistik $T_D$ berechnen wollen, den Unterschied in den Mittelwerten der Sprungweite zwischen den Hunde- und Katzenflöhen.
 
 ```{r}
 t_d <- flea_tbl |> 
@@ -327,49 +365,54 @@ percentile_ci <- boot_dist |>
   get_ci(type = "percentile")
 ```
 
+Dann können wir uns auch schon das 95% Konfidenzintervall für den Mittelwertsvergleich der Sprungweiten der Hunde- und Katzenflöhe wiedergeben lassen.
+
 ```{r}
 percentile_ci
 ```
 
 ## Standardfehler
 
+Manchmal wollen wir nicht die Perzentile nutzen sondern die 95% Konfidenzintervalle mit dem Standardfehler und der Differenz der Mittelwerte `point_estimate` berechnen. Daher hier einmal die Methode mit dem Standardfehler und der Differenz der Mittelwerte.
+
 ```{r}
 standard_error_ci <- boot_dist %>%
   get_ci(type = "se", point_estimate = t_d)
 ```
+
+Dann können wir uns auch schon das 95% Konfidenzintervall für den Mittelwertsvergleich der Sprungweiten der Hunde- und Katzenflöhe wiedergeben lassen.
 
 ```{r}
 standard_error_ci
 ```
 :::
 
+Da der Unterschied zwischen den beiden Verfahren numerisch sehr klein ist und damit eigentlich kaum im direkten Vergleich zu sehen, hier dann nur einmal in der @fig-infer-ci-se die 95% Konfidenzintervall für die Methode der Perzentile. Die Darstellung ist eigentlich eher für das Verständnis als für eine Publikation oder Abschlussarbeit. Das wirklich praktische ist hier, dass wir uns auch für Verfahren, wo es eigentlich keine *theoretischen* 95% Konfidenzintervalle gibt, dennoch welche bauen können. Das finde ich dann wirklich praktisch. Dazu dann mehr in den folgenden Kapiteln, wenn wir es brauchen.
+
 ```{r}
 #| message: false
 #| echo: true
 #| fig-align: center
 #| fig-height: 4.5
-#| fig-width: 7
-#| fig-cap: "Theoretische Nullhypothese der t-Verteilung. Die berechnete Teststatistik $T_D$ liegt sehr weit am Rand. Die eingefärbte Fläche ist der $p$-Wert. Wir können hier von einem Unterschied zwischen Hunde- und Katzenflöhen ausgehen."
+#| fig-width: 5
+#| fig-cap: "Visualisierung der Verteilung der Nullhypothese und dem 95% Konfidenzintervall aus der Methode der Perzentile."
 #| label: fig-infer-ci-se
 
 visualize(boot_dist) +
-  shade_confidence_interval(endpoints = percentile_ci)
+  shade_confidence_interval(endpoints = percentile_ci) +
+  labs(x = "Statistik", y = "Absolute Häufigkeit")
 ```
-
-::: callout-note
-## XX Test in `{infer}`
-
-Auch hier können wir den XX Test in dem R Paket `{infer}` realisieren. Ein Vorteil von `{infer}` ist, dass wir die Funktionen sehr gut mit dem `|>`-Operator nutzen können. Deshalb hier einmal die *bessere* Implementierung, da ich finde, dass die Implementierung in `{infer}` intuitiver zu verstehen ist.
-
-::: panel-tabset
-## `{infer}`
-
-## `{base}`
-:::
-
-Eine detailliertere Einführung mit mehr Beispielen für die Nutzung vom [R Paket `{infer}`](https://infer.netlify.app/) findest du im Kapitel [Testen in R](#sec-test-R). Hier soll es dann bei der kurzen Gegenüberstellung bleiben.
-:::
 
 ## R Paket `{report}`
 
-[R Paket `{report}`](https://easystats.github.io/report/)
+Hier nur ganz kurz, da wir dann die Anwendung des [R Paket `{report}`](https://easystats.github.io/report/) in den folgenden Kapiteln jeweils im Einsatz sehen werden. Das R Paket `{report}` erlaubt uns die Ausgabe von Funktionen in *lesbaren* Text umzuwandeln. Gut, der Text ist Englisch, aber da helfen dann andere Übersetzungsprogramme wie [DeepL](https://www.deepl.com/translator) weiter. Deshalb hier nur ein Beispiel, damit du eine Idee von der Nutzung hast.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+t.test(jump_length ~ animal, data = flea_tbl) |> 
+  report()
+```
+
+Das einzige was ich immer etwas anstrengend finde ist mir dann die Referenzen von der Hilfsseite von `{report}` rauszusuchen.
