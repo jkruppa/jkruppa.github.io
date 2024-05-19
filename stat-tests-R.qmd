@@ -154,20 +154,16 @@ Manchmal wollen wir einfach einen statistischen Test nachkochen. Das können wir
 
 ### Berechung der Teststatistik $T_D$
 
-Wenn wir die Teststatistik $T_D$ aus unseren Daten berechnen wollen, dann können wir dies in dem R Paket `{infer}` auf zwei Arten tun. Zum einen über die Funktionen `specify()`, `hypothesize()` und `calculate()` oder aber über die zusammenfassende Funktion `observed()`. Je nachdem wie gut du schon im Thema drin bist, ist natürlich die Funktion `observe()` kürzer und etwas weniger Code. Da die Funktion `observe()` eben auch nur die drei Funktionen zusammenfasst, erkläre ich jetzt erstmal den etwas längeren Weg. Du kannst dann dir nochmal beides in den folgenden Tabs einmal anschauen. Wie immer ist es eine Geschmacksfrage, wie du dir die Sachen berechnen willst. Der etwas längere Weg über drei Funktionen ist dann auch etwas logischer und besser anchzuvollziehen. Wenn man alles verstanden hat, dann ist natürlich `observe()` schneller.
+Wenn wir die Teststatistik $T_D$ aus unseren Daten berechnen wollen, dann können wir dies in dem R Paket `{infer}` auf zwei Arten tun. Zum einen über die Funktionen `specify()` und `calculate()` oder aber über die zusammenfassende Funktion `observed()`. Je nachdem wie gut du schon im Thema drin bist, ist natürlich die Funktion `observe()` kürzer und etwas weniger Code. Da die Funktion `observe()` eben auch nur die drei Funktionen zusammenfasst, erkläre ich jetzt erstmal den etwas längeren Weg. Du kannst dann dir nochmal beides in den folgenden Tabs einmal anschauen. Wie immer ist es eine Geschmacksfrage, wie du dir die Sachen berechnen willst. Der etwas längere Weg über drei Funktionen ist dann auch etwas logischer und besser nachzuvollziehen. Wenn man alles verstanden hat, dann ist natürlich `observe()` schneller.
 
 ::: panel-tabset
-## ... mit `specify()`, `hypothesize()` und `calculate()`
+## ... mit `specify()` und `calculate()`
 
 Im Folgenden einmal der etwas längere Weg die beobachtete Teststatistik $T_D$ aus unseren Daten zu berechnen. Ich persönlich mag den längeren Weg lieber, da ich hier besser sehe, was ich eigentlich mache.
 
 `specify()`
 
 :   Die Funktion legt fest, was unser Outcome und was unsere Gruppen sind. Oder noch konkreter, in welcher Spalte unseres Datensatzes ist das Outcome `jump_length` und in welcher Spalte die Gruppen `animal` verortet?
-
-`hypothesize()`
-
-:   Die Funktion legt fest, ob wir zwei Gruppen auf einen Unterschied mit der Option `null = "independence"` testen wollen oder aber wissen wollen, ob sich der Wert von unserem Outcome von einem fixen Wert mit der Option `null = "point"` unterscheidet.
 
 `calculate()`
 
@@ -209,7 +205,13 @@ Mit der Teststatistik $T_D$ aus unseren Daten können wir dann weitermachen und 
 
 ### Berechnung der Verteilung der Nullhypothese
 
-Wie eben schon erwähnt, können wir mit der Teststatistik $T_D$ aus unseren Daten so nichts anfangen. Wir müssen die Teststatistik $T_D$ zu einer Verteilung einer Nullhypothese vergleichen, damit wir eine Aussage über die Wahrscheinlichkeit unserer Daten unter der Annahme, dass die Nullhypothese wahr ist, berechnen können. Wir haben in dem R Paket `{infer}` zwei Möglichkeiten die Verteilung einer Nullhypothese zu berechnen. Entweder nutzen wir unsere Daten um aus den Daten eine Verteilung der Null zu simulieren oder aber wir nehmen eine Verteilung der Null an und können so eine theoretische Verteilung der Nullhypothese nutzen. Beides zeige ich dann einmal in den folgenden Tabs.
+Wie eben schon erwähnt, können wir mit der Teststatistik $T_D$ aus unseren Daten so nichts anfangen. Wir müssen die Teststatistik $T_D$ zu einer Verteilung einer Nullhypothese vergleichen, damit wir eine Aussage über die Wahrscheinlichkeit unserer Daten unter der Annahme, dass die Nullhypothese wahr ist, berechnen können. Wir nutzen die Funktion `hypothesize()` um die Verteilung der Null zu generieren.
+
+`hypothesize()`
+
+:   Die Funktion legt fest, ob wir zwei Gruppen auf einen Unterschied mit der Option `null = "independence"` testen wollen oder aber wissen wollen, ob sich der Wert von unserem Outcome von einem fixen Wert mit der Option `null = "point"` unterscheidet.
+
+Wir haben in dem R Paket `{infer}` zwei Möglichkeiten die Verteilung einer Nullhypothese zu berechnen. Entweder nutzen wir unsere Daten um aus den Daten eine Verteilung der Null zu simulieren oder aber wir nehmen eine Verteilung der Null an und können so eine theoretische Verteilung der Nullhypothese nutzen. Beides zeige ich dann einmal in den folgenden Tabs.
 
 ::: panel-tabset
 ## Simmulierte Nullhypothese
@@ -253,7 +255,7 @@ In der folgenden Abbildung siehst du einmal die simulierte Nullhypothese aus uns
 
 visualize(null_dist_data) +
   shade_p_value(obs_stat = t_d, direction = "two-sided") +
-  labs(x = "Statistik" )
+  labs(x = "Statistik", y = "Absolute Häufigkeit")
 ```
 
 ## Theoretische Nullhypothese mit $T_D$
@@ -270,7 +272,8 @@ Da wir hier in unserem Beispiel einen t-Test gerechnet haben, haben wir auch die
 #| label: fig-infer-null-theo
 
 visualize(null_dist_theory) +
-  shade_p_value(obs_stat = t_d, direction = "two-sided") 
+  shade_p_value(obs_stat = t_d, direction = "two-sided") +
+  labs(x = "Statistik", y = "Relative Häufigkeit")
 ```
 :::
 
@@ -295,18 +298,29 @@ Als Fazit lässt sich ziehen, dass beide $p$-Werte einen signifikanten Unterschi
 ### Berechnung vom 95% Konfidenzintervall
 
 ```{r}
+t_d <- flea_tbl |> 
+  specify(jump_length ~ animal) |> 
+  calculate(stat = "diff in means", order = c("dog", "cat"))
+```
+
+```{r}
 boot_dist <- flea_tbl |> 
   specify(jump_length ~ animal) |> 
-  generate(reps = 1000, type = "bootstrap") %>% 
-  calculate(stat = "t", order = c("dog", "cat"))
+  hypothesize(null = "independence") |> 
+  generate(reps = 1000, type = "bootstrap") |>  
+  calculate(stat = "diff in means", order = c("dog", "cat"))
 ```
 
 ::: panel-tabset
-## Perzentile
+## Perzentile (2.5% und 97.5% Quantil)
 
 ```{r}
 percentile_ci <- boot_dist |> 
   get_ci(type = "percentile")
+```
+
+```{r}
+percentile_ci
 ```
 
 ## Standardfehler
@@ -315,9 +329,21 @@ percentile_ci <- boot_dist |>
 standard_error_ci <- boot_dist %>%
   get_ci(type = "se", point_estimate = t_d)
 ```
+
+```{r}
+standard_error_ci
+```
 :::
 
 ```{r}
+#| message: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 4.5
+#| fig-width: 7
+#| fig-cap: "Theoretische Nullhypothese der t-Verteilung. Die berechnete Teststatistik $T_D$ liegt sehr weit am Rand. Die eingefärbte Fläche ist der $p$-Wert. Wir können hier von einem Unterschied zwischen Hunde- und Katzenflöhen ausgehen."
+#| label: fig-infer-ci-se
+
 visualize(boot_dist) +
   shade_confidence_interval(endpoints = percentile_ci)
 ```
