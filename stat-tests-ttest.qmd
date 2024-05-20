@@ -41,13 +41,15 @@ set.seed(20221206)
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
 
-## Daten und Modell für den t-Test
+## Daten und Modell
 
 Wichtig ist, dass wir schon jetzt die Modellschreibweise lernen um die Daten später richtig in R nutzen zu können. Wir werden die Modellschreibweise immer wieder sehen. Die Modellschreibweise ist die Art und Weise wie wir in R eine Abhängigkeit beschreiben. Wir brauchen dieses Konzept in den folgenden Kapiteln. In R heißt `y ~ x` auch `formula`, also eine Formelschreibweise. Damit ahben wir die Modellschreibweise $y$ hängt ab von $x$. Das $y$ repräsentiert eine Spalte im Datensatz und das $x$ repräsentiert ebenso eine Spalte im Datensatz. Wir brauchen also zwei Variablen $y$ und $x$, die natürlich nicht so heißen müssen.
 
 $$
 y \sim x
-$$ Was brauchen wir damit wir den t-Test in R rechnen können? Später in der Anwendung nutzt du ja nur die Implementierung des t-Tests in R. Wir rechnen ja unsere Auswertung nicht per Hand. In R brauchen wir für den t-Test eine Spalte $y$ mit kontinuierlichen Zahlen und einer Spalte $x$ in dem wir einen Faktor mit zwei Leveln finden. Jedes Level steht dann für eine der beiden Gruppen. Das war es schon. Schauen wir uns nochmal den Datensatz `flea_dog_cat.xlsx` in @tbl-data-ttest an und überlegen, wie wir das realisieren können.
+$$
+
+Was brauchen wir damit wir den t-Test in R rechnen können? Später in der Anwendung nutzt du ja nur die Implementierung des t-Tests in R. Wir rechnen ja unsere Auswertung nicht per Hand. In R brauchen wir für den t-Test eine Spalte $y$ mit kontinuierlichen Zahlen und einer Spalte $x$ in dem wir einen Faktor mit zwei Leveln finden. Jedes Level steht dann für eine der beiden Gruppen. Das war es schon. Schauen wir uns nochmal den Datensatz `flea_dog_cat.xlsx` in @tbl-data-ttest an und überlegen, wie wir das realisieren können.
 
 ```{r}
 #| echo: false
@@ -75,13 +77,9 @@ data_tbl
 
 Wir haben jetzt die Daten richtig vorbereiten und können uns nun mit dem t-Test beschäftigen. Bevor wir den t-Test jedoch rechnen können, müssen wir uns nochmal überlegen, was der t-Test eigentlich testet und uns die Daten einmal visualisieren.
 
-## Visualiserung der Daten
+## Visualiserung
 
-Bevor wir einen statistischen Test rechnen, wollen wir uns erstmal die Daten, die dem Test zugrunde liegen, visualisieren. Wir schauen uns in @fig-boxplot-ttest einmal den Boxplot für die Sprungweiten getrennt nach Hund und Katze an.
-
-Wir sehen, dass sich die Boxen nicht überschneiden, ein Indiz für einen signifikanten Unterschied zwischen den beiden Gruppen. Im Weiteren liegt der Median in etwa in der Mitte der beiden Boxen. Die Whisker sind ungefähr gleich bei Hunden und Katzen. Ebenso sehen wir bei beiden Gruppen keine Ausreißer.
-
-Wir schließen daher nach der Betrachtung der Boxplots auf Folgendes:
+Bevor wir einen statistischen Test rechnen, wollen wir uns erstmal die Daten, die dem Test zugrunde liegen, visualisieren. Wir schauen uns in @fig-boxplot-ttest einmal den Boxplot für die Sprungweiten getrennt nach Hund und Katze an. Wir sehen, dass sich die Boxen nicht überschneiden, ein Indiz für einen signifikanten Unterschied zwischen den beiden Gruppen. Im Weiteren liegt der Median in etwa in der Mitte der beiden Boxen. Die Whisker sind ungefähr gleich bei Hunden und Katzen. Ebenso sehen wir bei beiden Gruppen keine Ausreißer. Wir schließen daher nach der Betrachtung der Boxplots auf Folgendes:
 
 1)  Die Sprungweite ist für beide Gruppen ist annähernd bzw. approximativ normalverteilt.
 2)  Die Standardabweichungen und damit die Varianzen $s^2_{dog} = s^2_{cat}$ der beiden Gruppen sind gleich. Es liegt somit Varianzhomogenität vor.
@@ -132,7 +130,7 @@ ggplot(data_tbl, aes(x = animal, y = jump_length,
 
 Wir nutzen aber später häufig den Boxplot zur Visualisierung der einzelnen Gruppen. Über den Boxplot können wir auch gut abschätzen, ob wir eine annährende bzw. approximative Normalverteilung vorliegen haben.
 
-## Hypothesen für den t-Test
+## Hypothesen
 
 Ohne eine Hypothese ist das Ergebnis eines statistischen Tests wie auch der t-Test nicht zu interpretieren. Wir berechenen eine Teststatistik und einen p-Wert. Beide statistischen Maßzahlen machen eine Aussage über die beobachteten Daten $D$ unter der Annahme, das die Nullhypothese $H_0$ gilt.
 
@@ -149,7 +147,56 @@ $$
 
 Wir testen grundsätzlich auf ein zweiseitiges $\alpha$-Niveau von 5%.
 
-## Der Student t-Test
+## Der t-Test
+
+::: callout-note
+## Der t-Test in `{infer}`
+
+Auch hier können wir den t-Test in dem R Paket `{infer}` realisieren. Ein Vorteil von `{infer}` ist, dass wir die Funktionen sehr gut mit dem `|>` Operator nutzen können. Deshalb hier einmal die *bessere* Implementierung, da ich finde, dass die Implementierung in `{infer}` intuitiver zu verstehen ist.
+
+::: panel-tabset
+## `{infer}`
+
+Wir berechnen die Teststatistik für den t-Test $T_D$ aus den beobachteten Daten.
+
+```{r}
+#| eval: false
+t_d <- flea_tbl |> 
+  specify(jump_length ~ animal) |> 
+  calculate(stat = "t", order = c("dog", "cat"))
+```
+
+Dann bestimmen wir die Verteilung der Nullhypothese zu der wir unsere berechnete Teststatistik $T_D$ aus den Daten vergleichen.
+
+```{r}
+#| eval: false
+null_dist_theory <- flea_tbl |> 
+  specify(jump_length ~ animal) |> 
+  assume("t")
+```
+
+Dann wollen wir noch die Fläche neben unsere berechnete Teststatistik $T_D$ um damit den $p$-Wert zu bestimmen.
+
+```{r}
+#| eval: false
+null_dist_theory %>%
+  get_p_value(obs_stat = t_d, direction = "two-sided")
+```
+
+## `{base}`
+
+In der Standardfunktion ist natürlich alles super kurz. Leider fehlt auch die Idee was wir eigentlich machen. Wenn du das verstanden hast, dann geht die Funktion `t.test()` in `{base}` natürlich schneller.
+
+```{r}
+#| eval: false
+t.test(jump_length ~ animal, data = data_tbl)
+```
+:::
+
+Eine detailliertere Einführung mit mehr Beispielen für die Nutzung vom [R Paket `{infer}`](https://infer.netlify.app/) findest du im Kapitel [Testen in R](#sec-test-R). Hier soll es dann bei der kurzen Gegenüberstellung bleiben.
+:::
+
+### Student t-Test mit Varianzhomogenität
 
 Liegt ein normalverteiltes $y$ vor und sind die Varianzen für die beiden zu vergleichenden Gruppen homogen $s^2_{cat} = s^2_{dog}$, können wir einen Student t-Test rechnen. Wir nutzen dazu die folgendeFormel des Student t-Tests.
 
@@ -229,7 +276,7 @@ t.test(jump_length ~ animal,
 
 Wir erkennen als erstes den Mittelwertsunterschied zwischen den beiden Gruppen von 3.39 cm. Danach folgen die einzelnen Mittelwerte der Sprungweiten der Hunde und Katzenflöhe mit jeweils 8.13 cm und 4.74 cm. Darauf folgt noch der p-Wert als `p.value` mit 0.00891 und die beiden Grenzen des Konfidenzintervalls \[1.03; 5.75\].
 
-## Der Welch t-Test
+### Welch t-Test mit Varianzheterogenität
 
 Der t-Test ist auch in der Lage mit Varianzhetrogenität umzugehen. Das heißt, wenn die Varianzen der beiden Gruppen nicht gleich sind. Dadurch ändert sich die Formel für den t-Test wie folgt. Dann nennen wir den statistischen Test Welch t-Test.
 
@@ -267,7 +314,7 @@ Wir sehen hier etwas besser, dass es kaum Abweichungen gibt. Alles egal? Nicht u
 
 Für das Erkennen von Normalverteilung und Varianzheterogenität werden häufig so genannte Vortest empfohlen. Aber auch hier gilt, bei kleiner Fallzahl liefern die Vortests keine verlässlichen Ergebnisse. In diesem Fall ist weiterhin die Beurteilung über einen Boxplot sinnvoller. Du findest hier mehr Informationen im Kapitel zum [Pre-Test oder Vortest](#sec-pretest).
 
-## Der verbundene t-Test (Paired t-Test)
+### Verbundene t-Test mit abhängigen Beobachtungen
 
 Im folgenden Datenbeispiel in @tbl-data-ttest-paired haben wir eine verbundene Stichprobe. Das heißt wir haben nicht zehn Flöhe gemessen sondern fünf Flöhe. Einmal im ungefütterten Zustand `unfed` und einmal im gefütterten Zustand `fed`. Wir wollen nun wissen, ob der Fütterungszustand Auswirkungen auf die Sprungweite in \[cm\] hat.
 
@@ -314,7 +361,9 @@ t.test(paired_raw_tbl$fed, paired_raw_tbl$unfed, paired = TRUE)
 
 Die Ausgabe des paired t-Test ähnelt stark der Aussage des Student t-Test. Wir erhalten ebenfalls den wichtigen p-Wert mit 0.0025 sowie das 95% Konfidenzintervall mit \[0.47; 1.13\]. Zum einen ist $0.0025 < \alpha$ und somit können wir die Nullhypothese ablehnen, zum anderen ist auch die 0 nicht mit in dem Konfidenzintervall, womit wir auch hier die Nullhypothese ablehnen können.
 
-## Freiheitsgrade im t-Test
+### Einstichproben t-Test gegen eine Konstante
+
+## Freiheitsgrade
 
 Der t-Verteilung der Teststatistiken des t-Tests verhält sich nicht wie eine [klassische Normalverteilung](#sec-distribution), die durch den Mittelwert und die Standardabweichung definiert ist. Die t-Verteilung ist nur durch die Freiheitsgrade definiert. Der Freiheitsgrad (eng. *degree of freedom*, abk. *df*) in einem t-Test mit zwei Gruppen mit den Fallzahlen $n_1$ und $n_2$ ist gegeben durch $df = n_1 + n_2 -2$. Damit beschreiben die Freiheitsgrade grob die gesamte Fallzahl in einen Datensatz mit nur zwei Gruppen. Je mehr Fallzahl in den beiden Gruppen desto großer der Freiheitsgrad eines t-Tests.
 
