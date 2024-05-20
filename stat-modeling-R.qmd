@@ -1,8 +1,12 @@
 ```{r echo = FALSE}
+#| echo: false
+#| warning: false
+#| message: false
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, see,
-               latex2exp, patchwork, parsnip)
+               latex2exp, patchwork, parsnip, conflicted)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+conflicts_prefer(dplyr::filter)
 ```
 
 # Modellieren in R {#sec-modeling-R}
@@ -45,75 +49,6 @@ p11 + p12 + p13 +
 
 ```
 
-Drei Abbildungen mit explorative, prädiktiv und Cluster
-
-in diesem Kapitel wollen Fokus auf `{parsnip}` und dann als Kasten in allen anderen möglichen Modellierungen ergänzen?
-
-[Tidymodels, interactions and anova - a short tutorial](https://www.thomasvanhoey.com/post/2021-10-12-tidymodels-interactions/)
-
-::: callout-note
-## XX Regression in `{parsnip}`
-
-Auch hier können wir die XX Regression in dem R Paket `{parsnip}` realisieren. Ein Vorteil von `{parsnip}` ist, dass wir die Funktionen sehr gut mit dem `|>`-Operator nutzen können. Das ist bei den Funktionen `glm()` und `lm()` in der ursprünglichen Implementierung ja leider nur etwas umständlicher möglich. Deshalb hier einmal die *bessere* Implementierung.
-
-::: panel-tabset
-## `{parsnip}`
-
-```{r}
-linreg_reg_fit <- linear_reg() |> 
-  set_engine("lm") |> 
-  fit(jump_length ~ grp, data = simple_tbl) 
-```
-
-Dann die ANOVA
-
-```{r}
-linreg_reg_fit|>  
-  extract_fit_engine() |> 
-  anova()
-```
-
-## `{base}`
-
-```{r}
-linreg_reg_fit <- lm(jump_length ~ grp, data = simple_tbl)
-```
-
-```{r}
-linreg_reg_fit|>  
-  anova()
-```
-:::
-
-Eine detailliertere Einführung mit mehr Beispielen für die Nutzung vom [R Paket `{parsnip}`](https://parsnip.tidymodels.org/articles/Examples.html) findest du im Kapitel [Modellieren in R](#sec-modeling-R). Hier soll es dann bei der kurzen Gegenüberstellung bleiben.
-:::
-
-## Marginal Effect Models
-
-[R Paket `{ggeffects}`](https://strengejacke.github.io/ggeffects/articles/ggeffects.html)
-
-[R Paket `{modelbased}`](https://easystats.github.io/modelbased/)
-
-[R Paket `{marginaleffects}`](https://marginaleffects.com/)
-
-## Modellieren in R
-
-[Das R Paket `{tidymodels}`](https://www.tidymodels.org/)
-
-[Tidy Modeling with R](https://www.tmwr.org/)
-
-Veraltet aber manchmal ganz nützlich das [R Paket `{modelr}`](https://modelr.tidyverse.org/)
-
-[R Paket `{parsnip}`](https://parsnip.tidymodels.org/)
-
-## Visualisierung
-
-[R Paket `{ggeffects}`](https://strengejacke.github.io/ggeffects/articles/ggeffects.html)
-
-[R Paket `{gtsummary}`](https://www.danieldsjoberg.com/gtsummary/index.html)
-
-[Display univariate regression model results in table](https://www.danieldsjoberg.com/gtsummary/reference/tbl_uvregression.html)
-
 ## Genutzte R Pakete
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
@@ -126,11 +61,87 @@ conflicts_prefer(dplyr::select)
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
 
-## Daten
+## Theoretisches Modellieren in R
 
-Wir
+### R Pakete
 
-## Wilde Beispiele
+Neben den R Paketen, die wir in den jeweiligen Kapiteln brauchen, kommen noch folgende R Pakete immer wieder dran. Deshalb sind die R Pakete hier schon mal mit den jeweiligen Internetseiten aufgeführt.
+
+-   Das Buch [Tidy Modeling with R](https://www.tmwr.org/) gibt nochmal einen tieferen Einblick in das Modellieren in R. Wir immer, es ist ein Vorschlag aber kein Muss.
+-   Das [R Paket `{parameters}`](https://easystats.github.io/parameters/index.html) nutzen wir um die Parameter eines Modells aus den Fits der Modelle zu extrahieren. Teilweise sind die Standardausgaben der Funktionen sehr unübersichtich. Hier hilft das R Paket.
+-   Das [R Paket `{performance}`](https://easystats.github.io/performance/) hilft uns zu verstehen, ob die Modelle, die wir gefittet haben, auch funktioniert haben. In einen mathematischen Algorithmus können wir alles reinstecken, fast immer kommt eine Zahl wieder raus.
+-   Das [R Paket `{tidymodels}`](https://tidymodels.tidymodels.org/) nutzen wir als *das* R Paket um mit Modellen umgehen zu können und eine *Vorhersage neuer Daten* zu berechnen. Das Paket `{tidymodels}` ist wie das Paket `{tidyverse}` eine Sammlung an anderen R Paketen, die wir brauchen werden.
+
+### Generalisierung von `lm()` zu `glm()` und `[g]lmer()`
+
+-   Die Funktion `lm()` nutzen wir, wenn das Outcome $y$ einer Normalverteilung folgt.
+-   Die Funktion `glm()` nutzen wir, wenn das Outcome $y$ einer *andere* Verteilung folgt.
+-   Die Funktion `lmer()` nutzen wir, wenn das Outcome $y$ einer Normalverteilung folgt *und* wir noch einen Block- oder Clusterfaktor vorliegen haben.
+-   Die Funktion `glmer()` nutzen wir, wenn das Outcome $y$ einer *andere* Verteilung folgt *und* wir noch einen Block- oder Clusterfaktor vorliegen haben.
+
+![Übersicht der Namen der Funktionen in R für das lm(), glm() und glmer().](images/glm-01.png){#fig-glm-01 fig-align="center" width="100%"}
+
+In @fig-glm-02 sehen wir wie wir den Namen einer Regression bilden. Zuerst entscheiden wir, ob wir nur ein $x$ haben oder mehrere. Mit einem $x$ sprechen wir von einem simplen Modell, wenn wir mehrere $x$ haben wir ein multiples Modell. Im nächsten Schritt benennen wir die Verteilung für das Outcome $y$. Dann müssen wir noch entscheiden, ob wir ein gemischtes Modell vorliegen haben, dann schreiben wir das hin. Sonst lassen wir den Punkt leer. Anschließend kommt noch lineares Modell hinten ran.
+
+![Wie bilde ich den Namen einer Regression? Erst beschreiben wir das $x$, dann das $y$. Am Ende müssen wir noch sagen, ob wir ein gemischtes Modell vorliegen haben oder nicht.](images/glm-02.png){#fig-glm-02 fig-align="center" width="100%"}
+
+[Das R Paket `{tidymodels}`](https://www.tidymodels.org/)
+
+[Tidy Modeling with R](https://www.tmwr.org/)
+
+Veraltet aber manchmal ganz nützlich das [R Paket `{modelr}`](https://modelr.tidyverse.org/)
+
+### Konfidenzintervall vs. Prädiktionsintervall
+
+Ein Konfidenzintervall gibt den Wertebereich für einen gesuchten Parameter der Grundgesamtheit mit einer bestimmten Wahrscheinlichkeit an. Ein Prognoseintervall gibt den Wertebereich für einen individuellen, zukünftig zu beobachtenden Wert mit einer bestimmten Wahrscheinlichkeit an.
+
+#### Konfidenzintervall {.unnumbered .unlisted}
+
+Text
+
+Konfidenzintervall
+
+:   Ein Konfidenzintervall gibt den Wertebereich für einen gesuchten Parameter der Grundgesamtheit mit einer bestimmten Wahrscheinlichkeit an.
+
+#### Prädiktionsintervall {.unnumbered .unlisted}
+
+Text
+
+Prädiktionsintervall
+
+:   Ein Prädiktionsintervall (auch Vorhersageintervall oder Prognoseintervall) gibt den Wertebereich für einen individuellen, zukünftig zu beobachtenden Wert mit einer bestimmten Wahrscheinlichkeit an.
+
+[Quantile Regression Forests for Prediction Intervals](https://www.bryanshalloway.com/2021/04/21/quantile-regression-forests-for-prediction-intervals/)
+
+[The difference between prediction intervals and confidence intervals](https://robjhyndman.com/hyndsight/intervals/)
+
+[P-values for prediction intervals](https://robjhyndman.com/hyndsight/forecasting-pvalues.html) machen keinen Sinn
+
+[How NASA didn’t discover the hole in the ozone layer](https://robjhyndman.com/hyndsight/ozone-hole-anomaly.html)
+
+## Praktisches Modellieren in R
+
+### Marginal Effect Models
+
+[R Paket `{ggeffects}`](https://strengejacke.github.io/ggeffects/articles/ggeffects.html)
+
+[R Paket `{modelbased}`](https://easystats.github.io/modelbased/)
+
+[R Paket `{marginaleffects}`](https://marginaleffects.com/)
+
+### Visualisierung
+
+[R Paket `{ggeffects}`](https://strengejacke.github.io/ggeffects/articles/ggeffects.html)
+
+[R Paket `{gtsummary}`](https://www.danieldsjoberg.com/gtsummary/index.html)
+
+[Display univariate regression model results in table](https://www.danieldsjoberg.com/gtsummary/reference/tbl_uvregression.html)
+
+### ...mit `{purrr}`
+
+`map()` für mehrere Endpunkte wie bei den Spinatdaten in Application gezeigt.
+
+`map2()` mit Familie für `glm` zeigen, wenn wir unterschiedliche Outcomes haben.
 
 ```{r}
 #| warning: false
@@ -213,42 +224,47 @@ emm_lst %>%
   print(n = 28)
 ```
 
-## Weitere Ideen
+## Verschiebebahnhof
 
-`map()` für mehrere Endpunkte wie bei den Spinatdaten in Application gezeigt.
+[R Paket `{parsnip}`](https://parsnip.tidymodels.org/)
 
-`map2()` mit Familie für `glm` zeigen, wenn wir unterschiedliche Outcomes haben.
+in diesem Kapitel wollen Fokus auf `{parsnip}` und dann als Kasten in allen anderen möglichen Modellierungen ergänzen?
 
-## Genutzte R Pakete
+[Tidymodels, interactions and anova - a short tutorial](https://www.thomasvanhoey.com/post/2021-10-12-tidymodels-interactions/)
 
-Neben den R Paketen, die wir in den jeweiligen Kapiteln brauchen, kommen noch folgende R Pakete immer wieder dran. Deshalb sind die R Pakete hier schon mal mit den jeweiligen Internetseiten aufgeführt.
+::: callout-note
+## XX Regression in `{parsnip}`
 
--   Das Buch [Tidy Modeling with R](https://www.tmwr.org/) gibt nochmal einen tieferen Einblick in das Modellieren in R. Wir immer, es ist ein Vorschlag aber kein Muss.
--   Das [R Paket `{parameters}`](https://easystats.github.io/parameters/index.html) nutzen wir um die Parameter eines Modells aus den Fits der Modelle zu extrahieren. Teilweise sind die Standardausgaben der Funktionen sehr unübersichtich. Hier hilft das R Paket.
--   Das [R Paket `{performance}`](https://easystats.github.io/performance/) hilft uns zu verstehen, ob die Modelle, die wir gefittet haben, auch funktioniert haben. In einen mathematischen Algorithmus können wir alles reinstecken, fast immer kommt eine Zahl wieder raus.
--   Das [R Paket `{tidymodels}`](https://tidymodels.tidymodels.org/) nutzen wir als *das* R Paket um mit Modellen umgehen zu können und eine *Vorhersage neuer Daten* zu berechnen. Das Paket `{tidymodels}` ist wie das Paket `{tidyverse}` eine Sammlung an anderen R Paketen, die wir brauchen werden.
+Auch hier können wir die XX Regression in dem R Paket `{parsnip}` realisieren. Ein Vorteil von `{parsnip}` ist, dass wir die Funktionen sehr gut mit dem `|>`-Operator nutzen können. Das ist bei den Funktionen `glm()` und `lm()` in der ursprünglichen Implementierung ja leider nur etwas umständlicher möglich. Deshalb hier einmal die *bessere* Implementierung.
 
-## 95% Konfidenzintervall
+::: panel-tabset
+## `{parsnip}`
 
-## Prädiktionsintervall
+```{r}
+linreg_reg_fit <- linear_reg() |> 
+  set_engine("lm") |> 
+  fit(jump_length ~ grp, data = simple_tbl) 
+```
 
-[Quantile Regression Forests for Prediction Intervals](https://www.bryanshalloway.com/2021/04/21/quantile-regression-forests-for-prediction-intervals/)
+Dann die ANOVA
 
-[The difference between prediction intervals and confidence intervals](https://robjhyndman.com/hyndsight/intervals/)
+```{r}
+linreg_reg_fit|>  
+  extract_fit_engine() |> 
+  anova()
+```
 
-[P-values for prediction intervals](https://robjhyndman.com/hyndsight/forecasting-pvalues.html) machen keinen Sinn
+## `{base}`
 
-[How NASA didn’t discover the hole in the ozone layer](https://robjhyndman.com/hyndsight/ozone-hole-anomaly.html)
+```{r}
+linreg_reg_fit <- lm(jump_length ~ grp, data = simple_tbl)
+```
 
-## Generalisierung von `lm()` zu `glm()` und `[g]lmer()`
+```{r}
+linreg_reg_fit|>  
+  anova()
+```
+:::
 
--   Die Funktion `lm()` nutzen wir, wenn das Outcome $y$ einer Normalverteilung folgt.
--   Die Funktion `glm()` nutzen wir, wenn das Outcome $y$ einer *andere* Verteilung folgt.
--   Die Funktion `lmer()` nutzen wir, wenn das Outcome $y$ einer Normalverteilung folgt *und* wir noch einen Block- oder Clusterfaktor vorliegen haben.
--   Die Funktion `glmer()` nutzen wir, wenn das Outcome $y$ einer *andere* Verteilung folgt *und* wir noch einen Block- oder Clusterfaktor vorliegen haben.
-
-![Übersicht der Namen der Funktionen in R für das lm(), glm() und glmer().](images/glm-01.png){#fig-glm-01 fig-align="center" width="100%"}
-
-In @fig-glm-02 sehen wir wie wir den Namen einer Regression bilden. Zuerst entscheiden wir, ob wir nur ein $x$ haben oder mehrere. Mit einem $x$ sprechen wir von einem simplen Modell, wenn wir mehrere $x$ haben wir ein multiples Modell. Im nächsten Schritt benennen wir die Verteilung für das Outcome $y$. Dann müssen wir noch entscheiden, ob wir ein gemischtes Modell vorliegen haben, dann schreiben wir das hin. Sonst lassen wir den Punkt leer. Anschließend kommt noch lineares Modell hinten ran.
-
-![Wie bilde ich den Namen einer Regression? Erst beschreiben wir das $x$, dann das $y$. Am Ende müssen wir noch sagen, ob wir ein gemischtes Modell vorliegen haben oder nicht.](images/glm-02.png){#fig-glm-02 fig-align="center" width="100%"}
+Eine detailliertere Einführung mit mehr Beispielen für die Nutzung vom [R Paket `{parsnip}`](https://parsnip.tidymodels.org/articles/Examples.html) findest du im Kapitel [Modellieren in R](#sec-modeling-R). Hier soll es dann bei der kurzen Gegenüberstellung bleiben.
+:::
