@@ -70,6 +70,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 pacman::p_load(tidyverse, infer, report, conflicted)
+conflicts_prefer(dplyr::filter)
 ```
 
 Ich setze auch noch das Theme in `{ggplot}` global auf `theme_minimal()` um hier dann bei den Abbildungen jeweils Code zu sparen.
@@ -408,6 +409,39 @@ visualize(boot_dist) +
   shade_confidence_interval(endpoints = percentile_ci) +
   labs(x = "Statistik", y = "Absolute Häufigkeit")
 ```
+
+### Testen auf einen Referenzwert
+
+Sehr selten wollen wir nicht zwei Gruppen miteinander vergleichen sondern eine statistische Maßzahl gegen einen Referenzwert. Das heißt, wir wollen wissen, ob die Hundeflöhe unterschiedliche von einer festen Sprungweite mit 10cm springen. Wir setzen also unseren Referenzwert auf 10 und wollen dann Testen, ob sich der beobachtete Mittelwert von der Referenz signifikant unterscheidet.
+
+```{r}
+jump_length_bar <- flea_tbl |> 
+  filter(animal == "dog") |> 
+  specify(response = jump_length) |> 
+  calculate(stat = "mean")
+```
+
+Im nächsten Schritt brauchen wir dann wieder unsere Nullverteilung. Hier müssen wir dann den Referenzwert mit `mu = 10` als Mittelwert in der Funktion `hypothesize()` setzen. Wichtig ist hier, dass du die Option `null = "point"` wählst.
+
+```{r}
+#| message: false
+#| echo: true
+null_dist <- flea_tbl |> 
+  filter(animal == "dog") |>
+  specify(response = jump_length) |> 
+  hypothesize(null = "point", mu = 10) |> 
+  generate(reps = 1000) |> 
+  calculate(stat = "mean")
+```
+
+Abschließend können wir dann wie oben beschrieben den p-Wert bestimmen.
+
+```{r}
+null_dist %>%
+  get_p_value(obs_stat = jump_length_bar, direction = "two-sided")
+```
+
+Wir sehen, dass sich die mittlere Sprungweite der Hundeflöhe signifikant von dem Referenzwert mit 10cm unterscheidet. Sehr häufig brauchen wir den Test auf einen Referenzwert nicht, aber es ist gut diese Möglichkeit in der statistischen Toolbox zu haben.
 
 ## R Paket `{report}`
 
