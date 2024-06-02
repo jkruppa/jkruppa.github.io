@@ -1,0 +1,259 @@
+```{r echo = FALSE}
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
+```
+
+# Der Trendtest {#sec-trendtest}
+
+*Letzte Änderung am `r format(fs::file_info("stat-tests-trendtest.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*
+
+> *"Make use of time, let not advantage slip." --- William Shakespeare*
+
+------------------------------------------------------------------------
+
+![](images/caution.png){fig-align="center" width="50%"}
+
+**Dieses Kapitel ist eine Baustelle und wird es vermutlich auch über Jahr 2024 bleiben. Daher können Teile des Codes und des Textes kurzfristig keinen Sinn ergeben oder nicht funktional sein. Es ist geplant eine fertige Version Ende 2024 vorliegen zu haben.**
+
+------------------------------------------------------------------------
+
+*Hier kommt die Einführung für den Trendtest*
+
+## Genutzte R Pakete
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+#| message: false
+pacman::p_load(tidyverse, magrittr, broom, quantreg,
+               see, performance, emmeans, multcomp, janitor,
+               parameters, conflicted)
+conflicts_prefer(dplyr::select)
+conflicts_prefer(dplyr::filter)
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
+
+## Daten
+
+Unser zweiter Datensatz ist ein Anwendungsdatensatz aus dem Gemüsebau. Wir schauen uns das Wachstum von drei Gurkensorten über siebzehn Wochen an. Die Gurkensorten sind hier unsere Versuchsgruppen. Da wir es hier mit echten Daten zu tun haben, müssen wir uns etwas strecken damit die Daten dann auch passen. Wir wollen das Wachstum der drei Gurkensorten *über* die Zeit betrachten - also faktisch den Verlauf des Wachstums.
+
+```{r}
+#| message: false
+#| warning: false
+
+gurke_raw_tbl <- read_excel("data/wachstum_gurke.xlsx") |> 
+  clean_names() |> 
+  select(-pfl, -erntegewicht) |> 
+  mutate(versuchsgruppe = as_factor(versuchsgruppe)) 
+```
+
+In der @tbl-model-2 sehen wir einmal die rohen Daten dargestellt.
+
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: "Datensatz zu dem Längen- und Dickenwachstum von Gurken."
+#| label: tbl-model-2
+
+ancova_raw_2_tbl <- gurke_raw_tbl |> 
+  mutate(versuchsgruppe = as.character(versuchsgruppe))
+rbind(head(ancova_raw_2_tbl),
+      rep("...", times = ncol(ancova_raw_2_tbl)),
+      tail(ancova_raw_2_tbl)) |> 
+  kable(align = "c", "pipe")
+
+```
+
+Wir haben zwei Typen von Daten für das Gurkenwachstum. Einmal messen wir den Durchmesser für jede Sorte (`D` im Namen der Versuchsgruppe) oder aber die Länge (`L` im Namen der Versuchsgruppe). Wir betrachten hier nur das Längenwachstum und deshalb filtern wir erstmal nach allen Versuchsgruppen mit einem `L` im Namen. Dann müssen wir die Daten noch in Long-Format bringen. Da wir dann auch noch auf zwei Arten die Daten über die Zeit darstellen wollen, brauchen wir einmal die Zeit als Faktor `time_fct` und einmal als numerisch `time_num`. Leider haben wir auch Gurken mit einer Länge von 0 cm. Diese Gurken schmeißen wir am Ende mal raus. Auch haben wir ab Woche 14 keine Messungen mehr in der Versuchsgruppe `Prolong`, also nehmen wir auch nur die Daten bis zur vierzehnten Woche.
+
+```{r}
+gurke_time_len_tbl <- gurke_raw_tbl |> 
+  filter(str_detect(versuchsgruppe, "L$")) |> 
+  mutate(versuchsgruppe = factor(versuchsgruppe, 
+                                 labels = c("Proloog", "Quarto", "Katrina"))) |> 
+  pivot_longer(cols = t1:t17,
+               values_to = "length",
+               names_to = "time") |> 
+  mutate(time_fct = as_factor(time),
+         time_num = as.numeric(time_fct)) |> 
+  filter(length != 0) |> 
+  filter(time_num <= 14)
+```
+
+## Der Trendtest in R
+
+Im Folgenden schauen wir uns dann die Auswertung der Gurkendaten einmal genauer an. Für mehr Informationen zu dem Paket `{emmeans}` und den entsprechenden Funktionen dann bitte einmal in das Kapitel @sec-posthoc schauen. In der @fig-ancova-gurke-03 sehen wir die Daten einmal als Scatterplot. Die durchgezogene Gerade stellt den Verlauf der Mittelwerte über die Versuchsgruppen dar. Die gestrichelte Linie zeigt den Median über die Gruppen. Wir wollen jetzt der Frage nachgehen, ob es einen Unterschied zwischen den Gurkensorten `versuchsgruppen` über den zeitlichen Verlauf der vierzehn Wochen gibt.
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-ancova-gurke-03
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 8
+#| fig-cap: "Scatterplot des Längenwachstums der drei Gurkensorten über vierzehn Wochen. Die gestrichtelten Linien stellen den Median und die durchgezogene Line den Mittelwert der Gruppen dar."
+
+ggplot(gurke_time_len_tbl, aes(time_num, length, color = versuchsgruppe)) +
+  theme_minimal() +
+  geom_point() +
+  stat_summary(fun = "mean", geom = "line") +
+  stat_summary(fun = "median", geom = "line", linetype = 2) +
+  scale_color_okabeito()
+```
+
+Unser erstes Modell was wir uns anschauen wollen ist nochmal eine klassische zweifaktorielle ANOVA mit einem Interaktionsterm. Wir wollen raus finden ob die Länge von den Gurken von den Sorten ($f_1$), dem zeitlichen Verlauf ($f_2$) und der Interaktion zwischen der Sorten und der Zeit abhängt ($f_1:f_2$). Wir stellen nun folgendes lineares Modell für die zweifaktorielle ANOVA auf.
+
+$$
+length \sim \overbrace{versuchsgruppe}^{f_1} + \underbrace{time\_fct}_{f_2} + \overbrace{versuchsgruppe:time\_fct}^{f_1:f_2}
+$$
+
+Dieses Modell können wir dann auch in R einmal über die Funktion `lm()` abbilden.
+
+```{r}
+#| message: false
+#| warning: false
+
+time_fct_fit <- lm(length ~ versuchsgruppe + time_fct + versuchsgruppe:time_fct, 
+                   gurke_time_len_tbl)
+```
+
+Nun wollen wir auch überprüfen, ob es eine Interaktion zwischen den Versuchsgruppen und dem zeitlichen Verlauf gibt. Das ganze schauen wir uns neben einer ANOVA auch einmal graphisch mit der Funktion `emmip()` an. Wenn wir keine signifikante Interaktion erwaten würden, dann müssten die drei Versuchgruppe über den zeitlichen Verlauf gleichmäßig ansteigen. Wir sehen in der @fig-stat-ancova-08, dass dies nicht der Fall ist. Wir nehmen daher eine Interaktion zwischen den Versuchsgruppen und dem zeitlichen Verlauf an.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: Interaktionsplot über den zeitlichen Verlauf für alle drei Sorten.
+#| label: fig-stat-ancova-08
+
+emmip(time_fct_fit, versuchsgruppe ~ time_fct, CIs = TRUE) +
+  theme_minimal() +
+  scale_color_okabeito()
+
+```
+
+Nochmal kurz mit der ANOVA überprüft und wir sehen eine signifikante Interaktion.
+
+```{r}
+#| message: false
+#| warning: false
+time_fct_fit |> anova() |> model_parameters()
+```
+
+Wir haben eben einmal die Zeit als Faktor mit ins Modell genommen, da wir so für jeden Zeitpunkt einen Mittelwert schätzen können. Wenn wir eine einfaktorielle ANCOVA rechnen, dann geht die Zeit als numerische Kovariate ($c_1$) linear in das Modell ein. Wir haben also von jedem Zeitpunkt zum nächsten den gleichen Anstieg. Wir modellieren ja auch einen linearen Zusammenhang. Hier einmal das Modell für die ANCOVA.
+
+$$
+length \sim \overbrace{versuchsgruppe}^{f_1} + \underbrace{time\_num}_{c_1} + \overbrace{versuchsgruppe:time\_num}^{f_1:c_1}
+$$
+
+Wir fitten wieder das Modell in R mit der Funktion `lm()`.
+
+```{r}
+time_num_fit <- lm(length ~ versuchsgruppe + time_num + versuchsgruppe:time_num, gurke_time_len_tbl)
+```
+
+Auch hier einmal die Überprüfung auf eine Interaktion mit der ANCOVA. Wir sehen, dass wir eine signifikante Interaktion zwischen den Versuchsgruppen und dem zeitlichen verlauf vorliegen haben.
+
+```{r}
+time_num_fit |> anova() |> model_parameters()
+```
+
+In der @fig-stat-ancova-05 sehen wir dann nochmal das Modell im Interaktionsplot. In beiden Abbildungen sehe wir den linearen Zusammenhang. Die Interaktion drückt sich in der unterschiedlichen Steigung der Versuchsgruppen über den zeitlichen Verlauf aus. Wir können durch die Option `at =` entscheiden für welche Zeitpunkte wir uns die 95% Konfidenzintervalle anzeigen lassen wollen, wie in der linken Abbildung exemplarisch für die Zeitpunkte 1 Woche, 7 Wochen und 14 Wochen. Oder aber wir lassen uns alle durch die Option `cov.reduce = FALSE` anzeigen, wie in der rechten Abbildung gezeigt.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 4
+#| label: fig-stat-ancova-05
+#| fig-cap: "Interaktionsplot über den zeitlichen Verlauf für alle drei Sorten."
+#| fig-subcap: 
+#|   - "An drei Zeitpunkten."
+#|   - "Über alle Zeitpunkte."
+#| layout-nrow: 1
+
+emmip(time_num_fit, versuchsgruppe ~ time_num, CIs = TRUE, 
+      at = list(time_num = c(1, 7, 14))) +
+  theme_minimal() +
+  scale_x_continuous(breaks = 1:14) +
+  scale_color_okabeito()
+
+emmip(time_num_fit, versuchsgruppe ~ time_num, CIs = TRUE, 
+      cov.reduce = FALSE) +
+  theme_minimal() +
+  scale_x_continuous(breaks = 1:14) +
+  scale_color_okabeito()
+```
+
+Jetzt kommt eigentlich der spannende Teil, wir wollen jetzt über den zeitlichen Verlauf einen statistischen Test rechnen, ob wir einen Trend in den verschiedenen Versuchsgruppen haben. Wir rechnen also einen Trendtest über die Kovariate $c_1$ für die drei Gruppen getrennt. Das können wir mit der Funktion `emtrends()` durchführen. Hier musst du angeben welche deine Kovariate `var` ist. In unserem Fall ist die Kovariate natürlich `time_num`.
+
+```{r}
+emtrends(time_num_fit, ~ versuchsgruppe, var = "time_num", infer = TRUE)
+```
+
+Die Spalte `time_num.trend` zeigt uns jetzt den linearen Anstieg über die Zeit für die jeweilige Versuchsgruppe. Das heißt jede Woche wächst die Sorte Proloog um $1.857cm$ an Länge. In der gleichen Art können wir auch die anderen Werte in der Spalte interpretieren. Jetzt stellt sich natürlich die Frage, ob dieses Längenwachstum *untereinander* unterschiedlich ist. Dafür könne wir dann leicht den Code abändern und setzen das Wort `pairwise` vor die Tilde. Dann testet die Funktion auch alle paarweisen Vergleiche. Wir nutzen jetzt noch die Funktion `model_parameters()` um eine schönere Ausgabe zu erhalten.
+
+```{r}
+emtrends(time_num_fit, pairwise ~ versuchsgruppe, var = "time_num", infer = TRUE) |> 
+  model_parameters()
+```
+
+Wir sehen wieder erst die Trends, die kennen wir schon. Dann sehen wir die Kontraste oder auch paarweisen Vergleiche. Das kannst du schnelle nachrechnen, der Unterschied von Proloog zu Quarto ist $1.48 - 0.45 = 1.03$. Damit können wir dann auch über den *gesamten* zeitlichen Verlauf testen, ob ein Unterschied zwischen den Sorten vorliegt.
+
+Wir sind jetzt schon sehr weit gekommen, aber wir könnten auch einen nicht-linearen Zusammenhang zwsichen der Zeit und dem Längenwachstum von Gurken annehmen. Das würde auch biologisch etwas mehr Sinn ergeben. Deshalb modellieren wir den Einfluss der Zeit `time_num` durch einen Exponenten hoch drei. Daher schreiben wir mathematisch $(time\_num)^3$.
+
+$$
+length \sim \overbrace{versuchsgruppe}^{f_1} + \underbrace{(time\_num)^3}_{c_1} + \overbrace{versuchsgruppe:(time\_num)^3}^{f_1:c_1}
+$$
+
+Den Exponenten schreiben wir dann entsprechend in R mit `poly(time_num, 3)` in die Formel. Die Funktion `poly()` nutzen wir innerhalb von Formelaufrufen um einen Exponenten einzufügen.
+
+```{r}
+time_num_poly_fit <- lm(length ~ versuchsgruppe * poly(time_num, 3), gurke_time_len_tbl)
+```
+
+In der @fig-stat-ancova-06 sehen wir dann nochmal die Anpassung des Modells und wir sehen, dass unser Modell besser zu den Daten passt. Das sieht schon sehr viel sauberer aus, als der brutale lineare Zusammenhang, den wir vorher hatten. Du musst hier etwas mit den Exponenten spielen und ausprobieren, welcher da am besten passt.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: Interaktionsplot über den zeitlichen Verlauf für alle drei Sorten mit einer kubischen Anpassung der Regression.
+#| label: fig-stat-ancova-06
+emmip(time_num_poly_fit, versuchsgruppe ~ time_num, CIs = TRUE, 
+      cov.reduce = FALSE) +
+  theme_minimal() +
+  scale_color_okabeito()
+```
+
+Jetzt wollen wir die Analyse nochmal auf die Spitze treiben. Wir schauen uns jetzt an den Zeitpunkten 1 Woche, 7 Wochen und 14 Wochen den Unterschied zwischen den Sorten einmal an. Das machen wir indem wir zu der Funktion `emmeans()` die Optione `at = list(time_num = c(1, 7, 14))` ergänzen. Am Ende lassen wir uns noch das *compact letter display* wiedergeben.
+
+```{r}
+emmeans(time_num_poly_fit, pairwise ~ versuchsgruppe | time_num, 
+        at = list(time_num = c(1, 7, 14))) |> 
+  cld(Letters = letters) 
+```
+
+Was erkennen wir? Wir sehen, dass sich in der ersten Woche die Sorten noch nicht voneinander unterscheiden. Erst in der Woche sieben sehen wir einen Unterschied von Proloog zu dem Rest der Sorten. In der letzten Woche unterscheiden sich dann alle Sorten voneinander. Wie stark, kannst du aus der Spalte `emmean` entnehmen, dort steht der Mittelwert für die jeweilige Sorte zu dem jeweiligen Zeitpunkt.
+
+Abschließend wollen wir nochmal schauen, wie sich der Trend in den verschiedenen Modellierungen der Exponenten zeigen würde. Wir müssen dafür bei der Funktion `emtrends()` angeben bis zu welchen maximalen Exponenten, bei uns hoch Drei, die Funktion rechnen soll. Deshalb setzen wir `max.degree = 3`. Dann noch `pairwise` vor die Tilde gesetzt, damit wir dann auch die paarweisen Vergleiche für die Sorten und Verläufe angezeigt kriegen. Achtung, jetzt kommt eine lange Ausgabe.
+
+```{r}
+emtrends(time_num_poly_fit, pairwise ~ versuchsgruppe, var = "time_num", infer = TRUE,
+         max.degree = 3) 
+```
+
+Was sehen wir in diesem Fall? In der linearen Modellierung der Zeit haben wir sehr viele signifikante Ergebnisse. Leider entspricht der lineare verlauf über die Zeit nicht so den beobachteten Daten. Bei der kubischen Modellierung, also hoch Drei, haben wir dann in der Abbildung eine bessere Modellierung. Die Effekte reichen dann aber nicht aus um über den gesamten zeitlichen Verlauf, Betonung liegt auf dem gesamten zeitlichen Verlauf, einen Unterschied zeigen zu können.
+
+Daher müsste man hier einmal überlegen, ob man nicht die frühen Wochen aus den Daten entfernt. Hier sind die Gurlen noch sehr ähnlich, so dass wir hier eigentlich auch keinen Unterschied erwarten. Sonst könntest du nochmal mit einer $\log$-Transformation der Länge spielen, dann verlierst du zwar die direkte biologische Interpretierbarkeit der Effektschätzer, aber dafür könnte der Verlauf über die Zeit *besser* aufgesplittet werden. Das Problem sind ja hier sehr kleine Werte zu Anfang und sehr große Werte zum Ende.
