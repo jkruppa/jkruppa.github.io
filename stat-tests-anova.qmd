@@ -362,7 +362,88 @@ Die ANOVA wird deshalb auch Varianz*zerlegung* genannt, da die ANOVA versucht de
 
 Du kannst dir das ungefähr als eine Reise von globalen Mittelwert zu der einzelnen Beobachtung vorstellen. Nehmen wir als Beispiel die kleinste Sprungweite eines Katzenflohs von 2.2 cm und visualisieren wir uns die Reise wie in @fig-single-cat-anova zu sehen. Wie kommen wir jetzt *numerisch* vom globalen Mittel mit $7.34$ zu der Beobachtung? Wir können zum einen den direkten Abstand mit $2.2 - 7.34$ gleich $-5.14$ cm berechnen. Das wäre der *total* Abstand. Wie sieht es nun aus, wenn wir das Gruppenmittel mit beachten? In dem Fall gehen wir vom globalen Mittel zum Gruppenmittel `cat` mit $\bar{y}_{cat} - \bar{y}_{..} = 4.74 -7.34$ gleich $\beta_{cat} = -2.6$ cm. Jetzt sind wir aber noch nicht bei der Beobachtung. Wir haben noch einen Rest von $y_{cat,2} - \bar{y}_{cat} = 2.2 - 4.74$ gleich $\epsilon_{cat, 2} = -2.54$ cm, die wir noch zurücklegen müssen. Das heißt, wir können einen Teil der Strecke mit dem Gruppenmittelwert erklären. Oder anders herum, wir können die Strecke vom globalen Mittelwert zu der Beobachtung in einen Teil für das Gruppenmittel und einen unerklärten Rest zerlegen.
 
-![Visualisierung der Varianzzerlegung des Weges vom globalen Mittel zu der einzelnen Beoabchtung. Um zu einer einzelnen Beobachtung zu kommen legen wir den Weg vom globalen Mittelwert über den Abstand vom globalen Mittel zum Gruppenmittel $\beta$ zurück. Dann fehlt noch der Rest oder Fehler oder Residuum $\epsilon$.](images/anova-pre-01.png){#fig-single-cat-anova fig-align="center" width="80%"}
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-single-cat-anova 
+#| fig-align: center
+#| fig-height: 4.5
+#| fig-width: 7
+#| fig-cap: "Visualisierung der Varianzzerlegung des Weges vom globalen Mittel zu der einzelnen Beoabchtung. Um zu einer einzelnen Beobachtung zu kommen legen wir den Weg vom globalen Mittelwert über den Abstand vom globalen Mittel zum Gruppenmittel $\\beta$ zurück. Dann fehlt noch der Rest oder Fehler oder Residuum $\\epsilon$. *[Zum Vergrößern anklicken]*"
+
+stat <- ddply(fac1_tbl, "animal", summarize,
+              mean = mean(jump_length, na.rm = TRUE),
+              sd = round(sd(jump_length, na.rm = TRUE), 2))
+grand_mean <- mean(fac1_tbl$jump_length, na.rm = TRUE)
+
+fac1_tbl <- fac1_tbl |> 
+  mutate(pos = c(1:7, 11:17, 21:27),
+         grand_mean = grand_mean,
+         grp_mean = rep(stat$mean, each = 7),
+         beta = grp_mean - grand_mean,
+         epsilon = jump_length - grp_mean) 
+
+fac1_tbl |> 
+  ggplot() +
+  aes(pos, jump_length) +
+  theme_classic() +
+  geom_hline(yintercept = grand_mean, color = "gray50", linewidth = 1) +
+  geom_segment(data = dplyr::filter(fac1_tbl, animal == "fox"), x = 21:27, 
+               aes(y = jump_length), 
+               xend = 21:27, yend = rep(9.16, 7), color = "gray70",
+               linewidth = 0.5) +
+  geom_segment(data = dplyr::filter(fac1_tbl, animal == "cat"), x = 11:17, 
+               aes(y = jump_length), 
+               xend = 11:17, yend = rep(4.74, 7), color = "gray70",
+               linewidth = 0.5) +
+  geom_segment(data = dplyr::filter(fac1_tbl, animal == "dog"), x = 1:7, 
+               aes(y = jump_length), 
+               xend = 1:7, yend = rep(8.13, 7), color = "gray70",
+               linewidth = 0.5) +
+  geom_segment(x = 1, y = 8.13, xend = 7, yend = 8.13, color = "#E69F00", 
+               linewidth = 1) +
+  geom_segment(x = 4.5, y = grand_mean, xend = 4.5, yend = 8.13, color = "#E69F00", 
+               linewidth = 0.5) +
+  annotate("text", x = 4.75, y = grand_mean + 0.35, label = expression(beta[dog]), size = 5,
+           color = "#E69F00", hjust = "left") +
+  annotate("text", x = 7.5, y = 8.13, label = expression(bar(y)[dog]), size = 5,
+           color = "#E69F00", hjust = "left") +
+  geom_segment(x = 11, y = 4.74, xend = 17, yend = 4.74, color = "#56B4E9", 
+               linewidth = 1) +
+  geom_segment(x = 14.5, y = grand_mean, xend = 14.5, yend = 4.74, color = "#56B4E9", 
+               linewidth = 0.5) +
+  annotate("text", x = 14.75, y = grand_mean - 1.4, label = expression(beta[cat]), size = 5,
+           color = "#56B4E9", hjust = "left") +
+  annotate("text", x = 17.5, y = 4.74, label = expression(bar(y)[dog]), size = 5,
+           color = "#56B4E9", hjust = "left") +
+  geom_segment(x = 21, y = 9.16, xend = 27, yend = 9.16, color = "#009E73",
+               linewidth = 1) +
+  geom_segment(x = 24.5, y = grand_mean, xend = 24.5, yend = 9.16, color = "#009E73",
+               linewidth = 0.5) +
+  annotate("text", x = 24.75, y = grand_mean + 0.8, label = expression(beta[fox]), size = 5,
+           color = "#009E73", hjust = "left") +
+  annotate("text", x = 27.5, y = 9.16, label = expression(bar(y)[fox]), size = 5,
+           color = "#009E73", hjust = "left") +
+  geom_point() +
+  scale_x_continuous(breaks = c(4, 14, 24), labels = c("dog", "cat", "fox")) +
+  scale_y_continuous(breaks = grand_mean, labels = expression(bar(y)[..])) +  
+  theme(axis.text = element_text(size = 14),
+        axis.text.y = element_text(size = 16)) + 
+  labs(x = "", y = "") +
+  annotate("text", x = fac1_tbl$pos + 0.5, 
+           y = grand_mean + fac1_tbl$beta + fac1_tbl$epsilon/2,
+           label = c(expression(epsilon[1]), expression(epsilon[2]), expression(epsilon[3]),
+                     expression(epsilon[4]), expression(epsilon[5]), expression(epsilon[6]),
+                     expression(epsilon[7]), expression(epsilon[8]), expression(epsilon[9]),
+                     expression(epsilon[10]), expression(epsilon[11]), expression(epsilon[12]),
+                     expression(epsilon[13]), expression(epsilon[14]), expression(epsilon[15]),
+                     expression(epsilon[16]), expression(epsilon[17]), expression(epsilon[18]),
+                     expression(epsilon[19]), expression(epsilon[20]), expression(epsilon[21])),
+           color = "gray70")
+
+
+```
 
 Wir rechnen also eine ganze Menge an Abständen und quadrieren dann diese Abstände zu den Sum of Squares. Oder eben der Varianz. Dann fragen wir uns, ob der Faktor in unserem Modell einen Teil der Abstände erklären kann. Wir bauen uns dafür eine ANOVA Tabelle. @tbl-anova-fac1-theo zeigt eine theoretische, einfaktorielle ANOVA Tabelle. Wir berechnen zuerst die Abstände als $SS$. Nun ist es aber so, dass wenn wir in einer Gruppe viele Level und/oder Beobachtungen haben, wir auch größere Sum of Squares bekommen. Wir müssen also die Sum of Squares in mittlere Abweichungsquadrate (eng. *mean squares*) mitteln. Abschließend können wir die F Statistik berechnen, indem wir die $MS$ des Faktors durch die $MS$ des Fehlers teilen. Das Verhältnis von erklärter Varianz vom Faktor zu dem unerklärten Rest.
 
@@ -402,24 +483,111 @@ Bei der Entscheidung mit der berechneten Teststatistik $F_{D}$ gilt, wenn $F_{D}
 
 Abschließend noch ein Wort zu der Annahme an eine ANOVA. Wir wollen ja für eine ANOVA ein normalverteiltes Outcome $y$ und die gleichen Varianzen über alle Gruppen. Wir wollen Varianzhomogenität vorliegen haben. In @fig-anova-assumption siehst du vier Behandlungsgruppen sowie deren lokale Mittel. Die Gruppe D hat eine sehr viel größere Varianz. Auch ist fraglich, ob die Gruppe D einer Normalverteilung folgt. Dadurch passieren zwei Dinge. Erstens ist der lokale Mittelwert von der Gruppe D viel näher am globalen Mittel als er eigentlich wäre, dadurch wird die *Summe* aus $MS_{treatment}$ kleiner. Zweitens sind die Beobachtungen sehr weit um das lokale Mittel gestreut, dadurch wird die *Summe* aus $MS_{error}$ viel größer. Wir erhalten dadurch eine sehr viel kleinere F Statistik. Im Prinzip vergleichst du mit einer ANOVA ein Set an gleich aussehenden Normalverteilungen. Wenn alles schief und krumm ist, dann ist es vermutlich sogar besser, als wenn wir eine total verkorkste Gruppenverteilung haben, wie hier in Beispiel D.
 
-![Visualisierung der Annahmen an eine ANOVA. Wir berechnen den $MS_{treatment}$ in dem wir alle Abweichungen vom gloablen Mittel $\bar{y}_{..}$ aufaddieren. Ebenso berechnen wir den $MS_{error}$ indem wir die einzelen Abweichungen von den Bobachtungen $\epsilon$ zu den lokalen Mitteln berechnen. Hat jetzt eine Gruppe, wie die Gruppe D, eine abweichende Streuung, wird das $MS_{error}$ überproportional groß. Damit wird dann die F Statistik klein.](images/anova-assumptions.png){#fig-anova-assumption fig-align="center" width="100%"}
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-anova-assumption
+#| fig-align: center
+#| fig-height: 4.5
+#| fig-width: 7
+#| fig-cap: "Visualisierung der Annahmen an eine ANOVA. Wir berechnen den $MST$ der Behandlung in dem wir alle Abweichungen vom gloablen Mittel $\\bar{y}_{..}$ aufaddieren. Ebenso berechnen wir den $MSE$ des Fehlers indem wir die einzelen Abweichungen von den Bobachtungen $\\epsilon$ zu den lokalen Mitteln berechnen. Hat jetzt eine Gruppe, wie die Gruppe D, eine abweichende Streuung, wird der $MSE$ *insgesamt* überproportional groß. Damit wird dann die F Statistik klein. *[Zum Vergrößern anklicken]*"
 
-Wir können das einmal numerisch mit einem kritischen Wert für $F_{\alpha = 5\%} = 3.55$ durchspielen. Nehmen wir folgende Summe für $MS_{treatment}$ aus der @fig-anova-assumption mit den einzelnen $MS$ einmal wie folgt an. Wir nehmen an das $MS_A$ gleich 10, $MS_B$ gleich 20, $MS_C$ gleich 8 und $MS_D$ gleich 7 ist. Dann können wir durch das Summieren das $MS_{treatment}$ berechnen.
+  
+set.seed(202434)
+assump_tbl <- tibble(A = rnorm(7, 0, 1),
+                     B = rnorm(7, 5, 1),
+                     C = rnorm(7, 3, 1),
+                     D = rnorm(7, 6, 6)) |> 
+  gather(key = animal, value = jump_length)
+
+stat <- ddply(assump_tbl, "animal", summarize,
+              mean = mean(jump_length, na.rm = TRUE),
+              sd = round(sd(jump_length, na.rm = TRUE), 2)) |> 
+  mutate(pos = c(0.5, 10.5, 20.5, 30.5),
+         jump_length = 0)
+grand_mean <- mean(assump_tbl$jump_length, na.rm = TRUE)
+
+fac1_tbl <- assump_tbl |> 
+  mutate(pos = c(1:7, 11:17, 21:27, 31:37),
+         grand_mean = grand_mean,
+         grp_mean = rep(stat$mean, each = 7),
+         beta = grp_mean - grand_mean,
+         epsilon = jump_length - grp_mean) 
+
+fac1_tbl |> 
+  ggplot() +
+  aes(pos, jump_length) +
+  theme_classic() +
+  geom_hline(yintercept = grand_mean, color = "gray50", linewidth = 1, alpha = 0.5) +
+  geom_point() +
+  ## beta
+  geom_segment(x = 1, y = -0.12, xend = 7, yend = -0.12, color = "#E69F00", 
+               linewidth = 1) +
+  geom_segment(x = 4.5, y = grand_mean, xend = 4.5, yend = -0.12, color = "#E69F00", 
+               linewidth = 0.5) +
+  annotate("text", x = 4.75, y = grand_mean - 1, label = expression(MST[A]), size = 5,
+           color = "#E69F00", hjust = "left") +
+  annotate("text", x = 7.5, y = -0.12, label = expression(bar(y)[A]), size = 5,
+           color = "#E69F00", hjust = "left") +
+  geom_segment(x = 11, y = 5.44, xend = 17, yend = 5.44, color = "#56B4E9", 
+               linewidth = 1) +
+  geom_segment(x = 14.5, y = grand_mean, xend = 14.5, yend = 5.44, color = "#56B4E9", 
+               linewidth = 0.5) +
+  annotate("text", x = 14.75, y = grand_mean - 1.4, label = expression(MST[B]), size = 5,
+           color = "#56B4E9", hjust = "left") +
+  annotate("text", x = 17.5, y = 5.44, label = expression(bar(y)[B]), size = 5,
+           color = "#56B4E9", hjust = "left") +
+  geom_curve(x = 14.5, y = grand_mean - 1.4, xend = 14.1, yend = grand_mean + 1.3,
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.8, color = "#56B4E9", alpha = 0.3, linewidth = 0.1) +
+  geom_segment(x = 21, y = 2.96, xend = 27, yend = 2.96, color = "#009E73",
+               linewidth = 1) +
+  geom_segment(x = 24.5, y = grand_mean, xend = 24.5, yend = 2.96, color = "#009E73",
+               linewidth = 0.5) +
+  annotate("text", x = 24.75, y = grand_mean + 1.3, label = expression(MST[C]), size = 5,
+           color = "#009E73", hjust = "left") +
+  annotate("text", x = 27.5, y = 2.7, label = expression(bar(y)[B]), size = 5,
+           color = "#009E73", hjust = "left") +
+  geom_curve(x = 24.6, y = grand_mean + 1.3, xend = 24.3, yend = grand_mean - 0.16,
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.8, color = "#009E73", alpha = 0.3, linewidth = 0.1) +
+  geom_segment(x = 31, y = 5.49, xend = 37, yend = 5.49, color = "#CC79A7",
+               linewidth = 1) +
+  geom_segment(x = 34.5, y = grand_mean, xend = 34.5, yend = 5.49, color = "#CC79A7",
+               linewidth = 0.5) +
+  annotate("text", x = 31, y = grand_mean + 1, label = expression(MST[D]), size = 5,
+           color = "#CC79A7", hjust = "left") +
+  annotate("text", x = 37.5, y = 5.49, label = expression(bar(y)[D]), size = 5,
+           color = "#CC79A7", hjust = "left") +
+  geom_errorbar(data = stat, aes(ymin = mean - 1.5*sd, ymax = mean + 1.5*sd), width = 0.5,
+                color = "gray50") +
+  geom_text(data = stat, aes(y = mean + 1.5*sd + 1), 
+            label = c(expression(MSE[A]), expression(MSE[B]),
+                      expression(MSE[C]), expression(MSE[D]))) +
+  scale_x_continuous(breaks = c(4, 14, 24, 34), labels = c("A", "B", "C", "D"))  +
+  scale_y_continuous(breaks = grand_mean, labels = expression(bar(y)[..])) +  
+  theme(axis.text = element_text(size = 14),
+        axis.text.y = element_text(size = 16)) + 
+  labs(x = "", y = "") 
+```
+
+Wir können das einmal numerisch mit einem kritischen Wert für $F_{\alpha = 5\%} = 3.55$ durchspielen. Nehmen wir folgende Summe für $MST$ der Behandlungen aus der @fig-anova-assumption mit den einzelnen $MST$ einmal wie folgt an. Wir nehmen an das $MST_A$ gleich 10, $MST_B$ gleich 20, $MST_C$ gleich 8 und $MST_D$ gleich 7 ist. Dann können wir durch das Summieren das $MST$ berechnen.
 
 $$
-MS_{treatment} = 10 + 20 + 8 + 7 = 45
+MST = 10 + 20 + 8 + 7 = 45
 $$
 
-Wenn wir jetzt die Summe für $MS_{error}$ berechnen, wird diese Summe sehr große, da die Gruppe D eine sehr große Varianz mit einbringt.
+Wenn wir jetzt die Summe für $MSE$ berechnen, wird diese Summe sehr große, da die Gruppe D eine sehr große Varianz mit einbringt.
 
 $$
-MS_{error} = 5 + 6 + 4 + 20 = 35
+MSE = 5 + 6 + 4 + 20 = 35
 $$
 
 Das führt am Ende dazu, dass wir eine sehr kleine F Statistik erhalten. Auch wenn sich vielleicht Gruppe B von Gruppe C unterscheidet, können wir den Unterschied wegen der großen Varianz aus Gruppe D nicht nachweisen.
 
 $$
-F = \cfrac{MS_{treatment}}{MS_{error}} = \cfrac{45}{35} = 1.28 \leq 3.55 
+F = \cfrac{MST}{MSE} = \cfrac{45}{35} = 1.28 \leq 3.55 
 $$
 
 Du siehst hier wie wichtig es ist, ich die Daten einmal zu visualisieren um zu sehen vorher mögliche Probleme herrühren können. Auf der anderen Seite können wir die ANOVA auf ein Recht breites Spektrum an Daten anwenden, solange wir wissen, das die Verteilungen in etwa für jede Gruppe gleich aussehen. Wir müssen nur mit dem $\eta^2$ aufpassen, wenn wir zu schiefe Verteilungen haben. Dann gibt uns $\eta^2$ keine valide Aussage mehr über den Anteil der erklärten Varianz.
