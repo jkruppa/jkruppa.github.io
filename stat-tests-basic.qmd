@@ -6,6 +6,9 @@ conflict_prefer("extract", "magrittr")
 data_tbl <- tibble(animal = gl(2, 4, labels = c("cat", "dog")),
                    jump_length = c(8.5, 9.9, 8.9, 9.4, 8.0, 7.2, 8.4, 7.5)) |> 
   arrange(desc(animal))
+data_compact_tbl <- tibble(animal = gl(3, 4, labels = c("cat", "dog", "fox")),
+                   jump_length = c(8.5, 9.9, 8.9, 9.4, 8.0, 7.2, 8.4, 7.5,
+                                   7.5, 8.1, 6.7, 7.1)) 
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 source("images/R/stat-test-basic-R-01.R")
@@ -882,6 +885,109 @@ Bei der Entscheidung mit dem 95% Konfidenzintervall müssen wir zwei Fälle unte
 (1) Entweder schauen wir uns einen Mittelwertsunterschied ($\Delta_{y_1-y_2}$) an, dann können wir die Nullhypothese (H$_0$) *nicht* ablehnen, wenn die **0** im 95% Konfidenzintervall ist.
 
 (2) Oder wir schauen uns einen Anteilsunterschied ($\Delta_{y_1/y_2}$) an, dann können wir die Nullhypothese (H$_0$) *nicht* ablehnen, wenn die **1** im 95% Konfidenzintervall ist.
+:::
+
+### ... anhand des *Compact letter display* {#sec-compact-letter-short}
+
+![](images/caution.png){fig-align="center" width="50%"}
+
+```{r}
+#| echo: false
+#| label: tbl-dog-cat-fox-small
+#| tbl-cap: "Beispiel für die Berechnung von einem Mittelwertseffekt an der Sprunglänge [cm] von Fuchs-, Hunde- und Katzenflöhen."
+data_compact_tbl |> 
+  kable(align = "c", "pipe")
+
+mean_tbl <- data_compact_tbl |> 
+  group_by(animal) |> 
+  summarise(mean_animal = round(mean(jump_length), 2),
+            sd_animal = round(sd(jump_length), 2))
+
+mean_cat <- mean_tbl$mean_animal[1]
+mean_dog <- mean_tbl$mean_animal[2]
+mean_fox <- mean_tbl$mean_animal[3]
+sd_cat <- mean_tbl$sd_animal[1]
+sd_dog <- mean_tbl$sd_animal[2]
+sd_fox <- mean_tbl$sd_animal[3]
+sd_cd <- (sd_cat + sd_dog)/2
+sd_cf <- (sd_cat + sd_fox)/2
+sd_df <- (sd_fox + sd_dog)/2
+t_d_cd <- round((mean_cat - mean_dog)/((sd_cat + sd_dog)/2 * sqrt(2/4)), 2)
+t_d_cf <- round((mean_cat - mean_fox)/((sd_cat + sd_fox)/2 * sqrt(2/4)), 2)
+t_d_df <- round((mean_fox - mean_dog)/((sd_fox + sd_dog)/2 * sqrt(2/4)), 2)
+t_k <- round(qt(0.025, 4, lower.tail=FALSE), 2)
+
+```
+
+| Vergleich |                  Mittelwertsdifferenz                   |        Gepoolte Standardabweichung        | Teststatistik |
+|:---------:|:-------------------------------------------------------:|:-----------------------------------------:|:-------------:|
+| Cat - Dog | $`r mean_cat` - `r mean_dog` = `r mean_cat - mean_dog`$ | $(`r sd_cat` + `r sd_dog`)/2 = `r sd_cd`$ | $`r t_d_cd`$  |
+| Cat - Fox | $`r mean_cat` - `r mean_fox` = `r mean_cat - mean_fox`$ | $(`r sd_cat` + `r sd_fox`)/2 = `r sd_cf`$ | $`r t_d_cf`$  |
+| Fox - Dog | $`r mean_fox` - `r mean_dog` = `r mean_fox - mean_dog`$ | $(`r sd_fox` + `r sd_dog`)/2 = `r sd_df`$ | $`r t_d_df`$  |
+
+: test {#tbl-sum-compact}
+
+Der kritische Wert $T_{\alpha = 5\%} = `r t_k`$
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-barplot-compact-01
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 5
+#| fig-cap: "Darstellung der Mittelwerte $\\bar{y}$ und der Standardabweichung (abk. *SD*) in einem Säulendigramm. Es gibt zwei Arten der Darstellung, die sich dann auf die Fehlerbalken bezieht. **(A)** Nur mit $\\bar{y} + SD$ **(B)** Mit $\\bar{y} \\pm SD$. *[Zum Vergrößern anklicken]*"
+
+tibble(x = c(1, 2, 3), y = 8.13) |> 
+  ggplot(aes(x, y)) +
+  theme_minimal() +
+  geom_vline(xintercept = 0.5) +
+  geom_hline(yintercept = 0) +
+  ylim(0, 12) +
+  xlim(0.5, NA) +
+  geom_rect(aes(xmin = 0.75, xmax = 1.25, ymin = 0, ymax = 8.13), fill = "#E69F00",
+            color = "black",  linewidth = 1) +
+  geom_segment(x = 1, y = 8.13, xend = 1, yend = 10.27, color = "black",
+               linewidth = 1, linetype = 1) +
+  geom_segment(x = 0.9, y = 10.27, xend = 1.1, yend = 10.27, color = "black",
+               linewidth = 1, linetype = 1) +
+  geom_rect(aes(xmin = 1.75, xmax = 2.25, ymin = 0, ymax = 7.13), fill = "#56B4E9",
+            color = "black",  linewidth = 1) +
+  geom_segment(x = 2, y = 7.13, xend = 2, yend = 8.27, color = "black",
+               linewidth = 1, linetype = 1) +
+  geom_segment(x = 1.9, y = 8.27, xend = 2.1, yend = 8.27, color = "black",
+               linewidth = 1, linetype = 1) +
+  geom_rect(aes(xmin = 2.75, xmax = 3.25, ymin = 0, ymax = 9.13), fill = "#CC79A7",
+            color = "black",  linewidth = 1) +
+  geom_segment(x = 3, y = 9.13, xend = 3, yend = 11.27, color = "black",
+               linewidth = 1, linetype = 1) +
+  geom_segment(x = 2.9, y = 11.27, xend = 3.1, yend = 11.27, color = "black",
+               linewidth = 1, linetype = 1) +
+  scale_x_continuous(breaks = c(0.5, 1, 2, 3), label = c(0, "Grp1", "Grp2", "Grp3"))
+#  labs(x = "", y = "") +
+ # scale_y_continuous(breaks = 0)  +
+#  scale_x_continuous(breaks = 1, label = "A") +
+ # theme(legend.position = "none",
+ #       axis.text.x = element_text(size = 16),
+ #       axis.text.y = element_text(size = 14),
+  #      panel.grid.major = element_blank(),
+   #     panel.grid.minor = element_blank()) 
+
+```
+
+::: panel-tabset
+## Theoretisch
+
+## Händisch
+:::
+
+Die Implementierung des *Compact letter display* findest du im [Kapitel zum Post-hoc-Test](#sec-posthoc)
+
+::: callout-note
+## Entscheidung mit dem *Compact letter display*
+
+Gruppen oder Behandlungen mit dem *gleichen* Buchstaben zeigen *keinen* signifikanten Unterschied. Gruppen oder Behandlungen mit einem unterschiedlichen Buchstaben sind signifikant unterschiedlich.
 :::
 
 ## Auswirkung des Effektes, der Streuung und der Fallzahl {#sec-delta-n-s}
