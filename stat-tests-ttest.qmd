@@ -33,29 +33,24 @@ Unter den meisten Bedingungen ist der t-Test robust gegen die Verletzung der Nor
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
+#| message: false
+#| warning: false
 pacman::p_load(tidyverse, magrittr, broom, readxl,
                infer, conflicted)
 conflicts_prefer(dplyr::filter)
-##
 set.seed(20221206)
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
 
-## Daten und Modell
+## Daten
 
-Wichtig ist, dass wir schon jetzt die Modellschreibweise lernen um die Daten später richtig in R nutzen zu können. Wir werden die Modellschreibweise immer wieder sehen. Die Modellschreibweise ist die Art und Weise wie wir in R eine Abhängigkeit beschreiben. Wir brauchen dieses Konzept in den folgenden Kapiteln. In R heißt `y ~ x` auch `formula`, also eine Formelschreibweise. Damit ahben wir die Modellschreibweise $y$ hängt ab von $x$. Das $y$ repräsentiert eine Spalte im Datensatz und das $x$ repräsentiert ebenso eine Spalte im Datensatz. Wir brauchen also zwei Variablen $y$ und $x$, die natürlich nicht so heißen müssen.
-
-$$
-y \sim x
-$$
-
-Was brauchen wir damit wir den t-Test in R rechnen können? Später in der Anwendung nutzt du ja nur die Implementierung des t-Tests in R. Wir rechnen ja unsere Auswertung nicht per Hand. In R brauchen wir für den t-Test eine Spalte $y$ mit kontinuierlichen Zahlen und einer Spalte $x$ in dem wir einen Faktor mit zwei Leveln finden. Jedes Level steht dann für eine der beiden Gruppen. Das war es schon. Schauen wir uns nochmal den Datensatz `flea_dog_cat.xlsx` in @tbl-data-ttest an und überlegen, wie wir das realisieren können.
+Beginnen wir mit einem Datenbeispiel zu den Hunde- und Katzenflöhen. Was brauchen wir damit wir den t-Test rechnen können? Wir brauchen für den t-Test eine Spalte $y$ mit kontinuierlichen Zahlen und einer Spalte $x$ in dem wir einen Faktor mit zwei Leveln finden oder eben zwei Gruppen. Jedes Level steht dann für eine der beiden Gruppen. Das war es schon. Schauen wir uns nochmal den Datensatz `flea_dog_cat.xlsx` in @tbl-data-ttest an und überlegen, was wir dort auswählen können.
 
 ```{r}
 #| echo: false
 #| message: false
-#| tbl-cap: Tabelle  der Sprunglängen [cm], Anzahl an Flöhen, Boniturnote sowie der Infektionsstatus von Hunden und Katzen.
+#| tbl-cap: "Tabelle von sieben Hunde- und Katzenflöhen mit der Sprunglänge [cm], Anzahl an Haaren am rechten Flohbein, Gewicht der Flöhe, Boniturnote sowie der Infektionsstatus für Flohschnupfen."
 #| label: tbl-data-ttest
 
 flea_tbl <- read_excel("data/flea_dog_cat.xlsx") |> 
@@ -64,9 +59,7 @@ flea_tbl <- read_excel("data/flea_dog_cat.xlsx") |>
 flea_tbl |> kable(align = "c", "pipe")
 ```
 
-Jetzt bauen wir einmal den Zusammenhang zwischen den Schreibweise $y \sim x$ und den beiden Variablen `jump_length` als $y$ und `animal` als $x$ aus dem Datensatz `flea_dog_cat.xlsx` nach. Wir haben also die `formula` Schreibweise in R als `jump_length ~ animal`.
-
-Wir benötigen für den t-Test ein normalverteiltes $y$ und einen Faktor mit zwei Leveln als $x$. Wir nehmen daher mit `select()`die Spalte `jump_length` und `animal` aus dem Datensatz `flea_dog_cat.xlsx`. Wichtig ist, dass wir die Spalte `animal` mit der Funktion `as_factor()` in einen Faktor umwandeln. Anschließend speichern wir die Auswahl in dem Objekt `flea_tbl`.
+Wir benötigen für den t-Test ein normalverteiltes $y$ womit wir uns hier erstmal für die kontinuierliche Sprungweite entscheiden. Dann brauchen wir einen Faktor mit zwei Leveln als $x$ und da bietet sich natürlich die beiden Gruppen Hunde- und Katzenflöhe an. Wir wählen daher mit `select()` die Spalte `jump_length` und `animal` aus dem Datensatz `flea_dog_cat.xlsx` aus. Wichtig ist, dass wir die Spalte `animal` mit der Funktion `as_factor()` in einen Faktor umwandeln. Anschließend speichern wir die Auswahl in dem Objekt `flea_tbl`.
 
 ```{r}
 flea_tbl <- read_excel("data/flea_dog_cat.xlsx") |> 
@@ -87,7 +80,7 @@ Bevor wir einen statistischen Test rechnen, wollen wir uns erstmal die Daten, di
 
 ```{r}
 #| message: false
-#| echo: false
+#| echo: true
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
@@ -107,7 +100,7 @@ Manchmal ist es etwas verwirrend, dass wir uns in einem Boxplot mit Median und I
 
 ```{r}
 #| message: false
-#| echo: false
+#| echo: true
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
@@ -150,9 +143,9 @@ Wir testen grundsätzlich auf ein zweiseitiges $\alpha$-Niveau von 5%.
 
 ## Der t-Test
 
-Dann wollen wir mal den t-Test berechnen. Wir können den t-test wie immer mit der Hand berechnen oder aber in R. Du müsstest die Formel des t-Test in der einfachen Form des Student t-Test gleich wiedererkennen, denn an dem t-Test erkläre ich die statistische Testtheorie. Daher ist hier einiges etwas doppelt dargestellt.
+Dann wollen wir mal den t-Test berechnen. Wir können den t-Test wie immer mit der Hand berechnen oder aber in R. Du müsstest die Formel des t-Test in der einfachen Form des Student t-Test gleich wiedererkennen, denn an dem t-Test erkläre ich die statistische Testtheorie. Daher ist hier einiges etwas doppelt dargestellt.
 
-::: callout-note
+:::: callout-note
 ## Der t-Test in `{infer}`
 
 Auch hier können wir den t-Test in dem R Paket `{infer}` realisieren. Ein Vorteil von `{infer}` ist, dass wir die Funktionen sehr gut mit dem `|>` Operator nutzen können. Deshalb hier einmal die *bessere* Implementierung, da ich finde, dass die Implementierung in `{infer}` intuitiver zu verstehen ist.
@@ -197,7 +190,7 @@ t.test(jump_length ~ animal, data = flea_tbl)
 :::
 
 Eine detailliertere Einführung mit mehr Beispielen für die Nutzung vom [R Paket `{infer}`](https://infer.netlify.app/) findest du im Kapitel [Testen in R](#sec-test-R). Hier soll es dann bei der kurzen Gegenüberstellung bleiben.
-:::
+::::
 
 ### Student t-Test mit Varianzhomogenität
 
