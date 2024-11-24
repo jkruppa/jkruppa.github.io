@@ -1,5 +1,6 @@
 ```{r echo = FALSE}
-pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc,
+               patchwork, see)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
@@ -22,23 +23,23 @@ Der t-Test ist *der* bedeutende Test, wenn es um das Verständnis der Algorithme
 
 Was macht also der t-Test? Der t-Test vergleicht die Mittelwerte zweier Gruppen miteinander. Das heißt wir haben zwei Gruppen, wie Hunde und Katzen, und wollen nun wissen wie sich die Sprungweiten der Hundeflöhe im Mittel von den Katzenflöhen unterscheiden. In R hätten wir damit einen Faktor mit zwei Leveln vorliegen. Darüber hinaus nimmt der t-Test implizit an, das unser Outcome $y$ normalverteilt ist. Die Varianzen können in beiden Gruppen gleich sein, dann sprechen wir von homogenen Varianzen oder Varianzhomogenität. Wir können den t-Test aber auch mit ungleichen Varianzen in beiden Gruppen rechnen, dann sprechen wir von heterogenen Varianzen oder eben Varianzheterogenität. Wir nutzen dann den Welch t-Test.
 
+::: callout-note
+## Nutze den Welch t-Test, wenn du unsicher über die Varianzen bist
+
+Ich kann als Empfehlung nur aussprechen eigentlich immer den Welch t-Test zu nutzen. Sollten die Varianzen dennoch homogen sein, macht der Welch t-Test faktisch nichts schlechter als der Student t-Test. Dafür hat der Student t-Test wirklich Probleme mit ungleichen Varianzen.
+:::
+
 Nun ist es so, das wir häufig einen t-Test verwenden müssen, wenn unsere Fallzahl $n$ sehr klein wird, da nicht-parametrische Methoden dann algorithmisch nicht mehr funktionieren. Hier hilft dann als wissenschaftliche Quelle die Arbeit von @rasch2007robust, die auch unter dem Titel [The Robustness of Parametric Statistical Methods](https://www.researchgate.net/profile/Dieter-Rasch/publication/279377987_The_Influence_of_Different_Shapes_of_Distributions_with_the_Same_First_four_Moments_on_Robustness/links/586b823108aebf17d3a58cbb/The-Influence-of-Different-Shapes-of-Distributions-with-the-Same-First-four-Moments-on-Robustness.pdf) frei verfügbar ist. Wichtig ist eigentlich nur das folgende Zitat aus dem Abstrakt der wissenschaftlichen Arbeit.
 
 > *"All the results are that in most practical cases the two-sample t-test is so robust that it can be recommended in nearly all applications." --- @rasch2007robust*
 
-Unter den meisten Bedingungen ist der t-Test robust gegen die Verletzung der Normalverteilungsannahme. Wenn wir Varianzheterogenität vorliegen haben, dann können wir ja den Welch t-Test rechnen. Aber auch hier ist es dann wichtig auf den konkreten Datenfall zu schauen.
+Unter den meisten Bedingungen ist der t-Test robust gegen die Verletzung der Normalverteilungsannahme. Wenn wir Varianzheterogenität vorliegen haben, dann können wir ja den Welch t-Test rechnen. Aber auch hier ist es dann wichtig auf den konkreten Datenfall zu schauen. Mehr zu der Thematik gibt es auch von @rasch2011two in der Veröffentlichugn [The two-sample t test: pre-testing its assumptions does not pay off](https://link.springer.com/article/10.1007/s00362-009-0224-x) mit dem zentralen Zitat.
 
-------------------------------------------------------------------------
+> *"As a result, we propose that it is preferable to apply no pre-tests for the t test and no t test at all, but instead to use the Welch-test as a standard test: its power comes close to that of the t test when the variances are homogeneous \[...\]."* --- @rasch2011two
 
-@rasch2011two mit [The two-sample t test: pre-testing its assumptions does not pay off](https://link.springer.com/article/10.1007/s00362-009-0224-x)
+Auch findet @de2010five in der Veröffentlichung [Five-point Likert items: t test versus Mann-Whitney-Wilcoxon](https://research.tudelft.nl/en/publications/five-point-likert-items-t-test-versus-mann-whitney-wilcoxon), dass wir uns nicht so richtig um die Normalverteilung sorgen müssen. Auch für Boniturnoten auf der Likertskala kann gut ein t-Test gerechnet werden.
 
-> *"As a result, we propose that it is preferable to apply no pre-tests for the t test and no t test at all, but instead to use the Welch-test as a standard test: its power comes close to that of the t test when the variances are homogeneous, and for unequal variances and skewness values \|γ 1\| \< 3, it keeps the so called 20% robustness whereas the t test as well as Wilcoxon’s U test cannot be recommended for most cases."* --- @rasch2011two
-
-@de2010five mit [Five-point Likert items: t test versus Mann-Whitney-Wilcoxon](https://research.tudelft.nl/en/publications/five-point-likert-items-t-test-versus-mann-whitney-wilcoxon)
-
-> "*In conclusion, for five-point Likert items, the t test and MWW generally have similar power, and researchers do not have to worry about finding a difference whilst there is none in the population."* --- @de2010five
-
-------------------------------------------------------------------------
+> "*In conclusion, for five-point Likert items, the t test and wilcoxon mann whitney test generally have similar power, and researchers do not have to worry about finding a difference whilst there is none in the population."* --- @de2010five
 
 ## Genutzte R Pakete
 
@@ -48,7 +49,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 #| warning: false
 pacman::p_load(tidyverse, magrittr, broom, readxl,
-               infer, conflicted)
+               infer, see, conflicted)
 conflicts_prefer(dplyr::filter)
 set.seed(20221206)
 ```
@@ -85,28 +86,55 @@ Wir haben jetzt die Daten richtig vorbereiten und können uns nun mit dem t-Test
 
 ## Visualiserung
 
-Bevor wir einen statistischen Test rechnen, wollen wir uns erstmal die Daten, die dem Test zugrunde liegen, visualisieren. Wir schauen uns in @fig-boxplot-ttest einmal den Boxplot für die Sprungweiten getrennt nach Hund und Katze an. Wir sehen, dass sich die Boxen nicht überschneiden, ein Indiz für einen signifikanten Unterschied zwischen den beiden Gruppen. Im Weiteren liegt der Median in etwa in der Mitte der beiden Boxen. Die Whisker sind ungefähr gleich bei Hunden und Katzen. Ebenso sehen wir bei beiden Gruppen keine Ausreißer. Wir schließen daher nach der Betrachtung der Boxplots auf Folgendes:
-
-1)  Die Sprungweite ist für beide Gruppen ist annähernd bzw. approximativ normalverteilt.
-2)  Die Standardabweichungen und damit die Varianzen $s^2_{dog} = s^2_{cat}$ der beiden Gruppen sind gleich. Es liegt somit Varianzhomogenität vor.
+Bevor wir einen statistischen Test rechnen, wollen wir uns erstmal die Daten, die dem Test zugrunde liegen, visualisieren. Klassischerweise wollen wir einen t-Test rechnen, da wirzwei Säulen in einem Barplot miteinander vergleichen wollen. Dafür schauen wir uns in @fig-barplot-ttest einmal den Barplot und den Boxplot für die Sprungweiten getrennt nach Hund und Katze an.
 
 ```{r}
+#| echo: false
 #| message: false
-#| echo: true
+#| warning: false
+#| label: fig-barplot-ttest
 #| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: Boxplot der Sprungweiten [cm] von Hunden und Katzen.
-#| label: fig-boxplot-ttest
+#| fig-height: 4.5
+#| fig-width: 7
+#| fig-cap: "Visualisierung der Sprungweiten der Hunde- und Katzenflöhe. **(A)** Säulendiagramm oder Barplot mit den Mittelwerten und der Standardabweichung. **(B)** Boxplot mit den Median und dem IQR. *[Zum Vergrößern anklicken]*"
 
-ggplot(flea_tbl, aes(x = animal, y = jump_length, 
+stat_tbl <- flea_tbl |> 
+  group_by(animal) |> 
+  summarise(mean = mean(jump_length),
+            sd = sd(jump_length),
+            se = sd/sqrt(n()))
+
+p1 <- ggplot(stat_tbl, aes(x = animal, y = mean, fill = animal)) + 
+  theme_minimal() +
+  geom_bar(stat = "identity") +
+  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd),
+                width = 0.2) +
+  labs(x = "Tierart", y = "Sprungweite [cm]") +
+  theme(legend.position = "none") +
+  scale_x_discrete(labels = c("Hund", "Katze")) +
+  scale_fill_okabeito()
+
+p2 <- ggplot(flea_tbl, aes(x = animal, y = jump_length, 
                      fill = animal)) +
   geom_boxplot() +
   labs(x = "Tierart", y = "Sprungweite [cm]") +
   theme_minimal() +
-  theme(legend.position = "none") 
+  theme(legend.position = "none") +
+  scale_x_discrete(labels = c("Hund", "Katze")) +
+  scale_fill_okabeito()
+
+p1 + p2 + 
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A') +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
 
 ```
+
+Zum einen sind die Mittelwerte der Barplots nicht auf einer Höhe. Dies spricht schon mal dafür, dass wir hier einen Unterschied in den Sprungweiten vorliegen haben könnten. Schauen wir auch einmal auf die Boxplots. Wir sehen, dass sich die Boxen nicht überschneiden, ein Indiz für einen signifikanten Unterschied zwischen den beiden Gruppen. Im Weiteren liegt der Median in etwa in der Mitte der beiden Boxen. Die Whisker sind ungefähr gleich bei Hunden und Katzen. Ebenso sehen wir bei beiden Gruppen keine Ausreißer. Wir schließen daher nach der Betrachtung der beiden Abbildungen auf Folgendes:
+
+1)  Die Sprungweite ist für beide Gruppen ist annähernd bzw. approximativ normalverteilt.
+2)  Die Standardabweichungen und damit die Varianzen $s^2_{dog} = s^2_{cat}$ der beiden Gruppen sind gleich. Es liegt somit Varianzhomogenität vor.
 
 Manchmal ist es etwas verwirrend, dass wir uns in einem Boxplot mit Median und IQR die Daten für einen t-Test anschauen. Immerhin rechnet ja ein t-Test mit den Mittelwerten und der Standardabweichung. Hier vergleichen wir etwas Äpfel mit Birnen. Deshalb in der @fig-dotplot-ttest der Dotplot mit dem Mittelwert und den entsprechender Standardabweichung als Fehlerbalken.
 
@@ -114,31 +142,32 @@ Manchmal ist es etwas verwirrend, dass wir uns in einem Boxplot mit Median und I
 #| message: false
 #| echo: true
 #| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
+#| fig-height: 4.5
+#| fig-width: 6
 #| fig-cap: Dotplot der Sprungweiten [cm] von Hunden und Katzen zusammen mit dem Mittelwert und der Stanardabweichung als Fehlerbalken.
 #| label: fig-dotplot-ttest
 
 
 ggplot(flea_tbl, aes(x = animal, y = jump_length, 
-                     fill = animal)) + 
+                             fill = animal)) + 
+  theme_minimal() +  
   geom_dotplot(binaxis = 'y', stackdir = 'center') + 
   stat_summary(fun.data = mean_sdl, fun.args = list(mult=1), 
                geom = "errorbar", color = "black", width = 0.1) +
   stat_summary(fun = "mean", geom="point", color="black", size = 5) +
   labs(x = "Tierart", y = "Sprungweite [cm]") +
-  theme_minimal() +
   theme(legend.position = "none") +
-  scale_x_discrete(labels = c("Hund", "Katze")) 
+  scale_x_discrete(labels = c("Hund", "Katze")) +
+  scale_fill_okabeito()
 
 
 ```
 
-Wir nutzen aber später häufig den Boxplot zur Visualisierung der einzelnen Gruppen. Über den Boxplot können wir auch gut abschätzen, ob wir eine annährende bzw. approximative Normalverteilung vorliegen haben.
+Wir nutzen aber später häufig den Boxplot zur Visualisierung der einzelnen Gruppen. Über den Boxplot können wir auch gut abschätzen, ob wir eine annähernde bzw. approximative Normalverteilung vorliegen haben. Häufig werden aber auch Barplots verlangt, so dass du hier relativ frei bist, was du verwendest. Am Ende ist es aber nicht so wichtig, ob wir eine Normalverteilung vorliegen haben oder nicht. Der t-Test ist recht robust gegen eine Abweichung. Viel wichtiger ist, das du eben Mittelwerte vergleichst. Also dann zum Beispiel mittlere Boniturnoten oder mittlere Anzahlen.
 
 ## Hypothesen
 
-Ohne eine Hypothese ist das Ergebnis eines statistischen Tests wie auch der t-Test nicht zu interpretieren. Wir berechenen eine Teststatistik und einen p-Wert. Beide statistischen Maßzahlen machen eine Aussage über die beobachteten Daten $D$ unter der Annahme, das die Nullhypothese $H_0$ gilt.
+Ohne eine Hypothese ist das Ergebnis eines statistischen Tests wie auch der t-Test nicht zu interpretieren. Wir berechnen eine Teststatistik und einen p-Wert. Beide statistischen Maßzahlen machen eine Aussage über die beobachteten Daten $D$ unter der Annahme, das die Nullhypothese $H_0$ gilt.
 
 Wie lautet nun das Hypothesenpaar des t-Tests? Der t-Test vergleicht die Mittelwerte von zwei Gruppen. Die Nullhypothese ist auch die Gleichheitshypothese. Die Alternativehypothese haben wir auch als Unterschiedshypothese bezeichnet.
 
@@ -154,8 +183,6 @@ $$
 Wir testen grundsätzlich auf ein zweiseitiges $\alpha$-Niveau von 5%.
 
 ## Der t-Test
-
-![](images/caution.png){fig-align="center" width="50%"}
 
 Dann wollen wir mal den t-Test berechnen. Den t-Test gibt es in drei Varianten, je nachdem, was wir für Fallzahlen oder aber Varianzen vorliegen haben. Wir können den t-Test wie immer mit der Hand berechnen oder aber in R sowie in Excel. Wir konzentrieren uns hier einmal auf die händsiche Berechnung für die Klausur und die Anwendung in R. Ich habe aber nochmal ein Video aufgenommen für die Anwendung des t-Tests in Excel. Manchmal gibt es ja den Notfall, dass nur Excel geht. Du müsstest die Formel des t-Test in der einfachen Form des Student t-Test gleich wiedererkennen, denn an dem t-Test erkläre ich die statistische Testtheorie und die Testentscheidung.
 
@@ -289,7 +316,7 @@ Ich habe einmal ein Video eingesprochen indem ich nochmal zeige, wie du in Excel
 
 ### Welch t-Test mit Varianzheterogenität
 
-Jetzt stellt sich natürlich sofort die Frage, was ist, wenn ich nicht die gleichen Varianzen in den beiden Gruppen vorliegen habe oder aber eben mir nicht sicher bin, ob die Varianzen *wirklich* gleich sind? Dann kannst du auch den Welch t-Test nutzen. Der Welch t-Test verlangt keine Varianzhomogenität zwischen den beiden Gruppen. Es kann also die Varianz jeweils unterschiedliche sein. Auch kann die Fallzahl in den beiden Gruppen variieren, was manchmal auch sehr praktisch sein kann.
+Jetzt stellt sich natürlich sofort die Frage, was ist, wenn ich nicht die gleichen Varianzen in den beiden Gruppen vorliegen habe oder aber eben mir nicht sicher bin, ob die Varianzen *wirklich* gleich sind? Dann kannst du auch den Welch t-Test nutzen. Der Welch t-Test verlangt keine Varianzhomogenität zwischen den beiden Gruppen. Es kann also die Varianz jeweils unterschiedliche sein. Auch kann die Fallzahl in den beiden Gruppen variieren, was manchmal auch sehr praktisch sein kann. Im Allgemeinen empfehle ich eigentlich immer als Standard, wie es auch in R ist, den Welch t-Test zu nutzen. Wenn die Varianzen homogen sind, dann verlierst du nicht viel. Auf der anderen Seite gewinnst du aber mehr, wenn die Varianzen heterogen sind.
 
 ::: panel-tabset
 ## Theoretisch
@@ -378,6 +405,14 @@ t.test(jump_length ~ animal,
        data = flea_tbl, var.equal = FALSE)
 ```
 
+Wir erhalten eine sehr lange Ausgabe, die auch etwas verwirrend aussieht. Gehen wir die Ausgabe einmal durch. Ich gehe nicht auf alle Punkte ein, sondern konzentriere mich hier auf die wichtigsten Aspekte.
+
+-   `t = 3.1253` ist die berechnete Teststatistik $T_{D}$. Der Wert unterscheidet sich leicht von unserem berechneten Wert. Der Unterschied war zu erwarten, wir haben ja auch die t-Test Formel vereinfacht.
+-   `p-value = 0.008906` ist der berechnete p-Wert $Pr(T_{D}|H_0)$ aus der obigen Teststatistik. Daher die Fläche rechts von der Teststatistik.
+-   `95 percent confidence interval: 1.021587 5.749842` ist das 95% Konfidenzintervall. Die erste Zahl ist die untere Grenze, die zweite Zahl ist die obere Grenze.
+
+Wir nutzen auch hier den p-Wert für unsere Testentscheidung. Daher vergleichen wir den p-Wert mit dem $\alpha$-Niveau von 5%. Da der p-Wert kleiner ist als das $\alpha$-Niveau können wir wie Nullhypothese ablehnen. Wir haben einen signifikanten Unterschied. Die Entscheidung mit dem Konfidenzintervall benötigt die Signifikanzschwelle. Wenn die 0 im Konfidenzintervall liegt können wir die Nullhypothese nicht ablehnen. Das Konfidenzintervall läuft von 1.022 bis 5.75. Damit ist die 0 nicht im Konfidenzintervall enthalten und wir können die Nullhypothese ablehnen. Wir haben ein signifikantes Konfidenzintervall vorliegen.
+
 Wir sehen das viele Zahlen nahezu gleich zum Student t-Test sind. Das liegt auch daran, dass wir in unserem Daten keine große Abweichung von der Varianzhomogenität haben. Wir erhalten die gleichen Aussagen wie auch schon im Student t-Test. Schauen wir uns nochmal die Ausgabe der Funktion `tidy()` zum Abschluss an.
 
 ```{r}
@@ -398,6 +433,8 @@ Wir sehen hier etwas besser, dass es kaum Abweichungen gibt. Alles egal? Nicht u
 Für das Erkennen von Normalverteilung und Varianzheterogenität werden häufig so genannte Vortest empfohlen. Aber auch hier gilt, bei kleiner Fallzahl liefern die Vortests keine verlässlichen Ergebnisse. In diesem Fall ist weiterhin die Beurteilung über einen Boxplot sinnvoller. Du findest hier mehr Informationen im Kapitel zum [Pre-Test oder Vortest](#sec-pretest).
 
 ### Verbundene t-Test mit abhängigen Beobachtungen
+
+![](images/caution.png){fig-align="center" width="50%"}
 
 ::: panel-tabset
 ## Theoretisch
@@ -452,6 +489,8 @@ t.test(paired_raw_tbl$fed, paired_raw_tbl$unfed, paired = TRUE)
 ```
 
 Die Ausgabe des paired t-Test ähnelt stark der Aussage des Student t-Test. Wir erhalten ebenfalls den wichtigen p-Wert mit 0.0025 sowie das 95% Konfidenzintervall mit \[0.47; 1.13\]. Zum einen ist $0.0025 < \alpha$ und somit können wir die Nullhypothese ablehnen, zum anderen ist auch die 0 nicht mit in dem Konfidenzintervall, womit wir auch hier die Nullhypothese ablehnen können.
+
+## Excel
 :::
 
 ## Freiheitsgrade
