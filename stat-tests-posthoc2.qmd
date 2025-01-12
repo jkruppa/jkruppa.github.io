@@ -40,8 +40,8 @@ gg_template <- ggplot() +
 #| warning: false
 #| label: fig-posthoc-temp
 #| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
+#| fig-height: 4
+#| fig-width: 7
 #| fig-cap: "Visueller Zusammenhang eines gemittelten Outcomes ($y$) aus einer Normalverteilung im Verhältnis zu der Einflussvariable ($x$) mit zwei oder mehr Kategorien anhand von Barplots. Hauptsächlich unterscheiden sich die Barplots durch die unterschiedlichen Einheiten auf der $y$-Achse. Die Fehlerbalken stellen den Standardfehler (*SE*) dar. *[Zum Vergrößern anklicken]*"
 
 gg_template %+%
@@ -122,8 +122,8 @@ fac1_tbl |>
 #| message: false
 #| echo: false
 #| fig-align: center
-#| fig-height: 5
-#| fig-width: 6
+#| fig-height: 4
+#| fig-width: 7
 #| fig-cap: "Boxplot der Sprungweiten [cm] von Hunden und Katzen gemessen an verschiedenen Orten."
 #| label: fig-boxplot-emmeans-fac1
 
@@ -131,7 +131,8 @@ ggplot(fac1_tbl, aes(x = animal, y = jump_length, fill = animal)) +
   geom_boxplot() +
   scale_fill_okabeito() +
   labs(x = "Tierart", y = "Sprungweite [cm]") +
-  theme_minimal() 
+  theme_minimal() +
+  theme(legend.position = "none")
 ```
 
 Wir machen den Datensatz mal kleiner
@@ -141,7 +142,7 @@ Wir machen den Datensatz mal kleiner
 
 fac2_tbl <- read_xlsx("data/flea_dog_cat_fox_site.xlsx") |> 
   select(animal, site, jump_length) |> 
-  filter(site != "smalltown") |> 
+  filter(site %in% c("city", "village")) |> 
   mutate(animal = as_factor(animal),
          site = as_factor(site))
 ```
@@ -182,8 +183,8 @@ fac2_tbl |>
 #| message: false
 #| echo: false
 #| fig-align: center
-#| fig-height: 5
-#| fig-width: 6
+#| fig-height: 4
+#| fig-width: 7
 #| fig-cap: "Boxplot der Sprungweiten [cm] von Hunden und Katzen gemessen an verschiedenen Orten."
 #| label: fig-boxplot-emmeans-fac2
 
@@ -191,7 +192,7 @@ ggplot(fac2_tbl, aes(x = animal, y = jump_length,
                      fill = site)) +
   geom_boxplot() +
   scale_fill_okabeito() +
-  labs(x = "Tierart", y = "Sprungweite [cm]") +
+  labs(x = "Tierart", y = "Sprungweite [cm]", fill = "Messort") +
   theme_minimal() 
 ```
 
@@ -359,11 +360,11 @@ Text
 
 Varianzheterogenität
 
-:   Wir können in `{emmeans}` eine mögliche Varianzheterogenität modellieren. In allen Beispielen hier, werde ich das machen.
+:   Wir können in `{emmeans}` eine mögliche Varianzheterogenität modellieren. In allen Beispielen hier, werde ich das machen. Dazu nutze ich dann die Option `vcov. = sandwich::vcovHAC` im `emmeans()` Funktionsaufruf. In dem R Paket `{sandwich}` gibt es eine riesige Anzahl an möglichen Funktionen um für Varianzheterogenität zu adjustieren. Wir nutzen hier die Option `vcovHAC`, die in vielen Fällen vollkommen ausrichend ist. Wenn du nicht für die Varianzheterogenität adjustieren möchtest, dann rechnest du faktisch einen Tukey HSD Test. Der Tukey HSD Test rechnet *immer* mit Varianzhomogenität.
 
 Adjustierung für multiple Vergleiche
 
-:   Das Paket `{emmeans}` kann sehr einfach für die Adjustierung von multiplen Vergleichen angepasst werden
+:   Das Paket `{emmeans}` kann sehr einfach für die Adjustierung von multiplen Vergleichen angepasst werden um adjustierte p-Werte zu erhalten. In der Standardeinstellung nutzt `{emmeans}` die Quartile aus einem Tukey HSD Test und somit ist `{emmeans}` gar nicht so weit weg von dem Tukey HSD Test. Ich stelle aber meistens die Adjustierung auf Bonferroniadjustierung mit der Option `adjust = "bonferroni"`, da diese Adjustierung etwas eingängiger ist. Das bleibt aber dir überlassen, ob du überhaupt eine Adustierung wählen willst. Mit der Option `adjust = "none"` stellst du die Adjustierung für multiple Vergleiche aus. Du erhälst die rohen p-Werte.
 
 Vergleiche
 
@@ -376,15 +377,21 @@ fac1_fit <- lm(jump_length ~ animal, data = fac1_tbl)
 ```
 
 ```{r}
-comp_fac1_obj <- fac1_fit |>  
-  emmeans(~ animal) |> 
-  contrast(method = "pairwise", adjust = "bonferroni") 
+emm_fac1_obj <- fac1_fit |>  
+  emmeans(~ animal, vcov. = sandwich::vcovHAC) 
 
-comp_fac1_obj
+emm_fac1_obj
 ```
 
 ::: panel-tabset
 ## p-Werte
+
+```{r}
+comp_fac1_obj <- emm_fac1_obj |> 
+  contrast(method = "pairwise", adjust = "bonferroni") 
+
+comp_fac1_obj
+```
 
 ```{r}
 #| message: false
@@ -396,22 +403,21 @@ comp_fac1_obj
 #| fig-cap: "Visualisierung der Ergebnisse im Pairwise P-value plot."
 #| label: fig-emmeans-3
 
-fac1_fit |> 
-  emmeans(~ animal) |> 
+emm_fac1_obj |> 
   pwpp(adjust = "bonferroni") +
   theme_minimal()
 ```
 
 ```{r}
-fac1_fit |> 
-  emmeans(~ animal) |> 
+emm_fac1_obj |> 
   pwpm(adjust = "bonferroni")
 ```
 
 ## *Compact Letter Display*
 
 ```{r}
-comp_fac1_obj |> 
+emm_fac1_obj |> 
+  contrast(method = "pairwise") |>  
   cld(Letters = letters, adjust = "bonferroni")
 ```
 
@@ -420,7 +426,8 @@ comp_fac1_obj |>
 ```{r}
 #| message: false
 #| warning: false
-res_fac1_ci_obj <- comp_fac1_obj |> 
+res_fac1_ci_obj <- emm_fac1_obj |> 
+  contrast(method = "pairwise") |> 
   tidy(conf.int = TRUE) |> 
   select(contrast, estimate, adj.p.value, conf.low, conf.high) |> 
   mutate(across(where(is.numeric), round, 4))
@@ -459,30 +466,47 @@ $$
 fac2_fit <- lm(jump_length ~ animal + site + animal:site, data = fac2_tbl)
 ```
 
-```{r}
-comp_fac2_obj <- fac2_fit |> 
-  emmeans(~ animal | site) |> 
-  contrast(method = "pairwise", adjust = "bonferroni") 
-
-comp_fac2_obj
-```
+Wir müssen uns jetzt entscheiden wie wir die beiden Faktoren $f_1$ mit `animal` und $f_2$ mit `site` auswerten wollen. Wir können den Faktor `animal` getrennt für jedes Level des Faktors `site` vergleichen oder wir vergleichen alle Faktorkombinationen gemeinsam.
 
 ::: panel-tabset
-## Getrennt für $f_1$ und $f_2$
+## Getrennt für $f_1$ und $f_2$ mit $\boxed{\sim f_1 | f_2}$
 
-## Gemeinsam für $f_1$ und $f_2$
+```{r}
+emm_fac2_separate_obj <- fac2_fit |> 
+  emmeans(~ animal | site, vcov. = sandwich::vcovHAC) 
+
+emm_fac2_separate_obj
+```
+
+## Gemeinsam für $f_1$ und $f_2$ mit $\boxed{\sim f_1 * f_2}$
+
+```{r}
+emm_fac2_combinded_obj <- fac2_fit |> 
+  emmeans(~ animal * site, vcov. = sandwich::vcovHAC) 
+
+emm_fac2_combinded_obj
+```
 :::
 
 ::: panel-tabset
 ## p-Werte
 
 ```{r}
-comp_fac2_obj |> 
+comp_fac2_separate_obj <- emm_fac2_separate_obj |> 
+  contrast(method = "pairwise", adjust = "bonferroni")
+
+comp_fac2_separate_obj
+```
+
+```{r}
+comp_fac2_separate_obj |> 
   summary() |> 
   as_tibble() |> 
   select(contrast, site, p.value) |> 
   mutate(p.value = format.pval(p.value, eps = 0.001, digits = 2))
 ```
+
+Hier müssen wir dann nochmal emmeans aufrufen! Wir machen das hier nochmal für getrennt.
 
 ```{r}
 #| message: false
@@ -490,34 +514,36 @@ comp_fac2_obj |>
 #| echo: true
 #| fig-align: center
 #| fig-height: 3
-#| fig-width: 5
+#| fig-width: 8
 #| fig-cap: "Visualisierung der Ergebnisse im Pairwise P-value plot."
 #| label: fig-emmeans-foo-2
 
-fac2_fit |> 
-  emmeans(~ animal | site) |> 
+
+emm_fac2_separate_obj |> 
   pwpp(adjust = "bonferroni") +
   theme_minimal()
+
 ```
 
 ```{r}
-fac2_fit |> 
-  emmeans(~ animal | site) |> 
+emm_fac2_separate_obj |>   
   pwpm(adjust = "bonferroni")
 ```
 
 ## *Compact Letter Display*
 
 ```{r}
-comp_fac2_obj |> 
+emm_fac2_separate_obj |> 
+  contrast(method = "pairwise") |>  
   cld(Letters = letters, adjust = "bonferroni")
 ```
 
 ## 95% Konfidenzintervall
 
 ```{r}
-comp_fac2_ci_obj <- comp_fac2_obj |> 
-  confint() |> 
+comp_fac2_ci_obj <- emm_fac2_separate_obj |> 
+  contrast(method = "pairwise") |> 
+  confint(adjust = "bonferroni") |> 
   as_tibble() |> 
   select(contrast, site, estimate, conf.low = lower.CL, conf.high = upper.CL) 
 
@@ -534,14 +560,14 @@ comp_fac2_ci_obj
 #| fig-cap: Die 95% Konfidenzintervalle für den *allpair*-Vergleich des Models mit Interaktionseffekt.
 #| label: fig-emmeans-2
 
-  ggplot(comp_fac2_ci_obj, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high,
-                        color = site, group = site)) +
-    geom_hline(yintercept=0, linetype="11", colour="grey60") +
-    geom_errorbar(width=0.1, position = position_dodge(0.5)) + 
-    geom_point(position = position_dodge(0.5)) +
-    scale_color_okabeito() +
-    coord_flip() +
-    theme_classic()
+ggplot(comp_fac2_ci_obj, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high,
+                             color = site, group = site)) +
+  geom_hline(yintercept=0, linetype="11", colour="grey60") +
+  geom_errorbar(width=0.1, position = position_dodge(0.5)) + 
+  geom_point(position = position_dodge(0.5)) +
+  scale_color_okabeito() +
+  coord_flip() +
+  theme_classic()
 ```
 :::
 
