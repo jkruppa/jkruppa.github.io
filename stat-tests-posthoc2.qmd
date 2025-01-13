@@ -308,7 +308,7 @@ p1 + p2 +
 
 ## Der ANOVA Pfad mit Tukey HSD
 
-Der Tukey HSD Test (abk. *HSD Test*) hat viele Namen. Im Englischen kennen wir den Tukey HSD Test auch als *Tukey's range test* oder aber als *Tukey's test*, *Tukey method*, *Tukey's honest significance test* oder eben *Tukey's HSD (honestly significant difference)* Test. Dabei steht die Abkürzung HDS für *honestly significant difference* (deu. *ehrlich signifikanter Unterschied*). Für mich etwas weit aus dem Fenster gelehnt, aber der Name sagt hier mal was auch wirklich gemacht wird. Im Prinzip stellen wir nur die Formel von den Student t-Test einmal um und benennen alles neu. Dann sieht man auch nicht gleich, was Sache ist und jeder denkt, es wäre was Neues. Wir werden hier aber mal den Tukey HSD Test zerforschen. Wir nutzen aber die ANOVA um einmal die Streuung und die Effekte zu berechnen. Daher nenne ich das ganze hier auch den ANOVA Pfad. Der Tukey HSD Test basiert eben mehr oder minder auf der Ausgabe einer ANOVA.
+Der Tukey HSD Test (abk. *HSD Test*) hat viele Namen. Im Englischen kennen wir den Tukey HSD Test auch als *Tukey's range test* oder aber als *Tukey's test*, *Tukey method*, *Tukey's honest significance test* oder eben *Tukey's HSD (honestly significant difference)* Test. Dabei steht die Abkürzung HDS für *honestly significant difference* (deu. *ehrlich signifikanter Unterschied*). Für mich etwas weit aus dem Fenster gelehnt, aber der Name sagt hier mal was auch wirklich gemacht wird. Im Prinzip stellen wir nur die Formel von den Student t-Test einmal um und benennen alles neu. Dann sieht man auch nicht gleich, was Sache ist und jeder denkt, es wäre was Neues. Wir werden hier aber mal den Tukey HSD Test zerforschen. Wir nutzen aber die ANOVA um einmal die Streuung und die Effekte zu berechnen. Daher nenne ich das ganze hier auch den ANOVA Pfad. Der Tukey HSD Test basiert eben mehr oder minder auf der Ausgabe einer ANOVA. Mehr Informationen gibt es auch im Tutorial [Post-Hoc Analysis with Tukey’s Test](https://rpubs.com/aaronsc32/post-hoc-analysis-tukey).
 
 Varianzhomogenität
 
@@ -318,9 +318,13 @@ Adjustierung für multiple Vergleiche
 
 :   Der Tukey HSD Test adjustiert für die $\alpha$-Inflation bei multiplen Vergleichen. Wir müssen da auch nichts weiter machen um die Adjustierung durchzuführe. Das macht die Funktion `TukeyHSD()` für uns automatisch. Auf der anderen Seite können wir die Adjustierung für multiple Vergleiche aber auch nicht ausschalten. Du erhälst *immer* adjustierte p-Werte aus einem Tukey HSD Test. Wenn du das nicht möchtest, dann nutze einfach das R Paket `{emmeans}`, welches du weiter unten findest.
 
+Mögliche multiple Vergleiche
+
+:   Wir können immer nur alle Gruppen mit allen anderen Gruppen vergleichen. Wir rechnen also einen *all pair* Vergleich. Wenn du zum Beispiel nur die Behandlungsgruppen zur Kontrolle vergleichen willst, aber nciht untereinander, dann ist das nicht mit dem Tukey HDS Test möglich. Dafür musst du dann das R Paket `{ememans}` oder für noch komplexere Gruppenvergleiche das R Paket `{multcomp}` nutzen.
+
 Schauen wir uns nun einmal an, wie der Tukey HSD Test theoretisch funktioniert und wie die Implmentierugn in R dargestellt ist. Wir haben die Wahl zwischen der Funktion `TukeyHSD()` und der Funktion `HSD.test()` aus dem R Paket `{agricolae}`. Die Funktion `HSD.test()` liefert auch gleich das *Compact letter display* in der Ausgabe mit. Sonst sind die beiden Funktionen sehr ähnlich.
 
-::: panel-tabset
+:::: panel-tabset
 ## Theoretisch
 
 Zuerst einmal die Formel des Tukey HSD Test. Wir berechnen dabei asl statistische Maßzahl den HSD-Wert, der nichts anderes aussagt als der minimal Mittelwertsunterschied, den wir gegeben der Streuung und der Fallzahl in den Daten als signifikant nachweisen können. Sozusagen der minimalste mögliche signifikante Mittelwertsunterschied.
@@ -335,7 +339,15 @@ mit
 -   $q_{\alpha=5\%, k, n-k}$, den kritsichen Wert gegeben aus dem Signifikanzniveau $\alpha$ gleich 5% der Anzahl an zu vergleichenden Gruppen $k$ und einem Freiheitsgrad $n-k$.
 -   $\sqrt{\tfrac{MSE}{n}}$, der Streuung in den Daten gewichtet für die Fallzahl $n$. Hier wird die Streuung über alle Gruppen hinweg berechnet.
 
-Wir können uns das Ganze auch nochmal in der folgenden Tabelle als Vergleich zu dem Student t-Test anschauen. Ich habe dort einmal die statistsichen Maßzahlen aus einem Tukey HDS Test den statistischen Maßzahlen eines Student t-Test gegebüber gestellt.
+Wir können uns das Ganze auch nochmal in der folgenden Tabelle als Vergleich zu dem Student t-Test anschauen. Hier dann erstmal noch die beiden Formeln.
+
+$$
+\begin{array}{c|c}
+  HSD = q_{\alpha=5\%, k, n-k} \cdot \sqrt{\tfrac{MSE}{n}} & \bar{y}_1 - \bar{y}_2 =  T_{\alpha=5\%} \cdot s_p\sqrt{\tfrac{2}{n_g}}
+\end{array}
+$$
+
+Ich habe dort einmal die statistischen Maßzahlen aus einem Tukey HDS Test den statistischen Maßzahlen eines Student t-Test in der folgenden Tabelle gegenüber gestellt. Du siehst, dass wir hier eigentlich nur eine Umstellung der t-Test Formel haben.
 
 |                 | Tukey HSD Test           | Student t-Test             |
 |-----------------|--------------------------|----------------------------|
@@ -345,11 +357,61 @@ Wir können uns das Ganze auch nochmal in der folgenden Tabelle als Vergleich zu
 
 : Etwas wilder Vergleich vom Tukey HSD Test zum Student t-Test. Im Prinzip ist der Tukey HSD Test nur eine Umsstellung der Formel des Student t-Test. {#tbl-hds-ttest}
 
+Um die Idee des Tukey HDS Test zusammenzufassen, setzen wir für $q_{\alpha=5\%, k, n-k}$ den Wert ein, den wir mindestens erreichen müssen um einen signifikanten Unterschied nachweisen zu können. Bei dem Student t-Test war es meist $T_{\alpha=5\%}$ gleich $1.96$, hier ist der Wert für $q_{\alpha=5\%, k, n-k}$ natürlich anders. Dann können wir den minimalen Mittelwertsunterschied mit $\bar{y}_1 - \bar{y}_2$ oder eben $HSD$ berechnen, denn wir mindestens erreichen müssen um einen signifikanten Unetrschied nachweisen zu können. Alle Mittelwertsdifferenzen größer als der $HDS$ Wert werden dann signifikant sein und alle Mittelwertsdifferenzen kleiner als der $HDS$ Wert nicht signifikant sein.
+
+::: callout-note
+## Entscheidung mit dem HDS Wert
+
+Wenn eine Mittelwertsdifferenz $\bar{y}_i - \bar{y}_j$ eines Gruppenvergleiches *größer* ist als der HDS Wert dann wird die Nullhypothese (H$_0$) abgelehnt. Ist die Mittelwertsdifferenz $\bar{y}_i - \bar{y}_j$ eines Gruppenvergleiches ist als der HDS Wert dann wird die Nullhypothese (H$_0$) beibehalten.
+:::
+
+## Händisch
+
+Im Folgenden wollen wir einmal den Tuley HSD Test nachvollziehen. Dafür hier nochmal die Formel, die wir dann mit den entsprechenden Werten ausfüllen müssen. Wir beginnen mit dem q-Wert und erhalten den MSE Wert aus einer ANOVA.
+
 $$
-\begin{array}{c|c}
-  HSD = q_{\alpha=5\%, k, n-k} \cdot \sqrt{\tfrac{MSE}{n}} & \bar{y}_1 - \bar{y}_2 =  T_{\alpha=5\%} \cdot s_p\sqrt{\tfrac{2}{n_g}}
-\end{array}
+HSD = q_{\alpha=5\%, k, n-k} \cdot \sqrt{\tfrac{MSE}{n}}
 $$
+
+Für die semi händische Berechnung des Tukey HSD Test brauchen wir erstmal die Werte für die gesamte Fallzahl in dem Datensatz $N$, dann noch die Anzahl an Behandlungsgruppen $k$ und abschließend die Fallzahl pro Gruppe $n$. Ich nutze hier dann den Datensatz `fac1_tbl` mit der Sprungweite von 21 Flöhen von drei Tierrassen mit jeweils sieben Beobachtungen pro Gruppe. Dann geben wir das Ganze einmal bei R ein.
+
+```{r}
+N <- 21
+k <- 3
+n <- 21 / 3
+```
+
+Die Funktion `qtukey()` gibt uns den q-Wert anhand des Signifikanzniveaus $1 - \alpha$ sowie der Anzahl an Gruppen $k$ und der dem Freiheitsgrad $N-k$ wieder.
+
+```{r}
+qtukey(p = 0.95, nmeans = k, df = N - k)
+```
+
+Dann brauchen wir noch den Wert für die Streuung $MSE$. Den MSE Wert könnten wir auch händisch berechnen, aber normalerweise nutzen wir auch die ANOVA um an den Wert zu gelangen. Daher hier einmal die ANOVA und wir lesen den Wert für MSE in der Ergebnistabelle ab.
+
+```{r}
+fac1_av <- aov(jump_length ~ animal, data = fac1_tbl)
+summary(fac1_av)
+```
+
+Nun wissen wir den Wert für $MSE$ mit $3.14$ aus der Tabelle der einfaktoriellen ANOVA. Dann können wir auch schon den HSD Wert anhand der Formel berechnen in dem wir die Werte einsetzen.
+
+```{r}
+hsd <- 3.61 * sqrt(3.14 / 7)
+hsd
+```
+
+Am Ende müssen wir dann die Mittelwertsdifferenzen unserer Tierarten mit dem HDS Wert vergleichen. Dafür ahbe ich einmal die folgende Tabelle aufgebaut. Wichtig ist hier, dass wir mit den Beträgen der Mittelwertsdifferenz rechnen, sonst macht der Vergleich zum HDS Wert keinen Sinn. Wir erhalten also zwei signifikante Vergleiche. Die Sprungweiten der Katzenflöhe unterscheiden sich von den Sprungweiten der Fuchs- und Hundeflöhe.
+
+| Vergleich | Mittelwertsdifferenz | HDS Testentscheidung |
+|----|----|----|
+| cat-dog | $4.74 - 8.13 = -3.39$ | $\mid-3.39\mid\; \geq 2.42 \rightarrow \mbox{signifikant}$ |
+| fox-dog | $9.16 - 8.13 = \phantom{-}1.03$ | $\mid1.03\mid\; \geq 2.42 \rightarrow \mbox{nicht signifikant}$ |
+| fox-cat | $9.16 - 4.74 = \phantom{-}4.42$ | $\mid4.42\mid\; \geq 2.42 \rightarrow \mbox{signifikant}$ |
+
+: Händische Testentscheidung anhand des berechneten HDS Wert und den Mittelwertsdifferenzen der drei Tierarten. Wenn eine Mittelwertsdifferenz größer ist als der HDS Wert, dann liegt ein signifikanter Unterschied vor. {#tbl-hds-ttest-händisch}
+
+Am Ende willst du das natürlich nicht händische machen sondern wir nutzen die Funktionen in R um uns die Testentscheidung auch mit einem p-Wert berechnen zu lassen. Ganz wichtig hier nochmal, wir glauben daran, dass die Varianz in allen drei Tierarten gleich ist. Wir haben Varianzhomogenität vorliegen.
 
 ## `TukeyHSD()`
 
@@ -412,9 +474,7 @@ summary(fac2_av)
 tukey_fac2_obj <- HSD.test(fac2_av, trt = 'animal')
 tukey_fac2_obj
 ```
-:::
-
-[Post-Hoc Analysis with Tukey’s Test](https://rpubs.com/aaronsc32/post-hoc-analysis-tukey)
+::::
 
 ## Der effektive Pfad mit `{emmeans}`
 
@@ -428,7 +488,7 @@ Adjustierung für multiple Vergleiche
 
 :   Das Paket `{emmeans}` kann sehr einfach für die Adjustierung von multiplen Vergleichen angepasst werden um adjustierte p-Werte zu erhalten. In der Standardeinstellung nutzt `{emmeans}` die Quartile aus einem Tukey HSD Test und somit ist `{emmeans}` gar nicht so weit weg von dem Tukey HSD Test. Ich stelle aber meistens die Adjustierung auf Bonferroniadjustierung mit der Option `adjust = "bonferroni"`, da diese Adjustierung etwas eingängiger ist. Das bleibt aber dir überlassen, ob du überhaupt eine Adustierung wählen willst. Mit der Option `adjust = "none"` stellst du die Adjustierung für multiple Vergleiche aus. Du erhälst die rohen p-Werte.
 
-Vergleiche
+Mögliche multiple Vergleiche
 
 :   Wir können auch eine andere Kontrolle wählen `contrast(method = "trt.vs.ctrl", ref = "fox")`
 
