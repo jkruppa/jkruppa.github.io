@@ -458,100 +458,275 @@ Figure&nbsp;5: Visueller <em>[Zum Vergrößern anklicken]</em>
 </div>
 </section>
 </section>
-<section id="der-anova-pfad-mit-tukeyhsd" class="level2">
-<h2 class="anchored" data-anchor-id="der-anova-pfad-mit-tukeyhsd">Der ANOVA Pfad mit <code>TukeyHSD()</code></h2>
-<p>Tukey HSD</p>
+<section id="der-anova-pfad-mit-tukey-hsd" class="level2">
+<h2 class="anchored" data-anchor-id="der-anova-pfad-mit-tukey-hsd">Der ANOVA Pfad mit Tukey HSD</h2>
+<p>Der Tukey HSD Test (abk. <em>HSD Test</em>) hat viele Namen. Im Englischen kennen wir den Tukey HSD Test auch als <em>Tukey’s range test</em> oder aber als <em>Tukey’s test</em>, <em>Tukey method</em>, <em>Tukey’s honest significance test</em> oder eben <em>Tukey’s HSD (honestly significant difference)</em> Test. Dabei steht die Abkürzung HDS für <em>honestly significant difference</em> (deu. <em>ehrlich signifikanter Unterschied</em>). Für mich etwas weit aus dem Fenster gelehnt, aber der Name sagt hier mal was auch wirklich gemacht wird. Im Prinzip stellen wir nur die Formel von den Student t-Test einmal um und benennen alles neu. Dann sieht man auch nicht gleich, was Sache ist und jeder denkt, es wäre was Neues. Wir werden hier aber mal den Tukey HSD Test zerforschen. Wir nutzen aber die ANOVA um einmal die Streuung und die Effekte zu berechnen. Daher nenne ich das ganze hier auch den ANOVA Pfad. Der Tukey HSD Test basiert eben mehr oder minder auf der Ausgabe einer ANOVA.</p>
+<dl>
+<dt>Varianzhomogenität</dt>
+<dd>
+<p>Es ist wichtig zu wissen, dass der Tukey HSD Test auf der ANOVA basiert und die ANOVA nimmt Varianzhomogenität an. Damit meine ich, dass alle Gruppen in der Behandlung die gleiche Varianz haben. Du kannst leider den Tukey HSD Test nur unter der Annahme von varianzhomogenität nutzen. Wenn das dir eine zu starke Annahme ist, dann nutze einfach das R Paket <code>{emmeans}</code>, wie ich es dir weiter unten im Kapitel vorstelle.</p>
+</dd>
+<dt>Adjustierung für multiple Vergleiche</dt>
+<dd>
+<p>Der Tukey HSD Test adjustiert für die <span class="math inline">\(\alpha\)</span>-Inflation bei multiplen Vergleichen. Wir müssen da auch nichts weiter machen um die Adjustierung durchzuführe. Das macht die Funktion <code>TukeyHSD()</code> für uns automatisch. Auf der anderen Seite können wir die Adjustierung für multiple Vergleiche aber auch nicht ausschalten. Du erhälst <em>immer</em> adjustierte p-Werte aus einem Tukey HSD Test. Wenn du das nicht möchtest, dann nutze einfach das R Paket <code>{emmeans}</code>, welches du weiter unten findest.</p>
+</dd>
+</dl>
+<p>Schauen wir uns nun einmal an, wie der Tukey HSD Test theoretisch funktioniert und wie die Implmentierugn in R dargestellt ist. Wir haben die Wahl zwischen der Funktion <code>TukeyHSD()</code> und der Funktion <code>HSD.test()</code> aus dem R Paket <code>{agricolae}</code>. Die Funktion <code>HSD.test()</code> liefert auch gleich das <em>Compact letter display</em> in der Ausgabe mit. Sonst sind die beiden Funktionen sehr ähnlich.</p>
 <div class="tabset-margin-container"></div><div class="panel-tabset">
 <ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-2-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-1" role="tab" aria-controls="tabset-2-1" aria-selected="true" href="">Theoretisch</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-2-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-2" role="tab" aria-controls="tabset-2-2" aria-selected="false" href=""><code>TukeyHSD()</code></a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-2-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-3" role="tab" aria-controls="tabset-2-3" aria-selected="false" href=""><code>HSD.test()</code></a></li></ul>
 <div class="tab-content">
 <div id="tabset-2-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-2-1-tab">
+<p>Zuerst einmal die Formel des Tukey HSD Test. Wir berechnen dabei asl statistische Maßzahl den HSD-Wert, der nichts anderes aussagt als der minimal Mittelwertsunterschied, den wir gegeben der Streuung und der Fallzahl in den Daten als signifikant nachweisen können. Sozusagen der minimalste mögliche signifikante Mittelwertsunterschied.</p>
 <p><span class="math display">\[
-q = \tfrac{\bar{y}_{max} - \bar{y}_{min}}{SE}
+HSD = q_{\alpha=5\%, k, n-k} \cdot \sqrt{\tfrac{MSE}{n}}
 \]</span></p>
+<p>mit</p>
+<ul>
+<li><span class="math inline">\(HSD\)</span>, den zu berechnenden minimalst möglichen signifikanten Mittelwertsunterschied.</li>
+<li><span class="math inline">\(q_{\alpha=5\%, k, n-k}\)</span>, den kritsichen Wert gegeben aus dem Signifikanzniveau <span class="math inline">\(\alpha\)</span> gleich 5% der Anzahl an zu vergleichenden Gruppen <span class="math inline">\(k\)</span> und einem Freiheitsgrad <span class="math inline">\(n-k\)</span>.</li>
+<li><span class="math inline">\(\sqrt{\tfrac{MSE}{n}}\)</span>, der Streuung in den Daten gewichtet für die Fallzahl <span class="math inline">\(n\)</span>. Hier wird die Streuung über alle Gruppen hinweg berechnet.</li>
+</ul>
+<p>Wir können uns das Ganze auch nochmal in der folgenden Tabelle als Vergleich zu dem Student t-Test anschauen. Ich habe dort einmal die statistsichen Maßzahlen aus einem Tukey HDS Test den statistischen Maßzahlen eines Student t-Test gegebüber gestellt.</p>
+<div id="tbl-hds-ttest" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-hds-ttest-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;5: Etwas wilder Vergleich vom Tukey HSD Test zum Student t-Test. Im Prinzip ist der Tukey HSD Test nur eine Umsstellung der Formel des Student t-Test.
+</figcaption>
+<div aria-describedby="tbl-hds-ttest-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 23%">
+<col style="width: 36%">
+<col style="width: 39%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th>Tukey HSD Test</th>
+<th>Student t-Test</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Effekt</td>
+<td><span class="math inline">\(HSD\)</span></td>
+<td><span class="math inline">\(\bar{y}_1 - \bar{y}_2\)</span></td>
+</tr>
+<tr class="even">
+<td>Streuung</td>
+<td><span class="math inline">\(\tfrac{MSE}{n}\)</span></td>
+<td><span class="math inline">\(s_p\sqrt{\tfrac{2}{n_g}}\)</span></td>
+</tr>
+<tr class="odd">
+<td>Kritischer Wert</td>
+<td><span class="math inline">\(q_{\alpha=5\%, k, n-k}\)</span></td>
+<td><span class="math inline">\(T_{\alpha=5\%}\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
 <p><span class="math display">\[
-HSD = q_{\alpha, k, n-k} \cdot\tfrac{MSE}{n}
+\begin{array}{c|c}
+  HSD = q_{\alpha=5\%, k, n-k} \cdot \sqrt{\tfrac{MSE}{n}} &amp; \bar{y}_1 - \bar{y}_2 =  T_{\alpha=5\%} \cdot s_p\sqrt{\tfrac{2}{n_g}}
+\end{array}
 \]</span></p>
 </div>
 <div id="tabset-2-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-2-2-tab">
+<section id="einfaktorielle-analyse" class="level3">
+<h3 class="anchored" data-anchor-id="einfaktorielle-analyse">Einfaktorielle Analyse</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>plant.av <span class="ot">&lt;-</span> <span class="fu">aov</span>(weight <span class="sc">~</span> group, <span class="at">data =</span> PlantGrowth)</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(plant.av)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>fac1_av <span class="ot">&lt;-</span> <span class="fu">aov</span>(jump_length <span class="sc">~</span> animal, <span class="at">data =</span> fac1_tbl)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fac1_av)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>            Df Sum Sq Mean Sq F value Pr(&gt;F)  
-group        2  3.766  1.8832   4.846 0.0159 *
-Residuals   27 10.492  0.3886                 
+<pre><code>            Df Sum Sq Mean Sq F value   Pr(&gt;F)    
+animal       2  74.68   37.34   11.89 0.000511 ***
+Residuals   18  56.53    3.14                     
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>tukey.test <span class="ot">&lt;-</span> <span class="fu">TukeyHSD</span>(plant.av)</span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>tukey.test</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>tukey_fac1_obj <span class="ot">&lt;-</span> <span class="fu">TukeyHSD</span>(fac1_av)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>tukey_fac1_obj</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>  Tukey multiple comparisons of means
     95% family-wise confidence level
 
-Fit: aov(formula = weight ~ group, data = PlantGrowth)
+Fit: aov(formula = jump_length ~ animal, data = fac1_tbl)
 
-$group
-            diff        lwr       upr     p adj
-trt1-ctrl -0.371 -1.0622161 0.3202161 0.3908711
-trt2-ctrl  0.494 -0.1972161 1.1852161 0.1979960
-trt2-trt1  0.865  0.1737839 1.5562161 0.0120064</code></pre>
+$animal
+             diff       lwr        upr     p adj
+cat-dog -3.385714 -5.803246 -0.9681827 0.0058404
+fox-dog  1.028571 -1.388960  3.4461031 0.5346652
+fox-cat  4.414286  1.996754  6.8318173 0.0005441</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">multcompLetters</span>(<span class="fu">extract_p</span>(tukey.test<span class="sc">$</span>group))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">multcompLetters</span>(<span class="fu">extract_p</span>(tukey_fac1_obj<span class="sc">$</span>animal))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>trt1 trt2 ctrl 
- "a"  "b" "ab" </code></pre>
+<pre><code>cat fox dog 
+"a" "b" "b" </code></pre>
 </div>
 </div>
-</div>
-<div id="tabset-2-3" class="tab-pane" role="tabpanel" aria-labelledby="tabset-2-3-tab">
-<p><code>{agricolae}</code></p>
+</section>
+<section id="zweifaktorielle-analyse" class="level3">
+<h3 class="anchored" data-anchor-id="zweifaktorielle-analyse">Zweifaktorielle Analyse</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>plant.av <span class="ot">&lt;-</span> <span class="fu">aov</span>(weight <span class="sc">~</span> group, <span class="at">data =</span> PlantGrowth)</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(plant.av)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>fac2_av <span class="ot">&lt;-</span> <span class="fu">aov</span>(jump_length <span class="sc">~</span> animal <span class="sc">+</span> site <span class="sc">+</span> animal<span class="sc">:</span>site, <span class="at">data =</span> fac2_tbl)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fac2_av)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>            Df Sum Sq Mean Sq F value Pr(&gt;F)  
-group        2  3.766  1.8832   4.846 0.0159 *
-Residuals   27 10.492  0.3886                 
+<pre><code>            Df Sum Sq Mean Sq F value   Pr(&gt;F)    
+animal       2 171.13   85.56  25.745 1.41e-08 ***
+site         1   4.21    4.21   1.268  0.26516    
+animal:site  2  59.10   29.55   8.891  0.00046 ***
+Residuals   54 179.47    3.32                     
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>tukey.test2 <span class="ot">&lt;-</span> <span class="fu">HSD.test</span>(plant.av, <span class="at">trt =</span> <span class="st">'group'</span>)</span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>tukey.test2</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>tukey_fac2_obj <span class="ot">&lt;-</span> <span class="fu">TukeyHSD</span>(fac2_av)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>tukey_fac2_obj</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Tukey multiple comparisons of means
+    95% family-wise confidence level
+
+Fit: aov(formula = jump_length ~ animal + site + animal:site, data = fac2_tbl)
+
+$animal
+          diff       lwr      upr     p adj
+dog-cat 2.2085 0.8191476 3.597852 0.0009626
+fox-cat 4.1335 2.7441476 5.522852 0.0000000
+fox-dog 1.9250 0.5356476 3.314352 0.0042936
+
+$site
+              diff       lwr      upr     p adj
+village-city -0.53 -1.473715 0.413715 0.2651614
+
+$`animal:site`
+                          diff        lwr        upr     p adj
+dog:city-cat:city        3.101  0.6922358  5.5097642 0.0046806
+fox:city-cat:city        6.538  4.1292358  8.9467642 0.0000000
+cat:village-cat:city     1.668 -0.7407642  4.0767642 0.3308895
+dog:village-cat:city     2.984  0.5752358  5.3927642 0.0072069
+fox:village-cat:city     3.397  0.9882358  5.8057642 0.0015002
+fox:city-dog:city        3.437  1.0282358  5.8457642 0.0012805
+cat:village-dog:city    -1.433 -3.8417642  0.9757642 0.5010180
+dog:village-dog:city    -0.117 -2.5257642  2.2917642 0.9999910
+fox:village-dog:city     0.296 -2.1127642  2.7047642 0.9991270
+cat:village-fox:city    -4.870 -7.2787642 -2.4612358 0.0000027
+dog:village-fox:city    -3.554 -5.9627642 -1.1452358 0.0008014
+fox:village-fox:city    -3.141 -5.5497642 -0.7322358 0.0040284
+dog:village-cat:village  1.316 -1.0927642  3.7247642 0.5930304
+fox:village-cat:village  1.729 -0.6797642  4.1377642 0.2923986
+fox:village-dog:village  0.413 -1.9957642  2.8217642 0.9957142</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">multcompLetters</span>(<span class="fu">extract_p</span>(tukey_fac2_obj<span class="sc">$</span>animal))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>dog fox cat 
+"a" "b" "c" </code></pre>
+</div>
+</div>
+</section>
+</div>
+<div id="tabset-2-3" class="tab-pane" role="tabpanel" aria-labelledby="tabset-2-3-tab">
+<p><code>{agricolae}</code></p>
+<section id="einfaktorielle-analyse-1" class="level3">
+<h3 class="anchored" data-anchor-id="einfaktorielle-analyse-1">Einfaktorielle Analyse</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>fac1_av <span class="ot">&lt;-</span> <span class="fu">aov</span>(jump_length <span class="sc">~</span> animal, <span class="at">data =</span> fac1_tbl)</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fac1_av)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>            Df Sum Sq Mean Sq F value   Pr(&gt;F)    
+animal       2  74.68   37.34   11.89 0.000511 ***
+Residuals   18  56.53    3.14                     
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>tukey_fac1_obj <span class="ot">&lt;-</span> <span class="fu">HSD.test</span>(fac1_av, <span class="at">trt =</span> <span class="st">'animal'</span>)</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>tukey_fac1_obj</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>$statistics
-    MSerror Df  Mean       CV       MSD
-  0.3885959 27 5.073 12.28809 0.6912161
+   MSerror Df     Mean       CV      MSD
+  3.140476 18 7.342857 24.13419 2.417532
 
 $parameters
    test name.t ntr StudentizedRange alpha
-  Tukey  group   3         3.506426  0.05
+  Tukey animal   3         3.609304  0.05
 
 $means
-     weight       std  r        se  Min  Max    Q25   Q50    Q75
-ctrl  5.032 0.5830914 10 0.1971284 4.17 6.11 4.5500 5.155 5.2925
-trt1  4.661 0.7936757 10 0.1971284 3.59 6.03 4.2075 4.550 4.8700
-trt2  5.526 0.4425733 10 0.1971284 4.92 6.31 5.2675 5.435 5.7350
+    jump_length      std r        se Min  Max  Q25 Q50   Q75
+cat    4.742857 1.901628 7 0.6698055 2.2  7.9 3.65 4.3  5.75
+dog    8.128571 2.144539 7 0.6698055 5.6 11.8 6.65 8.2  9.00
+fox    9.157143 1.098267 7 0.6698055 7.7 10.6 8.35 9.1 10.00
 
 $comparison
 NULL
 
 $groups
-     weight groups
-trt2  5.526      a
-ctrl  5.032     ab
-trt1  4.661      b
+    jump_length groups
+fox    9.157143      a
+dog    8.128571      a
+cat    4.742857      b
 
 attr(,"class")
 [1] "group"</code></pre>
 </div>
 </div>
+</section>
+<section id="zweifaktorielle-analyse-1" class="level3">
+<h3 class="anchored" data-anchor-id="zweifaktorielle-analyse-1">Zweifaktorielle Analyse</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>fac2_av <span class="ot">&lt;-</span> <span class="fu">aov</span>(jump_length <span class="sc">~</span> animal <span class="sc">+</span> site <span class="sc">+</span> animal<span class="sc">:</span>site, <span class="at">data =</span> fac2_tbl)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fac2_av)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>            Df Sum Sq Mean Sq F value   Pr(&gt;F)    
+animal       2 171.13   85.56  25.745 1.41e-08 ***
+site         1   4.21    4.21   1.268  0.26516    
+animal:site  2  59.10   29.55   8.891  0.00046 ***
+Residuals   54 179.47    3.32                     
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>tukey_fac2_obj <span class="ot">&lt;-</span> <span class="fu">HSD.test</span>(fac2_av, <span class="at">trt =</span> <span class="st">'animal'</span>)</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>tukey_fac2_obj</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>$statistics
+   MSerror Df   Mean       CV      MSD
+  3.323507 54 16.527 11.03073 1.389352
+
+$parameters
+   test name.t ntr StudentizedRange alpha
+  Tukey animal   3         3.408232  0.05
+
+$means
+    jump_length      std  r        se   Min   Max     Q25   Q50     Q75
+cat     14.4130 2.239561 20 0.4076461 11.17 18.30 12.3775 14.57 16.3425
+dog     16.6215 1.764347 20 0.4076461 13.01 19.85 15.3175 16.47 17.5425
+fox     18.5465 2.156213 20 0.4076461 13.38 21.62 17.4325 18.61 19.8550
+
+$comparison
+NULL
+
+$groups
+    jump_length groups
+fox     18.5465      a
+dog     16.6215      b
+cat     14.4130      c
+
+attr(,"class")
+[1] "group"</code></pre>
+</div>
+</div>
+</section>
 </div>
 </div>
 </div>
@@ -561,9 +736,9 @@ attr(,"class")
 <h2 class="anchored" data-anchor-id="der-effektive-pfad-mit-emmeans">Der effektive Pfad mit <code>{emmeans}</code></h2>
 <p>Text</p>
 <dl>
-<dt>Varianzheterogenität</dt>
+<dt>Varianzhomogenität oder Varianzheterogenität</dt>
 <dd>
-<p>Wir können in <code>{emmeans}</code> eine mögliche Varianzheterogenität modellieren. In allen Beispielen hier, werde ich das machen. Dazu nutze ich dann die Option <code>vcov. = sandwich::vcovHAC</code> im <code>emmeans()</code> Funktionsaufruf. In dem R Paket <code>{sandwich}</code> gibt es eine riesige Anzahl an möglichen Funktionen um für Varianzheterogenität zu adjustieren. Wir nutzen hier die Option <code>vcovHAC</code>, die in vielen Fällen vollkommen ausrichend ist. Wenn du nicht für die Varianzheterogenität adjustieren möchtest, dann rechnest du faktisch einen Tukey HSD Test. Der Tukey HSD Test rechnet <em>immer</em> mit Varianzhomogenität.</p>
+<p>Wir können in <code>{emmeans}</code> eine mögliche Varianzheterogenität modellieren, wenn wir das nicht tun, dann rechnet <code>{emmeans}</code> immer unter der Annahme von Varianzhomogenität. Wenn du nicht für die Varianzheterogenität adjustieren möchtest, dann rechnest du faktisch einen Tukey HSD Test. Der Tukey HSD Test rechnet <em>immer</em> mit Varianzhomogenität. In allen Beispielen hier, werde ich aber für Varianzheterogenität adjustieren. Dazu nutze ich dann die Option <code>vcov. = sandwich::vcovHAC</code> im <code>emmeans()</code> Funktionsaufruf. In dem R Paket <code>{sandwich}</code> gibt es eine riesige Anzahl an möglichen Funktionen um für Varianzheterogenität zu adjustieren. Wir nutzen hier die Option <code>vcovHAC</code>, die in vielen Fällen vollkommen ausrichend ist.</p>
 </dd>
 <dt>Adjustierung für multiple Vergleiche</dt>
 <dd>
@@ -574,16 +749,16 @@ attr(,"class")
 <p>Wir können auch eine andere Kontrolle wählen <code>contrast(method = "trt.vs.ctrl", ref = "fox")</code></p>
 </dd>
 </dl>
-<section id="einfaktorielle-analyse" class="level3">
-<h3 class="anchored" data-anchor-id="einfaktorielle-analyse">Einfaktorielle Analyse</h3>
+<section id="einfaktorielle-analyse-2" class="level3">
+<h3 class="anchored" data-anchor-id="einfaktorielle-analyse-2">Einfaktorielle Analyse</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>fac1_fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(jump_length <span class="sc">~</span> animal, <span class="at">data =</span> fac1_tbl)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>fac1_fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(jump_length <span class="sc">~</span> animal, <span class="at">data =</span> fac1_tbl)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>emm_fac1_obj <span class="ot">&lt;-</span> fac1_fit <span class="sc">|&gt;</span>  </span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">emmeans</span>(<span class="sc">~</span> animal, <span class="at">vcov. =</span> sandwich<span class="sc">::</span>vcovHAC) </span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>emm_fac1_obj</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>emm_fac1_obj <span class="ot">&lt;-</span> fac1_fit <span class="sc">|&gt;</span>  </span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">emmeans</span>(<span class="sc">~</span> animal, <span class="at">vcov. =</span> sandwich<span class="sc">::</span>vcovHAC) </span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>emm_fac1_obj</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code> animal emmean    SE df lower.CL upper.CL
  dog      8.13 0.427 18     7.23     9.03
@@ -598,10 +773,10 @@ Confidence level used: 0.95 </code></pre>
 <div class="tab-content">
 <div id="tabset-3-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-3-1-tab">
 <div class="cell">
-<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>comp_fac1_obj <span class="ot">&lt;-</span> emm_fac1_obj <span class="sc">|&gt;</span> </span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">contrast</span>(<span class="at">method =</span> <span class="st">"pairwise"</span>, <span class="at">adjust =</span> <span class="st">"bonferroni"</span>) </span>
-<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>comp_fac1_obj</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>comp_fac1_obj <span class="ot">&lt;-</span> emm_fac1_obj <span class="sc">|&gt;</span> </span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">contrast</span>(<span class="at">method =</span> <span class="st">"pairwise"</span>, <span class="at">adjust =</span> <span class="st">"bonferroni"</span>) </span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>comp_fac1_obj</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code> contrast  estimate    SE df t.ratio p.value
  dog - cat     3.39 0.904 18   3.744  0.0045
@@ -612,9 +787,9 @@ P value adjustment: bonferroni method for 3 tests </code></pre>
 </div>
 </div>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>emm_fac1_obj <span class="sc">|&gt;</span> </span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pwpp</span>(<span class="at">adjust =</span> <span class="st">"bonferroni"</span>) <span class="sc">+</span></span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>emm_fac1_obj <span class="sc">|&gt;</span> </span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pwpp</span>(<span class="at">adjust =</span> <span class="st">"bonferroni"</span>) <span class="sc">+</span></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div id="fig-emmeans-3" class="quarto-float quarto-figure quarto-figure-center anchored" data-fig-align="center">
 <figure class="quarto-float quarto-float-fig figure">
@@ -629,8 +804,8 @@ Figure&nbsp;6: Visualisierung der Ergebnisse im Pairwise P-value plot.
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>emm_fac1_obj <span class="sc">|&gt;</span> </span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pwpm</span>(<span class="at">adjust =</span> <span class="st">"bonferroni"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>emm_fac1_obj <span class="sc">|&gt;</span> </span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pwpm</span>(<span class="at">adjust =</span> <span class="st">"bonferroni"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>       dog    cat    fox
 dog [8.13] 0.0045 0.3678
@@ -646,9 +821,9 @@ Lower triangle: Comparisons (estimate)   earlier vs. later</code></pre>
 </div>
 <div id="tabset-3-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-3-2-tab">
 <div class="cell">
-<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>emm_fac1_obj <span class="sc">|&gt;</span> </span>
-<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">contrast</span>(<span class="at">method =</span> <span class="st">"pairwise"</span>) <span class="sc">|&gt;</span>  </span>
-<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cld</span>(<span class="at">Letters =</span> letters, <span class="at">adjust =</span> <span class="st">"bonferroni"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>emm_fac1_obj <span class="sc">|&gt;</span> </span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">contrast</span>(<span class="at">method =</span> <span class="st">"pairwise"</span>) <span class="sc">|&gt;</span>  </span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cld</span>(<span class="at">Letters =</span> letters, <span class="at">adjust =</span> <span class="st">"bonferroni"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code> contrast  estimate    SE df t.ratio p.value .group
  cat - fox    -4.41 0.997 18  -4.425  0.0010  a    
@@ -665,13 +840,13 @@ NOTE: If two or more means share the same grouping symbol,
 </div>
 <div id="tabset-3-3" class="tab-pane" role="tabpanel" aria-labelledby="tabset-3-3-tab">
 <div class="cell">
-<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>res_fac1_ci_obj <span class="ot">&lt;-</span> emm_fac1_obj <span class="sc">|&gt;</span> </span>
-<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">contrast</span>(<span class="at">method =</span> <span class="st">"pairwise"</span>) <span class="sc">|&gt;</span> </span>
-<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tidy</span>(<span class="at">conf.int =</span> <span class="cn">TRUE</span>) <span class="sc">|&gt;</span> </span>
-<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(contrast, estimate, adj.p.value, conf.low, conf.high) <span class="sc">|&gt;</span> </span>
-<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">where</span>(is.numeric), round, <span class="dv">4</span>))</span>
-<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>res_fac1_ci_obj</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>res_fac1_ci_obj <span class="ot">&lt;-</span> emm_fac1_obj <span class="sc">|&gt;</span> </span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">contrast</span>(<span class="at">method =</span> <span class="st">"pairwise"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tidy</span>(<span class="at">conf.int =</span> <span class="cn">TRUE</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(contrast, estimate, adj.p.value, conf.low, conf.high) <span class="sc">|&gt;</span> </span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">where</span>(is.numeric), round, <span class="dv">4</span>))</span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a>res_fac1_ci_obj</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code># A tibble: 3 × 5
   contrast  estimate adj.p.value conf.low conf.high
@@ -682,12 +857,12 @@ NOTE: If two or more means share the same grouping symbol,
 </div>
 </div>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(res_fac1_ci_obj, <span class="fu">aes</span>(contrast, <span class="at">y=</span>estimate, <span class="at">ymin=</span>conf.low, <span class="at">ymax=</span>conf.high)) <span class="sc">+</span></span>
-<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_hline</span>(<span class="at">yintercept=</span><span class="dv">0</span>, <span class="at">linetype=</span><span class="st">"11"</span>, <span class="at">colour=</span><span class="st">"grey60"</span>) <span class="sc">+</span></span>
-<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_errorbar</span>(<span class="at">width=</span><span class="fl">0.1</span>) <span class="sc">+</span> </span>
-<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_point</span>() <span class="sc">+</span></span>
-<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
-<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(res_fac1_ci_obj, <span class="fu">aes</span>(contrast, <span class="at">y=</span>estimate, <span class="at">ymin=</span>conf.low, <span class="at">ymax=</span>conf.high)) <span class="sc">+</span></span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_hline</span>(<span class="at">yintercept=</span><span class="dv">0</span>, <span class="at">linetype=</span><span class="st">"11"</span>, <span class="at">colour=</span><span class="st">"grey60"</span>) <span class="sc">+</span></span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_errorbar</span>(<span class="at">width=</span><span class="fl">0.1</span>) <span class="sc">+</span> </span>
+<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb36-5"><a href="#cb36-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb36-6"><a href="#cb36-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div id="fig-emmeans-1" class="quarto-float quarto-figure quarto-figure-center anchored" data-fig-align="center">
 <figure class="quarto-float quarto-float-fig figure">
@@ -705,14 +880,14 @@ Figure&nbsp;7: Die 95% Konfidenzintervalle für den <em>allpair</em>-Vergleich d
 </div>
 </div>
 </section>
-<section id="zweifaktorielle-analyse" class="level3">
-<h3 class="anchored" data-anchor-id="zweifaktorielle-analyse">Zweifaktorielle Analyse</h3>
+<section id="zweifaktorielle-analyse-2" class="level3">
+<h3 class="anchored" data-anchor-id="zweifaktorielle-analyse-2">Zweifaktorielle Analyse</h3>
 <p>Modell</p>
 <p><span class="math display">\[
 y \sim f_1 + f_2 + f_1 \times f_2
 \]</span></p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>fac2_fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(jump_length <span class="sc">~</span> animal <span class="sc">+</span> site <span class="sc">+</span> animal<span class="sc">:</span>site, <span class="at">data =</span> fac2_tbl)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a>fac2_fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(jump_length <span class="sc">~</span> animal <span class="sc">+</span> site <span class="sc">+</span> animal<span class="sc">:</span>site, <span class="at">data =</span> fac2_tbl)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Wir müssen uns jetzt entscheiden wie wir die beiden Faktoren <span class="math inline">\(f_1\)</span> mit <code>animal</code> und <span class="math inline">\(f_2\)</span> mit <code>site</code> auswerten wollen. Wir können den Faktor <code>animal</code> getrennt für jedes Level des Faktors <code>site</code> vergleichen oder wir vergleichen alle Faktorkombinationen gemeinsam.</p>
 <div class="tabset-margin-container"></div><div class="panel-tabset">
@@ -720,10 +895,10 @@ y \sim f_1 + f_2 + f_1 \times f_2
 <div class="tab-content">
 <div id="tabset-4-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-4-1-tab">
 <div class="cell">
-<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>emm_fac2_separate_obj <span class="ot">&lt;-</span> fac2_fit <span class="sc">|&gt;</span> </span>
-<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">emmeans</span>(<span class="sc">~</span> animal <span class="sc">|</span> site, <span class="at">vcov. =</span> sandwich<span class="sc">::</span>vcovHAC) </span>
-<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>emm_fac2_separate_obj</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a>emm_fac2_separate_obj <span class="ot">&lt;-</span> fac2_fit <span class="sc">|&gt;</span> </span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">emmeans</span>(<span class="sc">~</span> animal <span class="sc">|</span> site, <span class="at">vcov. =</span> sandwich<span class="sc">::</span>vcovHAC) </span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a>emm_fac2_separate_obj</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>site = city:
  animal emmean    SE df lower.CL upper.CL
@@ -743,10 +918,10 @@ Confidence level used: 0.95 </code></pre>
 </div>
 <div id="tabset-4-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-4-2-tab">
 <div class="cell">
-<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>emm_fac2_combinded_obj <span class="ot">&lt;-</span> fac2_fit <span class="sc">|&gt;</span> </span>
-<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">emmeans</span>(<span class="sc">~</span> animal <span class="sc">*</span> site, <span class="at">vcov. =</span> sandwich<span class="sc">::</span>vcovHAC) </span>
-<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>emm_fac2_combinded_obj</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a>emm_fac2_combinded_obj <span class="ot">&lt;-</span> fac2_fit <span class="sc">|&gt;</span> </span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">emmeans</span>(<span class="sc">~</span> animal <span class="sc">*</span> site, <span class="at">vcov. =</span> sandwich<span class="sc">::</span>vcovHAC) </span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a>emm_fac2_combinded_obj</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code> animal site    emmean    SE df lower.CL upper.CL
  cat    city      13.6 0.603 54     12.4     14.8
@@ -767,10 +942,10 @@ Confidence level used: 0.95 </code></pre>
 <div class="tab-content">
 <div id="tabset-5-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-5-1-tab">
 <div class="cell">
-<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>comp_fac2_separate_obj <span class="ot">&lt;-</span> emm_fac2_separate_obj <span class="sc">|&gt;</span> </span>
-<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">contrast</span>(<span class="at">method =</span> <span class="st">"pairwise"</span>, <span class="at">adjust =</span> <span class="st">"bonferroni"</span>)</span>
-<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>comp_fac2_separate_obj</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a>comp_fac2_separate_obj <span class="ot">&lt;-</span> emm_fac2_separate_obj <span class="sc">|&gt;</span> </span>
+<span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">contrast</span>(<span class="at">method =</span> <span class="st">"pairwise"</span>, <span class="at">adjust =</span> <span class="st">"bonferroni"</span>)</span>
+<span id="cb42-3"><a href="#cb42-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb42-4"><a href="#cb42-4" aria-hidden="true" tabindex="-1"></a>comp_fac2_separate_obj</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>site = city:
  contrast  estimate    SE df t.ratio p.value
@@ -788,11 +963,11 @@ P value adjustment: bonferroni method for 3 tests </code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>comp_fac2_separate_obj <span class="sc">|&gt;</span> </span>
-<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summary</span>() <span class="sc">|&gt;</span> </span>
-<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_tibble</span>() <span class="sc">|&gt;</span> </span>
-<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(contrast, site, p.value) <span class="sc">|&gt;</span> </span>
-<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">p.value =</span> <span class="fu">format.pval</span>(p.value, <span class="at">eps =</span> <span class="fl">0.001</span>, <span class="at">digits =</span> <span class="dv">2</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a>comp_fac2_separate_obj <span class="sc">|&gt;</span> </span>
+<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summary</span>() <span class="sc">|&gt;</span> </span>
+<span id="cb44-3"><a href="#cb44-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_tibble</span>() <span class="sc">|&gt;</span> </span>
+<span id="cb44-4"><a href="#cb44-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(contrast, site, p.value) <span class="sc">|&gt;</span> </span>
+<span id="cb44-5"><a href="#cb44-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">p.value =</span> <span class="fu">format.pval</span>(p.value, <span class="at">eps =</span> <span class="fl">0.001</span>, <span class="at">digits =</span> <span class="dv">2</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code># A tibble: 6 × 3
   contrast  site    p.value
@@ -807,9 +982,9 @@ P value adjustment: bonferroni method for 3 tests </code></pre>
 </div>
 <p>Hier müssen wir dann nochmal emmeans aufrufen! Wir machen das hier nochmal für getrennt.</p>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a>emm_fac2_separate_obj <span class="sc">|&gt;</span> </span>
-<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pwpp</span>(<span class="at">adjust =</span> <span class="st">"bonferroni"</span>) <span class="sc">+</span></span>
-<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a>emm_fac2_separate_obj <span class="sc">|&gt;</span> </span>
+<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pwpp</span>(<span class="at">adjust =</span> <span class="st">"bonferroni"</span>) <span class="sc">+</span></span>
+<span id="cb46-3"><a href="#cb46-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div id="fig-emmeans-foo-2" class="quarto-float quarto-figure quarto-figure-center anchored" data-fig-align="center">
 <figure class="quarto-float quarto-float-fig figure">
@@ -824,8 +999,8 @@ Figure&nbsp;8: Visualisierung der Ergebnisse im Pairwise P-value plot.
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a>emm_fac2_separate_obj <span class="sc">|&gt;</span>   </span>
-<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pwpm</span>(<span class="at">adjust =</span> <span class="st">"bonferroni"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a>emm_fac2_separate_obj <span class="sc">|&gt;</span>   </span>
+<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pwpm</span>(<span class="at">adjust =</span> <span class="st">"bonferroni"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 site = city
@@ -849,9 +1024,9 @@ Lower triangle: Comparisons (estimate)   earlier vs. later</code></pre>
 </div>
 <div id="tabset-5-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-5-2-tab">
 <div class="cell">
-<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a>emm_fac2_separate_obj <span class="sc">|&gt;</span> </span>
-<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">contrast</span>(<span class="at">method =</span> <span class="st">"pairwise"</span>) <span class="sc">|&gt;</span>  </span>
-<span id="cb39-3"><a href="#cb39-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cld</span>(<span class="at">Letters =</span> letters, <span class="at">adjust =</span> <span class="st">"bonferroni"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb49"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a>emm_fac2_separate_obj <span class="sc">|&gt;</span> </span>
+<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">contrast</span>(<span class="at">method =</span> <span class="st">"pairwise"</span>) <span class="sc">|&gt;</span>  </span>
+<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cld</span>(<span class="at">Letters =</span> letters, <span class="at">adjust =</span> <span class="st">"bonferroni"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>site = city:
  contrast  estimate    SE df t.ratio p.value .group
@@ -875,13 +1050,13 @@ NOTE: If two or more means share the same grouping symbol,
 </div>
 <div id="tabset-5-3" class="tab-pane" role="tabpanel" aria-labelledby="tabset-5-3-tab">
 <div class="cell">
-<div class="sourceCode cell-code" id="cb41"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a>comp_fac2_ci_obj <span class="ot">&lt;-</span> emm_fac2_separate_obj <span class="sc">|&gt;</span> </span>
-<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">contrast</span>(<span class="at">method =</span> <span class="st">"pairwise"</span>) <span class="sc">|&gt;</span> </span>
-<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">confint</span>(<span class="at">adjust =</span> <span class="st">"bonferroni"</span>) <span class="sc">|&gt;</span> </span>
-<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_tibble</span>() <span class="sc">|&gt;</span> </span>
-<span id="cb41-5"><a href="#cb41-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(contrast, site, estimate, <span class="at">conf.low =</span> lower.CL, <span class="at">conf.high =</span> upper.CL) </span>
-<span id="cb41-6"><a href="#cb41-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-7"><a href="#cb41-7" aria-hidden="true" tabindex="-1"></a>comp_fac2_ci_obj </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb51"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a>comp_fac2_ci_obj <span class="ot">&lt;-</span> emm_fac2_separate_obj <span class="sc">|&gt;</span> </span>
+<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">contrast</span>(<span class="at">method =</span> <span class="st">"pairwise"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">confint</span>(<span class="at">adjust =</span> <span class="st">"bonferroni"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb51-4"><a href="#cb51-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_tibble</span>() <span class="sc">|&gt;</span> </span>
+<span id="cb51-5"><a href="#cb51-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(contrast, site, estimate, <span class="at">conf.low =</span> lower.CL, <span class="at">conf.high =</span> upper.CL) </span>
+<span id="cb51-6"><a href="#cb51-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb51-7"><a href="#cb51-7" aria-hidden="true" tabindex="-1"></a>comp_fac2_ci_obj </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code># A tibble: 6 × 5
   contrast  site    estimate conf.low conf.high
@@ -895,14 +1070,14 @@ NOTE: If two or more means share the same grouping symbol,
 </div>
 </div>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(comp_fac2_ci_obj, <span class="fu">aes</span>(contrast, <span class="at">y=</span>estimate, <span class="at">ymin=</span>conf.low, <span class="at">ymax=</span>conf.high,</span>
-<span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a>                             <span class="at">color =</span> site, <span class="at">group =</span> site)) <span class="sc">+</span></span>
-<span id="cb43-3"><a href="#cb43-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept=</span><span class="dv">0</span>, <span class="at">linetype=</span><span class="st">"11"</span>, <span class="at">colour=</span><span class="st">"grey60"</span>) <span class="sc">+</span></span>
-<span id="cb43-4"><a href="#cb43-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_errorbar</span>(<span class="at">width=</span><span class="fl">0.1</span>, <span class="at">position =</span> <span class="fu">position_dodge</span>(<span class="fl">0.5</span>)) <span class="sc">+</span> </span>
-<span id="cb43-5"><a href="#cb43-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">position =</span> <span class="fu">position_dodge</span>(<span class="fl">0.5</span>)) <span class="sc">+</span></span>
-<span id="cb43-6"><a href="#cb43-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_okabeito</span>() <span class="sc">+</span></span>
-<span id="cb43-7"><a href="#cb43-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
-<span id="cb43-8"><a href="#cb43-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb53"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(comp_fac2_ci_obj, <span class="fu">aes</span>(contrast, <span class="at">y=</span>estimate, <span class="at">ymin=</span>conf.low, <span class="at">ymax=</span>conf.high,</span>
+<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a>                             <span class="at">color =</span> site, <span class="at">group =</span> site)) <span class="sc">+</span></span>
+<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept=</span><span class="dv">0</span>, <span class="at">linetype=</span><span class="st">"11"</span>, <span class="at">colour=</span><span class="st">"grey60"</span>) <span class="sc">+</span></span>
+<span id="cb53-4"><a href="#cb53-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_errorbar</span>(<span class="at">width=</span><span class="fl">0.1</span>, <span class="at">position =</span> <span class="fu">position_dodge</span>(<span class="fl">0.5</span>)) <span class="sc">+</span> </span>
+<span id="cb53-5"><a href="#cb53-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">position =</span> <span class="fu">position_dodge</span>(<span class="fl">0.5</span>)) <span class="sc">+</span></span>
+<span id="cb53-6"><a href="#cb53-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_okabeito</span>() <span class="sc">+</span></span>
+<span id="cb53-7"><a href="#cb53-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb53-8"><a href="#cb53-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div id="fig-emmeans-2" class="quarto-float quarto-figure quarto-figure-center anchored" data-fig-align="center">
 <figure class="quarto-float quarto-float-fig figure">

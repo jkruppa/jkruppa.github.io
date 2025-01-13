@@ -54,11 +54,11 @@ gg_template %+%
                     ymax = mean_normal+(sd_normal)),
                 width = 0.2) +
   labs(x = "Kategoriell (>2 Level)", y = "Mittlerer Ertrag [t/ha]",
-       title = "Gaussian",
-       subtitle = "ANOVA, Paarweiser Vergleich und\ncompact letter display") +
-  annotate("text", x = 1.5, y = 6, hjust = "right", color = "black", size = 4, 
+       title = "Paarweiser Vergleich",
+       subtitle = "Mit signifikanter ANOVA und Compact letter display") +
+  annotate("text", x = 1, y = 6, hjust = "right", color = "black", size = 4, 
            label = TeX(r"($ANOVA < 0.05$)")) +
-  annotate("text", x = c(1, 2, 3), y = c(1.6, 3, 5.4),
+  annotate("text", x = c(1, 2, 3), y = c(2.3, 3.3, 5.8),
            label = c("a", "ab", "b"), size = 5, fontface = 2) 
 ```
 
@@ -306,49 +306,111 @@ p1 + p2 +
 ## `{ggplot}`
 :::
 
-## Der ANOVA Pfad mit `TukeyHSD()`
+## Der ANOVA Pfad mit Tukey HSD
 
-Tukey HSD
+Der Tukey HSD Test (abk. *HSD Test*) hat viele Namen. Im Englischen kennen wir den Tukey HSD Test auch als *Tukey's range test* oder aber als *Tukey's test*, *Tukey method*, *Tukey's honest significance test* oder eben *Tukey's HSD (honestly significant difference)* Test. Dabei steht die Abkürzung HDS für *honestly significant difference* (deu. *ehrlich signifikanter Unterschied*). Für mich etwas weit aus dem Fenster gelehnt, aber der Name sagt hier mal was auch wirklich gemacht wird. Im Prinzip stellen wir nur die Formel von den Student t-Test einmal um und benennen alles neu. Dann sieht man auch nicht gleich, was Sache ist und jeder denkt, es wäre was Neues. Wir werden hier aber mal den Tukey HSD Test zerforschen. Wir nutzen aber die ANOVA um einmal die Streuung und die Effekte zu berechnen. Daher nenne ich das ganze hier auch den ANOVA Pfad. Der Tukey HSD Test basiert eben mehr oder minder auf der Ausgabe einer ANOVA.
+
+Varianzhomogenität
+
+:   Es ist wichtig zu wissen, dass der Tukey HSD Test auf der ANOVA basiert und die ANOVA nimmt Varianzhomogenität an. Damit meine ich, dass alle Gruppen in der Behandlung die gleiche Varianz haben. Du kannst leider den Tukey HSD Test nur unter der Annahme von varianzhomogenität nutzen. Wenn das dir eine zu starke Annahme ist, dann nutze einfach das R Paket `{emmeans}`, wie ich es dir weiter unten im Kapitel vorstelle.
+
+Adjustierung für multiple Vergleiche
+
+:   Der Tukey HSD Test adjustiert für die $\alpha$-Inflation bei multiplen Vergleichen. Wir müssen da auch nichts weiter machen um die Adjustierung durchzuführe. Das macht die Funktion `TukeyHSD()` für uns automatisch. Auf der anderen Seite können wir die Adjustierung für multiple Vergleiche aber auch nicht ausschalten. Du erhälst *immer* adjustierte p-Werte aus einem Tukey HSD Test. Wenn du das nicht möchtest, dann nutze einfach das R Paket `{emmeans}`, welches du weiter unten findest.
+
+Schauen wir uns nun einmal an, wie der Tukey HSD Test theoretisch funktioniert und wie die Implmentierugn in R dargestellt ist. Wir haben die Wahl zwischen der Funktion `TukeyHSD()` und der Funktion `HSD.test()` aus dem R Paket `{agricolae}`. Die Funktion `HSD.test()` liefert auch gleich das *Compact letter display* in der Ausgabe mit. Sonst sind die beiden Funktionen sehr ähnlich.
 
 ::: panel-tabset
 ## Theoretisch
 
-$$
-q = \tfrac{\bar{y}_{max} - \bar{y}_{min}}{SE}
-$$
+Zuerst einmal die Formel des Tukey HSD Test. Wir berechnen dabei asl statistische Maßzahl den HSD-Wert, der nichts anderes aussagt als der minimal Mittelwertsunterschied, den wir gegeben der Streuung und der Fallzahl in den Daten als signifikant nachweisen können. Sozusagen der minimalste mögliche signifikante Mittelwertsunterschied.
 
 $$
-HSD = q_{\alpha, k, n-k} \cdot\tfrac{MSE}{n}
+HSD = q_{\alpha=5\%, k, n-k} \cdot \sqrt{\tfrac{MSE}{n}}
+$$
+
+mit
+
+-   $HSD$, den zu berechnenden minimalst möglichen signifikanten Mittelwertsunterschied.
+-   $q_{\alpha=5\%, k, n-k}$, den kritsichen Wert gegeben aus dem Signifikanzniveau $\alpha$ gleich 5% der Anzahl an zu vergleichenden Gruppen $k$ und einem Freiheitsgrad $n-k$.
+-   $\sqrt{\tfrac{MSE}{n}}$, der Streuung in den Daten gewichtet für die Fallzahl $n$. Hier wird die Streuung über alle Gruppen hinweg berechnet.
+
+Wir können uns das Ganze auch nochmal in der folgenden Tabelle als Vergleich zu dem Student t-Test anschauen. Ich habe dort einmal die statistsichen Maßzahlen aus einem Tukey HDS Test den statistischen Maßzahlen eines Student t-Test gegebüber gestellt.
+
+|                 | Tukey HSD Test           | Student t-Test             |
+|-----------------|--------------------------|----------------------------|
+| Effekt          | $HSD$                    | $\bar{y}_1 - \bar{y}_2$    |
+| Streuung        | $\tfrac{MSE}{n}$         | $s_p\sqrt{\tfrac{2}{n_g}}$ |
+| Kritischer Wert | $q_{\alpha=5\%, k, n-k}$ | $T_{\alpha=5\%}$           |
+
+: Etwas wilder Vergleich vom Tukey HSD Test zum Student t-Test. Im Prinzip ist der Tukey HSD Test nur eine Umsstellung der Formel des Student t-Test. {#tbl-hds-ttest}
+
+$$
+\begin{array}{c|c}
+  HSD = q_{\alpha=5\%, k, n-k} \cdot \sqrt{\tfrac{MSE}{n}} & \bar{y}_1 - \bar{y}_2 =  T_{\alpha=5\%} \cdot s_p\sqrt{\tfrac{2}{n_g}}
+\end{array}
 $$
 
 ## `TukeyHSD()`
 
+### Einfaktorielle Analyse
+
 ```{r}
-plant.av <- aov(weight ~ group, data = PlantGrowth)
-summary(plant.av)
+fac1_av <- aov(jump_length ~ animal, data = fac1_tbl)
+summary(fac1_av)
 ```
 
 ```{r}
-tukey.test <- TukeyHSD(plant.av)
-tukey.test
+tukey_fac1_obj <- TukeyHSD(fac1_av)
+tukey_fac1_obj
 ```
 
 ```{r}
-multcompLetters(extract_p(tukey.test$group))
+multcompLetters(extract_p(tukey_fac1_obj$animal))
+```
+
+### Zweifaktorielle Analyse
+
+```{r}
+fac2_av <- aov(jump_length ~ animal + site + animal:site, data = fac2_tbl)
+summary(fac2_av)
+```
+
+```{r}
+tukey_fac2_obj <- TukeyHSD(fac2_av)
+tukey_fac2_obj
+```
+
+```{r}
+multcompLetters(extract_p(tukey_fac2_obj$animal))
 ```
 
 ## `HSD.test()`
 
 `{agricolae}`
 
+### Einfaktorielle Analyse
+
 ```{r}
-plant.av <- aov(weight ~ group, data = PlantGrowth)
-summary(plant.av)
+fac1_av <- aov(jump_length ~ animal, data = fac1_tbl)
+summary(fac1_av)
 ```
 
 ```{r}
-tukey.test2 <- HSD.test(plant.av, trt = 'group')
-tukey.test2
+tukey_fac1_obj <- HSD.test(fac1_av, trt = 'animal')
+tukey_fac1_obj
+```
+
+### Zweifaktorielle Analyse
+
+```{r}
+fac2_av <- aov(jump_length ~ animal + site + animal:site, data = fac2_tbl)
+summary(fac2_av)
+```
+
+```{r}
+tukey_fac2_obj <- HSD.test(fac2_av, trt = 'animal')
+tukey_fac2_obj
 ```
 :::
 
@@ -358,9 +420,9 @@ tukey.test2
 
 Text
 
-Varianzheterogenität
+Varianzhomogenität oder Varianzheterogenität
 
-:   Wir können in `{emmeans}` eine mögliche Varianzheterogenität modellieren. In allen Beispielen hier, werde ich das machen. Dazu nutze ich dann die Option `vcov. = sandwich::vcovHAC` im `emmeans()` Funktionsaufruf. In dem R Paket `{sandwich}` gibt es eine riesige Anzahl an möglichen Funktionen um für Varianzheterogenität zu adjustieren. Wir nutzen hier die Option `vcovHAC`, die in vielen Fällen vollkommen ausrichend ist. Wenn du nicht für die Varianzheterogenität adjustieren möchtest, dann rechnest du faktisch einen Tukey HSD Test. Der Tukey HSD Test rechnet *immer* mit Varianzhomogenität.
+:   Wir können in `{emmeans}` eine mögliche Varianzheterogenität modellieren, wenn wir das nicht tun, dann rechnet `{emmeans}` immer unter der Annahme von Varianzhomogenität. Wenn du nicht für die Varianzheterogenität adjustieren möchtest, dann rechnest du faktisch einen Tukey HSD Test. Der Tukey HSD Test rechnet *immer* mit Varianzhomogenität. In allen Beispielen hier, werde ich aber für Varianzheterogenität adjustieren. Dazu nutze ich dann die Option `vcov. = sandwich::vcovHAC` im `emmeans()` Funktionsaufruf. In dem R Paket `{sandwich}` gibt es eine riesige Anzahl an möglichen Funktionen um für Varianzheterogenität zu adjustieren. Wir nutzen hier die Option `vcovHAC`, die in vielen Fällen vollkommen ausrichend ist.
 
 Adjustierung für multiple Vergleiche
 
