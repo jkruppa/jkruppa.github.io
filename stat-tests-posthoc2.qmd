@@ -33,6 +33,16 @@ gg_template <- ggplot() +
 
 > *"Comparison is the thief of joy." --- Theodore Roosevelt*
 
+|                         | Tukey HSD Test | `{emmeans}`  | Games |
+|:------------------------|:--------------:|:------------:|:-----:|
+| **Verteilung von y**    | normalverteilt |   beliebig   |       |
+| **Varianzen von x**     |    homogen     |   beliebig   |       |
+| **Fallzahl per Gruppe** |   balanciert   |   beliebig   |       |
+| **Adjustierte p-Werte** |     immer      |   beliebig   |       |
+| **Mögliche Vergleiche** |   *all-pair*   | enge Auswahl |       |
+
+: test. Achtung, teilweise müssen die Optionen *aktiv* von dir aktiviert werden. {#tbl-übersicht}
+
 ```{r}
 #| echo: false
 #| eval: true
@@ -326,9 +336,9 @@ Fallzahl in den einzelnen Behandlungsgruppen
 
 :   Der Tukey HSD Test geht von einem balancierten Design aus. Daher brauchen wir in allen Behandlungsgruppen die gleiche Anzahl an Beobachtungen. Wenn wir kein balanciertes Design vorliegen haben, dann wird die Fallzahl mehr oder minder über die Gruppen gemittelt. Teilweise funktioniert dann auch der Tukey HSD Test nicht mehr richtig. Daher ist von der Nutzung es Tukey HSD Tests bei ungleich großen Gruppen abzuraten. Auch hier ist dann der Ausweg das R Paket `{emmeans}`, welches genau für den unblancierten Fall ursprünglich entworfen wurde.
 
-Schauen wir uns nun einmal an, wie der Tukey HSD Test theoretisch funktioniert und wie die Implmentierugn in R dargestellt ist. Wir haben die Wahl zwischen der Funktion `TukeyHSD()` und der Funktion `HSD.test()` aus dem R Paket `{agricolae}`. Die Funktion `HSD.test()` liefert auch gleich das *Compact letter display* in der Ausgabe mit. Sonst sind die beiden Funktionen sehr ähnlich.
+Schauen wir uns nun einmal an, wie der Tukey HSD Test theoretisch funktioniert und wie die Implmentierugn in R dargestellt ist. Wir haben die Wahl zwischen der Funktion `TukeyHSD()` und der Funktion `HSD.test()` aus dem R Paket `{agricolae}`. Die Funktion `HSD.test()` liefert auch gleich das *Compact letter display* in der Ausgabe mit. Sonst sind die beiden Funktionen sehr ähnlich. Oft wird eben der Tukey HSD Test noch verwendet, weil er eben sehr alt ist und somit schon sehr lange verwendet wurde.
 
-:::: panel-tabset
+::::: panel-tabset
 ## Theoretisch
 
 Zuerst einmal die Formel des Tukey HSD Test. Wir berechnen dabei asl statistische Maßzahl den HSD-Wert, der nichts anderes aussagt als der minimal Mittelwertsunterschied, den wir gegeben der Streuung und der Fallzahl in den Daten als signifikant nachweisen können. Sozusagen der minimalste mögliche signifikante Mittelwertsunterschied.
@@ -456,45 +466,55 @@ fac2_av <- aov(jump_length ~ animal + site + animal:site, data = fac2_tbl)
 summary(fac2_av)
 ```
 
-In diesem Fall finden wir eine signifikante Interaktion. Daher verhalten sich die Tierarten `animal` in den beiden Messorten in dem Faktor `site` nicht gleich. Die Interaktion kanst du auch in der Visualisierung der Daten sehen. Für die Füchse ändert sich die Sprungweite von `city` zu `village`. Bei Hunden- und Katzenflöhen springen in der Tendenz Dorfflöhe weiter als Stadtflöhe.
+In diesem Fall finden wir eine signifikante Interaktion. Daher verhalten sich die Tierarten `animal` in den beiden Messorten in dem Faktor `site` nicht gleich. Die Interaktion kanst du auch in der Visualisierung der Daten in der @fig-boxplot-emmeans-fac2 sehen. Für die Füchse ändert sich die Sprungweite von `city` zu `village`. Bei Hunden- und Katzenflöhen springen in der Tendenz Dorfflöhe weiter als Stadtflöhe. Wir nutzen jetzt das Modell einmal in der Funktion `TukeyHSD()` um uns einmal einen Tukey HSD TEst berechnen zu lassen.
 
 ```{r}
 tukey_fac2_obj <- TukeyHSD(fac2_av)
 tukey_fac2_obj
 ```
 
+Wie du an der sehr langen Ausgabe sehen kannst, erhalten wir erstmal die Informationen zu der Tierart, dort sehen wir dann, dass sich alle drei Sprungweiten der Tierarten voneinander unterscheiden. Dann erhalten wir die Information über den Ort oder eben den zweiten Faktor. Am Ende nochmal sehr detailiert alle Interaktionen aufgeschlüsselt. Leider ist die Tabelle dann sehr schlecht zu lesen, aber hier siehst du dann welche Faktorkombination dann signifikant ist. Wenn du eine signifikante Interaktion vorliegen hast, dann kannst du keine *pauschale* Aussage über die Sprungweiten der Tierarten machen. Es kommt eben immer drauf an, welches Level du im zweiten Faktor betarchtest.
+
+Am Ende wollen wir dann doch noch das *Compact letter display* haben. Ich wähle hier einmal die Gruppe der Tierarten aus. Du kannst das auch für die anderen Faktoren machen, aber hier einmal zur Demonstration. Wir sehen, dass sich alle Tierarten in der Sprungweiet unterscheiden, keine Tierart hat den gleichen Buchstaben.
+
 ```{r}
 multcompLetters(extract_p(tukey_fac2_obj$animal))
 ```
 
+Hier nochmal Achtung, die Interaktion wird natürlich nicht berücksichtigt. Im Zweifel dann doch lieber `{emmeans}` nutzen und nochmal bei mir nachfragen. Allgemeine Aussagen zur Interaktion kann ich immer schwer treffen, es hängt sehr von der wissenschaftlichen Fragestellung und den Daten ab.
+
 ## `HSD.test()`
 
-`{agricolae}`
+::: callout-warning
+## Achtung, bitte beachten!
+
+Die Funktion `HSD.test()` kann nur ein einfaktorielles Modell rechnen und *ignoriert* weitere Faktoren oder Interaktionsterme im `aov()` Modell. Du erhälst zwar immer eine Ausgabe, aber nur als einfaktorielle Analyse. Unabhängig von dem Modell was du in die Funktion `HSD.test()` reinsteckst! Und ohne weitere Warnung.
+:::
+
+Eine zweite Variante den Tukey HSD Test in R durchzuführen ist die Funktion `HSD.test()` aus dem R Paket `{agricolae}`. Persönlich entwickle ich so langsam eine Aversion gegen das Paket, da ich selten eine so rundimentäre und lustlose Hilfe für die Funktion gesehen habe wie in `{agricolae}`. Prinzipiell haben wir die gleichen Möglichkeiten wie auch mit dem Tukey HSD Test für ein einfaktorielles Versuchsdesign. Wir nutzen auch erste eine ANOVA um uns alle wichtigen statistischen Maßzahlen berechnen zu lassen und dann können wir mit denen den Tukey HSD Test durchführen. Leider erhalten wir *keine* p-Werte. Was auch irgendwie irre ist. Dafür dann aber das *Compact letter display* ohne einen weiteren Schritt.
 
 ### Einfaktorielle Analyse
+
+Am Anfang rechnen wir auch hier eine einfaktorielle ANOVA mit der Funktion `aov()`. Wir erhalten dann alle notwendigen Informationen in dem Ausgabeobjekt für die Berechnung des Tukey HSD Test. Darüber hinaus können wir auch auch gleich schauen, ob unsere Bahendlung überhaupt einen signifkanten Einfluss auf unser Outcome der Sprunglänge hat.
 
 ```{r}
 fac1_av <- aov(jump_length ~ animal, data = fac1_tbl)
 summary(fac1_av)
 ```
 
+An dem p-Wert sehen wir, dass wir einen signifikanten Effekt der Tierart `animal` auf die Sprunglänge der Flöhe vorliegen haben. Wir können jetzt einen Tukey HSD Test rechnen um rauszufinden welche der drei Tierarten sich unterscheiden. Wir erhalten dann als Ausgabe die Mittlwerte ohne p-Werte und müssten uns sogar die Mittelwertsdifferenzen selber berechnen. Keine Ahnung was das soll. Dafür dann aber das *Compact letter display*, was ja auch irgendwie reicht.
+
 ```{r}
 tukey_fac1_obj <- HSD.test(fac1_av, trt = 'animal')
 tukey_fac1_obj
 ```
 
+Wenn du keinen p-Werte haben möchtest sondern nur das *Compact letter display*, dann macht es dir die Funktion `HSD.test()` etwas leichter. Dann brauchst du dir nicht nochmal eine Funktion zusätzlich laden. Wenn du p-Werte brauchst, dann stehst du hier im Regen. Dann nutze bitte die Funktion `TukesHSD()` im vorherigen Tab.
+
 ### Zweifaktorielle Analyse
 
-```{r}
-fac2_av <- aov(jump_length ~ animal + site + animal:site, data = fac2_tbl)
-summary(fac2_av)
-```
-
-```{r}
-tukey_fac2_obj <- HSD.test(fac2_av, trt = 'animal')
-tukey_fac2_obj
-```
-::::
+Eine zweifaktorielle Analyse ist in der Funktion `HSD.test()` nicht möglich. Ein zweifaktorielles Modell wird wie ein einfaktorielles Modell behandelt und damit der zweite Faktor sowie der Interaktionsterm von der Funktion `HSD.test()` ignoriert. Du erhälst keine Warnung sondern eben das Ergebnis einer einfaktoriellen Analyse wiedergeben. Ich bin immer noch sprachlos was das soll.
+:::::
 
 ## Der effektive Pfad mit `{emmeans}`
 
