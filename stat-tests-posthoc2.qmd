@@ -3,7 +3,7 @@
 #| warning: false
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, see, latex2exp,
                multcomp, emmeans, ggpubr, multcompView, nlme, quantreg, janitor,
-               parameters, effectsize, patchwork, conflicted)
+               parameters, effectsize, patchwork, scales, conflicted)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(dplyr::filter)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
@@ -27,23 +27,45 @@ gg_template <- ggplot() +
 
 ```
 
-# Der Post-hoc-Test {#sec-posthoc}
+# Der Post-hoc Test {#sec-posthoc}
 
 *Letzte Änderung am `r format(fs::file_info("stat-tests-posthoc.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*
 
 > *"Comparison is the thief of joy." --- Theodore Roosevelt*
 
-|                         | Tukey HSD Test | `{emmeans}`  | Games |
-|:------------------------|:--------------:|:------------:|:-----:|
-| **Verteilung von y**    | normalverteilt |   beliebig   |       |
-| **Varianzen von x**     |    homogen     |   beliebig   |       |
-| **Fallzahl per Gruppe** |   balanciert   |   beliebig   |       |
-| **Adjustierte p-Werte** |     immer      |   beliebig   |       |
-| **Mögliche Vergleiche** |   *all-pair*   | enge Auswahl |       |
+|   | Tukey HSD | Games Howell | `{emmeans}` | `{multcomp}` |
+|:---|:--:|:--:|:--:|:--:|
+| **Verteilung von y** | normalverteilt | normalverteilt | beliebig | beliebig |
+| **Varianzen von x** | homogen | heterogen | beliebig | beliebig |
+| **Fallzahl per Gruppe** | balanciert | beliebig | beliebig | beliebig |
+| **Adjustierte p-Werte** | immer | immer | beliebig | beliebig |
+| **Mögliche Vergleiche** | *all-pair* | *all-pair* | beliebig | beliebig |
 
-: test. Achtung, teilweise müssen die Optionen *aktiv* von dir aktiviert werden. {#tbl-übersicht}
+: test. Achtung, teilweise müssen die Optionen *aktiv* von dir aktiviert werden. Sie dazu auch den [Friedhof der Post-ho Tests](#sec-friedhof-posthoc) in diesem Kapitel. {#tbl-übersicht}
 
 Auf der Seite DSFAIR gibt es noch einen Artikel zu `emmeans` und der Frage [Why are the StdErr all the same?](https://schmidtpaul.github.io/dsfair_quarto/ch/summaryarticles/whyseequal.html) und dazu dann auch passend die Publikation [Analyzing designed experiments: Should we report standard deviations or standard errors of the mean or standard errors of the difference or what?](https://www.cambridge.org/core/services/aop-cambridge-core/content/view/92DB0AF151C157B9C6E2FA40F9C9B635/S0014479719000401a.pdf/analyzing-designed-experiments-should-we-report-standard-deviations-or-standard-errors-of-the-mean-or-standard-errors-of-the-difference-or-what.pdf)
+
+Wieviel ist den *all-pair*?
+
+:   Wenn du alle möglichen Mittelwertkombinationen testen willst, dann ist die Formel für die Berechnung der durchzuführenden Vergleiche $r = m(m-1)/2$. Oder um es einmal in der folgenden Tabelle etwas konkreter darzustellen, werden es sehr schnell sehr viele Vergleiche. Dabei drückst du mit jeder zusätzlichen Behandlungsgruppe das Signifikanznievau $\alpha$ weiter runter, da die Anzahl an potenziellen Vergleichen sehr schnell ansteigt. So fällt dann auch der maximal noch signifikante p-Wert schnell ab. Damit brauchst du dann immer stärkere Effekt, wie einen Mittelwertsunterschied, um überhaupt noch was signifikantes aus einem statistsichen Test wiedergeben zu bekommen. In der folgenden Tabelle siehtst du dann nochmal den Zussammenhang. Ohne Adjustierung des Signifikanzniveaus erhalten wir schon ab sechs Gruppen mindestens einen signifikanten Unterschied auch wenn es gar keinen Unterschied in den Daten gibt.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-allpair-bonf
+#| tbl-cap: "Zusammenhang von der Anzahl an Gruppen oder Behandlungen und der sich ergebenden Anzahl an *all-pair* Vergleichen. Daraus ergibt sich ein stark abfallendes Signifikanzniveau. Der maximal noch signifikante p-Wert fällt dementsprechend auch schnell ab. **Ohne Adjustierung** erhalten wir schon ab sechs Gruppen mindestens einen fälschlichen signifikanten Unterschied."
+tibble(m = 2:12,
+       r = m*(m-1)/2,
+       a = percent(round(0.05/r, 4)),
+       p = round(0.05/r, 4),
+       fp = round(r/20)) |> 
+  set_names(c("Anzahl Gruppen", "Anzahl Vergleiche", 
+              "Signifikanzniveau $\\alpha$", "Maximal signifikanter p-Wert",
+              "$H_0$ fälschlich abgelehnt")) |> 
+  kable(align = "c", "pipe")
+
+```
 
 ```{r}
 #| echo: false
@@ -140,7 +162,7 @@ fac1_tbl |>
 #| echo: false
 #| fig-align: center
 #| fig-height: 4
-#| fig-width: 7
+#| fig-width: 4
 #| fig-cap: "Boxplot der Sprungweiten [cm] von Hunden und Katzen gemessen an verschiedenen Orten."
 #| label: fig-boxplot-emmeans-fac1
 
@@ -201,7 +223,7 @@ fac2_tbl |>
 #| echo: false
 #| fig-align: center
 #| fig-height: 4
-#| fig-width: 7
+#| fig-width: 8
 #| fig-cap: "Boxplot der Sprungweiten [cm] von Hunden und Katzen gemessen an verschiedenen Orten."
 #| label: fig-boxplot-emmeans-fac2
 
@@ -320,7 +342,133 @@ p1 + p2 +
 
 ```
 
-## `{ggplot}`
+## `geom_bar()`
+
+Das hier ist natürlich nochmal eien Wiederholung des [Kapitels zur Visualisierung von Daten](#sec-eda-ggplot)
+
+### Einfaktorieller Barplot
+
+```{r}
+stat_fac1_tbl <- fac1_tbl |> 
+  group_by(animal) |> 
+  summarise(mean = mean(jump_length),
+            sd = sd(jump_length))
+stat_fac1_tbl
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-posthoc-barplot-1fac
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: "foo."
+
+ggplot(data = stat_fac1_tbl, 
+       aes(x = animal, y = mean, fill = animal)) +
+  theme_minimal() +
+  geom_bar(stat = "identity") + 
+  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd), 
+                width = 0.2) + 
+  labs(x = "", 
+       y = "Nitrat-Konzentration \n im Tannensaft [mg/L]") +
+  theme(legend.position = "none") + 
+  scale_fill_okabeito() 
+```
+
+### Zweifaktorieller Barplot
+
+```{r}
+stat_fac2_tbl <- fac2_tbl |> 
+  group_by(animal, site) |> 
+  summarise(mean = mean(jump_length),
+            sd = sd(jump_length))
+stat_fac2_tbl
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-posthoc-barplot-2fac
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: "foo."
+
+ggplot(data = stat_fac2_tbl, 
+       aes(x = animal, y = mean, fill = site)) +
+  theme_minimal() +
+  geom_bar(stat = "identity", width = 0.9, 
+           position = position_dodge(0.9)) + 
+  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd), 
+                width = 0.2, 
+                position = position_dodge(0.9)) + 
+  labs(x = "", 
+       y = "Nitrat-Konzentration \n im Tannensaft [mg/L]") +
+  theme(legend.position = "none") + 
+  scale_fill_okabeito() 
+```
+
+## `geom_boxplot()`
+
+### Einfaktorieller Boxplot
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-posthoc-boxplot-1fac
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: "foo."
+
+ggplot(data = fac1_tbl, 
+       aes(x = animal, y = jump_length, fill = animal)) +
+  theme_minimal() +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Nitrat-Konzentration \n im Tannensaft [mg/L]") +
+  theme(legend.position = "none") + 
+  scale_fill_okabeito() 
+```
+
+### Zweifaktorieller Boxplot
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-posthoc-boxplot-2fac
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 8
+#| fig-cap: "foo."
+
+ggplot(data = fac2_tbl, 
+       aes(x = animal, y = jump_length, fill = site)) +
+  theme_minimal() +
+  geom_boxplot() + 
+  labs(x = "", 
+       y = "Nitrat-Konzentration \n im Tannensaft [mg/L]") +
+  theme(legend.position = "none") + 
+  scale_fill_okabeito() 
+```
+
+## Excel
+
+Dann habe ich mich doch noch hingesetzt und einmal für dich die Videos gemacht, wie du dann einen Barplot oder eben ein Säulendigramm in Excel erstellst. Daran kannst du natürlich auch überprüfen, ob die Variazen homogen sind oder nicht. Das ganze macht dann nur als Video Sinn, denn sonst kannst du ja nicht nachvollziehen, was ich geklickt habe.
+
+Hier also erstmal die einfachere Variante mit dem 1-faktoriellen Barplot. Beginnen wollen wir wie immer mit der Berechnung der Mittelwerte und der Standardabweichung. Bitte nutze für die Standardabweichung die Funktion `STABW.S()` in Excel.
+
+{{< video https://youtu.be/UdZ5p8euo64 >}}
+
+Und im Anschluss nochmal das Video für den 2-faktoriellen Barplot. Du hast jetzt eben nicht nur eine Behandlungsgruppe vorliegen sondern zwei Behandlungsgruppen. Dann musst du etwas mehr Arbeit reinstecken um alle Mittelwerte und Standardabweichungen zu berechnen. Bitte nutze auch hier für die Standardabweichung die Funktion `STABW.S()` in Excel.
+
+{{< video https://youtu.be/mGSMZ6C7x4E >}}
 :::
 
 ## Der ANOVA Pfad mit Tukey HSD
@@ -711,6 +859,8 @@ emm_fac2_separate_obj |>
   cld(Letters = letters, adjust = "bonferroni")
 ```
 
+Hier dann noch die Implementierung mit geom text
+
 ## 95% Konfidenzintervall
 
 ```{r}
@@ -784,6 +934,10 @@ pairwise.wilcox.test(fac1_tbl$jump_length, fac1_tbl$animal,
 
 ### Games Howell Test
 
+[Games-Howell Post-Hoc Test](https://rpubs.com/aaronsc32/games-howell-test)
+
+> "However, the smaller the number of samples in each group, the \[Games Howell Post-hoc Tests\] is more tolerant to the type I error control. Thus, this method can be applied when the number of samples is six or more." --- [Games Howell Post-hoc Tests in `{rstatix}`](https://rpkgs.datanovia.com/rstatix/reference/games_howell_test.html)
+
 ::: panel-tabset
 ## p-Werte
 
@@ -793,6 +947,18 @@ pairwise.wilcox.test(fac1_tbl$jump_length, fac1_tbl$animal,
 :::
 
 ## Weitere Dinge von Interesse
+
+## Friedhof der Post-hoc Tests {#sec-friedhof-posthoc}
+
+Hier gebe ich eine -- nicht vollständige -- Liste an Post-hoc Tests, die es einmal gab und auch noch erwähnt werden, aber dann igentlich alle irgendwie veraltet sind. Wie immer sind diese Tests nicht per se schlecht. Aber es gibt dann eben besseres. Die Daumenregel lautet dabei, dass es `{emmeans}` oder `{multcomp}` besser können. Zwei Übersichtsarbeiten helfen hier nochmal Ordnung in das Dickicht der multiplen Vergleiche zu bringen. Einmal die Arbeit [On the use of post-hoc tests in environmental and biological sciences: A critical review](https://www.sciencedirect.com/science/article/pii/S2405844024011629) von @agbangba2024use sowie die Veröffentlichung [A discussion and evaluation of statistical procedures used by JIMB authors when comparing means](https://pmc.ncbi.nlm.nih.gov/articles/PMC10845891/) von @klasson2024discussion.
+
+LSD Test oder auch *Fisher\`s least Significant Difference (LSD)*
+
+:   Der LSD Test ist veraltet. Was überhaupt gegen die Nutung des LSD Test spricht ist, das der LSD Test das Signifikanzniveau $\alpha$ von 5% über alle Vergleiche nicht einhält. Sie dazu auch @agbangba2024use mit der klaren Aussage: *"LSD does not control for family-wise type I error".* Die einzige Ausnahme ist der seltene Fall, dass du dir nur drei Behandlungsgruppen anschaust, wie von @klasson2024discussion diskutiert. Aber am Ende ich kann den LSD Test nicht empfehlen.
+
+Scheffé Test
+
+:   Der Scheffé Test ist im Prinzipn eng mit dem Tukey HSD Test verwandt. Was aber @agbangba2024use anmerkt ist, dass *"the test is too conservative compared to methods like Tukey’s HSD"*. Aus dem Grund würde ich den Test nicht empfehlen. Auch testet der Scheffé Test mehr Vergleiche als du meistens möchtest. Es ist eben nicht ein reiner *all-pair* Vergleich sondern testet auch noch alle anderen möglichen Kombinationen der Mittelwerte.
 
 ## Re-engineering *Compact letter display*
 
