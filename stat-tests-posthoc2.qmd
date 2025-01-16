@@ -3,7 +3,7 @@
 #| warning: false
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, see, latex2exp,
                multcomp, emmeans, ggpubr, multcompView, nlme, quantreg, janitor,
-               parameters, effectsize, patchwork, scales, conflicted)
+               parameters, effectsize, patchwork, scales, nparcomp, conflicted)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(dplyr::filter)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
@@ -32,6 +32,12 @@ gg_template <- ggplot() +
 *Letzte Änderung am `r format(fs::file_info("stat-tests-posthoc.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*
 
 > *"Comparison is the thief of joy." --- Theodore Roosevelt*
+
+::: {layout="[15,85]" layout-valign="top"}
+![](images/angel_01_small.png){fig-align="center" width="100%"}
+
+> In diesem Kapitel werde ich ein paar Engel der Statistik niedergeschlagen oder überfahren. Ich lasse aus Gründen der Didaktik ein paar Sachen weg und dadurch wird einiges leider dann *mathematisch* unkorrekt. Ich kann damit leben und nehme es auf mich damit du deine Abschlussarbeit fertig bekommst.
+:::
 
 |   | Tukey HSD | Games Howell | `{emmeans}` | `{multcomp}` |
 |:---|:--:|:--:|:--:|:--:|
@@ -399,7 +405,7 @@ stat_fac2_tbl
 #| fig-cap: "foo."
 
 ggplot(data = stat_fac2_tbl, 
-       aes(x = animal, y = mean, fill = site)) +
+       aes(x = site, y = mean, fill = animal)) +
   theme_minimal() +
   geom_bar(stat = "identity", width = 0.9, 
            position = position_dodge(0.9)) + 
@@ -407,8 +413,8 @@ ggplot(data = stat_fac2_tbl,
                 width = 0.2, 
                 position = position_dodge(0.9)) + 
   labs(x = "", 
-       y = "Nitrat-Konzentration \n im Tannensaft [mg/L]") +
-  theme(legend.position = "none") + 
+       y = "Nitrat-Konzentration \n im Tannensaft [mg/L]",
+       fill = "Tierart") +
   scale_fill_okabeito() 
 ```
 
@@ -449,12 +455,12 @@ ggplot(data = fac1_tbl,
 #| fig-cap: "foo."
 
 ggplot(data = fac2_tbl, 
-       aes(x = animal, y = jump_length, fill = site)) +
+       aes(x = site, y = jump_length, fill = animal)) +
   theme_minimal() +
   geom_boxplot() + 
   labs(x = "", 
-       y = "Nitrat-Konzentration \n im Tannensaft [mg/L]") +
-  theme(legend.position = "none") + 
+       y = "Nitrat-Konzentration \n im Tannensaft [mg/L]",
+       fill = "Tierart") +
   scale_fill_okabeito() 
 ```
 
@@ -737,9 +743,35 @@ emm_fac1_obj |>
 ## *Compact Letter Display*
 
 ```{r}
-emm_fac1_obj |> 
-  contrast(method = "pairwise") |>  
+emm_fac1_cld <- emm_fac1_obj |> 
   cld(Letters = letters, adjust = "bonferroni")
+emm_fac1_cld
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: "foo."
+#| label: fig-emmeans-fac1-cld
+
+emm_fac1_cld |> 
+  mutate(.group = str_trim(.group),
+         sd = SE * sqrt(7)) |> 
+  ggplot(aes(x = animal, y = emmean, fill = animal)) +
+  theme_minimal() +
+  geom_bar(stat = "identity") + 
+  geom_errorbar(aes(ymin = emmean-sd, ymax = emmean+sd), 
+                width = 0.2) + 
+  labs(x = "", 
+       y = "Nitrat-Konzentration \n im Tannensaft [mg/L]") +
+  theme(legend.position = "none") + 
+  scale_fill_okabeito() +
+  geom_text(aes(label = .group, y = emmean + sd + 0.5),
+            fontface = 2)
 ```
 
 ## 95% Konfidenzintervall
@@ -854,12 +886,40 @@ emm_fac2_separate_obj |>
 ## *Compact Letter Display*
 
 ```{r}
-emm_fac2_separate_obj |> 
-  contrast(method = "pairwise") |>  
+emm_fac2_cld <- emm_fac2_separate_obj |> 
   cld(Letters = letters, adjust = "bonferroni")
+emm_fac2_cld
 ```
 
 Hier dann noch die Implementierung mit geom text
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: "foo."
+#| label: fig-emmeans-fac2-cld
+
+emm_fac2_cld |> 
+  mutate(.group = str_trim(.group),
+         sd = SE * sqrt(7)) |> 
+  ggplot(aes(x = site, y = emmean, fill = animal)) +
+  theme_minimal() +
+  geom_bar(stat = "identity", width = 0.9, 
+           position = position_dodge(0.9)) + 
+  geom_errorbar(aes(ymin = emmean-sd, ymax = emmean+sd), 
+                width = 0.2, 
+                position = position_dodge(0.9)) + 
+  labs(x = "", 
+       y = "Nitrat-Konzentration \n im Tannensaft [mg/L]",
+       fill = "Tierart") +
+  scale_fill_okabeito() +
+  geom_text(aes(label = .group, y = emmean + sd + 1),
+            fontface = 2, position = position_dodge(0.9))
+```
 
 ## 95% Konfidenzintervall
 
@@ -924,13 +984,175 @@ pairwise.wilcox.test(fac1_tbl$jump_length, fac1_tbl$animal,
 
 ### `{nparcomp}`
 
-::: panel-tabset
+::: callout-warning
+## Achtung, bitte beachten!
+
+Das Paket `{nparcomp}` kann nur ein einfaktorielles Modell rechnen. Dafür brauchst du kein normalverteiltes $y$ in deinen Daten. Darüber hinaus ist die Interpretation des Effekts biologisch nicht möglich. Jedenfalls nicht im klassichen Sinne einer Relevanzbetrachtung auf der Einheit der Messwerte deines $y$. Dementsprechend sind die 95% Kondfidenzintervalle recht nutzlos.
+:::
+
+::: {layout="[15,85]" layout-valign="top"}
+![](images/angel_01_small.png){fig-align="center" width="100%"}
+
+> In diesem Kapitel werde ich ein paar Engel der Statistik niedergeschlagen oder überfahren. Ich lasse aus Gründen der Didaktik ein paar Sachen weg und dadurch wird einiges leider dann *mathematisch* unkorrekt. Ich kann damit leben und nehme es auf mich damit du deine Abschlussarbeit fertig bekommst.
+:::
+
+R Paket `{nparcomp}`
+
+#### Einfaktorielle Analyse
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-normal-02
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 12
+#| fig-cap: "foo. **(A)** ooo. **(B)** gggg. **(C)** gggg. *[Zum Vergrößern anklicken]*"
+
+
+gg_template <- ggplot() +
+  theme_minimal()  +
+  geom_vline(xintercept = c(10)) + 
+  geom_hline(yintercept = c(0)) +   
+  stat_function(fun = dnorm, linewidth = 1, 
+                args = list(mean = 10, sd = 4), color = "black") +
+  theme( axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text = element_text(size = 12),
+        plot.title = element_text(size = 16, face = "bold"),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(face = "italic"),
+        legend.position = "none") +
+  scale_y_continuous(name = "")
+
+p1 <- gg_template %+%
+  data.frame(x = c(-10, 30)) +
+  aes(x) +
+  stat_function(fun = dnorm, linewidth = 1, 
+                args = list(mean = 15, sd = 4), color = "#0072B2") +
+  stat_function(fun = dnorm, , 
+                args = list(mean = 15, sd = 4),
+                xlim = c(10, 25),
+                geom = "area", fill = "#0072B2", alpha = 0.25)  +
+  geom_vline(xintercept = c(15), color = "#0072B2") + 
+  scale_x_continuous(name = "", breaks = c(10, 15), 
+                     label = c(expression(bar(y)[A]), expression(bar(y)[B]))) +
+  annotate("text", x = -8, y = 0.08, label = expression(p[A]~"<"~p[B]), size = 5, hjust = "left") +
+  annotate("text", x = -8, y = 0.06, label = expression(p["(A,B)"]%~~%0.8), size = 5, hjust = "left")
+
+p2 <- gg_template %+%
+  data.frame(x = c(-10, 30)) +
+  aes(x) +
+  stat_function(fun = dnorm, linewidth = 1, 
+                args = list(mean = 5, sd = 4), color = "#CC79A7") +
+  stat_function(fun = dnorm, , 
+                args = list(mean = 5, sd = 4),
+                xlim = c(10, 25),
+                geom = "area", fill = "#CC79A7", alpha = 0.25) +
+  geom_vline(xintercept = c(5), color = "#CC79A7") + 
+  scale_x_continuous(name = "", breaks = c(10, 5), 
+                     label = c(expression(bar(y)[A]), expression(bar(y)[B]))) +
+  annotate("text", x = 17, y = 0.08, label = expression(p[A]~">"~p[B]), size = 5, hjust = "left") +
+  annotate("text", x = 17, y = 0.06, label = expression(p["(A,B)"]%~~%0.2), size = 5, hjust = "left")
+
+p3 <- gg_template %+%
+  data.frame(x = c(-10, 30)) +
+  aes(x) +
+  stat_function(fun = dnorm, linewidth = 1, 
+                args = list(mean = 11, sd = 4), color = "#009E73") +
+  stat_function(fun = dnorm, , 
+                args = list(mean = 11, sd = 4),
+                xlim = c(10, 25),
+                geom = "area", fill = "#009E73", alpha = 0.25) +
+  geom_vline(xintercept = c(11), color = "#009E73") + 
+  scale_x_continuous(name = "", breaks = c(9.5, 12.25), 
+                     label = c(expression(bar(y)[A]), expression(bar(y)[B]))) +
+  annotate("text", x = 17, y = 0.08, label = expression(p[A]~"="~p[B]), size = 5, hjust = "left") +
+  annotate("text", x = 17, y = 0.06, label = expression(p["(A,B)"]%~~%0.5), size = 5, hjust = "left")
+
+p2 + p3 + p1 +
+  plot_layout(ncol = 3) +
+  plot_annotation(tag_levels = 'A') +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+```
+
+:::: panel-tabset
 ## p-Werte
+
+```{r}
+nparcomp_fac1_res <- nparcomp(jump_length ~ animal, data = fac1_tbl, 
+                              asy.method = "mult.t", type = "Tukey", 
+                              alternative = "two.sided", info = FALSE)
+nparcomp_fac1_res$Analysis
+```
 
 ## *Compact letter display*
 
+```{r}
+nparcomp_fac1_res <- nparcomp(jump_length ~ animal, data = fac1_tbl, 
+                              asy.method = "mult.t", type = "Tukey", 
+                              alternative = "two.sided", info = FALSE)
+```
+
+```{r}
+contrast_vec <- row.names(nparcomp_fac1_res$Contrast) |> 
+  str_replace_all("\\s", "")
+```
+
+```{r}
+adj_p_values_vec <- nparcomp_fac1_res$Analysis$p.Value |> 
+  set_names(contrast_vec)
+```
+
+```{r}
+adj_p_values_vec |> multcompLetters() 
+```
+
 ## 95% Konfidenzintervall
+
+::: {layout="[15,85]" layout-valign="top"}
+![](images/angel_01_small.png){fig-align="center" width="100%"}
+
+> Ja, die 95% Konfidenzintervalle in `{nparcomp}`. Eigentlich liefern die 95% Konfidenzintervalle nicht das was wir eigentlich wolen. Nämlich eine biologisch zu interpretierende Relevanz und eben die Signifikanz. Die relativen Effekte $p(a,b)$ aus der Funktion `nparcomp()` sind eben dann doch wieder nur Wahrscheinlichkeiten.
 :::
+
+```{r}
+nparcomp_fac1_res <- nparcomp(jump_length ~ animal, data = fac1_tbl, 
+                              asy.method = "mult.t", type = "Tukey", 
+                              alternative = "two.sided", info = FALSE)
+
+```
+
+Leider erhalten wir 95% Konfidentintervalle mit Werten kleiner als 0 und größer als 1 heraus. Das macht natürlich bei einem relativen Effekt, als einer Wahrscheinlichkeit, keinen Sinn. Es gibt hier zwar eine theoretische Anpassung, aber wir nutzen hier die Funktionen wie sie kommen und wollen nicht noch tiefer Graben um ein Problem zu lösen, was wir ohne die Funktion nicht hätten.
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 5
+#| fig-cap: "Simultane 95% Konfidenzintervalle für den paarweisen Vergleich der Sprungweiten in [cm] der Hunde-, Katzen- und Fuchsflöhe."
+#| label: fig-nparcomp-1
+
+ggplot(nparcomp_fac1_res$Analysis, 
+       aes(Comparison, y = Estimator, 
+           ymin = ifelse(Lower <= 0, 0, Lower), 
+           ymax = ifelse(Upper >= 1, 1, Upper))) +
+  geom_hline(yintercept=0.5, linetype="11", colour="grey60") +
+  geom_errorbar(width=0.1) + 
+  geom_point() +
+  coord_flip() +
+  theme_classic() +
+  ylim(0, 1)    
+```
+::::
+
+#### Zweifaktorielle Analyse
+
+Eine zweifaktorielle Analyse ist in dem Paket `{nparcomp}` nicht möglich. Damit war das hier viel Arbeit für mich für vermutlich nicht viel für dich. Dafür habe ich aber eine Menge über `{nparcomp}` gelernt und du musst dich dafür nicht durch das sehr mathematische Paper von @konietschke2015nparcomp quälen. Denn in den Agrarwissenschaften haben wir eigentlich immer ein zweifaktorielles Modell und selten nur ein Modell mit einem Faktor vorliegen. Daher ist dieses Paket auch hier unten im Kapitel eingeordnet und würde ich nicht empfehlen.
 
 ### Games Howell Test
 
