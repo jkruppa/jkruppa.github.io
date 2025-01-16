@@ -954,7 +954,7 @@ ggplot(comp_fac2_ci_obj, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high
 ```
 :::
 
-## Weitere Pfade
+## Weitere Pfade für multiple Vergleiche
 
 ### Paarweise Tests
 
@@ -972,7 +972,7 @@ pairwise.wilcox.test(fac1_tbl$jump_length, fac1_tbl$animal,
                      p.adjust.method = "bonferroni")
 ```
 
-### `{multcomp}`
+### R Paket `{multcomp}`
 
 ::: panel-tabset
 ## p-Werte
@@ -982,23 +982,90 @@ pairwise.wilcox.test(fac1_tbl$jump_length, fac1_tbl$animal,
 ## 95% Konfidenzintervall
 :::
 
-### `{nparcomp}`
+### R Paket `{nparcomp}`
 
 ::: callout-warning
 ## Achtung, bitte beachten!
 
-Das Paket `{nparcomp}` kann nur ein einfaktorielles Modell rechnen. Dafür brauchst du kein normalverteiltes $y$ in deinen Daten. Darüber hinaus ist die Interpretation des Effekts biologisch nicht möglich. Jedenfalls nicht im klassichen Sinne einer Relevanzbetrachtung auf der Einheit der Messwerte deines $y$. Dementsprechend sind die 95% Kondfidenzintervalle recht nutzlos.
+Das Paket `{nparcomp}` kann nur ein einfaktorielles Modell rechnen. Dafür brauchst du kein normalverteiltes $y$ in deinen Daten. Darüber hinaus ist die Interpretation des Effekts biologisch nicht möglich. Jedenfalls nicht im klassichen Sinne einer Relevanzbetrachtung auf der Einheit der Messwerte deines $y$. Dementsprechend sind die 95% Kondfidenzintervalle recht nutzlos. Das *Compact letter display* kannst du aber problemlos nutzen.
 :::
+
+Das R Paket `{nparcomp}` wird gerne genutzt, wenn du ein nicht normalverteiltes Outcome $y$ vorliegen hast und nur eine Behandlung $x$. Dieser Fall kommt sehr oft in der Zellbiologie vor oder aber allgemein in den Humanwissenschaften. Teilweise dann auch in Mausmodellen, wo wir dann nur drei bis vier Behandlungen vorliegen haben und diese dann zu einer Kontrolle vergleichen. Dafür ist das R Paket `{nparcomp}` nützlich. Aber auch nur, wenn du an p-Werten und vielleicht noch dem *Compact letter display* interessiert bist. Alles andere ist dann nicht sinnvoll abbildbar.
 
 ::: {layout="[15,85]" layout-valign="top"}
 ![](images/angel_01_small.png){fig-align="center" width="100%"}
 
-> In diesem Kapitel werde ich ein paar Engel der Statistik niedergeschlagen oder überfahren. Ich lasse aus Gründen der Didaktik ein paar Sachen weg und dadurch wird einiges leider dann *mathematisch* unkorrekt. Ich kann damit leben und nehme es auf mich damit du deine Abschlussarbeit fertig bekommst.
+> Deshalb einmal hier kurz der niedergeschlagende Engel. In diesem Abschnitt zu `{nparcomp}` werde ich ein paar Engel der Statistik niedergeschlagen und dann noch überfahren. Ich lasse aus Gründen der Didaktik ein paar Sachen weg und dadurch wird einiges leider dann *mathematisch* unkorrekt. Ich kann damit leben und nehme es auf mich damit du deine Abschlussarbeit fertig bekommst.
 :::
 
 R Paket `{nparcomp}`
 
-#### Einfaktorielle Analyse
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-nparcomp-res
+#| tbl-cap: "Ergebnis der Funktion `npar.t.test()` für den paarweisen Vergleichs von der Sprunglänge in [cm] von Hunde- und Kartzenflöhen. Die Fuchsflöhe wurden einmal entfernt um nur einen paarweisen Vergleich zu rechnen."
+
+npar.t.test(jump_length ~ animal, data = filter(fac1_tbl, animal != "fox"), 
+            method = "t.app",
+            alternative = "two.sided", info=FALSE) |> 
+  pluck("Analysis") |> 
+  mutate(p.Value = pvalue(p.Value)) |> 
+  kable(align = "c", "pipe")  
+  
+```
+
+Wir wissen anhand der Ausgabe von `npar.t.test()`, dass wir einen signifikanten unetrschied zwischend en Sprungweiten der Hunde- und Katzenflöhe vorliegen haben. Der p-Wert ist kleiner als das Signifikanzniveau $\alpha$ gleich 5%. Aber wie groß ist jetzt der Unterschied oder anders gefragt, was ist der berechnete Effekt? Das R Paket `{nparcomp}` berechnet den relativen Effekt $p(a,b)$.
+
+Was sagt der relativen Effekte $\boldsymbol{p(a,b)}$ aus?
+
+:   Wenn der relativen Effekte $p(a,b)$ größer ist als $1/2$, dann tendiert die Gruppe $b$ dazu größer zu sein als die Gruppe $a$. Oder etwas anders formuliert. Wenn wir einen relativen Effekt größer als $1/2$ vorliegen haben, dann spricht es für größere Mittelwerte in der Gruppe $b$ im Vergleich zur Gruppe $a$. Wir können dann sagen, dass $\bar{y}_b > \bar{y}_a$ ist.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-nparcomp-dog-cat
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 6
+#| fig-cap: "Darstellung der Verteilung der Sprungweiten der Hunde- und Katzenflöhe mit $8.13 \\pm 2.14cm$ für die Hundeflöhe und $4.74 \\pm 1.9cm$ für die Katzenflöhe. Wir gehen hier von einer normalverteilten Sprungweite aus. Wir erhalten einen relativen Effekt $p_{(dog, cat)}$ von $0.102$. Die Wahrscheinlichkeit $p_{(dog, cat)}$ beschreibt zufällig größere Werte für $\\bar{y}_cat$ als für $\\bar{y}_dog$ zu beobachten. *[Zum Vergrößern anklicken]*"
+
+ggplot(data.frame(x = c(-5, 10))) +
+  aes(x) +
+  theme_minimal()  +
+  geom_vline(xintercept = c(8.13)) + 
+  geom_hline(yintercept = c(0)) +   
+  stat_function(fun = dnorm, linewidth = 1, 
+                args = list(mean = 8.13, sd = 2.14), color = "black") +
+  theme( axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text = element_text(size = 12),
+        plot.title = element_text(size = 16, face = "bold"),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(face = "italic"),
+        legend.position = "none") +
+  scale_y_continuous(name = "") +
+  stat_function(fun = dnorm, linewidth = 1, 
+                args = list(mean = 4.74, sd = 1.9), color = "#D55E00") +
+  stat_function(fun = dnorm, , 
+                args = list(mean = 4.74, sd = 1.9),
+                xlim = c(8.13, 20),
+                geom = "area", fill = "#D55E00", alpha = 0.25)  +
+  geom_vline(xintercept = c(4.74), color = "#D55E00") + 
+  scale_x_continuous(name = "", breaks = c(5.5, 9), 
+                     label = c(expression(bar(y)[cat]), expression(bar(y)[dog]))) +
+  annotate("text", x = 14, y = 0.16, label = expression(bar(y)[cat]~"<"~bar(y)[dog]), size = 5, hjust = "left") +
+  annotate("text", x = 14, y = 0.13, label = expression(p["(dog,cat)"]~"="~0.102), size = 5, hjust = "left") +   
+  annotate("text", x = -7, y = 0.16, label = expression(bar(y)[cat]~"="~4.74), size = 5, hjust = "left") +
+  annotate("text", x = -7, y = 0.13, label = expression(bar(y)[dog]~"="~8.13), size = 5, hjust = "left") +
+  geom_curve(x = 13.75, y = 0.13, xend = 9, yend = 0.02,
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.3, color = "black", alpha = 0.3) 
+  
+
+```
 
 ```{r}
 #| echo: false
@@ -1009,7 +1076,6 @@ R Paket `{nparcomp}`
 #| fig-height: 3
 #| fig-width: 12
 #| fig-cap: "foo. **(A)** ooo. **(B)** gggg. **(C)** gggg. *[Zum Vergrößern anklicken]*"
-
 
 gg_template <- ggplot() +
   theme_minimal()  +
@@ -1038,7 +1104,7 @@ p1 <- gg_template %+%
   geom_vline(xintercept = c(15), color = "#0072B2") + 
   scale_x_continuous(name = "", breaks = c(10, 15), 
                      label = c(expression(bar(y)[A]), expression(bar(y)[B]))) +
-  annotate("text", x = -8, y = 0.08, label = expression(p[A]~"<"~p[B]), size = 5, hjust = "left") +
+  annotate("text", x = -8, y = 0.08, label = expression(bar(y)[A]~"<"~bar(y)[B]), size = 5, hjust = "left") +
   annotate("text", x = -8, y = 0.06, label = expression(p["(A,B)"]%~~%0.8), size = 5, hjust = "left")
 
 p2 <- gg_template %+%
@@ -1053,7 +1119,7 @@ p2 <- gg_template %+%
   geom_vline(xintercept = c(5), color = "#CC79A7") + 
   scale_x_continuous(name = "", breaks = c(10, 5), 
                      label = c(expression(bar(y)[A]), expression(bar(y)[B]))) +
-  annotate("text", x = 17, y = 0.08, label = expression(p[A]~">"~p[B]), size = 5, hjust = "left") +
+  annotate("text", x = 17, y = 0.08, label = expression(bar(y)[A]~">"~bar(y)[B]), size = 5, hjust = "left") +
   annotate("text", x = 17, y = 0.06, label = expression(p["(A,B)"]%~~%0.2), size = 5, hjust = "left")
 
 p3 <- gg_template %+%
@@ -1068,7 +1134,7 @@ p3 <- gg_template %+%
   geom_vline(xintercept = c(11), color = "#009E73") + 
   scale_x_continuous(name = "", breaks = c(9.5, 12.25), 
                      label = c(expression(bar(y)[A]), expression(bar(y)[B]))) +
-  annotate("text", x = 17, y = 0.08, label = expression(p[A]~"="~p[B]), size = 5, hjust = "left") +
+  annotate("text", x = 17, y = 0.08, label = expression(bar(y)[A]~"="~bar(y)[B]), size = 5, hjust = "left") +
   annotate("text", x = 17, y = 0.06, label = expression(p["(A,B)"]%~~%0.5), size = 5, hjust = "left")
 
 p2 + p3 + p1 +
@@ -1077,6 +1143,8 @@ p2 + p3 + p1 +
   plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
   theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
+
+#### Einfaktorielle Analyse
 
 :::: panel-tabset
 ## p-Werte
