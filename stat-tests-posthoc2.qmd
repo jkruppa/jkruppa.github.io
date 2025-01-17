@@ -115,7 +115,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| warning: false
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, see, latex2exp,
                multcomp, emmeans, ggpubr, multcompView, nlme, quantreg, janitor,
-               parameters, effectsize, patchwork, agricolae, broom, conflicted)
+               parameters, effectsize, patchwork, agricolae, broom, rstatix,
+               conflicted)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(dplyr::filter)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
@@ -976,6 +977,137 @@ pairwise.wilcox.test(fac1_tbl$jump_length, fac1_tbl$animal,
                      p.adjust.method = "bonferroni")
 ```
 
+### Games Howell Test
+
+[Games-Howell Post-Hoc Test](https://rpubs.com/aaronsc32/games-howell-test)
+
+> "However, the smaller the number of samples in each group, the \[Games Howell Post-hoc Tests\] is more tolerant to the type I error control. Thus, this method can be applied when the number of samples is six or more." --- [Games Howell Post-hoc Tests in `{rstatix}`](https://rpkgs.datanovia.com/rstatix/reference/games_howell_test.html)
+
+Der Games-Howell-Test ist eine Alternative zu dem Paket `{multcomp}` und dem Paket `{emmeans}` für ein einfaktorielles Design. Wir nutzen den Games-Howell-Test, wenn die Annahme der Homogenität der Varianzen, der zum Vergleich aller möglichen Kombinationen von Gruppenunterschieden verwendet wird, verletzt ist. Dieser Post-Hoc-Test liefert Konfidenzintervalle für die Unterschiede zwischen den Gruppenmitteln und zeigt, ob die Unterschiede statistisch signifikant sind. Der Test basiert auf der Welch'schen Freiheitsgradkorrektur und adjustiert die $p$-Werte. Der Test vergleicht also die Differenz zwischen den einzelnen Mittelwertpaaren mit einer Adjustierung für den Mehrfachtest. Es besteht also keine Notwendigkeit, zusätzliche p-Wert-Korrekturen vorzunehmen. Mit dem Games-Howell-Test ist nur ein *all-pair* Vergleich möglich.
+
+Für den Games-Howell-Test aus dem Paket `{rstatix}` müssen wir kein lineares Modell fitten. Wir schreiben einfach die wie in einem t-Test das Outcome und den Faktor mit den Gruppenleveln in die Funktion `games_howell_test()`. Wir erhalten dann direkt das Ergebnis des Games-Howell-Test. Wir nutzen in diesem Beispiel die Daten aus dem Objekt `fac1_tbl` zu sehen in @tbl-data-posthoc-1.
+
+Wir wollen aber nicht mit der Ausgabe arbeiten sondern machen uns noch ein wenig Arbeit und passen die Ausgabe an. Zum einen brauchen wir noch die Kontraste und wir wollen die $p$-Werte auch ansprechend formatieren. Wir erhalten das Objekt `res_4_obj` und geben uns die Ausgabe wieder.
+
+Wir erhalten ein `tibble()` mit fünf Spalten. Zum einen den `contrast`, der den Vergleich widerspiegelt, den haben wir uns selber mit der Funktion `mutate()` und `str_c()` aus den Spalten `group1` und `group2` gebaut. Wir vergleichen im ersten Kontrast die Katzen- mit den Hundeflöhen, wobei wir `dog-cat` rechnen. Also wirklich den Mittelwert der Sprungweite der Hundeflöhe *minus* den Mittelwert der Sprungweite der Katzenflöhe rechnen. In der Spalte `estimate` sehen wir den Mittelwertsunterschied. Der Mittelwertsunterschied ist in der *Richtung* nicht ohne den Kontrast zu interpretieren. Danach erhalten wir die adjustierten $p$-Wert sowie die simultanen 95% Konfidenzintervalle.
+
+Wir können die Nullhypothese ablehnen für den Vergleiche `dog - cat` mit einem p-Wert von $0.02$ sowie für den Vergleich $cat - fox$ mit einem p-Wert von $0.00$. Beide p-Werte liegen unter dem Signifikanzniveau von $\alpha$ gleich 5%.
+
+#### Einfaktorielle Analyse
+
+```{r}
+ght_fac1_obj <- games_howell_test(jump_length ~ animal, data = fac1_tbl) 
+```
+
+::: panel-tabset
+## p-Werte
+
+```{r}
+ght_fac1_obj |> 
+  mutate(p.adj = pvalue(p.adj))
+```
+
+## *Compact letter display*
+
+```{r}
+ght_fac1_obj |> 
+  mutate(contrast = str_c(group1, "-", group2)) |> 
+  pull(p.adj, contrast) |> 
+  multcompLetters() 
+```
+
+## 95% Konfidenzintervall
+
+In @fig-ght-1 sind die simultanen 95% Konfidenzintervalle nochmal in einem `ggplot` visualisiert. Die Kontraste und die Position hängen von dem Faktorlevel ab.
+
+```{r}
+ght_fac1_ci_obj <- ght_fac1_obj |> 
+  mutate(contrast = str_c(group1, "-", group2))
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 5
+#| fig-cap: "Die 95% Konfidenzintervalle für den *allpair*-Vergleich des Games-Howell-Test."
+#| label: fig-ght-1
+
+  ggplot(ght_fac1_ci_obj, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high)) +
+    geom_hline(yintercept=0, linetype="11", colour="grey60") +
+    geom_errorbar(width=0.1, position = position_dodge(0.5)) + 
+    geom_point(position = position_dodge(0.5)) +
+    coord_flip() +
+    theme_classic()
+```
+
+Die Entscheidungen nach den 95% Konfidenzintervallen sind die gleichen wie nach dem $p$-Wert. Da wir hier es mit einem Mittelwertsvergleich zu tun haben, ist die Entscheidung gegen die Nullhypothese zu treffen wenn die 0 im Konfidenzintervall ist.
+:::
+
+#### Zweifaktorielle Analyse
+
+Nur getrennt über die beiden Faktoren.
+
+```{r}
+ght_fac2_obj <- fac2_tbl |> 
+  group_by(site) |> 
+  games_howell_test(jump_length ~ animal) 
+```
+
+::: panel-tabset
+## p-Werte
+
+```{r}
+ght_fac2_obj |> 
+  mutate(p.adj = pvalue(p.adj))
+```
+
+## *Compact letter display*
+
+```{r}
+ght_fac2_obj |> 
+  mutate(contrast = str_c(group1, "-", group2)) |> 
+  split(~ site) |> 
+  map(pull, p.adj, contrast) |> 
+  map(~multcompLetters(.x)$Letters) |> 
+  bind_rows(.id = "site") 
+```
+
+## 95% Konfidenzintervall
+
+In @fig-ght-1 sind die simultanen 95% Konfidenzintervalle nochmal in einem `ggplot` visualisiert. Die Kontraste und die Position hängen von dem Faktorlevel ab.
+
+```{r}
+ght_fac2_ci_obj <- ght_fac2_obj |> 
+  mutate(contrast = str_c(group1, "-", group2))
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 5
+#| fig-cap: "Die 95% Konfidenzintervalle für den *allpair*-Vergleich des Games-Howell-Test."
+#| label: fig-ght-2
+
+ggplot(ght_fac2_ci_obj, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high,
+                             color = site, group = site)) +
+  geom_hline(yintercept=0, linetype="11", colour="grey60") +
+  geom_errorbar(width=0.1, position = position_dodge(0.5)) + 
+  geom_point(position = position_dodge(0.5)) +
+  scale_color_okabeito() +
+  coord_flip() +
+  theme_classic()
+
+```
+
+Die Entscheidungen nach den 95% Konfidenzintervallen sind die gleichen wie nach dem $p$-Wert. Da wir hier es mit einem Mittelwertsvergleich zu tun haben, ist die Entscheidung gegen die Nullhypothese zu treffen wenn die 0 im Konfidenzintervall ist.
+:::
+
 ### R Paket `{multcomp}`
 
 ::: panel-tabset
@@ -1256,20 +1388,6 @@ ggplot(nparcomp_fac1_res$Analysis,
 #### Zweifaktorielle Analyse
 
 Eine zweifaktorielle Analyse ist in dem Paket `{nparcomp}` nicht möglich. Damit war das hier viel Arbeit für mich für vermutlich nicht viel für dich. Dafür habe ich aber eine Menge über `{nparcomp}` gelernt und du musst dich dafür nicht durch das sehr mathematische Paper von @konietschke2015nparcomp quälen. Denn in den Agrarwissenschaften haben wir eigentlich immer ein zweifaktorielles Modell und selten nur ein Modell mit einem Faktor vorliegen. Daher ist dieses Paket auch hier unten im Kapitel eingeordnet und würde ich nicht empfehlen.
-
-### Games Howell Test
-
-[Games-Howell Post-Hoc Test](https://rpubs.com/aaronsc32/games-howell-test)
-
-> "However, the smaller the number of samples in each group, the \[Games Howell Post-hoc Tests\] is more tolerant to the type I error control. Thus, this method can be applied when the number of samples is six or more." --- [Games Howell Post-hoc Tests in `{rstatix}`](https://rpkgs.datanovia.com/rstatix/reference/games_howell_test.html)
-
-::: panel-tabset
-## p-Werte
-
-## *Compact letter display*
-
-## 95% Konfidenzintervall
-:::
 
 ## Weitere Dinge von Interesse
 
