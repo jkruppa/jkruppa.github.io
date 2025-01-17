@@ -482,206 +482,6 @@ Und im Anschluss nochmal das Video für den 2-faktoriellen Barplot. Du hast jetz
 {{< video https://youtu.be/mGSMZ6C7x4E >}}
 :::
 
-## Der ANOVA Pfad mit Tukey HSD
-
-Der Tukey HSD Test (abk. *HSD Test*) hat viele Namen. Im Englischen kennen wir den Tukey HSD Test auch als *Tukey's range test* oder aber als *Tukey's test*, *Tukey method*, *Tukey's honest significance test* oder eben *Tukey's HSD (honestly significant difference)* Test. Dabei steht die Abkürzung HDS für *honestly significant difference* (deu. *ehrlich signifikanter Unterschied*). Für mich etwas weit aus dem Fenster gelehnt, aber der Name sagt hier mal was auch wirklich gemacht wird. Im Prinzip stellen wir nur die Formel von den Student t-Test einmal um und benennen alles neu. Dann sieht man auch nicht gleich, was Sache ist und jeder denkt, es wäre was Neues. Wir werden hier aber mal den Tukey HSD Test zerforschen. Wir nutzen aber die ANOVA um einmal die Streuung und die Effekte zu berechnen. Daher nenne ich das ganze hier auch den ANOVA Pfad. Der Tukey HSD Test basiert eben mehr oder minder auf der Ausgabe einer ANOVA. Mehr Informationen gibt es auch im Tutorial [Post-Hoc Analysis with Tukey’s Test](https://rpubs.com/aaronsc32/post-hoc-analysis-tukey). Ach, der Tukey HSD Test ist schon etwas älter und kann nicht so viel wie neuere Implementierungen wie das R Paket `{emmeans}` und `{multcomp}`.
-
-Varianzhomogenität
-
-:   Es ist wichtig zu wissen, dass der Tukey HSD Test auf der ANOVA basiert und die ANOVA nimmt Varianzhomogenität an. Damit meine ich, dass alle Gruppen in der Behandlung die gleiche Varianz haben. Du kannst leider den Tukey HSD Test nur unter der Annahme von varianzhomogenität nutzen. Wenn das dir eine zu starke Annahme ist, dann nutze einfach das R Paket `{emmeans}`, wie ich es dir weiter unten im Kapitel vorstelle.
-
-Adjustierung für multiple Vergleiche
-
-:   Der Tukey HSD Test adjustiert für die $\alpha$-Inflation bei multiplen Vergleichen. Wir müssen da auch nichts weiter machen um die Adjustierung durchzuführe. Das macht die Funktion `TukeyHSD()` für uns automatisch. Auf der anderen Seite können wir die Adjustierung für multiple Vergleiche aber auch nicht ausschalten. Du erhälst *immer* adjustierte p-Werte aus einem Tukey HSD Test. Wenn du das nicht möchtest, dann nutze einfach das R Paket `{emmeans}`, welches du weiter unten findest.
-
-Mögliche multiple Vergleiche
-
-:   Wir können immer nur alle Gruppen mit allen anderen Gruppen vergleichen. Wir rechnen also einen *all pair* Vergleich. Wenn du zum Beispiel nur die Behandlungsgruppen zur Kontrolle vergleichen willst, aber nciht untereinander, dann ist das nicht mit dem Tukey HDS Test möglich. Dafür musst du dann das R Paket `{ememans}` oder für noch komplexere Gruppenvergleiche das R Paket `{multcomp}` nutzen.
-
-Fallzahl in den einzelnen Behandlungsgruppen
-
-:   Der Tukey HSD Test geht von einem balancierten Design aus. Daher brauchen wir in allen Behandlungsgruppen die gleiche Anzahl an Beobachtungen. Wenn wir kein balanciertes Design vorliegen haben, dann wird die Fallzahl mehr oder minder über die Gruppen gemittelt. Teilweise funktioniert dann auch der Tukey HSD Test nicht mehr richtig. Daher ist von der Nutzung es Tukey HSD Tests bei ungleich großen Gruppen abzuraten. Auch hier ist dann der Ausweg das R Paket `{emmeans}`, welches genau für den unblancierten Fall ursprünglich entworfen wurde.
-
-Schauen wir uns nun einmal an, wie der Tukey HSD Test theoretisch funktioniert und wie die Implmentierugn in R dargestellt ist. Wir haben die Wahl zwischen der Funktion `TukeyHSD()` und der Funktion `HSD.test()` aus dem R Paket `{agricolae}`. Die Funktion `HSD.test()` liefert auch gleich das *Compact letter display* in der Ausgabe mit. Sonst sind die beiden Funktionen sehr ähnlich. Oft wird eben der Tukey HSD Test noch verwendet, weil er eben sehr alt ist und somit schon sehr lange verwendet wurde.
-
-::::: panel-tabset
-## Theoretisch
-
-Zuerst einmal die Formel des Tukey HSD Test. Wir berechnen dabei asl statistische Maßzahl den HSD-Wert, der nichts anderes aussagt als der minimal Mittelwertsunterschied, den wir gegeben der Streuung und der Fallzahl in den Daten als signifikant nachweisen können. Sozusagen der minimalste mögliche signifikante Mittelwertsunterschied.
-
-$$
-HSD = q_{\alpha=5\%, k, n-k} \cdot \sqrt{\tfrac{MSE}{n}}
-$$
-
-mit
-
--   $HSD$, den zu berechnenden minimalst möglichen signifikanten Mittelwertsunterschied.
--   $q_{\alpha=5\%, k, n-k}$, den kritsichen Wert gegeben aus dem Signifikanzniveau $\alpha$ gleich 5% der Anzahl an zu vergleichenden Gruppen $k$ und einem Freiheitsgrad $n-k$.
--   $\sqrt{\tfrac{MSE}{n}}$, der Streuung in den Daten gewichtet für die Fallzahl $n$. Hier wird die Streuung über alle Gruppen hinweg berechnet.
-
-Wir können uns das Ganze auch nochmal in der folgenden Tabelle als Vergleich zu dem Student t-Test anschauen. Hier dann erstmal noch die beiden Formeln.
-
-$$
-\begin{array}{c|c}
-  HSD = q_{\alpha=5\%, k, n-k} \cdot \sqrt{\tfrac{MSE}{n}} & \bar{y}_1 - \bar{y}_2 =  T_{\alpha=5\%} \cdot s_p\sqrt{\tfrac{2}{n_g}}
-\end{array}
-$$
-
-Ich habe dort einmal die statistischen Maßzahlen aus einem Tukey HDS Test den statistischen Maßzahlen eines Student t-Test in der folgenden Tabelle gegenüber gestellt. Du siehst, dass wir hier eigentlich nur eine Umstellung der t-Test Formel haben.
-
-|                 | Tukey HSD Test           | Student t-Test             |
-|-----------------|--------------------------|----------------------------|
-| Effekt          | $HSD$                    | $\bar{y}_1 - \bar{y}_2$    |
-| Streuung        | $\tfrac{MSE}{n}$         | $s_p\sqrt{\tfrac{2}{n_g}}$ |
-| Kritischer Wert | $q_{\alpha=5\%, k, n-k}$ | $T_{\alpha=5\%}$           |
-
-: Etwas wilder Vergleich vom Tukey HSD Test zum Student t-Test. Im Prinzip ist der Tukey HSD Test nur eine Umsstellung der Formel des Student t-Test. {#tbl-hds-ttest}
-
-Um die Idee des Tukey HDS Test zusammenzufassen, setzen wir für $q_{\alpha=5\%, k, n-k}$ den Wert ein, den wir mindestens erreichen müssen um einen signifikanten Unterschied nachweisen zu können. Bei dem Student t-Test war es meist $T_{\alpha=5\%}$ gleich $1.96$, hier ist der Wert für $q_{\alpha=5\%, k, n-k}$ natürlich anders. Dann können wir den minimalen Mittelwertsunterschied mit $\bar{y}_1 - \bar{y}_2$ oder eben $HSD$ berechnen, denn wir mindestens erreichen müssen um einen signifikanten Unetrschied nachweisen zu können. Alle Mittelwertsdifferenzen größer als der $HDS$ Wert werden dann signifikant sein und alle Mittelwertsdifferenzen kleiner als der $HDS$ Wert nicht signifikant sein.
-
-::: callout-note
-## Entscheidung mit dem HDS Wert
-
-Wenn eine Mittelwertsdifferenz $\bar{y}_i - \bar{y}_j$ eines Gruppenvergleiches *größer* ist als der HDS Wert dann wird die Nullhypothese (H$_0$) abgelehnt. Ist die Mittelwertsdifferenz $\bar{y}_i - \bar{y}_j$ eines Gruppenvergleiches ist als der HDS Wert dann wird die Nullhypothese (H$_0$) beibehalten.
-:::
-
-## Händisch
-
-Im Folgenden wollen wir einmal den Tuley HSD Test nachvollziehen. Dafür hier nochmal die Formel, die wir dann mit den entsprechenden Werten ausfüllen müssen. Wir beginnen mit dem q-Wert und erhalten den MSE Wert aus einer ANOVA.
-
-$$
-HSD = q_{\alpha=5\%, k, n-k} \cdot \sqrt{\tfrac{MSE}{n}}
-$$
-
-Für die semi händische Berechnung des Tukey HSD Test brauchen wir erstmal die Werte für die gesamte Fallzahl in dem Datensatz $N$, dann noch die Anzahl an Behandlungsgruppen $k$ und abschließend die Fallzahl pro Gruppe $n$. Ich nutze hier dann den Datensatz `fac1_tbl` mit der Sprungweite von 21 Flöhen von drei Tierrassen mit jeweils sieben Beobachtungen pro Gruppe. Dann geben wir das Ganze einmal bei R ein.
-
-```{r}
-N <- 21
-k <- 3
-n <- 21 / 3
-```
-
-Die Funktion `qtukey()` gibt uns den q-Wert anhand des Signifikanzniveaus $1 - \alpha$ sowie der Anzahl an Gruppen $k$ und der dem Freiheitsgrad $N-k$ wieder.
-
-```{r}
-qtukey(p = 0.95, nmeans = k, df = N - k)
-```
-
-Dann brauchen wir noch den Wert für die Streuung $MSE$. Den MSE Wert könnten wir auch händisch berechnen, aber normalerweise nutzen wir auch die ANOVA um an den Wert zu gelangen. Daher hier einmal die ANOVA und wir lesen den Wert für MSE in der Ergebnistabelle ab.
-
-```{r}
-fac1_av <- aov(jump_length ~ animal, data = fac1_tbl)
-summary(fac1_av)
-```
-
-Nun wissen wir den Wert für $MSE$ mit $3.14$ aus der Tabelle der einfaktoriellen ANOVA. Dann können wir auch schon den HSD Wert anhand der Formel berechnen in dem wir die Werte einsetzen.
-
-```{r}
-hsd <- 3.61 * sqrt(3.14 / 7)
-hsd
-```
-
-Am Ende müssen wir dann die Mittelwertsdifferenzen unserer Tierarten mit dem HDS Wert vergleichen. Dafür ahbe ich einmal die folgende Tabelle aufgebaut. Wichtig ist hier, dass wir mit den Beträgen der Mittelwertsdifferenz rechnen, sonst macht der Vergleich zum HDS Wert keinen Sinn. Wir erhalten also zwei signifikante Vergleiche. Die Sprungweiten der Katzenflöhe unterscheiden sich von den Sprungweiten der Fuchs- und Hundeflöhe.
-
-| Vergleich | Mittelwertsdifferenz | HDS Testentscheidung |
-|----|----|----|
-| cat-dog | $4.74 - 8.13 = -3.39$ | $\mid-3.39\mid\; \geq 2.42 \rightarrow \mbox{signifikant}$ |
-| fox-dog | $9.16 - 8.13 = \phantom{-}1.03$ | $\mid1.03\mid\; \geq 2.42 \rightarrow \mbox{nicht signifikant}$ |
-| fox-cat | $9.16 - 4.74 = \phantom{-}4.42$ | $\mid4.42\mid\; \geq 2.42 \rightarrow \mbox{signifikant}$ |
-
-: Händische Testentscheidung anhand des berechneten HDS Wert und den Mittelwertsdifferenzen der drei Tierarten. Wenn eine Mittelwertsdifferenz größer ist als der HDS Wert, dann liegt ein signifikanter Unterschied vor. {#tbl-hds-ttest-händisch}
-
-Am Ende willst du das natürlich nicht händische machen sondern wir nutzen die Funktionen in R um uns die Testentscheidung auch mit einem p-Wert berechnen zu lassen. Ganz wichtig hier nochmal, wir glauben daran, dass die Varianz in allen drei Tierarten gleich ist. Wir haben Varianzhomogenität vorliegen.
-
-## `TukeyHSD()`
-
-Die Standardfunktion für den Tukey HDS Test ist `TukeyHSD()`. Wir können den Tukey HSD Test mit nur einem Faktor oder zwei Faktoren rechnen. Ich stelle hier die einfaktorielle sowie zweifaktorielle Analyse einmal vor. Am Ende zeige ich dann nochmal, wie du das *Compact letter display* erhälst. Hier müssen wir noch ein zusätzliches Paket nutzen. Die Funktion `HSD.test()` aus dem Paket `{agricolae}`, die du im nächsten Tab findest, gibt dir sofort das *Compact letter display* wieder. Der Ablauf ist aber in beiden Fällen der gleiche. Wir rechnen erst eine ANOVA mit der Funktion `aov()` um dann den Tukey HSD Test zu rechnen.
-
-### Einfaktorielle Analyse
-
-Am Anfang rechnen wir erst eine einfaktorielle ANOVA mit der Funktion `aov()`. Wir erhalten dann alle notwendigen Informationen in dem Ausgabeobjekt für die Berechnung des Tukey HSD Test. Darüber hinaus können wir auch auch gleich schauen, ob unsere Bahendlung überhaupt einen signifkanten Einfluss auf unser Outcome der Sprunglänge hat.
-
-```{r}
-fac1_av <- aov(jump_length ~ animal, data = fac1_tbl)
-summary(fac1_av)
-```
-
-An dem p-Wert sehen wir, dass wir einen signifikanten Effekt der Tierart `animal` auf die Sprunglänge der Flöhe vorliegen haben. Wir können jetzt einen Tukey HSD Test rechnen um rauszufinden welche der drei Tierarten sich unterscheiden. Wir erhalten dann als Ausgabe die Mittlwertsdifferenzen zusammen mit den 95% Konfidenzintervallen und den adjustierten p-Werten.
-
-```{r}
-tukey_fac1_obj <- TukeyHSD(fac1_av)
-tukey_fac1_obj
-```
-
-Du erhälst immer adjustierte p-Werte aus einem Tukey HSD Test. Das muss dir klar sein. Die p-Werte kannst du dann mit dem Signifikanzniveau $\alpha$ von 5% vergleichen. Wir sehen dass sich die Sprungweiten der Katzenflöhe von den Sprungweiten der Fuchs- und Hundeflöhe signifikant unterscheiden.
-
-Dann kannst du noch die Funktion `mulcompLetters()` aus dem R Paket `{mulcompView}` nutzen um dir das *Compact letter display* wiedergeben zu lassen. Das *Compact letter display* kannst du dann entsprechend zu deinen Barplots ergänzen.
-
-```{r}
-multcompLetters(extract_p(tukey_fac1_obj$animal))
-```
-
-Auch hier sei angemerkt, dass du dan schauen muss, ob das *Compact letter display* zu deinen Daten passt. Sind die Mittelwerte wirklich unterschiedlich? Kannst du die Unetrschiede in den Barplots erkennen? Wenn das der Fall ist, dann spricht nichts gegen die Verwendung des Tukey HSD Test.
-
-### Zweifaktorielle Analyse
-
-Jetzt können wir die Sache etwas kürzer machen, da wir auch in einem zweifaktoriellen Fall den gleichen Weg wie im einfaktoriellen Fall durchgehen. Wir rechnen erst eine ANOVA mit den beiden Faktoren und dem Interaktinsterm, dargestellt durch den Doppelpunkt zwischen den beiden Faktoren.
-
-```{r}
-fac2_av <- aov(jump_length ~ animal + site + animal:site, data = fac2_tbl)
-summary(fac2_av)
-```
-
-In diesem Fall finden wir eine signifikante Interaktion. Daher verhalten sich die Tierarten `animal` in den beiden Messorten in dem Faktor `site` nicht gleich. Die Interaktion kanst du auch in der Visualisierung der Daten in der @fig-boxplot-emmeans-fac2 sehen. Für die Füchse ändert sich die Sprungweite von `city` zu `village`. Bei Hunden- und Katzenflöhen springen in der Tendenz Dorfflöhe weiter als Stadtflöhe. Wir nutzen jetzt das Modell einmal in der Funktion `TukeyHSD()` um uns einmal einen Tukey HSD TEst berechnen zu lassen.
-
-```{r}
-tukey_fac2_obj <- TukeyHSD(fac2_av)
-tukey_fac2_obj
-```
-
-Wie du an der sehr langen Ausgabe sehen kannst, erhalten wir erstmal die Informationen zu der Tierart, dort sehen wir dann, dass sich alle drei Sprungweiten der Tierarten voneinander unterscheiden. Dann erhalten wir die Information über den Ort oder eben den zweiten Faktor. Am Ende nochmal sehr detailiert alle Interaktionen aufgeschlüsselt. Leider ist die Tabelle dann sehr schlecht zu lesen, aber hier siehst du dann welche Faktorkombination dann signifikant ist. Wenn du eine signifikante Interaktion vorliegen hast, dann kannst du keine *pauschale* Aussage über die Sprungweiten der Tierarten machen. Es kommt eben immer drauf an, welches Level du im zweiten Faktor betarchtest.
-
-Am Ende wollen wir dann doch noch das *Compact letter display* haben. Ich wähle hier einmal die Gruppe der Tierarten aus. Du kannst das auch für die anderen Faktoren machen, aber hier einmal zur Demonstration. Wir sehen, dass sich alle Tierarten in der Sprungweiet unterscheiden, keine Tierart hat den gleichen Buchstaben.
-
-```{r}
-multcompLetters(extract_p(tukey_fac2_obj$animal))
-```
-
-Hier nochmal Achtung, die Interaktion wird natürlich nicht berücksichtigt. Im Zweifel dann doch lieber `{emmeans}` nutzen und nochmal bei mir nachfragen. Allgemeine Aussagen zur Interaktion kann ich immer schwer treffen, es hängt sehr von der wissenschaftlichen Fragestellung und den Daten ab.
-
-## `HSD.test()`
-
-::: callout-warning
-## Achtung, bitte beachten!
-
-Die Funktion `HSD.test()` kann nur ein einfaktorielles Modell rechnen und *ignoriert* weitere Faktoren oder Interaktionsterme im `aov()` Modell. Du erhälst zwar immer eine Ausgabe, aber nur als einfaktorielle Analyse. Unabhängig von dem Modell was du in die Funktion `HSD.test()` reinsteckst! Und ohne weitere Warnung.
-:::
-
-Eine zweite Variante den Tukey HSD Test in R durchzuführen ist die Funktion `HSD.test()` aus dem R Paket `{agricolae}`. Persönlich entwickle ich so langsam eine Aversion gegen das Paket, da ich selten eine so rundimentäre und lustlose Hilfe für die Funktion gesehen habe wie in `{agricolae}`. Prinzipiell haben wir die gleichen Möglichkeiten wie auch mit dem Tukey HSD Test für ein einfaktorielles Versuchsdesign. Wir nutzen auch erste eine ANOVA um uns alle wichtigen statistischen Maßzahlen berechnen zu lassen und dann können wir mit denen den Tukey HSD Test durchführen. Leider erhalten wir *keine* p-Werte. Was auch irgendwie irre ist. Dafür dann aber das *Compact letter display* ohne einen weiteren Schritt.
-
-### Einfaktorielle Analyse
-
-Am Anfang rechnen wir auch hier eine einfaktorielle ANOVA mit der Funktion `aov()`. Wir erhalten dann alle notwendigen Informationen in dem Ausgabeobjekt für die Berechnung des Tukey HSD Test. Darüber hinaus können wir auch auch gleich schauen, ob unsere Bahendlung überhaupt einen signifkanten Einfluss auf unser Outcome der Sprunglänge hat.
-
-```{r}
-fac1_av <- aov(jump_length ~ animal, data = fac1_tbl)
-summary(fac1_av)
-```
-
-An dem p-Wert sehen wir, dass wir einen signifikanten Effekt der Tierart `animal` auf die Sprunglänge der Flöhe vorliegen haben. Wir können jetzt einen Tukey HSD Test rechnen um rauszufinden welche der drei Tierarten sich unterscheiden. Wir erhalten dann als Ausgabe die Mittlwerte ohne p-Werte und müssten uns sogar die Mittelwertsdifferenzen selber berechnen. Keine Ahnung was das soll. Dafür dann aber das *Compact letter display*, was ja auch irgendwie reicht.
-
-```{r}
-tukey_fac1_obj <- HSD.test(fac1_av, trt = 'animal')
-tukey_fac1_obj
-```
-
-Wenn du keinen p-Werte haben möchtest sondern nur das *Compact letter display*, dann macht es dir die Funktion `HSD.test()` etwas leichter. Dann brauchst du dir nicht nochmal eine Funktion zusätzlich laden. Wenn du p-Werte brauchst, dann stehst du hier im Regen. Dann nutze bitte die Funktion `TukesHSD()` im vorherigen Tab.
-
-### Zweifaktorielle Analyse
-
-Eine zweifaktorielle Analyse ist in der Funktion `HSD.test()` nicht möglich. Ein zweifaktorielles Modell wird wie ein einfaktorielles Modell behandelt und damit der zweite Faktor sowie der Interaktionsterm von der Funktion `HSD.test()` ignoriert. Du erhälst keine Warnung sondern eben das Ergebnis einer einfaktoriellen Analyse wiedergeben. Ich bin immer noch sprachlos was das soll.
-:::::
-
 ## Der effektive Pfad mit `{emmeans}`
 
 Text
@@ -958,6 +758,206 @@ ggplot(comp_fac2_ci_obj, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high
   theme_classic()
 ```
 :::
+
+## Der ANOVA Pfad mit Tukey HSD
+
+Der Tukey HSD Test (abk. *HSD Test*) hat viele Namen. Im Englischen kennen wir den Tukey HSD Test auch als *Tukey's range test* oder aber als *Tukey's test*, *Tukey method*, *Tukey's honest significance test* oder eben *Tukey's HSD (honestly significant difference)* Test. Dabei steht die Abkürzung HDS für *honestly significant difference* (deu. *ehrlich signifikanter Unterschied*). Für mich etwas weit aus dem Fenster gelehnt, aber der Name sagt hier mal was auch wirklich gemacht wird. Im Prinzip stellen wir nur die Formel von den Student t-Test einmal um und benennen alles neu. Dann sieht man auch nicht gleich, was Sache ist und jeder denkt, es wäre was Neues. Wir werden hier aber mal den Tukey HSD Test zerforschen. Wir nutzen aber die ANOVA um einmal die Streuung und die Effekte zu berechnen. Daher nenne ich das ganze hier auch den ANOVA Pfad. Der Tukey HSD Test basiert eben mehr oder minder auf der Ausgabe einer ANOVA. Mehr Informationen gibt es auch im Tutorial [Post-Hoc Analysis with Tukey’s Test](https://rpubs.com/aaronsc32/post-hoc-analysis-tukey). Ach, der Tukey HSD Test ist schon etwas älter und kann nicht so viel wie neuere Implementierungen wie das R Paket `{emmeans}` und `{multcomp}`.
+
+Varianzhomogenität
+
+:   Es ist wichtig zu wissen, dass der Tukey HSD Test auf der ANOVA basiert und die ANOVA nimmt Varianzhomogenität an. Damit meine ich, dass alle Gruppen in der Behandlung die gleiche Varianz haben. Du kannst leider den Tukey HSD Test nur unter der Annahme von varianzhomogenität nutzen. Wenn das dir eine zu starke Annahme ist, dann nutze einfach das R Paket `{emmeans}`, wie ich es dir weiter unten im Kapitel vorstelle.
+
+Adjustierung für multiple Vergleiche
+
+:   Der Tukey HSD Test adjustiert für die $\alpha$-Inflation bei multiplen Vergleichen. Wir müssen da auch nichts weiter machen um die Adjustierung durchzuführe. Das macht die Funktion `TukeyHSD()` für uns automatisch. Auf der anderen Seite können wir die Adjustierung für multiple Vergleiche aber auch nicht ausschalten. Du erhälst *immer* adjustierte p-Werte aus einem Tukey HSD Test. Wenn du das nicht möchtest, dann nutze einfach das R Paket `{emmeans}`, welches du weiter unten findest.
+
+Mögliche multiple Vergleiche
+
+:   Wir können immer nur alle Gruppen mit allen anderen Gruppen vergleichen. Wir rechnen also einen *all pair* Vergleich. Wenn du zum Beispiel nur die Behandlungsgruppen zur Kontrolle vergleichen willst, aber nciht untereinander, dann ist das nicht mit dem Tukey HDS Test möglich. Dafür musst du dann das R Paket `{ememans}` oder für noch komplexere Gruppenvergleiche das R Paket `{multcomp}` nutzen.
+
+Fallzahl in den einzelnen Behandlungsgruppen
+
+:   Der Tukey HSD Test geht von einem balancierten Design aus. Daher brauchen wir in allen Behandlungsgruppen die gleiche Anzahl an Beobachtungen. Wenn wir kein balanciertes Design vorliegen haben, dann wird die Fallzahl mehr oder minder über die Gruppen gemittelt. Teilweise funktioniert dann auch der Tukey HSD Test nicht mehr richtig. Daher ist von der Nutzung es Tukey HSD Tests bei ungleich großen Gruppen abzuraten. Auch hier ist dann der Ausweg das R Paket `{emmeans}`, welches genau für den unblancierten Fall ursprünglich entworfen wurde.
+
+Schauen wir uns nun einmal an, wie der Tukey HSD Test theoretisch funktioniert und wie die Implmentierugn in R dargestellt ist. Wir haben die Wahl zwischen der Funktion `TukeyHSD()` und der Funktion `HSD.test()` aus dem R Paket `{agricolae}`. Die Funktion `HSD.test()` liefert auch gleich das *Compact letter display* in der Ausgabe mit. Sonst sind die beiden Funktionen sehr ähnlich. Oft wird eben der Tukey HSD Test noch verwendet, weil er eben sehr alt ist und somit schon sehr lange verwendet wurde.
+
+::::: panel-tabset
+## Theoretisch
+
+Zuerst einmal die Formel des Tukey HSD Test. Wir berechnen dabei asl statistische Maßzahl den HSD-Wert, der nichts anderes aussagt als der minimal Mittelwertsunterschied, den wir gegeben der Streuung und der Fallzahl in den Daten als signifikant nachweisen können. Sozusagen der minimalste mögliche signifikante Mittelwertsunterschied.
+
+$$
+HSD = q_{\alpha=5\%, k, n-k} \cdot \sqrt{\tfrac{MSE}{n}}
+$$
+
+mit
+
+-   $HSD$, den zu berechnenden minimalst möglichen signifikanten Mittelwertsunterschied.
+-   $q_{\alpha=5\%, k, n-k}$, den kritsichen Wert gegeben aus dem Signifikanzniveau $\alpha$ gleich 5% der Anzahl an zu vergleichenden Gruppen $k$ und einem Freiheitsgrad $n-k$.
+-   $\sqrt{\tfrac{MSE}{n}}$, der Streuung in den Daten gewichtet für die Fallzahl $n$. Hier wird die Streuung über alle Gruppen hinweg berechnet.
+
+Wir können uns das Ganze auch nochmal in der folgenden Tabelle als Vergleich zu dem Student t-Test anschauen. Hier dann erstmal noch die beiden Formeln.
+
+$$
+\begin{array}{c|c}
+  HSD = q_{\alpha=5\%, k, n-k} \cdot \sqrt{\tfrac{MSE}{n}} & \bar{y}_1 - \bar{y}_2 =  T_{\alpha=5\%} \cdot s_p\sqrt{\tfrac{2}{n_g}}
+\end{array}
+$$
+
+Ich habe dort einmal die statistischen Maßzahlen aus einem Tukey HDS Test den statistischen Maßzahlen eines Student t-Test in der folgenden Tabelle gegenüber gestellt. Du siehst, dass wir hier eigentlich nur eine Umstellung der t-Test Formel haben.
+
+|                 | Tukey HSD Test           | Student t-Test             |
+|-----------------|--------------------------|----------------------------|
+| Effekt          | $HSD$                    | $\bar{y}_1 - \bar{y}_2$    |
+| Streuung        | $\tfrac{MSE}{n}$         | $s_p\sqrt{\tfrac{2}{n_g}}$ |
+| Kritischer Wert | $q_{\alpha=5\%, k, n-k}$ | $T_{\alpha=5\%}$           |
+
+: Etwas wilder Vergleich vom Tukey HSD Test zum Student t-Test. Im Prinzip ist der Tukey HSD Test nur eine Umsstellung der Formel des Student t-Test. {#tbl-hds-ttest}
+
+Um die Idee des Tukey HDS Test zusammenzufassen, setzen wir für $q_{\alpha=5\%, k, n-k}$ den Wert ein, den wir mindestens erreichen müssen um einen signifikanten Unterschied nachweisen zu können. Bei dem Student t-Test war es meist $T_{\alpha=5\%}$ gleich $1.96$, hier ist der Wert für $q_{\alpha=5\%, k, n-k}$ natürlich anders. Dann können wir den minimalen Mittelwertsunterschied mit $\bar{y}_1 - \bar{y}_2$ oder eben $HSD$ berechnen, denn wir mindestens erreichen müssen um einen signifikanten Unetrschied nachweisen zu können. Alle Mittelwertsdifferenzen größer als der $HDS$ Wert werden dann signifikant sein und alle Mittelwertsdifferenzen kleiner als der $HDS$ Wert nicht signifikant sein.
+
+::: callout-note
+## Entscheidung mit dem HDS Wert
+
+Wenn eine Mittelwertsdifferenz $\bar{y}_i - \bar{y}_j$ eines Gruppenvergleiches *größer* ist als der HDS Wert dann wird die Nullhypothese (H$_0$) abgelehnt. Ist die Mittelwertsdifferenz $\bar{y}_i - \bar{y}_j$ eines Gruppenvergleiches ist als der HDS Wert dann wird die Nullhypothese (H$_0$) beibehalten.
+:::
+
+## Händisch
+
+Im Folgenden wollen wir einmal den Tuley HSD Test nachvollziehen. Dafür hier nochmal die Formel, die wir dann mit den entsprechenden Werten ausfüllen müssen. Wir beginnen mit dem q-Wert und erhalten den MSE Wert aus einer ANOVA.
+
+$$
+HSD = q_{\alpha=5\%, k, n-k} \cdot \sqrt{\tfrac{MSE}{n}}
+$$
+
+Für die semi händische Berechnung des Tukey HSD Test brauchen wir erstmal die Werte für die gesamte Fallzahl in dem Datensatz $N$, dann noch die Anzahl an Behandlungsgruppen $k$ und abschließend die Fallzahl pro Gruppe $n$. Ich nutze hier dann den Datensatz `fac1_tbl` mit der Sprungweite von 21 Flöhen von drei Tierrassen mit jeweils sieben Beobachtungen pro Gruppe. Dann geben wir das Ganze einmal bei R ein.
+
+```{r}
+N <- 21
+k <- 3
+n <- 21 / 3
+```
+
+Die Funktion `qtukey()` gibt uns den q-Wert anhand des Signifikanzniveaus $1 - \alpha$ sowie der Anzahl an Gruppen $k$ und der dem Freiheitsgrad $N-k$ wieder.
+
+```{r}
+qtukey(p = 0.95, nmeans = k, df = N - k)
+```
+
+Dann brauchen wir noch den Wert für die Streuung $MSE$. Den MSE Wert könnten wir auch händisch berechnen, aber normalerweise nutzen wir auch die ANOVA um an den Wert zu gelangen. Daher hier einmal die ANOVA und wir lesen den Wert für MSE in der Ergebnistabelle ab.
+
+```{r}
+fac1_av <- aov(jump_length ~ animal, data = fac1_tbl)
+summary(fac1_av)
+```
+
+Nun wissen wir den Wert für $MSE$ mit $3.14$ aus der Tabelle der einfaktoriellen ANOVA. Dann können wir auch schon den HSD Wert anhand der Formel berechnen in dem wir die Werte einsetzen.
+
+```{r}
+hsd <- 3.61 * sqrt(3.14 / 7)
+hsd
+```
+
+Am Ende müssen wir dann die Mittelwertsdifferenzen unserer Tierarten mit dem HDS Wert vergleichen. Dafür ahbe ich einmal die folgende Tabelle aufgebaut. Wichtig ist hier, dass wir mit den Beträgen der Mittelwertsdifferenz rechnen, sonst macht der Vergleich zum HDS Wert keinen Sinn. Wir erhalten also zwei signifikante Vergleiche. Die Sprungweiten der Katzenflöhe unterscheiden sich von den Sprungweiten der Fuchs- und Hundeflöhe.
+
+| Vergleich | Mittelwertsdifferenz | HDS Testentscheidung |
+|----|----|----|
+| cat-dog | $4.74 - 8.13 = -3.39$ | $\mid-3.39\mid\; \geq 2.42 \rightarrow \mbox{signifikant}$ |
+| fox-dog | $9.16 - 8.13 = \phantom{-}1.03$ | $\mid1.03\mid\; \geq 2.42 \rightarrow \mbox{nicht signifikant}$ |
+| fox-cat | $9.16 - 4.74 = \phantom{-}4.42$ | $\mid4.42\mid\; \geq 2.42 \rightarrow \mbox{signifikant}$ |
+
+: Händische Testentscheidung anhand des berechneten HDS Wert und den Mittelwertsdifferenzen der drei Tierarten. Wenn eine Mittelwertsdifferenz größer ist als der HDS Wert, dann liegt ein signifikanter Unterschied vor. {#tbl-hds-ttest-händisch}
+
+Am Ende willst du das natürlich nicht händische machen sondern wir nutzen die Funktionen in R um uns die Testentscheidung auch mit einem p-Wert berechnen zu lassen. Ganz wichtig hier nochmal, wir glauben daran, dass die Varianz in allen drei Tierarten gleich ist. Wir haben Varianzhomogenität vorliegen.
+
+## `TukeyHSD()`
+
+Die Standardfunktion für den Tukey HDS Test ist `TukeyHSD()`. Wir können den Tukey HSD Test mit nur einem Faktor oder zwei Faktoren rechnen. Ich stelle hier die einfaktorielle sowie zweifaktorielle Analyse einmal vor. Am Ende zeige ich dann nochmal, wie du das *Compact letter display* erhälst. Hier müssen wir noch ein zusätzliches Paket nutzen. Die Funktion `HSD.test()` aus dem Paket `{agricolae}`, die du im nächsten Tab findest, gibt dir sofort das *Compact letter display* wieder. Der Ablauf ist aber in beiden Fällen der gleiche. Wir rechnen erst eine ANOVA mit der Funktion `aov()` um dann den Tukey HSD Test zu rechnen.
+
+### Einfaktorielle Analyse
+
+Am Anfang rechnen wir erst eine einfaktorielle ANOVA mit der Funktion `aov()`. Wir erhalten dann alle notwendigen Informationen in dem Ausgabeobjekt für die Berechnung des Tukey HSD Test. Darüber hinaus können wir auch auch gleich schauen, ob unsere Bahendlung überhaupt einen signifkanten Einfluss auf unser Outcome der Sprunglänge hat.
+
+```{r}
+fac1_av <- aov(jump_length ~ animal, data = fac1_tbl)
+summary(fac1_av)
+```
+
+An dem p-Wert sehen wir, dass wir einen signifikanten Effekt der Tierart `animal` auf die Sprunglänge der Flöhe vorliegen haben. Wir können jetzt einen Tukey HSD Test rechnen um rauszufinden welche der drei Tierarten sich unterscheiden. Wir erhalten dann als Ausgabe die Mittlwertsdifferenzen zusammen mit den 95% Konfidenzintervallen und den adjustierten p-Werten.
+
+```{r}
+tukey_fac1_obj <- TukeyHSD(fac1_av)
+tukey_fac1_obj
+```
+
+Du erhälst immer adjustierte p-Werte aus einem Tukey HSD Test. Das muss dir klar sein. Die p-Werte kannst du dann mit dem Signifikanzniveau $\alpha$ von 5% vergleichen. Wir sehen dass sich die Sprungweiten der Katzenflöhe von den Sprungweiten der Fuchs- und Hundeflöhe signifikant unterscheiden.
+
+Dann kannst du noch die Funktion `mulcompLetters()` aus dem R Paket `{mulcompView}` nutzen um dir das *Compact letter display* wiedergeben zu lassen. Das *Compact letter display* kannst du dann entsprechend zu deinen Barplots ergänzen.
+
+```{r}
+multcompLetters(extract_p(tukey_fac1_obj$animal))
+```
+
+Auch hier sei angemerkt, dass du dan schauen muss, ob das *Compact letter display* zu deinen Daten passt. Sind die Mittelwerte wirklich unterschiedlich? Kannst du die Unetrschiede in den Barplots erkennen? Wenn das der Fall ist, dann spricht nichts gegen die Verwendung des Tukey HSD Test.
+
+### Zweifaktorielle Analyse
+
+Jetzt können wir die Sache etwas kürzer machen, da wir auch in einem zweifaktoriellen Fall den gleichen Weg wie im einfaktoriellen Fall durchgehen. Wir rechnen erst eine ANOVA mit den beiden Faktoren und dem Interaktinsterm, dargestellt durch den Doppelpunkt zwischen den beiden Faktoren.
+
+```{r}
+fac2_av <- aov(jump_length ~ animal + site + animal:site, data = fac2_tbl)
+summary(fac2_av)
+```
+
+In diesem Fall finden wir eine signifikante Interaktion. Daher verhalten sich die Tierarten `animal` in den beiden Messorten in dem Faktor `site` nicht gleich. Die Interaktion kanst du auch in der Visualisierung der Daten in der @fig-boxplot-emmeans-fac2 sehen. Für die Füchse ändert sich die Sprungweite von `city` zu `village`. Bei Hunden- und Katzenflöhen springen in der Tendenz Dorfflöhe weiter als Stadtflöhe. Wir nutzen jetzt das Modell einmal in der Funktion `TukeyHSD()` um uns einmal einen Tukey HSD TEst berechnen zu lassen.
+
+```{r}
+tukey_fac2_obj <- TukeyHSD(fac2_av)
+tukey_fac2_obj
+```
+
+Wie du an der sehr langen Ausgabe sehen kannst, erhalten wir erstmal die Informationen zu der Tierart, dort sehen wir dann, dass sich alle drei Sprungweiten der Tierarten voneinander unterscheiden. Dann erhalten wir die Information über den Ort oder eben den zweiten Faktor. Am Ende nochmal sehr detailiert alle Interaktionen aufgeschlüsselt. Leider ist die Tabelle dann sehr schlecht zu lesen, aber hier siehst du dann welche Faktorkombination dann signifikant ist. Wenn du eine signifikante Interaktion vorliegen hast, dann kannst du keine *pauschale* Aussage über die Sprungweiten der Tierarten machen. Es kommt eben immer drauf an, welches Level du im zweiten Faktor betarchtest.
+
+Am Ende wollen wir dann doch noch das *Compact letter display* haben. Ich wähle hier einmal die Gruppe der Tierarten aus. Du kannst das auch für die anderen Faktoren machen, aber hier einmal zur Demonstration. Wir sehen, dass sich alle Tierarten in der Sprungweiet unterscheiden, keine Tierart hat den gleichen Buchstaben.
+
+```{r}
+multcompLetters(extract_p(tukey_fac2_obj$animal))
+```
+
+Hier nochmal Achtung, die Interaktion wird natürlich nicht berücksichtigt. Im Zweifel dann doch lieber `{emmeans}` nutzen und nochmal bei mir nachfragen. Allgemeine Aussagen zur Interaktion kann ich immer schwer treffen, es hängt sehr von der wissenschaftlichen Fragestellung und den Daten ab.
+
+## `HSD.test()`
+
+::: callout-warning
+## Achtung, bitte beachten!
+
+Die Funktion `HSD.test()` kann nur ein einfaktorielles Modell rechnen und *ignoriert* weitere Faktoren oder Interaktionsterme im `aov()` Modell. Du erhälst zwar immer eine Ausgabe, aber nur als einfaktorielle Analyse. Unabhängig von dem Modell was du in die Funktion `HSD.test()` reinsteckst! Und ohne weitere Warnung.
+:::
+
+Eine zweite Variante den Tukey HSD Test in R durchzuführen ist die Funktion `HSD.test()` aus dem R Paket `{agricolae}`. Persönlich entwickle ich so langsam eine Aversion gegen das Paket, da ich selten eine so rundimentäre und lustlose Hilfe für die Funktion gesehen habe wie in `{agricolae}`. Prinzipiell haben wir die gleichen Möglichkeiten wie auch mit dem Tukey HSD Test für ein einfaktorielles Versuchsdesign. Wir nutzen auch erste eine ANOVA um uns alle wichtigen statistischen Maßzahlen berechnen zu lassen und dann können wir mit denen den Tukey HSD Test durchführen. Leider erhalten wir *keine* p-Werte. Was auch irgendwie irre ist. Dafür dann aber das *Compact letter display* ohne einen weiteren Schritt.
+
+### Einfaktorielle Analyse
+
+Am Anfang rechnen wir auch hier eine einfaktorielle ANOVA mit der Funktion `aov()`. Wir erhalten dann alle notwendigen Informationen in dem Ausgabeobjekt für die Berechnung des Tukey HSD Test. Darüber hinaus können wir auch auch gleich schauen, ob unsere Bahendlung überhaupt einen signifkanten Einfluss auf unser Outcome der Sprunglänge hat.
+
+```{r}
+fac1_av <- aov(jump_length ~ animal, data = fac1_tbl)
+summary(fac1_av)
+```
+
+An dem p-Wert sehen wir, dass wir einen signifikanten Effekt der Tierart `animal` auf die Sprunglänge der Flöhe vorliegen haben. Wir können jetzt einen Tukey HSD Test rechnen um rauszufinden welche der drei Tierarten sich unterscheiden. Wir erhalten dann als Ausgabe die Mittlwerte ohne p-Werte und müssten uns sogar die Mittelwertsdifferenzen selber berechnen. Keine Ahnung was das soll. Dafür dann aber das *Compact letter display*, was ja auch irgendwie reicht.
+
+```{r}
+tukey_fac1_obj <- HSD.test(fac1_av, trt = 'animal')
+tukey_fac1_obj
+```
+
+Wenn du keinen p-Werte haben möchtest sondern nur das *Compact letter display*, dann macht es dir die Funktion `HSD.test()` etwas leichter. Dann brauchst du dir nicht nochmal eine Funktion zusätzlich laden. Wenn du p-Werte brauchst, dann stehst du hier im Regen. Dann nutze bitte die Funktion `TukesHSD()` im vorherigen Tab.
+
+### Zweifaktorielle Analyse
+
+Eine zweifaktorielle Analyse ist in der Funktion `HSD.test()` nicht möglich. Ein zweifaktorielles Modell wird wie ein einfaktorielles Modell behandelt und damit der zweite Faktor sowie der Interaktionsterm von der Funktion `HSD.test()` ignoriert. Du erhälst keine Warnung sondern eben das Ergebnis einer einfaktoriellen Analyse wiedergeben. Ich bin immer noch sprachlos was das soll.
+:::::
 
 ## Weitere Pfade
 
