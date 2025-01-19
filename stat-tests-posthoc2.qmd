@@ -41,13 +41,13 @@ gg_template <- ggplot() +
 
 |   | Tukey HSD | Games Howell | `{emmeans}` | `{multcomp}` |
 |:---|:--:|:--:|:--:|:--:|
-| **Verteilung von y** | normalverteilt | normalverteilt | beliebig | beliebig |
-| **Varianzen von x** | homogen | heterogen | beliebig | beliebig |
-| **Fallzahl per Gruppe** | balanciert | beliebig | beliebig | beliebig |
+| **Verteilung von** $y$ | normalverteilt | normalverteilt | beliebig | beliebig |
+| **Varianzen der Gruppen** $x$ | homogen | heterogen | beliebig | beliebig |
+| **Fallzahl per Gruppe** $n_g$ | balanciert; $n_g \geq 4$ | beliebig; $n_g \geq 6$ | beliebig; $n_g \geq 4$ | beliebig; $n_g \geq 4$ |
 | **Adjustierte p-Werte** | immer | immer | beliebig | beliebig |
 | **Mögliche Vergleiche** | *all-pair* | *all-pair* | beliebig | beliebig |
 
-: test. Achtung, teilweise müssen die Optionen *aktiv* von dir aktiviert werden. Sie dazu auch den [Friedhof der Post-ho Tests](#sec-friedhof-posthoc) in diesem Kapitel. {#tbl-übersicht}
+: test. Die Mindestfallzahl per Gruppe $n_g$ ist eher als Empfehlung zu verstehen und als untere Grenze. Achtung, teilweise müssen die Optionen *aktiv* von dir aktiviert werden. Sie dazu auch den [Friedhof der Post-ho Tests](#sec-friedhof-posthoc) in diesem Kapitel. {#tbl-übersicht}
 
 Auf der Seite DSFAIR gibt es noch einen Artikel zu `emmeans` und der Frage [Why are the StdErr all the same?](https://schmidtpaul.github.io/dsfair_quarto/ch/summaryarticles/whyseequal.html) und dazu dann auch passend die Publikation [Analyzing designed experiments: Should we report standard deviations or standard errors of the mean or standard errors of the difference or what?](https://www.cambridge.org/core/services/aop-cambridge-core/content/view/92DB0AF151C157B9C6E2FA40F9C9B635/S0014479719000401a.pdf/analyzing-designed-experiments-should-we-report-standard-deviations-or-standard-errors-of-the-mean-or-standard-errors-of-the-difference-or-what.pdf)
 
@@ -985,8 +985,6 @@ pairwise.wilcox.test(fac1_tbl$jump_length, fac1_tbl$animal,
 
 ### Games Howell Test
 
-[Games-Howell Post-Hoc Test](https://rpubs.com/aaronsc32/Games%20Howell%20Test)
-
 Der Games Howell Test ist eine Alternative zu dem Paket `{multcomp}` und dem Paket `{emmeans}` für ein einfaktorielles Design. Wir können auch ein zweifakorielles Design rechnen, dann würden wir aber die Analyse *getrennt* für den zweiten Faktor durchführen. Gemeinsam geht dann nur in `{emmeans}`. Wir nutzen den Games Howell Test, wenn die Annahme der Homogenität der Varianzen, der zum Vergleich aller möglichen Kombinationen von Gruppenunterschieden verwendet wird, verletzt ist. Dieser Post-Hoc-Test liefert Konfidenzintervalle für die Unterschiede zwischen den Gruppenmitteln und zeigt, ob die Unterschiede statistisch signifikant sind. Der Test basiert auf der Welch'schen Freiheitsgradkorrektur und adjustiert die $p$-Werte. Der Test vergleicht also die Differenz zwischen den einzelnen Mittelwertpaaren mit einer Adjustierung für den Mehrfachtest. Es besteht also keine Notwendigkeit, zusätzliche p-Wert-Korrekturen vorzunehmen.
 
 Varianzheterogenität
@@ -1005,7 +1003,7 @@ Für den Games Howell Test aus dem Paket `{rstatix}` müssen wir kein lineares M
 
 > "However, the smaller the number of samples in each group, the \[Games Howell Post-hoc Tests\] is more tolerant to the type I error control. Thus, this method can be applied when the number of samples is six or more." --- [Games Howell Post-hoc Tests in `{rstatix}`](https://rpkgs.datanovia.com/rstatix/reference/games_howell_test.html)
 
-Ich zeige jetzt einmal wie wir die einfaktorielle und dann die zweifaktorielle Analyse eines Games Howell Test in R rechnen. Hier lasse ich dann ganz bewusst eine ANOVA weg und starte gleich mit dem paarweisen Vergleich.
+Ich zeige jetzt einmal wie wir die einfaktorielle und dann die zweifaktorielle Analyse eines Games Howell Test in R rechnen. Ich habe mich hier gegen die händisch Berechnung entschieden, da wir hier dann sehr viel rechnen müssen, was eigentlich dann der Welch t-Test ist. Wenn dich die Formeln nochmal gesondert interessieren dann findest du die im Tutorial [Games-Howell Post-Hoc Test](https://rpubs.com/aaronsc32/Games%20Howell%20Test). Hier lasse ich dann gleich ganz bewusst eine ANOVA weg und starte gleich mit dem paarweisen Vergleich.
 
 #### Einfaktorielle Analyse
 
@@ -1415,9 +1413,26 @@ LSD Test oder auch *Fisher\`s least Significant Difference (LSD)*
 
 :   Der LSD Test ist veraltet. Was überhaupt gegen die Nutung des LSD Test spricht ist, das der LSD Test das Signifikanzniveau $\alpha$ von 5% über alle Vergleiche nicht einhält. Sie dazu auch @agbangba2024use mit der klaren Aussage: *"LSD does not control for family-wise type I error".* Die einzige Ausnahme ist der seltene Fall, dass du dir nur drei Behandlungsgruppen anschaust, wie von @klasson2024discussion diskutiert. Aber am Ende ich kann den LSD Test nicht empfehlen.
 
+```{r}
+fac1_av <- aov(jump_length ~ animal, data = fac1_tbl)
+```
+
+Witzigerweise gibt die Funktion *von alleine* keine Ausgabe wieder. Wie wild dieses Verhalten einer Funktion ist.
+
+```{r}
+LSD.test(fac1_av, trt = "animal", p.adj = "bonferroni") |> 
+  print()
+```
+
 Scheffé Test
 
 :   Der Scheffé Test ist im Prinzipn eng mit dem Tukey HSD Test verwandt. Was aber @agbangba2024use anmerkt ist, dass *"the test is too conservative compared to methods like Tukey’s HSD"*. Aus dem Grund würde ich den Test nicht empfehlen. Auch testet der Scheffé Test mehr Vergleiche als du meistens möchtest. Es ist eben nicht ein reiner *all-pair* Vergleich sondern testet auch noch alle anderen möglichen Kombinationen der Mittelwerte.
+
+```{r}
+library(DescTools)
+
+ScheffeTest(fac2_av)
+```
 
 ### Re-engineering *Compact letter display*
 
