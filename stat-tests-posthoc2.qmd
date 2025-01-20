@@ -1,9 +1,7 @@
 ```{r echo = FALSE}
 #| message: false
 #| warning: false
-pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, see, latex2exp,
-               multcomp, emmeans, ggpubr, multcompView, nlme, quantreg, janitor,
-               parameters, effectsize, patchwork, scales, nparcomp, conflicted)
+pacman::p_load(tidyverse, see, knitr, scales, conflicted)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(dplyr::filter)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
@@ -37,6 +35,14 @@ gg_template <- ggplot() +
 ![](images/angel_01_small.png){fig-align="center" width="100%"}
 
 > In diesem Kapitel werde ich ein paar Engel der Statistik niedergeschlagen oder überfahren. Ich lasse aus Gründen der Didaktik ein paar Sachen weg und dadurch wird einiges leider dann *mathematisch* unkorrekt. Ich kann damit leben und nehme es auf mich damit du deine Abschlussarbeit fertig bekommst.
+:::
+
+In diesem Kapitel wollen wir uns mit den multiplen Vergleichen (eng. *post hoc analysis*) oder auch paarweise Gruppenvergleiche genannt beschäftigen. Wir kennen diese multiplen Tests auch unter dem Namen *Post-hoc Tests*, da wir historisch diese Tests *nach* einer ANOVA durchgeführt haben. Das heißt, wir wollen statistisch Testen, ob sich verschiedene Gruppen einer Behandlung voneinander unterschieden. Technisch Testen wir dabei, ob sich die Level eines Faktors voneinander unterscheiden. Wir können dabei mehrere Faktoren bzw. Behandlungen berücksichtigen und gleichzeitig Testen. Wenn wir nur einen Faktor betrachten, dann sprechen wir von einem einfaktoriellen Vergleich. Wenn wir zwei Behandlungen betrachten, dann entsprechend von einem zweifaktoriellen Vergleich. Sehr selten haben wir dann noch den Fall vorliegen, dass wir drei Faktoren betrachten wollen. In einer Abschlussarbeit haben wir faktisch keine Versuche wo wir mehr als drei Faktoren in einem Gruppenvergleich berücksichtigen.
+
+::: callout-tip
+## Keine Zeit? Dann nutze gleich den effektiven Pfadm it `{emmeans}`!
+
+Dieses Kapitel ist lang und vieles habe ich hier gerechnet, damit du es nicht machen musst. Wenn du keine Zeit hast, dann springe gleich in den [Abschnitt mit dem effektiven Pfad mit `{emmeans}`](#sec-emmeans) und lasse den Rest links und rechts liegen. Wir freuen uns das es den Rest gibt, aber du willst ja fertig werden und nicht staunen, was andere so alles entwickelt haben. Und das ist vollkommen okay!
 :::
 
 |   | Tukey HSD | Games Howell | `{emmeans}` | `{multcomp}` |
@@ -113,12 +119,13 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 #| warning: false
-pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, see, latex2exp,
-               multcomp, emmeans, ggpubr, multcompView, nlme, quantreg, janitor,
-               parameters, effectsize, patchwork, agricolae, broom, rstatix,
-               conflicted)
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, see, nparcomp,
+               multcomp, emmeans,  multcompView, nlme, janitor,
+               parameters, patchwork, agricolae, broom, rstatix,
+               DescTools, rcompanion, magrittr, conflicted)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(dplyr::filter)
+conflicts_prefer(magrittr::set_names)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
@@ -494,7 +501,7 @@ Und im Anschluss nochmal das Video für den 2-faktoriellen Barplot. Du hast jetz
 {{< video https://youtu.be/mGSMZ6C7x4E >}}
 :::
 
-## Der effektive Pfad mit `{emmeans}`
+## Der effektive Pfad mit `{emmeans}` {#sec-emmeans}
 
 Text
 
@@ -969,6 +976,10 @@ Eine zweifaktorielle Analyse ist in der Funktion `HSD.test()` nicht möglich. Ei
 
 ### Paarweise Tests
 
+Wenn du nur eine einfaktorielle Analyse rechnen willst, dann kann man natürlich auch die einfachste aller Arten als Post-hoc Test rechnen. Du rechnest nämlich alle paarweisen Vergleiche mit einem t-Test oder aber mit einem Wilxonon Test. Da du dann natürlich sehr viele Tests rechnen müsstest, gibt es auch eine Funktion in R, die das für dich übernimmt. Die Funktion `pairwise.*.test()` kann nämlich verschiedene Gruppentests einmal automatisieren über alle möglichen Vergleiche.
+
+Die Funktionen `pairwise.*.test()` sind etwas älter und deshalb etwas sperrig zu nutzen. Du gibt hier kein Modell an sondern musst erst das $y$ als einen Vektor und dann die Gruppenvariable $x$ als einen Vektor der Funktion übergeben. Dann entscheidest du dich noch für die Methode der Adjustierung der p-Werte und ob du Vrainzheterogenität vorliegen hast. Ich habe mich mit der Option `pool.sd = FALSE` für Varianzheterogenität und damit gegen Varianzhomogenität entschieden. Die Annahme ist hier, dass unser Outcome $y$ näherungsweise normalverteilt ist.
+
 ```{r}
 #| warning: false
 pairwise.t.test(fac1_tbl$jump_length, fac1_tbl$animal,
@@ -976,12 +987,26 @@ pairwise.t.test(fac1_tbl$jump_length, fac1_tbl$animal,
                 pool.sd = FALSE) 
 ```
 
+Wenn du dir bei deinem $y$ nicht so sicher bist, was die Normalverteilung angeht, dann kannst du auch einen paarweisen Wilcoxon Test rechnen. Dafür bietet sich die folgende Funktion an.
+
 ```{r}
 #| warning: false
 
 pairwise.wilcox.test(fac1_tbl$jump_length, fac1_tbl$animal,
                      p.adjust.method = "bonferroni")
 ```
+
+Am Ende kannst du dir dann auch mit folgendem Code das *Compact letter display* wiedergeben lassen. Wegen der etwas sperrigen Struktur der Ausgabe der Funktion `pairwise.*.test()` müssen wir hier etwas mehr arbeiten um an das *Compact letter display* zu kommen.
+
+```{r}
+pairwise.t.test(fac1_tbl$jump_length, fac1_tbl$animal,
+                p.adjust.method = "bonferroni") |> 
+  extract2("p.value") |> 
+  fullPTable() |> 
+  multcompLetters()
+```
+
+Am Ende bieten beide Funktionen einen schnellen Weg ein einfaktorielles Design auszuwerten. Ja, es ist etwas ruppig und am Ende vermutlich auch nicht so schön, aber für eine Abschlussarbeit mit Fokus jenseits der statistischen Auswertung mag es Sinn machen.
 
 ### Games Howell Test
 
@@ -1005,7 +1030,7 @@ Für den Games Howell Test aus dem Paket `{rstatix}` müssen wir kein lineares M
 
 Ich zeige jetzt einmal wie wir die einfaktorielle und dann die zweifaktorielle Analyse eines Games Howell Test in R rechnen. Ich habe mich hier gegen die händisch Berechnung entschieden, da wir hier dann sehr viel rechnen müssen, was eigentlich dann der Welch t-Test ist. Wenn dich die Formeln nochmal gesondert interessieren dann findest du die im Tutorial [Games-Howell Post-Hoc Test](https://rpubs.com/aaronsc32/Games%20Howell%20Test). Hier lasse ich dann gleich ganz bewusst eine ANOVA weg und starte gleich mit dem paarweisen Vergleich.
 
-#### Einfaktorielle Analyse
+#### Einfaktorielle Analyse {.unnumbered .unlisted}
 
 ```{r}
 ght_fac1_obj <- games_howell_test(jump_length ~ animal, data = fac1_tbl) 
@@ -1058,7 +1083,7 @@ ght_fac1_ci_obj <- ght_fac1_obj |>
 Die Entscheidungen nach den 95% Konfidenzintervallen sind die gleichen wie nach dem $p$-Wert. Da wir hier es mit einem Mittelwertsvergleich zu tun haben, ist die Entscheidung gegen die Nullhypothese zu treffen wenn die 0 im Konfidenzintervall ist.
 :::
 
-#### Zweifaktorielle Analyse
+#### Zweifaktorielle Analyse {.unnumbered .unlisted}
 
 Nur getrennt über die beiden Faktoren.
 
@@ -1122,12 +1147,163 @@ Die Entscheidungen nach den 95% Konfidenzintervallen sind die gleichen wie nach 
 
 ### R Paket `{multcomp}`
 
+::: callout-warning
+## Achtung, bitte beachten!
+
+Das Paket `{multcomp}` kann beliebige faktorielle Modelle berechnen. Das einfaktorielle Modell ist hierbei relativ einfach durchuzuführen und die Stärke liegt hier auch in der Flexibiltät der möglichen Vergleiche oder auch *Kontrast* genannt. Wenn du ein zweifaktorielles Modell vorliegen hast, geht es auch mit `{multcomp}`, *aber* hier musst du dann mehr selber machen damit es gut wird. Das Paket `{emmeans}` ist hier besser in der Bedienung.
+:::
+
+Der große Vorteil von `{multcomp}` liegt in der möglichen Auswahl an komplexen Mittelwertsvergleichen oder auch Mittelelwertskontrasten. Das Wort *Kontrast* steht hier für die Art und Weise wie wir verschiedene Mittelwerte miteinander vergleichen wollen. Daher ist der Fokus auch eher auf der einfaktoriellen als auf der mehrfaktoriellen Analyse.
+
+Was ist ein Kontrast?
+
+:   Text
+
+#### Einfaktorielle Analyse {.unnumbered .unlisted}
+
+```{r}
+fac1_fit <- lm(jump_length ~ animal, data = fac1_tbl)
+```
+
+```{r}
+multcomp_fac1_obj <- glht(fac1_fit, linfct = mcp(animal = "Tukey")) 
+```
+
 ::: panel-tabset
 ## p-Werte
 
+```{r}
+#| message: false
+multcomp_fac1_obj |> 
+  tidy(conf.int = TRUE) |> 
+  select(contrast, estimate, adj.p.value, 
+         conf.low, conf.high)
+```
+
+Wir können auch die Adjustierung der p-Werte ausschalten, dann gibt es aber auch keine 95% Konfidenzintervalle mehr.
+
+```{r}
+#| message: false
+#| warning: false
+
+multcomp_fac1_obj |> 
+  summary(test = adjusted("none")) |> 
+  tidy() 
+```
+
 ## *Compact letter display*
 
+```{r}
+#| warning: false
+multcomp_fac1_obj |> 
+  tidy() |> 
+  mutate(contrast = str_replace_all(contrast, "\\s", "")) |> 
+  pull(adj.p.value, contrast) |> 
+  multcompLetters() 
+```
+
 ## 95% Konfidenzintervall
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 5
+#| fig-cap: "Simultane 95% Konfidenzintervalle für den paarweisen Vergleich der Sprungweiten in [cm] der Hunde-, Katzen- und Fuchsflöhe."
+#| label: fig-multcomp-fac1
+
+multcomp_fac1_obj |> 
+  tidy(conf.int = TRUE) |> 
+  ggplot(aes(contrast, y=estimate, 
+             ymin=conf.low, ymax=conf.high)) +
+  geom_hline(yintercept=0, linetype="11", colour="grey60") +
+  geom_errorbar(width=0.1) + 
+  geom_point() +
+  coord_flip() +
+  theme_classic()
+```
+:::
+
+#### Zweifaktorielle Analyse {.unnumbered .unlisted}
+
+```{r}
+fac2_fit <- lm(jump_length ~ animal + site + animal:site, data = fac2_tbl)
+```
+
+```{r}
+multcomp_fac2_obj <- glht(fac2_fit, linfct = mcp(animal = "Tukey",
+                          covariate_average = TRUE, interaction_average = TRUE)) 
+```
+
+Dann einmal mit der Interaktion
+
+```{r}
+fac2_inter_tbl <- fac2_tbl |> 
+  mutate(inter_animal_site = interaction(animal, site))
+```
+
+```{r}
+fac2_inter_fit <- lm(jump_length ~ inter_animal_site, data = fac2_inter_tbl)
+```
+
+```{r}
+multcomp_fac2_inter_obj <- glht(fac2_inter_fit, linfct = mcp(inter_animal_site = "Tukey")) 
+```
+
+::: panel-tabset
+## p-Werte
+
+```{r}
+#| message: false
+multcomp_fac2_obj |> 
+  tidy(conf.int = TRUE) |> 
+  select(contrast, estimate, adj.p.value, 
+         conf.low, conf.high)
+```
+
+```{r}
+#| message: false
+#| warning: false
+multcomp_fac1_obj |> 
+  summary(test = adjusted("none")) |> 
+  tidy() 
+```
+
+## *Compact letter display*
+
+```{r}
+#| warning: false
+multcomp_fac2_obj |> 
+  tidy() |> 
+  mutate(contrast = str_replace_all(contrast, "\\s", "")) |> 
+  pull(adj.p.value, contrast) |> 
+  multcompLetters() 
+```
+
+## 95% Konfidenzintervall
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: true
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 5
+#| fig-cap: "Simultane 95% Konfidenzintervalle für den paarweisen Vergleich der Sprungweiten in [cm] der Hunde-, Katzen- und Fuchsflöhe."
+#| label: fig-multcomp-fac2
+
+multcomp_fac2_obj |> 
+  tidy(conf.int = TRUE) |> 
+  ggplot(aes(contrast, y=estimate, 
+             ymin=conf.low, ymax=conf.high)) +
+  geom_hline(yintercept=0, linetype="11", colour="grey60") +
+  geom_errorbar(width=0.1) + 
+  geom_point() +
+  coord_flip() +
+  theme_classic()
+```
 :::
 
 ### R Paket `{nparcomp}`
@@ -1407,32 +1583,102 @@ Es gibt immer wieder Dinge von Interesse, die ich im Rahmen der multiplen Vergle
 
 ### Friedhof der Post-hoc Tests {#sec-friedhof-posthoc}
 
-Hier gebe ich eine -- nicht vollständige -- Liste an Post-hoc Tests, die es einmal gab und auch noch erwähnt werden, aber dann igentlich alle irgendwie veraltet sind. Wie immer sind diese Tests nicht per se schlecht. Aber es gibt dann eben besseres. Die Daumenregel lautet dabei, dass es `{emmeans}` oder `{multcomp}` besser können. Zwei Übersichtsarbeiten helfen hier nochmal Ordnung in das Dickicht der multiplen Vergleiche zu bringen. Einmal die Arbeit [On the use of post-hoc tests in environmental and biological sciences: A critical review](https://www.sciencedirect.com/science/article/pii/S2405844024011629) von @agbangba2024use sowie die Veröffentlichung [A discussion and evaluation of statistical procedures used by JIMB authors when comparing means](https://pmc.ncbi.nlm.nih.gov/articles/PMC10845891/) von @klasson2024discussion.
+Hier gebe ich eine -- nicht vollständige -- Liste an Post-hoc Tests, die es einmal gab und auch noch erwähnt werden, aber dann igentlich alle irgendwie veraltet sind. Wie immer sind diese Tests nicht per se schlecht. Aber es gibt dann eben besseres. Die Daumenregel lautet dabei, dass es `{emmeans}` oder `{multcomp}` besser können. Zwei Übersichtsarbeiten helfen hier nochmal Ordnung in das Dickicht der multiplen Vergleiche zu bringen. Einmal die Arbeit [On the use of post-hoc tests in environmental and biological sciences: A critical review](https://www.sciencedirect.com/science/article/pii/S2405844024011629) von @agbangba2024use sowie die Veröffentlichung [A discussion and evaluation of statistical procedures used by JIMB authors when comparing means](https://pmc.ncbi.nlm.nih.gov/articles/PMC10845891/) von @klasson2024discussion. Im Folgenden bieten sich zwei Pakete an die etwas älteren Post-hoc Tests zu rechnen. Zum einen das Paket `{descTools}`, welches einfacher zu bedienen ist und auch mal zweifaktoriell rechnen kann oder das R Paket `{agricolae}`, was den Fokus auf ein einfaktorielles Design hat aber dafür direkt das *Compact letter display* ohne p-Werte wiedergibt. Ich verzichte hier auch auf die händische Herleitung, auch wenn es gerade bei den älteren Anwendungen auch möglich ist, aber wir wollen diese Tests eigentlich nicht mehr nutzen.
 
 LSD Test oder auch *Fisher\`s least Significant Difference (LSD)*
 
 :   Der LSD Test ist veraltet. Was überhaupt gegen die Nutung des LSD Test spricht ist, das der LSD Test das Signifikanzniveau $\alpha$ von 5% über alle Vergleiche nicht einhält. Sie dazu auch @agbangba2024use mit der klaren Aussage: *"LSD does not control for family-wise type I error".* Die einzige Ausnahme ist der seltene Fall, dass du dir nur drei Behandlungsgruppen anschaust, wie von @klasson2024discussion diskutiert. Aber am Ende ich kann den LSD Test nicht empfehlen.
 
+::: panel-tabset
+## `{DescTools}`
+
+In dem R Paket `{descTools}` kannst du den LSD Test einmal einfaktoriell rechnen, wie in dem folgenden Modell. Bitte beahcte immer, das wir nicht für das multiple Testen adjustieren. Daher kann es dann zu Abweichungen zu anderen Post-hoc Tests kommen. HIer aber erstmal die einfaktorielle ANOVA.
+
 ```{r}
 fac1_av <- aov(jump_length ~ animal, data = fac1_tbl)
 ```
 
-Witzigerweise gibt die Funktion *von alleine* keine Ausgabe wieder. Wie wild dieses Verhalten einer Funktion ist.
+Ebenso kannst du eine zweifaktorielle ANOVA nutzen. Hier ist die Herausforderung dann die p-Werte zu extrahieren und das *Compact letter display* zu berechnen. Wir können dann das Modell in die Funktion `PostHocTest()` stecken und dann einmal mit der Option `method = "lsd"` den entsprechenden Test auswählen.
+
+```{r}
+lsd_obj <- PostHocTest(fac1_av, method = "lsd")
+lsd_obj
+```
+
+Und dann können wir uns auch mit einer leichten Umgehung auch das *Compact letter display* erstellen lassen. Leider ist das immer etwas schwieriger, wenn die Ausgabe der Funktion nicht so richtig zu den der *Compact letter display* passt. Wir nutzen hier explizit die Funktion `extract()` aus dem R Paket `{magrittr}`. Bei dir heißt aber die Variable `"animal"` der Behandlung natürlich anders.
+
+```{r}
+lsd_obj |>
+  pluck("animal") |> 
+  magrittr::extract(, 4) |> 
+  multcompLetters() 
+```
+
+Im zweifaktoriellen Fall würd eich dir aber eher `{emmeans}` empfehlen, da du dort besser und leichter an das *Compact letter display* kommst.
+
+## `{agricolae}`
+
+Das R Paket `{agricolae}` erlaubt auch einen LSD Test zu rechnen. Wir brauchen nur das Modell einer einfaktoriellen ANOVA und können dann damit weiterrechnen. Ein zweiter Faktor ist in `{agricolae}` nicht möglich und wird ohne Fehlermeldung einfach von der Funktion ignoriert.
+
+```{r}
+fac1_av <- aov(jump_length ~ animal, data = fac1_tbl)
+```
+
+Witzigerweise gibt die Funktion *von alleine* keine Ausgabe wieder. Wie wild dieses Verhalten einer Funktion ist, kann ich gar nicht ausdrücken. Wichtig ist hier, dass wir nur das *Compact letter display* wiedergegeben bekommen aber keine p-Werte für die paarweisen Vergleiche.
 
 ```{r}
 LSD.test(fac1_av, trt = "animal", p.adj = "bonferroni") |> 
-  print()
+  pluck("groups")
 ```
+
+Wenn du p-Werte brauchst oder ein zweifaktorielles Design vorliegen hast, dann nutze bitte die Funktionen aus dem R Paket `descTools` oder eben gleich `{emmeans}`, was einfach das bessere Paket ist.
+:::
 
 Scheffé Test
 
 :   Der Scheffé Test ist im Prinzipn eng mit dem Tukey HSD Test verwandt. Was aber @agbangba2024use anmerkt ist, dass *"the test is too conservative compared to methods like Tukey’s HSD"*. Aus dem Grund würde ich den Test nicht empfehlen. Auch testet der Scheffé Test mehr Vergleiche als du meistens möchtest. Es ist eben nicht ein reiner *all-pair* Vergleich sondern testet auch noch alle anderen möglichen Kombinationen der Mittelwerte.
 
-```{r}
-library(DescTools)
+::: panel-tabset
+## `{DescTools}`
 
-ScheffeTest(fac2_av)
+Wir können den Scheffé Test im R Paket `{DescTools}` mit der Funktion `ScheffeTest()` finden. Wir könnten auch die Funktion `PostHocTest()` nutzen und die Option `method = "scheffe"` wählen. Wir nutzen wieder das Modell aus der ANOVA, ob nun einfaktoriell oder zweifaktoriell, um dann den Scheffé Test zu rechnen. Ich zeige hier einmal die einfaktorielle Variante.
+
+```{r}
+fac1_av <- aov(jump_length ~ animal, data = fac1_tbl)
 ```
+
+Dann brauchen wir nur noch die Funktion `ScheffeTest` aufrufen. Ich ziehe mir hier gleich mit der Funktion `pluck()` die notwendigen Informationen direkt raus. Deine Gruppenspalte in deinen Daten heißt ja anders, deshalb musst du dann `"animal"` entsprechend durch deinen Variablennamen ersetzen. Beachte, dass du hier adjustierte p-Werte wiedergegeben bekommst.
+
+```{r}
+scheffe_obj <- ScheffeTest(fac1_av) |> pluck("animal")
+scheffe_obj
+```
+
+Und dann können wir uns auch mit einer leichten Umgehung auch das *Compact letter display* erstellen lassen. Leider ist das immer etwas schwieriger, wenn die Ausgabe der Funktion nicht so richtig zu den der *Compact letter display* passt. Wir nutzen hier explizit die Funktion `extract()` aus dem R Paket `{magrittr}`.
+
+```{r}
+scheffe_obj |> 
+  magrittr::extract(, 4) |> 
+  multcompLetters() 
+```
+
+## `{agricolae}`
+
+Wir könenn auch den Scheffé Test in dem R Paket `{agricolae}` rechnen. Dafür brauchen wir wieder ein einfaktorielles Modell. Wir können kein zweifaktorielles rechnen, sondern eben nur für einen Behandlungsfaktor. Deshalb hier einmal das ANOVA Modell.
+
+```{r}
+fac1_av <- aov(jump_length ~ animal, data = fac1_tbl)
+```
+
+Dann können wir de Funktion `scheffe.test()` nutzen. Auch hier erhalten wir keine Ausgabe sondern müssen die Ausgabe selber anfordern. Wir schauen hier direkt das *Compact letter display* an. Wir erhlaten keine p-Werte aus der Funktion.
+
+```{r}
+scheffe.test(fac1_av, trt = "animal")  |> 
+  pluck("groups")
+```
+
+Wenn du p-Werte brauchst oder ein zweifaktorielles Design vorliegen hast, dann nutze bitte die Funktionen aus dem R Paket `descTools` oder eben gleich `{emmeans}`, was einfach das bessere Paket ist.
+:::
 
 ### Re-engineering *Compact letter display*
 
@@ -1536,6 +1782,8 @@ Wie du jetzt siehst schätzen wir die Varianz für jede Tierart und jeden Messor
 
 ## Robuste Schätzung von Standardfehlern
 
+Hier noch `{sandwich}` und `{clubSandwich}` ergänzen.
+
 Wir immer gibt es noch eine weitere Möglichkeit die Varianzheterogenität zu behandeln. Wir nutzen jetzt hier einmal die Funktionen aus dem R Paket `{sandwich}`, die es uns ermöglichen Varianzheterogenität (eng. *heteroskedasticity*) zu modellieren. Es ist eigentlich super einfach, wir müssen als erstes wieder unser Modell anpassen. Hier einmal mit einer simplen linearen Regression.
 
 ```{r}
@@ -1543,6 +1791,10 @@ lm_fac1_fit <- lm(jump_length ~ animal, data = fac1_tbl)
 ```
 
 Dann können wir auch schon für einen Gruppenvergleich direkt in der Funktion `emmeans()` für die Varianzheterogenität adjustieren. Es gibt verschiedene mögliche Sandwich-Schätzer, aber wir nehmen jetzt mal einen der häufigsten mit `vcovHC`. Wie immer gilt, es gibt ja nach Datenlage bessere und schlechtere Schätzer. Wir laden jetzt nicht das ganze Paket, sondern nur die Funktion mit `sandwich::vcovHAC`. Achtung, hinter der Option `vcov.` ist ein *Punkt*. Ohne den Aufruf `vcov. =` funktioniert die Funktion dann nicht.
+
+[clubSandwich: Cluster-Robust (Sandwich) Variance Estimators with Small-Sample Corrections](https://cran.r-project.org/web/packages/clubSandwich/index.html)
+
+[sandwich: Robust Covariance Matrix Estimators](https://cran.r-project.org/web/packages/sandwich/index.html)
 
 ```{r}
 em_obj <- lm_fac1_fit |> 
