@@ -1254,7 +1254,7 @@ Die Entscheidungen nach den 95% Konfidenzintervallen sind die gleichen wie nach 
 Das Paket `{multcomp}` kann beliebige faktorielle Modelle berechnen. Das einfaktorielle Modell ist hierbei relativ einfach durchzuführen und die Stärke liegt hier auch in der Flexibiltät der möglichen Vergleiche oder auch *Kontrast* genannt. Wenn du ein zweifaktorielles Modell vorliegen hast, geht es auch mit `{multcomp}`, *aber* hier musst du dann mehr selber machen damit es gut wird. Das Paket `{emmeans}` ist hier besser in der Bedienung.
 :::
 
-Der große Vorteil von `{multcomp}` liegt in der möglichen Auswahl an komplexen Mittelwertsvergleichen oder auch Mittelwertskontrasten. Das Wort *Kontrast* steht hier für die Art und Weise wie wir verschiedene Mittelwerte miteinander vergleichen wollen. Daher ist der Fokus auch eher auf der einfaktoriellen als auf der mehrfaktoriellen Analyse.
+Der große Vorteil von `{multcomp}` liegt in der möglichen Auswahl an komplexen Mittelwertsvergleichen oder auch Mittelwertskontrasten. Das Wort *Kontrast* steht hier für die Art und Weise wie wir verschiedene Mittelwerte miteinander vergleichen wollen. Daher ist der Fokus auch eher auf der einfaktoriellen als auf der mehrfaktoriellen Analyse. Die Fokus des Paketes liegt daher auch auf der Erstellung der 95% Konfidenzintervalle und deren Darstellung. Wenn dich die 95% Konfidenzintervalle nicht primär interessieren und du auch eigentlich nur einen *all-pair* Vergleich rechnen willst, dann ist das R Paket `{emmeans}` auch wieder die einfachere Variante für dich.
 
 :::: callout-tip
 ## Exkurs: Was ist ein Kontrast?
@@ -1289,6 +1289,8 @@ $$
 Der eigentliche Witz des Kontrasttest ist jetzt, dass wir nicht nur $-1$ oder $1$ eintragen können. Zwar muss die Summe der Werte für einen Kontrast Null sein, wir können aber auch andere Zahlen eintragen. So zum Beispiel $0.5$ und $0.5$ für zwei Gruppen. Dann vergleichen wir die gemittelten Mittelwerte zweier Gruppen mit einer anderen Gruppe.
 
 ::: panel-tabset
+Zuerst kannst du dir natürlich beliebige Kontraste für deine Fragestellung selber zusammenbauen. Solange die Zeile in der Summe immer Null ergibt, ist alles fein. Es gibt aber auch die Funktion `contrMat()`, die dir abhängig von den Fallzahlen in den Gruppen bekannte Kontraste baut. Ich stelle dir hier mal eine Auswahl vor. Wie du aber siehst, gibt es meine vordefinierter Kontraste.
+
 ```{r}
 #| eval: false
 contrMat(n, 
@@ -1297,16 +1299,32 @@ contrMat(n,
                   "McDermott", "UmbrellaWilliams", "GrandMean"))
 ```
 
+## Dunnett
+
+Der Dunnett Kontrast vergleicht einen Mittwelwert gegen die Mittelwerte der anderen Gruppen. Dabei muss dann eine Gruppe als Kontrolle mit der Option `base` gewählt werden. Ich habe mich hier für die zweite Gruppe entschieden.
+
+```{r}
+contrMat(n = c(cat = 5, dog = 5, fox = 5, cow = 5, ape = 5, bee = 5), 
+         type = c("Changepoint"), base = 2)
+```
+
 ## Changepoint
+
+Der Changepoint Kontrast vergleicht ein laufendes Mittel. So wird erst der erste Mittelwert der ersten Gruppe gegen die gemittelten Mittelwerte der restlichen Gruppen verglichen. Dann werden die ersten beiden Gruppen gegen den Rest vergleichen. Das machen wir dann so lange, bis wir den letzten Mittelwert gegen das Mittel der vorherigen Gruppen vergleichen.
 
 ```{r}
 contrMat(n = c(cat = 5, dog = 5, fox = 5, cow = 5, ape = 5, bee = 5), 
          type = c("Changepoint"))
 ```
 
-## Foo
+## AVE
 
-## Bar
+Als letztes Beispiel noch den AVE Kontrast oder auch *Average* Kontrast. Hier wird dann jeder Mittelwert gegen das Mittel der anderen Gruppen verglichen. Das ist jetzt nicht der Anwendungsfall, den du immer mal brauchen wirst, aber manchmal gut zu wissen, dass es geht.
+
+```{r}
+contrMat(n = c(cat = 5, dog = 5, fox = 5, cow = 5, ape = 5, bee = 5), 
+         type = c("AVE"))
+```
 :::
 ::::
 
@@ -1901,7 +1919,7 @@ gls_fac1_fit |>
   emmeans(~ animal)
 ```
 
-Wir sehen, dass wir für jedes Tier eine eigene Varianz über den Standardfehler `SE` geschätzt haben. Das war es ja auch was wir wollten. Bis hierhin wäre es auch mit dem Games Howell Test gegangen. Was ist aber, wenn wir ein zweifaktorielles design mit Interaktion schätzen wollen? Das können wir analog wie eben machen. Wir erweitern einfach das Modell um die Terme `site` für den zweiten Faktor und den Interaktionsterm `animal:site`.
+Wir sehen, dass wir für jedes Tier eine eigene Varianz über den Standardfehler `SE` geschätzt haben. Das war es ja auch was wir wollten. Bis hierhin wäre es auch mit dem Games Howell Test gegangen. Was ist aber, wenn wir ein zweifaktorielles Design mit Interaktion schätzen wollen? Das können wir analog wie eben machen. Wir erweitern einfach das Modell um die Terme `site` für den zweiten Faktor und den Interaktionsterm `animal:site`.
 
 ```{r}
 gls_fac2_fit <- gls(jump_length ~ animal + site + animal:site, 
@@ -1943,11 +1961,9 @@ Wir immer gibt es noch eine weitere Möglichkeit die Varianzheterogenität zu be
 lm_fac1_fit <- lm(jump_length ~ animal, data = fac1_tbl)
 ```
 
-Dann können wir auch schon für einen Gruppenvergleich direkt in der Funktion `emmeans()` für die Varianzheterogenität adjustieren. Es gibt verschiedene mögliche Sandwich-Schätzer, aber wir nehmen jetzt mal einen der häufigsten mit `vcovHC`. Wie immer gilt, es gibt ja nach Datenlage bessere und schlechtere Schätzer. Wir laden jetzt nicht das ganze Paket, sondern nur die Funktion mit `sandwich::vcovHAC`. Achtung, hinter der Option `vcov.` ist ein *Punkt*. Ohne den Aufruf `vcov. =` funktioniert die Funktion dann nicht.
+Dann können wir auch schon für einen Gruppenvergleich direkt in der Funktion `emmeans()` für die Varianzheterogenität adjustieren. Es gibt verschiedene mögliche Sandwich-Schätzer, aber wir nehmen jetzt mal einen der häufigsten mit `vcovHC`. Der Schätzer für die Varianzstruktur ist realtiv stabil und in den häufigsten Fällen vollkomen ausreichend
 
-[clubSandwich: Cluster-Robust (Sandwich) Variance Estimators with Small-Sample Corrections](https://cran.r-project.org/web/packages/clubSandwich/index.html)
-
-[sandwich: Robust Covariance Matrix Estimators](https://cran.r-project.org/web/packages/sandwich/index.html)
+Wir laden jetzt nicht das ganze Paket `{sandwich}`, sondern nur die Funktion mit `sandwich::vcovHAC`. Achtung, hinter der Option `vcov.` ist ein *Punkt*. Ohne den Aufruf `vcov. =` funktioniert die Funktion dann nicht. Das hat mich mal sehr viele Nerven gekostet.
 
 ```{r}
 em_obj <- lm_fac1_fit |> 
@@ -1955,19 +1971,12 @@ em_obj <- lm_fac1_fit |>
 em_obj
 ```
 
-Wir du siehst, die Standardfehler sind jetzt nicht mehr über alle Gruppen gleich. Dann können wir uns auch die paarweisen Vergleiche ausgeben lassen.
+Wir du siehst, die Standardfehler sind jetzt nicht mehr über alle Gruppen gleich. Wir haben also erfolgreich füe die Varianzheterogenität adjustiert.
 
-```{r}
-contr_obj <- em_obj |> 
-  contrast(method = "pairwise", adjust = "none")
-```
+Es gibt eine ganze Reihe von anderen Schätzern in dem R Paket `{sandwich}` und `{clubSandwich}`. HIer einmal die Referenzen der beiden Pakete zum nachschlagen, was es da noch so gibt.
 
-Oder aber wir lassen uns das *compact letter display* wiedergeben.
-
-```{r}
-cld_obj <- em_obj |>
-  cld(Letters = letters, adjust = "none")
-```
+-   [clubSandwich: Cluster-Robust (Sandwich) Variance Estimators with Small-Sample Corrections](https://cran.r-project.org/web/packages/clubSandwich/index.html)
+-   [sandwich: Robust Covariance Matrix Estimators](https://cran.r-project.org/web/packages/sandwich/index.html)
 :::
 
 ## Referenzen {.unnumbered}
