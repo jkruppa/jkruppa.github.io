@@ -236,6 +236,8 @@ ggplot(fac2_tbl, aes(x = animal, y = jump_length,
 
 ### Ein- oder zweifaktorielle Analyse
 
+Einfaktorielles Modell (eng. *one-way design*)
+
 #### Einfaktorielles Modell {.unnumbered .unlisted}
 
 $$
@@ -248,6 +250,8 @@ mit
 -   $f_1$ gleich der Behandlung als Faktor mit mehr als zwei Gruppen, wie die Tierart als `animal`.
 
 #### Zweifaktorielles Modell {.unnumbered .unlisted}
+
+Einfaktorielles Modell (eng. *two-way design*)
 
 $$
 y \sim f_1 + f_2 + f_1:f_2
@@ -849,6 +853,10 @@ ggplot(comp_fac2_ci_obj, aes(contrast, y=estimate, ymin=conf.low, ymax=conf.high
 ```
 :::
 
+## Fallbeispiel mit `{emmeans}`
+
+Hier kommt dann zerforschen rein
+
 ## Der ANOVA Pfad mit Tukey HSD
 
 Der Tukey HSD Test (abk. *HSD Test*) hat viele Namen. Im Englischen kennen wir den Tukey HSD Test auch als *Tukey's range test* oder aber als *Tukey's test*, *Tukey method*, *Tukey's honest significance test* oder eben *Tukey's HSD (honestly significant difference)* Test. Dabei steht die Abkürzung HDS für *honestly significant difference* (deu. *ehrlich signifikanter Unterschied*). Für mich etwas weit aus dem Fenster gelehnt, aber der Name sagt hier mal was auch wirklich gemacht wird. Im Prinzip stellen wir nur die Formel von den Student t-Test einmal um und benennen alles neu. Dann sieht man auch nicht gleich, was Sache ist und jeder denkt, es wäre was Neues. Wir werden hier aber mal den Tukey HSD Test zerforschen. Wir nutzen aber die ANOVA um einmal die Streuung und die Effekte zu berechnen. Daher nenne ich das ganze hier auch den ANOVA Pfad. Der Tukey HSD Test basiert eben mehr oder minder auf der Ausgabe einer ANOVA. Mehr Informationen gibt es auch im Tutorium [Post-Hoc Analysis with Tukey’s Test](https://rpubs.com/aaronsc32/post-hoc-analysis-tukey). Ach, der Tukey HSD Test ist schon etwas älter und kann nicht so viel wie neuere Implementierungen wie das R Paket `{emmeans}` und `{multcomp}`.
@@ -1340,10 +1348,17 @@ fac1_fit <- lm(jump_length ~ animal, data = fac1_tbl)
 
 Jetzt kommt der etwas sperrige Aufruf der Funktion `glht()` um den multiplen Vergleich zu rechnen. Warum ist der Aufruf so sperrig? Zum einen müssen wir erst das Modell angeben, was wir nutzen wollen. Dann brauchen wir aber noch die Variable, die wir dann mit einem Kontrast vergleichen wollen. Das Ganze spezifizieren wir dann in der Option `linfct`. Du musst dann bei dir im Prinzip nur `animal` gegen deinen Variablennamen austauschen.
 
-Wir können auch hier für eine mögliche Varianzheterogenität anpassen und entsprechend eine Varianzschätzer mit der Option `vcov.` wählen. Ich habe hier den Standard gewählt. Am Ende dieses Kapitels kannst du dann nochmal über andere Varianzschätzer lesen. Leider sehen wir die Anpassung nicht in der Ausgabe von `glht`, was immer etwas nervig ist.
+Wir können auch hier für eine mögliche Varianzheterogenität anpassen und entsprechend eine Varianzschätzer mit der Option `vcov.` wählen. Ich habe hier den Standard gewählt. Am Ende dieses Kapitels kannst du dann nochmal über andere Varianzschätzer lesen.
 
 ```{r}
-multcomp_fac1_obj <- glht(fac1_fit, linfct = mcp(animal = "Tukey"), vcov. = sandwich::vcovHC) 
+multcomp_fac1_obj <- glht(fac1_fit, linfct = mcp(animal = "Tukey"), 
+                          vcov. = sandwich::vcovHC) 
+```
+
+Leider sehen wir die Anpassung für die Varianzheterogenität nicht in der Ausgabe von `glht`, was immer etwas nervig ist. Deshalb musst du nochmal gucken, was die Funktion `vcov()` dir zurückgibt. Wir brauchen nur die Diagonale der Varianz/Covarianzmatrix um zu schauen ob wir heterogene VArianzen geschätzt bekommen haben.
+
+```{r}
+vcov(multcomp_fac1_obj) |> diag()
 ```
 
 Wenn wir die Funktion durchgeführt haben können wir uns mit der Wiedergabe die statistischen Maßzahlen berechnen lassen. Du kannst natürlich auch dei Adjustierung für die heterogenen Varianzen weglassen, aber so viel aus machen tut die Adjustierung nicht.
@@ -1390,6 +1405,8 @@ Wir erhalten dann ein ähnliches Ergebnis wie schon bei den anderen Analysen. Du
 
 ## 95% Konfidenzintervall
 
+Die Stärke von `{multcomp}` sind die simultanen 95% Konfidenzintervalle die auch alle damit die Fehlerrate des Signifikanzniveaus von 5% über alle Vergleiche einhalten. Das funktioniert besonders git in dem Fall, dass wir eine einfaktorielle Analyse vorliegen haben. Wir müssen aber die Funktion `tidy()` aufrufen, damit uns die 95% Konfidenzintervalle wiedergegeben werden.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -1414,13 +1431,22 @@ multcomp_fac1_obj |>
 
 #### Zweifaktorielle Analyse {.unnumbered .unlisted}
 
+Es ist acuh möglich in `{multcomp}` eine mehrfaktorielle Analyse druchzuführen. Hierbei können wir wieder jedes Modell nehmen was wir zu Verfügung haben. Damit es hier einfach bleibt, bleibe ich bei einem linearen Modell für einen normalverteilten Messwert. Wir haben wieder unsere Tierrassen und dann noch den Messort vorliegen.
+
 ```{r}
 fac2_fit <- lm(jump_length ~ animal + site + animal:site, data = fac2_tbl)
 ```
 
+Jetzt müssen wir aber einiges an Option auswählen, damit wir die zweifaktorielle Analyse auch gut durchrechnen können.
+
 ```{r}
 multcomp_fac2_obj <- glht(fac2_fit, linfct = mcp(animal = "Tukey",
-                          covariate_average = TRUE, interaction_average = TRUE)) 
+                          covariate_average = TRUE, interaction_average = TRUE),
+                          vcov. = sandwich::vcovHC) 
+```
+
+```{r}
+vcov(multcomp_fac2_obj)
 ```
 
 Dann einmal mit der Interaktion
