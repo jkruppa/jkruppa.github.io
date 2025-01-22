@@ -1458,29 +1458,39 @@ fac2_inter_tbl <- fac2_tbl |>
   mutate(inter_animal_site = interaction(animal, site))
 ```
 
+Dann können wir das Modell einfaktoriell nur mit der Variable der Interaktion rechnen. Das ist natürlich auch so halb eine Lösung.
+
 ```{r}
 fac2_inter_fit <- lm(jump_length ~ inter_animal_site, data = fac2_inter_tbl)
 ```
 
+Mit dem künstlichen einfaktoriellen Modell können wir dann wieder unsere Funktion `glht()` aufrufen. Hier dann einmal simple ohne Adjustierung für Varianzheterogenität. Hier macht es dann sehr Sinn alle Vergleiche zu rechnen. Obwohl du dann natürlich echt viele Vergleiche rechnest und du damit das Signifikanzniveau sehr drückst. Je mehr ich darüber nachdenke, desto weniger würde ich es so machen. Dann lieber doch alles in `{emmeans}`.
+
 ```{r}
-multcomp_fac2_inter_obj <- glht(fac2_inter_fit, linfct = mcp(inter_animal_site = "Tukey")) 
+multcomp_fac2_inter_obj <- glht(fac2_inter_fit, 
+                                linfct = mcp(inter_animal_site = "Tukey")) 
 ```
+
+Im Folgenden lassen wir uns einmal die p-Werte für das Interaktionmodell wiedergeben. Sonst wäre es mehr oder minder die Wiederholung des einfaktoriellen Modells nur mit gemittelten Werten für den zweiten Faktor und der Interaktion.
 
 ::: panel-tabset
 ## p-Werte
 
+Jetzt erhalten wir einiges an Vergleichen, da wir ja auch eine Menge an Tests rechnen. Für jede Faktorkombination kriegst du jetzt einen adjustierten p-Wert wiedergegeben und damit wird es wirklich etwas unübersichtlich. Leider fällt mir auch keine bessere Ordnung ein.
+
 ```{r}
 #| message: false
-multcomp_fac2_obj |> 
-  tidy(conf.int = TRUE) |> 
-  select(contrast, estimate, adj.p.value, 
-         conf.low, conf.high)
+multcomp_fac2_inter_obj |> 
+  tidy() |> 
+  select(contrast, estimate, adj.p.value)
 ```
+
+Besonders bei *so vielen* Vergleichen macht es eventuell Sinn einmal die p-Wert Adjustierung für multiple Vergleiche auszuschalten und sich die rohen p-Werte in Ruhe zu betrachten.
 
 ```{r}
 #| message: false
 #| warning: false
-multcomp_fac1_obj |> 
+multcomp_fac1_inter_obj |> 
   summary(test = adjusted("none")) |> 
   tidy() 
 ```
@@ -1489,7 +1499,7 @@ multcomp_fac1_obj |>
 
 ```{r}
 #| warning: false
-multcomp_fac2_obj |> 
+multcomp_fac2_inter_obj |> 
   tidy() |> 
   mutate(contrast = str_replace_all(contrast, "\\s", "")) |> 
   pull(adj.p.value, contrast) |> 
