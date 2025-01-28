@@ -819,6 +819,8 @@ emm_cld_fac1_obj |>
 
 ## 95% Konfidenzintervall
 
+Am Ende können wir dann auch aus den paarweisen Vergleichen die 95% Konfidenzintervalle berechnen. Hier nutzen wir dann die Funktion `tidy()` aus dem Paket `{broom}` um uns die 95% Konfidenzintervalle sauber wiedergeben zu lassen. Due kannst noch die Kontraste auf `revpairwise` stellen, wenn die Vergleiche umdrehen willst.
+
 ```{r}
 #| message: false
 #| warning: false
@@ -829,9 +831,13 @@ emm_ci_fac1_obj <- emm_fac1_obj |>
 emm_ci_fac1_obj
 ```
 
+Die Stärke eines 95% Konfidenzintervalls ist ja die Signifikanz mit der Relevanz zu verbinden. Daher setze ich jetzt mal die Relevanzschwelle `relevance_lvl` auf $>0.75cm$. Wenn also Floharten im Mittel sich mindestens um $0.75cm$ unterscheiden, dann ist der Vergleich relevant. Das habe ich jetzt einfach so entschieden. Wir schauen hier dann auf größer/gleich, was auch mehr Sinn macht. Theoretisch kannst du auch in beide Richtungen die Relevanz definieren, aber in der Anwendung ist es eher selten, dass uns beide Richtungen interessieren.
+
 ```{r}
 relevance_lvl <- 0.75
 ```
+
+In der folgenden Abbildung siehst du einmal die 95% Konfidenzintervalle für alle paarweisen Vergleiche. Ich habe am Anfang nochmal eine Regel mit `case_when()` erstellt, nachder ich dann die 95% Konfidenzintervall nach der Signifikanz und Relevanz einfärbe. Das ist ja die Stärke der 95% Konfidenzintervalle und dann sollte man die auch Nutzen. Wo du die Relevanzschwelle legst, ist dann dir selber überlassen. Das hängt von deiner wissenschaftlichen Fragestellung ab.
 
 ```{r}
 #| message: false
@@ -865,14 +871,33 @@ emm_ci_fac1_obj |>
 
 #### Zweifaktorielle Analyse {.unnumbered .unlisted}
 
+Nachdem wir uns die einfaktorielle Analyse angeschaut haben, kommen wir jetzt du der eigentlich interessanten Analyse. Wir wollen nämlich jetzt mal zwei Faktoren in einer zweifaktoriellen Analyse auswerten. Meistens haben wir nicht nur einen Faktor vorliegen sondern minestens zwei. Daher hier einmal das MOdell für unsere Sprungweite in \[cm\] für den Faktor `animal` mit den drei Floharten sowie dem Faktor `site` und den zwei Messorten Stadt und Dorf. Ich ahbe hier absichtlich den zweiten Faktor nur auf zwei Level begrenz, sonst werden die Ausgaben der Funktionen so groß. Später können deine Faktoren natürlich mehr Level oder Gruppen haben. Wir rechnen also einmal eine ANOVA um uns die statistsichen Maßzahlen als ein Modell wiedergeben zu lassen.
+
 ```{r}
 fac2_aov <- aov(jump_length ~ animal + site + animal:site, data = fac2_tbl)
 ```
 
+Wenn wir zwei Faktoren vorliegen haben, dann müssen wir entscheiden, wie wir die zwei Faktoren auswerten wollen.
+
+```{mermaid}
+%%| label: fig-mermaid-emmeans-01
+%%| fig-width: 6
+%%| fig-cap: "Abhängigkeitsstruktur des zweifaktoriellen Designs für die Analyse der Sprungweite von Floharten an verschiedenen Messorten mit einem Faktor `animal` nested im Faktor `site`."
+flowchart LR
+    A(animal):::factor --- B(((nested))) --> C(site):::factor
+    classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
+```
+
+Damit gilt dann auch, dass jeder Block alle Behandlungslevel enthält und die Behandlungen innerhalb eines Blockes randomsiert werden. Unsere Randomisierungseinheit ist also der Block.
+
+$$
+\underbrace{\mbox{Messorte}}_{f_2} \xrightarrow[]{beinhaltet\; alle} \overbrace{\mbox{Floharten}}^{f_1}
+$$
+
 Wir müssen uns jetzt entscheiden wie wir die beiden Faktoren $f_1$ mit `animal` und $f_2$ mit `site` auswerten wollen. Wir können den Faktor `animal` getrennt für jedes Level des Faktors `site` vergleichen oder wir vergleichen alle Faktorkombinationen gemeinsam.
 
 ::: panel-tabset
-## **Getrennt** für $f_1$ und $f_2$ mit $\boxed{\sim f_1 | f_2}$
+## $f_1$ separiert $f_2$ mit $\boxed{\sim f_1 | f_2}$
 
 ```{r}
 emm_fac2_separate_obj <- fac2_aov |> 
@@ -881,7 +906,7 @@ emm_fac2_separate_obj <- fac2_aov |>
 emm_fac2_separate_obj
 ```
 
-## **Gemeinsam** für $f_1$ und $f_2$ mit $\boxed{\sim f_1 * f_2}$
+## $f_1$ kombiniert $f_2$ mit $\boxed{\sim f_1 * f_2}$
 
 ```{r}
 emm_fac2_combinded_obj <- fac2_aov |> 
@@ -896,7 +921,7 @@ Wir erhalten also unser `{emmeans}` Objekt für unsere zweifaktorielle Analyse. 
 ::: panel-tabset
 ## p-Werte mit $\boxed{\sim f_1 | f_2}$
 
-\`revpairwise\`\`
+`revpairwise`
 
 ```{r}
 emm_contrast_fac2_separate_obj <- emm_fac2_separate_obj |> 
@@ -1156,8 +1181,18 @@ emm_ci_fac2_combined_obj |>
 
 #### Weitere möglichen Analysen {.unnumbered .unlisted}
 
+[Interaction analysis in emmeans](https://cran.r-project.org/web/packages/emmeans/vignettes/interactions.html)
+
+> *"\[...\] tests the interaction contrasts for all effects in the model and compiles them in one Type-III-ANOVA-like table"*
+
 ```{r}
 fac2_aov |> joint_tests()
+```
+
+[Comparisons and contrasts in emmeans](https://cran.r-project.org/web/packages/emmeans/vignettes/comparisons.html)
+
+```{r}
+eff_size(emm_fac1_obj, sigma = sigma(fac1_aov), edf = 23)
 ```
 
 ::: callout-note
