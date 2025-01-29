@@ -27,15 +27,9 @@ gg_template <- ggplot() +
 
 # Der Post-hoc Test {#sec-posthoc}
 
-*Letzte Änderung am `r format(fs::file_info("stat-tests-posthoc.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*
+*Letzte Änderung am `r format(fs::file_info("stat-tests-posthoc2.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*
 
 > *"Comparison is the thief of joy." --- Theodore Roosevelt*
-
-::: {layout="[15,85]" layout-valign="top"}
-![](images/angel_01_small.png){fig-align="center" width="100%"}
-
-> In diesem Kapitel werde ich ein paar Engel der Statistik niedergeschlagen oder überfahren. Ich lasse aus Gründen der Didaktik ein paar Sachen weg und dadurch wird einiges leider dann *mathematisch* unkorrekt. Ich kann damit leben und nehme es auf mich damit du deine Abschlussarbeit fertig bekommst.
-:::
 
 In diesem Kapitel wollen wir uns mit den multiplen Vergleichen (eng. *post hoc analysis*) oder auch paarweise Gruppenvergleiche genannt beschäftigen. Wir kennen diese multiplen Tests auch unter dem Namen *Post-hoc Tests*, da wir historisch diese Tests *nach* einer ANOVA durchgeführt haben. Das heißt, wir wollen statistisch Testen, ob sich verschiedene Gruppen einer Behandlung voneinander unterschieden. Technisch Testen wir dabei, ob sich die Level eines Faktors voneinander unterscheiden. Wir können dabei mehrere Faktoren bzw. Behandlungen berücksichtigen und gleichzeitig Testen. Wenn wir nur einen Faktor betrachten, dann sprechen wir von einem einfaktoriellen Vergleich. Wenn wir zwei Behandlungen betrachten, dann entsprechend von einem zweifaktoriellen Vergleich. Sehr selten haben wir dann noch den Fall vorliegen, dass wir drei Faktoren betrachten wollen. In einer Abschlussarbeit haben wir faktisch keine Versuche wo wir mehr als drei Faktoren in einem Gruppenvergleich berücksichtigen.
 
@@ -52,6 +46,12 @@ Wo wollen wir also mit unserem Post-hoc Test hin? Betrachten wir dazu einmal ein
 Wir haben hier ein typisches zweifaktorielles Design vorliegen. Zum einen den Faktor *treatment* mit den Gruppen *High density*, *medium density*, *Low density* und *Control*. Der zweite Faktor ist dann das Jahr der Messung mit zwei Jahren. Wir sehen hier die Buchstaben des *Compact letter displays* über den Mittelwerten als Säulen dargestellt. Das *Compact letter display* wollen wir dann hier in diesem Kapitel erstellen. Ein weiteres Beispiel findest du in der wissenschaftlichen Veröffentlichung von @salinas2023plant mit dem Titel ["Plant Growth, Yield, and Fruit Size Improvements in 'Alicia' Papaya Multiplied by Grafting"](https://www.mdpi.com/2223-7747/12/5/1189).
 
 ## Theoretischer Hintergrund
+
+::: {layout="[15,85]" layout-valign="top"}
+![](images/angel_01_small.png){fig-align="center" width="100%"}
+
+> In diesem Kapitel werde ich ein paar Engel der Statistik niedergeschlagen oder überfahren. Ich lasse aus Gründen der Didaktik ein paar Sachen weg und dadurch wird einiges leider dann *mathematisch* unkorrekt. Oder eben das klassische [lying-to-children](https://en.wikipedia.org/wiki/Lie-to-children). Ich kann damit leben und nehme es auf mich damit du deine Abschlussarbeit fertig bekommst.
+:::
 
 Fangen wir nochmal mit etwas theoretischen Hintergrund an. Das heißt wir schauen uns nochmal die wichtigsten Konzepte vom multiplen Testen einmal an. Wichtig ist hier, dass du eben mehr als zwei Gruppen miteinander vergleichen willst. Teilweise hast du mehr als sieben Gruppen und dann wird es schon eine Menge an Vergleichen. Wenn du alle möglichen vergleiche zwischen allen Gruppen rechnen willst, dann nennt man dies den *all-pair* Vergleich. Es werden eben alle möglichen Paare an Gruppen verglichen. Beginnen wir also mit der Frage nach der Anzahl an möglichen Vergleichen und was dies für unsere statistische Auswertung bedeutet.
 
@@ -116,10 +116,12 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, see, nparcomp,
                multcomp, emmeans,  multcompView, nlme, janitor,
                parameters, patchwork, agricolae, broom, rstatix,
-               DescTools, rcompanion, magrittr, conflicted)
+               DescTools, rcompanion, magrittr, quantreg, effectsize,
+               conflicted)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(dplyr::filter)
 conflicts_prefer(magrittr::set_names)
+conflicts_prefer(effectsize::eta_squared)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
@@ -463,22 +465,30 @@ Wenn du *unbedingt* balancierte Daten ohne fehlende Werte brauchst, dann kannst 
 
 #### Varianzhomogenität und Varianzheterogenität {.unnumbered .unlisted}
 
-Varianz in den Fakoren
+Kommen wir nun zur Varianzhomogenität oder Varianzhterogenität in den Gruppen des Behandlunsgfaktors. Wir betrachten also meistens nur den wichtigen Faktor $f_1$ und ignorieren ein wenig den zwieten Faktor. Prinzipiell kannst du natürlich auch den zweiten Fakto anschauen, aber dann werden es immer mehr Gruppen und Fakotrkombinationen. Am Ende kommt dann sowieso heraus, dass über alle Gruppen hinweg keine homogenen Varianzen vorliegen. Wenn du mehr lesen willst so gibt es auf der Seite DSFAIR noch einen Artikel zu `{emmeans}` und der Frage [Why are the StdErr all the same?](https://schmidtpaul.github.io/dsfair_quarto/ch/summaryarticles/whyseequal.html)
 
-Wir bewerten nur den ersten Behandlungsfaktor $f_1$ und ignorieren bei der Bewertung der Varianz den zweiten Faktor.
+Wann liegt vermutlich Varianzheterogenität in deinen experimentellen Faktoren $f$ vor?
+
+:   Es gibt so ein paar Daumenregeln, die dir helfen abzuschätzen, ob in deinen Gruppen Varianzheterogenität vorliegt. Um es kurz zu machen, vermutlich hast du mindestens leichte Varianzhterogenität in den Daten vorliegen.
+
+1)  Du hat viele Behandlungsgruppen. Je mehr Gruppen du hast oder eben dann auch Faktorkombinationen, die du testen möchtest, desto wahrscheinlicher wird es, dass mindestens eine Gruppe eine unterschiedliche Varianz hat. Du hast Varianzheterogenität vorliegen.
+2)  Du misst deine Gruppen über die Zeit. Je größer, schwerer oder allgemein höher ein Messwert wird, desto größer wird auch die Varianz. Schaust du dir deine Messwerte über die Zeit an hast du meistens Varianzheterogenität vorliegen.
+3)  Deine Kontrolle ohne Behandlung verhält sich meistens nicht so, wie die Gruppen, die eine Behandlung erhalten haben. Wenn du nichts machst in deiner negativen Kontrolle, dann hast du meistens eine andere Streuung der Messwerte als unter einer Behandlung.
+4)  Diene Behandlungen sind stark unterschiedlich. Wenn deine Behandlungen sich biologisch oder chemisch in der Wirkung unterscheiden, denn werden vermutlich deine Messwerte auch anders streuen. Hier spielt auch die Anwendung der Behandlung und deren Bereitstellung eine Rolle. Wenn was nicht gleich ist, dann wird es vermutlich nicht gleiche Messwerte erzeugen.
+5)  Du hast wenig Fallzahl pro Gruppe oder Faktorkombination. Wenn du wenig Fallzahl in einer Gruppe hast, dann reicht schon eine (zufällige) Messabweichung und schon sind deine Varianzen heterogen.
+
+Gut, jetrzt wissen wir, dass du vermutlich Varianzheterogenität in deinen Daten vorliegen hast. Erstmal ist das kein so großes Problem.
 
 Tut Varianzhterogenität anstatt Varianzhomogenität weh?
 
-Auf der Seite DSFAIR gibt es noch einen Artikel zu `emmeans` und der Frage [Why are the StdErr all the same?](https://schmidtpaul.github.io/dsfair_quarto/ch/summaryarticles/whyseequal.html)
+:   Nein. Meistens ist die Varianzheterogenität nicht so ausgeprägt, dass du nicht auch eine ANOVA rechnen kannst. Über alle Gruppen hinweg wird dann zwar in einer ANOVA die Varianz gemmittelt und es kann dann zu weniger signifkanten Ergebnissen führen, aber so schlimm ist es nicht. Im Post-hoc Test solltest du aber die Varianzhterogenität berücksichtigen, da du ja immer nur zwei Gruppen gleichzeitig betrachtest.
 
-::: callout-tip
-## Literatur zur Überprüfung der Varianzhomogenität
-
-> *"Soll ich's wirklich machen oder lass ich's lieber sein? Jein..."* --- Fettes Brot, Jein
-:::
+Wie immer kannst du alles natürlich auch statistisch Testen. Das ist dann bei der Varianzhomogenität nicht anders. Mehr dazu dann im [Kapitel zum Pre-Test oder Vortest](#sec-pretest). Hier konzentriere ich mich auf die visuelle Überprüfung, die meistens in einem Setting mit niedriger Fallzahl in den Gruppen vollkommen ausreicht. Die Tests liefern meist eine falsche numerische Sicherheit, die so nicht stimmt.
 
 ::: panel-tabset
 ## Theoretisch
+
+Hier einmal die theoretischen Abbilungen von drei Gruppen mit Varianzhomogenität und Varianzheterogenität. Hier wird schnell klar, dass du mit mehr Behandlungsgruppen kaum die Annahme für Varianzhomogenität aufrecht erhalten kannst. Insbesondere Kontrollen oder Standardbehandlungen haben große oder kleinere Varianzen als der Rest der Behandlungen. Manchaml hat man aber Glück und die Varianzen sind eher homogen.
 
 ```{r}
 #| echo: false
@@ -489,7 +499,7 @@ Auf der Seite DSFAIR gibt es noch einen Artikel zu `emmeans` und der Frage [Why 
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 8
-#| fig-cap: "Visueller  *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Darstellung der Varianzhomogenität und Varianzheterogenität in einem Barplot. *[Zum Vergrößern anklicken]*"
 
 p1 <- gg_template %+%
   tibble(x_fct = c("A", "B", "C"),  
@@ -534,7 +544,7 @@ p1 + p2 +
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 8
-#| fig-cap: "Visueller  *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Darstellung der Varianzhomogenität und Varianzheterogenität in einem Boxplot. *[Zum Vergrößern anklicken]*"
 
 p1 <- gg_template %+%
   tibble(x_fct = gl(3, 5, labels = c("A", "B", "C")),  
@@ -568,9 +578,11 @@ p1 + p2 +
 
 ## `geom_bar()`
 
-Das hier ist natürlich nochmal eien Wiederholung des [Kapitels zur Visualisierung von Daten](#sec-eda-ggplot)
+Wir bauen wir usn jetzt die Barplots oder Säulendiagramme? Entweder direkt aus `{ememans}`, wie ich dir das weiter unten zum *Compact letter display* zeige oder eben als Wiederholung des [Kapitels zur Visualisierung von Daten](#sec-eda-ggplot). Wir bauen uns also einmal den einfaktoriellen Barplot wie auch den zweifaktoriellen Barplot.
 
 ### Einfaktorieller Barplot
+
+Für den einfaktoriellen Barplot brauchen wir einmal den Mittelwert und die Standardabweichung der einzelne Floharten.
 
 ```{r}
 stat_fac1_tbl <- fac1_tbl |> 
@@ -580,6 +592,8 @@ stat_fac1_tbl <- fac1_tbl |>
 stat_fac1_tbl
 ```
 
+Dann können wir uns auch schon den Barplot mit `{ggplot}` erstellen. Später willst du dann noch das *Compact letter display* über den Balken als Mittelwerte ergänzen.
+
 ```{r}
 #| message: false
 #| echo: true
@@ -588,7 +602,7 @@ stat_fac1_tbl
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 4
-#| fig-cap: "foo."
+#| fig-cap: "Beispielhafter einfaktorieller Barplot für die Sprungweiten in [cm] gruppiert nach den Floharten."
 
 ggplot(data = stat_fac1_tbl, 
        aes(x = animal, y = mean, fill = animal)) +
@@ -596,13 +610,14 @@ ggplot(data = stat_fac1_tbl,
   geom_bar(stat = "identity") + 
   geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd), 
                 width = 0.2) + 
-  labs(x = "Flohart", 
-       y = "Sprungweite in [cm]") +
+  labs(x = "Flohart", y = "Sprungweite in [cm]") +
   theme(legend.position = "none") + 
   scale_fill_okabeito() 
 ```
 
 ### Zweifaktorieller Barplot
+
+Für den zweifaktoriellen Barplot brauchen wir einmal den Mittelwert und die Standardabweichung der einzelne Floharten getrennt für die beiden Messorte. Das geht natürlich auch umgedreht, also die Messorte für die Floharten. Das kommt dann auf deine Fragestellung an.
 
 ```{r}
 stat_fac2_tbl <- fac2_tbl |> 
@@ -612,6 +627,8 @@ stat_fac2_tbl <- fac2_tbl |>
 stat_fac2_tbl
 ```
 
+Und dann können wir auch schon den zweifaktoriellen Barplot in `{ggplot}` erstellen. Du musst schauen, was du auf die x-Achse legst und was du dann auf die Legende und daher mit `fill` gruppierst. Damit die Positionen passen, spiele ich hier noch mit der Funktion `position_dodge()` rum.
+
 ```{r}
 #| message: false
 #| echo: true
@@ -620,7 +637,7 @@ stat_fac2_tbl
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 4
-#| fig-cap: "foo."
+#| fig-cap: "Beispielhafter zweifaktorieller Barplot für die Sprungweiten in [cm] gruppiert nach den Floharten und den beiden Messorten."
 
 ggplot(data = stat_fac2_tbl, 
        aes(x = site, y = mean, fill = animal)) +
@@ -630,15 +647,15 @@ ggplot(data = stat_fac2_tbl,
   geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd), 
                 width = 0.2, 
                 position = position_dodge(0.9)) + 
-  labs(x = "Flohart", 
-       y = "Sprungweite in [cm]",
-       fill = "Tierart") +
+  labs(x = "Flohart", y = "Sprungweite in [cm]", fill = "Tierart") +
   scale_fill_okabeito() 
 ```
 
 ## `geom_boxplot()`
 
 ### Einfaktorieller Boxplot
+
+Das praktische bei den Boxplots ist, dass wir hier nichts mehr vorrechnen müssen, sondern direkt die Boxplots in `{ggplot}` erstellen können. Ich finde man sieht immer in einem Boxplot besser, ob die Streuung um den Median eher homogen oder eher heterogen ist. Gerne ergänze ich noch den Mittelwert mit der Funktion `stat_summary()`.
 
 ```{r}
 #| message: false
@@ -648,19 +665,22 @@ ggplot(data = stat_fac2_tbl,
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 4
-#| fig-cap: "foo."
+#| fig-cap: "Beispielhafter einfaktorieller Boxplot für die Sprungweiten in [cm] gruppiert nach den Floharten."
 
 ggplot(data = fac1_tbl, 
        aes(x = animal, y = jump_length, fill = animal)) +
   theme_minimal() +
   geom_boxplot() +
-  labs(x = "Flohart", 
-       y = "Sprungweite in [cm]") +
+  stat_summary(fun.y = mean, geom = "point", 
+               shape=23, size = 5, fill = "gray50") +
+  labs(x = "Flohart", y = "Sprungweite in [cm]") +
   theme(legend.position = "none") + 
   scale_fill_okabeito() 
 ```
 
 ### Zweifaktorieller Boxplot
+
+Den zweifaktoriellen Boxplot erstellen wir für die einzelnen Floharten getrennt für die beiden Messorte. Du musst schauen, was du auf die x-Achse legst und was du dann auf die Legende und daher mit `fill` gruppierst. Gerne ergänze ich noch den Mittelwert mit der Funktion `stat_summary()`, muss hier aber schauen, dass ich nach dem Faktor `animal` gruppiere und dann noch mit der Funktion `position_dodge()` die richtige Position finde.
 
 ```{r}
 #| message: false
@@ -670,15 +690,16 @@ ggplot(data = fac1_tbl,
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 8
-#| fig-cap: "foo."
+#| fig-cap: "Beispielhafter zweifaktorieller Boxplot für die Sprungweiten in [cm] gruppiert nach den Floharten und den beiden Messorten."
 
 ggplot(data = fac2_tbl, 
        aes(x = site, y = jump_length, fill = animal)) +
   theme_minimal() +
   geom_boxplot() + 
-  labs(x = "Flohart", 
-       y = "Sprungweite in [cm]",
-       fill = "Tierart") +
+  stat_summary(fun.y = mean, geom = "point", aes(group = animal), 
+               shape=23, size = 5, fill = "gray50",
+               position = position_dodge(0.75)) +
+  labs(x = "Flohart", y = "Sprungweite in [cm]", fill = "Tierart") +
   scale_fill_okabeito() 
 ```
 
@@ -726,7 +747,7 @@ Am Ende gibt dazu dann auch eine passend die Publikation von @kozak2020analyzing
 ::: callout-warning
 ## Achtung, bitte beachten!
 
-Das tolle an `{emmeans}` ist die Flexibilität. Du kannst sehr einfach viele Methoden in `{emmeans}` abdecken. Wenn du die Option für die Adjustierung auf `tukey` stellst, dann rechnest du faktisch einen besseren Tukey HSD Test. Wenn du dann noch in `{emmeans}` die Option mit der Varianzheterogenität wählst, rechnest du einen besseren Games Howell Test. Mehr dazu dann am Ende des Abschnitts, wie du die Ergebnisse präsentierst.
+Das tolle an `{emmeans}` ist die Flexibilität. Du kannst sehr einfach viele Methoden in `{emmeans}` abdecken. Wenn du die Option für die Adjustierung auf `tukey` stellst, dann rechnest du faktisch einen besseren Tukey HSD Test. Wenn du dann noch in `{emmeans}` die Option mit der Varianzheterogenität wählst, rechnest du einen besseren Games Howell Test. Mehr dazu dann am Ende des Abschnitts, wie du die Ergebnisse präsentierst, da musst du dann gar nicht so viel schreiben.
 :::
 
 Wenn du ein zweifaktorielles Design mit etwas wenig Fallzahl pro Gruppe vorliegen hast, dann ist `{emmeans}` die Antwort auf deine Herausforderungen. Darüber hinaus können wir auch sehr einfach Varianzheterogenität modellieren, die Adjustierung für multiple Vergleiche an und ausschalten sowie direkt das *Compact letter display* erhalten. Das Paket `{emmeans}` ist damit die *effiktive* Lösung für einen Gruppenvergleich in den Agarwissenschaften und darüber hinaus. Schauen wir uns also im Folgenden einmal das Paket näher an. Ich verzichte hier auf eine tiefere händische Berechnung sondern konzentriere mich auf die Anwendung der häufigsten Analysefälle.
@@ -1213,7 +1234,7 @@ emm_ci_fac2_combined_obj |>
 
 #### Weitere möglichen Analysen {.unnumbered .unlisted}
 
-[Interaction analysis in emmeans](https://cran.r-project.org/web/packages/emmeans/vignettes/interactions.html)
+Ich möchte hier nur kurz noch auf weitere mögliche Analysen mit `{emmeans}` eingehen. Zum einen gibt es die Hilfeseite von `{emmeans}` zur [Interaction analysis in emmeans](https://cran.r-project.org/web/packages/emmeans/vignettes/interactions.html). Dort findet sich auch die Funktion `joint_test()`, die dir nochmal erlaubt auf einem Modell die Interaktionen in der richtigen Reihenfolge zu testen. Mehr dazu im [Kapitel zur ANOVA](#sec-anova).
 
 > *"\[...\] tests the interaction contrasts for all effects in the model and compiles them in one Type-III-ANOVA-like table"*
 
@@ -1221,11 +1242,13 @@ emm_ci_fac2_combined_obj |>
 fac2_aov |> joint_tests()
 ```
 
-[Comparisons and contrasts in emmeans](https://cran.r-project.org/web/packages/emmeans/vignettes/comparisons.html)
+Ebenso gibt es noch die Möglichkeit dir die Effektstärken mit `effsize()` zu berechnen. Hier nutzen wir die Informationen aus dem Objekt `fac1_aov` um mit der Varianz und der Freiheitsgerade Cohen\`s d zu berechnen. Mehr dazu dann auch im [Kapitel zu dem Effektschätzer](#sec-effect).
 
 ```{r}
-eff_size(emm_fac1_obj, sigma = sigma(fac1_aov), edf = 23)
+eff_size(emm_fac1_obj, sigma = sigma(fac1_aov), edf = fac1_aov$df.residual)
 ```
+
+Mehz zu den weiteren Vergleichen von `{emmeans}` dann auch unter [Comparisons and contrasts in emmeans](https://cran.r-project.org/web/packages/emmeans/vignettes/comparisons.html). Das ist hier eher so der offene Abschnitt. Vielleicht kommt noch was dazu.
 
 :::: callout-note
 ## Was schreibe ich in Material und Methoden?
@@ -1254,7 +1277,31 @@ RStudio.Version()$version
 
 ## Fallbeispiele mit `{emmeans}`
 
-Hier kommt dann zerforschen rein
+In den folgenden Zerforschenkästen findest du dann noch einige Fallbeispiele zu `{emmeans}`. Ich bin über den Campus Haste der Hochschule Osnabrück gelaufen und habe mal ein paar Fotos von Posterabbildungen gemacht. Dann habe ich die Abbildungen zerforscht und mit ausgedachten Daten versehen. Vielleicht findest du hier nochmal eine Inspiration für deine eingenen Auswertungen.
+
+::: {.callout-note collapse="true"}
+## Zerforschen: Einfaktorielle Analyse mit `{emmeans}`
+
+{{< include zerforschen/zerforschen-simple-barplot-emmeans.qmd >}}
+:::
+
+::: {.callout-note collapse="true"}
+## Zerforschen: Zweifaktorielle Analyse mit `{emmeans}`
+
+{{< include zerforschen/zerforschen-barplot-2fac-target-emmeans.qmd >}}
+:::
+
+::: {.callout-note collapse="true"}
+## Zerforschen: Zweifaktorielle Analyse mit `{emmeans}`
+
+{{< include zerforschen/zerforschen-boxplot-2fac-target-emmeans.qmd >}}
+:::
+
+::: {.callout-note collapse="true"}
+## Zerforschen: Komplexere Analyse mit `{emmeans}`
+
+{{< include zerforschen/zerforschen-boxplot-mult.qmd >}}
+:::
 
 ## Der ANOVA Pfad mit Tukey HSD
 
