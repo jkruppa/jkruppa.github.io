@@ -12,19 +12,27 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, plyr)
 
 [One-Way ANOVA Test in R](https://www.sthda.com/english/wiki/one-way-anova-test-in-r)
 
-[OTwo-Way ANOVA Test in R](https://www.sthda.com/english/wiki/two-way-anova-test-in-r)
+[Two-Way ANOVA Test in R](https://www.sthda.com/english/wiki/two-way-anova-test-in-r)
 
 [MANOVA Test in R: Multivariate Analysis of Variance](https://www.sthda.com/english/wiki/manova-test-in-r-multivariate-analysis-of-variance)
 
 [ANOVA in R \| A Complete Step-by-Step Guide with Examples](https://www.scribbr.com/statistics/anova-in-r/)
 
+## Welche Pakete gibt es eigentlich?
+
+`Anova()` aus dem R Paket `{car}`. Passt das mit `{emmeans}`?
+
+`aov()` und `anova()` aus dem Standardpaket `{base}`
+
+Das R Paket `{WRS2}` mit der hervorragenden Vingette [Robust Statistical Methods Using WRS2](https://cran.r-project.org/web/packages/WRS2/vignettes/WRS2.pdf)
+
+## Ein Wort zur Transformation vom Messwert $y$
+
+lognormal und Co.
+
 ## Der ANOVA Pfad
 
 Hier einmal eine Mairmaid Flowchart rein?
-
-## Daten
-
-text
 
 ## Genutzte R Pakete
 
@@ -34,34 +42,294 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 #| warning: false
 pacman::p_load(tidyverse, magrittr, broom, 
-               readxl, effectsize, ggpubr, 
-               see, car, conflicted)
-conflicts_prefer(plyr::mutate)
+               readxl, see, car, patchwork, conflicted)
+conflicts_prefer(dplyr::mutate)
 conflicts_prefer(dplyr::summarize)
+conflicts_prefer(dplyr::filter)
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
 
+## Daten
+
+## Einfaktorieller Datensatz
+
+```{r}
+#| message: false
+
+fac1_tbl <- read_xlsx("data/flea_dog_cat_fox.xlsx") |>
+  select(animal, jump_length) |> 
+  mutate(animal = as_factor(animal))
+```
+
+Dann schauen wir uns die Daten einmal in der folgenden Tabelle als Auszug einmal an. Wichtig ist hier nochmal, dass du eben einen Faktor `animal` mit drei Leveln also Gruppen vorliegen hast. Wir wolen jetzt die drei Tierarten hinsichtlich ihrer Sprungweite in \[cm\] miteinander vergleichen. Weil wir jetzt mehr als zwei Gruppen vorliegen haben, sprechen wir von einem multiplen Vergleich.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-1fac-table
+#| tbl-cap: "Tabelle der Sprungweiten in [cm] als Messwert $y$ von Hunde-, Katzen- und Fuchsflöhen. Der Datensatz ist einfaktoriell, da wir nur einen Behandlungsfaktor $x$ mit `animal` vorliegen haben."
+
+fac1_raw_tbl <- read_xlsx("data/flea_dog_cat_fox.xlsx") |>
+  select(animal, jump_length)
+
+rbind(head(fac1_raw_tbl, n = 3),
+      rep("...", times = ncol(fac1_raw_tbl)),
+      tail(fac1_raw_tbl, n = 3)) |> 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-ggplot-anova-boxplot-1fac
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: "Beispielhafter einfaktorieller Boxplot für die Sprungweiten in [cm] gruppiert nach den Floharten."
+
+ggplot(data = fac1_tbl, 
+       aes(x = animal, y = jump_length, fill = animal)) +
+  theme_minimal() +
+  geom_boxplot() +
+  stat_summary(fun.y = mean, geom = "point", 
+               shape=23, size = 5, fill = "gray50") +
+  labs(x = "Flohart", y = "Sprungweite in [cm]") +
+  theme(legend.position = "none") + 
+  scale_fill_okabeito() 
+```
+
+## Zweifaktorieller Datensatz
+
+Neben dem einfaktoriellen Datensatz wollen wir uns noch den häufigeren Fall mit zwei Faktoren anschauen. Wir haben also nicht nur die drei Floharten vorliegen und wollen wissen ob diese unterschiedlich weit springen. Darüber hinaus haben wir noch einen zweiten Faktor gewählt. Wir haben die Sprungweiten der Hunde-, Katzen- und Fuchsflöhe nämlich an zwei Messorten, der Stadt und dem Dorf, gemessen. Dadurch haben wir jetzt den Faktor `animal` und den Faktor `site` vorliegen. Wiederum fragen wir usn, ob sich die Sprungweite in \[cm\] der drei Floharten in den beiden Messorten unterscheidet. Im Folgenden lade ich einmal den Datensatz in das Objekt `fac2_tbl`.
+
+```{r}
+#| message: false
+
+fac2_tbl <- read_xlsx("data/flea_dog_cat_fox_site.xlsx") |> 
+  select(animal, site, jump_length) |> 
+  filter(site %in% c("city", "village")) |> 
+  mutate(animal = as_factor(animal),
+         site = as_factor(site))
+```
+
+Betrachten wir als erstes einen Auszug aus der Datentabelle. Wir haben hier als Messwert oder Outcome $y$ die Sprungweite `jump_length` vorliegen. Als ersten Faktor die Variable `animal` und als zweiten Faktor die Variable `site` festgelegt.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-2fac-table
+#| tbl-cap: "Tabelle der Sprungweiten in [cm] als Messwert $y$ von Hunde-, Katzen- und Fuchsflöhen an zwei verschiedenen Messorten Stadt und Dorf. Der Datensatz ist zweifaktoriell, da wir einen Behandlungsfaktor $x$ mit `animal` und einen zweiten Faktor mit `site` vorliegen haben."
+
+fac2_raw_tbl <- read_xlsx("data/flea_dog_cat_fox_site.xlsx") |> 
+  select(animal, site, jump_length) |> 
+      filter(site %in% c("city", "village")) 
+
+rbind(head(fac2_raw_tbl, n = 3),
+      rep("...", times = ncol(fac2_raw_tbl)),
+      tail(fac2_raw_tbl, n = 3)) |> 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-anova-boxplot-2fac
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 8
+#| fig-cap: "Beispielhafter zweifaktorieller Boxplot für die Sprungweiten in [cm] gruppiert nach den Floharten und den beiden Messorten."
+
+ggplot(data = fac2_tbl, 
+       aes(x = site, y = jump_length, fill = animal)) +
+  theme_minimal() +
+  geom_boxplot() + 
+  stat_summary(fun.y = mean, geom = "point", aes(group = animal), 
+               shape=23, size = 5, fill = "gray50",
+               position = position_dodge(0.75)) +
+  labs(x = "Flohart", y = "Sprungweite in [cm]", fill = "Tierart") +
+  scale_fill_okabeito() 
+```
+
+## Multifaktorieller Datensatz
+
+```{r}
+fac3_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "fac4") |> 
+  select(animal, stage, site, season, jump_length) |> 
+  mutate(animal = as_factor(animal),
+         stage = factor(stage, level = c("juvenile", "adult")),
+         site = as_factor(site),
+         season = as_factor(season),
+         jump_length = round(jump_length, 2))
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-fac3-table
+#| tbl-cap: "foo."
+
+fac3_raw_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "fac4") |> 
+  select(animal, stage, site, season, jump_length) |> 
+  mutate_if(is.numeric, round, 2)
+
+rbind(head(fac3_raw_tbl, n = 3),
+      rep("...", times = ncol(fac3_raw_tbl)),
+      tail(fac3_raw_tbl, n = 3)) |> 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-anova-boxplot-3fac
+#| fig-align: center
+#| fig-height: 6
+#| fig-width: 7
+#| fig-cap: "foo."
+
+ggplot(data = fac3_tbl, 
+       aes(x = stage, y = jump_length, fill = animal)) +
+  theme_minimal() +
+  geom_boxplot() + 
+  stat_summary(fun.y = mean, geom = "point", aes(group = animal), 
+               shape=23, size = 5, fill = "gray50",
+               position = position_dodge(0.75)) +
+  labs(x = "Entwicklungsstadium", y = "Sprungweite in [cm]", fill = "Flohart") +
+  facet_wrap(~ site:season) +
+  scale_fill_okabeito() +
+  theme(legend.position = "top")
+```
+
+## Zweifaktorieller Datensatz mit Messwiederholung
+
+```{r}
+repated_fac3_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "repeated") |> 
+  select(animal, stage, t0:t3) |> 
+  pivot_longer(cols = t0:t3,
+               values_to = "jump_length",
+               names_to = "time_num") |> 
+  mutate(animal = as_factor(animal),
+         stage = factor(stage, level = c("juvenile", "adult")),
+         time_fac = as_factor(time_num),
+         jump_length = round(jump_length, 2))
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-repeated-table
+#| tbl-cap: "foo."
+
+repeated_raw_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "repeated") |> 
+  select(animal, stage, t0:t3) |> 
+  mutate_if(is.numeric, round, 2)
+
+rbind(head(repeated_raw_tbl, n = 3),
+      rep("...", times = ncol(repeated_raw_tbl)),
+      tail(repeated_raw_tbl, n = 3)) |> 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: false
+#| warning: false
+#| label: fig-ggplot-anova-repeated
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "Darstellung der Varianzhomogenität und Varianzheterogenität in einem Barplot. *[Zum Vergrößern anklicken]*"
+
+ggplot(repated_fac3_tbl, aes(x = time_num, y = jump_length,
+                             color = animal, linetype = stage,
+                             group = interaction(animal, stage))) +
+  theme_minimal() +
+  geom_point() +
+  stat_summary(fun = mean, geom = "line") +
+  stat_summary(aes(group = 1), fun=mean, colour="red", size = 4,
+               geom="line", show_guide = FALSE) +
+  scale_color_okabeito() +
+  theme(legend.position = "top")
+```
+
+## Zweifaktorieller Datensatz mit Kovariate
+
+```{r}
+fac2_cov_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "covariate") |> 
+  select(animal, stage, weight, jump_length) |> 
+  mutate(animal = as_factor(animal),
+         stage = factor(stage, level = c("juvenile", "adult")),
+         weight = round(weight, 2),
+         jump_length = round(jump_length, 2))
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-fac2cov-table
+#| tbl-cap: "foo."
+
+fac2_cov_raw_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "covariate") |> 
+  select(animal, stage, weight, jump_length) |> 
+  mutate_if(is.numeric, round, 2)
+
+rbind(head(fac2_cov_raw_tbl, n = 3),
+      rep("...", times = ncol(fac2_cov_raw_tbl)),
+      tail(fac2_cov_raw_tbl, n = 3)) |> 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-anova-boxplot-fac2cov
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "foo."
+
+p1 <- ggplot(data = fac2_cov_tbl, 
+       aes(x = stage, y = jump_length, fill = animal)) +
+  theme_minimal() +
+  geom_boxplot() + 
+  stat_summary(fun.y = mean, geom = "point", aes(group = animal), 
+               shape=23, size = 5, fill = "gray50",
+               position = position_dodge(0.75)) +
+  labs(x = "Entwicklungsstadium", y = "Sprungweite in [cm]", fill = "Flohart") +
+  scale_fill_okabeito() +
+  theme(legend.position = "top")
+
+p2 <- ggplot(data = fac2_cov_tbl, 
+       aes(x = stage, y = weight, fill = animal)) +
+  theme_minimal() +
+  geom_boxplot() + 
+  stat_summary(fun.y = mean, geom = "point", aes(group = animal), 
+               shape=23, size = 5, fill = "gray50",
+               position = position_dodge(0.75)) +
+  labs(x = "Entwicklungsstadium", y = "Gewicht in [mg]", fill = "Flohart") +
+  scale_fill_okabeito() +
+  theme(legend.position = "top")
+
+p1 + p2 + 
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A') +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
+```
+
 ## Hypothesen
-
-Die ANOVA betrachtet die Mittelwerte und nutzt die Varianzen um einen Unterschied nachzuweisen. Daher haben wir in der Nullhypothese als Gleichheitshypothese. In unserem Beispiel lautet die Nullhypothese, dass die Mittelwerte jedes Levels des Faktors `animal` gleich sind.
-
-$$
-H_0: \; \bar{y}_{cat} = \bar{y}_{dog} = \bar{y}_{fox}
-$$
-
-Die Alternative lautet, dass sich mindestens ein paarweiser Vergleich in den Mittelwerten unterschiedet. Hierbei ist das *mindestens ein Vergleich* wichtig. Es können sich alle Mittelwerte unterschieden oder eben nur ein Paar. Wenn eine ANOVA die $H_0$ ablehnt, also ein signifikantes Ergebnis liefert, dann wissen wir nicht, welche Mittelwerte sich unterscheiden.
-
-$$
-\begin{aligned}
-H_A: &\; \bar{y}_{cat} \ne \bar{y}_{dog}\\
-\phantom{H_A:} &\; \bar{y}_{cat} \ne \bar{y}_{fox}\\
-\phantom{H_A:} &\; \bar{y}_{dog} \ne \bar{y}_{fox}\\
-\phantom{H_A:} &\; \mbox{für mindestens ein Paar}
-\end{aligned}
-$$
-
-Wir schauen uns jetzt einmal die ANOVA theoretisch an bevor wir uns mit der Anwendung der ANOVA in R beschäftigen.
 
 ## Modell
 
@@ -95,6 +363,12 @@ $$
 ## Händisch
 
 ## R
+:::
+
+::: panel-tabset
+## Varianzhomogenität `{car}`
+
+## Varianzheterogenität `{WRS2}`
 :::
 
 ## Typen der Interaktion
