@@ -354,6 +354,14 @@ p1 + p2 +
 
 ## Modell
 
+Kurz und langschreibweise von `a + b + a:b` und `a*b`
+
+|   | Globales Signifikanzniveau $\alpha$ | Bemerkung |
+|:--:|:--:|:---|
+| konservativ | $\leq 5\%$ | Weniger signifikante Unterschiede |
+
+: Zusammenfassung . {#tbl-factor-model}
+
 ## Einfaktorielle ANOVA
 
 ::: panel-tabset
@@ -361,6 +369,12 @@ p1 + p2 +
 
 ```{r}
 aov(jump_length ~ animal, data = fac1_tbl) |> 
+  tidy()
+```
+
+```{r}
+lm(jump_length ~ animal, data = fac1_tbl) |> 
+  anova() |> 
   tidy()
 ```
 
@@ -434,6 +448,65 @@ t2way(jump_length ~ animal + site + animal:site, data = fac2_tbl)
 ### Interaktion
 
 ::: panel-tabset
+## Theoretisch
+
+```{r}
+#set.seed(202434)
+
+get_data_tbl <- function(mean = c(7, 7, 7), sd = c(2, 2, 2), ng = 13) {
+  assump_tbl <- tibble(A = rnorm(ng, mean[1], sd[1]),
+                       B = rnorm(ng, mean[2], sd[2]),
+                       C = rnorm(ng, mean[3], sd[3])) |> 
+  gather(key = trt, value = rsp)
+  stat <- plyr::ddply(assump_tbl, "trt", summarize,
+                      mean = mean(rsp, na.rm = TRUE),
+                      sd = round(sd(rsp, na.rm = TRUE), 2),
+                      var = round(var(rsp, na.rm = TRUE), 2),
+                      max = max(mean - min(rsp), max(rsp) - mean)*1.05) |> 
+    mutate(pos = c(4, 14, 24),
+           rsp = 0)
+  grand_mean <- mean(assump_tbl$rsp, na.rm = TRUE)
+  plot_tbl <- assump_tbl |> 
+  mutate(pos = c(seq(1, 7, 0.5), seq(11, 17, 0.5), seq(21, 27, 0.5)),
+         grand_mean = grand_mean,
+         grp_mean = rep(stat$mean, each = 13),
+         beta = grp_mean - grand_mean,
+         epsilon = rsp - grp_mean) 
+  return(lst(plot = plot_tbl,
+             stat = stat,
+             grand_mean = grand_mean))
+}
+
+
+ex_lst <- get_data_tbl(mean = c(7, 12, 3), sd = c(1, 1, 3))
+ex_lst$plot |> 
+  ggplot() +
+  aes(pos, rsp) +
+  theme_classic() +
+  geom_hline(yintercept = ex_lst$grand_mean, color = "gray50", linewidth = 1) +
+  geom_point() +
+  geom_segment(x = 1, y = ex_lst$stat$mean[1], xend = 7, yend = ex_lst$stat$mean[1], 
+               color = "#E69F00", linewidth = 1) +
+  annotate("text", x = 7.5, y = ex_lst$stat$mean[1], label = expression(bar(Y)[A]), 
+           size = 5, color = "#E69F00", hjust = "left") +
+  geom_segment(x = 11, y = ex_lst$stat$mean[2], xend = 17, yend = ex_lst$stat$mean[2],
+               color = "#56B4E9", linewidth = 1) +
+  annotate("text", x = 17.5, y = ex_lst$stat$mean[2], label = expression(bar(Y)[B]), 
+           size = 5, color = "#56B4E9", hjust = "left") +
+  geom_segment(x = 21, y = ex_lst$stat$mean[3], xend = 27, yend = ex_lst$stat$mean[3],
+               color = "#009E73", linewidth = 1) +
+  annotate("text", x = 27.5, y = ex_lst$stat$mean[3], label = expression(bar(Y)[C]), 
+           size = 5, color = "#009E73", hjust = "left") +
+  geom_errorbar(data = ex_lst$stat, aes(ymin = mean - max, ymax = mean + max), 
+                width = 0.5, color = c("#E69F00", "#56B4E9", "#009E73"), linetype = 11)  +
+  scale_x_continuous(breaks = c(4, 14, 24, 34), labels = c("A", "B", "C", "D"))  +
+#  scale_y_continuous(breaks = ex_lst$grand_mean, labels = expression(bar(Y)[ABC])) +  
+  theme(axis.text = element_text(size = 14),
+        axis.text.y = element_text(size = 16)) + 
+  labs(x = "", y = "") 
+
+```
+
 ## `{ggplot}`
 
 ```{r}
