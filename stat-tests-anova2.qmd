@@ -18,7 +18,7 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, plyr)
 
 [ANOVA in R \| A Complete Step-by-Step Guide with Examples](https://www.scribbr.com/statistics/anova-in-r/)
 
-## Welche Pakete gibt es eigentlich?
+## Welche Pakete gibt es eigentlich? {.unnumbered .unlisted}
 
 `Anova()` aus dem R Paket `{car}`. Passt das mit `{emmeans}`?
 
@@ -26,13 +26,23 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, plyr)
 
 Das R Paket `{WRS2}` mit der hervorragenden Vingette [Robust Statistical Methods Using WRS2](https://cran.r-project.org/web/packages/WRS2/vignettes/WRS2.pdf)
 
-## Ein Wort zur Transformation vom Messwert $y$
+## Ein Wort zur Transformation vom Messwert $y$ {.unnumbered .unlisted}
 
 lognormal und Co.
 
-## Der ANOVA Pfad
+## Der ANOVA Pfad {.unnumbered .unlisted}
 
 Hier einmal eine Mairmaid Flowchart rein?
+
+## Typen der Interaktion {.unnumbered .unlisted}
+
+https://methpsy.elearning.psych.tu-dresden.de/mediawiki/index.php/Interaktionseffekte#:\~:text=In%20einem%20zweifaktoriellen%20Design%20betrachtet,A*B*C).
+
+https://stats.stackexchange.com/questions/204001/interpretation-of-first-and-second-order-interaction-effect
+
+https://stats.stackexchange.com/questions/408056/how-powerful-are-second-order-interactions
+
+https://www.r-bloggers.com/2017/05/three-way-analysis-of-variance-simple-second-order-interaction-effects-and-simple-main-effects/
 
 ## Genutzte R Pakete
 
@@ -380,7 +390,8 @@ Values of = 0.10, 0.30, and 0.50 correspond to small, medium, and large effect s
 
 ```{r}
 aov(jump_length ~ animal + site + animal:site, data = fac2_tbl) |> 
-  tidy()
+  tidy() |> 
+  mutate(p.value = pvalue(p.value))
 ```
 
 ## `{car}`
@@ -389,8 +400,9 @@ aov(jump_length ~ animal + site + animal:site, data = fac2_tbl) |>
 
 ```{r}
 lm(jump_length ~ animal + site + animal:site, data = fac2_tbl) |> 
-  Anova() |> 
-  tidy() 
+  Anova(type = "III") |> 
+  tidy()  |> 
+  mutate(p.value = pvalue(p.value))
 ```
 
 #### Varianzheterogenität {.unnumbered .unlisted}
@@ -412,7 +424,18 @@ t2way(jump_length ~ animal + site + animal:site, data = fac2_tbl)
 ### Interaktion
 
 ::: panel-tabset
+## `{ggplot}`
+
 ```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-interactionplot-1
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "foo."
+
 fac2_tbl |> 
   ggplot(aes(x = animal, y = jump_length,
              color = site, group = site)) +
@@ -443,7 +466,110 @@ lm(jump_length ~ animal + site + animal:site, data = fac2_tbl) |>
 ```
 :::
 
-#### Zweifaktorielles Modell {.unnumbered .unlisted}
+## Mehrfaktorielle ANOVA
+
+### Haupteffekte
+
+::: panel-tabset
+## `{base}`
+
+```{r}
+aov(jump_length ~ animal*stage*site, data = fac3_tbl) |> 
+  tidy() |> 
+  mutate(p.value = pvalue(p.value))
+```
+
+## `{car}`
+
+#### Varianzhomogenität {.unnumbered .unlisted}
+
+```{r}
+lm(jump_length ~ animal*stage*site, data = fac3_tbl) |> 
+  Anova(type = "III") |> 
+  tidy()  |> 
+  mutate(p.value = pvalue(p.value))
+```
+
+#### Varianzheterogenität {.unnumbered .unlisted}
+
+```{r}
+lm(jump_length ~ animal*stage*site, data = fac3_tbl) |> 
+  Anova(white.adjust = TRUE)  |> 
+  tidy() |> 
+  mutate(p.value = pvalue(p.value))
+```
+
+## `{WRS2}`
+
+```{r}
+t3way(jump_length ~ animal*stage*site, data = fac3_tbl)
+```
+:::
+
+### Interaktion
+
+::: panel-tabset
+## `{ggplot}`
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-interactionplot-3a
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "foo."
+
+fac3_tbl |> 
+  ggplot(aes(x = animal, y = jump_length,
+             color = site, linetype = stage, 
+             group = interaction(site, stage))) +
+  theme_minimal() +
+  stat_summary(fun = mean, geom = "point") +
+  stat_summary(fun = mean, geom = "line") +
+  scale_color_okabeito()
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-interactionplot-3b
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "foo."
+fac3_tbl |> 
+  ggplot(aes(x = animal, y = jump_length,
+             color = site, group = site)) +
+  theme_minimal() +
+  stat_summary(fun = mean, geom = "point") +
+  stat_summary(fun = mean, geom = "line") +
+  scale_color_okabeito() +
+  facet_wrap(~ stage)
+```
+
+## `{interactions}`
+
+[R Paket `{interactions}`](https://interactions.jacob-long.com/)
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-interactionplot-4
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "foo."
+
+lm(jump_length ~ animal*stage*site, data = fac3_tbl) |> 
+  cat_plot(modx = site, mod2 = stage, pred = animal,  geom = "line") +
+  theme_minimal() +
+  scale_color_okabeito()
+```
+:::
 
 #### Mehrfaktorielles Modell {.unnumbered .unlisted}
 
@@ -475,16 +601,6 @@ $$
 ## Varianzheterogenität `{WRS2}`
 :::
 
-## Typen der Interaktion
-
-https://methpsy.elearning.psych.tu-dresden.de/mediawiki/index.php/Interaktionseffekte#:\~:text=In%20einem%20zweifaktoriellen%20Design%20betrachtet,A*B*C).
-
-https://stats.stackexchange.com/questions/204001/interpretation-of-first-and-second-order-interaction-effect
-
-https://stats.stackexchange.com/questions/408056/how-powerful-are-second-order-interactions
-
-https://www.r-bloggers.com/2017/05/three-way-analysis-of-variance-simple-second-order-interaction-effects-and-simple-main-effects/
-
-## MANOVA()
+## MANOVA() {.unnumbered .unlisted}
 
 ## Referenzen {.unnumbered}
