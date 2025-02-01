@@ -1,5 +1,8 @@
 ```{r echo = FALSE}
-pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, plyr)
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, plyr,
+               patchwork, see)
+#set.seed(202434)
+source("stat-tests-anova_plot/anova_plots.R")
 ```
 
 # Die ANOVA {#sec-anova}
@@ -41,7 +44,7 @@ Für die Theorie konzentrieren wir usn nur auf die einfaktoriele ANOVA
 | $A$ | $df_A$ | $SS_{A}$ | $MS_{A} = \cfrac{SS_A}{df_A}$ | $F_{D} = \cfrac{MS_{A}}{MS_{Error}}$ |
 | $B$ | $df_B$ | $SS_{B}$ | $MS_{B} = \cfrac{SS_B}{df_B}$ | $F_{D} = \cfrac{MS_{B}}{MS_{Error}}$ |
 | $A \times B$ | $df_{A \times B}$ | $SS_{A \times B}$ | $MS_{A \times B} = \cfrac{SS_{A \times B}}{df_{A \times B}}$ | $F_{D} = \cfrac{MS_{A \times B}}{MS_{Error}}$ |
-| $Error$ | $df_{Error}$ | $SS_{error}$ | $MS_{error}$ |  |
+| $Error$ | $df_{Error}$ | $SS_{error}$ | $MS_{Error} = \cfrac{SS_{Error}}{df_{Error}}$ |  |
 | $Total$ | $df_{total}$ | $SS_{total}$ |  |  |
 
 : Zweifaktorielle ANOVA ohne Interaktionseffekt in der theoretischen Darstellung. Die Sum of squares müssen noch zu den Mean squares gemittelt werden. Abschließend wird die F Statistik als Prüfgröße berechnet. {#tbl-anova-fac2-ohne-inter}
@@ -51,6 +54,39 @@ Für die Theorie konzentrieren wir usn nur auf die einfaktoriele ANOVA
 | $MS_A$       | $MS_{between}$ |      |
 | $MS_{Error}$ | $MS_{within}$  |      |
 |              |                |      |
+
+: foot. {#tbl-anova-namen}
+
+text
+
+Wollen wir nicht in einem Experiment eine geringe Varianz haben?
+
+:   Nein, das ist eine häufige Fehleinschätzung. In einem Feldexperiment mit verschiedenen Behandlungen wirst du *über alle* Behandlungen eine große Varianz haben wollen.
+
+text
+
+Wann sind drei oder mehr Mittelwerte gleich?
+
+:   Wann können wir das sagen? Die Nullhypothese ist dann...
+
+text
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-single-cat-anova 
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 8
+#| fig-cap: "Visualisierung der Varianzzerlegung des Weges vom globalen Mittel zu der einzelnen Beoabchtung. Um zu einer einzelnen Beobachtung zu kommen legen wir den Weg vom globalen Mittelwert über den Abstand vom globalen Mittel zum Gruppenmittel $\\beta$ zurück. Dann fehlt noch der Rest oder Fehler oder Residuum $\\epsilon$. *[Zum Vergrößern anklicken]*"
+
+p_example_fac_1_total + p_example_fac1 +
+  plot_layout(width = c(1, 5)) +
+  plot_annotation(tag_levels = 'A') +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+```
 
 ```{r}
 #| message: false
@@ -62,38 +98,74 @@ Für die Theorie konzentrieren wir usn nur auf die einfaktoriele ANOVA
 #| fig-width: 7
 #| fig-cap: "foon."
 
-ggplot(data.frame(x = c(0, 5)), aes(x)) +
-  theme_minimal() +
-  stat_function(fun = df, xlim = c(0, 2.5), args = c(df1 = 5, df2 = 10),
-                geom = "area", fill = "#E69F00", alpha = 0.25) +
-  geom_segment(x = 2.5, y = 0, xend = 2.5, yend = 0.095, color = "#CC79A7",
-               linewidth = 1) +
-  stat_function(fun = df, xlim = c(2.5, 5), args = c(df1 = 5, df2 = 10),
-                geom = "area", fill = "#CC79A7", alpha = 0.25) +
-  geom_segment(x = 3.5, y = 0, xend = 3.5, yend = 0.036, color = "#0072B2",
-               linewidth = 1) +
-  stat_function(fun = df, xlim = c(3.5, 5), args = c(df1 = 5, df2 = 10),
-                geom = "area", fill = "#0072B2", alpha = 0.5) +
-  stat_function(fun = df, linewidth = 1, args = c(df1 = 5, df2 = 10)) + 
-  annotate("text", x = 2.5, y = 0.15, label = expression(alpha==5*'%'), size = 6,
-           color = "#CC79A7") +
-  annotate("text", x = 2.5, y = 0.25, label = expression(Pr(T[D]*'|'*H[0])), size = 6,
-           color = "#0072B2") +
-  geom_curve(x = -2.5, y = 0.13, xend = -1.8, yend = 0.03,
-             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
-             curvature = 0.5, color = "black", alpha = 0.3) +
-  geom_curve(x = 2.5, y = 0.13, xend = 1.8, yend = 0.03,
-             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
-             curvature = -0.5, color = "black", alpha = 0.3) +
-  scale_x_continuous(breaks = c(0, 2.5, 3.5), 
-                     labels = c(expression(0),
-                                expression(F[alpha*'='*5*'%']),
-                                expression(F[D]))) +
-  theme(axis.text = element_text(size = 16),
-        axis.text.y = element_blank()) +
-  labs(x = "", y = "",
-       title = expression(Signifikante~Teststatistik~F[D]),
-       subtitle = expression(Die~berechnete~Teststatistik~F[D]~ist~größer~als~der~kritische~Wert~F[alpha*'='*5*'%']))
+p_f_stat
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-ggplot-anova-msa-mse
+#| fig-align: center
+#| fig-height: 7
+#| fig-width: 7.5
+#| fig-cap: "Visualisierung der Varianzzerlegung des Weges vom globalen Mittel zu der einzelnen Beoabchtung. Um zu einer einzelnen Beobachtung zu kommen legen wir den Weg vom globalen Mittelwert über den Abstand vom globalen Mittel zum Gruppenmittel $\\beta$ zurück. Dann fehlt noch der Rest oder Fehler oder Residuum $\\epsilon$. *[Zum Vergrößern anklicken]*"
+
+
+ex_00_lst <- get_data_tbl(mean = c(5, 5, 5), sd = c(0.2, 0.2, 0.2))
+ex_01_lst <- get_data_tbl(mean = c(5, 1, 9), sd = c(0.2, 0.2, 0.2))
+ex_10_lst <- get_data_tbl(mean = c(5, 5, 5), sd = c(2, 2, 2))
+ex_11_lst <- get_data_tbl(mean = c(5, 1, 9), sd = c(2, 2, 2))
+
+# aov(rsp ~ trt, ex_lst$plot) |> tidy()
+
+
+
+get_ex_lst_plot <- function(ex_lst){
+  p <- ex_lst$plot |> 
+    ggplot() +
+    aes(pos, rsp) +
+    theme_minimal() +
+    geom_hline(yintercept = ex_lst$grand_mean, color = "gray75", linewidth = 1) +
+    geom_point2(color = "gray25") +
+    geom_segment(x = 1, y = ex_lst$stat$mean[1], xend = 7, yend = ex_lst$stat$mean[1], 
+                 color = "#E69F00", linewidth = 1) +
+    annotate("text", x = 7.5, y = ex_lst$stat$mean[1], label = expression(bar(Y)[A]), 
+             size = 5, color = "#E69F00", hjust = "left") +
+    geom_segment(x = 11, y = ex_lst$stat$mean[2], xend = 17, yend = ex_lst$stat$mean[2],
+                 color = "#56B4E9", linewidth = 1) +
+    annotate("text", x = 17.5, y = ex_lst$stat$mean[2], label = expression(bar(Y)[B]), 
+             size = 5, color = "#56B4E9", hjust = "left") +
+    geom_segment(x = 21, y = ex_lst$stat$mean[3], xend = 27, yend = ex_lst$stat$mean[3],
+                 color = "#009E73", linewidth = 1) +
+    annotate("text", x = 27.5, y = ex_lst$stat$mean[3], label = expression(bar(Y)[C]), 
+             size = 5, color = "#009E73", hjust = "left") +
+    geom_errorbar(data = ex_lst$stat, aes(ymin = mean - max, ymax = mean + max), 
+                  width = 0.5, color = c("#E69F00", "#56B4E9", "#009E73"), linetype = 11)  +
+    scale_x_continuous(breaks = c(4, 14, 24), labels = c("A.1", "A.2", "A.3"))  +
+    scale_y_continuous(breaks = ex_lst$grand_mean, labels = expression(bar(Y)),
+                       limits = c(-4, 14)) +  
+    theme(axis.text = element_text(size = 14),
+          axis.text.y = element_text(size = 16),
+          plot.title = element_text(size = 17, hjust = 0.5)) + 
+    labs(x = "", y = "") 
+  return(p)
+}
+
+get_ex_lst_plot(ex_00_lst) + 
+  ggtitle(expression(MS[A]%~~%0~und~MS[Error]%~~%0)) +
+  get_ex_lst_plot(ex_01_lst) +
+  ggtitle(expression(MS[A]~">"~0~und~MS[Error]%~~%0)) +
+  get_ex_lst_plot(ex_10_lst) + 
+  ggtitle(expression(MS[A]%~~%0~und~MS[Error]~">"~0)) +  
+  get_ex_lst_plot(ex_11_lst) +
+  ggtitle(expression(MS[A]~">"~0~und~MS[Error]~">"~0)) +  
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A') +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+  
+
 ```
 
 ## Welche Pakete gibt es eigentlich? {.unnumbered .unlisted}
@@ -517,67 +589,6 @@ t2way(jump_length ~ animal + site + animal:site, data = fac2_tbl)
 
 ::: panel-tabset
 ## Theoretisch
-
-```{r}
-#set.seed(202434)
-
-get_data_tbl <- function(mean = c(7, 7, 7), sd = c(2, 2, 2), ng = 13) {
-  assump_tbl <- tibble(A = rnorm(ng, mean[1], sd[1]),
-                       B = rnorm(ng, mean[2], sd[2]),
-                       C = rnorm(ng, mean[3], sd[3])) |> 
-  gather(key = trt, value = rsp)
-  stat <- plyr::ddply(assump_tbl, "trt", summarize,
-                      mean = mean(rsp, na.rm = TRUE),
-                      sd = round(sd(rsp, na.rm = TRUE), 2),
-                      var = round(var(rsp, na.rm = TRUE), 2),
-                      max = max(mean - min(rsp), max(rsp) - mean)*1.05) |> 
-    mutate(pos = c(4, 14, 24),
-           rsp = 0)
-  grand_mean <- mean(assump_tbl$rsp, na.rm = TRUE)
-  plot_tbl <- assump_tbl |> 
-  mutate(pos = c(seq(1, 7, 0.5), seq(11, 17, 0.5), seq(21, 27, 0.5)),
-         grand_mean = grand_mean,
-         grp_mean = rep(stat$mean, each = 13),
-         beta = grp_mean - grand_mean,
-         epsilon = rsp - grp_mean) 
-  return(lst(plot = plot_tbl,
-             stat = stat,
-             grand_mean = grand_mean))
-}
-
-
-
-
-ex_lst <- get_data_tbl(mean = c(5, 5, 5), sd = c(0.1, 0.1, 0.1))
-aov(rsp ~ trt, ex_lst$plot) |> tidy()
-ex_lst$plot |> 
-  ggplot() +
-  aes(pos, rsp) +
-  theme_classic() +
-  geom_hline(yintercept = ex_lst$grand_mean, color = "gray50", linewidth = 1) +
-  geom_point() +
-  geom_segment(x = 1, y = ex_lst$stat$mean[1], xend = 7, yend = ex_lst$stat$mean[1], 
-               color = "#E69F00", linewidth = 1) +
-  annotate("text", x = 7.5, y = ex_lst$stat$mean[1], label = expression(bar(Y)[A]), 
-           size = 5, color = "#E69F00", hjust = "left") +
-  geom_segment(x = 11, y = ex_lst$stat$mean[2], xend = 17, yend = ex_lst$stat$mean[2],
-               color = "#56B4E9", linewidth = 1) +
-  annotate("text", x = 17.5, y = ex_lst$stat$mean[2], label = expression(bar(Y)[B]), 
-           size = 5, color = "#56B4E9", hjust = "left") +
-  geom_segment(x = 21, y = ex_lst$stat$mean[3], xend = 27, yend = ex_lst$stat$mean[3],
-               color = "#009E73", linewidth = 1) +
-  annotate("text", x = 27.5, y = ex_lst$stat$mean[3], label = expression(bar(Y)[C]), 
-           size = 5, color = "#009E73", hjust = "left") +
-  geom_errorbar(data = ex_lst$stat, aes(ymin = mean - max, ymax = mean + max), 
-                width = 0.5, color = c("#E69F00", "#56B4E9", "#009E73"), linetype = 11)  +
-  scale_x_continuous(breaks = c(4, 14, 24, 34), labels = c("A", "B", "C", "D"))  +
-  scale_y_continuous(breaks = ex_lst$grand_mean, labels = expression(bar(Y)[total]),
-                     limits = c(3, 7)) +  
-  theme(axis.text = element_text(size = 14),
-        axis.text.y = element_text(size = 16)) + 
-  labs(x = "", y = "") 
-
-```
 
 ## `{ggplot}`
 
