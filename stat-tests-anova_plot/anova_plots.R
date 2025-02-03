@@ -229,7 +229,9 @@ get_ex_lst_plot <- function(ex_lst){
   return(p)
 }
 
+
 ## ---------------------------------------------------------------------------
+
 
 get_ex_lst_intro_plot <- function(ex_lst){
   p <- ex_lst$plot |> 
@@ -262,3 +264,219 @@ get_ex_lst_intro_plot <- function(ex_lst){
   return(p)
 }
 
+## ---------------------------------------------------------------------------
+
+
+p1_inter_line_theo <- tibble(mean = c(2, 5, 1, 5, 8, 4),
+                             fA = c("A.1", "A.2", "A.3", "A.1", "A.2", "A.3"),
+                             fB = c("B.1", "B.1", "B.1", "B.2", "B.2", "B.2")) |> 
+  ggplot(aes(fA, mean, color = fB, group = fB)) +
+  theme_minimal() +
+  geom_point() +
+  geom_line() +
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 14),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        legend.position = "top") + 
+  labs(x = "Faktor A", y = "", color = "Faktor B",
+       title = "Keine Interaktion",
+       subtitle = "Linien laufen parallel",
+       caption = expression(p-Wert~f[A]%*%f[B]%~~%0.80)) +
+  scale_color_okabeito() +
+  ylim(0, 10)
+
+p2_inter_line_theo <- tibble(mean = c(4, 5, 1, 5, 9, 1.5),
+                             fA = c("A.1", "A.2", "A.3", "A.1", "A.2", "A.3"),
+                             fB = c("B.1", "B.1", "B.1", "B.2", "B.2", "B.2")) |> 
+  ggplot(aes(fA, mean, color = fB, group = fB)) +
+  theme_minimal() +
+  geom_point() +
+  geom_line() +
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 14),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        legend.position = "top") + 
+  labs(x = "Faktor A", y = "", color = "Faktor B",
+       title = "Schwache Interaktion",
+       subtitle = "Linien laufen aufeinander zu",
+       caption = expression(p-Wert~f[A]%*%f[B]%~~%0.05)) +
+  scale_color_okabeito() +
+  ylim(0, 10)
+
+p3_inter_line_theo <- tibble(mean = c(4, 5, 4, 5, 9, 1.5),
+                             fA = c("A.1", "A.2", "A.3", "A.1", "A.2", "A.3"),
+                             fB = c("B.1", "B.1", "B.1", "B.2", "B.2", "B.2")) |> 
+  ggplot(aes(fA, mean, color = fB, group = fB)) +
+  theme_minimal() +
+  geom_point() +
+  geom_line() +
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 14),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        legend.position = "top") + 
+  labs(x = "Faktor A", y = "", color = "Faktor B",
+       title = "Starke Interaktion",
+       subtitle = "Linien kreuzen sich",
+       caption = expression(p-Wert~f[A]%*%f[B]%~~%0.01)) +
+  scale_color_okabeito() +
+  ylim(0, 10)
+
+
+
+p1_inter_bar_theo <- tibble(mean = c(2, 5, 1, 5, 8, 4),
+                            sd = c(1.1, 1.2, 0.34, 0.9, 0.25, 1.2),
+                            fA = c("A.1", "A.2", "A.3", "A.1", "A.2", "A.3"),
+                            fB = c("B.1", "B.1", "B.1", "B.2", "B.2", "B.2")) |> 
+  ggplot(aes(fA, mean, fill = fB, group = fB)) +
+  theme_minimal() +
+  geom_bar(stat = "identity", 
+           position = position_dodge(width = 0.9, preserve = "single")) +
+  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd),
+                width = 0.2,  
+                position = position_dodge(width = 0.9, preserve = "single")) +
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 14),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        legend.position = "top") + 
+  labs(x = "Faktor A", y = "", fill = "Faktor B",
+       title = "Starke Interaktion",
+       subtitle = "Säulen folgen gleichem Muster",
+       caption = expression(p-Wert~f[A]%*%f[B]%~~%0.01)) +
+  scale_fill_okabeito() +
+  ylim(0, 10)
+
+p2_inter_bar_theo <- tibble(mean = c(4, 5, 1, 5, 9, 1.5),
+                            sd = c(1.1, 1.2, 0.25, 0.9, 0.23, 1.2),
+                            fA = c("A.1", "A.2", "A.3", "A.1", "A.2", "A.3"),
+                            fB = c("B.1", "B.1", "B.1", "B.2", "B.2", "B.2")) |> 
+  ggplot(aes(fA, mean, fill = fB, group = fB)) +
+  theme_minimal() +
+  geom_bar(stat = "identity", 
+           position = position_dodge(width = 0.9, preserve = "single")) +
+  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd),
+                width = 0.2,  
+                position = position_dodge(width = 0.9, preserve = "single")) +
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 14),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        legend.position = "top") + 
+  labs(x = "Faktor A", y = "", fill = "Faktor B",
+       title = "Starke Interaktion",
+       subtitle = "Säulen sind unregelmäßig",
+       caption = expression(p-Wert~f[A]%*%f[B]%~~%0.01)) +
+  scale_fill_okabeito() +
+  ylim(0, 10)
+
+
+p3_inter_bar_theo <- tibble(mean = c(4, 5, 4, 5, 9, 1.5),
+                            sd = c(1.1, 1.2, 1.1, 0.9, 0.85, 1.2),
+                            fA = c("A.1", "A.2", "A.3", "A.1", "A.2", "A.3"),
+                            fB = c("B.1", "B.1", "B.1", "B.2", "B.2", "B.2")) |> 
+  ggplot(aes(fA, mean, fill = fB, group = fB)) +
+  theme_minimal() +
+  geom_bar(stat = "identity", 
+           position = position_dodge(width = 0.9, preserve = "single")) +
+  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd),
+                width = 0.2,  
+                position = position_dodge(width = 0.9, preserve = "single")) +
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 14),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        legend.position = "top") + 
+  labs(x = "Faktor A", y = "", fill = "Faktor B",
+       title = "Starke Interaktion",
+       subtitle = "Säulen sind stark unregelmäßig",
+       caption = expression(p-Wert~f[A]%*%f[B]%~~%0.01)) +
+  scale_fill_okabeito() +
+  ylim(0, 10)
+
+
+p1_inter_box_theo <- tibble(rsp = c(rnorm(17, 2, 1), rnorm(17, 5, 1), rnorm(17, 1, 1),
+                                    rnorm(17, 5, 1), rnorm(17, 8, 1), rnorm(17, 4, 1)),
+                            fA = rep(c("A.1", "A.2", "A.3"), each = 17, times = 2),
+                            fB = rep(c("B.1", "B.2"), each = 3*17*2/2)) |> 
+  ggplot(aes(fA, rsp, fill = fB)) +
+  theme_minimal() +
+  geom_boxplot(outliers = FALSE) +
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 14),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        legend.position = "top") + 
+  labs(x = "Faktor A", y = "", fill = "Faktor B",
+       title = "Keine Interaktion",
+       subtitle = "Linien laufen parallel",
+       caption = expression(p-Wert~f[A]%*%f[B]%~~%0.80)) +
+  scale_fill_okabeito() +
+  ylim(0, 10)
+
+p2_inter_box_theo <- tibble(rsp = c(rnorm(17, 4, 1), rnorm(17, 5, 1), rnorm(17, 1, 1),
+                                    rnorm(17, 5, 1), rnorm(17, 9, 1), rnorm(17, 1.5, 1)),
+                            fA = rep(c("A.1", "A.2", "A.3"), each = 17, times = 2),
+                            fB = rep(c("B.1", "B.2"), each = 3*17*2/2)) |> 
+  ggplot(aes(fA, rsp, fill = fB)) +
+  theme_minimal() +
+  geom_boxplot(outliers = FALSE) +
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 14),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        legend.position = "top") + 
+  labs(x = "Faktor A", y = "", fill = "Faktor B",
+       title = "Keine Interaktion",
+       subtitle = "Linien laufen parallel",
+       caption = expression(p-Wert~f[A]%*%f[B]%~~%0.05)) +
+  scale_fill_okabeito() +
+  ylim(0, 10)
+
+p3_inter_box_theo <- tibble(rsp = c(rnorm(17, 4, 1), rnorm(17, 5, 1), rnorm(17, 4, 1),
+                                    rnorm(17, 5, 1), rnorm(17, 9, 1), rnorm(17, 1.5, 1)),
+                            fA = rep(c("A.1", "A.2", "A.3"), each = 17, times = 2),
+                            fB = rep(c("B.1", "B.2"), each = 3*17*2/2)) |> 
+  ggplot(aes(fA, rsp, fill = fB)) +
+  theme_minimal() +
+  geom_boxplot(outliers = FALSE) +
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 14),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        legend.position = "top") + 
+  labs(x = "Faktor A", y = "", fill = "Faktor B",
+       title = "Keine Interaktion",
+       subtitle = "Linien laufen parallel",
+       caption = expression(p-Wert~f[A]%*%f[B]%~~%0.01)) +
+  scale_fill_okabeito() +
+  ylim(0, 10)
