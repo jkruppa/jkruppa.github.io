@@ -480,3 +480,87 @@ p3_inter_box_theo <- tibble(rsp = c(rnorm(17, 4, 1), rnorm(17, 5, 1), rnorm(17, 
        caption = expression(p-Wert~f[A]%*%f[B]%~~%0.01)) +
   scale_fill_okabeito() +
   ylim(0, 10)
+
+## ---------------------------------------------------------------------------
+
+p1_inter_venn <- ggplot() +
+  theme_void() +
+  geom_circle(aes(x0 = 1, y0 = 1, r = 0.9), 
+              fill = "#0072B2", alpha = 0.5) +
+  geom_circle(aes(x0 = 2.25, y0 = 1, r = 1.15), 
+              fill = "#D55E00", alpha = 0.5) +
+  geom_ellipse(aes(x0 = (1+2.25)/2, y0 = 0.7, a = 2, b = 1.75, angle = 0),
+               fill = "black", alpha = 0.1) +
+  ylim(-1.25, 2.5) + xlim(-0.5, 3.75) +
+  annotate("text", x = 0.7, y = 1, label = expression(bold(SS[A])), size = 7) +
+  annotate("text", x = 2.5, y = 1, label = expression(bold(SS[B])), size = 7) +
+  annotate("text", x = 1.5, y = 1, label = expression(bold(SS[A%*%B])), size = 7) +
+  annotate("text", x = 1, y = -0.5, label = expression(bold(SS[Error])), size = 7) +
+  annotate("label", x = 3.25, y = -0.75, label = expression(bold(SS[Total])), size = 9) +
+  labs(x = "", y = "", fill = "",
+       title = "Starke Interaktion",
+       subtitle = "Sum of Squares (SS) lassen sich nicht eindeutig zuordnen") +
+  theme(plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        legend.position = "top") 
+
+p2_inter_venn <- ggplot() +
+  theme_void() +
+  geom_circle(aes(x0 = 0.75, y0 = 1, r = 0.8), 
+              fill = "#0072B2", alpha = 0.5) +
+  geom_circle(aes(x0 = 2.5, y0 = 1, r = 0.9), 
+              fill = "#D55E00", alpha = 0.5) +
+  geom_ellipse(aes(x0 = (1+2.25)/2, y0 = 0.7, a = 2, b = 1.75, angle = 0),
+               fill = "black", alpha = 0.1) +
+  ylim(-1.25, 2.5) + xlim(-0.5, 3.75) +
+  annotate("text", x = 0.75, y = 1, label = expression(bold(SS[A])), size = 7) +
+  annotate("text", x = 2.5, y = 1, label = expression(bold(SS[B])), size = 7) +
+  annotate("text", x = 1, y = -0.5, label = expression(bold(SS[Error])), size = 7) +
+  annotate("label", x = 3.25, y = -0.75, label = expression(bold(SS[Total])), size = 9) +
+  labs(x = "", y = "", fill = "",
+       title = "Keine Interaktion",
+       subtitle = "Sum of Squares (SS) lassen sich eindeutig zuordnen") +
+  theme(plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        legend.position = "top") 
+
+## ---------------------------------------------------------------------------
+
+p1_eta_venn <- ggplot() +
+  theme_void() +
+  geom_circle(aes(x0 = 1, y0 = 1, r = 0.9), 
+              fill = "#0072B2", alpha = 0.5) +
+  geom_ellipse(aes(x0 = (1+2.25)/2, y0 = 0.7, a = 2, b = 1.75, angle = 0),
+               fill = "black", alpha = 0.1) +
+  ylim(-1.1, 2.5) + xlim(-0.5, 3.8) +
+  annotate("text", x = 0.7, y = 1, label = expression(bold(SS[A])), size = 7) +
+  annotate("text", x = 1, y = -0.5, label = expression(bold(SS[Error])), size = 7) +
+  annotate("label", x = 3.25, y = -0.75, label = expression(bold(SS[Total])), size = 9) +
+  labs(x = "", y = "", fill = "",
+       title = "Geringer Effekt",
+       subtitle = expression(SS[A]~erklärt~geringen~Anteil~von~SS[Total]),
+       caption = expression(eta^2%~~%0.2)) +
+  theme(plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        legend.position = "top",
+        plot.caption = element_text(size = 12)) 
+
+p2_eta_venn <- ggplot() +
+  theme_void() +
+  geom_ellipse(aes(x0 = 1.9, y0 = 0.7, a = 1.7, b = 1.6, angle = 0),
+               fill = "#0072B2", alpha = 0.5) +
+  geom_ellipse(aes(x0 = (1+2.25)/2, y0 = 0.7, a = 2, b = 1.75, angle = 0),
+               fill = "black", alpha = 0.1) +
+  ylim(-1.1, 2.5) + xlim(-0.5, 3.8) +
+  annotate("text", x = 1.9, y = 0.7, label = expression(bold(SS[A])), size = 7) +
+  annotate("label", x = -0.1, y = 0.7, label = expression(bold(SS[Error])), size = 7,
+           fill = "gray90") +
+  annotate("label", x = 3.25, y = -0.75, label = expression(bold(SS[Total])), size = 9) +
+  labs(x = "", y = "", fill = "",
+       title = "Starker Effekt",
+       subtitle = expression(SS[A]~erklärt~großen~Anteil~von~SS[Total]),
+       caption = expression(eta^2%~~%0.8)) +
+  theme(plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        legend.position = "top",
+        plot.caption = element_text(size = 12)) 
