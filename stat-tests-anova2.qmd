@@ -77,7 +77,9 @@ text
 
 $$
 y_1 = y_2 = y_3
-$$ text
+$$
+
+text
 
 $$
 \overbrace{\cfrac{y_1 + y_2 + y_3}{3}}^{\beta_0} \overset{?}{=} y_1 = y_2 = y_3
@@ -235,6 +237,12 @@ p1_eta_venn + p2_eta_venn +
   theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
 
+[Effect Sizes for ANOVAs](https://easystats.github.io/effectsize/articles/anovaES.html)
+
+[Adding Interactions](https://easystats.github.io/effectsize/articles/anovaES.html#adding-interactions)
+
+[R Paket `{afex}`](https://github.com/singmann/afex)
+
 ### Interaktion $f_A \times f_B$
 
 [Anova – Type I/II/III SS explained](https://md.psych.bio.uni-goettingen.de/mv/unit/lm_cat/lm_cat_unbal_ss_explained.html) und [How to interpret type I, type II, and type III ANOVA and MANOVA?](https://stats.stackexchange.com/questions/20452/how-to-interpret-type-i-type-ii-and-type-iii-anova-and-manova)
@@ -349,7 +357,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| warning: false
 pacman::p_load(tidyverse, magrittr, broom, WRS2, scales,
                readxl, see, car, patchwork, emmeans,
-               interactions, conflicted)
+               interactions, effectsize, conflicted)
 conflicts_prefer(dplyr::mutate)
 conflicts_prefer(dplyr::summarize)
 conflicts_prefer(dplyr::filter)
@@ -648,6 +656,10 @@ Kurz und langschreibweise von `a + b + a:b` und `a*b`
 
 : Zusammenfassung . {#tbl-factor-model}
 
+## Annahmen an die Daten
+
+> *"ANOVAs are generally robust to “light” heteroscedasticity, but there are various other methods (not available in afex) for getting robust error estimates."* --- [Testing the Assumptions of ANOVAs](https://cran.r-project.org/web/packages/afex/vignettes/assumptions_of_ANOVAs.html)
+
 ## Einfaktorielle ANOVA
 
 ::: panel-tabset
@@ -691,6 +703,13 @@ t1way(jump_length ~ animal, data = fac1_tbl)
 Values of = 0.10, 0.30, and 0.50 correspond to small, medium, and large effect sizes.
 :::
 
+#### Effektschätzer {.unnumbered .unlisted}
+
+```{r}
+aov(jump_length ~ animal, data = fac1_tbl) |> 
+  eta_squared()
+```
+
 ## Zweifaktorielle ANOVA
 
 ### Haupteffekte
@@ -700,6 +719,13 @@ Values of = 0.10, 0.30, and 0.50 correspond to small, medium, and large effect s
 
 ```{r}
 aov(jump_length ~ animal + site + animal:site, data = fac2_tbl) |> 
+  tidy() |> 
+  mutate(p.value = pvalue(p.value))
+```
+
+```{r}
+lm(jump_length ~ animal + site + animal:site, data = fac2_tbl) |> 
+  anova() |> 
   tidy() |> 
   mutate(p.value = pvalue(p.value))
 ```
@@ -724,12 +750,34 @@ lm(jump_length ~ animal + site + animal:site, data = fac2_tbl) |>
   mutate(p.value = pvalue(p.value))
 ```
 
+## `{afex}`
+
+```{r}
+library(afex)
+
+fac2_id_tbl <- fac2_tbl |> 
+  rowid_to_column(".id")
+
+fac2_id_tbl <- fac2_tbl |> 
+  mutate(.id = row_number())
+
+aov_car(jump_length ~ animal + site + animal:site + Error(.id), data = fac2_id_tbl) 
+
+```
+
 ## `{WRS2}`
 
 ```{r}
 t2way(jump_length ~ animal + site + animal:site, data = fac2_tbl)
 ```
 :::
+
+#### Effektschätzer {.unnumbered .unlisted}
+
+```{r}
+aov(jump_length ~ animal + site + animal:site, data = fac2_tbl) |> 
+  eta_squared()
+```
 
 ### Interaktion
 
@@ -880,6 +928,17 @@ lm(jump_length ~ animal*stage*site, data = fac3_tbl) |>
   scale_color_okabeito()
 ```
 :::
+
+@field2013discovering
+
+```{r}
+#| message: false
+#| warning: false
+lm(jump_length ~ animal*stage*site, data = fac3_tbl) |> 
+  Anova(type = "III") |>
+  epsilon_squared() |> 
+  interpret_eta_squared(rules = "field2013")
+```
 
 #### Mehrfaktorielles Modell {.unnumbered .unlisted}
 
