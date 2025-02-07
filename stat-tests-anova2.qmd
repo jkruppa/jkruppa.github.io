@@ -3,11 +3,12 @@
 #| echo: false
 #| warning: false
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, plyr,
-               patchwork, ggforce, see, conflicted)
+               patchwork, ggforce, see, sjPlot, conflicted)
 set.seed(202434)
 conflicts_prefer(dplyr::summarise)
 conflicts_prefer(dplyr::summarize)
 conflicts_prefer(dplyr::mutate)
+conflicts_prefer(magrittr::set_names)
 source("stat-tests-anova_plot/anova_plots.R")
 ```
 
@@ -259,178 +260,6 @@ $\omega^2$ und $\epsilon^2$
 
 ### Interaktion $f_A \times f_B$
 
-[Anova – Type I/II/III SS explained](https://md.psych.bio.uni-goettingen.de/mv/unit/lm_cat/lm_cat_unbal_ss_explained.html) und [How to interpret type I, type II, and type III ANOVA and MANOVA?](https://stats.stackexchange.com/questions/20452/how-to-interpret-type-i-type-ii-and-type-iii-anova-and-manova)
-
-[Interaktionseffekte](https://methpsy.elearning.psych.tu-dresden.de/mediawiki/index.php/Interaktionseffekte)
-
-[Adding Interactions](https://easystats.github.io/effectsize/articles/anovaES.html#adding-interactions)
-
-```{r}
-# library(sjPlot) tab_model()
-
-foo_tbl <- tibble(rsp = c(1,2,3, 7,8,9, 10,11,12),
-                  fa = gl(3, 3, labels = c("A.1", "A.2", "A.3")))
-
-
-
-stat_tbl <- foo_tbl |> 
-  group_by(fa) |> 
-  summarise(mean = mean(rsp)) |> 
-  mutate(pos = 1:3)
-```
-
-::: panel-tabset
-## Effect coding
-
-```{r}
-lm(rsp ~ fa, foo_tbl, contrasts = list(fa = "contr.sum")) |> 
-  coef() |> round(2)
-```
-
-## Treatment coding
-
-```{r}
-lm(rsp ~ fa, foo_tbl, contrasts = list(fa = "contr.treatment")) |> 
-  coef() |> round(2)
-```
-:::
-
-```{r}
-#| message: false
-#| echo: false
-#| warning: false
-#| label: fig-ggplot-anova-effect-coding
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 4
-#| fig-cap: "Visualisierung *[Zum Vergrößern anklicken]*"
-
-stat_tbl |> 
-  ggplot(aes(x = pos, y = mean)) +
-  theme_minimal() +
-  annotate("rect", xmin = 1-0.15, xmax = 1+0.15, ymin = 0, ymax = Inf,
-           alpha = 0.25, fill = "gray") +
-    annotate("rect", xmin = 2-0.15, xmax = 2+0.15, ymin = 0, ymax = Inf,
-           alpha = 0.25, fill = "gray") +
-    annotate("rect", xmin = 3-0.15, xmax = 3+0.15, ymin = 0, ymax = Inf,
-           alpha = 0.25, fill = "gray") +
-  geom_point() +
-  geom_line() +
-  geom_hline(yintercept = 7, color = "#CC79A7") +
-  geom_hline(yintercept = 0, color = "gray50") +
-  geom_vline(xintercept = 1-0.2, color = "gray50") +
-  scale_y_continuous(limits = c(0, NA), 
-                     breaks = c(0, 7, stat_tbl$mean)) +
-  scale_x_continuous(breaks = c(1, 2, 3), labels = c("A.1", "A.2", "A.3")) +
-  geom_segment(x = 1, y = 2, xend = 1, yend = 7, color = "#E69F00",
-               linewidth = 0.5, linetype = 2) +
-  annotate("label", x = 1.125, y = (2+7)/2, label = "-5", size = 4,
-           color = "#E69F00") +
-  geom_segment(x = 2, y = 7, xend = 2, yend = 8, color = "#0072B2",
-               linewidth = 0.5, linetype = 2) +
-  annotate("label", x = 2.125, y = (7+8)/2, label = "+1", size = 4,
-           color = "#0072B2") +
-  scale_x_continuous(breaks = c(1, 2, 3), labels = c("A.1", "A.2", "A.3")) +
-  geom_segment(x = 3, y = 7, xend = 3, yend = 11, color = "#009E73",
-               linewidth = 0.5, linetype = 2) +
-  annotate("label", x = 3.125, y = (7+11)/2, label = "+4", size = 4,
-           color = "#009E73") +
-  scale_x_continuous(breaks = c(0.8, 1, 2, 3), labels = c("0", "A.1", "A.2", "A.3"),
-                     limits = c(1-0.2, 3.15))
-
-
-stat_tbl |> 
-  ggplot(aes(x = pos, y = mean)) +
-  theme_minimal() +
-#  annotate("rect", xmin = 1-0.15, xmax = 1+0.15, ymin = 0, ymax = Inf,
-#           alpha = 0.25, fill = "gray") +
-    annotate("rect", xmin = 2-0.15, xmax = 2+0.15, ymin = 0, ymax = Inf,
-           alpha = 0.25, fill = "gray") +
-    annotate("rect", xmin = 3-0.15, xmax = 3+0.15, ymin = 0, ymax = Inf,
-           alpha = 0.25, fill = "gray") +
-  geom_point() +
-  geom_line() +
-  geom_hline(yintercept = 2, color = "#CC79A7") +
-  geom_hline(yintercept = 0, color = "gray50") +
-  geom_vline(xintercept = 1, color = "gray50") +
-  scale_y_continuous(limits = c(0, NA), 
-                     breaks = c(0, 2, stat_tbl$mean)) +
-  scale_x_continuous(breaks = c(1, 2, 3), labels = c("A.1", "A.2", "A.3")) +
-  geom_segment(x = 2, y = 2, xend = 2, yend = 8, color = "#0072B2",
-               linewidth = 0.5, linetype = 2) +
-  annotate("label", x = 2.125, y = (2+8)/2, label = "+6", size = 4,
-           color = "#0072B2") +
-  scale_x_continuous(breaks = c(1, 2, 3), labels = c("A.1", "A.2", "A.3")) +
-  geom_segment(x = 3, y = 2, xend = 3, yend = 11, color = "#009E73",
-               linewidth = 0.5, linetype = 2) +
-  annotate("label", x = 3.125, y = (2+11)/2, label = "+9", size = 4,
-           color = "#009E73") +
-  scale_x_continuous(breaks = c(1, 2, 3), labels = c("0", "A.2", "A.3"),
-                     limits = c(1, 3.15))
-```
-
-```{r}
-stat_tbl |> 
-  ggplot(aes(x = pos, y = mean)) +
-  theme_minimal() +
-  geom_point() +
-  geom_line() +
-  geom_hline(yintercept = mean(foo_tbl$rsp), color = "#CC79A7") +
-  scale_y_continuous(limits = c(0, NA), 
-                     breaks = c(0, mean(foo_tbl$rsp), stat_tbl$mean)) +
-  scale_x_continuous(breaks = c(1, 2, 3), labels = c("A.1", "A.2", "A.3")) +
-  geom_segment(x = 1, y = 2, xend = 1, yend = 7, color = "#E69F00",
-               linewidth = 0.5, linetype = 2) +
-  annotate("label", x = 1.125, y = (2+7)/2, label = "-5", size = 4,
-           color = "#E69F00") +
-  geom_segment(x = 2, y = 7, xend = 2, yend = 8, color = "#0072B2",
-               linewidth = 0.5, linetype = 2) +
-  annotate("label", x = 2.125, y = (7+8)/2, label = "+1", size = 4,
-           color = "#0072B2") +
-  scale_x_continuous(breaks = c(1, 2, 3), labels = c("A.1", "A.2", "A.3")) +
-  geom_segment(x = 3, y = 7, xend = 3, yend = 11, color = "#009E73",
-               linewidth = 0.5, linetype = 2) +
-  annotate("label", x = 3.125, y = (7+11)/2, label = "+4", size = 4,
-           color = "#009E73") +
-  scale_x_continuous(breaks = c(1, 2, 3), labels = c("A.1", "A.2", "A.3"),
-                     limits = c(NA, 3.15)) 
-  
-```
-
-```{r}
-#| message: false
-#| echo: false
-#| eval: false
-#| warning: false
-
-foo_tbl <- tibble(rsp = c(20,21,22, 15,16,17, 5,6,7, 
-                          3,4,5, 9,10,11, 14,15,16),
-                  fa = rep(c("A.1", "A.2", "A.3"), each = 3, times = 2),
-                  fb = rep(c("B.1", "B.2"), each = 9))
-mean(foo_tbl$rsp)
-
-
-stat_tbl <- foo_tbl |> 
-  group_by(fa, fb) |> 
-  summarise(mean = mean(rsp)) |> 
-  ungroup() |> 
-  mutate(pos = 1:6)
-
-
-lm(rsp ~ fa + fb + fa:fb, foo_tbl, contrasts = list(fa = "contr.sum", fb = "contr.sum")) |> 
-  coef() |> round(2)
-
-stat_tbl |> 
-  ggplot(aes(x = pos, y = mean, color = fb)) +
-  theme_minimal() +
-  geom_point() +
-  geom_line() +
-  geom_hline(yintercept = mean(foo_tbl$rsp)) +
-  scale_y_continuous(limits = c(0, NA), breaks = c(0, mean(foo_tbl$rsp), stat_tbl$mean)) +
-  scale_x_continuous(breaks = c(1.5, 3.5, 5.5), labels = c("A.1", "A.2", "A.3")) 
-
-```
-
 ```{r}
 #| message: false
 #| echo: false
@@ -447,6 +276,138 @@ p2_inter_venn + p1_inter_venn +
   plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
   theme(plot.tag = element_text(size = 16, face = "bold"))  
 ```
+
+[Anova – Type I/II/III SS explained](https://md.psych.bio.uni-goettingen.de/mv/unit/lm_cat/lm_cat_unbal_ss_explained.html) und [How to interpret type I, type II, and type III ANOVA and MANOVA?](https://stats.stackexchange.com/questions/20452/how-to-interpret-type-i-type-ii-and-type-iii-anova-and-manova)
+
+[Interaktionseffekte](https://methpsy.elearning.psych.tu-dresden.de/mediawiki/index.php/Interaktionseffekte)
+
+[Adding Interactions](https://easystats.github.io/effectsize/articles/anovaES.html#adding-interactions)
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-1fac-contr-sum
+#| tbl-cap: "foo"
+
+f1_contr_sum_tbl |> 
+  mutate(pos = rep(1:3,3)) |> 
+  pivot_wider(names_from = fa, values_from = rsp) |> 
+  select(-pos) |> 
+  kable(align = "c", "pipe")
+```
+
+::: panel-tabset
+## Effect coding
+
+```{r}
+lm(rsp ~ fa, f1_contr_sum_tbl, contrasts = list(fa = "contr.sum")) |> 
+  coef() |> round(2)
+```
+
+## Treatment coding
+
+```{r}
+lm(rsp ~ fa, f1_contr_sum_tbl, contrasts = list(fa = "contr.treatment")) |> 
+  coef() |> round(2)
+```
+:::
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-ggplot-anova-f1-effect-coding
+#| fig-align: center
+#| fig-height: 4.5
+#| fig-width: 10
+#| fig-cap: "Visualisierung *[Zum Vergrößern anklicken]*"
+
+p1_f1_contr_sum + p2_f1_contr_sum +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A') +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
+```
+
+::: panel-tabset
+## Effect coding ohne Interaktion
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-2fac-contr-sum-nointer
+#| tbl-cap: "foo"
+
+f2_contr_sum_nointer_tbl |> 
+  mutate(pos = rep(1:3,6)) |> 
+  select(-key) |> 
+  pivot_wider(names_from = fb, values_from = rsp) |> 
+  select(-pos) |> 
+  set_names(c("", "B.1", "B.2")) |> 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+lm(rsp ~ fa + fb + fa:fb, f2_contr_sum_nointer_tbl, 
+   contrasts = list(fa = "contr.sum", fb = "contr.sum")) |> 
+  coef() |> round(2)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-ggplot-anova-f2-effect-coding-no-inter
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 7
+#| fig-cap: "Visualisierung *[Zum Vergrößern anklicken]*"
+
+p_f2_contr_sum_nointer
+
+```
+
+## Effect coding mit Interaktion
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-2fac-contr-sum-inter
+#| tbl-cap: "foo"
+
+f2_contr_sum_inter_tbl |> 
+  mutate(pos = rep(1:3,6)) |> 
+  select(-key) |> 
+  pivot_wider(names_from = fb, values_from = rsp) |> 
+  select(-pos) |> 
+  set_names(c("", "B.1", "B.2")) |> 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+lm(rsp ~ fa + fb + fa:fb, f2_contr_sum_inter_tbl, 
+   contrasts = list(fa = "contr.sum", fb = "contr.sum")) |> 
+  coef() |> round(2)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-ggplot-anova-f2-effect-coding-inter
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 7
+#| fig-cap: "Visualisierung *[Zum Vergrößern anklicken]*"
+
+p_f2_contr_sum_stat_inter
+
+```
+:::
 
 ::: panel-tabset
 ## Liniendiagramm

@@ -567,4 +567,270 @@ p2_eta_venn <- ggplot() +
 
 ## ---------------------------------------------------------------------------
 
+f1_contr_sum_tbl <- tibble(rsp = c(1,2,3, 7,8,9, 10,11,12),
+                           fa = gl(3, 3, labels = c("A.1", "A.2", "A.3")))
 
+f1_contr_sum_stat_tbl <- f1_contr_sum_tbl |> 
+  group_by(fa) |> 
+  summarise(mean = mean(rsp)) |> 
+  mutate(pos = 1:3)
+
+p1_f1_contr_sum <- f1_contr_sum_stat_tbl |> 
+  ggplot(aes(x = pos, y = mean)) +
+  theme_minimal() +
+  annotate("rect", xmin = 3-0.15, xmax = 3+0.15, ymin = 0, ymax = Inf,
+           alpha = 0.25, fill = "gray") +
+  geom_point() +
+  geom_segment(x = 1, y = 2, xend = 2, yend = 8, color = "black",
+               linewidth = 0.5, linetype = 1) +
+  geom_segment(x = 2, y = 8, xend = 3, yend = 11, color = "black",
+               linewidth = 0.5, linetype = 1) +
+  geom_hline(yintercept = 7, color = "#CC79A7", linewidth = 1) +
+  geom_hline(yintercept = 0, color = "gray50") +
+  geom_vline(xintercept = 1-0.2, color = "gray50") +
+  scale_y_continuous(limits = c(0, NA), 
+                     breaks = c(0, 7, 2, 8, 11),
+                     labels = c(0, expression(beta[0]~"="~7), 
+                                expression(bar(y)[A.1]~"="~2),
+                                expression(bar(y)[A.2]~"="~8),
+                                expression(bar(y)[A.3]~"="~11))) +
+  geom_segment(x = 1, y = 2, xend = 1, yend = 7, color = "#E69F00",
+               linewidth = 0.5, linetype = 2) +
+  annotate("label", x = 1.125, y = (2+7)/2, label = "-5", size = 4,
+           color = "#E69F00") +
+  geom_segment(x = 2, y = 7, xend = 2, yend = 8, color = "#0072B2",
+               linewidth = 0.5, linetype = 2) +
+  annotate("label", x = 2.125, y = (7+8)/2, label = "+1", size = 4,
+           color = "#0072B2") +
+  geom_segment(x = 3, y = 7, xend = 3, yend = 11, color = "#009E73",
+               linewidth = 0.5, linetype = 2) +
+  annotate("label", x = 3.125, y = (7+11)/2, label = "+4", size = 4,
+           color = "#009E73") +
+  scale_x_continuous(breaks = c(0.8, 1, 2, 3), labels = c("0", "A.1", "A.2", "A.3"),
+                     limits = c(1-0.2, 3.15)) +
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_text(size = 16),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 14),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        legend.position = "top") + 
+  labs(x = "Faktor A", y = "", fill = "Faktor B",
+       title = "Effect coding",
+       subtitle = "Intercept globaler Mittelwert")
+
+
+p2_f1_contr_sum <- f1_contr_sum_stat_tbl |> 
+  ggplot(aes(x = pos, y = mean)) +
+  theme_minimal() +
+  geom_point() +
+  geom_line() +
+  geom_hline(yintercept = 2, color = "#CC79A7", linewidth = 1) +
+  geom_hline(yintercept = 0, color = "gray50") +
+  geom_vline(xintercept = 1, color = "gray50") +
+  scale_y_continuous(limits = c(0, NA), 
+                     breaks = c(0, 2, 8, 11),
+                     labels = c(0, expression(bar(y)[A.1]~"="~2),
+                                expression(bar(y)[A.2]~"="~8),
+                                expression(bar(y)[A.3]~"="~11))) +
+  geom_segment(x = 2, y = 2, xend = 2, yend = 8, color = "#0072B2",
+               linewidth = 0.5, linetype = 2) +
+  annotate("label", x = 2.125, y = (2+8)/2, label = "+6", size = 4,
+           color = "#0072B2") +
+  geom_segment(x = 3, y = 2, xend = 3, yend = 11, color = "#009E73",
+               linewidth = 0.5, linetype = 2) +
+  annotate("label", x = 3.125, y = (2+11)/2, label = "+9", size = 4,
+           color = "#009E73") +
+  scale_x_continuous(breaks = c(1, 2, 3), labels = c("0", "A.2", "A.3"),
+                     limits = c(1, 3.15)) +  
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_text(size = 16),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 14),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        legend.position = "top") + 
+  labs(x = "Faktor A", y = "", fill = "Faktor B",
+       title = "Treatment coding",
+       subtitle = "Intercept Mittelwert Gruppe A.1")
+
+## ---------------------------------------------------------------------------
+
+get_2fmean <- function(mean = c(21, 16, 6, 4, 10, 15)){
+  rbind(mean-1, mean, mean+1) |> 
+    as_tibble() |> 
+    gather(value = "rsp") |>
+    mutate(fa = as_factor(rep(c("A.1", "A.2", "A.3"), each = 3, times = 2)),
+           fb = as_factor(rep(c("B.1", "B.2"), each = 9)))
+}
+
+f2_contr_sum_nointer_tbl <- get_2fmean(mean = c(8, 15, 20, 4, 10, 15)*10)
+f2_contr_sum_nointer_stat_tbl <- f2_contr_sum_nointer_tbl |> 
+  group_by(fa, fb) |> 
+  summarise(mean = mean(rsp)) |> 
+  ungroup() |> 
+  mutate(pos = c(1,1,2,2,3,3))
+
+p_f2_contr_sum_nointer <- f2_contr_sum_nointer_stat_tbl |> 
+  ggplot(aes(x = pos, y = mean, color = fb, shape = fb)) +
+  theme_minimal() +
+  annotate("rect", xmin = 3-0.15, xmax = 3+0.15, ymin = 0, ymax = Inf,
+           alpha = 0.25, fill = "gray") +
+  geom_segment(x = 1-0.1, y = 60, xend = 1+0.1, yend = 60, color = "#009E73", 
+               linetype = 1) +
+  geom_segment(x = 1, y = 40, xend = 1, yend = 80, color = "#009E73",
+               linetype = 2) +
+  geom_segment(x = 2-0.1, y = 125, xend = 2+0.1, yend = 125, color = "#009E73",
+               linetype = 1) +
+  geom_segment(x = 2, y = 100, xend = 2, yend = 150, color = "#009E73",
+               linetype = 2) +
+  geom_segment(x = 3-0.1, y = 175, xend = 3+0.1, yend = 175, color = "#009E73",
+               linetype = 1) +
+  geom_segment(x = 3, y = 150, xend = 3, yend = 200, color = "#009E73",
+               linetype = 2) +
+  geom_segment(x = 1, y = 143.33, xend = 3+0.05, yend = 143.33, color = "#E69F00",
+               linetype = 3) +
+  geom_segment(x = 1-0.05, y = 96.67, xend = 3+0.05, yend = 96.67, color = "#56B4E9",
+               linetype = 3) +
+  geom_point(size = 2, show.legend = FALSE) +
+  geom_line() +
+  geom_hline(yintercept = 120, color = "#CC79A7") +
+  geom_hline(yintercept = 0, color = "gray50") +
+  geom_vline(xintercept = 1-0.2, color = "gray50") +
+  annotate("label", x = 1.125, y = 60, label = expression(bar(y)[A.1]~"="~60),
+           color = "#009E73", hjust = "left") +
+  annotate("label", x = 2.125, y = 125, label = expression(bar(y)[A.2]~"="~125),
+           color = "#009E73", hjust = "left") +
+  annotate("label", x = 3.125, y = 175, label = expression(bar(y)[A.3]~"="~175),
+           color = "#009E73", hjust = "left") +
+  annotate("label", x = 3.125, y = 143.33, label = expression(bar(y)[B.1]~"="~143.3),
+           color = "#E69F00", hjust = "left") +
+  annotate("label", x = 3.125, y = 96.67, label = expression(bar(y)[B.2]~"="~96.7),
+           color = "#56B4E9", hjust = "left") +
+  geom_segment(x = 1-0.05, y = 60, xend = 1-0.05, yend = 120, color = "black", 
+               linetype = 11) +
+  annotate("label", x = 0.975, y = 100, label = "-60", color = "black", hjust = "left") +
+  geom_segment(x = 2-0.05, y = 120, xend = 2-0.05, yend = 125, color = "black", 
+               linetype = 11) +
+  annotate("label", x = 1.92, y = 125, label = "+5", color = "black", hjust = "right") +
+  geom_segment(x = 3-0.05, y = 175, xend = 3-0.05, yend = 120, color = "black", 
+               linetype = 11) +
+  annotate("label", x = 2.92, y = 160, label = "+55", color = "black", 
+           hjust = "right") +
+  geom_segment(x = 1, y = 120, xend = 1, yend = 143.3, color = "black", 
+               linetype = 11) +
+  annotate("label", x = 0.975, y = 131, label = "+23.3", color = "black", 
+           hjust = "right") +
+  geom_segment(x = 3.05, y = 120, xend = 3.05, yend = 96.7, color = "black", 
+               linetype = 11) +
+  annotate("label", x = 3.02, y = 108, label = "-23.3", color = "black", 
+           hjust = "right") +
+  scale_y_continuous(limits = c(0, 210), 
+                     breaks = c(0, 40, 80, 100, 120, 150, 200),
+                     labels = c(0, 40, 80, 100,
+                                expression(beta[0]~"="~120),
+                                150, 200)) +
+  scale_x_continuous(breaks = c(1, 2, 3), limits = c(NA, 3.5),
+                     labels = c("A.1", "A.2", "A.3")) +
+  scale_color_okabeito() +  
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_text(size = 11),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 14),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        legend.position = "top") + 
+  labs(x = "Faktor A", y = "", color = "Faktor B",
+       title = "Effect coding",
+       subtitle = "Keine Interaktion")
+## ---------------------------------------------------------------------------
+
+f2_contr_sum_inter_tbl <- get_2fmean(mean = c(21, 16, 6, 4, 10, 15)*10)
+f2_contr_sum_stat_inter_tbl <- f2_contr_sum_inter_tbl |> 
+  group_by(fa, fb) |> 
+  summarise(mean = mean(rsp)) |> 
+  ungroup() |> 
+  mutate(pos = c(1,1,2,2,3,3))
+
+p_f2_contr_sum_stat_inter <- f2_contr_sum_stat_inter_tbl |> 
+  ggplot(aes(x = pos, y = mean, color = fb, shape = fb)) +
+  theme_minimal() +
+  annotate("rect", xmin = 3-0.15, xmax = 3+0.15, ymin = 0, ymax = Inf,
+           alpha = 0.25, fill = "gray") +
+  geom_segment(x = 1-0.1, y = 125, xend = 1+0.1, yend = 125, color = "#009E73",
+               linetype = 1) +
+  geom_segment(x = 1, y = 40, xend = 1, yend = 210, color = "#009E73",
+               linetype = 2) +
+  geom_segment(x = 2-0.1, y = 130, xend = 2+0.1, yend = 130, color = "#009E73",
+               linetype = 1) +
+  geom_segment(x = 2, y = 100, xend = 2, yend = 160, color = "#009E73",
+               linetype = 2) +
+  geom_segment(x = 3-0.1, y = 105, xend = 3+0.1, yend = 105, color = "#009E73",
+               linetype = 1) +
+  geom_segment(x = 3, y = 60, xend = 3, yend = 150, color = "#009E73",
+               linetype = 2) +
+  geom_segment(x = 1-0.3, y = 143.33, xend = 3+0.15, yend = 143.33, color = "#E69F00",
+               linetype = 3) +
+  geom_segment(x = 1-0.3, y = 96.67, xend = 3+0.15, yend = 96.67, color = "#56B4E9",
+               linetype = 3) +
+  geom_point(size = 2, show.legend = FALSE) +
+  geom_line() +
+  geom_hline(yintercept = 120, color = "#CC79A7") +
+  geom_hline(yintercept = 0, color = "gray50") +
+  geom_vline(xintercept = 1-0.7, color = "gray50") +
+  annotate("label", x = 1.125, y = 125, label = expression(bar(y)[A.1]~"="~125),
+           color = "#009E73", hjust = "left") +
+  annotate("label", x = 2.125, y = 130, label = expression(bar(y)[A.2]~"="~130),
+           color = "#009E73", hjust = "left") +
+  annotate("label", x = 3.125, y = 110, label = expression(bar(y)[A.3]~"="~105),
+           color = "#009E73", hjust = "left") +
+  annotate("label", x = 3.125, y = 143.33, label = expression(bar(y)[B.1]~"="~143.3),
+           color = "#E69F00", hjust = "left") +
+  annotate("label", x = 3.125, y = 96.7-5, label = expression(bar(y)[B.2]~"="~96.7),
+           color = "#56B4E9", hjust = "left") +
+  geom_segment(x = 1-0.05, y = 125, xend = 1-0.05, yend = 120, color = "black", 
+               linetype = 11) +
+  annotate("label", x = 0.92, y = 122.5, label = "+5", color = "black", 
+           hjust = "right") +
+  geom_segment(x = 2-0.05, y = 120, xend = 2-0.05, yend = 130, color = "black", 
+               linetype = 11) +
+  annotate("label", x = 1.92, y = 125, label = "+10", color = "black", hjust = "right") +
+  geom_segment(x = 3-0.05, y = 105, xend = 3-0.05, yend = 120, color = "black", 
+               linetype = 11) +
+  annotate("label", x = 2.92, y = 112.5, label = "-15", color = "black", 
+           hjust = "right") +
+  geom_segment(x = 1-0.3, y = 120, xend = 1-0.3, yend = 143.3, color = "black", 
+               linetype = 11) +
+  annotate("label", x = 0.65, y = 131, label = "+23.3", color = "black", 
+           hjust = "right") +
+  geom_segment(x = 1-0.3, y = 120, xend = 1-0.3, yend = 96.7, color = "black", 
+               linetype = 11) +
+  annotate("label", x = 0.65, y = 108, label = "-23.3", color = "black", 
+           hjust = "right") +
+  scale_y_continuous(limits = c(0, 210), 
+                     breaks = c(0, 40, 60, 100, 120, 150, 160, 210),
+                     labels = c(0, 40, 60, 100, expression(beta[0]~"="~120), 
+                                150, 160, 210)) +
+  scale_x_continuous(breaks = c(1, 2, 3), limits = c(NA, 3.5),
+                     labels = c("A.1", "A.2", "A.3")) +
+  scale_color_okabeito() +  
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_text(size = 11),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 14),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        legend.position = "top") + 
+  labs(x = "Faktor A", y = "", color = "Faktor B",
+       title = "Effect coding",
+       subtitle = "Starke Interaktion")
+
+## ---------------------------------------------------------------------------
+
+## ---------------------------------------------------------------------------
+
+## ---------------------------------------------------------------------------
