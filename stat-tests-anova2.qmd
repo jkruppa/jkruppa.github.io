@@ -28,16 +28,105 @@ source("stat-tests-anova_plot/anova_plots.R")
 
 Die ANOVA (eng. *analysis of variance*) ist wichtig. Was für ein schöner Satz um anzufangen. Historisch betrachtet ist die ANOVA, *das* statistische Verfahren was gut per Hand ohne Computer berechnet werden kann. Daher war die ANOVA von den 20zigern bis in die frühen 90ziger des letzten Jahrhunderts *das* statistische Verfahren der Wahl. Wir brauchen daher die ANOVA aus mehreren Gründen. Die Hochzeiten der ANOVA sind eigentlich vorbei, wir haben in der Statistik für viele Fälle mittlerweile besser Werkzeuge, aber als Allrounder ist die ANOVA immer noch nutzbar. Insbesondere wenn wir uns mit einem faktoriellen Design beschäftigen, dann komt die Stärke der ANOVA voll zu tragen. Da wir in den agrarwissenschaften eben dann doch sehr viele Feldexperimente in einem faktoriellen Design vorliegen haben, hat auch die ANOVA ihren Platz in der praktischen Auswertung. Wir werden immer wieder auf die ANOVA inhaltlich zurück kommen und in vielen Abschlussarbeiten wird die ANOVA immer noch als integraler Bestandteil genutzt. Wofür und wann brauchen wir die ANOVA, wenn wir Daten auswerten?
 
-|   | `{base}` | `{car}` | `{afex}` | `{WRS2}` | Excel |
-|:---|:--:|:--:|:--:|:--:|----|
-| **Normalverteilt** $y$ | normalverteilt | normalverteilt | beliebig | beliebig |  |
-| **Varianzen der Gruppen** $f$ | homogen | heterogen | beliebig | beliebig |  |
-| **Fallzahl per Gruppe** $n_g$ | balanciert; $n_g \geq 4$ | beliebig; $n_g \geq 6$ | beliebig; $n_g \geq 4$ | beliebig; $n_g \geq 4$ |  |
+::: callout-tip
+## Keine Zeit? Dann nutze gleich das R Paket `{afex}`!
 
-: Übersicht über vier ausgewählte Post-hoc Tests und deren statistischen Eigenschaften. Insbesondere sticht das R Paket `{emmeans}` mit seiner Flexibilität und einfachen Handbarkeit heraus. Die Mindestfallzahl per Gruppe $n_g$ ist eher als Empfehlung zu verstehen und als untere Grenze. Achtung, teilweise müssen die Optionen *aktiv* von dir aktiviert werden. Sie dazu auch den [Friedhof der Post-ho Tests](#sec-friedhof-posthoc) in diesem Kapitel. {#tbl--anova-übersicht}
+Dieses Kapitel ist lang und vieles habe ich hier gerechnet, damit du es nicht musst. Wenn du keine Zeit hast, dann springe gleich in den [Abschnitt mit dem effektiven Pfad mit `{emmeans}`](#sec-emmeans) und lasse den Rest links und rechts liegen. Wir freuen uns das es den Rest gibt, aber du willst ja fertig werden und nicht staunen, was andere so alles entwickelt haben. Und das ist vollkommen okay!
+:::
+
+#### Normalverteilung und Varianzhomogenität {.unnumbered .unlisted}
+
+> *"ANOVAs are generally robust to “light” heteroscedasticity, but there are various other methods (not available in afex) for getting robust error estimates."* --- [Testing the Assumptions of ANOVAs](https://cran.r-project.org/web/packages/afex/vignettes/assumptions_of_ANOVAs.html)
+
+#### Hypothesen {.unnumbered .unlisted}
+
+Die ANOVA betrachtet die Mittelwerte und nutzt die Varianzen um einen Unterschied nachzuweisen. Daher haben wir in der Nullhypothese als Gleichheitshypothese. In unserem Beispiel lautet die Nullhypothese, dass die Mittelwerte jedes Levels des Faktors `animal` gleich sind.
+
+::: panel-tabset
+## Faktor mit $2$ Leveln
+
+$$
+H_0: \; \bar{y}_{A.1} = \bar{y}_{A.2}
+$$ text
+
+$$
+H_A: \; \bar{y}_{A.1} \neq \bar{y}_{A.2}
+$$
+
+## Faktor mit $\geq 3$ Leveln
+
+Wir
+
+$$
+H_0: \; \bar{y}_{A.1} = \bar{y}_{A.2} = \bar{y}_{A.3} 
+$$
+
+$$
+\begin{aligned}
+H_A: &\; \bar{y}_{A.1} \ne \bar{y}_{A.2}\\
+\phantom{H_A:} &\; \bar{y}_{A.1} \ne \bar{y}_{A.3}\\
+\phantom{H_A:} &\; \bar{y}_{A.2} \ne \bar{y}_{A.3}\\
+\phantom{H_A:} &\; \mbox{für mindestens einen Vergleich}
+\end{aligned}
+$$
+:::
+
+#### Das faktorielle Modell {.unnumbered .unlisted}
+
+Beginnen wir also mit der Festlegung welche Art der Analyse wir rechnen wollen. Wir schauen uns jetzt einmal das einfaktorielle sowie das zweifaktorielle Modell näher an. Du könntest auch mehr als zwei Faktoren auswerten wollen, aber dann musst du einmal in ein anderes Kapitel wechseln. Wir beginnen hier mit dem einfacheren Fall oder auch den häufigsten. Zurst einmal haben wir ein faktorielles Modell vorliegen. Hier einmal die generelle Form mit belieb vielen Faktoren $f$.
+
+$$
+y \sim f_1 + f_2 + ... + f_p + f_1 \times f_2 + ... + f_1 \times f_2 \times f_3
+$$
+
+mit
+
+-   $y$ gleich dem Messwert oder Outcome
+-   $f_1 + f_2 + ... + f_p$ gleich experimenteller Faktoren
+-   $f_1 \times f_2$ gleich einem beispielhaften Interaktionsterm erster Ordnung
+-   $f_1 \times f_2 \times f_3$ gleich einem beispielhaften Interaktionsterm zweiter Ordnung
+
+Zusätzlich können noch Interaktionsterme höherer Ordnungen entstehen, aber hier wird es extrem schwierig diese Interaktionsterme dann auch zu interpretieren. Wir werden uns aber in diesem Kapitel auf ein einfaktorielles sowie zweifaktorielles Modell beschränken. Wenn du theoretisch das zweifaktorielle Modell anwenden kannst, dann kannst auch mit mehr Faktoren einen Post-hoc Test rechnen.
+
+#### Welche Pakete gibt es eigentlich? {.unnumbered .unlisted}
+
+Wenn um die Anwendung der ANOVA in R geht, dann haben wir eine Menge Pakete zur Auswahl. Wie immer macht die Fragestellung und das gewählte Modell den Großteil der Entscheidungsindung aus. Ich zeige dir später in der Anwendung dann auch alle Pakete einmal, gebe dir dann aber auch immer eine Empfehlung mit. In der folgenden Tabelle gebe ich dir einmal eine kurze Übersicht über die beiden Annahmen an die ANOVA. Normalerweise brauchen wir einen normalverteilten Messwert $y$ und Varianzhomogenität in den Faktoren. In den letzten Jahren wurden aber noch weitere Implementierungen der ANOVA entwickelt, so dass hier auch Alternativen vorliegen.
+
+|                            | `{base}` | `{car}`  | `{afex}` | `{WRS2}` | Excel |
+|:---------------------------|:--------:|:--------:|:--------:|:--------:|:-----:|
+| **Normalverteilt** $y$     |    ja    |    ja    |    ja    |   nein   |  ja   |
+| **Varianzhomogenität** $f$ |    ja    | optional |    ja    |   nein   |  ja   |
+
+: Übersicht über vier ausgewählte in diesem Kapitel. {#tbl--anova-übersicht}
+
+Gehen wir jetzt mal die Pakete durch. Wir immer gibt es einiges an Möglichkeiten und ich zeige dir hier eben die Auswahl. Es gibt hier das ein oder andere noch zu beachten, aber da gehe ich dann bei den jeweiligen Methoden drauf ein. Es macht eben dann doch einen Unterschied ob ich eine einfaktorielle oder komplexere ANOVA rechnen will. Nicht alles geht in allen R Pakten oder gar Excel.
+
+Der Standard mit der Funktion `aov()` aus `{base}`
+
+:   Die Standardfunktion `aov()` erlaubt es eine einfaktorielle oder zweifaktorielle ANOVA direkt auf einem Datensatz zu rechnen. Hier brauchen wir nur ein Modell in der in R üblichen Formelschreibweise `y ~ f`. Du kannst diesen Ansatz als schnelle ANOVA begreifen. Dein Messwert $y$ muss hier normalverteilt sein.
+
+Der erweiterte Standard mit der Funktion `anova()` aus `{base}`
+
+:   Die Funktion `anova()` erlaubt es auch auf anderen Modellen eine ANOVA zu rechnen. Wi nutzen hier die Funktion `lm()`, die einen normalverteilten Messwert $y$ annimmt. Es ginge aber auch mit anderen Modellierungen und der Funktion `glm()` für Zähldaten einer Possionverteilung oder noch anderen Verteilungen.
+
+Mit der Funktion `Anova()` aus `{car}`
+
+:   Das [R Paket `{car}`](https://cran.r-project.org/web/packages/car/index.html) bietet eine Verbesserung der Standardfunktionen der ANOVA an. Insbesondere die Berücksichtigung und die Modellierung eines Interaktionseffektes in einer zweifaktoriellen ANOVA sticht heraus. Daher ist die Funktion hier etwas flexibeler als der Standard. In einer einfaktoriellen ANOVA bemerkst du keinen Unterschied.
+
+Mit den ANOVA Funktionen aus `{afex}`
+
+:   Wir können die ANOVA auch anwenden, wenn wir Messwiederholungen vorliegen haben. Daher bietet sich hier das [R Paket `{afex}`](https://github.com/singmann/afex)an. Du musst bei den Funktionen von `{afex}` immer eine ID mitlaufen lassen, die angibt welche Individuen wiederholt gemessen wurden. Also hat jede Zeile eine Nummer, die beschreibt welche Beobachtung hier vorliegt. Besonders wichtig bei Messungen über die ZEit.
+
+Mit den ANOVA Funktionen aus `{WRS2}`
+
+:   Eine Annahme an die ANOVA ist, dass wir es mit normalverteilten Messwerten $y$ sowie Varianzhomogenität in den Faktoren $f$ vorliegen haben. Das R Paket `{WRS2}` mit der hervorragenden Vingette [Robust Statistical Methods Using WRS2](https://cran.r-project.org/web/packages/WRS2/vignettes/WRS2.pdf) erlaubt nun aber diese beiden Annahmen zu umgehen und bietet eine robuste ANOVA an. Robust meint hier, dass wir uns nicht um die Normalverteilung und Varianzhomogenität kümmern müssen.
+
+Mit Excel
+
+:   Hier muss ich sagen, dass es schon etwas weh tut die einfaktorielle und zweifaktorielle ANOVA in Excel zu rechnen. Ich habe dir bei der einfaktoriellen sowie der zweifaktoriellen ANOVA ein Video für die ANOVA in Excel ergänzt. Eigentlich ist es nur der letzte Strohhalm, wenn du keine Zeit mehr hast dich in R nochmal einzuarbeiten.
 
 ::: callout-tip
-## Weitere Tutorien für die Analyse von Zeitreihen
+## Weitere Tutorien für die ANOVA
 
 Wir oben schon erwähnt, kann dieses Kapitel nicht alle Themen der ANOVA abarbeiten. Daher präsentiere ich hier eine Liste von Literatur und Links, die mich für dieses Kapitel hier inspiriert haben. Nicht alles habe ich genutzt, aber vielleicht ist für dich was dabei.
 
@@ -568,30 +657,6 @@ p1_inter_bar_theo + p2_inter_bar_theo + p3_inter_bar_theo +
 ```
 :::
 
-## Welche Pakete gibt es eigentlich? {.unnumbered .unlisted}
-
-Wenn um die Anwendung der ANOVA in R geht, dann haben wir eine Menge Pakete zur Auswahl. Wie immer macht die Fragestellung und das gewählte Modell den Großteil der Entscheidungsindung aus. Ich zeige dir später in der Anwendung dann auch alle Pakete einmal, gebe dir dann aber auch immer eine Empfehlung mit.
-
-Der Standard mit der Funktion `aov()` aus `{base}`
-
-:   Die Standardfunktion `aov()` erlaubt es eine einfaktorielle oder zweifaktorielle ANOVA direkt auf einem Datensatz zu rechnen. Hier brauchen wir nur ein Modell in der in R üblichen Formelschreibweise `y ~ f`. Du kannst diesen Ansatz als schnelle ANOVA begreifen. Dein Messwert $y$ muss hier normalverteilt sein.
-
-Der erweiterte Standard mit der Funktion `anova()` aus `{base}`
-
-:   Die Funktion `anova()` erlaubt es auch auf anderen Modellen eine ANOVA zu rechnen. Wi nutzen hier die Funktion `lm()`, die einen normalverteilten Messwert $y$ annimmt. Es ginge aber auch mit anderen Modellierungen und der Funktion `glm()` für Zähldaten einer Possionverteilung oder noch anderen Verteilungen.
-
-Mit der Funktion `Anova()` aus `{car}`
-
-:   Das [R Paket `{car}`](https://cran.r-project.org/web/packages/car/index.html) bietet eine Verbesserung der Standardfunktionen der ANOVA an. Insbesondere die Berücksichtigung und die Modellierung eines Interaktionseffektes in einer zweifaktoriellen ANOVA sticht heraus. Daher ist die Funktion hier etwas flexibeler als der Standard. In einer einfaktoriellen ANOVA bemerkst du keinen Unterschied.
-
-Mit den ANOVA Funktionen aus `{afex}`
-
-:   Wir können die ANOVA auch anwenden, wenn wir Messwiederholungen vorliegen haben. Daher bietet sich hier das [R Paket `{afex}`](https://github.com/singmann/afex)an. Du musst bei den Funktionen von `{afex}` immer eine ID mitlaufen lassen, die angibt welche Individuen wiederholt gemessen wurden. Also hat jede Zeile eine Nummer, die beschreibt welche Beobachtung hier vorliegt. Besonders wichtig bei Messungen über die ZEit.
-
-Mit den ANOVA Funktionen aus `{WRS2}`
-
-:   Eine Annahme an die ANOVA ist, dass wir es mit normalverteilten Messwerten $y$ sowie Varianzhomogenität in den Faktoren $f$ vorliegen haben. Das R Paket `{WRS2}` mit der hervorragenden Vingette [Robust Statistical Methods Using WRS2](https://cran.r-project.org/web/packages/WRS2/vignettes/WRS2.pdf) erlaubt nun aber diese beiden Annahmen zu umgehen und bietet eine robuste ANOVA an. Robust meint hier, dass wir uns nicht um die Normalverteilung und Varianzhomogenität kümmern müssen.
-
 ## Ein Wort zur Transformation vom Messwert $y$ {.unnumbered .unlisted}
 
 lognormal und Co.
@@ -901,22 +966,6 @@ p1 + p2 +
   theme(plot.tag = element_text(size = 16, face = "bold"))
 
 ```
-
-## Hypothesen
-
-## Modell
-
-Kurz und langschreibweise von `a + b + a:b` und `a*b`
-
-|   | Globales Signifikanzniveau $\alpha$ | Bemerkung |
-|:--:|:--:|:---|
-| konservativ | $\leq 5\%$ | Weniger signifikante Unterschiede |
-
-: Zusammenfassung . {#tbl-factor-model}
-
-## Annahmen an die Daten
-
-> *"ANOVAs are generally robust to “light” heteroscedasticity, but there are various other methods (not available in afex) for getting robust error estimates."* --- [Testing the Assumptions of ANOVAs](https://cran.r-project.org/web/packages/afex/vignettes/assumptions_of_ANOVAs.html)
 
 ## Einfaktorielle ANOVA
 
