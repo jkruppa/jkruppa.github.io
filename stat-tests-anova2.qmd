@@ -9,6 +9,14 @@ conflicts_prefer(dplyr::summarise)
 conflicts_prefer(dplyr::summarize)
 conflicts_prefer(dplyr::mutate)
 conflicts_prefer(magrittr::set_names)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| cache: true
+#| label: source-anova-plots
 source("stat-tests-anova_plot/anova_plots.R")
 ```
 
@@ -18,15 +26,27 @@ source("stat-tests-anova_plot/anova_plots.R")
 
 > *"Yeah, I might seem so strong; Yeah, I might speak so long; I've never been so wrong." --- London Grammar, Strong*
 
-[ANOVA in R](https://www.datanovia.com/en/lessons/anova-in-r/)
+Die ANOVA (eng. *analysis of variance*) ist wichtig. Was für ein schöner Satz um anzufangen. Historisch betrachtet ist die ANOVA, *das* statistische Verfahren was gut per Hand ohne Computer berechnet werden kann. Daher war die ANOVA von den 20zigern bis in die frühen 90ziger des letzten Jahrhunderts *das* statistische Verfahren der Wahl. Wir brauchen daher die ANOVA aus mehreren Gründen. Die Hochzeiten der ANOVA sind eigentlich vorbei, wir haben in der Statistik für viele Fälle mittlerweile besser Werkzeuge, aber als Allrounder ist die ANOVA immer noch nutzbar. Insbesondere wenn wir uns mit einem faktoriellen Design beschäftigen, dann komt die Stärke der ANOVA voll zu tragen. Da wir in den agrarwissenschaften eben dann doch sehr viele Feldexperimente in einem faktoriellen Design vorliegen haben, hat auch die ANOVA ihren Platz in der praktischen Auswertung. Wir werden immer wieder auf die ANOVA inhaltlich zurück kommen und in vielen Abschlussarbeiten wird die ANOVA immer noch als integraler Bestandteil genutzt. Wofür und wann brauchen wir die ANOVA, wenn wir Daten auswerten?
 
-[One-Way ANOVA Test in R](https://www.sthda.com/english/wiki/one-way-anova-test-in-r)
+|   | `{base}` | `{car}` | `{afex}` | `{WRS2}` | Excel |
+|:---|:--:|:--:|:--:|:--:|----|
+| **Normalverteilt** $y$ | normalverteilt | normalverteilt | beliebig | beliebig |  |
+| **Varianzen der Gruppen** $f$ | homogen | heterogen | beliebig | beliebig |  |
+| **Fallzahl per Gruppe** $n_g$ | balanciert; $n_g \geq 4$ | beliebig; $n_g \geq 6$ | beliebig; $n_g \geq 4$ | beliebig; $n_g \geq 4$ |  |
 
-[Two-Way ANOVA Test in R](https://www.sthda.com/english/wiki/two-way-anova-test-in-r)
+: Übersicht über vier ausgewählte Post-hoc Tests und deren statistischen Eigenschaften. Insbesondere sticht das R Paket `{emmeans}` mit seiner Flexibilität und einfachen Handbarkeit heraus. Die Mindestfallzahl per Gruppe $n_g$ ist eher als Empfehlung zu verstehen und als untere Grenze. Achtung, teilweise müssen die Optionen *aktiv* von dir aktiviert werden. Sie dazu auch den [Friedhof der Post-ho Tests](#sec-friedhof-posthoc) in diesem Kapitel. {#tbl--anova-übersicht}
 
-[MANOVA Test in R: Multivariate Analysis of Variance](https://www.sthda.com/english/wiki/manova-test-in-r-multivariate-analysis-of-variance)
+::: callout-tip
+## Weitere Tutorien für die Analyse von Zeitreihen
 
-[ANOVA in R \| A Complete Step-by-Step Guide with Examples](https://www.scribbr.com/statistics/anova-in-r/)
+Wir oben schon erwähnt, kann dieses Kapitel nicht alle Themen der ANOVA abarbeiten. Daher präsentiere ich hier eine Liste von Literatur und Links, die mich für dieses Kapitel hier inspiriert haben. Nicht alles habe ich genutzt, aber vielleicht ist für dich was dabei.
+
+-   [ANOVA in R](https://www.datanovia.com/en/lessons/anova-in-r/)
+-   [One-Way ANOVA Test in R](https://www.sthda.com/english/wiki/one-way-anova-test-in-r)
+-   [Two-Way ANOVA Test in R](https://www.sthda.com/english/wiki/two-way-anova-test-in-r)
+-   [MANOVA Test in R: Multivariate Analysis of Variance](https://www.sthda.com/english/wiki/manova-test-in-r-multivariate-analysis-of-variance)
+-   [ANOVA in R \| A Complete Step-by-Step Guide with Examples](https://www.scribbr.com/statistics/anova-in-r/)
+:::
 
 ## Theoretischer Hintergrund
 
@@ -260,6 +280,24 @@ $\omega^2$ und $\epsilon^2$
 
 ### Interaktion $f_A \times f_B$
 
+Wenn du mehr als einen Faktor $f_A$ in deinem Modell vorliegen hast, dann kannst du eine Interaktion zwischen den Faktoren vorliegen haben. Wir schreiben in R einen Interaktionsterm mit dem `:` zwischen den Namen der beiden Faktoren. Wenn wir also die Interaktion zwischen dem Faktor $f_1$ und $f_2$ in R modellieren wollen, dann schreiben wir `fa:fb`. In der mathematischen Schreibweise haben wir dann häufig die Form $f_A \times f_B$ vorliegen. Ich schreibe hier häufig dann die mathematische Notian im Fließtext und natürlich im R Code dann die entsprechende Notation in R.
+
+| Mathematisch     | R       |
+|------------------|---------|
+| $f_A \times f_B$ | `fa:fb` |
+
+: Vergleich der Schreibweise einer Interaktion zwischen den Faktoren $f_A$ und $f_B$ einmal mathematisch und einmal in R. {#tbl-anova-inter-namen}
+
+Der folgende Abschnitt teilt sich grob in zwei Teile. Einmal der theoretische Hintergrund zur Interaktion und was dort eigentlich die Herausforderungen in der Modellierung sind sowwie einen Abschnitt zur visuellen Überprüfung der Interaktion in einer zweifaktoriellen Analyse.
+
+#### Theoretischer Hintergrund {.unnumbered .unlisted}
+
+::: callout-warning
+## Achtung, bitte beachten!
+
+Dieser Abschnitt ist dann *etwas* eskaliert. Wenn du dich nicht für die statistischen Methoden und Hintergründe interessierst, dann überspringe diesen Abschnitt und gehe gleich zur visuellen Überprüfung der Interaktion.
+:::
+
 ```{r}
 #| message: false
 #| echo: false
@@ -327,6 +365,8 @@ lm(rsp ~ fa, f1_contr_sum_tbl, contrasts = list(fa = "contr.sum")) |>
   coef() |> round(2)
 ```
 :::
+
+Es gibt noch mehr [Contrast codings](https://stats.oarc.ucla.edu/r/library/r-library-contrast-coding-systems-for-categorical-variables/), je nachdem wie dein Messwert $y$ oder deine Faktoren $f$ beschaffen sind
 
 ```{r}
 #| message: false
@@ -466,6 +506,8 @@ p_f2_contr_sum_stat_inter
 ```
 :::
 
+#### Visuelle Überprüfung {.unnumbered .unlisted}
+
 ::: panel-tabset
 ## Liniendiagramm
 
@@ -567,7 +609,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| warning: false
 pacman::p_load(tidyverse, magrittr, broom, WRS2, scales,
                readxl, see, car, patchwork, emmeans,
-               interactions, effectsize, afex, conflicted)
+               interactions, effectsize, afex, report,
+               conflicted)
 conflicts_prefer(dplyr::mutate)
 conflicts_prefer(dplyr::summarize)
 conflicts_prefer(dplyr::filter)
@@ -909,6 +952,12 @@ lm(jump_length ~ animal, data = fac1_tbl) |>
   tidy()
 ```
 
+## `{afex}`
+
+```{r}
+aov_car(jump_length ~ animal + Error(.id), data = fac1_tbl) 
+```
+
 ## `{WRS2}`
 
 ```{r}
@@ -916,6 +965,8 @@ t1way(jump_length ~ animal, data = fac1_tbl)
 ```
 
 Values of = 0.10, 0.30, and 0.50 correspond to small, medium, and large effect sizes.
+
+## Excel
 :::
 
 #### Effektschätzer {.unnumbered .unlisted}
@@ -923,6 +974,22 @@ Values of = 0.10, 0.30, and 0.50 correspond to small, medium, and large effect s
 ```{r}
 aov(jump_length ~ animal, data = fac1_tbl) |> 
   eta_squared()
+```
+
+#### `{report}` {.unnumbered .unlisted}
+
+Das [R Paket `{report}`](https://easystats.github.io/report/)
+
+```{r}
+lm(jump_length ~ animal, data = fac1_tbl) |> 
+  Anova() |> 
+  report()
+```
+
+```{r}
+lm(jump_length ~ animal, data = fac1_tbl) |> 
+  Anova() |> 
+  report_table()
 ```
 
 ## Zweifaktorielle ANOVA
@@ -977,6 +1044,8 @@ aov_car(jump_length ~ animal + site + animal:site + Error(.id), data = fac2_tbl)
 ```{r}
 t2way(jump_length ~ animal + site + animal:site, data = fac2_tbl)
 ```
+
+## Excel
 :::
 
 #### Effektschätzer {.unnumbered .unlisted}
