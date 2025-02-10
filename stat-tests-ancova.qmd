@@ -1,5 +1,14 @@
 ```{r echo = FALSE}
-pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
+#| message: false
+#| echo: false
+#| warning: false
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, plyr,
+               patchwork, ggforce, see, sjPlot, conflicted)
+set.seed(202434)
+conflicts_prefer(dplyr::summarise)
+conflicts_prefer(dplyr::summarize)
+conflicts_prefer(dplyr::mutate)
+conflicts_prefer(magrittr::set_names)
 ```
 
 # Die ANCOVA {#sec-ancova}
@@ -8,31 +17,77 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 
 > *"It's better to solve the right problem approximately than to solve the wrong problem exactly." --- John Tukey*
 
+::: {.callout-caution appearance="simple"}
+## Stand des Kapitels: Aktualisierung (seit 02.2025)
+
+Dieses Kapitel wird in den nächsten Wochen aktualisiert. Ich plane zum Ende des SoSe 2025 eine neue Version des Kapitels erstellt zu haben. Deshalb kann hier das ein oder andere kurzfristig nicht mehr funktionieren.
+:::
+
 Eigentlich hat sich die Analysis of Covariance (ANCOVA) etwas überlebt. Wir können mit dem statistischen Modellieren *eigentlich* alles was die ANCOVA kann plus wir erhalten auch noch Effektschätzer für die Kovariaten und die Faktoren. Dennoch hat die ANCOVA ihren Platz in der Auswertung von Daten. Wenn du ein oder zwei Faktoren hast plus eine numerische Variable, wie das Startgewicht, für die du die Analyse adjustieren möchtest, dann ist die ANCOVA für dich gemacht.
 
 Also kurz gesprochen adjustiert die Analysis of Covariance (ANCOVA) die Faktoren einer ANOVA um eine kontinuierliche Covariate. Eine Kovariate ist eine Variable, die mit berücksichtigt wird, um mögliche verzerrende Einflüsse auf die Analyseergebnisse (ungebräuchlich *Konfundierung*) abzuschätzen oder zu verringern. Adjustiert bedeutet in dem Fall, dass die Effekte des unterschiedlichen Startgewichts von Pflanzen durch das Einbringen der Kovariate mit in der statistischen Analyse berücksichtigt werden. Wir werden hier auch nur über die Nutzung in R sprechen und auf die theoretische Herleitung verzichten.
 
 Wie immer gibt es auch passende Literatur um die ANCOVA herum. @karpen2017misuses beschreibt in [Misuses of Regression and ANCOVA in Educational Research](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5701329/) nochmal Beispiele für die falsche oder widersprüchliche Nutzung der Regression und ANCOVA. Ich nutze die Quelle immer mal wieder in meinen vertiefenden Vorlesungen. Da wir hier ja nicht nur Agrawissenschaftler haben, hilft die Arbeit von @kim2018statistical mit [Statistical notes for clinical researchers: analysis of covariance (ANCOVA)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6237726/) auch nochmal weiter. Die Besonderheit bei der klinischen Forschung ist ja die "Beweglichkeit" der Beobachtungen. Menschen lassen sich eben nicht vollständig kontrollieren und daher ist die Thematik eine andere als bei Pflanzen und Tieren.
 
-Schauen wir uns nun einmal das Modell der ANCOVA an. Wir können die *einfaktorielle* ANCOVA in folgender Form schreiben. Wir haben haben einen Faktor $x_1$ und eine Kovariate oder aber ein numerisches $x_2$. Damit sähe die ANCOVA wie folgt aus.
+## Allgemeiner Hintergrund
+
+#### Das Modell {.unnumbered .unlisted}
+
+Wenn wir neben einem bis mehreren Faktoren $f$ noch eine numerische Kovariate $c$ mit modellieren wollen, dann nutzen wir die ANCOVA (eng. *Analysis of Covariance*). Hier kommt dann immer als erstes die Frage, was heißt den Kovariate $c$? Hier kannst du dir eine numerische Variable vorstellen, die ebenfalls im Experiment gemessen wird. Es kann das Startgewicht oder aber die kummulierte Wassergabe sein. Wir haben eben hier keinen Faktor als Kategorie vorliegen, sondern eben etwas numerisch gemessen. Daher ist unsere Modellierung etwas anders.
 
 $$
-y \sim x_1 + x_2
+y \sim f_A + f_B + ... + f_P + f_A \times f_B + c_1 + ... + c_p
 $$
 
-Damit ist die ANCOVA aber sehr abstrakt beschrieben. Der *eine* Faktor kommt damit gar nicht zur Geltung. Deshalb schreiben wir die ANCOVA wie folgt mit einem $f_1$ für den Faktor und einem $c_1$ für eine numerische Kovariate. Damit haben wir einen bessere Übersicht.
+mit
+
+-   $y$ gleich dem Messwert oder Outcome
+-   $f_A + f_B + ... + f_P$ gleich experimenteller Faktoren
+-   $f_A \times f_B$ gleich einem beispielhaften Interaktionsterm erster Ordnung
+-   $c_1 + ... + c_p$ gleich einer oder mehrer numerischer Kovariaten
+
+Hier muss ich gleich die Einschränkung machen, dass wir *normalerweise* maximal ein zweifaktorielles Modell mit einem Faktor $A$ und einem Faktor $B$ sowie einer Kovariate $c$ betrachten. Sehr selten haben wir mehr Faktoren oder gar Kovariaten in dem Modell. Wenn das der Fall sein sollte, dann könnte eine andere Modellierung wie eine multiple Regression eine bessere Lösung sein.
+
+#### Hypothesen {.unnumbered .unlisted}
+
+Wenn wir von der ANOVA sprechen, dann kommen wir natürlich nicht an den Hypothesen vorbei. Die ANOVA ist ja auch ein klassischer statistischer Test. Hier müssen wir unterscheiden, ob wir eine Behandlung mit zwei Gruppen, also einem Faktor $A$ mit $2$ Leveln vorliegen haben. Oder aber eine Behandlung mit drei oder mehr Gruppen vorliegen haben, also einem Faktor $A$ mit $\geq 3$ Leveln in den Daten haben. Da wir schnell in einer ANOVA mehrere Faktoren haben, haben wir auch schnell viele Hypothesen zu beachten. Jeweils ein Hypothesenpaar pro Faktor muss dann betrachtet werden. Das ist immer ganz wichtig, die Hypothesenpaare sind unter den Faktoren mehr oder minder unabhängig.
+
+::: panel-tabset
+## Faktor mit $2$ Leveln
+
+Bei einem Faktor $A$ mit nur zwei Leveln $A.1$ und $A.2$ haben wir eine Nullhypothese, die du schon aus den Gruppenvergleichen wie dem t-Test kennst. Wir wollen zwei Mittelwerte vergleichen und in unserer Nullhypothese steht somit die Gleichheit. Da wir nur zwei Gruppen haben, sieht die Nullhypothese einfach aus.
 
 $$
-y \sim f_1 + c_1
+H_0: \; \bar{y}_{A.1} = \bar{y}_{A.2}
 $$
 
-Somit erklärt sich die zweifaktorielle ANCOVA schon fast von alleine. Wir erweitern einfach das Modell um einen zweiten Faktor $f_2$ und haben somit eine zweifaktorielle ANCOVA.
+In der Alternativehypothese haben wir dann den Unterschied zwischen den beiden Mittelwerten. Wenn wir die Nullhypothese ablehnen können, dann wissen wir auch welche Mittelwertsunterschied signifikant ist. Wir haben ja auch nur einen Unterschied getestet.
 
 $$
-y \sim f_1 + f_2 + c_1
+H_A: \; \bar{y}_{A.1} \neq \bar{y}_{A.2}
+$$ Das Ganze wird dann etwas komplexer im Bezug auf die Alternativehypothese wenn wir mehr als zwei Gruppen haben. Hier kommt dann natürlich auch die Stärke der ANOVA zu tragen. Eben mehr als zwei Mittelwerte vergleichen zu können.
+
+## Faktor mit $\geq 3$ Leveln
+
+Die klassische Nullhypothese der ANOVA hat natürlich mehr als zwei Level. Hier einmal beispielhaft die Nullhypothese für den Vergleich von drei Gruppen des Faktors $A$. Wir wollen als Nullhypothese testen, ob alle Mittelwerte der drei Gruppen gleich sind.
+
+$$
+H_0: \; \bar{y}_{A.1} = \bar{y}_{A.2} = \bar{y}_{A.3}
 $$
 
-Im Folgenden schauen wir uns einmal die Daten und die Hypothesen zu einer möglichen Fragestellung an.
+Wenn wir die Nullhypothese betrachten dann sehen wir auch gleich das Problem der Alternativehypothese. Wir haben eine Menge an paarweisen Vergleichen. Wenn wir jetzt die Nullhypothese ablehnen, dann wissen wir nicht welcher der drei paarweisen Mittelwertsvergleiche denn nun unterschiedlich ist. Praktisch können es auch alle drei oder eben zwei Vergleiche sein.
+
+$$
+\begin{aligned}
+H_A: &\; \bar{y}_{A.1} \ne \bar{y}_{A.2}\\
+\phantom{H_A:} &\; \bar{y}_{A.1} \ne \bar{y}_{A.3}\\
+\phantom{H_A:} &\; \bar{y}_{A.2} \ne \bar{y}_{A.3}\\
+\phantom{H_A:} &\; \mbox{für mindestens einen Vergleich}
+\end{aligned}
+$$
+
+Wenn wir die Nullhypothese abgelhent haben, dann müssen wir noch einen sogenannten Post-hoc Test anschließen um die paarweisen Unterschiede zu finden, die dann signifikant sind. Das ganze machen wir dann aber in einem eigenen Kapitel zum Post-hoc Test.
+:::
 
 ::: callout-tip
 ## Weitere Tutorien für die ANCOVA
@@ -90,45 +145,90 @@ rbind(head(ancova_raw_tbl),
 
 ```
 
-## Hypothesen
+#### Zweifaktorieller Datensatz mit Kovariate {.unnumbered .unlisted}
 
-Wir haben für jeden Faktor der ANCOVA ein Hypothesenpaar sowie ein Hypothesenpaar für die Kovariate. Im Folgenden sehen wir die jeweiligen Hypothesenpaare.
+```{r}
+fac2_cov_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "covariate") |> 
+  select(animal, stage, weight, jump_length) |> 
+  mutate(animal = as_factor(animal),
+         stage = factor(stage, level = c("juvenile", "adult")),
+         weight = round(weight, 2),
+         jump_length = round(jump_length, 2))|> 
+  rowid_to_column(".id")
+```
 
-Einmal für `animal`, als Haupteffekt. Wir nennen einen Faktor den Hauptfaktor, weil wir an diesem Faktor am meisten interessiert sind. Wenn wir später einen Posthoc Test durchführen würden, dann würden wir diesen Faktor nehmen. Wir sind primär an dem Unterschied der Sprungweiten in \[cm\] in Gruppen Hund, Katze und Fuchs interessiert.
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-fac2cov-table
+#| tbl-cap: "foo."
 
-$$
-\begin{aligned}
-H_0: &\; \bar{y}_{cat} = \bar{y}_{dog} = \bar{y}_{fox}\\
-H_A: &\; \bar{y}_{cat} \ne \bar{y}_{dog}\\
-\phantom{H_A:} &\; \bar{y}_{cat} \ne \bar{y}_{fox}\\
-\phantom{H_A:} &\; \bar{y}_{dog} \ne \bar{y}_{fox}\\
-\phantom{H_A:} &\; \mbox{für mindestens ein Paar}
-\end{aligned}
-$$
+fac2_cov_raw_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "covariate") |> 
+  select(animal, stage, weight, jump_length) |> 
+  mutate_if(is.numeric, round, 2)
 
-Für die Kovariate testen wir anders. Die Kovariate ist ja eine numerische Variable. Daher ist die Frage, wann gibt es keinen Effekt von `weight` auf die Sprunglänge? Wenn wir eine parallele Linie hätten. Das heißt, wenn sich der Wert von `weight` ändert, ändert sich der Wert von `jump_length` nicht. Wir schreiben, dass sich die Steigung der Geraden nicht ändert. Wir bezeichnen die Steigung einer Graden mit $\beta$. Wenn kein Effekt vorliegt und die Nullhpyothese gilt, dann ist die Steigung der Geraden $\beta_{weight} = 0$.
+rbind(head(fac2_cov_raw_tbl, n = 3),
+      rep("...", times = ncol(fac2_cov_raw_tbl)),
+      tail(fac2_cov_raw_tbl, n = 3)) |> 
+  kable(align = "c", "pipe")
+```
 
-$$
-\begin{aligned}
-H_0: &\; \beta_{weight} = 0\\
-H_A: &\; \beta_{weight} \neq 0
-\end{aligned}
-$$
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-ggplot-anova-boxplot-fac2cov
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "foo."
 
-Du kannst dir überlegen, ob due die Interaktion zwischen dem Faktor und der Kovariate mit ins Modell nehmen willst. Eigentlich schauen wir uns immer nur die Interaktion zwischen den Faktoren an. Generell schreiben wir eine Interaktionshypothese immer in Prosa.
+p1 <- ggplot(data = fac2_cov_tbl, 
+       aes(x = stage, y = jump_length, fill = animal)) +
+  theme_minimal() +
+  geom_boxplot() + 
+  stat_summary(fun.y = mean, geom = "point", aes(group = animal), 
+               shape=23, size = 3, fill = "gray50",
+               position = position_dodge(0.75)) +
+  labs(x = "Entwicklungsstadium", y = "Sprungweite in [cm]", fill = "Flohart") +
+  scale_fill_okabeito() +
+  theme(legend.position = "top")
 
-$$
-\begin{aligned}
-H_0: &\; \mbox{keine Interaktion}\\
-H_A: &\; \mbox{eine Interaktion zwischen animal und site}
-\end{aligned}
-$$
+p2 <- ggplot(data = fac2_cov_tbl, 
+       aes(x = stage, y = weight, fill = animal)) +
+  theme_minimal() +
+  geom_boxplot() + 
+  stat_summary(fun.y = mean, geom = "point", aes(group = animal), 
+               shape=23, size = 3, fill = "gray50",
+               position = position_dodge(0.75)) +
+  labs(x = "Entwicklungsstadium", y = "Gewicht in [mg]", fill = "Flohart") +
+  scale_fill_okabeito() +
+  theme(legend.position = "top")
 
-Wir haben also jetzt die verschiedenen Hypothesenpaare definiert und schauen uns jetzt die ANCOVA in R einmal in der Anwendung an.
+p1 + p2 + 
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A') +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
 
-## Einfaktorielle ANCOVA in R
+```
+
+## Einfaktorielle ANCOVA
 
 [Du kannst mehr über Geraden sowie lineare Modelle und deren Eigenschaften im @sec-modeling-simple-stat erfahren.]{.aside}
+
+Hier eine kurze Betrachtung. Mehr dazu in dem [Kapitel zur ANCOVA](#sec-ancova)
+
+::: panel-tabset
+## `{base}`
+
+## `{car}`
+
+## `{afex}`
+
+## `{WRS2}`
+:::
 
 Wir können die ANCOVA ganz klassisch mit dem linaren Modell fitten. Wir nutzen die Funktion `lm()` um die Koeffizienten des linearen Modellls zu erhalten. Wir erinnern uns, wir haben haben einen Faktor $f_1$ und eine Kovariate bezwiehungsweise ein numerisches $c_1$. In unserem Beispiel sieht dann der Fit des Modells wie folgt aus.
 
@@ -166,7 +266,7 @@ ggplot(ancova_tbl, aes(weight, jump_length, color = animal)) +
 
 Der @fig-stat-ancova-01 können wir jetzt die positive Steigung entnehmen sowie die Reihenfolge der Tierarten nach Sprungweiten. Die ANCOVA sollte immer visualisiert werden, da sich hier die Stärke der Methode mit der Visualiserung verbindet.
 
-## Zweifaktorielle ANCOVA in R
+## Zweifaktorielle ANCOVA
 
 Die zweifaktorielle ANCOVA erweitert die einfaktorielle ANCOVA um einen weiteren Faktor. Das ist manchmal etwas verwirrend, da wir auf einmal drei oder mehr Terme in einem Modell haben. Klassischerweise haben wir nun zwei Faktoren $f_1$ und $f_2$ in dem Modell. Weiterhin haben wir nur eine Kovariate $c_1$. Damit sehe das Modell wie folgt aus.
 
@@ -213,28 +313,5 @@ Nach einer berechneten ANCOVA können wir zwei Fälle vorliegen haben. Wenn du i
 
 1)  Wir habe eine nicht signifikante ANCOVA berechnet. Wir können die Nullhypothese $H_0$ nicht ablehnen und die Mittelwerte über den Faktor sind vermutlich alle gleich. Wir enden hier mit unserer statistischen Analyse.
 2)  Wir haben eine signifikante ANCOVA berechnet. Wir können die Nullhypothese $H_0$ ablehnen und mindestens ein Gruppenvergleich über mindestens einen Faktor ist vermutlich unterschiedlich. Wir können dann im @sec-posthoc eine Posthoc Analyse rechnen.
-
-::: callout-tip
-## Anwendungsbeispiel: Dummy für später...
-
-Aktuell habe ich noch kein Beispiel aus meiner Beratung für eine ANCOVA. Sollte mir eine üben den Weg laufen, dann kommt hier die Anwendung einmal rein. Wir brauchen ja im Prinzip zwei Faktoren und dann noch eine kontinuierlich gemessenen Wert pro Parzelle, Tier oder Pflanze. So einen Datensatz haben wir eher selten Vorliegen. In der @tbl-ancova-app sieht du einmal eine beispielhafte Datentabelle. Wir haben ein normalverteiltes Outcome $Frischmasse$ und dann die beiden Behandlungsfaktoren *Dünger* und *Sorte*. Die Kovariate als kontinuierliche Variable ist das *Pflanzenalter*. So eine Datenstruktur tritt in den Agrarwissenschaften eher selten auf.
-
-| Frischmasse | Dünger ($f_1$) | Sorte ($f_2$) | Pflanzenalter ($c_1$) |
-|:-----------:|:--------------:|:-------------:|:---------------------:|
-|    34.3     |       1        |       1       |          23           |
-|    35.2     |       1        |       2       |          21           |
-|    37.2     |       1        |       3       |          19           |
-|     ...     |      ...       |      ...      |          ...          |
-|    21.0     |       3        |       1       |          24           |
-|    19.1     |       3        |       2       |          20           |
-
-: Beispielhafter Datensatz für eine ANCOVA mit zwei Faktoren und einer Kovariate. {#tbl-ancova-app}
-
-Das Modell für die ANCOVA wäre dann wie folgt.
-
-$$
-Frischmasse \sim Dünger + Sorte + Dünger:Sorte + Pflanzenalter
-$$
-:::
 
 ## Referenzen {.unnumbered}
