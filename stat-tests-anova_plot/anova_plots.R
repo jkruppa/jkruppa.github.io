@@ -241,15 +241,15 @@ get_ex_lst_intro_plot <- function(ex_lst){
     geom_hline(yintercept = ex_lst$grand_mean, color = "gray75", linewidth = 1) +
     geom_point(color = "gray50", size = 2) +
     geom_segment(x = 1, y = ex_lst$stat$mean[1], xend = 4, yend = ex_lst$stat$mean[1], 
-                 color = "#D55E00", linewidth = 1.5) +
+                 color = "#D55E00", linewidth = 0.5) +
     annotate("text", x = 4.5, y = ex_lst$stat$mean[1], label = expression(bar(y)[A.1]), 
              size = 5, color = "#D55E00", hjust = "left") +
     geom_segment(x = 8, y = ex_lst$stat$mean[2], xend = 10, yend = ex_lst$stat$mean[2],
-                 color = "#0072B2", linewidth = 1.5) +
+                 color = "#0072B2", linewidth = 0.5) +
     annotate("text", x = 10.5, y = ex_lst$stat$mean[2], label = expression(bar(y)[A.2]), 
              size = 5, color = "#0072B2", hjust = "left") +
     geom_segment(x = 14, y = ex_lst$stat$mean[3], xend = 18, yend = ex_lst$stat$mean[3],
-                 color = "#009E73", linewidth = 1.5) +
+                 color = "#009E73", linewidth = 0.5) +
     annotate("text", x = 18.5, y = ex_lst$stat$mean[3], label = expression(bar(y)[A.3]), 
              size = 5, color = "#009E73", hjust = "left") +
     scale_x_continuous(breaks = c(2.5, 9, 16), labels = c("A.1", "A.2", "A.3"),
@@ -830,6 +830,156 @@ p_f2_contr_sum_stat_inter <- f2_contr_sum_stat_inter_tbl |>
        subtitle = "Starke Interaktion")
 
 ## ---------------------------------------------------------------------------
+
+
+get_ex_lst_intro_alt_sse_plot <- function(ex_lst){
+  p <- ex_lst$plot |> 
+    ggplot() +
+    aes(pos, rsp) +
+    theme_minimal() +
+    geom_hline(yintercept = ex_lst$grand_mean, color = "gray75", linewidth = 1) +
+    geom_point(color = "gray50", size = 2) +
+    geom_segment(x = ex_lst$plot$pos, 
+                 y = rep(c(ex_lst$stat$mean[1], 
+                           ex_lst$stat$mean[2], 
+                           ex_lst$stat$mean[3]), c(4, 3, 5)), 
+                 xend = ex_lst$plot$pos, 
+                 yend = ex_lst$plot$rsp, 
+                 color = rep(c("#D55E00", "#0072B2", "#009E73"), c(4, 3, 5)), 
+                 linewidth = 1) +  
+    geom_segment(x = 1, y = ex_lst$stat$mean[1], xend = 4, yend = ex_lst$stat$mean[1], 
+                 color = "black", linewidth = 0.5) +
+    annotate("text", x = 4.5, y = ex_lst$stat$mean[1], label = expression(bar(y)[A.1]), 
+             size = 5, color = "black", hjust = "left") +
+    geom_segment(x = 8, y = ex_lst$stat$mean[2], xend = 10, yend = ex_lst$stat$mean[2],
+                 color = "black", linewidth = 0.5) +
+    annotate("text", x = 10.5, y = ex_lst$stat$mean[2], label = expression(bar(y)[A.2]), 
+             size = 5, color = "black", hjust = "left") +
+    geom_segment(x = 14, y = ex_lst$stat$mean[3], xend = 18, yend = ex_lst$stat$mean[3],
+                 color = "black", linewidth = 0.5) +
+    annotate("text", x = 18.5, y = ex_lst$stat$mean[3], label = expression(bar(y)[A.3]), 
+             size = 5, color = "black", hjust = "left") +
+    scale_x_continuous(breaks = c(2.5, 9, 16), labels = c("A.1", "A.2", "A.3"),
+                       limits = c(NA, 22.5))  +
+    annotate("rect", xmin = 12.25, xmax = 22.25, ymin = -0.5, ymax = 4.6,
+             alpha = .2,fill = "gray") +
+    geom_segment(x = c(seq(14.5, 15.5, length.out = 4)+1,
+                       seq(16.5, 17.2, length.out = 3)+1.5,
+                       seq(18.2, 19.5, length.out = 5)+2),  
+                 y = rep(c(ex_lst$stat$mean[1] - 2.2, 
+                           ex_lst$stat$mean[2] + 1.2, 
+                           ex_lst$stat$mean[3] - 6.5), c(4, 3, 5)), 
+                 xend = c(seq(14.5, 15.5, length.out = 4)+1,
+                          seq(16.5, 17.2, length.out = 3)+1.5,
+                          seq(18.2, 19.5, length.out = 5)+2), 
+                 yend = ex_lst$plot$rsp - rep(c(2.2, -1.2, 6.5), c(4, 3, 5)), 
+                 color = rep(c("#D55E00", "#0072B2", "#009E73"), c(4, 3, 5)), 
+                 linewidth = 1) +
+    annotate("text", x = 12.4, y = 2, hjust = "left", size = 5,
+             label = expression(SS[Error]~"=")) +
+    geom_curve(x = 15.4, y = 1.2, xend = 15.4, yend = 3.1,
+               curvature = -0.2, color = "black", alpha = 0.3) +
+    geom_curve(x = 16.6, y = 1.2, xend = 16.6, yend = 3.1,
+               curvature = 0.2, color = "black", alpha = 0.3) +
+    geom_curve(x = 17.8, y = 1.4, xend = 17.8, yend = 2.9,
+               curvature = -0.2, color = "black", alpha = 0.3) +
+    geom_curve(x = 18.9, y = 1.4, xend = 18.9, yend = 2.8,
+               curvature = 0.2, color = "black", alpha = 0.3) +
+    geom_curve(x = 20, y = 0.2, xend = 20, yend = 3.8,
+               curvature = -0.1, color = "black", alpha = 0.3) +
+    geom_curve(x = 21.7, y = 0.2, xend = 21.7, yend = 3.8,
+               curvature = 0.1, color = "black", alpha = 0.3) +
+    scale_y_continuous(breaks = ex_lst$grand_mean, labels = expression(beta[0]),
+                       limits = c(-0.5, 10)) +  
+    annotate("text", x = c(17.05, 19.3), y = 2, hjust = "left", size = 5,
+             label = expression("+")) +
+    annotate("text", x = c(16.7, 18.9, 21.7)+0.1, y = c(3.1, 2.8, 3.8)+0.1, 
+             hjust = "left", size = 3.5, label = expression(2)) +
+    theme(axis.text = element_text(size = 14),
+          axis.text.y = element_text(size = 16),
+          plot.title = element_text(size = 17),
+          plot.subtitle = element_text(size = 12, face = "italic")) + 
+    labs(x = "", y = "") 
+  return(p)
+} 
+
+## ---------------------------------------------------------------------------
+get_ex_lst_intro_alt_ssa_plot <- function(ex_lst){
+  p <- ex_lst$plot |> 
+    ggplot() +
+    aes(pos, rsp) +
+    theme_minimal() +
+    geom_hline(yintercept = ex_lst$grand_mean, color = "gray75", linewidth = 1) +
+    geom_point(color = "gray50", size = 2) +
+    geom_segment(x = c(seq(1.5, 3.5, length.out = 4),
+                       seq(8.5, 9.5, length.out = 3),
+                       seq(14.5, 17.5, length.out = 5)), 
+                 y = rep(c(ex_lst$stat$mean[1], 
+                           ex_lst$stat$mean[2], 
+                           ex_lst$stat$mean[3]), c(4, 3, 5)), 
+                 xend = c(seq(1.5, 3.5, length.out = 4),
+                          seq(8.5, 9.5, length.out = 3),
+                          seq(14.5, 17.5, length.out = 5)), 
+                 yend = rep(ex_lst$grand_mean, 12), 
+                 color = rep(c("#D55E00", "#0072B2", "#009E73"), c(4, 3, 5)), 
+                 linewidth = 1) +  
+    geom_segment(x = 1, y = ex_lst$stat$mean[1], xend = 4, yend = ex_lst$stat$mean[1], 
+                 color = "black", linewidth = 0.5) +
+    annotate("text", x = 4.5, y = ex_lst$stat$mean[1], label = expression(bar(y)[A.1]), 
+             size = 5, color = "black", hjust = "left") +
+    geom_segment(x = 8, y = ex_lst$stat$mean[2], xend = 10, yend = ex_lst$stat$mean[2],
+                 color = "black", linewidth = 0.5) +
+    annotate("text", x = 10.5, y = ex_lst$stat$mean[2], label = expression(bar(y)[A.2]), 
+             size = 5, color = "black", hjust = "left") +
+    geom_segment(x = 14, y = ex_lst$stat$mean[3], xend = 18, yend = ex_lst$stat$mean[3],
+                 color = "black", linewidth = 0.5) +
+    annotate("text", x = 18.5, y = ex_lst$stat$mean[3], label = expression(bar(y)[A.3]), 
+             size = 5, color = "black", hjust = "left") +
+    scale_x_continuous(breaks = c(2.5, 9, 16), labels = c("A.1", "A.2", "A.3"),
+                       limits = c(NA, 22.5))  +
+    annotate("rect", xmin = 12.75, xmax = 22.25, ymin = -0.5, ymax = 4.6,
+             alpha = .2,fill = "gray") +
+    geom_segment(x = c(seq(14.5, 15.5, length.out = 4)+1,
+                       seq(16.5, 17.2, length.out = 3)+1.5,
+                       seq(18.2, 19.5, length.out = 5)+2), 
+                 y = rep(c(ex_lst$stat$mean[1] - 2.6, 
+                           ex_lst$stat$mean[2] - 1, 
+                           ex_lst$stat$mean[3] - 4.5), c(4, 3, 5)), 
+                 xend = c(seq(14.5, 15.5, length.out = 4)+1,
+                          seq(16.5, 17.2, length.out = 3)+1.5,
+                          seq(18.2, 19.5, length.out = 5)+2), 
+                 yend = rep(ex_lst$grand_mean, 12) - rep(c(2.6, 1, 4.5), c(4, 3, 5)), 
+                 color = rep(c("#D55E00", "#0072B2", "#009E73"), c(4, 3, 5)), 
+                 linewidth = 1) +
+    annotate("text", x = 13, y = 2, hjust = "left", size = 5,
+             label = expression(SS[A]~"=")) +
+    geom_curve(x = 15.4, y = 1.5, xend = 15.4, yend = 2.7,
+               curvature = -0.2, color = "black", alpha = 0.3) +
+    geom_curve(x = 16.6, y = 1.5, xend = 16.6, yend = 2.7,
+               curvature = 0.2, color = "black", alpha = 0.3) +
+    geom_curve(x = 17.8, y = -0.3, xend = 17.8, yend = 4.2,
+               curvature = -0.1, color = "black", alpha = 0.3) +
+    geom_curve(x = 18.9, y = -0.3, xend = 18.9, yend = 4.2,
+               curvature = 0.1, color = "black", alpha = 0.3) +
+    geom_curve(x = 20, y = 0.4, xend = 20, yend = 4.1,
+               curvature = -0.1, color = "black", alpha = 0.3) +
+    geom_curve(x = 21.7, y = 0.4, xend = 21.7, yend = 4.1,
+               curvature = 0.1, color = "black", alpha = 0.3) +
+    scale_y_continuous(breaks = ex_lst$grand_mean, labels = expression(beta[0]),
+                       limits = c(-0.5, 10)) +  
+    annotate("text", x = c(17.05, 19.3), y = 2, hjust = "left", size = 5,
+             label = expression("+")) +
+    annotate("text", x = c(16.7, 18.9, 21.7)+0.1, y = c(2.7, 4.2, 4.1)+0.1, 
+             hjust = "left", size = 3.5, label = expression(2)) +
+    theme(axis.text = element_text(size = 14),
+          axis.text.y = element_text(size = 16),
+          plot.title = element_text(size = 17),
+          plot.subtitle = element_text(size = 12, face = "italic")) + 
+    labs(x = "", y = "") 
+  return(p)
+} 
+## ---------------------------------------------------------------------------
+
 
 ## ---------------------------------------------------------------------------
 
