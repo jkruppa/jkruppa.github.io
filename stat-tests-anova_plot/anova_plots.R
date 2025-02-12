@@ -252,7 +252,7 @@ get_ex_lst_intro_plot <- function(ex_lst){
                  color = "#009E73", linewidth = 1.5) +
     annotate("text", x = 18.5, y = ex_lst$stat$mean[3], label = expression(bar(y)[A.3]), 
              size = 5, color = "#009E73", hjust = "left") +
-    scale_x_continuous(breaks = c(2, 9, 18), labels = c("A.1", "A.2", "A.3"),
+    scale_x_continuous(breaks = c(2.5, 9, 16), labels = c("A.1", "A.2", "A.3"),
                        limits = c(NA, 20))  +
     scale_y_continuous(breaks = ex_lst$grand_mean, labels = expression(beta[0]),
                        limits = c(0, 10)) +  
