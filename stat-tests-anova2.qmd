@@ -599,12 +599,12 @@ p2_inter_venn + p1_inter_venn +
   theme(plot.tag = element_text(size = 16, face = "bold"))  
 ```
 
-[Anova – Type I/II/III SS explained](https://md.psych.bio.uni-goettingen.de/mv/unit/lm_cat/lm_cat_unbal_ss_explained.html) und [How to interpret type I, type II, and type III ANOVA and MANOVA?](https://stats.stackexchange.com/questions/20452/how-to-interpret-type-i-type-ii-and-type-iii-anova-and-manova)
+Das zentrale Problem bleibt also, wie will ich die Abweichungsquadrate berechnen? Will ich die gesamten Interaktionsabweichungsquadrate $SS_{A \times B}$ auf den Faktor A geben? Oder wie will ich die Verteilung darstellen. Hier gibt es jetzt bei der ANOVA drei verschiedene Typen. In dem Tutorium [Anova – Type I/II/III SS explained](https://md.psych.bio.uni-goettingen.de/mv/unit/lm_cat/lm_cat_unbal_ss_explained.html) findest du noch mehr Informationen und etwas Geschichte dazu. Ich fasse hier einmal die drei Typen zusammen und evrsuche mich mal an einer Empfehlung.
 
 ::: panel-tabset
 ## Type I
 
-Sequenzielle ANOVA.
+Die Type I ANOVA berechnet die Abweichungsquadrate in der sequenziellen Ordnung der Faktoren in dem Modell. Es werden also erst die Abweichungsquadrate für den Faktor A berechnet, dann für den Faktor B was noch von Faktor A an Abweichungsquadraten übrig ist. Am Ende wird dann die Interaktion betrachtet, wo wir dann den Anteil der Abweichungsquadrate finden, die nicht zu dem Faktor A oder Faktor B eindeutig zugeordnet werden konnten. Es macht also einen Unterschied wie du dein Modell baust. Insbesondere wenn du unterschiedliche Anzahlen an Beobachtungen in den Gruppen vorliegen hast.
 
 $$
 \begin{aligned}
@@ -614,9 +614,11 @@ $$
 \end{aligned}
 $$
 
+Die Funktionen `aov()` und `anova()` in R rechnen immer eine Type I ANOVA. Es gibt hier nichts umzustellen, du musst hier auf die Ordnung der Faktoren in deinem Modell achten. Der wichtigere Faktor nach deiner wissenschaftlichen Fragestellung muss immer als erstes ins Modell.
+
 ## Type II
 
-Nur sinnvoll, wenn keine Interaktion vorliegt.
+Die Type II ANOVA berechnet die Abweichungsquadrate eines Faktors unter der Berücksichtigung des anderen Faktors. Die Type II ANOVA ist damit der Type I ANOVA überlegen, was das finden eines signifkanten Unterschieds ausmacht. Darüber hinaus ist es auch egal welche Reihenfolge wir für unser Modell nehmen. Wenn deine beiden Faktoren im Modell also gleichwertig sind, dann ist die Type II ANOVA auf jeden Fall besser geeignet. Wichtig ist nur, dass die Type II ANOVA nur sinnvoll ist, wenn keine Interaktion zwischen den Faktoren vorliegt.
 
 $$
 \begin{aligned}
@@ -625,15 +627,39 @@ $$
 \end{aligned}
 $$
 
+Die Type II ANOVA kannst du im R Paket `{car}` mit der Funktion `Anova(..., type = "II")` anwenden. Hier empfiehlt es sich erst eine Type I Anova in `aov()` zu rechnen um zu schauen, ob eine signifikante Interaktion vorliegt. Wenn keine signifikante Interaktion zwischen den Faktoren in der Type I ANOVA vorliegt, dann ist die Type II ANOVA die bessere Wahl.
+
 ## Type III
+
+Die Type III ANOVA verwenden wir, wenn wir eine Interaktion in unseren Daten vorliegen haben. Die Type III ANOVA berücksichtigt die jeweilige Interaktion und die Abweichungsquadrate des anderen Faktors B bei der Berechnung der Abweichungsquadrate des Faktors A. Insbesondere bei der Anwesenheit von einer signifkanten Interaktion liefert die Type III ANOVA passende Ergebnisse. Leider lassen sich dadurch die Haupteffekte der Faktoren A und B nicht ohne die Interaktion interpretieren. Da ist dann wieder die Frage im Raum, was will ich eigentlich in der ANOVA nachweisen und wie passt die ANOVA zu meiner wissenschaftlichen Fragestellung?
 
 $$
 \begin{aligned}
-&SS(A \mid B,\, A \times B) \; \mbox{für den Faktor A gegeben der Interaktion und Faktor B} \\
-&SS(B \mid A,\, A \times B) \; \mbox{für den Faktor B gegeben der Interaktion und Faktor A}\\
+&SS(A \mid B,\, A \times B) \; \mbox{für den Faktor A gegeben Interaktion und Faktor B} \\
+&SS(B \mid A,\, A \times B) \; \mbox{für den Faktor B gegeben Interaktion und Faktor A}\\
 \end{aligned}
 $$
+
+Wir können die TYPE III Anova in dem R Paket `{car}` mit der Funktion `Anova(..., type = "III")` rechnen. Hier musst du aber aufpassen, wie du das Modell baust, welches du in die Funktion `Anova()` steckst. Dazu dann mehr gleich weiter unten zur Treamtent und Effect Kodierung. Als bessere Alternative bietet sich dann die Funktion `aov_car()` aus dem R Paket `{afex}` an. Heir wird das Modell passend zur Type III Anova kodiert.
 :::
+
+Jetzt haben wir da einiges an Zeug gelesen und fragen uns nun, was soll ich denn verwenden? Ich versuche jetzt mich aml an zwei etwas gewagten Empfehlungen für die Modellierung der ANOVA.
+
+Keine Interaktion zwischen den Faktoren A und B
+
+:   Wir verwenden die Type II ANOVA aus dem R Paket `{car}` mit der Funktion `Anova(..., type = "II")`. Hier haben wir die besten Chancen einen Unterschied zu finden und wir müssen nicht entscheiden, welcher Faktor uns wichtiger ist. Die Reihenfolge spielt keine Rolle im Modell.
+
+Interaktion zwischen den Faktoren A und B
+
+:   Wir verwenden die Type III Anova aus dem R Paket `{afex}` mit der Funktion `aov_car()`. Dann wird die Interaktion in den Haupteffekten der Faktoren A und B berücksichtigt. Wie wir dann weitermachen ist dann noch eine andere Sache, aber `{emmeans}` kann auch mit Interaktionen umgehen.
+
+::: {layout="[15,85]" layout-valign="top"}
+![](images/angel_01_small.png){fig-align="center" width="100%"}
+
+> Welcher ANOVA Typ nun konkret in deiner Modellierung der richtige Typ ist kann ich dir leider Allgemein nicht sagen. Fühl dich aber nicht verunsichert. Auch eine `aov()` liefert gut Ergebnisse im Zusammenspiel mit `{emmeans}` im Post-hoc Test. Das **Aua** hält der statistische Engel aus.
+:::
+
+Jetzt haben wir uns mit den Typen der ANOVA beschäftigt. Wie erkenne ich denn nun das wir eine vermutliche Interaktion in den Daten vorliegen haben? Hierfür kann ich dann die visuelle Überprüfung empfehlen. Eine explorative Datenanalyse ist immer der erste Schritt und auch eine vermeidliche Interaktion lässts ich gut erkennen. Dann kannst du auch schauen, ob deine ANOVA Modellierung zu den visualisierten Daten passt.
 
 #### Visuelle Überprüfung {.unnumbered .unlisted}
 
