@@ -432,7 +432,7 @@ p1_inter_box_theo <- tibble(rsp = c(rnorm(17, 2, 1), rnorm(17, 5, 1), rnorm(17, 
         legend.position = "top") + 
   labs(x = "Faktor A", y = "", fill = "Faktor B",
        title = "Keine Interaktion",
-       subtitle = "Linien laufen parallel",
+       subtitle = "Boxen folgen gleichem Muster",
        caption = expression(p-Wert~f[A]%*%f[B]%~~%0.80)) +
   scale_fill_okabeito() +
   ylim(0, 10)
@@ -454,7 +454,7 @@ p2_inter_box_theo <- tibble(rsp = c(rnorm(17, 4, 1), rnorm(17, 5, 1), rnorm(17, 
         legend.position = "top") + 
   labs(x = "Faktor A", y = "", fill = "Faktor B",
        title = "Keine Interaktion",
-       subtitle = "Linien laufen parallel",
+       subtitle = "Boxen sind unregelmäßig",
        caption = expression(p-Wert~f[A]%*%f[B]%~~%0.05)) +
   scale_fill_okabeito() +
   ylim(0, 10)
@@ -476,7 +476,7 @@ p3_inter_box_theo <- tibble(rsp = c(rnorm(17, 4, 1), rnorm(17, 5, 1), rnorm(17, 
         legend.position = "top") + 
   labs(x = "Faktor A", y = "", fill = "Faktor B",
        title = "Keine Interaktion",
-       subtitle = "Linien laufen parallel",
+       subtitle = "Boxen sind stark unregelmäßig",
        caption = expression(p-Wert~f[A]%*%f[B]%~~%0.01)) +
   scale_fill_okabeito() +
   ylim(0, 10)
