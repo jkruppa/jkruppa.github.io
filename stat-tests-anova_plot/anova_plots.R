@@ -224,7 +224,8 @@ get_ex_lst_plot <- function(ex_lst){
     theme(axis.text = element_text(size = 14),
           axis.text.y = element_text(size = 16),
           plot.title = element_text(size = 17),
-          plot.subtitle = element_text(size = 12, face = "italic")) + 
+          plot.subtitle = element_text(size = 12, face = "italic"),
+          panel.grid.minor.x = element_blank()) + 
     labs(x = "", y = "") 
   return(p)
 }
@@ -259,7 +260,8 @@ get_ex_lst_intro_plot <- function(ex_lst){
     theme(axis.text = element_text(size = 14),
           axis.text.y = element_text(size = 16),
           plot.title = element_text(size = 17),
-          plot.subtitle = element_text(size = 12, face = "italic")) + 
+          plot.subtitle = element_text(size = 12, face = "italic"),
+          panel.grid.minor.x = element_blank()) + 
     labs(x = "", y = "") 
   return(p)
 }
@@ -281,7 +283,10 @@ p1_inter_line_theo <- tibble(mean = c(2, 5, 1, 5, 8, 4),
         axis.text.x = element_text(size = 14),        
         plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
-        legend.position = "top") + 
+        legend.position = "top",
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank()) + 
   labs(x = "Faktor A", y = "", color = "Faktor B",
        title = "Keine Interaktion",
        subtitle = "Linien laufen parallel",
@@ -303,7 +308,10 @@ p2_inter_line_theo <- tibble(mean = c(4, 5, 1, 5, 9, 1.5),
         axis.text.x = element_text(size = 14),        
         plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
-        legend.position = "top") + 
+        legend.position = "top",
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank()) + 
   labs(x = "Faktor A", y = "", color = "Faktor B",
        title = "Schwache Interaktion",
        subtitle = "Linien laufen aufeinander zu",
@@ -325,7 +333,10 @@ p3_inter_line_theo <- tibble(mean = c(4, 5, 4, 5, 9, 1.5),
         axis.text.x = element_text(size = 14),        
         plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
-        legend.position = "top") + 
+        legend.position = "top",
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank()) + 
   labs(x = "Faktor A", y = "", color = "Faktor B",
        title = "Starke Interaktion",
        subtitle = "Linien kreuzen sich",
@@ -353,7 +364,10 @@ p1_inter_bar_theo <- tibble(mean = c(2, 5, 1, 5, 8, 4),
         axis.text.x = element_text(size = 14),        
         plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
-        legend.position = "top") + 
+        legend.position = "top",
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank()) + 
   labs(x = "Faktor A", y = "", fill = "Faktor B",
        title = "Starke Interaktion",
        subtitle = "Säulen folgen gleichem Muster",
@@ -379,7 +393,10 @@ p2_inter_bar_theo <- tibble(mean = c(4, 5, 1, 5, 9, 1.5),
         axis.text.x = element_text(size = 14),        
         plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
-        legend.position = "top") + 
+        legend.position = "top",
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank()) + 
   labs(x = "Faktor A", y = "", fill = "Faktor B",
        title = "Starke Interaktion",
        subtitle = "Säulen sind unregelmäßig",
@@ -406,7 +423,10 @@ p3_inter_bar_theo <- tibble(mean = c(4, 5, 4, 5, 9, 1.5),
         axis.text.x = element_text(size = 14),        
         plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
-        legend.position = "top") + 
+        legend.position = "top",
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank()) + 
   labs(x = "Faktor A", y = "", fill = "Faktor B",
        title = "Starke Interaktion",
        subtitle = "Säulen sind stark unregelmäßig",
@@ -429,7 +449,10 @@ p1_inter_box_theo <- tibble(rsp = c(rnorm(17, 2, 1), rnorm(17, 5, 1), rnorm(17, 
         axis.text.x = element_text(size = 14),        
         plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
-        legend.position = "top") + 
+        legend.position = "top",
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank()) + 
   labs(x = "Faktor A", y = "", fill = "Faktor B",
        title = "Keine Interaktion",
        subtitle = "Boxen folgen gleichem Muster",
@@ -451,7 +474,10 @@ p2_inter_box_theo <- tibble(rsp = c(rnorm(17, 4, 1), rnorm(17, 5, 1), rnorm(17, 
         axis.text.x = element_text(size = 14),        
         plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
-        legend.position = "top") + 
+        legend.position = "top",
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank()) + 
   labs(x = "Faktor A", y = "", fill = "Faktor B",
        title = "Keine Interaktion",
        subtitle = "Boxen sind unregelmäßig",
@@ -473,7 +499,10 @@ p3_inter_box_theo <- tibble(rsp = c(rnorm(17, 4, 1), rnorm(17, 5, 1), rnorm(17, 
         axis.text.x = element_text(size = 14),        
         plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
-        legend.position = "top") + 
+        legend.position = "top",
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank()) + 
   labs(x = "Faktor A", y = "", fill = "Faktor B",
        title = "Keine Interaktion",
        subtitle = "Boxen sind stark unregelmäßig",
@@ -615,7 +644,9 @@ p1_f1_contr_sum <- f1_contr_sum_stat_tbl |>
         axis.text.x = element_text(size = 14),        
         plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
-        legend.position = "top") + 
+        legend.position = "top",
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank()) + 
   labs(x = "Faktor A", y = "", fill = "Faktor B",
        title = "Effect coding",
        subtitle = "Intercept globaler Mittelwert")
@@ -651,7 +682,9 @@ p2_f1_contr_sum <- f1_contr_sum_stat_tbl |>
         axis.text.x = element_text(size = 14),        
         plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
-        legend.position = "top") + 
+        legend.position = "top",
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank()) + 
   labs(x = "Faktor A", y = "", fill = "Faktor B",
        title = "Treatment coding",
        subtitle = "Intercept Mittelwert Gruppe A.1")
@@ -742,7 +775,9 @@ p_f2_contr_sum_nointer <- f2_contr_sum_nointer_stat_tbl |>
         axis.text.x = element_text(size = 14),        
         plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
-        legend.position = "top") + 
+        legend.position = "top",
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank()) + 
   labs(x = "Faktor A", y = "", color = "Faktor B",
        title = "Effect coding",
        subtitle = "Keine Interaktion")
@@ -824,7 +859,9 @@ p_f2_contr_sum_stat_inter <- f2_contr_sum_stat_inter_tbl |>
         axis.text.x = element_text(size = 14),        
         plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
-        legend.position = "top") + 
+        legend.position = "top",
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank()) + 
   labs(x = "Faktor A", y = "", color = "Faktor B",
        title = "Effect coding",
        subtitle = "Starke Interaktion")
@@ -898,7 +935,8 @@ get_ex_lst_intro_alt_sse_plot <- function(ex_lst){
     theme(axis.text = element_text(size = 14),
           axis.text.y = element_text(size = 16),
           plot.title = element_text(size = 17),
-          plot.subtitle = element_text(size = 12, face = "italic")) + 
+          plot.subtitle = element_text(size = 12, face = "italic"),
+          panel.grid.minor.x = element_blank()) + 
     labs(x = "", y = "") 
   return(p)
 } 
@@ -974,7 +1012,8 @@ get_ex_lst_intro_alt_ssa_plot <- function(ex_lst){
     theme(axis.text = element_text(size = 14),
           axis.text.y = element_text(size = 16),
           plot.title = element_text(size = 17),
-          plot.subtitle = element_text(size = 12, face = "italic")) + 
+          plot.subtitle = element_text(size = 12, face = "italic"),
+          panel.grid.minor.x = element_blank()) + 
     labs(x = "", y = "") 
   return(p)
 } 
@@ -999,6 +1038,7 @@ p00 <- data_00_tbl |>
         plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
         plot.caption = element_text(size = 12),
+        panel.grid.major.y = element_blank(),
         legend.position = "top") + 
   labs(x = "Faktor A", y = "", fill = "Faktor B",
        title = "Kein Effekt A / Kein Effekt B",
@@ -1039,6 +1079,8 @@ p01 <- data_01_tbl |>
         plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
         plot.caption = element_text(size = 12),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
         legend.position = "top") + 
   labs(x = "Faktor A", y = "", fill = "Faktor B",
        title = "Kein Effekt A / Effekt B",
@@ -1086,6 +1128,8 @@ p10 <- data_10_tbl |>
         plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
         plot.caption = element_text(size = 12),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
         legend.position = "top") + 
   labs(x = "Faktor A", y = "", fill = "Faktor B",
        title = "Effekt A / Kein Effekt B",
@@ -1125,6 +1169,7 @@ p11 <- data_11_tbl |>
         plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
         plot.caption = element_text(size = 12),
+        panel.grid.major.y = element_blank(),
         legend.position = "top") + 
   labs(x = "Faktor A", y = "", fill = "Faktor B",
        title = "Effekt A / Effekt B",
@@ -1134,7 +1179,7 @@ p11 <- data_11_tbl |>
            f[B]%~~%0.03*";"~
            f[A]%*%f[B]%~~%0.81)) +
   scale_fill_okabeito() +
-  scale_y_continuous(breaks = c(mean(data_10_tbl$rsp)),
+  scale_y_continuous(breaks = c(mean(data_11_tbl$rsp)),
                      labels = c(expression(beta[0])),
                      limits = c(0, 10)) +
   geom_segment(aes(x = 0.9, y = 6.5, xend = 1.2, yend = 4.5),
