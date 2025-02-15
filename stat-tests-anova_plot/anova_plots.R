@@ -980,6 +980,180 @@ get_ex_lst_intro_alt_ssa_plot <- function(ex_lst){
 } 
 ## ---------------------------------------------------------------------------
 
+data_00_tbl <- tibble(rsp = c(rnorm(17, 5, 1), rnorm(17, 5, 1), rnorm(17, 5, 1),
+                              rnorm(17, 5, 1), rnorm(17, 5, 1), rnorm(17, 5, 1)),
+                      fA = rep(c("A.1", "A.2", "A.3"), each = 17, times = 2),
+                      fB = rep(c("B.1", "B.2"), each = 3*17*2/2)) 
+
+p00 <- data_00_tbl |> 
+  ggplot(aes(fA, rsp, fill = fB)) +
+  theme_minimal() +
+  geom_boxplot(outliers = FALSE) +
+  geom_hline(yintercept = mean(data_00_tbl$rsp), 
+             color = "#CC79A7", size = 1) +
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_text(size = 11),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 14),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        legend.position = "top") + 
+  labs(x = "Faktor A", y = "", fill = "Faktor B",
+       title = "Kein Effekt A / Kein Effekt B",
+       subtitle = "Alle Boxen liegen auf dem globalen Mittel",
+       caption = expression(
+         p-Wert~f[A]%~~%0.72*";"~
+           f[B]%~~%0.43*";"~
+           f[A]%*%f[B]%~~%0.81)) +
+  scale_fill_okabeito() +
+  scale_y_continuous(breaks = mean(data_00_tbl$rsp),
+                     labels = expression(beta[0]),
+                     limits = c(0, 10)) 
+
+data_01_tbl <- tibble(rsp = c(rnorm(17, 5, 1), rnorm(17, 5, 1), rnorm(17, 5, 1),
+                              rnorm(17, 7, 1), rnorm(17, 7, 1), rnorm(17, 7, 1)),
+                      fA = rep(c("A.1", "A.2", "A.3"), each = 17, times = 2),
+                      fB = rep(c("B.1", "B.2"), each = 3*17*2/2)) 
+
+data_01_sum_tbl <- data_01_tbl |> 
+  group_by(fB) |> 
+  summarise(fB_mean = mean(rsp))
+
+p01 <- data_01_tbl |> 
+  ggplot(aes(fA, rsp, fill = fB)) +
+  theme_minimal() +
+  geom_boxplot(outliers = FALSE) +
+  geom_hline(yintercept = mean(data_01_tbl$rsp), 
+             color = "#CC79A7", size = 1) +
+  geom_hline(yintercept = mean(data_01_sum_tbl$fB_mean[1]), 
+             color = "#E69F00", linetype = 11) +
+  geom_hline(yintercept = mean(data_01_sum_tbl$fB_mean[2]), 
+             color = "#56B4E9", linetype = 11) +
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_text(size = 11),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 14),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        legend.position = "top") + 
+  labs(x = "Faktor A", y = "", fill = "Faktor B",
+       title = "Kein Effekt A / Effekt B",
+       subtitle = "Boxen im Faktor B verschoben",
+       caption = expression(
+         p-Wert~f[A]%~~%0.23*";"~
+           f[B]%~~%0.03*";"~
+           f[A]%*%f[B]%~~%0.81)) +
+  scale_fill_okabeito() +
+  scale_y_continuous(breaks = c(mean(data_01_sum_tbl$fB_mean[1]),
+                                mean(data_01_tbl$rsp),
+                                mean(data_01_sum_tbl$fB_mean[2])),
+                     labels = c(expression(bar(y)[B.1]),
+                                expression(beta[0]),
+                                expression(bar(y)[B.2])),
+                     limits = c(0, 10)) 
+
+
+data_10_tbl <- tibble(rsp = c(rnorm(17, 4, 1), rnorm(17, 7.5, 1), rnorm(17, 2.5, 1),
+                              rnorm(17, 4, 1), rnorm(17, 7.5, 1), rnorm(17, 2.5, 1)),
+                      fA = rep(c("A.1", "A.2", "A.3"), each = 17, times = 2),
+                      fB = rep(c("B.1", "B.2"), each = 3*17*2/2)) 
+
+data_10_sum_tbl <- data_10_tbl |> 
+  group_by(fA) |> 
+  summarise(fA_mean = mean(rsp))
+
+p10 <- data_10_tbl |> 
+  ggplot(aes(fA, rsp, fill = fB)) +
+  theme_minimal() +
+  geom_boxplot(outliers = FALSE) +
+  geom_hline(yintercept = mean(data_10_tbl$rsp), 
+             color = "#CC79A7", size = 1) +
+  geom_hline(yintercept = mean(data_10_sum_tbl$fA_mean[1]), 
+             color = "black", linetype = 11) +
+  geom_hline(yintercept = mean(data_10_sum_tbl$fA_mean[2]), 
+             color = "black", linetype = 11) +
+  geom_hline(yintercept = mean(data_10_sum_tbl$fA_mean[3]), 
+             color = "black", linetype = 11) +
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_text(size = 11),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 14),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        legend.position = "top") + 
+  labs(x = "Faktor A", y = "", fill = "Faktor B",
+       title = "Effekt A / Kein Effekt B",
+       subtitle = "Boxen im Faktor A verschoben",
+       caption = expression(
+         p-Wert~f[A]%~~%0.01*";"~
+           f[B]%~~%0.44*";"~
+           f[A]%*%f[B]%~~%0.82)) +
+  scale_fill_okabeito() +
+  scale_y_continuous(breaks = c(mean(data_10_sum_tbl$fA_mean[1]),
+                                mean(data_10_sum_tbl$fA_mean[2]),
+                                mean(data_10_tbl$rsp),
+                                mean(data_10_sum_tbl$fA_mean[3])),
+                     labels = c(expression(bar(y)[A.1]),
+                                expression(bar(y)[A.2]),
+                                expression(beta[0]),
+                                expression(bar(y)[A.3])),
+                     limits = c(0, 10)) 
+
+
+data_11_tbl <- tibble(rsp = c(rnorm(17, 5, 1), rnorm(17, 8.5, 1), rnorm(17, 3.5, 1),
+                              rnorm(17, 3, 1), rnorm(17, 6.5, 1), rnorm(17, 1.5, 1)),
+                      fA = rep(c("A.1", "A.2", "A.3"), each = 17, times = 2),
+                      fB = rep(c("B.1", "B.2"), each = 3*17*2/2)) 
+
+p11 <- data_11_tbl |> 
+  ggplot(aes(fA, rsp, fill = fB)) +
+  theme_minimal() +
+  geom_boxplot(outliers = FALSE) +
+  geom_hline(yintercept = mean(data_11_tbl$rsp), 
+             color = "#CC79A7", size = 1) +
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_text(size = 11),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 14),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        legend.position = "top") + 
+  labs(x = "Faktor A", y = "", fill = "Faktor B",
+       title = "Effekt A / Effekt B",
+       subtitle = "Boxen im Faktor A und Faktor B gleich verschoben",
+       caption = expression(
+         p-Wert~f[A]%~~%0.01*";"~
+           f[B]%~~%0.03*";"~
+           f[A]%*%f[B]%~~%0.81)) +
+  scale_fill_okabeito() +
+  scale_y_continuous(breaks = c(mean(data_10_tbl$rsp)),
+                     labels = c(expression(beta[0])),
+                     limits = c(0, 10)) +
+  geom_segment(aes(x = 0.9, y = 6.5, xend = 1.2, yend = 4.5),
+               lineend = "round", linejoin = "bevel", size = 1,
+               arrow = arrow(length = unit(0.03, "npc")), color = "#009E73") +
+  geom_segment(aes(x = 1.9, y = 10, xend = 2.2, yend = 8),
+               lineend = "round", linejoin = "bevel", size = 1,
+               arrow = arrow(length = unit(0.03, "npc")), color = "#009E73") +
+  geom_segment(aes(x = 2.9, y = 5, xend = 3.2, yend = 3),
+               lineend = "round", linejoin = "bevel", size = 1,
+               arrow = arrow(length = unit(0.03, "npc")), color = "#009E73") 
+
+## ---------------------------------------------------------------------------
+
+## ---------------------------------------------------------------------------
+
+## ---------------------------------------------------------------------------
+
+## ---------------------------------------------------------------------------
 
 ## ---------------------------------------------------------------------------
 
