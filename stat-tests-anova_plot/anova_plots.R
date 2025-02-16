@@ -220,7 +220,7 @@ get_ex_lst_plot <- function(ex_lst){
     scale_x_continuous(breaks = c(4, 14, 24), labels = c("A.1", "A.2", "A.3"),
                        limits = c(NA, 29))  +
     scale_y_continuous(breaks = ex_lst$grand_mean, labels = expression(beta[0]),
-                       limits = c(-4, 14)) +  
+                       limits = c(-4, 15)) +  
     theme(axis.text = element_text(size = 14),
           axis.text.y = element_text(size = 16),
           plot.title = element_text(size = 17),
