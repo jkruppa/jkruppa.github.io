@@ -1394,7 +1394,7 @@ Eine weitere Möglichkeit ist es deine Daten zu transformieren, wie ich es oben 
 
 Was für eine Menge an Text und Abbildungen bevor wir hier dann endlich mit der einfaktoriellen ANOVA anfangen. Wenn du dir nichts zu dem allgemeinen Hintergrund oder theoretischen Hintergrund durchgelesen hast, ist das überhaupt kein Problem. Wir nutzen jetzt hier die ANOVA auf unserem einfaktoriellen Datensatz zu der Sprungweite in \[cm\] von verschiedenen Floharten. Wir wollen wissen, ob sich die Sprungweite signifikant für die Hunde-, Katzen- oder Fuchsflöhe unterscheidet.
 
-Was sagt mir eine signifikante einfaktorille ANOVA?
+Was sagt mir eine signifikante einfaktorielle ANOVA?
 
 :   Wenn wir ein signifikantes Ergebnis in einer einfaktoriellen ANOVA vorliegen haben, dann wissen wir nur, dass die Floharten alle nicht gleich weit springen. Welche Floharten sich konkret dann unterscheiden müssen wir dann noch in einem Post-hoc Test herausfinden.
 
@@ -1403,10 +1403,14 @@ Wir haben jetzt die Wahl zwischen vier Implementierungen in R und einer holprige
 ::: panel-tabset
 ## `{base}`
 
+Beginnen wir mit der Standardfunktion `aov()` für dei einfaktorielle ANOVA. Wir nehmen einfach ein Modell und spezifizieren noch die Datenquelle. Wichtig ist, dass die Reihenfolge der Faktoren in deinem Modell eine Rolle spielt. Ja, das ist bei einem Faktor egal, aber ich schreibe es hier schonmal. Dann nutze ich noch die Funktion `tidy()` aus dem R Paket `{broom}` für eine schönere Ausgabe. Dann habe ich alles zusammen.
+
 ```{r}
 aov(jump_length ~ animal, data = fac1_tbl) |> 
   tidy()
 ```
+
+Wir können die Ausgabe der Funktion `aov()` direkt weiter bei `{emmeans}` verwenden. Die etwas allgemeinere Form eine einfaktorielle ANOVA zu rechnen, ist erst das lineare Modell zu schätzen. Hier nutze ich einmal eine lineare Regression mit der Funktion `lm()`. Dann nutzen wir aber die Funktion `anova()` um die ANOVA zu rechnen.
 
 ```{r}
 lm(jump_length ~ animal, data = fac1_tbl) |> 
@@ -1414,9 +1418,15 @@ lm(jump_length ~ animal, data = fac1_tbl) |>
   tidy()
 ```
 
+Wir sind am Ende aber nur am p-Wert interessiert und auch der ist hier signifikant, da der p-Wert unter dem Signifikanzniveau $\alpha$ gleich 5% liegt. Wie du siehst sind die Ergebnisse numerisch gleich. Warum dann überhaupt zwei Funktionen? Mit `lm()` und `anova()` bist du etwas flexibler was das genutzte Modell angeht.
+
 ## `{car}`
 
+Jetzt könnte man meinen, warum noch eine weitere Implementierung der ANOVA, wenn wir schon die Funktion `aov()` haben? Die Funktion `aov()` rechnet grundsätzlich Type I ANOVAs. Das macht jetzt bei einer einfaktoriellen ANOVA nichts aus, aber wir können eben in `{car}` acuh Type II und Type III ANOVAs rechnen. Darüber hinaus erlaubt das Paket auch für Varianzheterogenität in der ANOVA zu adjustieren.
+
 #### Varianzhomogenität {.unnumbered .unlisted}
+
+In dem klassischen Aufruf der Funktion `Anova()` nutzen wir wieder ein Modell und dann gebe ich dir wieder die aufgeräumte Ausgabe mit `tidy()` wieder. Wenn du nichts extra angibst, dann rechnest du natürlich eine ANOVA unter der Annahme der Varianzhomogenität.
 
 ```{r}
 lm(jump_length ~ animal, data = fac1_tbl) |> 
@@ -1424,7 +1434,11 @@ lm(jump_length ~ animal, data = fac1_tbl) |>
   tidy()
 ```
 
+Wenn du die Zahlen mit der Funktion `aov()` vergleichst, siehst du das da die gleichen Werte rauskommen. Das sollte natürlich auch in einer einfaktoriellen ANOVA mit den gleichen Annahmen so sein.
+
 #### Varianzheterogenität {.unnumbered .unlisted}
+
+Der Vorteil des Pakets `{car}` ist, dass wir in der Funktion `Anova()` auch für Varianzheterogenitäöt adjustieren können. Wir nutzen dazu die Option `white.adjust = TRUE`. Ja, ich weiß, das ist überhaupt nicht naheliegend. Wenn wir das machen, dann werden die Abweichungsquadrate anders berechnet und unsere Ausgabe änert sich entsprechend.
 
 ```{r}
 lm(jump_length ~ animal, data = fac1_tbl) |> 
@@ -1432,21 +1446,35 @@ lm(jump_length ~ animal, data = fac1_tbl) |>
   tidy()
 ```
 
+Wir sind am Ende aber nur am p-Wert interessiert und auch der ist hier signifikant, da der p-Wert unter dem Signifikanzniveau $\alpha$ gleich 5% liegt.
+
 ## `{afex}`
+
+Das R Paket `{afex}` ist eigentlich für Messwiederholungen am besten geeignet, aber ich zeige es auch hier im einfaktoriellen Fall, dann hier geht es eben auch. Das einzige was etwas anders ist, ist das wir eine ID für die Funktion brauchen. Das Paket `{afex}` möchte ämlich explizit wissen, welcher Wert zu welcher Beobachtung gehört.
 
 ```{r}
 aov_car(jump_length ~ animal + Error(.id), data = fac1_tbl) 
 ```
 
+Da die Berechnung dann auch noch etwas anders verläft haben wir dann leicht andere Werte raus. Wir sind am Ende aber nur am p-Wert interessiert und auch der ist hier signifikant, da der p-Wert unter dem Signifikanzniveau $\alpha$ gleich 5% liegt.
+
 ## `{WRS2}`
+
+Jetzt wird es eigentlich erst spannend. Das [R Paket `{WRS2}`](https://cran.r-project.org/web/packages/WRS2/vignettes/WRS2.pdf) von @mair2020robustt erlaubt es auch bei nicht normalverteilten Daten sowie Varianzheterogenität eine ANOVA zu rechnen. Ja, du könntest dir auch die ganzen Vortests sparen und gleich eien ANOVA mit dem R Paket `{WRS2}` rechnen. Da wir es aber mit einer robusten methode zu tun haben, werden deine Daten etwas getrimmt oder beschnitten. Wenn du also zu wenige Beobachtungen in den Gruppen hast, dann ist das R Paket `{WRS2}` nicht die beste Idee.
 
 ```{r}
 t1way(jump_length ~ animal, data = fac1_tbl)
 ```
 
-Values of = 0.10, 0.30, and 0.50 correspond to small, medium, and large effect sizes.
+Wir kriegen neben dem p-Wert noch ein `Explanatory measure of effect size` wiedergegeben. Du kannst den Wert wie folgt interpretieren. Ein Wert von 0.1 deutet auf einen kleinen, ein Wert von 0.3 auf einen mittleren und ab 0.5 auf einen Starken Effekt hin. Wir sind am Ende aber nur am p-Wert interessiert und auch der ist hier signifikant, da der p-Wert unter dem Signifikanzniveau $\alpha$ gleich 5% liegt.
+
+Geht es dann im Post-hoc Test dann einfach weiter? Ja, du kannst dann auch Funkionen aus dem `{WRS2}` Paket nutzen oder aber du machst mit `{emmeans}` weiter.
 
 ## Excel
+
+Ja, du kannst auch eine einfakorielle ANOVA in Excel rechnen. Das ist dann mit etwas mehr Aufwand verbunden was die Daten angeht, aber am Ende kommt da auch was raus. mehr dazu in dem folgenden Video. Empfehlen kann ich dir Excel nicht, aber manchmal muss das Schwein durchs Nadelöhr und dann ist das auch okay so.
+
+**Hier kommt das Video**
 :::
 
 text
