@@ -1607,7 +1607,7 @@ Wir sind am Ende aber nur am p-Wert der beiden Faktoren interessiert und auch de
 
 ## `{car}`
 
-Jetzt könnte man meinen, warum noch eine weitere Implementierung der ANOVA, wenn wir schon die Funktion `aov()` haben? Die Funktion `aov()` rechnet grundsätzlich Type I ANOVAs. Das macht jetzt bei einer zweifaktoriellen ANOVA schon einen Unterschied welchen type ANOVA wir rechnen. Wir können eben in `{car}` auch Type II und Type III ANOVAs rechnen. Darüber hinaus erlaubt das Paket auch für Varianzheterogenität in der ANOVA zu adjustieren.
+Jetzt könnte man meinen, warum noch eine weitere Implementierung der ANOVA, wenn wir schon die Funktion `aov()` haben? Die Funktion `aov()` rechnet grundsätzlich Type I ANOVAs. Das macht jetzt bei einer zweifaktoriellen ANOVA schon einen Unterschied welchen Typ ANOVA wir rechnen. Wir können eben in `{car}` auch Type II und Type III ANOVAs rechnen. Darüber hinaus erlaubt das Paket auch für Varianzheterogenität in der ANOVA zu adjustieren.
 
 #### Varianzhomogenität {.unnumbered .unlisted}
 
@@ -1855,7 +1855,15 @@ Was sehen wir jetzt? Zum einen, dass wir signifikante Haupteffekte vorliegen hab
 
 ## `{car}`
 
+Jetzt könnte man meinen, warum noch eine weitere Implementierung der ANOVA, wenn wir schon die Funktion `aov()` haben? Die Funktion `aov()` rechnet grundsätzlich Type I ANOVAs. Das macht jetzt bei einer mehrfaktoriellen ANOVA schon einen gewaltigen Unterschied welchen Typ ANOVA wir rechnen. Wir können eben in `{car}` auch Type II und Type III ANOVAs rechnen. Darüber hinaus erlaubt das Paket auch für Varianzheterogenität in der ANOVA zu adjustieren.
+
 #### Varianzhomogenität {.unnumbered .unlisted}
+
+In dem klassischen Aufruf der Funktion `Anova()` nutzen wir ein Modell und dann gebe ich dir wieder die aufgeräumte Ausgabe mit `tidy()` wieder. Wenn du nichts extra angibst, dann rechnest du natürlich eine ANOVA unter der Annahme der Varianzhomogenität.
+
+Keine Interaktion zwischen den Faktoren A und B
+
+:   Wir rechnen dann eine Type II ANOVA, wenn wir keine Interaktion zwischen den Faktoren vorliegen haben. Ja, dass müssen wir dann natürlich vorab einmal Testen, dazu kannst du einfach die Funktion `aov()` nutzen. Wenn wir keine Interaktion vorliegen haben, dann nehmen wir auch die Interaktion aus dem Modell und testen nur die Haupteffekte mit einer Type II ANOVA.
 
 ```{r}
 lm(jump_length ~ animal + stage + site + season, data = fac4_tbl) |> 
@@ -1863,6 +1871,10 @@ lm(jump_length ~ animal + stage + site + season, data = fac4_tbl) |>
   tidy()  |> 
   mutate(p.value = pvalue(p.value))
 ```
+
+Interaktion zwischen den Faktoren A und B
+
+:   Wir rechnen dann eine Type III ANOVA, wenn wir eine Interaktion zwischen den beiden Faktoren vorliegen haben. Dann werden die Haupteffekte unter der Berücksichtigung der Interaktion berechnet. Aber Achtung, du musst leider in `{car}` die Kontraste anders definieren sonst testet die Funktion `Anova()` nicht das was sie soll. Da ist dann die Funktion `aov_car()` aus dem Paket `{afex}` anwenderfreundlicher.
 
 ```{r}
 lm(jump_length ~ animal*stage*site*season, data = fac4_tbl,
@@ -1877,7 +1889,26 @@ lm(jump_length ~ animal*stage*site*season, data = fac4_tbl,
   mutate(p.value = pvalue(p.value))
 ```
 
+Auch hier hilft ein Filtern weiter. Ansonsten sieht man echt überhaupt nichts und wir kommen nur durcheinander. Was du auf jeden Fall schon mal siehst, wenn es mehr Faktoren werden, dann macht der Typ der ANOVA schon was aus.
+
+```{r}
+lm(jump_length ~ animal*stage*site*season, data = fac4_tbl,
+    contrasts = list(
+    animal = "contr.sum",
+    stage = "contr.sum",
+    site = "contr.sum",
+    season = "contr.sum"
+  )) |> 
+  Anova(type = "III") |> 
+  tidy() |> 
+  filter(p.value <= 0.05) |> 
+  select(term, p.value) |> 
+  mutate(p.value = pvalue(p.value)) 
+```
+
 #### Varianzheterogenität {.unnumbered .unlisted}
+
+Der Vorteil des Pakets `{car}` ist, dass wir in der Funktion `Anova()` auch für Varianzheterogenität adjustieren können. Wir nutzen dazu die Option `white.adjust = TRUE`. Ich gehe hier jetzt nicht näher auf die Ausgabe ein. Die Ausgabe ist analog zu den anderen Ergebnissen zu interpretieren.
 
 ```{r}
 lm(jump_length ~ animal*stage*site*season, data = fac4_tbl,
