@@ -1828,10 +1828,12 @@ Wir schauen usn als mehrfaktoriellen Datensatz jetzt einmal eine große Studie z
 
 ### Haupteffekte
 
-In unserem Fall haben wir jetzt vier Haupteffekte. Das ist eher selten der Fall und man könnte auch meinen, dass die Modellierung der Jahreszeiten oder aber der Messorte so nicht unbedingt nötig ist, aber da wir auch nur zwei Jahreszeiten sowie zwei Messorte haben, machen wir das jetzt mal so. In der Praxis haben wir dann bei so vielen Faktoren dann nicht noch sehr viele Level pro Faktor.
+In unserem Fall haben wir jetzt vier Haupteffekte. Das ist eher selten der Fall und man könnte auch meinen, dass die Modellierung der Jahreszeiten oder aber der Messorte so nicht unbedingt nötig ist, aber da wir auch nur zwei Jahreszeiten sowie zwei Messorte haben, machen wir das jetzt mal so. In der Praxis haben wir dann bei so vielen Faktoren dann nicht noch sehr viele Level pro Faktor. Denke an die Regel, dass du eben nur weißt, dass wir einen Gruppenunterschied irgendwo im Faktor haben, wenn der p-Wert kleiner als das Signifikanzniveau $\alpha$ gleich 5% ist.
 
 ::: panel-tabset
 ## `{base}`
+
+Dann wollen wir mal anfangen. Ich zeige jetzt hier nur die `aov()` Variante. Du findest dann bei der zweifaktoriellen ANOVA auch den Code für die `lm()` Variante mit der Funktion `anova()`. Hier wird das dann aber viel zu viel Output, der dann einfach gleich ist. Darüber hinaus findest du die Modellierung dann auch im Tab zum R Paket `{car}`. Ich schreibe hier einmal die Modellschreibweise mit dem Malzeichen `*` da ich selber nie und nimmer alle Faktorkombinationen hinkriege noch tippen will. Bedenke hier, es kommt bei der `aov()` auf die Reihenfolge der Faktoren an. Wir haben ja hier eine Type I ANOVA vorliegen.
 
 ```{r}
 aov(jump_length ~ animal*stage*site*season, data = fac4_tbl) |> 
@@ -1839,9 +1841,28 @@ aov(jump_length ~ animal*stage*site*season, data = fac4_tbl) |>
   mutate(p.value = pvalue(p.value))
 ```
 
+Wir treten einen Schritt zurück und erschaudern bei dem Output. Hier hilft es dann wirklich nochmal die Funktion `filter()` und `select()` zu nutzen um sich einen kleineren Datensatz mit den wichtigen Informationen zu bauen. Ich sehe da sonst nichts mehr und wir übersehen dann mal schnell einen signifikanten p-Wert und das wäre ja nicht so gut.
+
+```{r}
+aov(jump_length ~ animal*stage*site*season, data = fac4_tbl) |> 
+  tidy() |> 
+  filter(p.value <= 0.05) |> 
+  select(term, p.value) |> 
+  mutate(p.value = pvalue(p.value)) 
+```
+
+Was sehen wir jetzt? Zum einen, dass wir signifikante Haupteffekte vorliegen haben. Der Entwicklungsstatus ist als einiziges nicht signifikant. Darüber hinaus haben wir noch eine Menge signifikante Interaktionen. Das schauen wir uns dann nochmal separat in dem Abschnitt zu den Interaktionen weiter unten an.
+
 ## `{car}`
 
 #### Varianzhomogenität {.unnumbered .unlisted}
+
+```{r}
+lm(jump_length ~ animal + stage + site + season, data = fac4_tbl) |> 
+  Anova(type = "II") |> 
+  tidy()  |> 
+  mutate(p.value = pvalue(p.value))
+```
 
 ```{r}
 lm(jump_length ~ animal*stage*site*season, data = fac4_tbl,
@@ -1893,21 +1914,27 @@ text
 #| message: false
 #| warning: false
 aov(jump_length ~ animal*stage*site*season, data = fac4_tbl) |> 
-  eta_squared()
+  eta_squared() |> 
+  filter(Eta2_partial >= 0.01) |> 
+  interpret_eta_squared()
 ```
 
 ```{r}
 #| message: false
 #| warning: false
 aov(jump_length ~ animal*stage*site*season, data = fac4_tbl) |> 
-  epsilon_squared()
+  epsilon_squared() |> 
+  filter(Epsilon2_partial >= 0.01) |> 
+  interpret_epsilon_squared()
 ```
 
 ```{r}
 #| message: false
 #| warning: false
 aov(jump_length ~ animal*stage*site*season, data = fac4_tbl) |> 
-  omega_squared()
+  omega_squared() |> 
+  filter(Omega2_partial >= 0.01) |> 
+  interpret_omega_squared()
 ```
 
 ## R Paket `{report}`
@@ -1929,7 +1956,7 @@ lm(jump_length ~ animal*stage*site*season, data = fac4_tbl) |>
 
 ### Interaktion
 
-> *"Auch Holzwege müssen zu Ende gegeangen werden." --- Angela Merkel*
+> *"Auch Holzwege müssen zu Ende gegangen werden." --- Angela Merkel*
 
 Die Interaktion in einem mehrfaktoriellen Modell kann einen ganz schön ins schwitzen bringen, wenn man sich nicht sehr gut mit dem Experiment und dem dahinterliegenden biologischen Zusammenhängen auskennt. Schnell kann man da auf dem Holzweg gelangen udn irrt durch die Daten.
 
