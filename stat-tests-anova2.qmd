@@ -1855,7 +1855,7 @@ Was sehen wir jetzt? Zum einen, dass wir signifikante Haupteffekte vorliegen hab
 
 ## `{car}`
 
-Jetzt könnte man meinen, warum noch eine weitere Implementierung der ANOVA, wenn wir schon die Funktion `aov()` haben? Die Funktion `aov()` rechnet grundsätzlich Type I ANOVAs. Das macht jetzt bei einer mehrfaktoriellen ANOVA schon einen gewaltigen Unterschied welchen Typ ANOVA wir rechnen. Wir können eben in `{car}` auch Type II und Type III ANOVAs rechnen. Darüber hinaus erlaubt das Paket auch für Varianzheterogenität in der ANOVA zu adjustieren.
+Jetzt könnte man meinen, warum noch eine weitere Implementierung der ANOVA, wenn wir schon die Funktion `aov()` haben? Die Funktion `aov()` rechnet grundsätzlich Type I ANOVAs. Das macht jetzt bei einer mehrfaktoriellen ANOVA schon einen gewaltigen Unterschied ausmachen welchen Typ ANOVA wir rechnen. Wir können eben in `{car}` auch Type II und Type III ANOVAs rechnen. Darüber hinaus erlaubt das Paket auch für Varianzheterogenität in der ANOVA zu adjustieren.
 
 #### Varianzhomogenität {.unnumbered .unlisted}
 
@@ -1863,7 +1863,7 @@ In dem klassischen Aufruf der Funktion `Anova()` nutzen wir ein Modell und dann 
 
 Keine Interaktion zwischen den Faktoren A und B
 
-:   Wir rechnen dann eine Type II ANOVA, wenn wir keine Interaktion zwischen den Faktoren vorliegen haben. Ja, dass müssen wir dann natürlich vorab einmal Testen, dazu kannst du einfach die Funktion `aov()` nutzen. Wenn wir keine Interaktion vorliegen haben, dann nehmen wir auch die Interaktion aus dem Modell und testen nur die Haupteffekte mit einer Type II ANOVA.
+:   Wir rechnen dann eine Type II ANOVA, wenn wir keine Interaktion zwischen den Faktoren vorliegen haben. Ja, dass müssen wir dann natürlich vorab einmal Testen, dazu kannst du einfach die Funktion `aov()` nutzen. Wenn wir keine Interaktion vorliegen haben, dann nehmen wir auch die Interaktion aus dem Modell und testen nur die Haupteffekte mit einer Type II ANOVA. Manchmal ist das ganz gut, damit wir überhaupt mal eine Übersicht kriegen.
 
 ```{r}
 lm(jump_length ~ animal + stage + site + season, data = fac4_tbl) |> 
@@ -1889,7 +1889,7 @@ lm(jump_length ~ animal*stage*site*season, data = fac4_tbl,
   mutate(p.value = pvalue(p.value))
 ```
 
-Auch hier hilft ein Filtern weiter. Ansonsten sieht man echt überhaupt nichts und wir kommen nur durcheinander. Was du auf jeden Fall schon mal siehst, wenn es mehr Faktoren werden, dann macht der Typ der ANOVA schon was aus.
+Auch hier hilft ein Filtern weiter. Ansonsten sieht man echt überhaupt nichts und wir kommen nur durcheinander. Was du auf jeden Fall schon mal siehst, wenn es mehr Faktoren werden, dann macht der Typ der ANOVA schon was aus. Wir haben hier am Ende aber die gleichen signifikanten Ergebnisse wie bei der `aov()` vorliegen.
 
 ```{r}
 lm(jump_length ~ animal*stage*site*season, data = fac4_tbl,
@@ -1908,7 +1908,7 @@ lm(jump_length ~ animal*stage*site*season, data = fac4_tbl,
 
 #### Varianzheterogenität {.unnumbered .unlisted}
 
-Der Vorteil des Pakets `{car}` ist, dass wir in der Funktion `Anova()` auch für Varianzheterogenität adjustieren können. Wir nutzen dazu die Option `white.adjust = TRUE`. Ich gehe hier jetzt nicht näher auf die Ausgabe ein. Die Ausgabe ist analog zu den anderen Ergebnissen zu interpretieren.
+Der Vorteil des Pakets `{car}` ist, dass wir in der Funktion `Anova()` auch für Varianzheterogenität adjustieren können. Wir nutzen dazu die Option `white.adjust = TRUE`. Ich gehe hier jetzt nicht näher auf die Ausgabe ein. Die Ausgabe ist analog zu den anderen Ergebnissen zu interpretieren. Ich habe hier jetzt gleich gefiltert damit die Ausgabe etwas aufgeräumter ist.
 
 ```{r}
 lm(jump_length ~ animal*stage*site*season, data = fac4_tbl,
@@ -1920,13 +1920,29 @@ lm(jump_length ~ animal*stage*site*season, data = fac4_tbl,
   )) |> 
   Anova(white.adjust = TRUE, type = "III")  |> 
   tidy() |> 
-  mutate(p.value = pvalue(p.value))
+  filter(p.value <= 0.05) |> 
+  select(term, p.value) |> 
+  mutate(p.value = pvalue(p.value)) 
 ```
 
 ## `{afex}`
 
 ```{r}
-aov_car(jump_length ~ animal*stage*site*season + Error(.id), data = fac4_tbl) 
+aov_car(jump_length ~ animal*stage*site*season + Error(.id), 
+        data = fac4_tbl) 
+```
+
+Ja, dann ist das Filtern der `{afex}` Ausgabe dann doch etwas nerviger als gedacht.
+
+```{r}
+aov_car(jump_length ~ animal*stage*site*season + Error(.id), 
+        data = fac4_tbl) |>  
+  pluck("anova_table") |> 
+  as_tibble(rownames = "term") |> 
+  janitor::clean_names() |> 
+  filter(pr_f <= 0.05) |> 
+  select(term, pr_f) |> 
+  mutate(pr_f = pvalue(pr_f)) 
 ```
 
 ## `{WRS2}`
