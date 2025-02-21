@@ -1152,15 +1152,15 @@ ggplot(data = fac2_tbl,
 
 #### Multifaktorieller Datensatz {.unnumbered .unlisted}
 
-Als letzten Datensatz lade ich noch einen multifaktoriellen Datensatz. Wir haben hier mehrere Faktoren vorliegen. Neben den Floharten `animal` haben wir auch den Entwicklungsstand `stage` sowie die Messorte `site` bestimmt. Dazu kommt dann noch der Faktor `season` als Jahreszeit. Damit haben wir dann einen vierfaktoriellen oder kurz multifaktoriellen Datensatz vorliegen. Hier wird die Sachlage dann schnell unübersichtlich und solche mehrfaktoriellen Datensätze kommen in der Praxis eher selten vor. Im Folgenden lade ich einmal den Datensatz in das Objekt `fac2_tbl` und ergänze noch eine ID Spalte für das R Paket `{afex}`. Wir haben jeden Floh nur einmal gemessen, also kriegt jeder Floh eine eigene ID. Ich ignoriere hier die Jahreszeiten und schaue mir nur die Sommerflöhe an.
+Als letzten Datensatz lade ich noch einen multifaktoriellen Datensatz. Wir haben hier mehrere Faktoren vorliegen. Neben den Floharten `animal` haben wir auch den Entwicklungsstand `stage` sowie die Messorte `site` bestimmt. Dazu kommt dann noch der Faktor `season` als Jahreszeit. Damit haben wir dann einen vierfaktoriellen oder kurz multifaktoriellen Datensatz vorliegen. Hier wird die Sachlage dann schnell unübersichtlich und solche mehrfaktoriellen Datensätze kommen in der Praxis eher selten vor. Im Folgenden lade ich einmal den Datensatz in das Objekt `fac4_tbl` und ergänze noch eine ID Spalte für das R Paket `{afex}`. Wir haben jeden Floh nur einmal gemessen, also kriegt jeder Floh eine eigene ID.
 
 ```{r}
-fac3_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "fac4") |> 
-  filter(season %in% c("summer")) |> 
-  select(animal, stage, site, jump_length) |> 
+fac4_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "fac4") |> 
+  select(animal, stage, site, season, jump_length) |> 
   mutate(animal = as_factor(animal),
          stage = factor(stage, level = c("juvenile", "adult")),
          site = as_factor(site),
+         season = as_factor(season),
          jump_length = round(jump_length, 2))|> 
   rowid_to_column(".id")
 ```
@@ -1175,8 +1175,7 @@ Betrachten wir als erstes einen Auszug aus der Datentabelle. Wir haben hier als 
 #| tbl-cap: "Tabelle der Sprungweiten in [cm] als Messwert $y$ von Hunde-, Katzen- und Fuchsflöhen an zwei verschiedenen Messorten Stadt und Dorf. Dazu wurde noch der Entwicklungsstand mit erwachsen und jugendlich erhoben. Der Datensatz ist dreifaktoriell, da wir einen Behandlungsfaktor mit `animal` und einen zweiten Faktor mit `site` vorliegen haben sowie den Entwicklungsstand `stage`."
 
 fac3_raw_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "fac4") |> 
-  filter(season %in% c("summer")) |> 
-  select(animal, stage, site, jump_length) |> 
+  select(animal, stage, site, season, jump_length) |> 
   mutate_if(is.numeric, round, 2) |> 
   rowid_to_column(".id")
 
@@ -1194,11 +1193,11 @@ Wenn wir im Folgenden einmal die Boxplots betrachten, dann sehen wir auch einen 
 #| warning: false
 #| label: fig-ggplot-anova-boxplot-3fac
 #| fig-align: center
-#| fig-height: 5
+#| fig-height: 7
 #| fig-width: 8
-#| fig-cap: "Beispielhafter dreifaktorieller Boxplot für die Sprungweiten in [cm] gruppiert nach den Floharten und den beiden Messorten sowie dem Entwicklungstand der Flöhe."
+#| fig-cap: "Beispielhafter vierfaktorieller Boxplot für die Sprungweiten in [cm] gruppiert nach den Floharten und den beiden Messorten sowie dem Entwicklungstand der Flöhe an verschiedenen Jahreszeiten."
 
-ggplot(data = fac3_tbl, 
+ggplot(data = fac4_tbl, 
        aes(x = stage, y = jump_length, fill = animal)) +
   theme_minimal() +
   geom_boxplot() + 
@@ -1206,7 +1205,7 @@ ggplot(data = fac3_tbl,
                shape=23, size = 3, fill = "gray50",
                position = position_dodge(0.75)) +
   labs(x = "Entwicklungsstadium", y = "Sprungweite in [cm]", fill = "Flohart") +
-  facet_wrap(~ site) +
+  facet_wrap(~ site*season) +
   scale_fill_okabeito() +
   theme(legend.position = "top")
 ```
@@ -1284,10 +1283,10 @@ lm(jump_length ~ animal + site + animal:site, data = fac2_tbl) |>
 
 ## Mehrfaktoriell
 
-Am Ende dann nochmal ein mehrfaktorielles Modell. Hier möchte ich dann auch alle Faktorkombinationen einmal testen und nutze dafür die Kurzschreibweise in R mit dem Malzeichen. Ich kann mir sonst nicht alle Kombinationen der drei Faktoren mit den entsprechenden Interaktionstermen merken.
+Am Ende dann nochmal ein mehrfaktorielles Modell. Hier möchte ich dann auch alle Faktorkombinationen einmal testen und nutze dafür die Kurzschreibweise in R mit dem Malzeichen. Ich kann mir sonst nicht alle Kombinationen der drei Faktoren mit den entsprechenden Interaktionstermen merken. Deshalb lasse ich hier mal die beiden Jahreszeiten aus dem Modell raus.
 
 ```{r}
-lm(jump_length ~ animal*site*stage, data = fac3_tbl) |> 
+lm(jump_length ~ animal*site*stage, data = fac4_tbl) |> 
   check_normality()
 ```
 
@@ -1303,7 +1302,7 @@ Auch hier sehen wir, dass die Funktion normalverteilte Sprungweiten findet. Auch
 #| fig-width: 6
 #| fig-cap: "Schnelle Abbildung der Residuen aus `check_normality()` zur Überprüfung der Normalverteilung des Messwerts in einem mehrfaktoriellen Modell."
 
-lm(jump_length ~ animal*site*stage, data = fac3_tbl) |> 
+lm(jump_length ~ animal*site*stage, data = fac4_tbl) |> 
   check_normality() |> 
   plot() +
   scale_fill_okabeito()
@@ -1371,14 +1370,14 @@ lm(jump_length ~ animal + site + animal:site, data = fac2_tbl) |>
 
 ## Mehrfaktoriell
 
-Am Ende dann nochmal ein mehrfaktorielles Modell. Hier möchte ich dann auch alle Faktorkombinationen einmal testen und nutze dafür die Kurzschreibweise in R mit dem Malzeichen. Ich kann mir sonst nicht alle Kombinationen der drei Faktoren mit den entsprechenden Interaktionstermen merken. In diesem Fall sind es dann ganze zwölf Kombinationen.
+Am Ende dann nochmal ein mehrfaktorielles Modell. Hier möchte ich dann auch alle Faktorkombinationen einmal testen und nutze dafür die Kurzschreibweise in R mit dem Malzeichen. Ich kann mir sonst nicht alle Kombinationen der drei Faktoren mit den entsprechenden Interaktionstermen merken. In diesem Fall sind es dann ganze zwölf Kombinationen. Deshalb lasse ich hier mal die beiden Jahreszeiten aus dem Modell raus.
 
 ```{r}
-lm(jump_length ~ animal*site*stage, data = fac3_tbl) |> 
+lm(jump_length ~ animal*site*stage, data = fac4_tbl) |> 
   check_homogeneity()
 ```
 
-Hier haben wir dann eine Abweichung von der Varianzhomogenität. Zum einen, weil ich die Daten so gebaut habe und zum anderen da wir jetzt echt viele Gruppen haben, wie du in der folgenden Abbidlugn sehen kannst. Es wird dann eben schwieriger in biologischen Echtdaten über viele Gruppen immer die gleiche Varianz zu haben. Irgendwann ist dann alles heterogen. Hier passt dann die Abbidlugn aber besser zu der Ausgabe des statistischen Tests.
+Hier haben wir dann eine Abweichung von der Varianzhomogenität. Zum einen, weil ich die Daten so gebaut habe und zum anderen da wir jetzt echt viele Gruppen haben, wie du in der folgenden Abbidlugn sehen kannst. Es wird dann eben schwieriger in biologischen Echtdaten über viele Gruppen immer die gleiche Varianz zu haben. Irgendwann ist dann alles heterogen. Hier passt dann die Abbildung aber besser zu der Ausgabe des statistischen Tests.
 
 ```{r}
 #| message: false
@@ -1390,7 +1389,7 @@ Hier haben wir dann eine Abweichung von der Varianzhomogenität. Zum einen, weil
 #| fig-width: 6
 #| fig-cap: "Schnelle Abbildung der Residuen aus `check_homogeneity()` zur Überprüfung der Varianzhomogenität der Faktoren in einem dreifaktoriellen Modell."
 
-lm(jump_length ~ animal*site*stage, data = fac3_tbl) |> 
+lm(jump_length ~ animal*site*stage, data = fac4_tbl) |> 
   check_homogeneity() |> 
   plot() 
 ```
@@ -1811,7 +1810,11 @@ lm(jump_length ~ animal + site + animal:site, data = fac2_tbl) |>
 
 ## Mehrfaktorielle ANOVA
 
-Zu zweifaktorielle reduzieren?
+Wenn es die zweifaktorielle ANOVA gibt dann gibt es natürlich auch noch mehr als nur zwei Faktoren in einer ANOVA. Wir können auch eine mherfaktorielle ANOVA rechnen. Ich habe hier einen vierfaktoriellen Datensatz, den wir uns aber als einen dreifaktoriellen Datensatz in `{WRS2}` anschauen werden. Nicht jedes Paket kann mit mehr als drei Faktoren umgehen. Das hat den Grund, dass eigentlich in der Anwendung kaum Designs mit mehr als drei Behandlungsfaktoren auftreten. Die zusätzlichen Faktoren sind dann meistens Randomisierungseinheiten wie Block oder Spalte sowie Zeile.
+
+Habe ich wirklich mehr als drei Behandlungsfaktoren?
+
+:   Das ist eine *sehr wichtige* Frage.
 
 ### Haupteffekte
 
@@ -1819,7 +1822,7 @@ Zu zweifaktorielle reduzieren?
 ## `{base}`
 
 ```{r}
-aov(jump_length ~ animal*stage*site, data = fac3_tbl) |> 
+aov(jump_length ~ animal*stage*site*season, data = fac4_tbl) |> 
   tidy() |> 
   mutate(p.value = pvalue(p.value))
 ```
@@ -1829,11 +1832,12 @@ aov(jump_length ~ animal*stage*site, data = fac3_tbl) |>
 #### Varianzhomogenität {.unnumbered .unlisted}
 
 ```{r}
-lm(jump_length ~ animal*stage*site, data = fac3_tbl,
+lm(jump_length ~ animal*stage*site*season, data = fac4_tbl,
     contrasts = list(
     animal = "contr.sum",
     stage = "contr.sum",
-    site = "contr.sum"
+    site = "contr.sum",
+    season = "contr.sum"
   )) |> 
   Anova(type = "III") |> 
   tidy()  |> 
@@ -1843,11 +1847,12 @@ lm(jump_length ~ animal*stage*site, data = fac3_tbl,
 #### Varianzheterogenität {.unnumbered .unlisted}
 
 ```{r}
-lm(jump_length ~ animal*stage*site, data = fac3_tbl,
+lm(jump_length ~ animal*stage*site*season, data = fac4_tbl,
     contrasts = list(
     animal = "contr.sum",
     stage = "contr.sum",
-    site = "contr.sum"
+    site = "contr.sum",
+    season = "contr.sum"
   )) |> 
   Anova(white.adjust = TRUE, type = "III")  |> 
   tidy() |> 
@@ -1857,13 +1862,13 @@ lm(jump_length ~ animal*stage*site, data = fac3_tbl,
 ## `{afex}`
 
 ```{r}
-aov_car(jump_length ~ animal*stage*site + Error(.id), data = fac3_tbl) 
+aov_car(jump_length ~ animal*stage*site*season + Error(.id), data = fac4_tbl) 
 ```
 
 ## `{WRS2}`
 
 ```{r}
-t3way(jump_length ~ animal*stage*site, data = fac3_tbl)
+t3way(jump_length ~ animal*stage*site, data = fac4_tbl)
 ```
 :::
 
@@ -1875,21 +1880,21 @@ text
 ```{r}
 #| message: false
 #| warning: false
-aov(jump_length ~ animal*stage*site, data = fac3_tbl) |> 
+aov(jump_length ~ animal*stage*site*season, data = fac4_tbl) |> 
   eta_squared()
 ```
 
 ```{r}
 #| message: false
 #| warning: false
-aov(jump_length ~ animal*stage*site, data = fac3_tbl) |> 
+aov(jump_length ~ animal*stage*site*season, data = fac4_tbl) |> 
   epsilon_squared()
 ```
 
 ```{r}
 #| message: false
 #| warning: false
-aov(jump_length ~ animal*stage*site, data = fac3_tbl) |> 
+aov(jump_length ~ animal*stage*site*season, data = fac4_tbl) |> 
   omega_squared()
 ```
 
@@ -1898,13 +1903,13 @@ aov(jump_length ~ animal*stage*site, data = fac3_tbl) |>
 Das [R Paket `{report}`](https://easystats.github.io/report/) liefert nochmal die Möglichkeit sich die Ausgabe einer zweifaktoriellen ANOVA in Textform wiedergeben zu lassen. Wie immer, wenn man alleine vor dem Rechner sitzt, ist das doch eine super Hilfestellung. Hier dann einmal mit der `Anova()` Funktion aus dem R Paket `{car}`. Ich mag hier besonders die Hilfe bei einer mehrfaktoriellen ANOVA. Hier wird es dann sehr schnell sehr unübersichtlich und da ist doch die `report()` Funktion hilfreich.
 
 ```{r}
-lm(jump_length ~ animal*stage*site, data = fac3_tbl) |> 
+lm(jump_length ~ animal*stage*site*season, data = fac4_tbl) |> 
   Anova() |>
   report()
 ```
 
 ```{r}
-lm(jump_length ~ animal*stage*site, data = fac3_tbl) |> 
+lm(jump_length ~ animal*stage*site*season, data = fac4_tbl) |> 
   Anova() |>
   report_table()
 ```
@@ -1925,14 +1930,15 @@ lm(jump_length ~ animal*stage*site, data = fac3_tbl) |>
 #| fig-width: 7
 #| fig-cap: "foo."
 
-fac3_tbl |> 
+fac4_tbl |> 
   ggplot(aes(x = animal, y = jump_length,
              color = site, linetype = stage, 
              group = interaction(site, stage))) +
   theme_minimal() +
   stat_summary(fun = "mean", geom = "point") +
   stat_summary(fun = "mean", geom = "line") +
-  scale_color_okabeito()
+  scale_color_okabeito() +
+  facet_wrap(~ season)
 ```
 
 ```{r}
@@ -1944,14 +1950,14 @@ fac3_tbl |>
 #| fig-height: 3.5
 #| fig-width: 7
 #| fig-cap: "foo."
-fac3_tbl |> 
+fac4_tbl |> 
   ggplot(aes(x = animal, y = jump_length,
              color = site, group = site)) +
   theme_minimal() +
   stat_summary(fun = "mean", geom = "point") +
   stat_summary(fun = "mean", geom = "line") +
   scale_color_okabeito() +
-  facet_wrap(~ stage)
+  facet_wrap(~ stage * season) 
 ```
 
 ## `{interactions}`
@@ -1962,14 +1968,30 @@ fac3_tbl |>
 #| message: false
 #| echo: true
 #| warning: false
-#| label: fig-interactionplot-4
+#| label: fig-interactionplot-4a
 #| fig-align: center
 #| fig-height: 3.5
 #| fig-width: 7
 #| fig-cap: "foo."
 
-lm(jump_length ~ animal*stage*site, data = fac3_tbl) |> 
+lm(jump_length ~ animal*stage*site*season, data = fac4_tbl) |> 
   cat_plot(modx = site, mod2 = stage, pred = animal,  geom = "line") +
+  theme_minimal() +
+  scale_color_okabeito()
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-interactionplot-4b
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "foo."
+
+lm(jump_length ~ animal*stage*site*season, data = fac4_tbl) |> 
+  cat_plot(modx = site, mod2 = season, pred = animal,  geom = "line") +
   theme_minimal() +
   scale_color_okabeito()
 ```
