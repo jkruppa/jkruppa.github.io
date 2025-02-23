@@ -11,6 +11,7 @@ conflicts_prefer(dplyr::mutate)
 conflicts_prefer(magrittr::set_names)
 conflicts_prefer(dplyr::filter)
 conflicts_prefer(dplyr::desc)
+source("stat-tests-anova_plot/repeated_plots.R")
 ```
 
 # Die repeated / mixed ANOVA {#sec-anova-mixed}
@@ -41,6 +42,7 @@ Die ANOVA
 #| echo: false
 #| message: false
 #| warning: false
+#| eval: false
 #| label: tbl-1fac-ancova-theo
 #| tbl-cap: "Datentabelle von einem Faktor A mit drei Gruppen $A.1$, $A.2$ und $A.3$ je drei Beobachtungen."
 
@@ -55,8 +57,64 @@ f1_ancova_theo_tbl |>
 ```
 
 ```{r}
-aov(rsp ~ 1 + Error(fa), data = f1_ancova_theo_tbl) |> 
-  tidy()
+#| eval: false
+aov(rsp ~ Error(fa), data = f1_ancova_theo_tbl) |> 
+  summary()
+```
+
+```{r}
+#| eval: false
+data("selfesteem", package = "datarium")
+selfesteem <- selfesteem %>%
+  gather(key = "time", value = "score", t1, t2, t3) %>%
+  convert_as_factor(id, time)
+res.aov <- anova_test(data = selfesteem, dv = score, wid = id, within = time)
+get_anova_table(res.aov)
+```
+
+```{r}
+#| eval: false
+aov(score ~ time + Error(id/time), data = selfesteem) |> 
+  summary()
+```
+
+```{r}
+#| eval: false
+.args <- tibble(
+    dv = "score", wid = "id", between = "",
+    within = "time", covariate = "")
+
+.args$wid <- selfesteem$id
+
+
+create_aov_formula <- function(.args){
+  between <- paste(.args$between, collapse = "*")
+  within <-  paste(.args$within, collapse = "*")
+  covariate <- paste(.args$covariate, collapse = "+")
+  error <- ifelse(
+    within != "",
+    error <- paste0("+Error(", .args$wid, "/(", within, "))"),
+    ""
+  )
+  bw.sep <- ifelse(between != "" & within != "", "*", "")  # Between and Within vars separator
+  bc.sep <- ifelse(covariate != "", "+", "") # Between and covariate vars separator
+  .formula <- paste0(.args$dv, " ~ ", covariate, bc.sep, between, bw.sep, within, error) %>%
+    stats::as.formula()
+  .formula
+}
+
+
+```
+
+```{r}
+#| eval: false
+pacman::p_load(datarium)
+
+data("weightloss")
+
+weightloss |> 
+  filter(id %in% c(1,2)) |> 
+  arrange(id)
 ```
 
 ::: callout-tip
@@ -95,30 +153,31 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 
 ## Daten
 
-#### Mit Messwiederholung und Subjekt gleich {.unnumbered .unlisted}
+### Repeated ANOVA
+
+#### Einfaktoriell {.unnumbered .unlisted}
 
 ```{r}
-repated_fac3_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "repeated") |> 
-  select(animal, stage, t0:t3) |> 
-  rowid_to_column(".id") |>   
-  pivot_longer(cols = t0:t3,
+repeated_fac1_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "repeated-fac1") |> 
+  select(.id, animal, t1:t4) |> 
+  pivot_longer(cols = t1:t4,
                values_to = "jump_length",
-               names_to = "time_num") |> 
+               names_to = "time_fac") |> 
   mutate(animal = as_factor(animal),
-         stage = factor(stage, level = c("juvenile", "adult")),
-         time_fac = as_factor(time_num),
-         jump_length = round(jump_length, 2))
+         time_fac = as_factor(time_fac),
+         jump_length = round(jump_length, 2),
+         .id = as_factor(.id))
 ```
 
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
-#| label: tbl-repeated-table
+#| label: tbl-repeated-table-fac1
 #| tbl-cap: "foo."
 
-repeated_raw_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "repeated") |> 
-  select(animal, stage, t0:t3) |> 
+repeated_raw_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "repeated-fac1") |> 
+  select(.id, animal, t1:t4) |> 
   mutate_if(is.numeric, round, 2)
 
 rbind(head(repeated_raw_tbl, n = 3),
@@ -132,52 +191,63 @@ rbind(head(repeated_raw_tbl, n = 3),
 #| eval: true
 #| message: false
 #| warning: false
-#| label: fig-ggplot-anova-repeated
+#| label: fig-ggplot-theo-repeated-fac1
 #| fig-align: center
-#| fig-height: 4.5
-#| fig-width: 8
+#| fig-height: 2
+#| fig-width: 7
 #| fig-cap: "Darstellung der Varianzhomogenität und Varianzheterogenität in einem Barplot. *[Zum Vergrößern anklicken]*"
 
-ggplot(repated_fac3_tbl, aes(x = time_num, y = jump_length, shape = stage,
-                             color = animal, linetype = stage,
-                             group = interaction(animal, stage))) +
-  theme_minimal() +
-  geom_point(position = position_dodge(0.2)) +
-  stat_summary(fun = mean, geom = "line",
-               position = position_dodge(0.2)) +
-  scale_color_okabeito() +
-  theme(legend.position = "top")
+repeated_fac1_p
 ```
 
-#### Mit Messwiederholung und Subjekt ungleich {.unnumbered .unlisted}
+```{r}
+#| echo: false
+#| eval: true
+#| message: false
+#| warning: false
+#| label: fig-ggplot-anova-repeated-fac1
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "Darstellung der Varianzhomogenität und Varianzheterogenität in einem Barplot. *[Zum Vergrößern anklicken]*"
+
+ggplot(repeated_fac1_tbl, aes(x = time_fac, y = jump_length, 
+                             group = 1)) +
+  theme_minimal() +
+  geom_line(aes(group = .id), linetype = 11, color = "gray70") +
+  geom_point2() +
+  stat_summary(fun = "mean", geom = "line", color = "#CC79A7", size = 1)
+```
+
+#### Zweifaktoriell {.unnumbered .unlisted}
 
 ```{r}
-mixed_fac3_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "mixed") |> 
-  select(animal, stage, spring:winter) |> 
-  rowid_to_column(".id") |>   
-  pivot_longer(cols = spring:winter,
+repeated_fac2_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "repeated-fac2") |> 
+  select(.id, animal, feeding, t1:t4) |> 
+  pivot_longer(cols = t1:t4,
                values_to = "jump_length",
-               names_to = "season_num") |> 
+               names_to = "time_fac") |> 
   mutate(animal = as_factor(animal),
-         stage = factor(stage, level = c("juvenile", "adult")),
-         season_fac = as_factor(season_num),
-         jump_length = round(jump_length, 2))
+         feeding = as_factor(feeding),
+         time_fac = as_factor(time_fac),
+         jump_length = round(jump_length, 2),
+         .id = as_factor(.id))
 ```
 
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
-#| label: tbl-mixed-table
+#| label: tbl-repeated-table-fac2
 #| tbl-cap: "foo."
 
-mixed_raw_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "mixed") |> 
-  select(animal, stage, spring:winter) |> 
+repeated_raw_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "repeated-fac2") |> 
+  select(.id, animal, feeding, t1:t4) |> 
   mutate_if(is.numeric, round, 2)
 
-rbind(head(mixed_raw_tbl, n = 3),
-      rep("...", times = ncol(mixed_raw_tbl)),
-      tail(mixed_raw_tbl, n = 3)) |> 
+rbind(head(repeated_raw_tbl, n = 4),
+      rep("...", times = ncol(repeated_raw_tbl)),
+      tail(repeated_raw_tbl, n = 4)) |> 
   tt(width = 1, align = "c", theme = "striped")
 ```
 
@@ -186,13 +256,202 @@ rbind(head(mixed_raw_tbl, n = 3),
 #| eval: true
 #| message: false
 #| warning: false
-#| label: fig-ggplot-anova-mixed
+#| label: fig-ggplot-theo-repeated-fac2
 #| fig-align: center
-#| fig-height: 4.5
-#| fig-width: 8
+#| fig-height: 4
+#| fig-width: 7
 #| fig-cap: "Darstellung der Varianzhomogenität und Varianzheterogenität in einem Barplot. *[Zum Vergrößern anklicken]*"
 
-ggplot(mixed_fac3_tbl, aes(x = season_fac, y = jump_length, shape = stage,
+repeated_fac2_p
+```
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: false
+#| warning: false
+#| label: fig-ggplot-anova-repeated-fac2
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "Darstellung der Varianzhomogenität und Varianzheterogenität in einem Barplot. *[Zum Vergrößern anklicken]*"
+
+ggplot(repeated_fac2_tbl, aes(x = time_fac, y = jump_length, 
+                             color = feeding, group = feeding)) +
+  theme_minimal() +
+  geom_line(aes(group = interaction(.id, feeding)), linetype = 11, color = "gray70") +
+  geom_point2() +
+  stat_summary(fun = "mean", geom = "line", size = 1) +
+  scale_color_okabeito() +
+  theme(legend.position = "top")
+```
+
+#### Dreifaktoriell {.unnumbered .unlisted}
+
+```{r}
+repeated_fac3_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "repeated-fac3") |> 
+  select(.id, animal, feeding, workout, t1:t4) |> 
+  pivot_longer(cols = t1:t4,
+               values_to = "jump_length",
+               names_to = "time_fac") |> 
+  mutate(animal = as_factor(animal),
+         feeding = as_factor(feeding),
+         workout = as_factor(workout),
+         time_fac = as_factor(time_fac),
+         jump_length = round(jump_length, 2),
+         .id = as_factor(.id))
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-repeated-table-fac3
+#| tbl-cap: "foo."
+
+repeated_raw_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "repeated-fac3") |> 
+  select(.id, animal, feeding, workout, t1:t4) |> 
+  mutate_if(is.numeric, round, 2)
+
+rbind(head(repeated_raw_tbl, n = 4),
+      rep("...", times = ncol(repeated_raw_tbl)),
+      tail(repeated_raw_tbl, n = 4)) |> 
+  tt(width = 1, align = "c", theme = "striped")
+```
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: false
+#| warning: false
+#| label: fig-ggplot-theo-repeated-fac3
+#| fig-align: center
+#| fig-height: 5.5
+#| fig-width: 7
+#| fig-cap: "Darstellung der Varianzhomogenität und Varianzheterogenität in einem Barplot. *[Zum Vergrößern anklicken]*"
+
+repeated_fac3_p
+```
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: false
+#| warning: false
+#| label: fig-ggplot-anova-repeated-fac3
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "Darstellung der Varianzhomogenität und Varianzheterogenität in einem Barplot. *[Zum Vergrößern anklicken]*"
+
+ggplot(repeated_fac3_tbl, aes(x = time_fac, y = jump_length, shape = workout,
+                             color = feeding, linetype = workout,
+                             group = interaction(feeding, workout))) +
+  theme_minimal() +
+  geom_point(position = position_dodge(0.2)) +
+  stat_summary(fun = mean, geom = "line",
+               position = position_dodge(0.2)) +
+  scale_color_okabeito() +
+  theme(legend.position = "top")
+```
+
+### Mixed ANOVA
+
+#### Zweifaktoriell {.unnumbered .unlisted}
+
+```{r}
+mixed_fac2_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "mixed-fac2") |> 
+  select(.id, animal, t0:t5) |> 
+  pivot_longer(cols = t0:t5,
+               values_to = "jump_length",
+               names_to = "time_fac") |> 
+  mutate(animal = as_factor(animal),
+         time_fac = as_factor(time_fac),
+         jump_length = round(jump_length, 2),
+         .id = as_factor(.id))
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-mixed-table-fac2
+#| tbl-cap: "foo."
+
+repeated_raw_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "mixed-fac2") |> 
+  select(.id, animal, t0:t5) |> 
+  mutate_if(is.numeric, round, 2)
+
+rbind(head(repeated_raw_tbl, n = 4),
+      rep("...", times = ncol(repeated_raw_tbl)),
+      tail(repeated_raw_tbl, n = 4)) |> 
+  tt(width = 1, align = "c", theme = "striped")
+```
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: false
+#| warning: false
+#| label: fig-ggplot-anova-mixed-fac2
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "Darstellung der Varianzhomogenität und Varianzheterogenität in einem Barplot. *[Zum Vergrößern anklicken]*"
+
+ggplot(mixed_fac2_tbl, aes(x = time_fac, y = jump_length, 
+                           color = animal, group = animal)) +
+  theme_minimal() +
+  geom_point2() +
+  stat_summary(fun = "mean", geom = "line", size = 1) +
+  scale_color_okabeito() +
+  theme(legend.position = "top")
+```
+
+#### Dreifaktoriell {.unnumbered .unlisted}
+
+```{r}
+mixed_fac3_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "mixed-fac3") |> 
+  select(.id, animal, stage, t0:t5) |> 
+  pivot_longer(cols = t0:t5,
+               values_to = "jump_length",
+               names_to = "time_fac") |> 
+  mutate(animal = as_factor(animal),
+         stage = as_factor(stage),
+         time_fac = as_factor(time_fac),
+         jump_length = round(jump_length, 2),
+         .id = as_factor(.id))
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-mixed-table-fac3
+#| tbl-cap: "foo."
+
+repeated_raw_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "mixed-fac3") |> 
+  select(.id, animal, stage, t0:t5) |> 
+  mutate_if(is.numeric, round, 2)
+
+rbind(head(repeated_raw_tbl, n = 4),
+      rep("...", times = ncol(repeated_raw_tbl)),
+      tail(repeated_raw_tbl, n = 4)) |> 
+  tt(width = 1, align = "c", theme = "striped")
+```
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: false
+#| warning: false
+#| label: fig-ggplot-anova-mixed-fac3
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "Darstellung der Varianzhomogenität und Varianzheterogenität in einem Barplot. *[Zum Vergrößern anklicken]*"
+
+ggplot(mixed_fac3_tbl, aes(x = time_fac, y = jump_length, shape = stage,
                              color = animal, linetype = stage,
                              group = interaction(animal, stage))) +
   theme_minimal() +
