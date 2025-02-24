@@ -136,8 +136,8 @@ mixed_fac2_p <- ggplot() +
                      labels = c("feeding", expression(t[1]), expression(t[2]),
                                 expression(t[3]), expression(t[4]))) +
   scale_y_continuous(limits = c(0.5, 3.5), name = "") +  
-  labs(title = "Design der zweifaktoriellen repeated ANOVA",
-       subtitle = "Jede Faktorkombination mit unterschiedlichen Flöhen (n = 3)") +  
+  labs(title = "Design der zweifaktoriellen mixed ANOVA",
+       subtitle = "Jede Faktorkombination mit unterschiedlichen Flöhen gemessen (n = 3)") +  
   theme(legend.text = element_text(size = 14),
         legend.title = element_text(size = 14, face = 2),
         axis.text.y = element_blank(),
@@ -175,8 +175,8 @@ mixed_fac3_p <- ggplot() +
                      labels = c("feeding", "workout", expression(t[1]), expression(t[2]),
                                 expression(t[3]), expression(t[4]))) +
   scale_y_continuous(limits = c(0.5, 6.5), name = "") +  
-  labs(title = "Design der dreifaktoriellen repeated ANOVA",
-       subtitle = "Jede Faktorkombination mit unterschiedlichen Flöhen (n = 6)") +  
+  labs(title = "Design der dreifaktoriellen mixed ANOVA",
+       subtitle = "Jede Faktorkombination mit unterschiedlichen Flöhen gemessen (n = 6)") +  
   theme(legend.text = element_text(size = 14),
         legend.title = element_text(size = 14, face = 2),
         axis.text.y = element_blank(),
@@ -188,3 +188,89 @@ mixed_fac3_p <- ggplot() +
         panel.grid.minor.y = element_blank(),
         panel.grid.minor.x = element_blank(),
         legend.position = "top") 
+
+mixed_theo_fac2_p <- ggplot() + 
+  aes(pos, y) +
+  theme_minimal() +
+  annotate("segment", x = 1.4, y = seq(1, 3, 1), xend = 5.6, yend = seq(1, 3, 1),
+           color = "black", linewidth = 1,
+           arrow = arrow(length = unit(0.15, "inches"))) +
+  geom_label(data = tibble(pos = rep(2:5, 3), y = rep(c(1 , 2, 3), each = 4), 
+                           labels = c("34.85", "50.21", "50.40", "40.92",
+                                      "50.37", "57.87", "66.84", "45.45",
+                                      "51.01", "44.54", "42.65", "38.74")), 
+             aes(label = labels), size = 6) +
+  geom_label(data = tibble(pos = 0.5, y = c(1 , 2, 3), 
+                           labels = c("A.1", "A.2", "A.3")), 
+             aes(label = labels), size = 6, fill = "#56B4E9") +
+  geom_label(data = tibble(pos = 1.25, y = c(1,2,3), 
+                           labels = c(expression(ID[3]),
+                           expression(ID[2]),
+                           expression(ID[1]))), 
+             aes(label = labels), size = 5, fill = "gray80", parse = TRUE) +
+  scale_x_continuous(limits = c(0.25, 5.75), name = "", breaks = c(0.5, 2:5),
+                     labels = c(expression(f[A]), expression(t[1]), expression(t[2]),
+                                expression(t[3]), expression(t[4]))) +
+  scale_y_continuous(limits = c(0.5, 3.5), name = "") +  
+  labs(title = "Design der zweifaktoriellen mixed ANOVA",
+       subtitle = "Jede Faktorkombination mit unterschiedlichen Flöhen gemessen (n = 3)") +  
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 14),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.position = "top")
+
+
+
+
+repeated_theo_fac2_p <- ggplot() + 
+  aes(pos, y) +
+  theme_minimal() +
+  annotate("segment", x = 1.4, y = 3, xend = 5.5, yend = 3,
+           color = "black", linewidth = 1) +
+  annotate("segment", x = 1.5, y = seq(1.5, 2.5, 0.5), 
+           xend = 5.5, yend = seq(1.5, 2.5, 0.5), 
+           color = "black", linewidth = 1) + 
+  annotate("segment", x = 1.5, y = 1, xend = 5.6, yend = 1,
+           color = "black", linewidth = 1,
+           arrow = arrow(length = unit(0.15, "inches"))) +
+  annotate("curve", x = 5.5, y = c(3:2), 
+           xend = 5.5, yend = c(2.5, 1.5),
+           color = "black", linewidth = 1, curvature = -0.25) +
+  annotate("curve", x = 1.5, y = c(2.5, 1.5), 
+           xend = 1.5, yend = c(2:1),
+           color = "black", linewidth = 1, curvature = 0.25) +
+  geom_label(data = tibble(pos = rep(2:5, 3), y = rep(c(1 , 2, 3), each = 4), 
+                           labels = c("34.85", "50.21", "50.40", "40.92",
+                                      "50.37", "57.87", "66.84", "45.45",
+                                      "51.01", "44.54", "42.65", "38.74")), 
+             aes(label = labels), size = 6) +
+  geom_label(data = tibble(pos = 0.5, y = c(1 , 2, 3), 
+                           labels = c("A.1", "A.2", "A.3")), 
+             aes(label = labels), size = 6, fill = "#56B4E9") +
+  geom_label(data = tibble(pos = 1.25, y = c(3), 
+                           labels = expression(ID[1])), 
+             aes(label = labels), size = 5, fill = "gray80", parse = TRUE) +
+  scale_x_continuous(limits = c(0.25, 5.75), name = "", breaks = c(0.5, 2:5),
+                     labels = c(expression(f[A]), expression(t[1]), expression(t[2]),
+                                expression(t[3]), expression(t[4]))) +
+  scale_y_continuous(limits = c(0.5, 3.5), name = "") +  
+  labs(title = "Design der zweifaktoriellen repeated ANOVA",
+       subtitle = "Die Sprungweite desselben Katzenflohs wird 12-mal wiederholt gemessen (n = 1)") +  
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 14),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.position = "top")
