@@ -51,29 +51,7 @@ Die MANOVA
 
 [One-Way MANOVA in R](https://www.datanovia.com/en/lessons/one-way-manova-in-r/)
 
-::: panel-tabset
-## `{base}`
-
-## `{MANOVA.RM}`
-
-[Das R Paket `{MANOVA.RM}`](https://cran.r-project.org/web/packages/MANOVA.RM/vignettes/Introduction_to_MANOVA.RM.html)
-
-@friedrich2019resampling
-
-## `{car}`
-
-## `{afex}`
-
-## `{WRS2}`
-:::
-
 ## Allgemeiner Hintergrund
-
-@gueorguieva2004move mit der wissenschaftlichen Veröffentlichung [Move Over ANOVA](https://jamanetwork.com/journals/psych/articlepdf/481967/ynv20002.pdf?casa_token=5gc0qQuqNFUAAAAA:SJWnX8rH6__-lxXqiF0FDGQISXgXE0JQlRgtY7EE76IFnuECNjsOvKzUIwu9hmZFrKdLJbIahfQ)
-
-> *"Mixed-effects models use all available data, can properly account for correlation between repeated measurements on the same subject, have greater flexibility to model time effects, and can handle missing data more appropriately. Their flexibility makes them the preferred choice for the analysis of repeatedmeasures data"* --- @gueorguieva2004move
-
-> *"However, the fundamental difference is that in a mixed ANOVA, the subjects that undergo each condition (e.g., a control and treatment) are different, whereas in a two-way repeated measures ANOVA, the subjects undergo both conditions (e.g., they undergo the control and the treatment)."* --- [Two-way repeated measures ANOVA using SPSS Statistics](https://statistics.laerd.com/spss-tutorials/two-way-repeated-measures-anova-using-spss-statistics.php#:~:text=A%20mixed%20ANOVA%20is%20very,factors%20on%20the%20dependent%20variable.)
 
 ::: callout-tip
 ## Weitere Tutorien für die repeated & mixed ANOVA
@@ -106,120 +84,83 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 
 ## Daten
 
-#### Mit Messwiederholung und Subjekt gleich {.unnumbered .unlisted}
-
 ```{r}
-repated_fac3_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "repeated") |> 
-  select(animal, stage, t0:t3) |> 
-  rowid_to_column(".id") |>   
-  pivot_longer(cols = t0:t3,
-               values_to = "jump_length",
-               names_to = "time_num") |> 
+fac2_cov_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "covariate") |> 
+  select(animal, stage, weight, jump_length) |> 
   mutate(animal = as_factor(animal),
          stage = factor(stage, level = c("juvenile", "adult")),
-         time_fac = as_factor(time_num),
-         jump_length = round(jump_length, 2))
+         weight = round(weight, 2),
+         jump_length = round(jump_length, 2))|> 
+  rowid_to_column(".id")
 ```
 
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
-#| label: tbl-repeated-table
+#| label: tbl-fac2cov-table
 #| tbl-cap: "foo."
 
-repeated_raw_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "repeated") |> 
-  select(animal, stage, t0:t3) |> 
+fac2_cov_raw_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "covariate") |> 
+  select(animal, stage, weight, jump_length) |> 
   mutate_if(is.numeric, round, 2)
 
-rbind(head(repeated_raw_tbl, n = 3),
-      rep("...", times = ncol(repeated_raw_tbl)),
-      tail(repeated_raw_tbl, n = 3)) |> 
+rbind(head(fac2_cov_raw_tbl, n = 3),
+      rep("...", times = ncol(fac2_cov_raw_tbl)),
+      tail(fac2_cov_raw_tbl, n = 3)) |> 
   tt(width = 1, align = "c", theme = "striped")
 ```
 
 ```{r}
-#| echo: false
-#| eval: true
 #| message: false
+#| echo: false
 #| warning: false
-#| label: fig-ggplot-anova-repeated
+#| label: fig-ggplot-anova-boxplot-fac2cov
 #| fig-align: center
-#| fig-height: 4.5
-#| fig-width: 8
-#| fig-cap: "Darstellung der Varianzhomogenität und Varianzheterogenität in einem Barplot. *[Zum Vergrößern anklicken]*"
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "foo."
 
-ggplot(repated_fac3_tbl, aes(x = time_num, y = jump_length, shape = stage,
-                             color = animal, linetype = stage,
-                             group = interaction(animal, stage))) +
+p1 <- ggplot(data = fac2_cov_tbl, 
+       aes(x = stage, y = jump_length, fill = animal)) +
   theme_minimal() +
-  geom_point(position = position_dodge(0.2)) +
-  stat_summary(fun = mean, geom = "line",
-               position = position_dodge(0.2)) +
-  scale_color_okabeito() +
+  geom_boxplot() + 
+  stat_summary(fun.y = mean, geom = "point", aes(group = animal), 
+               shape=23, size = 3, fill = "gray50",
+               position = position_dodge(0.75)) +
+  labs(x = "Entwicklungsstadium", y = "Sprungweite in [cm]", fill = "Flohart") +
+  scale_fill_okabeito() +
   theme(legend.position = "top")
-```
 
-#### Mit Messwiederholung und Subjekt ungleich {.unnumbered .unlisted}
-
-```{r}
-mixed_fac3_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "mixed") |> 
-  select(animal, stage, spring:winter) |> 
-  rowid_to_column(".id") |>   
-  pivot_longer(cols = spring:winter,
-               values_to = "jump_length",
-               names_to = "season_num") |> 
-  mutate(animal = as_factor(animal),
-         stage = factor(stage, level = c("juvenile", "adult")),
-         season_fac = as_factor(season_num),
-         jump_length = round(jump_length, 2))
-```
-
-```{r}
-#| echo: false
-#| message: false
-#| warning: false
-#| label: tbl-mixed-table
-#| tbl-cap: "foo."
-
-mixed_raw_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "mixed") |> 
-  select(animal, stage, spring:winter) |> 
-  mutate_if(is.numeric, round, 2)
-
-rbind(head(mixed_raw_tbl, n = 3),
-      rep("...", times = ncol(mixed_raw_tbl)),
-      tail(mixed_raw_tbl, n = 3)) |> 
-  tt(width = 1, align = "c", theme = "striped")
-```
-
-```{r}
-#| echo: false
-#| eval: true
-#| message: false
-#| warning: false
-#| label: fig-ggplot-anova-mixed
-#| fig-align: center
-#| fig-height: 4.5
-#| fig-width: 8
-#| fig-cap: "Darstellung der Varianzhomogenität und Varianzheterogenität in einem Barplot. *[Zum Vergrößern anklicken]*"
-
-ggplot(mixed_fac3_tbl, aes(x = season_fac, y = jump_length, shape = stage,
-                             color = animal, linetype = stage,
-                             group = interaction(animal, stage))) +
+p2 <- ggplot(data = fac2_cov_tbl, 
+       aes(x = stage, y = weight, fill = animal)) +
   theme_minimal() +
-  geom_point(position = position_dodge(0.2)) +
-  stat_summary(fun = mean, geom = "line",
-               position = position_dodge(0.2)) +
-  scale_color_okabeito() +
+  geom_boxplot() + 
+  stat_summary(fun.y = mean, geom = "point", aes(group = animal), 
+               shape=23, size = 3, fill = "gray50",
+               position = position_dodge(0.75)) +
+  labs(x = "Entwicklungsstadium", y = "Gewicht in [mg]", fill = "Flohart") +
+  scale_fill_okabeito() +
   theme(legend.position = "top")
+
+p1 + p2 + 
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A') +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
 ```
 
-## Repeated measurement ANOVA
-
-Hier eine kurze Betrachtung. Mehr dazu in dem [Kapitel zu gemischten Modellen](#sec-mixed)
+## Einfaktoriell
 
 ::: panel-tabset
 ## `{base}`
+
+## `{MANOVA.RM}`
+
+[Das R Paket `{MANOVA.RM}`](https://cran.r-project.org/web/packages/MANOVA.RM/vignettes/Introduction_to_MANOVA.RM.html)
+
+@friedrich2019resampling
 
 ## `{car}`
 
@@ -228,12 +169,16 @@ Hier eine kurze Betrachtung. Mehr dazu in dem [Kapitel zu gemischten Modellen](#
 ## `{WRS2}`
 :::
 
-## Mixed ANOVA
-
-Hier eine kurze Betrachtung. Mehr dazu in dem [Kapitel zu gemischten Modellen](#sec-mixed)
+## Zweifaktoriell
 
 ::: panel-tabset
 ## `{base}`
+
+## `{MANOVA.RM}`
+
+[Das R Paket `{MANOVA.RM}`](https://cran.r-project.org/web/packages/MANOVA.RM/vignettes/Introduction_to_MANOVA.RM.html)
+
+@friedrich2019resampling
 
 ## `{car}`
 
