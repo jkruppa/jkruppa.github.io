@@ -1,0 +1,316 @@
+```{r echo = FALSE}
+#| message: false
+#| echo: false
+#| warning: false
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, plyr,
+               patchwork, ggforce, see, sjPlot, tinytable, conflicted)
+set.seed(202434)
+conflicts_prefer(dplyr::summarise)
+conflicts_prefer(dplyr::summarize)
+conflicts_prefer(dplyr::mutate)
+conflicts_prefer(magrittr::set_names)
+```
+
+# Die ANCOVA {#sec-ancova}
+
+*Letzte Änderung am `r format(fs::file_info("stat-tests-ancova2.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*
+
+> *"It's better to solve the right problem approximately than to solve the wrong problem exactly." --- John Tukey*
+
+::: {.callout-caution appearance="simple"}
+## Stand des Kapitels: Aktualisierung (seit 02.2025)
+
+Dieses Kapitel wird in den nächsten Wochen aktualisiert. Ich plane zum Ende des SoSe 2025 eine neue Version des Kapitels erstellt zu haben. Deshalb kann hier das ein oder andere kurzfristig nicht mehr funktionieren.
+:::
+
+Eigentlich hat sich die Analysis of Covariance (ANCOVA) etwas überlebt. Wir können mit dem statistischen Modellieren *eigentlich* alles was die ANCOVA kann plus wir erhalten auch noch Effektschätzer für die Kovariaten und die Faktoren. Dennoch hat die ANCOVA ihren Platz in der Auswertung von Daten. Wenn du ein oder zwei Faktoren hast plus eine numerische Variable, wie das Startgewicht, für die du die Analyse adjustieren möchtest, dann ist die ANCOVA für dich gemacht.
+
+## Allgemeiner Hintergrund
+
+Also kurz gesprochen adjustiert die Analysis of Covariance (ANCOVA) die Faktoren einer ANOVA um eine kontinuierliche Covariate. Eine Kovariate ist eine Variable, die mit berücksichtigt wird, um mögliche verzerrende Einflüsse auf die Analyseergebnisse (ungebräuchlich *Konfundierung*) abzuschätzen oder zu verringern. Adjustiert bedeutet in dem Fall, dass die Effekte des unterschiedlichen Startgewichts von Pflanzen durch das Einbringen der Kovariate mit in der statistischen Analyse berücksichtigt werden. Wir werden hier auch nur über die Nutzung in R sprechen und auf die theoretische Herleitung verzichten.
+
+Wie immer gibt es auch passende Literatur um die ANCOVA herum. @karpen2017misuses beschreibt in [Misuses of Regression and ANCOVA in Educational Research](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5701329/) nochmal Beispiele für die falsche oder widersprüchliche Nutzung der Regression und ANCOVA. Ich nutze die Quelle immer mal wieder in meinen vertiefenden Vorlesungen. Da wir hier ja nicht nur Agrawissenschaftler haben, hilft die Arbeit von @kim2018statistical mit [Statistical notes for clinical researchers: analysis of covariance (ANCOVA)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6237726/) auch nochmal weiter. Die Besonderheit bei der klinischen Forschung ist ja die "Beweglichkeit" der Beobachtungen. Menschen lassen sich eben nicht vollständig kontrollieren und daher ist die Thematik eine andere als bei Pflanzen und Tieren.
+
+## Theoretischer Hintergrund
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-1fac-ancova-theo
+#| tbl-cap: "Datentabelle von einem Faktor A mit drei Gruppen $A.1$, $A.2$ und $A.3$ je drei Beobachtungen."
+
+f1_ancova_theo_tbl <- tibble(rsp = c(7,8,9, 2,3,4, 11,12,13),
+                           fa = gl(3, 3, labels = c("A.1", "A.2", "A.3")),
+                           cov = seq(1, 9, 1)*0.8)
+
+
+f1_ancova_theo_tbl |> 
+  select(fa, cov, rsp) |> 
+  set_names(c("Faktor A", "Kovariate $C$", "Messwert $y$")) |>  
+  tt(width = 2/3, align = "c", theme = "striped")
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-1fac-ancova-theo-desc
+#| tbl-cap: "Mittelwerte der drei Gruppen $A.1$, $A.2$ und $A.3$ des Faktors A."
+
+f1_ancova_theo_stat_tbl <- f1_ancova_theo_tbl |> 
+  group_by(fa) |> 
+  summarise(mean_rsp = mean(rsp),
+            mean_cov = mean(cov)) 
+
+f1_ancova_theo_stat_tbl  |> 
+  set_names(c("Faktor A", "Mittelwert Messwert", "Mittelwert Kovariate")) |> 
+  tt(width = 1, align = "c", theme = "striped")
+```
+
+```{r}
+lm(rsp ~ fa + cov, data = f1_ancova_theo_tbl) |> 
+  coef() |> round(2)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-ggplot-anova-msa-mse
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 7
+#| fig-cap: "Visualisierung . *[Zum Vergrößern anklicken]*"
+
+ggplot(f1_ancova_theo_tbl, aes(cov, rsp)) +
+  theme_minimal() +
+  geom_hline(yintercept = 0, color = "gray50") +
+  geom_vline(xintercept = 0, color = "gray50") +
+  geom_function(fun = \(x){6 + 1.25*x}, color = "#CC79A7") +
+  geom_point() +
+  geom_segment(x = 0.8, y = 8, xend = 2.4, yend = 8, color = "#D55E00") +
+  annotate("text", x = 2.4+0.1, y = 8, label = expression(bar(y)[A.1]), 
+           size = 5, color = "#D55E00", hjust = "left") +
+  geom_segment(x = 3.2, y = 3, xend = 4.8, yend = 3, color = "#0072B2",) +
+  geom_segment(x = 4, y = 3, xend = 4, yend = 11, color = "#0072B2", 
+               linetype = 2) +
+  annotate("text", x = 4.8+0.1, y = 3, label = expression(bar(y)[A.2]), 
+           size = 5, color = "#0072B2", hjust = "left") +
+  annotate("label", x = 4+0.1, y = (3+11)/2, label = expression(beta[A.2]~"="~-8), size = 5,
+           color = "#0072B2", hjust = "left") +
+  geom_segment(x = 5.6, y = 12, xend = 7.2, yend = 12, color = "#009E73") +
+  geom_segment(x = 6.4, y = 12, xend = 6.4, yend = 14, color = "#009E73",
+               linetype = 2) +
+  annotate("text", x = 7.2+0.1, y = 12, label = expression(bar(y)[A.3]), 
+           size = 5, color = "#009E73", hjust = "left") +
+  annotate("label", x = 6.4-0.1, y = 13, label = expression(beta[A.3]~"="~-2), size = 5,
+           color = "#009E73", hjust = "right") +
+  geom_segment(x = 0, y = 6, xend = 1, yend = 6, color = "#CC79A7",
+               linetype = 2) +
+  geom_segment(x = 1, y = 6, xend = 1, yend = 7.25, color = "#CC79A7",
+               linetype = 2) +
+  annotate("text", x = 0.5, y = 5.5, label = expression(x+1), 
+           size = 5, color = "#CC79A7", hjust = "center") +
+  annotate("label", x = 1+0.1, y = (6 + 7.25)/2, label = expression(beta[c]~"="~1.25), 
+           size = 5, color = "#CC79A7", hjust = "left") +
+  scale_x_continuous(breaks = c(0, 1.6, 4.0, 6.4),   
+                     labels = c(0, expression(bar(c)[A.1]~"="~1.6), 
+                                expression(bar(c)[A.2]~"="~4.0), 
+                                expression(bar(c)[A.3]~"="~6.4)),
+                     limits = c(0, 7.5)) +
+  scale_y_continuous(breaks = c(8, 3, 6, 7.25, 11, 12, 14),
+                     labels = c(expression(bar(y)[A.1]~"="~8),
+                                expression(bar(y)[A.2]~"="~3),
+                                expression(beta[0]~"="~6),
+                                7.25, 11, 
+                                expression(bar(y)[A.3]~"="~12), 14)) +
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_text(size = 11),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 11),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12, face = "italic"),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.position = "top") + 
+  labs(x = "Kovariate C", y = "", fill = "",
+       #title = "Effekt A / Effekt B",
+       #subtitle = "Boxen im Faktor A und Faktor B gleich verschoben",
+       #caption = "Kein Fehler in der Generierung der Daten"
+       )
+```
+
+#### Das Modell {.unnumbered .unlisted}
+
+Wenn wir neben einem bis mehreren Faktoren $f$ noch eine numerische Kovariate $c$ mit modellieren wollen, dann nutzen wir die ANCOVA (eng. *Analysis of Covariance*). Hier kommt dann immer als erstes die Frage, was heißt den Kovariate $c$? Hier kannst du dir eine numerische Variable vorstellen, die ebenfalls im Experiment gemessen wird. Es kann das Startgewicht oder aber die kummulierte Wassergabe sein. Wir haben eben hier keinen Faktor als Kategorie vorliegen, sondern eben etwas numerisch gemessen. Daher ist unsere Modellierung etwas anders.
+
+$$
+y \sim f_A + f_B + ... + f_P + f_A \times f_B + c_1 + ... + c_p
+$$
+
+mit
+
+-   $y$ gleich dem Messwert oder Outcome
+-   $f_A + f_B + ... + f_P$ gleich experimenteller Faktoren
+-   $f_A \times f_B$ gleich einem beispielhaften Interaktionsterm erster Ordnung
+-   $c_1 + ... + c_p$ gleich einer oder mehrer numerischer Kovariaten
+
+Hier muss ich gleich die Einschränkung machen, dass wir *normalerweise* maximal ein zweifaktorielles Modell mit einem Faktor $A$ und einem Faktor $B$ sowie einer Kovariate $c$ betrachten. Sehr selten haben wir mehr Faktoren oder gar Kovariaten in dem Modell. Wenn das der Fall sein sollte, dann könnte eine andere Modellierung wie eine multiple Regression eine bessere Lösung sein.
+
+#### Hypothesen {.unnumbered .unlisted}
+
+Wenn wir von der ANOVA sprechen, dann kommen wir natürlich nicht an den Hypothesen vorbei. Die ANOVA ist ja auch ein klassischer statistischer Test. Hier müssen wir unterscheiden, ob wir eine Behandlung mit zwei Gruppen, also einem Faktor $A$ mit $2$ Leveln vorliegen haben. Oder aber eine Behandlung mit drei oder mehr Gruppen vorliegen haben, also einem Faktor $A$ mit $\geq 3$ Leveln in den Daten haben. Da wir schnell in einer ANOVA mehrere Faktoren haben, haben wir auch schnell viele Hypothesen zu beachten. Jeweils ein Hypothesenpaar pro Faktor muss dann betrachtet werden. Das ist immer ganz wichtig, die Hypothesenpaare sind unter den Faktoren mehr oder minder unabhängig.
+
+::: panel-tabset
+## Faktor mit $2$ Leveln
+
+Bei einem Faktor $A$ mit nur zwei Leveln $A.1$ und $A.2$ haben wir eine Nullhypothese, die du schon aus den Gruppenvergleichen wie dem t-Test kennst. Wir wollen zwei Mittelwerte vergleichen und in unserer Nullhypothese steht somit die Gleichheit. Da wir nur zwei Gruppen haben, sieht die Nullhypothese einfach aus.
+
+$$
+H_0: \; \bar{y}_{A.1} = \bar{y}_{A.2}
+$$
+
+In der Alternativehypothese haben wir dann den Unterschied zwischen den beiden Mittelwerten. Wenn wir die Nullhypothese ablehnen können, dann wissen wir auch welche Mittelwertsunterschied signifikant ist. Wir haben ja auch nur einen Unterschied getestet.
+
+$$
+H_A: \; \bar{y}_{A.1} \neq \bar{y}_{A.2}
+$$ Das Ganze wird dann etwas komplexer im Bezug auf die Alternativehypothese wenn wir mehr als zwei Gruppen haben. Hier kommt dann natürlich auch die Stärke der ANOVA zu tragen. Eben mehr als zwei Mittelwerte vergleichen zu können.
+
+## Faktor mit $\geq 3$ Leveln
+
+Die klassische Nullhypothese der ANOVA hat natürlich mehr als zwei Level. Hier einmal beispielhaft die Nullhypothese für den Vergleich von drei Gruppen des Faktors $A$. Wir wollen als Nullhypothese testen, ob alle Mittelwerte der drei Gruppen gleich sind.
+
+$$
+H_0: \; \bar{y}_{A.1} = \bar{y}_{A.2} = \bar{y}_{A.3}
+$$
+
+Wenn wir die Nullhypothese betrachten dann sehen wir auch gleich das Problem der Alternativehypothese. Wir haben eine Menge an paarweisen Vergleichen. Wenn wir jetzt die Nullhypothese ablehnen, dann wissen wir nicht welcher der drei paarweisen Mittelwertsvergleiche denn nun unterschiedlich ist. Praktisch können es auch alle drei oder eben zwei Vergleiche sein.
+
+$$
+\begin{aligned}
+H_A: &\; \bar{y}_{A.1} \ne \bar{y}_{A.2}\\
+\phantom{H_A:} &\; \bar{y}_{A.1} \ne \bar{y}_{A.3}\\
+\phantom{H_A:} &\; \bar{y}_{A.2} \ne \bar{y}_{A.3}\\
+\phantom{H_A:} &\; \mbox{für mindestens einen Vergleich}
+\end{aligned}
+$$
+
+Wenn wir die Nullhypothese abgelhent haben, dann müssen wir noch einen sogenannten Post-hoc Test anschließen um die paarweisen Unterschiede zu finden, die dann signifikant sind. Das ganze machen wir dann aber in einem eigenen Kapitel zum Post-hoc Test.
+:::
+
+::: callout-tip
+## Weitere Tutorien für die ANCOVA
+
+Wie immer gibt es auch für die Frage nach dem Tutorium für die ANCOVA verschiedene Quellen. Ich kann noch folgende Informationen und Hilfen empfehlen.
+
+-   [How to perform ANCOVA in R](https://finnstats.com/2021/07/22/how-to-perform-ancova-in-r/) liefert nochmal mehr Code und weitere Ideen zu der Analyse in R.
+-   [ANCOVA in R](https://www.datanovia.com/en/lessons/ancova-in-r/) beschreibt auch nochmal etwas anders die ANCOVA.
+-   [Kovarianzanalyse](https://wgruber.github.io/Modellbildung2/kovarianzanalyse.html) ist eine deutsche Quelle, die nochmal vertiefend auf die Kovarianzanalyse eingeht.
+:::
+
+## Genutzte R Pakete
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+#| message: false
+pacman::p_load(tidyverse, magrittr, broom, quantreg,
+               see, performance, emmeans, multcomp, janitor,
+               parameters, conflicted)
+conflicts_prefer(dplyr::select)
+conflicts_prefer(dplyr::filter)
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
+
+## Daten
+
+```{r}
+fac2_cov_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "covariate") |> 
+  select(animal, stage, weight, jump_length) |> 
+  mutate(animal = as_factor(animal),
+         stage = factor(stage, level = c("juvenile", "adult")),
+         weight = round(weight, 2),
+         jump_length = round(jump_length, 2))|> 
+  rowid_to_column(".id")
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-fac2cov-table
+#| tbl-cap: "foo."
+
+fac2_cov_raw_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "covariate") |> 
+  select(animal, stage, weight, jump_length) |> 
+  mutate_if(is.numeric, round, 2)
+
+rbind(head(fac2_cov_raw_tbl, n = 3),
+      rep("...", times = ncol(fac2_cov_raw_tbl)),
+      tail(fac2_cov_raw_tbl, n = 3)) |> 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-ggplot-anova-boxplot-fac2cov
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "foo."
+
+p1 <- ggplot(data = fac2_cov_tbl, 
+       aes(x = stage, y = jump_length, fill = animal)) +
+  theme_minimal() +
+  geom_boxplot() + 
+  stat_summary(fun.y = mean, geom = "point", aes(group = animal), 
+               shape=23, size = 3, fill = "gray50",
+               position = position_dodge(0.75)) +
+  labs(x = "Entwicklungsstadium", y = "Sprungweite in [cm]", fill = "Flohart") +
+  scale_fill_okabeito() +
+  theme(legend.position = "top")
+
+p2 <- ggplot(data = fac2_cov_tbl, 
+       aes(x = stage, y = weight, fill = animal)) +
+  theme_minimal() +
+  geom_boxplot() + 
+  stat_summary(fun.y = mean, geom = "point", aes(group = animal), 
+               shape=23, size = 3, fill = "gray50",
+               position = position_dodge(0.75)) +
+  labs(x = "Entwicklungsstadium", y = "Gewicht in [mg]", fill = "Flohart") +
+  scale_fill_okabeito() +
+  theme(legend.position = "top")
+
+p1 + p2 + 
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A') +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
+```
+
+## Einfaktorielle ANCOVA
+
+[Du kannst mehr über Geraden sowie lineare Modelle und deren Eigenschaften im @sec-modeling-simple-stat erfahren.]{.aside}
+
+Hier eine kurze Betrachtung. Mehr dazu in dem [Kapitel zur ANCOVA](#sec-ancova)
+
+::: panel-tabset
+## `{base}`
+
+## `{car}`
+
+## `{afex}`
+
+## `{WRS2}`
+:::
+
+## Referenzen {.unnumbered}
