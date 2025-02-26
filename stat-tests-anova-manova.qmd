@@ -23,11 +23,11 @@ conflicts_prefer(magrittr::set_names)
 Dieses Kapitel wird in den nächsten Wochen geschrieben. Ich plane zum Ende des SoSe 2025 eine neue Version des Kapitels erstellt zu haben. Während das Kapitel entsteht, funktioniert so manaches dann nicht so wie es soll.
 :::
 
+## Allgemeiner Hintergrund
+
 #### Das Modell {.unnumbered .unlisted}
 
 Beginnen wir also mit der Festlegung welche Art der Analyse wir rechnen wollen. Wichtig ist hier, dass du einen normmalverteiten Messwert $y$ vorliegen hast und ein oder mehrere Faktoren $f$. Was sind im Kontext von R Faktoren? Ein Faktor ist eine Behandlung oder eben eine Spalte in deinem Datensatz, der verschiedene Gruppen oder Kategorien beinhaltet. Wir nennen diese Kategorien Level. In den folgenden Datenbeispielen ist die Spalte `animal` ein Faktor mit drei Leveln. Wir haben dort nämlich die Sprungweiten von drei Floharten gemessen. Jetzt kann es aber auch sein, dass du neben einem Faktor noch eine numeriche Kovariate $c$ gemessen hast. Oder aber du hast zwei Messwerte, die du dann gemeinsam mit einem Faktor vergleichen willst. Diese drei Analysetypen wollen wir uns in den folgenden Tabs mal näher anschauen.
-
-## MANOVA (multivariat)
 
 Am Ende des Kapitels schauen wir uns noch einen weiteren Spezialfall an. Nämlich den Fall, dass wir nicht nur einen Messwert $y$ vorliegen haben sondern eben mehrere die wir simultan auswerten wollen. Das klingt jetzt erstmal etwas schräg, aber es wird dann klarer, wenn wir uns die Sachlage einmal an einem Beispiel anschauen.
 
@@ -51,7 +51,11 @@ Die MANOVA
 
 [One-Way MANOVA in R](https://www.datanovia.com/en/lessons/one-way-manova-in-r/)
 
-## Allgemeiner Hintergrund
+#### Welche Pakete gibt es eigentlich? {.unnumbered .unlisted}
+
+[Das R Paket `{MANOVA.RM}`](https://cran.r-project.org/web/packages/MANOVA.RM/vignettes/Introduction_to_MANOVA.RM.html)
+
+@friedrich2019resampling
 
 ::: callout-tip
 ## Weitere Tutorien für die repeated & mixed ANOVA
@@ -60,6 +64,7 @@ Wir oben schon erwähnt, kann dieses Kapitel nicht alle Themen der ANOVA abarbei
 
 -   [Repeated Measures ANOVA in R](https://www.datanovia.com/en/lessons/repeated-measures-anova-in-r/)
 -   [Mixed ANOVA in R](https://www.datanovia.com/en/lessons/mixed-anova-in-r/)
+-   [Master MANOVA in R: One-Way, Two-Way, & Interpretation](https://www.marsja.se/manova-in-r-one-way-two-way-analyses-interpretation/)
 :::
 
 ## Genutzte R Pakete
@@ -69,9 +74,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 #| warning: false
-pacman::p_load(tidyverse, magrittr, broom, WRS2, scales,
-               readxl, see, car, patchwork, emmeans,
-               interactions, effectsize, afex, report,
+pacman::p_load(tidyverse, magrittr, broom, scales, MANOVA.RM,
+               readxl, see, car, patchwork, effectsize, 
                conflicted)
 conflicts_prefer(dplyr::mutate)
 conflicts_prefer(dplyr::summarize)
@@ -85,13 +89,59 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 ## Daten
 
 ```{r}
-fac2_cov_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "covariate") |> 
+fac1_cov_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "covariate-fac1") |> 
+  select(animal, weight, jump_length) |> 
+  mutate(animal = as_factor(animal),
+         weight = round(weight, 2),
+         jump_length = round(jump_length, 2)) |> 
+  rownames_to_column(".id")
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-fac1cov-table
+#| tbl-cap: "foo."
+
+repeated_raw_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "covariate-fac1") |> 
+  mutate_if(is.numeric, round, 2)
+
+rbind(head(repeated_raw_tbl, n = 3),
+      rep("...", times = ncol(repeated_raw_tbl)),
+      tail(repeated_raw_tbl, n = 3)) |> 
+  tt(width = 1, align = "c", theme = "striped")
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-ggplot-anova-boxplot-fac1cov
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "foo."
+
+fac1_cov_tbl |> 
+  ggplot(aes(x = weight, y = jump_length, color = animal,
+           group = animal)) +
+  theme_minimal() +
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]", fill = "Flohart") +
+  scale_color_okabeito() +
+  theme(legend.position = "top")
+```
+
+```{r}
+fac2_cov_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "covariate-fac2") |> 
   select(animal, stage, weight, jump_length) |> 
   mutate(animal = as_factor(animal),
          stage = factor(stage, level = c("juvenile", "adult")),
          weight = round(weight, 2),
-         jump_length = round(jump_length, 2))|> 
-  rowid_to_column(".id")
+         jump_length = round(jump_length, 2)) |> 
+  rownames_to_column(".id")
 ```
 
 ```{r}
@@ -101,14 +151,13 @@ fac2_cov_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "covariate") 
 #| label: tbl-fac2cov-table
 #| tbl-cap: "foo."
 
-fac2_cov_raw_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "covariate") |> 
-  select(animal, stage, weight, jump_length) |> 
+fac2_cov_raw_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "covariate-fac2") |> 
   mutate_if(is.numeric, round, 2)
 
 rbind(head(fac2_cov_raw_tbl, n = 3),
       rep("...", times = ncol(fac2_cov_raw_tbl)),
       tail(fac2_cov_raw_tbl, n = 3)) |> 
-  tt(width = 1, align = "c", theme = "striped")
+  kable(align = "c", "pipe")
 ```
 
 ```{r}
@@ -121,33 +170,16 @@ rbind(head(fac2_cov_raw_tbl, n = 3),
 #| fig-width: 7
 #| fig-cap: "foo."
 
-p1 <- ggplot(data = fac2_cov_tbl, 
-       aes(x = stage, y = jump_length, fill = animal)) +
+ ggplot(data = fac2_cov_tbl, 
+        aes(x = weight, y = jump_length, 
+            color = animal, linetype = stage)) +
   theme_minimal() +
-  geom_boxplot() + 
-  stat_summary(fun.y = mean, geom = "point", aes(group = animal), 
-               shape=23, size = 3, fill = "gray50",
-               position = position_dodge(0.75)) +
-  labs(x = "Entwicklungsstadium", y = "Sprungweite in [cm]", fill = "Flohart") +
-  scale_fill_okabeito() +
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]", color = "Flohart",
+       linetype = "Entwicklungsstadium") +
+  scale_color_okabeito() +
   theme(legend.position = "top")
-
-p2 <- ggplot(data = fac2_cov_tbl, 
-       aes(x = stage, y = weight, fill = animal)) +
-  theme_minimal() +
-  geom_boxplot() + 
-  stat_summary(fun.y = mean, geom = "point", aes(group = animal), 
-               shape=23, size = 3, fill = "gray50",
-               position = position_dodge(0.75)) +
-  labs(x = "Entwicklungsstadium", y = "Gewicht in [mg]", fill = "Flohart") +
-  scale_fill_okabeito() +
-  theme(legend.position = "top")
-
-p1 + p2 + 
-  plot_layout(ncol = 2) +
-  plot_annotation(tag_levels = 'A') +
-  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
-  theme(plot.tag = element_text(size = 16, face = "bold"))
 
 ```
 
@@ -156,17 +188,29 @@ p1 + p2 +
 ::: panel-tabset
 ## `{base}`
 
+```{r}
+manova(cbind(jump_length, weight) ~ animal, data = fac1_cov_tbl) |> 
+  summary()
+```
+
+## `{car}`
+
+```{r}
+lm(cbind(jump_length, weight) ~ animal, data = fac1_cov_tbl) |> 
+  Manova()
+```
+
 ## `{MANOVA.RM}`
 
 [Das R Paket `{MANOVA.RM}`](https://cran.r-project.org/web/packages/MANOVA.RM/vignettes/Introduction_to_MANOVA.RM.html)
 
 @friedrich2019resampling
 
-## `{car}`
-
-## `{afex}`
-
-## `{WRS2}`
+```{r}
+MANOVA.wide(cbind(jump_length, weight) ~ animal, data = fac1_cov_tbl,
+            iter = 100) |> 
+  summary()
+```
 :::
 
 ## Zweifaktoriell
@@ -174,17 +218,37 @@ p1 + p2 +
 ::: panel-tabset
 ## `{base}`
 
+```{r}
+manova(cbind(jump_length, weight) ~ animal*stage, data = fac2_cov_tbl) |> 
+  summary()
+```
+
+## `{car}`
+
+```{r}
+lm(cbind(jump_length, weight) ~ animal*stage, data = fac2_cov_tbl) |> 
+  Manova()
+```
+
 ## `{MANOVA.RM}`
 
 [Das R Paket `{MANOVA.RM}`](https://cran.r-project.org/web/packages/MANOVA.RM/vignettes/Introduction_to_MANOVA.RM.html)
 
 @friedrich2019resampling
 
-## `{car}`
-
-## `{afex}`
-
-## `{WRS2}`
+```{r}
+MANOVA.wide(cbind(jump_length, weight) ~ animal*stage, data = fac2_cov_tbl,
+            iter = 100) |> 
+  summary()
+```
 :::
+
+## Post-hoc Test
+
+```{r}
+MANOVA.wide(cbind(jump_length, weight) ~ animal*stage, data = fac2_cov_tbl,
+            iter = 100) |> 
+  simCI(contrast = "pairwise", type = "Tukey")
+```
 
 ## Referenzen {.unnumbered}
