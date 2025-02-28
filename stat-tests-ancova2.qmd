@@ -26,7 +26,7 @@ source("stat-tests-anova_plot/ancova_plots.R")
 Dieses Kapitel wird in den nächsten Wochen aktualisiert. Ich plane zum Ende des SoSe 2025 eine neue Version des Kapitels erstellt zu haben. Deshalb kann hier das ein oder andere kurzfristig nicht mehr funktionieren.
 :::
 
-Eigentlich hat sich die Analysis of Covariance (ANCOVA) etwas überlebt. Wir können mit dem statistischen Modellieren *eigentlich* alles was die ANCOVA kann plus wir erhalten auch noch Effektschätzer für die Kovariaten und die Faktoren. Dennoch hat die ANCOVA ihren Platz in der Auswertung von Daten. Wenn du ein oder zwei Faktoren hast plus eine numerische Variable, wie das Startgewicht, für die du die Analyse adjustieren möchtest, dann ist die ANCOVA für dich gemacht. Es gibt auch noch andere Möglichkeiten, die Idee ist eben, dass du für jeden deiner Beobachtungen noch eine kontinuierliche Variable zusätzlich zu deinen Faktoren erhebst, die eben nicht dein Messwert ist.
+Eigentlich hat sich die Analysis of Covariance (ANCOVA) etwas überlebt. Wir können mit dem statistischen Modellieren *eigentlich* alles was die ANCOVA kann plus wir erhalten auch noch Effektschätzer für die Kovariaten und die Faktoren. Dennoch hat die ANCOVA ihren Platz in der Auswertung von Daten. Wenn du ein oder zwei Faktoren hast plus eine numerische Variable, wie das Startgewicht, für die du die Analyse adjustieren möchtest, dann ist die ANCOVA für dich gemacht. Es gibt auch noch andere Möglichkeiten, die Idee ist eben, dass du für jeden deiner Beobachtungen noch eine kontinuierliche Variable zusätzlich zu deinen Faktoren erhebst, die eben nicht dein Messwert ist. Im Bereich der Agrarwissenschaften ist die ANCOVA eher selten zu finden.
 
 ## Allgemeiner Hintergrund
 
@@ -114,7 +114,7 @@ Die Frage lässt sich relativ einfach beantworten. Es gibt neben der klassischen
 
 ## Theoretischer Hintergrund
 
-Betrachten wir jetzt einmal den theoretischen Hintergrund der ANCOVA.
+Betrachten wir jetzt einmal den theoretischen Hintergrund der ANCOVA. Ich habe dazu im Folgenden einmal einen sehr theoretischen Datensatz zusammengebaut. Es geht hier auch eher darum das Prinzip zu verstehen als die Formeln der ANCOVA zu zerlegen. Wir haben in dem Datensatz einen Faktor A mit drei Leveln vorliegen sowie eine Kovariate $c$. Erhoben haben wir den Messwert $y$ in unserem Experiment. Dabei ist jetzt wichtig, dass die Kovariate $c$ in den Leveln des Faktors A aufsteigend sortiert ist. Darüber hinaus sind die Abstände zwischen den Messwerten immer gleich. Das habe ich sogebaut, dass wir damit keinen Restfehler mehr in den Daten vorliegen haben.
 
 ```{r}
 #| echo: false
@@ -128,6 +128,8 @@ f1_ancova_theo_tbl |>
   set_names(c("Faktor A", "Kovariate $c$", "Messwert $y$")) |>  
   tt(width = 2/3, align = "c", theme = "striped")
 ```
+
+Jetzt können wir einmal die Mittelwerte der Faktorlevel sowie den Mitelwert der Kovariate für jedes Faktorlevel berechnen. Damit haben wir dann folgende Tabelle vorliegen. Die Idee ist hier, dass wir neben dem Effekt des Faktors noch einen Effekt der Kovariate vorliegen haben. In unserem Fall steigt die Kovariate stetig mit dem Messwert an. Daher kann ein Teil der Variation in den Messwerten $y$ durch die Kovariate erklärt werden.
 
 ```{r}
 #| echo: false
@@ -146,10 +148,14 @@ f1_ancova_theo_stat_tbl  |>
   tt(width = 1, align = "c", theme = "striped")
 ```
 
+Berechnen wir also einmal das Modell mit `lm()` und lassen uns die Koeffizienten wiedergeben. Dann können wir eventuell das Modell und die ANCOVA dann besser verstehen. Nochmal, wir haben keinen Restfehler in den Daten, deshals sind die Werte so schon glatt, wenn ich runde.
+
 ```{r}
 lm(rsp ~ fa + cov, data = f1_ancova_theo_tbl) |> 
   coef() |> round(2)
 ```
+
+Was haben wir nun als Koeffizienten aus dem Modell vorliegen? Der y-Achsenabschnitt liegt bei $6$ und fällt damit mit dem Mittelwert der ersten Levels $A.1$ unter der Berücksichtigung des Effekts der Kovariate $cov$ zusammen. Daher ist der Mittelwert des Levels $A.1$ gleich $6 + 1.6 \times 1.25$. Die $1.6$ ist der Mittelwert der Kovariate für das Level $A.1$ des Faktors. Faktisch kippst du den globalen Mittelwert $\beta_0$ der ANOVA um die Steigung oder den Effekt der Kovariate $c$. Du adjustierst also den globalen Mittelwert zu dem verglichen werden soll. In der folgenden @fig-ggplot-anova-msa-mse siehst du nochmal den Zusammenhang der Daten zu den Koeffizienten aus dem Modell dargestellt. Die Koeffizienten des Level $A.2$ und $A.3$ sind jetzt nicht mehr die Änderungen zu einem fixen Wert sondern zu dem Wert auf der Geraden, die durch die Steigung der Kovariate $c$ gegeben ist. Eigentlich eine ganz geschickte Idee.
 
 ```{r}
 #| message: false
@@ -224,16 +230,16 @@ rbind(head(repeated_raw_tbl, n = 3),
 #| warning: false
 #| label: fig-ggplot-anova-boxplot-fac1cov
 #| fig-align: center
-#| fig-height: 3.5
-#| fig-width: 7
+#| fig-height: 4
+#| fig-width: 5
 #| fig-cap: "foo."
 
 fac1_cov_tbl |> 
   ggplot(aes(x = weight, y = jump_length, color = animal,
-           group = animal)) +
+             group = animal, shape = animal)) +
   theme_minimal() +
   geom_point() + 
-  geom_smooth(method = "lm", se = FALSE) +
+  geom_smooth(method = "lm", se = FALSE, linetype = 11) +
   labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]", fill = "Flohart") +
   scale_color_okabeito() +
   theme(legend.position = "top")
@@ -271,18 +277,18 @@ rbind(head(fac2_cov_raw_tbl, n = 3),
 #| warning: false
 #| label: fig-ggplot-anova-boxplot-fac2cov
 #| fig-align: center
-#| fig-height: 3.5
-#| fig-width: 7
+#| fig-height: 4
+#| fig-width: 5
 #| fig-cap: "foo."
 
  ggplot(data = fac2_cov_tbl, 
-        aes(x = weight, y = jump_length, 
+        aes(x = weight, y = jump_length, shape = animal,
             color = animal, linetype = stage)) +
   theme_minimal() +
   geom_point() + 
   geom_smooth(method = "lm", se = FALSE) +
   labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]", color = "Flohart",
-       linetype = "Entwicklungsstadium") +
+       linetype = "Entwicklungsstadium", shape = "Flohart") +
   scale_color_okabeito() +
   theme(legend.position = "top")
 
