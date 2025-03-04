@@ -308,15 +308,19 @@ Auch hier schauen wir uns in der folgenden Abbildung einmal den Zusammenhang zwi
 
 ## Einfaktoriell
 
-Häufig wenn es um die einfaktorielle ANCOVA geht, herrscht etwas Verwirrung, da wir ja dann doch zwei Variablen auf der rechten Seite der Tilde `~` haben. Hier haben wir dann aber einen Faktor und eine numerische Kovariate vorliegen. Deshalb ist die einfaktorielle ANCOVA auch nur einfaktoriell, da wir nur einen Faktor betrachten. Ich zeige hier wieder die Anwendung in verschiedenen R Paketen. Die Ergebnisse sind alle sehr ähnlich und eigentlich sticht hier nur das R Paket `{car}` hervor, da wir auch hier für Varianzheterogenität adjustieren können.
+Häufig wenn es um die einfaktorielle ANCOVA geht, herrscht etwas Verwirrung, da wir ja dann doch zwei Variablen auf der rechten Seite der Tilde `~` haben. Hier haben wir dann aber einen Faktor und eine numerische Kovariate vorliegen. Deshalb ist die einfaktorielle ANCOVA auch nur einfaktoriell, da wir nur einen Faktor betrachten. Ich zeige hier wieder die Anwendung in verschiedenen R Paketen. Die Ergebnisse sind alle sehr ähnlich und eigentlich sticht hier nur das R Paket `{car}` hervor, da wir auch hier für Varianzheterogenität adjustieren können. Mehr dazu dann auch in dem entsprechenden Kapitel zu der ANOVA.
 
 ::: panel-tabset
 ## `{base}`
+
+Beginnen wir mit der Standardfunktion `aov()` für die einfaktorielle ANCOVA. Wir nehmen einfach ein Modell und spezifizieren noch die Datenquelle. Dann nutze ich noch die Funktion `tidy()` aus dem R Paket `{broom}` für eine schönere Ausgabe. Dann habe ich alles zusammen.
 
 ```{r}
 aov(jump_length ~ animal*weight, data = fac1_cov_tbl) |> 
   tidy()
 ```
+
+Wir können die Ausgabe der Funktion `aov()` direkt weiter bei `{emmeans}` verwenden. Die etwas allgemeinere Form eine einfaktorielle ANOVA zu rechnen, ist erst das lineare Modell zu schätzen. Hier nutze ich einmal eine lineare Regression mit der Funktion `lm()`. Dann nutzen wir aber die Funktion `anova()` um die ANOVA zu rechnen.
 
 ```{r}
 lm(jump_length ~ animal*weight, data = fac1_cov_tbl) |> 
@@ -324,9 +328,15 @@ lm(jump_length ~ animal*weight, data = fac1_cov_tbl) |>
   tidy()
 ```
 
+Wir sind am Ende aber nur an den p-Werten interessiert und auch hier ist der p-Wert signifikant, der unter dem Signifikanzniveau $\alpha$ gleich 5% liegt. Wir haben also einen signifikanten Einfluss der Flohart wie auch von dem Gewicht des Flohs auf die Sprungweite. Wie du siehst sind die Ergebnisse numerisch gleich. Warum dann überhaupt zwei Funktionen? Mit `lm()` und `anova()` bist du etwas flexibler was das genutzte Modell angeht.
+
 ## `{car}`
 
+Jetzt könnte man meinen, warum noch eine weitere Implementierung der ANOVA, wenn wir schon die Funktion `aov()` haben? Die Funktion `aov()` rechnet grundsätzlich Type I ANCOVAs. Das macht jetzt bei einer einfaktoriellen ANOVA nichts aus, aber wir können eben in `{car}` auch Type II und Type III ANOVAs rechnen. Darüber hinaus erlaubt das Paket auch für Varianzheterogenität in der ANOVA zu adjustieren.
+
 #### Varianzhomogenität {.unnumbered .unlisted}
+
+In dem klassischen Aufruf der Funktion `Anova()` nutzen wir wieder ein Modell und dann gebe ich dir wieder die aufgeräumte Ausgabe mit `tidy()` wieder. Wenn du nichts extra angibst, dann rechnest du natürlich eine ANOVA unter der Annahme der Varianzhomogenität.
 
 ```{r}
 lm(jump_length ~ animal*weight, data = fac1_cov_tbl) |> 
@@ -334,7 +344,11 @@ lm(jump_length ~ animal*weight, data = fac1_cov_tbl) |>
   tidy()
 ```
 
+Wenn du die Zahlen mit der Funktion `aov()` vergleichst, siehst du das da fast die gleichen Werte rauskommen. Das sollte natürlich auch in einer einfaktoriellen ANOVA mit den gleichen Annahmen so sein. Wir nutzen hier aber einen leicht anderen Weg, os dass wir dann auch etwas andere p-Werte rauskriegen. Die Entscheidung ist jedoch in beiden Fällen die gleiche. Die Flohart und das Gewicht der Flöhe ist signifikant.
+
 #### Varianzheterogenität {.unnumbered .unlisted}
+
+Der Vorteil des Pakets `{car}` ist, dass wir in der Funktion `Anova()` auch für Varianzheterogenität adjustieren können. Wir nutzen dazu die Option `white.adjust = TRUE`. Dann haben wir auch etwas andere Werte für die Abweichungsquadrate.
 
 ```{r}
 lm(jump_length ~ animal*weight, data = fac1_cov_tbl) |> 
@@ -342,11 +356,26 @@ lm(jump_length ~ animal*weight, data = fac1_cov_tbl) |>
   tidy()
 ```
 
+Wir sind am Ende aber nur an den p-Werten interessiert und auch die sind hier signifikant, da der p-Wert unter dem Signifikanzniveau $\alpha$ gleich 5% liegt.
+
 ## `{afex}`
 
+Das R Paket `{afex}` ist eigentlich für Messwiederholungen am besten geeignet, aber ich zeige es auch hier im einfaktoriellen Fall. Das einzige was etwas anders ist, ist das wir eine ID für die Funktion brauchen. Das Paket `{afex}` möchte nämlich explizit wissen, welcher Wert zu welcher Beobachtung gehört.
+
 ```{r}
+#| message: false
+#| warning: false
 aov_car(jump_length ~ animal*weight + Error(.id), data = fac1_cov_tbl,
         factorize = FALSE) 
+```
+
+Hier kriegen wir dann in der Type III ANCOVA tatsächlich was anderes raus. Auf einmal ist unsere Flohart nicht mehr signifikant, da der p-Wert über dem Signifikanzniveau $\alpha$ gleich 5% liegt. Hier macht es dann Sinn einmal eine Type II ANCOVA zu rechnen und den nicht signifikanten Interaktionsterm einmal aus dem Modell zu nehmen.
+
+```{r}
+#| message: false
+#| warning: false
+aov_car(jump_length ~ animal + weight + Error(.id), data = fac1_cov_tbl,
+        factorize = FALSE, type = "II") 
 ```
 :::
 
