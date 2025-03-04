@@ -187,7 +187,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, broom, quantreg, car, afex,
-               see, performance, emmeans, multcomp, janitor,
+               see, performance, emmeans, multcomp, janitor, scales,
                parameters, conflicted)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(dplyr::filter)
@@ -381,13 +381,19 @@ aov_car(jump_length ~ animal + weight + Error(.id), data = fac1_cov_tbl,
 
 ## Zweifaktoriell
 
+Betrachten wir jetzt nochmal die zweifaktorielle ANCOVA mit einer zusätzlichen Kovariate. Hier haben wir dann natürlich die Möglichkeit eine Menge mehr an Interaktionen zu betrachten. Auch wird hier dann die Wahl des Algorithmus immer wichtiger. Je nachdem welches Paket du nutzt, kiegst du dann auch leicht andere Werte raus. Teilweise sind die Abweichungen dann auch stärker als ich es selber erwartet hätte, aber das ist eben so manchmal der Fall. Beginnen wir also unsere Analyse der Sprunglänge in Abhängigkeit der Flohart sowie dem Entwicklungsstand und dem Flohgewicht.
+
 ::: panel-tabset
 ## `{base}`
+
+Beginnen wir mit der Standardfunktion `aov()` für die zweifaktorielle ANCOVA. Wir nehmen einfach ein Modell und spezifizieren noch die Datenquelle. Wichtig ist, dass die Reihenfolge der Faktoren in deinem Modell eine Rolle spielt. Daher nehme immer deine wichtigere Behandlung als erstes in das Modell oder nutze eine Type II ANOVA im R Paket `{car}`. Dann nutze ich noch die Funktion `tidy()` aus dem R Paket `{broom}` für eine schönere Ausgabe. Dann habe ich alles zusammen.
 
 ```{r}
 aov(jump_length ~ animal*stage*weight, data = fac2_cov_tbl) |> 
   tidy()
 ```
+
+Wir können die Ausgabe der Funktion `aov()` direkt weiter bei `{emmeans}` verwenden. Die etwas allgemeinere Form eine zweifaktorielle ANOVA zu rechnen, ist erst das lineare Modell zu schätzen. Auch hier ist die Reihenfolge von Wichtigkeit. Hier nutze ich einmal eine lineare Regression mit der Funktion `lm()`. Dann nutzen wir aber die Funktion `anova()` um die ANCOVA zu rechnen.
 
 ```{r}
 lm(jump_length ~ animal*stage*weight, data = fac2_cov_tbl) |> 
@@ -395,30 +401,62 @@ lm(jump_length ~ animal*stage*weight, data = fac2_cov_tbl) |>
   tidy()
 ```
 
+Wir sind am Ende aber nur am p-Wert der beiden Faktoren und der Kovariate interessiert und auch der ist hier für die Floharten `animal` signifikant, da der p-Wert unter dem Signifikanzniveau $\alpha$ gleich 5% liegt. Der p-Wert für den Messort `stage` ist ebenfalls signifkant. Das Gewicht ist nur leicht signifikant, da der p-Wert nahe an 5% liegt. Wir haben eine signifikante Interaktion `animal:stage` vorliegen.
+
 ## `{car}`
+
+Jetzt könnte man meinen, warum noch eine weitere Implementierung der ANOVA, wenn wir schon die Funktion `aov()` haben? Die Funktion `aov()` rechnet grundsätzlich Type I ANCOVAs. Das macht jetzt bei einer zweifaktoriellen ANCOVA schon einen Unterschied welchen Typ ANOVA wir rechnen. Wir können eben in `{car}` auch Type II und Type III ANCOVAs rechnen. Darüber hinaus erlaubt das Paket auch für Varianzheterogenität in der ANOVA zu adjustieren. Häufig haben wir dann eine Interaktion vorliegen, da wir bei drei Variablen dann schon eher eine signifikante Interaktion finden. Wenn du keine Interaktion vorliegen hast, dann nutze die Type II ANCOVA.
 
 #### Varianzhomogenität {.unnumbered .unlisted}
 
+In dem klassischen Aufruf der Funktion `Anova()` nutzen wir wieder ein Modell und dann gebe ich dir wieder die aufgeräumte Ausgabe mit `tidy()` wieder. Wenn du nichts extra angibst, dann rechnest du natürlich eine ANOVA unter der Annahme der Varianzhomogenität.
+
 ```{r}
-lm(jump_length ~ animal*stage*weight, data = fac2_cov_tbl) |> 
-  Anova() |> 
-  tidy()
+lm(jump_length ~ animal*stage*weight, data = fac2_cov_tbl,
+   contrasts = list(
+    animal = "contr.sum",
+    stage = "contr.sum"
+  )) |> 
+  Anova(type = "III") |> 
+  tidy() |> 
+  mutate(p.value = pvalue(p.value))
 ```
+
+Hier ändert sich jetzt doch einiges unter der Berücksichtigung der Interaktion in dem Modell der ANCOVA. Wir sehen aber jetzt nur noch eine schwache Interaktion und könnten überlegen einfach nur eine Type II ANCOVA mit dem Haupteffekten zu rechnen.
+
+```{r}
+lm(jump_length ~ animal + stage + weight, data = fac2_cov_tbl) |> 
+  Anova(type = "II") |> 
+  tidy() |> 
+  mutate(p.value = pvalue(p.value))
+```
+
+Das sieht dann schonmal etwas anders aus und eigentlich auch überzeugend. Wir haben jetzt einen statistischen Engel erwischt, da wir die leicht signifikante Interaktion ignorieren, aber damit können wir leben.
 
 #### Varianzheterogenität {.unnumbered .unlisted}
 
+Der Vorteil des Pakets `{car}` ist ja, dass wir in der Funktion `Anova()` auch für Varianzheterogenität adjustieren können. Wir nutzen dazu die Option `white.adjust = TRUE`. Ja, ich weiß, das ist überhaupt nicht naheliegend. Wenn wir das machen, dann werden die Abweichungsquadrate anders berechnet und unsere Ausgabe ändert sich entsprechend. Auch hier nutze ich dann mal die Type II ANOVA und betrachte nur die Haupteffekte.
+
 ```{r}
-lm(jump_length ~ animal*stage*weight, data = fac2_cov_tbl) |> 
-  Anova(white.adjust = TRUE)  |> 
+lm(jump_length ~ animal + stage + weight, data = fac2_cov_tbl) |> 
+  Anova(type = "II", white.adjust = TRUE)  |> 
   tidy()
 ```
 
+Unter der Berücksichtigung der Varianzheterogenität ist dann unser Gewicht auf einmal dann doch nicht mehr signifikant. Spannend, was die unterschiedlichen Algorithmen dann alles rauskriegen. Ob hier dann dieses Ergebnisses wahrer ist als bei der Varianzhomogenität kann man diskutieren. Hier muss man sich die Sachlage dann nochmal in einer Regression anschauen. Dann kann ich die Effektschätzer besser interpretieren.
+
 ## `{afex}`
 
+Der Vorteil von dem R Paket `{afex}` ist, dass wir hier mit der Funktion `aov_car()` eine Type III ANCOVA rechnen, die korrekt angepasst ist. Wir müssen also nicht noch extra ein Modell mit Kontrasten anpassen. Wir können auch die ANOVA Type II rechnen. Eine Besonderheit ist, dass wir einen Fehlerterm mit `Error()` der Funktion übergeben müssen, damit `{afex}` rechnen kann. Die Stärke von `{afex}` liegt eigentlich in der repeated und mixed ANOVA. Dort brauchen wir dann die Information zwingend, welche Zeile zu welcher Beobachtung gehört.
+
 ```{r}
+#| message: false
+#| warning: false
 aov_car(jump_length ~ animal*stage*weight + Error(.id), data = fac2_cov_tbl,
         factorize = FALSE) 
 ```
+
+Am Ende erhalten wir hier nur noch einen signifikanten Unterschied für den Faktor `stage` und damit dem Entwicklungsstand. Hier muss man dann auch nochmal spielen und schauen, was die anderen Typen der ANCOVA ergeben. Da ja auch hier nur eine marginale signifikante Interaktion zwischen den Floharten und dem Entwicklungsstand vorliegt, würde ich auch hier zu einer Type II ANCOVA greifen.
 :::
 
 ## Referenzen {.unnumbered}
