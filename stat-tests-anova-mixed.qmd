@@ -8,6 +8,7 @@ set.seed(202434)
 conflicts_prefer(dplyr::summarise)
 conflicts_prefer(dplyr::summarize)
 conflicts_prefer(dplyr::mutate)
+conflicts_prefer(dplyr::select)
 conflicts_prefer(magrittr::set_names)
 conflicts_prefer(dplyr::filter)
 conflicts_prefer(dplyr::desc)
@@ -65,7 +66,7 @@ mixed_theo_fac2_p + repeated_theo_fac2_p +
 
 ```
 
-Bevor wir jetzt weiter in das Modell und die einzelnen Besonderheiten der mixed ANOVA und repeated ANOVA einsteigen nochmal der Hinweis, dass wir hier natürlich auch wieder *nur* global einen Fakor testen. Das heißt, du weißt natürlich wieder nicht, welcher paarweise Vergleich innerhalb eines Faktors einen signifikanten Unterschied ausmacht, wenn du eine signifikante ANOVA vorliegen hast. Dann musst du wieder weiter machen mit einem Post-hoc Test. Oder wie es @gueorguieva2004move mit der wissenschaftlichen Veröffentlichung [Move Over ANOVA](https://jamanetwork.com/journals/psych/articlepdf/481967/ynv20002.pdf?casa_token=5gc0qQuqNFUAAAAA:SJWnX8rH6__-lxXqiF0FDGQISXgXE0JQlRgtY7EE76IFnuECNjsOvKzUIwu9hmZFrKdLJbIahfQ) und der Nutzung von linearen gemischten Modellen wie folgt beschreibt.
+Bevor wir jetzt weiter in das Modell und die einzelnen Besonderheiten der mixed ANOVA und repeated ANOVA einsteigen nochmal der Hinweis, dass wir hier natürlich auch wieder *nur* global einen Fakor testen. Das heißt, du weißt natürlich wieder nicht, welcher paarweise Vergleich innerhalb eines Faktors einen signifikanten Unterschied ausmacht, wenn du eine signifikante ANOVA vorliegen hast. Dann musst du wieder weiter machen mit einem Post-hoc Test. Auch hier hilft nochmal die Vingette von `{afex}` mit [ANOVA and Post-Hoc Contrasts](https://cran.r-project.org/web/packages/afex/vignettes/afex_anova_example.html). Oder wie es @gueorguieva2004move mit der wissenschaftlichen Veröffentlichung [Move Over ANOVA](https://jamanetwork.com/journals/psych/articlepdf/481967/ynv20002.pdf?casa_token=5gc0qQuqNFUAAAAA:SJWnX8rH6__-lxXqiF0FDGQISXgXE0JQlRgtY7EE76IFnuECNjsOvKzUIwu9hmZFrKdLJbIahfQ) und der Nutzung von linearen gemischten Modellen wie folgt beschreibt.
 
 > *"Mixed-effects models use all available data, can properly account for correlation between repeated measurements on the same subject, have greater flexibility to model time effects, and can handle missing data more appropriately. Their flexibility makes them the preferred choice for the analysis of repeated measures data"* --- @gueorguieva2004move
 
@@ -87,7 +88,7 @@ Mit der Funktion `anova_test()` aus `{rstatix}`
 
 Mit den ANOVA Funktionen aus `{afex}`
 
-:   Wir können die mixed oder repeated ANOVA anwenden, wenn wir Messwiederholungen vorliegen haben. Daher bietet sich hier insbesondere das [R Paket `{afex}`](https://github.com/singmann/afex) an. Du musst bei den Funktionen von `{afex}` immer eine ID mitlaufen lassen, die angibt welche Individuen wiederholt gemessen wurden. Also hat jede Zeile eine Nummer, die beschreibt welche Beobachtung hier vorliegt. Besonders wichtig bei Messungen über die Zeit. Darüber hinaus kann das Paket sehr gut Interaktionen schätzen und Bedarf dort keiner zusätzlichen Optionen.
+:   Wir können die mixed oder repeated ANOVA anwenden, wenn wir Messwiederholungen vorliegen haben. Daher bietet sich hier insbesondere das [R Paket `{afex}`](https://github.com/singmann/afex) an. Du musst bei den Funktionen von `{afex}` immer eine ID mitlaufen lassen, die angibt welche Individuen wiederholt gemessen wurden. Also hat jede Zeile eine Nummer, die beschreibt welche Beobachtung hier vorliegt. Besonders wichtig bei Messungen über die Zeit. Darüber hinaus kann das Paket sehr gut Interaktionen schätzen und Bedarf dort keiner zusätzlichen Optionen. Auch hier hilft nochmal die Vingette von `{afex}` mit [ANOVA and Post-Hoc Contrasts](https://cran.r-project.org/web/packages/afex/vignettes/afex_anova_example.html) weiter, wenn es um den Post-hoc Test geht.
 
 Mit den ANOVA Funktionen aus `{MANOVA.RM}`
 
@@ -118,12 +119,13 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 #| warning: false
 pacman::p_load(tidyverse, magrittr, broom, WRS2, scales,
-               readxl, see, car, patchwork, rstatix,
-               interactions, effectsize, afex, report,
+               readxl, see, car, patchwork, rstatix, emmeans,
+               interactions, effectsize, afex, report, multcomp,
                janitor, MANOVA.RM, conflicted)
 conflicts_prefer(dplyr::mutate)
 conflicts_prefer(dplyr::summarize)
 conflicts_prefer(dplyr::filter)
+conflicts_prefer(dplyr::arrange)
 conflicts_prefer(magrittr::set_names)
 conflicts_prefer(effectsize::eta_squared)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
@@ -144,7 +146,7 @@ Bei der mixed ANOVA haben wir mindestens ein zweifaktorielles Design vorliegen. 
 
 #### Zweifaktoriell {.unnumbered .unlisted}
 
-Im Folgenden siehst du einmal einen Datensatz für eine zweifaktorielle mixed ANOVA. Wir haben in dem Datensatz einmal den Faktor `feeding` als die Fütterungsarten sowie als zweiten Faktor die verschiedenen Zeitpunkte der Messung der Sprungweite in \[cm\]. Wir haben an insgesamt sechs Zeitpunkten wiederholt die Sprungweite gemessen. Wir wollen nun wissen, in wie weit sich die Sprungweite über die ZEit für die drei Floharten ändert.
+Im Folgenden siehst du einmal einen Datensatz für eine zweifaktorielle mixed ANOVA. In diesem Beispiel schauen wir uns nur Katzenflöhe an. Wir haben in dem Datensatz einmal den Faktor `feeding` als die Fütterungsarten mit einer Kontrolle als Zuckerwasser, Blut und einmal Ketchup sowie als zweiten Faktor die verschiedenen Zeitpunkte der Messung der Sprungweite in \[cm\]. Wir haben an insgesamt sechs Zeitpunkten wiederholt die Sprungweite gemessen. Wir wollen nun wissen, in wie weit sich die Sprungweite über die Zeit für die drei Floharten ändert.
 
 ```{r}
 mixed_fac2_tbl <- read_excel("data/fleas_complex_data.xlsx", 
@@ -178,6 +180,8 @@ rbind(head(repeated_raw_tbl, n = 4),
   tt(width = 1, align = "c", theme = "striped")
 ```
 
+Jetzt habe ich dir in der folgenden Abbildung auch nochmal das Versuchsdesign aufgezeigt. Wie du siehst, haben wir immer einen Floh, der eine Behandlung mit einer Fütterungsart erhält. Dieser Flog springt dann zum Beispiel unter der Fütterung mit Ketchup sechs Mal und wir notieren jedesmal die Sprungweite zu den Messzeitpunkten.
+
 ```{r}
 #| echo: false
 #| eval: true
@@ -187,10 +191,12 @@ rbind(head(repeated_raw_tbl, n = 4),
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 7
-#| fig-cap: "Darstellung der Varianzhomogenität und Varianzheterogenität in einem Barplot. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Versuchsdesign der zweifaktoriellen mixed ANOVA. Der erste Faktor ist die Fütterungsart `feeding`. Jeder Floh erhält eine Fütterung und anschließend wird sechs mal die Sprungweite gemessen. Hier sind nur vier Zeitpunkte dargestellt. *[Zum Vergrößern anklicken]*"
 
 mixed_fac2_p
 ```
+
+In der folgenden Abbildung siehst du dann nochmal den Zusammenhang zwischen der Sprungweite in \[cm\] der Katzenflöhe unter unterschiedlichen Fütterungsarten. Dabei wurden die Flöhe wiederholt an sechs Zeitpunkten gemessen. Wir du siehst, fällt mit der Zeit die Sprungleistung ab. Die Katzenflöhe springen unabhängig von der Fütterungsart weniger weit mit der Zeit. Am letzten Zeitpunkt scheinen die Flöhe unter Ketchupernährung dann wieder etwas weiter zu springen. Jetzt müssen wir aber einmal statistisch Nachweisen, ob wir hier wirklich einen signifikanten Zusammenhang und Unterschiede zwischen den Fütterungsarten vorliegen haben.
 
 ```{r}
 #| echo: false
@@ -201,7 +207,7 @@ mixed_fac2_p
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 7
-#| fig-cap: "Darstellung der Varianzhomogenität und Varianzheterogenität in einem Barplot. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Darstellung des Zusammenhangs zwischen der Fütterung von Katzenflöhen und der gemessenen Sprungweite in [cm] über sechs Messzeitpunkte. Die Linie stellt den jeweiligen Mittelwert zu dem Zeitpunkt und der Fütterungsart dar. *[Zum Vergrößern anklicken]*"
 
 ggplot(mixed_fac2_tbl, aes(x = time_fct, y = jump_length, 
                            color = feeding, group = feeding)) +
@@ -215,6 +221,8 @@ ggplot(mixed_fac2_tbl, aes(x = time_fct, y = jump_length,
 ```
 
 #### Dreifaktoriell {.unnumbered .unlisted}
+
+Für unser dreifaktorielles Beispiel erweiter wir einmal den Datensatz um ein Workout für die Katzenflöhe. Neben den drei Fütterungsarten Kontrolle mit Zuckerwasser, Blut sowie Ketchup mussten die Flöhe als zweiten Faktor noch ein Workout bestehen. Dabei haben nicht alle Katzenflöhe jeweils trainiert, sondern wir haben eine untrainierte Gruppe sowie eine trainierte Gruppe. Beide Gruppen des Workout wurden dann mit allen drei Fütterungsarten gefüttert. Dann wurden insgesamt zu sechs Zeitpunkten die Sprungweite in \[cm\] bestimmt. Wir haben es daher mit einem dreifaktoriellen Datensatz zu tun, da wir zwei Behandlungsfaktoren sowie den Faktor der Messwiederholungen in unseren Daten vorliegen haben.
 
 ```{r}
 mixed_fac3_tbl <- read_excel("data/fleas_complex_data.xlsx", 
@@ -235,7 +243,7 @@ mixed_fac3_tbl <- read_excel("data/fleas_complex_data.xlsx",
 #| message: false
 #| warning: false
 #| label: tbl-mixed-table-fac3
-#| tbl-cap: "foo."
+#| tbl-cap: "Rohdaten der Sprungweiten in [cm] gemessen an sechs Zeitpunkten von drei Fütterungsarten sowie dem Status des Workouts im Wide-Format für die bessere Übersicht."
 
 repeated_raw_tbl <- read_excel("data/fleas_complex_data.xlsx", sheet = "mixed-fac3") |> 
   select(.id, feeding, workout, t0:t5) |> 
@@ -256,7 +264,7 @@ rbind(head(repeated_raw_tbl, n = 4),
 #| fig-align: center
 #| fig-height: 5.5
 #| fig-width: 7
-#| fig-cap: "Darstellung der Varianzhomogenität und Varianzheterogenität in einem Barplot. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Versuchsdesign der dreifaktoriellen mixed ANOVA. Der erste Faktor ist die Fütterungsart `feeding`. Der zweite Faktor der Status des Workouts für jeden Floh `workout`. Jeder Floh erhält eine Fütterung sowie ein Workout und anschließend wird sechs mal die Sprungweite gemessen. Hier sind nur vier Zeitpunkte dargestellt. *[Zum Vergrößern anklicken]*"
 
 mixed_fac3_p
 ```
@@ -270,11 +278,11 @@ mixed_fac3_p
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 7
-#| fig-cap: "Darstellung der Varianzhomogenität und Varianzheterogenität in einem Barplot. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Darstellung des Zusammenhangs zwischen der Fütterung von Katzenflöhen sowie der Trainingszustand und der gemessenen Sprungweite in [cm] über sechs Messzeitpunkte. Die Linie stellt den jeweiligen Mittelwert zu dem Zeitpunkt und der Fütterungsart sowie des Trainings dar. *[Zum Vergrößern anklicken]*"
 
 ggplot(mixed_fac3_tbl, aes(x = time_fct, y = jump_length, shape = workout,
-                             color = feeding, linetype = workout,
-                             group = interaction(feeding, workout))) +
+                           color = feeding, linetype = workout,
+                           group = interaction(feeding, workout))) +
   theme_minimal() +
   geom_point(position = position_dodge(0.2)) +
   stat_summary(fun = mean, geom = "line",
@@ -282,8 +290,8 @@ ggplot(mixed_fac3_tbl, aes(x = time_fct, y = jump_length, shape = workout,
   scale_color_okabeito() +
   theme(legend.position = "top") +
   labs(x = "Zeitpunkte der Messung", y = "Sprungweite in [cm]",
-       color = "Workout", shape = "Workout", 
-       linetype = "Entwicklungsstand")
+       color = "Entwicklungsstand", shape = "Workout", 
+       linetype = "Workout")
 ```
 
 ### Repeated ANOVA
@@ -528,11 +536,15 @@ get_anova_table(rstatix_aov)
 ## `{afex}`
 
 ```{r}
+#| message: false
+#| warning: false
 aov_car(jump_length ~ feeding * time_fct + Error(.id/time_fct), 
-        data = mixed_fac2_tbl)
+        data = mixed_fac2_tbl) 
 ```
 
 ```{r}
+#| message: false
+#| warning: false
 aov_4(jump_length ~ feeding * time_fct + (time_fct|.id), 
       data = mixed_fac2_tbl)
 ```
@@ -580,11 +592,15 @@ get_anova_table(rstatix_aov)
 ## `{afex}`
 
 ```{r}
+#| message: false
+#| warning: false
 aov_car(jump_length ~ feeding * workout * time_fct + Error(.id/time_fct), 
         data = mixed_fac3_tbl)
 ```
 
 ```{r}
+#| message: false
+#| warning: false
 aov_4(jump_length ~ feeding * workout * time_fct + (time_fct|.id), 
       data = mixed_fac3_tbl)
 ```
@@ -627,10 +643,14 @@ get_anova_table(rstatix_aov)
 ## `{afex}`
 
 ```{r}
+#| message: false
+#| warning: false
 aov_car(jump_length ~ time_fct + Error(.id/time_fct), data = repeated_fac1_tbl)
 ```
 
 ```{r}
+#| message: false
+#| warning: false
 aov_4(jump_length ~ time_fct + (time_fct|.id), data = repeated_fac1_tbl)
 ```
 
@@ -683,11 +703,15 @@ get_anova_table(rstatix_aov)
 ## `{afex}`
 
 ```{r}
+#| message: false
+#| warning: false
 aov_car(jump_length ~ feeding * time_fct + Error(.id/feeding * time_fct), 
         data = repeated_fac2_tbl)
 ```
 
 ```{r}
+#| message: false
+#| warning: false
 aov_4(jump_length ~ feeding * time_fct + (feeding * time_fct|.id), 
       data = repeated_fac2_tbl)
 ```
@@ -729,12 +753,16 @@ get_anova_table(rstatix_aov)
 ## `{afex}`
 
 ```{r}
+#| message: false
+#| warning: false
 aov_car(jump_length ~ feeding * workout * time_fct + 
           Error(.id/feeding * workout * time_fct), 
         data = repeated_fac3_tbl)
 ```
 
 ```{r}
+#| message: false
+#| warning: false
 aov_4(jump_length ~ feeding * workout * time_fct + 
         (feeding * workout * time_fct|.id), 
       data = repeated_fac3_tbl)
