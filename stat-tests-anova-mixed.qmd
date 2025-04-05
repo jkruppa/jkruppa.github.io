@@ -633,7 +633,7 @@ bwtrim(jump_length ~ feeding * time_fct, id = .id, data = mixed_fac2_tbl)
 Die Ergebnisse sind dann vom p-Wert inhaltlich gleich wie bei den anderen Anwendungen. Das habe ich hier auch erwartet, denn unsere Sprungweiten habe ich so gebaut, dass die Sprungweiten normalverteilt sind. Nicht immer können wir aber in unseren Daten davon ausgehen, dass wir normalverteilte Messwerte vorliegen haben. Da ist diese Alternative hier sehr gut.
 :::
 
-Wir haben ja in den obigen Anwendungen der mixed ANOVA immer eine signifikante Interaktion gefunden. Daher wollen wir uns einmal in einem Liniendiagramm der Mittelwerte die Sachlage näher anschauen.
+Wir haben ja in den obigen Anwendungen der mixed ANOVA immer eine signifikante Interaktion gefunden. Daher wollen wir uns einmal in einem Liniendiagramm der Mittelwerte die Sachlage näher anschauen. Wenn wir eine Interaktion erwarten, dann sollten sich die Linien der Mittelwerte kreuzen. Wir haben ja auch in allen Analysen eine signifkante Interaktion voriegen. Wenn wir jetzt auf die Abbildung schauen, dann sehen wir auch, dass sich die Lienien für die Fütterung mit Blut und der Kontrolle kreuzen. Wir haben hier eine Interaktion vorliegen. Auch sind die Unterschiede zwischend den Fütterungen nicht immer parallel zueinander mit dem gleichen Effekt oder eben Abstand.
 
 ```{r}
 #| message: false
@@ -643,7 +643,7 @@ Wir haben ja in den obigen Anwendungen der mixed ANOVA immer eine signifikante I
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 7
-#| fig-cap: "Liniendigramm mit den Mittelwerten aller Faktorkombinationen der beiden Faktoren `feeding` und `time_fct`. Die Linien kreuzen sich leicht, es liegt eine Interaktion vor. Eine allgmeine Aussage über die Sprungweite und der Fütterung lässt sich nicht unabhängig vom Zeitpunkt treffen."
+#| fig-cap: "Liniendigramm mit den Mittelwerten aller Faktorkombinationen der beiden Faktoren `feeding` und `time_fct`. Die Linien kreuzen sich leicht, es liegt eine Interaktion vor. Eine allgemeine Aussage über die Sprungweite und der Fütterung lässt sich nicht unabhängig vom Zeitpunkt treffen. Die Interaktion ist aber nicht sehr stark."
 
 mixed_fac2_tbl |> 
   ggplot(aes(x = time_fct, y = jump_length,
@@ -657,8 +657,12 @@ mixed_fac2_tbl |>
 
 ### Dreifaktoriell
 
+Jetzt betrachten wir noch die dreifaktorielle mixed ANOVA. Dieses Design kommt dann vor, wenn du zwei Behandlungsfaktoren sowie einen Zeitfaktor in deinen Daten vorliegen hast. In unserem Fall ist der erste Faktor die Fütterungsart mit den Gruppen Kontrolle, Blut und Ketchup sowie als zweiten Faktor der Status des Workouts des einzlenen Flohs. Wir schauen hier nur Katzenflöhe an. Dann messen wir die Sprungweite jedes einzelnen Flohs nochmal zu sechs Zeitpunkten. Hier ist es wieder wichtig darauf zu achten, was mit einem einzelnen Floh passiert und gemessen wird. Wir messen hier jede Faktorkombination und Wiederholung mit einem neuen Floh. Schaue dir dazu nochmal die Übersicht des Designs in dem Abschnitt zu den Daten in der @fig-ggplot-theo-mixed-fac3 an. Auch hier ist es dann manchmal von Vorteil zu wissen, wechler Faktor einem eigentlich am meisten interessiert. Wir betrachten hier jetzt alle drei Faktoren und deren Interaktionen als gleichwertig. Wir können die dreifaktorielle mixed ANOVA nicht mehr in dem R Paket `{WRS2}` rechnen. Das Paket biette keine Funktion dafür an.
+
 ::: panel-tabset
 ## `{base}`
+
+Beginnen wir wieder mit der Standardfunktion in `{base}` mit `aov()` und deren Anwendung. Hier kommt dann die verkürzende Formelschreibweise mit dem Stern `*` zum Einsatz. Ich kann mir nicht merken was alle Faktorkombinationen zusammen mit allen Interaktionen sind. Daher nutze ich dann einmal die Schreibweise, die mir diese Überlegung abnimmt. Dann muss ich noch in dem Fehlerterm mitteilen wer `.id` in welchen Faktor `time_fct` wiederholt wird. Damit ist die dreifaktorielle mixed ANOVA der zweifaktoriellen mixed ANOVA sehr ähnlich. Wir erhalten dann folgende Ausagen, die ich nochmal aufgereinigt habe, da ich nicht alle Spalten und Informationen brauche. Auch mag ich den p-Wert gerne etwas übersichtlicher.
 
 ```{r}
 aov(jump_length ~ feeding * workout * time_fct + Error(.id/time_fct), 
@@ -669,6 +673,8 @@ aov(jump_length ~ feeding * workout * time_fct + Error(.id/time_fct),
   mutate(p.value = pvalue(p.value))
 ```
 
+Wir sehen sofort, dass die beiden Faktoren der Fütterungsart sowie des Workout signifikant sind. Auch haben wir eine signifikante Interaktion zwischen den beiden Faktoren vorliegen. Die Gruppen der Fütterung verhalten sich in den beiden Gruppen des Workouts nicht gleich. Auch ist die Zeit signifkant, es passiert also etwas mit der Sprungweite über die Zeit. Im Weiteren haben wir eine signifikante Interaktion zwischen der Fütterungsart und der Zeit, so dass sich hier auch über die Zeit die Gruppen der Fütterung anders verhalten. Die anderen Interaktionen sind nicht signifikant.
+
 ## `{rstatix}`
 
 ```{r}
@@ -676,7 +682,10 @@ rstatix_aov <- anova_test(data = mixed_fac3_tbl,
                           dv = jump_length, wid = .id, 
                           between = c(feeding, workout), 
                           within = time_fct)
-get_anova_table(rstatix_aov)
+get_anova_table(rstatix_aov) |> 
+  as_tibble() |> 
+  select(Effect, F, p, ges) |> 
+  mutate(p = pvalue(p))
 ```
 
 ## `{afex}`
@@ -685,7 +694,7 @@ get_anova_table(rstatix_aov)
 #| message: false
 #| warning: false
 aov_car(jump_length ~ feeding * workout * time_fct + Error(.id/time_fct), 
-        data = mixed_fac3_tbl)
+        data = mixed_fac3_tbl) 
 ```
 
 Das R Paket `{afex}` erlaubt es auch die Modelle nach der Schreibweise der linearen gemischten Modelle zu definieren. Das ist für mich eigentlich etwas angenehmer, da man sich dann in einer Formelwelt aufhält mehr dazu dann im [Kapitel zu gemischten Modellen](#sec-mixed). Also die Ergebnisse sind die Gleichen. Ich brauche es nur als Referenz für mich zum nachschlagen.
