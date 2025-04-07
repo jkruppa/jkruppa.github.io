@@ -3,7 +3,7 @@
 #| warning: false
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, performance, parameters,
                latex2exp, see, patchwork, mfp, multcomp, emmeans, janitor, effectsize,
-               broom, ggmosaic,
+               broom, ggmosaic, tinytable, 
                conflicted)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(dplyr::filter)
@@ -60,12 +60,25 @@ ggplot(tibble(x = 1:3, y = 1:3), aes(x,y)) +
 
 ## S-values
 
-::: panel-tabset
-## Theoretisch
-
 $$
 \mbox{S-value} = -\log_2(\mbox{p-value})
 $$
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-t-p-s
+#| tbl-cap: "foo."
+
+tibble(t = c(1, 1.96, 2, 3, 4),
+       p = pt(t, Inf, lower.tail = FALSE) * 2,
+       s = -log2(p)) |> 
+  mutate(p = round(p, 4),
+         s = round(s)) |> 
+  set_names(c("Teststatistik $T_D$", "p-Wert", "S-Wert")) |> 
+  tt(width = 1, align = "c", theme = "striped")
+```
 
 ```{r}
 #| echo: false
@@ -74,15 +87,17 @@ $$
 #| warning: false
 #| label: fig-theo-s-value
 #| fig-align: center
-#| fig-height: 4
+#| fig-height: 4.5
 #| fig-width: 7
 #| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
 
-s_tbl <- tibble(t = seq(0, 4, by = 0.1),
-                p = pt(t, 20, lower.tail = FALSE),
+
+s_tbl <- tibble(t = sort(c(seq(0, 4, by = 0.1), 1.96)),
+                p = pt(t, Inf, lower.tail = FALSE)*2,
                 s = -log2(p),
-                s_y = s/(max(s)/0.5)) |> 
+                s_y = s/(max(s))) |> 
   mutate_if(is.numeric, round, 4) |> 
+  filter(t != 2.0 & t != 1.9) |> 
   pivot_longer(cols = c("p", "s_y"),
                values_to = "values",
                names_to = "grp") |> 
@@ -90,14 +105,33 @@ s_tbl <- tibble(t = seq(0, 4, by = 0.1),
 
 ggplot(s_tbl, aes(t, values, color = grp)) +
   theme_minimal() +
+  geom_hline(yintercept = 0.05, color = "#CC79A7", linetype = 1) +
+  geom_hline(yintercept = 0.3099, color = "#0072B2", linetype = 1) +
+  geom_vline(xintercept = 1.96, color = "gray70", linetype = 1, size = 1) +
+  annotate("rect", xmin = 1.96, xmax = 4, ymin = 0, ymax = 0.05, fill="#E69F00", alpha = 0.15) +
+  annotate("rect", xmin = 1.96, xmax = 4, ymin = 0.3099, ymax = 1, fill="#0072B2", alpha = 0.1) +
   geom_point() +
   geom_line() +
-  scale_y_continuous(sec.axis = sec_axis(name = "S-value", ~ . * 22.94,
-                                         breaks = c(0.1, 0.2, 0.3, 0.4, 0.5) * 22.94,
-                                         labels = round(c(0.1, 0.2, 0.3, 0.4, 0.5) * 22.94))) +
+  scale_y_continuous(sec.axis = sec_axis(name = "S-value", ~ . * 11.47,
+                                         breaks = c(0.3099, 0.5, 0.75, 1) * 11.47,
+                                         labels = round(c(0.3099, 0.5, 0.75, 1) * 11.47)),
+                     breaks = c(0.05, 0.25, 0.5, 0.75, 1),
+                     labels = c("5%", "", "", "", "")) +
+  scale_x_continuous(breaks = c(0, 1, 1.96, 3, 4)) +
+  annotate("text", x = c(1, 3), y = 0.9, label = c("Nicht signifikant", "Signifikant"),
+           size = 5, fontface = 2) +
+  annotate("text", x = c(1.25, 3.25), y = 0.5, label = c("p-values", "S-values"),
+           size = 4.5, fontface = 3) +
+  geom_curve(x = 1.25, y = 0.47, xend = 1, yend = 0.35, linewidth = 0.25,
+             arrow = arrow(length = unit(0.02, "npc"), type = "closed"),
+             curvature = -0.5, color = "gray50") +
+  geom_curve(x = 3.25, y = 0.53, xend = 3.4, yend = 0.72, linewidth = 0.25,
+             arrow = arrow(length = unit(0.02, "npc"), type = "closed"),
+             curvature = 0.5, color = "gray50") +
   scale_color_okabeito() +
   labs(x = expression(Teststatistik~T[D]),
-       y = "p-value", color = "") +
+       y = "p-value", color = "", title = "Die Teststatistik, der p-Wert und der S-Wert",
+       subtitle = "Wie änderen sich p-Wert und S-Wert in Abhängigkeit von der Teststatistik?") +
   theme(legend.text = element_text(size = 14),
         legend.title = element_text(size = 14, face = 2),
         axis.text.y = element_text(size = 14),
@@ -107,22 +141,49 @@ ggplot(s_tbl, aes(t, values, color = grp)) +
         plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
         plot.caption = element_text(size = 12),
-        legend.position = "top",
+        legend.position = "none",
         panel.grid.minor.y = element_blank(),
         panel.grid.minor.x = element_blank()) 
 ```
 
-## Händisch
+```{r}
+#| echo: false
+#| eval: true
+#| message: false
+#| warning: false
+#| label: fig-theo-s-value-coin
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
 
-$$
-\mbox{S-value} = -\log_2(\mbox{p-value})
-$$
+library(emojifont)
 
-## {base}
+ggplot(tibble(x = 1:4, y = 1:4), aes(x,y)) +
+  theme_void() +
+  geom_emoji("slightly_smiling_face", x = 2.5, y = 4, color = "black", size = 20) +
+  geom_emoji("slightly_smiling_face", x = c(2,3), y = 3, color = "black", size = 20) +
+  geom_emoji("slightly_smiling_face", x = c(1.5, 2.5, 3.5), y = 2, color = "black", size = 20) +
+  geom_emoji("slightly_smiling_face", x = 1:4, y = 1, color = "black", size = 20) +
+  annotate("text", x = 5.5, y = 4:1, 
+           label = c(expression(frac(1, 2)~"="~0.5),
+                     expression(frac(1, 2) %.% frac(1, 2)~"="~0.25),
+                     expression(frac(1, 2) %.% frac(1, 2) %.% frac(1, 2)~"="~0.125),
+                     expression(frac(1, 2) %.% frac(1, 2) %.% frac(1, 2) %.% frac(1, 2)~"="~0.0625))) +
+  annotate("text", x = 0.1, y = 4:1, label = c("S-value = 1", "S-value = 2", 
+                                                "S-value = 3", "S-value = 4"), 
+           fontface = 2, size = 4) +
+  scale_x_continuous(limits = c(-0.1, 6)) +
+  scale_y_continuous(limits = c(0.5, 4.5)) +
+  labs(title = "Der S-Wert und der Münzwurf", 
+       subtitle = "S-Wert und Wahrscheinlichkeit Kopf nacheinander zu werfen") +
+  theme(plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic")) 
+
+```
 
 ```{r}
 tibble(t_d = c(1.5, 2.4, 3.15),
        p = pt(t_d, 20, lower.tail = FALSE),
        s = -log2(p))
 ```
-:::
