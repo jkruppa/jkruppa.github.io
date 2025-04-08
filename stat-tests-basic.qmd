@@ -1,8 +1,9 @@
 ```{r}
 #| echo: false
 #| message: false
-pacman::p_load(tidyverse, readxl, knitr, kableExtra, broom, patchwork, conflicted)
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, broom, patchwork, tinytable, conflicted)
 conflict_prefer("extract", "magrittr")
+conflicts_prefer(dplyr::filter)
 data_tbl <- tibble(animal = gl(2, 4, labels = c("cat", "dog")),
                    jump_length = c(8.5, 9.9, 8.9, 9.4, 8.0, 7.2, 8.4, 7.5)) |> 
   arrange(desc(animal))
@@ -37,6 +38,7 @@ So, jetzt geht es aber los. Du erfährst im diesem Kapitel mehr zur statistische
 
 -   Wir verstehen die statistischen Testentscheidung anhand des Konzeptes der Teststatistik $T$ (siehe @sec-teststatistik) und können eine simple Teststatistik berechnen. Du nutzt die Testentscheidung nach der Teststatistik $T$ hauptsächlich in einer schriftlichen Prüfung. In der praktischen Anwendung hat die Teststatistik heutzutage keine Bedeutung mehr.
 -   Wir können die statistischen Testentscheidung anwenden, da wir das Konzept des $p$-Wertes $Pr(T|H_0)$ verstanden haben (siehe @sec-pwert). Heutzutage treffen wir eine Testentscheidung anhand des $p$-Wertes. Dabei ist der $p$-Wert grob als Wahrscheinlichkeit der Teststatistik anzusehen. Deshalb auch $p$-Wert was im englischen für *p-value*, also *probability value*, steht.
+-   Wir können die statistische Testentscheidung anhand der neuen statistischen Maßzahl des S-Wertes bewerten (siehe @sec-s-value). Der S-Wert ist eine Transformation des p-Wertes und erlaubt eine intuitivere Interpretation. Wir haben daher eine Idee wie stark unsere Daten von der Nullhypothese abweichen. Oder etwas anders ausgedrückt, wie stark wir von den S-Werten überrrascht werden.
 -   Wir können die statistischen Testentscheidung anwenden, da wir das Konzept des *Compact letter displays* verstanden haben (siehe @sec-compact-letter-short). Wir können daher einem Boxplot oder Barplot die entsprechenden Buchstaben eines *Compact letter displays* ergänzen und interpretieren.
 -   Wir können die statistischen Testentscheidung anwenden, da wir das Konzept der 95% Konfidenzintervalle verstanden haben (siehe @sec-ki). Wir haben verstanden, dass es einen konzeptionellen Unterschied zwischen dem Begriff *Signifikanz* und *Relevanz* gibt. Die Aussage der Signifikanz ist eine reine Wahrscheinlichkeitsaussage und beinhaltet keine Bewertung der Stärke des beobachteten Effekts.
 
@@ -618,6 +620,172 @@ p_val <- c(0.0004, 0.0015, 0.013, 0.044, 0.067, 0.24)
 stars.pval(p_val)
 ```
 :::
+
+### ... anhand des S-Wertes {#sec-s-value}
+
+Jetzt kommt mal was Neues in dem Sinne, dass wir hier mal eine neue statistische Maßzahl einführen, die es erst seit 2020 mit ursprünglichen Arbeit von @rafi2020semantic mit dem Titel [Semantic and cognitive tools to aid statistical science: replace confidence and significance by compatibility and surprise](https://bmcmedresmethodol.biomedcentral.com/articles/10.1186/s12874-020-01105-9) gibt. Wir führen hier den S-Wert (eng. *S-value*) oder auch Überrasschungswert (eng. *surprisal value*) ein. Zu dem S-Wert hat @rothman2021rothman in der Veröffentlichung [Rothman Responds to “Surprise!”](https://academic.oup.com/aje/article/190/2/194/5869592?login=false) nochmal einen eigenen Kommentar abgegeben. Es haben sich dann weitere Arbeiten angeschossen. Unter Anderem von @cole2021surprise und der Veröffentlichung [Surprise!](https://academic.oup.com/aje/article/190/2/191/5869593?login=false) sowie der Arbeit von @shafer2021testing und der entsprechenden Veröffentlichung [Testing by Betting: A Strategy for Statistical and Scientific Communication](https://academic.oup.com/jrsssa/article/184/2/407/7056412?login=false#396831406). Darüber hinaus gibt es auch noch von @mansournia2022p die Veröffentlichung [P-value, compatibility, and S-value](https://www.sciencedirect.com/science/article/pii/S2590113322000153#bi0005). Alle drei gemeinsam arbeiten das Problem des p-Wertes und deren Interpretierbarkeit ab. Am Ende möchte ich hier auch nicht die Kritik am S-Wert auslassen. In dem Blogpost [‘S-values’, ‘p-values’ and conceptualising statistics](https://corplingstats.wordpress.com/2020/11/02/s-values/) wird nochmal auf die Probleme des S-Wertes eingegangen. Auch wird hier nochmal sehr viel Hintergrund zum statistsichen Testen gegeben, was jetzt nicht jeder bruacht um den S-Wert zu interpretieren.
+
+Kommen wir erstmal zur mathematischen Beschreibung des $S$-Wertes. Dabei ist der S-Wert eine logarithmische Transformation des p-Wertes. Das klingt jetzt erstmal komplizierter als es ist. Wir berechnen den S-Wert wie folgt.
+
+$$
+\mbox{S-value} = -\log_2(\mbox{p-value})
+$$
+
+mit
+
+-   $p-value$, dem berechnteten p-Wert aus einem statistsichen Test oder Modell
+-   $-\log_2$, dem negativen binären Logarithmus
+
+Damit können wir jeden p-Wert in einen S-Wert übersetzen indem wir einfach den p-Wert transformieren. Warum sollten wir das tun? Da der p-Wert eine bedingte Wahrscheinlichkeit ist, haben wir häufig Probleme den p-Wert intuitiv zu interpretieren. Hier kann dann der S-Wert helfen, der eben durch die Transformation keine Wahrscheinlichkeit mehr ist.
+
+Eigenschaften des $S$-Wertes
+
+:   -   Der $S$-Wert hat eine intuitive Interpretation, die auf der Beobachtung aller Köpfwürfe bei einem fairen Münzwurf beruht.
+    -   Der S-Wert entspricht der Anzahl aufeinanderfolgender "Kopf"-Würfe.
+    -   Der $S$-Wert ist *keine* Wahrscheinlichkeit und liegt damit *nicht* im Intervall $[0,1]$.
+    -   Der $S$-Wert beschreibt damit eine Anzahl oder Bits an Informationen.
+
+Beginnen wir also eimal damit den S-Wert im Sinne des fairen Münzwurf zu interpretieren. Dabei gelten folgende Hypothesen für unsere Überlegung. Wir haben eine vermutlich faire Münze. Wenn wir jetzt diese Münze werfen, dann können wir Zahl oder Kopf erhalten. Wenn die Münze fair ist, dann müssen wir bei wiederholten Werfend er Münze in 50% der Fälle Zahl und in 50% der Fälle Kopf erhalten. Oder etwas anders ausgedrückt, die Wahrscheinlichkeit $Pr(Kopf)$ ist gleich 0.5 über die Anzahl an Würfen. Damit ergibt sich folgendes Hypothesenpaar. Die Nullhypothese beinhaltet wiederum die Gleichheit.
+
+$$
+\begin{aligned}
+H_0 &= \mbox{Die Münze ist fair, es gilt}\; Pr(Kopf) = 0.5\\
+H_A &= \mbox{Die Münze ist unfair, es gilt}\; Pr(Kopf) \neq 0.5
+\end{aligned}
+$$
+
+Jetzt können wir uns den Zusammenhang von S-Wert und der Wahrscheinlichkeit Kopf zu werfen einmal in der folgenden Abbildung anschauen. Die Wahrscheinlichkeit einmal Kopf zu werfen $Pr(Kopf)$ ist $\tfrac{1}{2}$. Zweimal Kopf zu werden ist dann schon $\tfrac{1}{2} \cdot \tfrac{1}{2}$ gleich 0.25. Die Wahrscheinlichkeit sinkt mehrfach Kopf hintereinander zu werfen. Diese Anzahl an Kopf nacheinander ist der S-Wert. Der S-Wert ist damit die übersetzte Wahrscheinlichkeit des p-Wertes in die Anzahl aufeinanderfolgender "Kopf"-Würfe.
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: false
+#| warning: false
+#| label: fig-theo-s-value-coin
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "Der S-Wert beschreibt die Anzahl an nacheinander geworfenen Kopf bei einem Münzwurf. Der S-Wert ist damit die übersetzte Wahrscheinlichkeit des p-Wertes in eine Anzahl an Kopf hintereinander. *[Zum Vergrößern anklicken]*"
+
+library(emojifont)
+
+ggplot(tibble(x = 1:4, y = 1:4), aes(x,y)) +
+  theme_void() +
+  geom_emoji("slightly_smiling_face", x = 2.5, y = 4, color = "black", size = 20) +
+  geom_emoji("slightly_smiling_face", x = c(2,3), y = 3, color = "black", size = 20) +
+  geom_emoji("slightly_smiling_face", x = c(1.5, 2.5, 3.5), y = 2, color = "black", size = 20) +
+  geom_emoji("slightly_smiling_face", x = 1:4, y = 1, color = "black", size = 20) +
+  annotate("text", x = 5.5, y = 4:1, 
+           label = c(expression(frac(1, 2)~"="~0.5),
+                     expression(frac(1, 2) %.% frac(1, 2)~"="~0.25),
+                     expression(frac(1, 2) %.% frac(1, 2) %.% frac(1, 2)~"="~0.125),
+                     expression(frac(1, 2) %.% frac(1, 2) %.% frac(1, 2) %.% frac(1, 2)~"="~0.0625))) +
+  annotate("text", x = 0.1, y = 4:1, label = c("S-value = 1", "S-value = 2", 
+                                                "S-value = 3", "S-value = 4"), 
+           fontface = 2, size = 4) +
+  scale_x_continuous(limits = c(-0.1, 6)) +
+  scale_y_continuous(limits = c(0.5, 4.5)) +
+  labs(title = "Der S-Wert und der Münzwurf", 
+       subtitle = "S-Wert und Wahrscheinlichkeit Kopf nacheinander zu werfen") +
+  theme(plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic")) 
+
+```
+
+Ein p-Wert von $0.05$ entspricht somit ungefähr einem S-Wert von 4. Wenn wir also viermal hintereinander Kopf werfen, dann sind wir langsam skeptisch, ob unsere Münze noch fair ist und wir die Nullhypothese beibehalten können. Den Zusammenhang habe ich dir nochmal in der folgenden Tabelle dargestellt. Du findest einmal die Teststatistik $T_D$ der Daten. Je größer $T_D$ desto kleiner der entsprechende p-Wert. Der S-Wert wiederum spiegelt jetzt auch den Trend in der Teststatistik wieder.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-t-p-s
+#| tbl-cap: "Zusammenhang zwischen der Teststatistik $T_D$ der Daten, dem entsprechenden p-Wert sowie den berechneten S-Wert. Der S-Wert kann als Anzahl Kopf nacheinander bei einem Münzwurf interpretiert werden."
+
+tibble(t = c(1, 1.96, 3, 4),
+       p = pt(t, Inf, lower.tail = FALSE) * 2,
+       s = -log2(p)) |> 
+  mutate(p = round(p, 4),
+         s = round(s)) |> 
+  set_names(c("Teststatistik $T_D$", "p-Wert", "S-Wert")) |> 
+  tt(width = 1, align = "c", theme = "striped")
+```
+
+Ja und dann kann man sich das alles auch visualisieren um eine Idee davon zu bekommen wie die Teststatistik $T_D$ deiner Daten und die p-Werte sowie die S-Werte miteinander zusammenhängen. In der folgenden Abbidlung habe ich das einmal gemacht. Wenn die Teststatistik $T_D$ kleiner als 1.96 ist, dann ist die Teststatistik nicht signifikant. Damit ist dann auch der p-Wert nicht signifikant und der S-Wert auch nicht. Wie du siehst fällt der p-Wert mit steigender Teststatistik $T_D$. Gleichsam steigt der S-Wert an.
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: false
+#| warning: false
+#| label: fig-theo-s-value
+#| fig-align: center
+#| fig-height: 4.5
+#| fig-width: 7
+#| fig-cap: "Zusammenhang zwischen der Teststatistik $T_D$ der Daten und dem p-Wert sowie dem S-Wert. Die Signifikanzgrenze $T_{\\alpha=5\\%}$ ist hier bei 1.96 gesetzt. Damit sind p-Werte kleiner als 5% signifikant wie auch S-Werte größer als 4 signifikant. *[Zum Vergrößern anklicken]*"
+
+
+s_tbl <- tibble(t = sort(c(seq(0, 4, by = 0.1), 1.96)),
+                p = pt(t, Inf, lower.tail = FALSE)*2,
+                s = -log2(p),
+                s_y = s/(max(s))) |> 
+  mutate_if(is.numeric, round, 4) |> 
+  filter(t != 2.0 & t != 1.9) |> 
+  pivot_longer(cols = c("p", "s_y"),
+               values_to = "values",
+               names_to = "grp") |> 
+  mutate(grp = factor(grp, labels = c("p-value", "S-value")))
+
+ggplot(s_tbl, aes(t, values, color = grp)) +
+  theme_minimal() +
+  geom_hline(yintercept = 0.05, color = "#CC79A7", linetype = 1) +
+  geom_hline(yintercept = 0.3099, color = "#0072B2", linetype = 1) +
+  geom_vline(xintercept = 1.96, color = "gray70", linetype = 1, size = 1) +
+  annotate("rect", xmin = 1.96, xmax = 4, ymin = 0, ymax = 0.05, fill="#E69F00", alpha = 0.15) +
+  annotate("rect", xmin = 1.96, xmax = 4, ymin = 0.3099, ymax = 1, fill="#0072B2", alpha = 0.1) +
+  geom_point() +
+  geom_line() +
+  scale_y_continuous(sec.axis = sec_axis(name = "S-value", ~ . * 11.47,
+                                         breaks = c(0.3099, 0.5, 0.75, 1) * 11.47,
+                                         labels = round(c(0.3099, 0.5, 0.75, 1) * 11.47)),
+                     breaks = c(0.05, 0.25, 0.5, 0.75, 1),
+                     labels = c("5%", "", "", "", "")) +
+  scale_x_continuous(breaks = c(0, 1, 1.96, 3, 4)) +
+  annotate("text", x = c(1, 3), y = 0.9, label = c("Nicht signifikant", "Signifikant"),
+           size = 5, fontface = 2) +
+  annotate("text", x = c(1.25, 3.25), y = 0.5, label = c("p-values", "S-values"),
+           size = 4.5, fontface = 3) +
+  geom_curve(x = 1.25, y = 0.47, xend = 1, yend = 0.35, linewidth = 0.25,
+             arrow = arrow(length = unit(0.02, "npc"), type = "closed"),
+             curvature = -0.5, color = "gray50") +
+  geom_curve(x = 3.25, y = 0.53, xend = 3.4, yend = 0.72, linewidth = 0.25,
+             arrow = arrow(length = unit(0.02, "npc"), type = "closed"),
+             curvature = 0.5, color = "gray50") +
+  scale_color_okabeito() +
+  labs(x = expression(Teststatistik~T[D]),
+       y = "p-value", color = "", title = "Die Teststatistik, der p-Wert und der S-Wert",
+       subtitle = "Wie änderen sich p-Wert und S-Wert in Abhängigkeit von der Teststatistik?") +
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_text(size = 14),
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.text.x = element_text(size = 14),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        legend.position = "none",
+        panel.grid.minor.y = element_blank(),
+        panel.grid.minor.x = element_blank()) 
+```
+
+In dem R Paket `{marginaleffects}` sind die S-Werte mit in der Ausgabe von Funktionen implementiert. Sonst müssen wir noch die S-Werte aus den p-Werten händisch selber berechnen, was aber auch nicht so das Problem ist. Wir können ja einfach mit der Funktion `mutate()` und `log2()` uns die S-Werte selber bauen.
+
+```{r}
+tibble(p_value = c(0.05, 2.3e-3, 0.23, 0.01)) |> 
+  mutate(S_value = -log2(p_value))
+```
+
+Ganz konkret haben wir ja in unserem Beispiel mit den Hunde- und Katzenflöhen einen p-Wert von 0.0133 erhalten. Jetzt können wir einfach $-\log_2(0.0133)$ rechnen um einen S-Wert von 6.23 zu erhalten. Wenn unsere Hunde- und Katzenflöhe gleich weit springen würden, dann wäre das gleich wahrscheinlich, wie sechsmal hintereinander Kopf zu werfen. So oft Kopf hintereinander spricht nicht für die Nullhypothese.
 
 ### ... anhand des *Compact letter display* {#sec-compact-letter-short}
 
