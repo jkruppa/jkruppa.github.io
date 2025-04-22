@@ -827,10 +827,12 @@ RM(jump_length ~ time_fct, data = repeated_fac1_tbl,
 
 ### Zweifaktoriell
 
-Die zweifaktorielle repated ANOVA wird jetzt schon interessanter. Wir haben jetzt nämlich neben der Zeit als Faktor noch eine Behandlung vorliegen. In unserem Beispiel erhält *jeder* Floh drei Arten der Fütterung wiederholt gefüttert. Zum einen erhält jeder Floh ein Zuckerwasser, dann Blut und zum Schluß Ketchup als Nahrung. Die Reihenfolge sollte sich dann von Floh Floh noch unterscheiden und die Zeiten zwischen den Behandlungen dann so lang gewählt werden, dass die Ernährung förmlich ausgewaschen ist. Die Idee ist, dass die vorherige Ernährungsform keinen Einfluss auf die neue Ernährung hat. Dann müssen wir das Ganze ja auch noch wiederholt über vier Zeitpunkte die Sprungweite messen. Daher misst du hier ganz schön viel. Häufig haben wir dieses Design nicht in den Agrarwissenschaften vorliegen. Wir können aber im Bereich der Nutztierwissenschaften schon das ein oder andere Mal so einen Fall vorliegen haben, wo wir Tiere wiederholt mit einer Behandlung verarzten.
+Die zweifaktorielle repeated ANOVA wird jetzt schon interessanter. Wir haben jetzt nämlich neben der Zeit als Faktor noch eine Behandlung vorliegen. In unserem Beispiel erhält *jeder* Floh drei Arten der Fütterung wiederholt gefüttert. Zum einen erhält jeder Floh ein Zuckerwasser, dann Blut und zum Schluss Ketchup als Nahrung. Die Reihenfolge sollte sich dann von Floh Floh noch unterscheiden und die Zeiten zwischen den Behandlungen dann so lang gewählt werden, dass die Ernährung förmlich ausgewaschen ist. Die Idee ist, dass die vorherige Ernährungsform keinen Einfluss auf die neue Ernährung hat. Dann müssen wir das Ganze ja auch noch wiederholt über vier Zeitpunkte die Sprungweite messen. Daher misst du hier ganz schön viel. Häufig haben wir dieses Design nicht in den Agrarwissenschaften vorliegen. Wir können aber im Bereich der Nutztierwissenschaften schon das ein oder andere Mal so einen Fall vorliegen haben, wo wir Tiere wiederholt mit einer Behandlung verarzten.
 
 ::: panel-tabset
 ## `{base}`
+
+Die Frage ist jetzt immer, wie schreibe ich jetzt das Modell richtig? Der koplizierte Teil ist eigentlich der Fehlerterm `Error()` aber auch der Teil davor. Ich nutze hier wieder die Kurzschreibweise mit dem Stern `*` um alle Faktorkombinationen plus Interaktion im Modell zu haben. Das wird eben dann ab zwei Faktoren etwas groß. So ist es dann weniger anfällig für Fehler. Dann musst du noch darauf achten, dass du in dem Fehlerterm die Klammern richtig setzt, sonst funktioniert es dort auch nicht. Erst kommt der Spaltenname für die einzelnen Flöhe `.id` und dahinter nach dem Slash `/` dann die Faktorkombinationen der Behandlungen und der Zeit. Dann räume ich die Ausgabe nochmal vollkommen auf, damit ich auch was sehe.
 
 ```{r}
 aov(jump_length ~ feeding * time_fct + Error(.id/(feeding * time_fct)), 
@@ -841,13 +843,19 @@ aov(jump_length ~ feeding * time_fct + Error(.id/(feeding * time_fct)),
   mutate(p.value = pvalue(p.value))
 ```
 
+**Interpreation fehlt**
+
+Dann können wir uns auch den Effektschätzer Eta\^$^2$ berechnen lassen. Hier müssen wir dann das ANOVA Modell einmal in die Funktion `eta_squared()` stecken und darauf achten, dass wir angeben, dass wir die Zeitpunkte nur beobachtet haben und nicht experimentell festgelegt. Deshalb kommt `time_fct` noch in die Option `generalized` mit rein.
+
 ```{r}
 aov(jump_length ~ feeding * time_fct + Error(.id/(feeding * time_fct)), 
     data = repeated_fac2_tbl) |> 
-  eta_squared(generalized = c("time_fct", "feeding"))
+  eta_squared(generalized = c("time_fct"))
 ```
 
 ## `{rstatix}`
+
+Das R Paket `{rstatix}` hat eine andere Schreibweise des Modells. Im Prinzip schreiben wir hier wieder nicht das Modell auf, sondern weisen die Spaltennamen dann den jeweiligen Optionen zu. Hier werden dann auch alle Interaktionen gerechnet, du kannst die Interaktionen aller Faktorkombinationen nicht abstellen. Wir setzten dann unseren Endpunkt `jump_length` in die Option `dv` und die einzelnen Beobachtungen in die Option `wid`. Dann müssen wir noch die beiden Faktoren der Zeit und der Beahndlung in die Option `within` einfügen. Dann haben wir auch schon alles zusammen. Was hier etwas doof ist, ist das wir hier die Formelschreibweise in R verlassen, die wir dann aber überall sonst nutzen. Dafür erhalten wir dann aber das Eta$^2$ gleich als `ges` wieder aus der Funktion zurück.
 
 ```{r}
 rstatix_aov <- anova_test(data = repeated_fac2_tbl, 
@@ -856,7 +864,11 @@ rstatix_aov <- anova_test(data = repeated_fac2_tbl,
 get_anova_table(rstatix_aov)
 ```
 
+Wir erhalten die gleichen Ergebnisse wie schon bei der Funktion `aov()` wiedergegeben. Das überrascht auch nicht, den die Berechnung ist ja die gleiche Berechnung wie auch in `aov()` nur eben dann mit einem anderen Funktionsaufruf.
+
 ## `{afex}`
+
+Das R Paket `{afex}` nutzt die Formelschreibweise und kann auch genau so bedient werden wie schon die Funktion `aov()`. Dafür können wir aber mit der Option `type` auch anderen Typen der ANOVA nutzen und nicht nur die Type I ANOVA in `aov()`. Das ist eigentlich die große Stärke von dem R Paket `{afex}`, dass wir hier flexibel bei der Auswahl der Typen sind. Bei der einfaktoriellen ANOVA war es noch egal, aber hier macht es mit zwei Faktoren dann schon einen Unterschied welche Art der ANOVA du rechnen möchtest. Ich nutze hier den Standard und damit die Type III ANOVA. Auch erhälst du bei der Funktion `aov_car()` einen Wert für Eta$^2$ in der Spalte `ges` wiedergegeben.
 
 ```{r}
 #| message: false
@@ -864,6 +876,8 @@ get_anova_table(rstatix_aov)
 aov_car(jump_length ~ feeding * time_fct + Error(.id/feeding * time_fct), 
         data = repeated_fac2_tbl)
 ```
+
+Die Ergebnisse sind ähnlich wie schon bei den beiden anderen Algorithmen, aber hier macht es dann einen Unterschied **welche ANOVA gerechnet wird???**
 
 Das R Paket `{afex}` erlaubt es auch die Modelle nach der Schreibweise der linearen gemischten Modelle zu definieren. Das ist für mich eigentlich etwas angenehmer, da man sich dann in einer Formelwelt aufhält mehr dazu dann im [Kapitel zu gemischten Modellen](#sec-mixed). Also die Ergebnisse sind die Gleichen. Ich brauche es nur als Referenz für mich zum nachschlagen.
 
