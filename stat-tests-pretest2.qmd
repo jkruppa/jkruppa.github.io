@@ -2,7 +2,24 @@
 #| message: false
 #| warning: false
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, quantreg,
-               multcomp, emmeans, ggpubr, multcompView, nlme)
+               multcomp, emmeans, ggpubr, multcompView, nlme, tinytable,
+               see, patchwork)
+##
+gg_template <- ggplot() +
+  theme_minimal() +
+  theme(#axis.text.x = element_blank(),
+        #axis.ticks.x = element_blank(),
+        # axis.text.y = element_text(color = "#CC79A7", face = "bold", size = 14),
+        axis.text.y = element_text(),
+        axis.ticks.y = element_blank(),
+        axis.text = element_text(size = 12),
+        #axis.title = element_text(size = 14, face = "bold"),
+        plot.title = element_text(size = 16, face = "bold"),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(face = "italic"),
+        legend.position = "none") +
+  scale_color_okabeito() +
+  scale_fill_okabeito() 
 ```
 
 # Der Pre-Test oder Vortest {#sec-pretest}
@@ -11,7 +28,25 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, quantreg,
 
 > *"I struggle with some demons; They were middle class and tame." --- Leonard Cohen, You Want It Darker*
 
-text
+Kommen wir nun zur Varianzhomogenität oder Varianzhterogenität in den Gruppen des Behandlunsgfaktors. Wir betrachten also meistens nur den wichtigen Faktor $f_1$ und ignorieren ein wenig den zwieten Faktor. Prinzipiell kannst du natürlich auch den zweiten Fakto anschauen, aber dann werden es immer mehr Gruppen und Fakotrkombinationen. Am Ende kommt dann sowieso heraus, dass über alle Gruppen hinweg keine homogenen Varianzen vorliegen. Wenn du mehr lesen willst so gibt es auf der Seite DSFAIR noch einen Artikel zu `{emmeans}` und der Frage [Why are the StdErr all the same?](https://schmidtpaul.github.io/dsfair_quarto/ch/summaryarticles/whyseequal.html)
+
+Wann liegt vermutlich Varianzheterogenität in deinen experimentellen Faktoren $f$ vor?
+
+:   Es gibt so ein paar Daumenregeln, die dir helfen abzuschätzen, ob in deinen Gruppen Varianzheterogenität vorliegt. Um es kurz zu machen, vermutlich hast du mindestens leichte Varianzhterogenität in den Daten vorliegen.
+
+1)  Du hat viele Behandlungsgruppen. Je mehr Gruppen du hast oder eben dann auch Faktorkombinationen, die du testen möchtest, desto wahrscheinlicher wird es, dass mindestens eine Gruppe eine unterschiedliche Varianz hat. Du hast Varianzheterogenität vorliegen.
+2)  Du misst deine Gruppen über die Zeit. Je größer, schwerer oder allgemein höher ein Messwert wird, desto größer wird auch die Varianz. Schaust du dir deine Messwerte über die Zeit an hast du meistens Varianzheterogenität vorliegen.
+3)  Deine Kontrolle ohne Behandlung verhält sich meistens nicht so, wie die Gruppen, die eine Behandlung erhalten haben. Wenn du nichts machst in deiner negativen Kontrolle, dann hast du meistens eine andere Streuung der Messwerte als unter einer Behandlung.
+4)  Diene Behandlungen sind stark unterschiedlich. Wenn deine Behandlungen sich biologisch oder chemisch in der Wirkung unterscheiden, denn werden vermutlich deine Messwerte auch anders streuen. Hier spielt auch die Anwendung der Behandlung und deren Bereitstellung eine Rolle. Wenn was nicht gleich ist, dann wird es vermutlich nicht gleiche Messwerte erzeugen.
+5)  Du hast wenig Fallzahl pro Gruppe oder Faktorkombination. Wenn du wenig Fallzahl in einer Gruppe hast, dann reicht schon eine (zufällige) Messabweichung und schon sind deine Varianzen heterogen.
+
+Gut, jetzt wissen wir, dass du vermutlich Varianzheterogenität in deinen Daten vorliegen hast. Erstmal ist das kein so großes Problem.
+
+Tut Varianzhterogenität anstatt Varianzhomogenität weh?
+
+:   Nein. Meistens ist die Varianzheterogenität nicht so ausgeprägt, dass du nicht auch eine ANOVA rechnen kannst. Über alle Gruppen hinweg wird dann zwar in einer ANOVA die Varianz gemmittelt und es kann dann zu weniger signifkanten Ergebnissen führen, aber so schlimm ist es nicht. Im Post-hoc Test solltest du aber die Varianzhterogenität berücksichtigen, da du ja immer nur zwei Gruppen gleichzeitig betrachtest.
+
+Wie immer kannst du alles natürlich auch statistisch Testen. Das ist dann bei der Varianzhomogenität nicht anders. Mehr dazu dann im [Kapitel zum Pre-Test oder Vortest](#sec-pretest). Hier konzentriere ich mich auf die visuelle Überprüfung, die meistens in einem Setting mit niedriger Fallzahl in den Gruppen vollkommen ausreicht. Die Tests liefern meist eine falsche numerische Sicherheit, die so nicht stimmt.
 
 ## Allgemeiner Hintergrund
 
@@ -71,11 +106,346 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 
 ## Daten
 
+Wir immer bringe ich hier ein paar Datensätze mit damit wir dann verstehen, was eigentlich in den folgenden Analysen in R und den entsprechenden R Paketen passiert. Ich zeige hier an den Daten nur die Anwendung in R. Deshalb fehlen dann hier auch die Mittelwerte und andere deskritptive Maßzahlen. Schauen wir jetzt also mal in unsere Beispieldaten für die einfaktorielle und zweifaktorielle Datenanalyse rein. Wie immer nehme ich hier als normalverteilten Messwert die Sprungweite von Floharten.
+
+#### Einfaktorieller Datensatz {.unnumbered .unlisted}
+
+Beginnen wir mit einem einfaktoriellen Datensatz. Wir haben hier als Messwert die Sprungweite von Flöhen in \[cm\] vorliegen. Wissen wollen wir, ob sich die Sprungweite für drei verschiedene Floharten unterscheidet. Damit ist dann in unserem Modell der Faktor `animal` und die Sprungweite `jump_length` als Messwert. Ich lade einmal die Daten in das Objekt `fac1_tbl`.
+
+```{r}
+#| message: false
+
+fac1_tbl <- read_xlsx("data/flea_dog_cat_fox.xlsx") |>
+  select(animal, jump_length) |> 
+  mutate(animal = as_factor(animal))
+```
+
+Dann schauen wir uns die Daten einmal in der folgenden Tabelle als Auszug einmal an. Wichtig ist hier nochmal, dass du eben einen Faktor `animal` mit drei Leveln also Gruppen vorliegen hast.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-1fac-table
+#| tbl-cap: "Tabelle der Sprungweiten in [cm] als Messwert $y$ von Hunde-, Katzen- und Fuchsflöhen. Der Datensatz ist einfaktoriell, da wir nur einen Faktor vorliegen haben."
+
+fac1_raw_tbl <- read_xlsx("data/flea_dog_cat_fox.xlsx") |>
+  select(animal, jump_length) |> 
+  rowid_to_column(".id")
+
+rbind(head(fac1_raw_tbl, n = 3),
+      rep("...", times = ncol(fac1_raw_tbl)),
+      tail(fac1_raw_tbl, n = 3)) |> 
+  tt(width = 2/3, align = "c", theme = "striped")
+```
+
+Und dann wollen wir uns noch einmal die Daten als einen einfachen Boxplot anschauen. Wir sehen, dass die Daten so gebaut sind, dass wir einen signifikanten Unterschied zwischend den Sprungweiten der Floharten erwarten. Die Boxen der Boxplots überlappen sich nicht und die Boxplots liegen auch nicht auf einer Ebene.
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-ggplot-pretest-boxplot-1fac
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: "Beispielhafter einfaktorieller Boxplot für die Sprungweiten in [cm] gruppiert nach den Floharten."
+
+ggplot(data = fac1_tbl, 
+       aes(x = animal, y = jump_length, fill = animal)) +
+  theme_minimal() +
+  geom_boxplot() +
+  stat_summary(fun.y = mean, geom = "point", 
+               shape=23, size = 3, fill = "gray50") +
+  labs(x = "Flohart", y = "Sprungweite in [cm]") +
+  theme(legend.position = "none") + 
+  scale_fill_okabeito() 
+```
+
+#### Zweifaktorieller Datensatz {.unnumbered .unlisted}
+
+Neben dem einfaktoriellen Datensatz wollen wir uns noch den häufigeren Fall mit zwei Faktoren anschauen. Wir haben also nicht nur die drei Floharten vorliegen und wollen wissen ob diese unterschiedlich weit springen. Darüber hinaus haben wir noch einen zweiten Faktor gewählt. Wir haben die Sprungweiten der Hunde-, Katzen- und Fuchsflöhe nämlich an zwei Messorten, der Stadt und dem Dorf, gemessen. Dadurch haben wir jetzt den Faktor `animal` und den Faktor `site` vorliegen. Wiederum fragen wir usn, ob sich die Sprungweite in \[cm\] der drei Floharten in den beiden Messorten unterscheidet. Im Folgenden lade ich einmal den Datensatz in das Objekt `fac2_tbl`.
+
+```{r}
+#| message: false
+
+fac2_tbl <- read_xlsx("data/flea_dog_cat_fox_site.xlsx") |> 
+  select(animal, site, jump_length) |> 
+  filter(site %in% c("city", "village")) |> 
+  mutate(animal = as_factor(animal),
+         site = as_factor(site))|> 
+  rowid_to_column(".id")
+```
+
+Betrachten wir als erstes einen Auszug aus der Datentabelle. Wir haben hier als Messwert oder Outcome $y$ die Sprungweite `jump_length` vorliegen. Als ersten Faktor die Variable `animal` und als zweiten Faktor die Variable `site` festgelegt.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-2fac-table
+#| tbl-cap: "Tabelle der Sprungweiten in [cm] als Messwert $y$ von Hunde-, Katzen- und Fuchsflöhen an zwei verschiedenen Messorten Stadt und Dorf. Der Datensatz ist zweifaktoriell, da wir einen Behandlungsfaktor mit `animal` und einen zweiten Faktor mit `site` vorliegen haben."
+
+fac2_raw_tbl <- read_xlsx("data/flea_dog_cat_fox_site.xlsx") |> 
+  select(animal, site, jump_length) |> 
+  filter(site %in% c("city", "village")) |> 
+  rowid_to_column(".id")
+
+rbind(head(fac2_raw_tbl, n = 3),
+      rep("...", times = ncol(fac2_raw_tbl)),
+      tail(fac2_raw_tbl, n = 3)) |> 
+  tt(width = 3/4, align = "c", theme = "striped")
+```
+
+Auch hier schauen wir uns einmal die Daten in einem Boxplot an. Wir sehen zum einen den Effekt der Floharten.
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-ggplot-pretest-boxplot-2fac
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 8
+#| fig-cap: "Beispielhafter zweifaktorieller Boxplot für die Sprungweiten in [cm] gruppiert nach den Floharten und den beiden Messorten."
+
+ggplot(data = fac2_tbl, 
+       aes(x = site, y = jump_length, fill = animal)) +
+  theme_minimal() +
+  geom_boxplot() + 
+  stat_summary(fun.y = mean, geom = "point", aes(group = animal), 
+               shape=23, size = 3, fill = "gray50",
+               position = position_dodge(0.75)) +
+  labs(x = "Flohart", y = "Sprungweite in [cm]", fill = "Tierart") +
+  scale_fill_okabeito() 
+```
+
 ## Visuelle Überprüfung
 
-### Normalverteilung
+text
 
-### Varianzhomogenität
+::: panel-tabset
+## Theoretisch
+
+Hier einmal die theoretischen Abbilungen von drei Gruppen mit Varianzhomogenität und Varianzheterogenität. Hier wird schnell klar, dass du mit mehr Behandlungsgruppen kaum die Annahme für Varianzhomogenität aufrecht erhalten kannst. Insbesondere Kontrollen oder Standardbehandlungen haben große oder kleinere Varianzen als der Rest der Behandlungen. Manchaml hat man aber Glück und die Varianzen sind eher homogen.
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: false
+#| warning: false
+#| label: fig-posthoc-var-homo-bar
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 8
+#| fig-cap: "Darstellung der Varianzhomogenität und Varianzheterogenität in einem Barplot. *[Zum Vergrößern anklicken]*"
+
+p1 <- gg_template %+%
+  tibble(x_fct = c("A", "B", "C"),  
+         mean_normal = c(1.5, 2.5, 5),
+         sd_normal = c(0.5, 0.5, 0.5)) +
+  aes(x_fct, mean_normal, fill = x_fct) +
+  geom_bar(stat = "identity") +
+  geom_errorbar(aes(ymin = mean_normal-(sd_normal), 
+                    ymax = mean_normal+(sd_normal)),
+                width = 0.2, linewidth = 1) +
+  labs(x = "Behandlungsgruppen (X)", y = "Mittler Messwert (Y)",
+       title = "Varianzhomogenität", subtitle = "Varianzen sind gleich")  +
+  ylim(0, 8)
+
+p2 <- gg_template %+%
+  tibble(x_fct = c("A", "B", "C"),  
+         mean_normal = c(1.5, 2.5, 5),
+         sd_normal = c(0.25, 1.25, 2.5)) +
+  aes(x_fct, mean_normal, fill = x_fct) +
+  geom_bar(stat = "identity") +
+  geom_errorbar(aes(ymin = mean_normal-(sd_normal), 
+                    ymax = mean_normal+(sd_normal)),
+                width = 0.2, linewidth = 1) +
+  labs(x = "Behandlungsgruppen (X)", y = "Mittler Messwert (Y)",
+       title = "Varianzheterogenität", subtitle = "Varianzen sind unterschiedlich")  +
+  ylim(0, 8)
+
+p1 + p2 +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A') +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
+```
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: false
+#| warning: false
+#| label: fig-posthoc-var-homo-box
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 8
+#| fig-cap: "Darstellung der Varianzhomogenität und Varianzheterogenität in einem Boxplot. *[Zum Vergrößern anklicken]*"
+
+p1 <- gg_template %+%
+  tibble(x_fct = gl(3, 5, labels = c("A", "B", "C")),  
+         y_val = c(0.25, 1, 1.5, 2, 2.75,
+                   1.25, 2, 2.5, 3, 3.75,
+                   3.75, 4.5, 5, 5.5, 6.25)) +
+  aes(x_fct, y_val, fill = x_fct) +
+  geom_boxplot(linewidth = 1) +
+  labs(x = "Behandlungsgruppen (X)", y = "Mittler Messwert (Y)",
+       title = "Varianzhomogenität", subtitle = "Varianzen sind gleich") +
+  ylim(0, 8)
+
+p2 <- gg_template %+%
+  tibble(x_fct = gl(3, 5, labels = c("A", "B", "C")),  
+         y_val = c(0.5, 1, 1.5, 2, 2.5,
+                   0, 1, 2.5, 4, 6.5,
+                   2, 3, 5, 6, 8)) +
+  aes(x_fct, y_val, fill = x_fct) +
+  geom_boxplot(linewidth = 1) +
+  labs(x = "Behandlungsgruppen (X)", y = "Mittler Messwert (Y)",
+       title = "Varianzheterogenität", subtitle = "Varianzen sind unterschiedlich")  +
+  ylim(0, 8)
+
+p1 + p2 +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A') +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
+```
+
+## `geom_bar()`
+
+Wir bauen wir usn jetzt die Barplots oder Säulendiagramme? Entweder direkt aus `{ememans}`, wie ich dir das weiter unten zum *Compact letter display* zeige oder eben als Wiederholung des [Kapitels zur Visualisierung von Daten](#sec-eda-ggplot). Wir bauen uns also einmal den einfaktoriellen Barplot wie auch den zweifaktoriellen Barplot.
+
+### Einfaktorieller Barplot
+
+Für den einfaktoriellen Barplot brauchen wir einmal den Mittelwert und die Standardabweichung der einzelne Floharten.
+
+```{r}
+#| message: false
+#| warning: false
+stat_fac1_tbl <- fac1_tbl |> 
+  group_by(animal) |> 
+  summarise(mean = mean(jump_length),
+            sd = sd(jump_length))
+stat_fac1_tbl
+```
+
+Dann können wir uns auch schon den Barplot mit `{ggplot}` erstellen. Später willst du dann noch das *Compact letter display* über den Balken als Mittelwerte ergänzen.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-posthoc-barplot-1fac
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: "Beispielhafter einfaktorieller Barplot für die Sprungweiten in [cm] gruppiert nach den Floharten."
+
+ggplot(data = stat_fac1_tbl, 
+       aes(x = animal, y = mean, fill = animal)) +
+  theme_minimal() +
+  geom_bar(stat = "identity") + 
+  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd), 
+                width = 0.2) + 
+  labs(x = "Flohart", y = "Sprungweite in [cm]") +
+  theme(legend.position = "none") + 
+  scale_fill_okabeito() 
+```
+
+### Zweifaktorieller Barplot
+
+Für den zweifaktoriellen Barplot brauchen wir einmal den Mittelwert und die Standardabweichung der einzelne Floharten getrennt für die beiden Messorte. Das geht natürlich auch umgedreht, also die Messorte für die Floharten. Das kommt dann auf deine Fragestellung an.
+
+```{r}
+#| message: false
+#| warning: false
+stat_fac2_tbl <- fac2_tbl |> 
+  group_by(animal, site) |> 
+  summarise(mean = mean(jump_length),
+            sd = sd(jump_length))
+stat_fac2_tbl
+```
+
+Und dann können wir auch schon den zweifaktoriellen Barplot in `{ggplot}` erstellen. Du musst schauen, was du auf die x-Achse legst und was du dann auf die Legende und daher mit `fill` gruppierst. Damit die Positionen passen, spiele ich hier noch mit der Funktion `position_dodge()` rum.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-posthoc-barplot-2fac
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: "Beispielhafter zweifaktorieller Barplot für die Sprungweiten in [cm] gruppiert nach den Floharten und den beiden Messorten."
+
+ggplot(data = stat_fac2_tbl, 
+       aes(x = site, y = mean, fill = animal)) +
+  theme_minimal() +
+  geom_bar(stat = "identity", width = 0.9, 
+           position = position_dodge(0.9)) + 
+  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd), 
+                width = 0.2, 
+                position = position_dodge(0.9)) + 
+  labs(x = "Flohart", y = "Sprungweite in [cm]", fill = "Tierart") +
+  scale_fill_okabeito() 
+```
+
+## `geom_boxplot()`
+
+### Einfaktorieller Boxplot
+
+Das praktische bei den Boxplots ist, dass wir hier nichts mehr vorrechnen müssen, sondern direkt die Boxplots in `{ggplot}` erstellen können. Ich finde man sieht immer in einem Boxplot besser, ob die Streuung um den Median eher homogen oder eher heterogen ist. Gerne ergänze ich noch den Mittelwert mit der Funktion `stat_summary()`.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-posthoc-boxplot-1fac
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: "Beispielhafter einfaktorieller Boxplot für die Sprungweiten in [cm] gruppiert nach den Floharten."
+
+ggplot(data = fac1_tbl, 
+       aes(x = animal, y = jump_length, fill = animal)) +
+  theme_minimal() +
+  geom_boxplot() +
+  stat_summary(fun.y = mean, geom = "point", 
+               shape=23, size = 5, fill = "gray50") +
+  labs(x = "Flohart", y = "Sprungweite in [cm]") +
+  theme(legend.position = "none") + 
+  scale_fill_okabeito() 
+```
+
+### Zweifaktorieller Boxplot
+
+Den zweifaktoriellen Boxplot erstellen wir für die einzelnen Floharten getrennt für die beiden Messorte. Du musst schauen, was du auf die x-Achse legst und was du dann auf die Legende und daher mit `fill` gruppierst. Gerne ergänze ich noch den Mittelwert mit der Funktion `stat_summary()`, muss hier aber schauen, dass ich nach dem Faktor `animal` gruppiere und dann noch mit der Funktion `position_dodge()` die richtige Position finde.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-posthoc-boxplot-2fac
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 8
+#| fig-cap: "Beispielhafter zweifaktorieller Boxplot für die Sprungweiten in [cm] gruppiert nach den Floharten und den beiden Messorten."
+
+ggplot(data = fac2_tbl, 
+       aes(x = site, y = jump_length, fill = animal)) +
+  theme_minimal() +
+  geom_boxplot() + 
+  stat_summary(fun.y = mean, geom = "point", aes(group = animal), 
+               shape=23, size = 5, fill = "gray50",
+               position = position_dodge(0.75)) +
+  labs(x = "Flohart", y = "Sprungweite in [cm]", fill = "Tierart") +
+  scale_fill_okabeito() 
+```
+:::
 
 ## Statistische Überprüfung
 
