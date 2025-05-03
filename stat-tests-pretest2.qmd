@@ -3,7 +3,9 @@
 #| warning: false
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, quantreg,
                multcomp, emmeans, ggpubr, multcompView, nlme, tinytable,
-               see, patchwork)
+               see, patchwork, conflicted)
+conflicts_prefer(dplyr::filter)
+conflicts_prefer(dplyr::select)
 ##
 gg_template <- ggplot() +
   theme_minimal() +
@@ -20,6 +22,9 @@ gg_template <- ggplot() +
         legend.position = "none") +
   scale_color_okabeito() +
   scale_fill_okabeito() 
+##
+cbbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
 # Der Pre-Test oder Vortest {#sec-pretest}
@@ -41,6 +46,70 @@ $$ mit
 -   $f_1$ gleich dem zweiten Faktor, wie der Messort als `site`.
 
 Wir werden uns in diesem Kapitel auf das faktorielle Experiment konzentrieren. Natürlich kannst du auch alle Funktionen in einem anderen Design anwenden. Wenn du wissen willst, ob eine Variable normalverteilt ist oder aber ein Gruppenfaktor homogen in den Varianzen, dann helfen dir hier auch die Funktionen weiter. Häufig werden aber die beiden Eigenschaften Normalverteilung und Varianzhomogenität in Gruppenvergleichen verwendet.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+gummi_tbl <- read_excel("data/gummibears.xlsx")  |>
+  select(gender, height) |> 
+  na.omit() |> 
+  mutate(gender = as_factor(gender)) 
+
+stat_gummi_tbl <- gummi_tbl |> 
+  group_by(gender) |> 
+  summarise(n = n())
+```
+
+Insgesamt haben $`r pull(filter(stat_gummi_tbl, gender == "m"), n)`$ Männer und $`r pull(filter(stat_gummi_tbl, gender == "w"), n)`$ Frauen bei der Gummibärchenumfrage mitgemacht.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 10
+#| label: fig-pretest-gummi-01
+#| fig-cap: "Darstellung der Körpergröße in [cm] für die Geschlechter getrennt. Die Farben repräsentieren die jeweiligen Geschlechter. Die Männer sind blau und die Frauen in lila dargestellt. **(A)** Histogramm. **(B)** Densityplot. *[Zum Vergrößern anklicken]*"
+
+mean_tbl <- gummi_tbl |> 
+  group_by(gender) |> 
+  summarise(mean = round(mean(height), 1)) 
+
+y_max <- 55
+
+p1 <- ggplot(data = gummi_tbl, aes(x = height, fill = gender)) +
+  theme_minimal() +
+  geom_histogram(position = "dodge", color = "black") +
+  labs(x = "", y = "Anzahl", fill = "Geschlecht") +
+  scale_x_continuous(breaks = seq(150, 210, by = 5)) +
+  scale_y_continuous(breaks = seq(0, y_max, 5), limits = c(0, y_max)) +
+  scale_fill_okabeito(order = c(2, 7), 
+                      labels = c("männlich", "weiblich"))  +
+  theme(legend.position = "none") #c(0.85, 0.8))
+
+p2 <- ggplot(data = gummi_tbl, aes(x = height, fill = gender)) +
+  theme_minimal() +
+  geom_density(alpha = 0.75) +
+  labs(x = "", y = "", fill = "Geschlecht") +
+  scale_fill_okabeito(order = c(2, 7), 
+                      labels = c("männlich", "weiblich")) +
+  scale_x_continuous(breaks = seq(145, 210, by = 5), limits = c(145, 210)) +
+  scale_y_continuous(breaks = seq(0, 0.055, 0.01), limits = c(0, 0.055)) +
+  geom_vline(xintercept = mean_tbl$mean, color = cbbPalette[c(6, 8)],
+             size = 1) +
+  annotate("label", x = mean_tbl$mean, y = 0.055, label = mean_tbl$mean) +
+  theme(legend.position = "none") #c(0.85, 0.8))
+
+p1 + p2 +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A') +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
+```
 
 Gibt es noch mehr Vortest?
 
