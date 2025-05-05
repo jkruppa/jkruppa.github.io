@@ -210,7 +210,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, olsrr,
                broom, car, performance, 
                see, scales, readxl, nlme,
-               conflicted)
+               parameters, conflicted)
 conflicts_prefer(dplyr::filter)
 conflicts_prefer(dplyr::select)
 ```
@@ -243,8 +243,7 @@ Dann schauen wir uns die Daten einmal in der folgenden Tabelle als Auszug einmal
 #| tbl-cap: "Tabelle der Sprungweiten in [cm] als Messwert $y$ von Hunde-, Katzen- und Fuchsflöhen. Der Datensatz ist einfaktoriell, da wir nur einen Faktor vorliegen haben."
 
 fac1_raw_tbl <- read_xlsx("data/flea_dog_cat_fox.xlsx") |>
-  select(animal, jump_length) |> 
-  rowid_to_column(".id")
+  select(animal, jump_length) 
 
 rbind(head(fac1_raw_tbl, n = 3),
       rep("...", times = ncol(fac1_raw_tbl)),
@@ -286,8 +285,7 @@ fac2_tbl <- read_xlsx("data/flea_dog_cat_fox_site.xlsx") |>
   select(animal, site, jump_length) |> 
   filter(site %in% c("city", "village")) |> 
   mutate(animal = as_factor(animal),
-         site = as_factor(site))|> 
-  rowid_to_column(".id")
+         site = as_factor(site))
 ```
 
 Betrachten wir als erstes einen Auszug aus der Datentabelle. Wir haben hier als Messwert oder Outcome $y$ die Sprungweite `jump_length` vorliegen. Als ersten Faktor die Variable `animal` und als zweiten Faktor die Variable `site` festgelegt.
@@ -301,8 +299,7 @@ Betrachten wir als erstes einen Auszug aus der Datentabelle. Wir haben hier als 
 
 fac2_raw_tbl <- read_xlsx("data/flea_dog_cat_fox_site.xlsx") |> 
   select(animal, site, jump_length) |> 
-  filter(site %in% c("city", "village")) |> 
-  rowid_to_column(".id")
+  filter(site %in% c("city", "village")) 
 
 rbind(head(fac2_raw_tbl, n = 3),
       rep("...", times = ncol(fac2_raw_tbl)),
@@ -724,12 +721,43 @@ R Paket `{MASS}`
 
 ### Modellierung
 
-#### Robuste Schätzung von Standardfehlern, Konfidenzintervallen und p-Werten {.unnumbered .unlisted}
+#### R Paket `{performance}` {.unnumbered .unlisted}
 
 Wenn du noch etwas weiter gehen möchtest, dann kannst du dir noch die Hilfeseite von dem R Paket `{performance}` [Robust Estimation of Standard Errors, Confidence Intervals, and p-values](https://easystats.github.io/parameters/articles/model_parameters_robust.html?q=Heteroskedasticity#robust-covariance-matrix-estimation-from-model-parameters) anschauen. Die Idee ist hier, dass wir die Varianz/Kovarianz robuster daher mit der Berücksichtigung von Varianzheterogenität (eng. *heteroskedasticity*) schätzen.
 
+```{r}
+fit_fac2 <- lm(jump_length ~ animal + site + animal:site, data = fac2_tbl)
+```
+
+```{r}
+fit_fac2 |> 
+  model_parameters()
+```
+
+```{r}
+fit_fac2 |> 
+  model_parameters(vcov = "HC3")
+```
+
 #### R Paket `{emmeans}` {.unnumbered .unlisted}
 
+```{r}
+fit_fac2 |>
+  emmeans(~ animal * site, vcov. = sandwich::vcovHAC)
+```
+
 #### R Paket `{marginaleffects}` {.unnumbered .unlisted}
+
+#### R Paket `{nlme}` {.unnumbered .unlisted}
+
+```{r}
+fit_fac2 <- gls(jump_length ~ animal + site + animal:site, data = fac2_tbl,
+                weights = varIdent(form = ~ 1 | animal*site))
+```
+
+```{r}
+fit_fac2 |> 
+  model_parameters()
+```
 
 ## Referenzen {.unnumbered}
