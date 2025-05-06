@@ -223,12 +223,55 @@ Wir immer bringe ich hier ein paar Datensätze mit damit wir dann verstehen, was
 
 #### Einfaktorieller Datensatz {.unnumbered .unlisted}
 
+Beginnen wir mit einem einfaktoriellen Datensatz. Wir haben hier als Messwert die Sprungweite von Flöhen in \[cm\] vorliegen. Wissen wollen wir, ob sich die Sprungweite für drei verschiedene Floharten unterscheidet. Damit ist dann in unserem Modell der Faktor `animal` und die Sprungweite `jump_length` als Messwert. Ich lade einmal die Daten in das Objekt `fac1_tbl` und ergänze noch eine ID Spalte für das R Paket `{afex}`. Wir haben jeden Floh nur einmal gemessen, also kriegt jeder Floh eine eigene ID.
+
 ```{r}
 #| message: false
 
 fac1_tbl <- read_xlsx("data/flea_dog_cat_fox.xlsx") |>
   select(animal, jump_length) |> 
   mutate(animal = as_factor(animal))
+```
+
+Dann schauen wir uns die Daten einmal in der folgenden Tabelle als Auszug einmal an. Wichtig ist hier nochmal, dass du eben einen Faktor `animal` mit drei Leveln also Gruppen vorliegen hast. Wir wollen jetzt die drei Tierarten hinsichtlich ihrer Sprungweite in \[cm\] miteinander vergleichen.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-1fac-table
+#| tbl-cap: "Tabelle der Sprungweiten in [cm] als Messwert $y$ von Hunde-, Katzen- und Fuchsflöhen. Der Datensatz ist einfaktoriell, da wir nur einen Faktor vorliegen haben."
+
+fac1_raw_tbl <- read_xlsx("data/flea_dog_cat_fox.xlsx") |>
+  select(animal, jump_length) 
+
+rbind(head(fac1_raw_tbl, n = 3),
+      rep("...", times = ncol(fac1_raw_tbl)),
+      tail(fac1_raw_tbl, n = 3)) |> 
+  tt(width = 2/3, align = "c", theme = "striped")
+```
+
+Und dann wollen wir uns noch einmal die Daten als einen einfachen Boxplot anschauen. Wir sehen, dass die Daten so gebaut sind, dass wir einen signifikanten Unterschied zwischend den Sprungweiten der Floharten erwarten. Die Boxen der Boxplots überlappen sich nicht und die Boxplots liegen auch nicht auf einer Ebene.
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-ggplot-anova-boxplot-1fac
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: "Beispielhafter einfaktorieller Boxplot für die Sprungweiten in [cm] gruppiert nach den Floharten."
+
+ggplot(data = fac1_tbl, 
+       aes(x = animal, y = jump_length, fill = animal)) +
+  theme_minimal() +
+  geom_boxplot() +
+  stat_summary(fun.y = mean, geom = "point", 
+               shape=23, size = 3, fill = "gray50") +
+  labs(x = "Flohart", y = "Sprungweite in [cm]") +
+  theme(legend.position = "none") + 
+  scale_fill_okabeito() 
 ```
 
 #### Zweifaktorieller Datensatz {.unnumbered .unlisted}
@@ -259,7 +302,7 @@ fac2_raw_tbl <- read_xlsx("data/flea_dog_cat_length_weight.xlsx") |>
 rbind(head(fac2_raw_tbl, n = 3),
       rep("...", times = ncol(fac2_raw_tbl)),
       tail(fac2_raw_tbl, n = 3)) |> 
-  tt(width = 3/4, align = "c", theme = "striped")
+  tt(width = 1, align = "c", theme = "striped")
 ```
 
 Auch hier schauen wir uns einmal die Daten in einem Boxplot an. Wir sehen zum einen den Effekt der Floharten.
@@ -747,19 +790,12 @@ lm(hatch_time ~ animal + sex + animal:sex, data = fac2_tbl) |>
 
 ### Transformation
 
-```{r}
-#| message: false
-
-trans_tbl <- read_csv2("data/flea_dog_cat_length_weight.csv") |>
-  select(jump_length, hatch_time) 
-```
-
 ::: panel-tabset
 ## `log()`
 
 ```{r}
 
-log_tbl <- trans_tbl |> 
+log_tbl <- fac2_tbl |> 
   mutate(log_hatch_time = log(hatch_time))
 
 ```
@@ -794,7 +830,73 @@ p1 + p2 +
 
 ## `rank()`
 
+```{r}
+
+rank_tbl <- fac2_tbl |> 
+  mutate(rank_hatch_time = rank(hatch_time))
+
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| label: fig-log-pretest-2
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 8
+#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten. **(A)** Nicht transformierte, rohe Daten. **(B)** $log$-transformierte Daten. *[Zum Vergrößern anklicken]*"
+#| layout-nrow: 1
+
+p1 <- ggplot(rank_tbl, aes(hatch_time)) +
+  theme_minimal() +
+  geom_density(fill = cbbPalette[2], color = "black") +
+  labs(x = "Zeit bis zum Schlüpfen in [h]", y = "") +
+  xlim(-100, NA)
+
+p2 <- ggplot(rank_tbl, aes(rank_hatch_time)) +
+  theme_minimal() +
+  geom_density(fill = cbbPalette[3], color = "black") +
+  labs(x = "Zeit bis zum Schlüpfen in log(h)", y = "")
+
+p1 + p2 +
+  theme(panel.grid.minor.x = element_blank()) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
+```
+
 ## `boxcox()`
+
+```{r}
+jump_mod <- lm(hatch_time ~ animal + sex + animal:sex, data = fac2_tbl)
+```
+
+```{r}
+bc_obj <- boxcox(jump_mod, plotit = FALSE)
+lambda <- bc_obj$x[which.max(bc_obj$y)]
+lambda
+```
+
+```{r}
+boxcox_tbl <- fac2_tbl |> 
+  mutate(jump_boxcox = ((jump_length ^ lambda - 1)/lambda))
+```
+
+```{r}
+#| message: false
+#| echo: true
+#| label: fig-boxcox-pretest
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Histogramm der Box-Cox transfomierten Daten in `ggplot` dargestellt."
+ggplot(data = boxcox_tbl) +
+  theme_minimal() +
+  geom_histogram(aes(x = jump_boxcox), alpha = 0.9,
+                 fill = cbbPalette[3], color = "black") +
+  labs(x = 'Box-Cox transformierte Sprungweiten', y = 'Anzahl')
+
+```
 
 R Paket `{MASS}`
 :::
