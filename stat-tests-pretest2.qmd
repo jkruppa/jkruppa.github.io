@@ -283,58 +283,6 @@ rbind(head(fac2_raw_tbl, n = 3),
 
 Auch hier schauen wir uns einmal die Daten in einem Boxplot und einem Densityplot an. Wir wollen ja sehen, ob sich zum einen die Gruppen unterscheiden und zum anderen wie unsere Messwerte der Sprungweiten und der Schlupfzeiten verteilt sind. Wir erkennen in den Boxplots und auch in den Densityplots, dass wir vermutlich eine approximative Normalverteilung in den Sprungweiten vorliegen haben, aber auf keinen Fall eine Normalverteilung in den Schlupfzeiten. Du siehst hier nochmal in den beiden Abbildungen die Schiefe in der Verteilung der Schlupfzeiten.
 
-[How to Calculate Skewness & Kurtosis in R](https://www.statology.org/skewness-kurtosis-in-r/)
-
-Die Schiefe (eng. *skewness*) ist ein Maß für die Asymmetrie einer Verteilung. Dieser Wert kann positiv oder negativ sein.
-
-Eine negative Schiefe deutet darauf hin, dass sich der Schwanz auf der linken Seite der Verteilung befindet, die sich in Richtung negativer Werte erstreckt. Eine positive Schiefe zeigt an, dass sich der Schwanz auf der rechten Seite der Verteilung befindet, die sich in Richtung positiver Werte erstreckt. Ein Wert von Null bedeutet, dass die Verteilung überhaupt nicht schief ist, d. h. die Verteilung ist vollkommen symmetrisch.
-
-Die Kurtosis (eng. *kurtosis*) ist ein Maß dafür, ob eine Verteilung im Vergleich zu einer Normalverteilung ein starkes oder schwaches Schwanzende aufweist.
-
-Die Kurtosis einer Normalverteilung beträgt 3. Wenn eine gegebene Verteilung eine Kurtosis von weniger als 3 aufweist, wird sie als playkurtisch bezeichnet, was bedeutet, dass sie dazu neigt, weniger und weniger extreme Ausreißer zu produzieren als die Normalverteilung. Wenn eine gegebene Verteilung eine Kurtosis größer als 3 hat, wird sie als leptokurtisch bezeichnet, was bedeutet, dass sie dazu neigt, mehr Ausreißer als die Normalverteilung zu produzieren.
-
-In einigen Formeln (Definition von Fisher) wird von der Kurtosis 3 abgezogen, um den Vergleich mit der Normalverteilung zu erleichtern. Nach dieser Definition hätte eine Verteilung eine größere Kurtosis als eine Normalverteilung, wenn der Kurtosis-Wert größer als 0 wäre.
-
-```{r}
-pacman::p_load(moments, broom, scales)
-
-#calculate skewness
-skewness(fac2_tbl$hatch_time)
-```
-
-```{r}
-#calculate kurtosis
-kurtosis(fac2_tbl$hatch_time)
-```
-
-```{r}
-fac2_tbl |> 
-  group_by(animal, sex) |> 
-  summarise(kurtosis = kurtosis(hatch_time),
-            skewness = skewness(hatch_time))
-```
-
-Die Momente-Bibliothek bietet auch die Funktion `jarque.test()`, die einen Anpassungsgütetest durchführt, der feststellt, ob die Stichprobendaten eine Schiefe und eine Wölbung aufweisen, die einer Normalverteilung entsprechen oder nicht. Die Null- und Alternativhypothesen dieses Tests lauten wie folgt:
-
-Nullhypothese: Der Datensatz weist eine Schiefe und Wölbung auf, die einer Normalverteilung entspricht.
-
-Alternativhypothese: Der Datensatz weist eine Schiefe und eine Kurtosis auf, die nicht mit einer Normalverteilung übereinstimmen.
-
-```{r}
-jarque.test(fac2_tbl$hatch_time)
-```
-
-```{r}
-fac2_tbl |> 
-  split(~ animal + sex) |> 
-  map(~jarque.test(.x$hatch_time)) |> 
-  map(tidy) |> 
-  bind_rows(.id = "test") |>
-  select(test, p.value) |> 
-  mutate(decision = ifelse(p.value <= 0.05, "reject normal", "normal"),
-         p.value = pvalue(p.value, accuracy = 0.001))
-```
-
 ::: panel-tabset
 ## Boxplot
 
@@ -647,6 +595,169 @@ ggplot(data = fac2_tbl,
 ## Statistische Überprüfung
 
 ### Normalverteilung
+
+::: panel-tabset
+## Theoretisch
+
+[How to Calculate Skewness & Kurtosis in R](https://www.statology.org/skewness-kurtosis-in-r/)
+
+Die Schiefe (eng. *skewness*) ist ein Maß für die Asymmetrie einer Verteilung. Dieser Wert kann positiv oder negativ sein.
+
+Eine negative Schiefe deutet darauf hin, dass sich der Schwanz auf der linken Seite der Verteilung befindet, die sich in Richtung negativer Werte erstreckt. Eine positive Schiefe zeigt an, dass sich der Schwanz auf der rechten Seite der Verteilung befindet, die sich in Richtung positiver Werte erstreckt. Ein Wert von Null bedeutet, dass die Verteilung überhaupt nicht schief ist, d. h. die Verteilung ist vollkommen symmetrisch.
+
+Die Kurtosis (eng. *kurtosis*) ist ein Maß dafür, ob eine Verteilung im Vergleich zu einer Normalverteilung ein starkes oder schwaches Schwanzende aufweist.
+
+Die Kurtosis einer Normalverteilung beträgt 3. Wenn eine gegebene Verteilung eine Kurtosis von weniger als 3 aufweist, wird sie als playkurtisch bezeichnet, was bedeutet, dass sie dazu neigt, weniger und weniger extreme Ausreißer zu produzieren als die Normalverteilung. Wenn eine gegebene Verteilung eine Kurtosis größer als 3 hat, wird sie als leptokurtisch bezeichnet, was bedeutet, dass sie dazu neigt, mehr Ausreißer als die Normalverteilung zu produzieren.
+
+In einigen Formeln (Definition von Fisher) wird von der Kurtosis 3 abgezogen, um den Vergleich mit der Normalverteilung zu erleichtern. Nach dieser Definition hätte eine Verteilung eine größere Kurtosis als eine Normalverteilung, wenn der Kurtosis-Wert größer als 0 wäre.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-pretest-rlnorm-01
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 8
+#| fig-cap: "Die t-Verteilung für drei beispielhafte Freiheitsgrade. Je größer die Freiheitsgrade und damit die Fallzahl, desto näher kommt die t-Verteilung einer Normalverteilung nahe. *[Zum Vergrößern anklicken]*"
+
+p1 <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
+  theme_minimal() +
+  geom_hline(yintercept = 0, gray = "gray50") +
+  geom_segment(aes(x = 0, xend = 0, y = 0, yend = 0.4)) +
+  stat_function(fun = dnorm, linewidth = 1, args = list(mean = 0, sd = 1), 
+                xlim = c(-4, 4), color = "#E89F00") +
+  scale_x_continuous(breaks = 0, 
+                     labels = "Mittelwert = Median = Modus",
+                     guide = guide_axis(n.dodge = 2)) +
+  labs(x = "", y = "") +
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 12),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        legend.position = "top")
+
+p2 <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
+  theme_minimal() +
+  geom_hline(yintercept = 0, gray = "gray50") +
+  geom_segment(aes(x = 0.8, xend = 0.8, y = 0, yend = 2.46)) +
+  geom_segment(aes(x = 0.625, xend = 0.625, y = 0, yend = 1.71),
+               linetype = 11) +
+  geom_segment(aes(x = 0.45, xend = 0.45, y = 0, yend = 0.68)) +
+  stat_function(fun = dbeta, linewidth = 1, args = list(shape1 = 5, shape2 = 2), 
+                xlim = c(0.15, 1), color = "#E89F00") +
+  labs(x = "", y = "", title = "Linksschief",
+       subtitle = "Negative Schiefe") +
+  scale_x_continuous(breaks = c(0.45, 0.625, 0.8), 
+                     labels = c("Mittelwert", "Median", "Modus"),
+                     guide = guide_axis(n.dodge = 2)) +
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 12),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        legend.position = "top")
+
+p3 <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
+  theme_minimal() +
+  geom_hline(yintercept = 0, gray = "gray50") +
+  geom_segment(aes(x = 2, xend = 2, y = 0, yend = 0.183)) +
+  geom_segment(aes(x = 5, xend = 5, y = 0, yend = 0.102),
+               linetype = 11) +
+  geom_segment(aes(x = 10, xend = 10, y = 0, yend = 0.017)) +
+  stat_function(fun = dchisq, linewidth = 1, args = list(df = 4), 
+                xlim = c(0, 16), color = "#E89F00") +
+  scale_x_continuous(breaks = c(2, 5, 10), 
+                     labels = c("Modus", "Median", "Mittelwert"),
+                     guide = guide_axis(n.dodge = 2))  +
+  labs(x = "", y = "", title = "Rechtsschief",
+       subtitle = "Positive Schiefe") +
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 12),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        legend.position = "top")
+
+p2 + p1 + p3 +
+  plot_layout(ncol = 3) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+```
+
+## `{moments}`
+
+```{r}
+pacman::p_load(moments, broom, scales, report)
+
+#calculate skewness
+skewness(fac2_tbl$hatch_time)
+```
+
+```{r}
+#calculate kurtosis
+kurtosis(fac2_tbl$hatch_time)
+```
+
+```{r}
+fac2_tbl |> 
+  group_by(animal, sex) |> 
+  summarise(kurtosis = kurtosis(hatch_time),
+            skewness = skewness(hatch_time))
+```
+
+Die Momente-Bibliothek bietet auch die Funktion `jarque.test()`, die einen Anpassungsgütetest durchführt, der feststellt, ob die Stichprobendaten eine Schiefe und eine Wölbung aufweisen, die einer Normalverteilung entsprechen oder nicht. Die Null- und Alternativhypothesen dieses Tests lauten wie folgt:
+
+Nullhypothese: Der Datensatz weist eine Schiefe und Wölbung auf, die einer Normalverteilung entspricht.
+
+Alternativhypothese: Der Datensatz weist eine Schiefe und eine Kurtosis auf, die nicht mit einer Normalverteilung übereinstimmen.
+
+```{r}
+jarque.test(fac2_tbl$hatch_time)
+```
+
+```{r}
+fac2_tbl |> 
+  split(~ animal + sex) |> 
+  map(~jarque.test(.x$hatch_time)) |> 
+  map(tidy) |> 
+  bind_rows(.id = "test") |>
+  select(test, p.value) |> 
+  mutate(decision = ifelse(p.value <= 0.05, "reject normal", "normal"),
+         p.value = pvalue(p.value, accuracy = 0.001))
+```
+
+## `{report}`
+
+```{r}
+fac2_tbl |>
+  select(jump_length, hatch_time) |> 
+  report()
+```
+:::
+
+text
 
 ::::: panel-tabset
 ## Theoretisch
