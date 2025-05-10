@@ -375,6 +375,61 @@ Häufig kommt jetzt die Frage, ob mein Messwert $y$ wirklich normalverteilt ist 
 
 Das [R Paket `{olsrr}`](https://olsrr.rsquaredacademy.com/articles/intro.html) erlaubt eine weitreichende Diagnostik auf einem normalverteilten Outcome $y$. Es ist besser sich die Diagnostikplots anzuschauen, als die statistischen Pre-Tests zu rechnen. Besonders bei kleiner Fallzahl. Wenn du dazu dann noch Literatur für deine Abschlussarbeit brauchst, dann nutze doch die Arbeit von @zuur2010protocol mit dem Artikel [A protocol for data exploration to avoid common statistical problems](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/j.2041-210X.2009.00001.x) oder aber die Arbeit von @kozak2018s mit dem Artikel [What's normal anyway? Residual plots are more telling than significance tests when checking ANOVA assumptions](https://onlinelibrary.wiley.com/doi/pdf/10.1111/jac.12220?casa_token=22Jm83-kW-MAAAAA:yh0EVuGiGHWDsuPiVP8ZLj51OCasdpIiVWUcYv3Q8dGaIo0yMeNZNwkHIk1ibTCsLhkxbLKZrwZSByo).
 
+Im Folgenden erkläre ich dir dann einmal, wie du die Normalverteilung oder aber auch die Varianzhomogenität in einer visuellen Überprüfung erkennen kannst.
+
+### Normalverteilung
+
+#### `{ggplot}` {.unnumbered .unlisted}
+
+::: panel-tabset
+## Theoretisch
+:::
+
+#### `{performance}` {.unnumbered .unlisted}
+
+::: panel-tabset
+## `jump_length`
+
+```{r}
+fac2_jump_fit <- lm(jump_length ~ animal + sex + animal:sex, data = fac2_tbl) 
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-pretest-check-model-normal-jump
+#| fig-align: center
+#| fig-height: 8
+#| fig-width: 8
+#| fig-cap: "Übersicht der Plots zu der Modellgüte aus der Funktion `check_model()` nach der Modellierung mit der Funktion `lm()` und der Annahme der Varianzhomogenität."
+fac2_jump_fit |> 
+ check_model(check = c("normality", "linearity", "homogeneity", "qq"))
+```
+
+## `hatch_time`
+
+```{r}
+fac2_hatch_fit <- lm(hatch_time ~ animal + sex + animal:sex, data = fac2_tbl) 
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-pretest-check-model-normal-hatch
+#| fig-align: center
+#| fig-height: 8
+#| fig-width: 8
+#| fig-cap: "Übersicht der Plots zu der Modellgüte aus der Funktion `check_model()` nach der Modellierung mit der Funktion `lm()` und der Annahme der Varianzhomogenität."
+
+fac2_hatch_fit |> 
+ check_model(check = c("normality", "linearity", "homogeneity", "qq"))
+```
+:::
+
+### Varianzhomogenität
+
+#### `{ggplot}` {.unnumbered .unlisted}
+
 ::: panel-tabset
 ## Theoretisch
 
@@ -464,6 +519,73 @@ p1 + p2 +
   plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
   theme(plot.tag = element_text(size = 16, face = "bold"))
 
+```
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: false
+#| warning: false
+#| label: fig-posthoc-var-homo-violine
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 8
+#| fig-cap: "Darstellung der Varianzhomogenität und Varianzheterogenität in einem Boxplot. *[Zum Vergrößern anklicken]*"
+
+set.seed(20250509)
+p1 <- gg_template %+%
+  tibble(x_fct = gl(3, 20, labels = c("A", "B", "C")),  
+         y_val = c(rnorm(20, 1.5, 1),
+                   rnorm(20, 2.5, 1),
+                   rnorm(20, 5, 1))) +
+  aes(x_fct, y_val, fill = x_fct) +
+  geom_violindot(linewidth = 1, dots_size = 4) +
+  labs(x = "Behandlungsgruppen (X)", y = "Mittler Messwert (Y)",
+       title = "Varianzhomogenität", subtitle = "Varianzen sind gleich") +
+  ylim(0, 8)
+
+p2 <- gg_template %+%
+  tibble(x_fct = gl(3, 20, labels = c("A", "B", "C")),  
+         y_val = c(rnorm(20, 1.5, 1),
+                   rnorm(20, 2.5, 3),
+                   rnorm(20, 5, 5))) +
+  aes(x_fct, y_val, fill = x_fct) +
+  geom_violindot(linewidth = 1, dots_size = 4) +
+  labs(x = "Behandlungsgruppen (X)", y = "Mittler Messwert (Y)",
+       title = "Varianzheterogenität", subtitle = "Varianzen sind unterschiedlich")  +
+  ylim(0, 8)
+
+p1 + p2 +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A') +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
+```
+
+## `geom_violin()`
+
+`{see}` und `geom_violindot()`
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-ggplot-posthoc-violin-2fac
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 8
+#| fig-cap: "Beispielhafter zweifaktorieller Boxplot für die Sprungweiten in [cm] gruppiert nach den Floharten und den beiden Messorten."
+
+ggplot(data = fac2_tbl, 
+       aes(x = sex, y = jump_length, fill = animal)) +
+  theme_minimal() +
+  geom_violindot(dots_size = 4, position_dots = position_dodge(0.45)) + 
+  stat_summary(fun.y = mean, geom = "point", aes(group = animal), 
+               shape=23, size = 5, fill = "gray50",
+               position = position_dodge(0.45)) +
+  labs(x = "Flohart", y = "Sprungweite in [cm]", fill = "Tierart") +
+  scale_fill_okabeito() 
 ```
 
 ## `geom_bar()`
@@ -595,6 +717,47 @@ ggplot(data = fac2_tbl,
                position = position_dodge(0.75)) +
   labs(x = "Flohart", y = "Sprungweite in [cm]", fill = "Tierart") +
   scale_fill_okabeito() 
+```
+:::
+
+#### `{performance}` {.unnumbered .unlisted}
+
+::: panel-tabset
+## `jump_length`
+
+```{r}
+fac2_jump_fit <- lm(jump_length ~ animal + sex + animal:sex, data = fac2_tbl) 
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-pretest-check-model-var-jump
+#| fig-align: center
+#| fig-height: 8
+#| fig-width: 8
+#| fig-cap: "Übersicht der Plots zu der Modellgüte aus der Funktion `check_model()` nach der Modellierung mit der Funktion `lm()` und der Annahme der Varianzhomogenität."
+fac2_jump_fit |> 
+ check_model(check = c("normality", "linearity", "homogeneity", "qq"))
+```
+
+## `hatch_time`
+
+```{r}
+fac2_hatch_fit <- lm(hatch_time ~ animal + sex + animal:sex, data = fac2_tbl) 
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| label: fig-pretest-check-model-var-hatch
+#| fig-align: center
+#| fig-height: 8
+#| fig-width: 8
+#| fig-cap: "Übersicht der Plots zu der Modellgüte aus der Funktion `check_model()` nach der Modellierung mit der Funktion `lm()` und der Annahme der Varianzhomogenität."
+
+fac2_hatch_fit |> 
+ check_model(check = c("normality", "linearity", "homogeneity", "qq"))
 ```
 :::
 
