@@ -145,3 +145,79 @@ p3theo <- data.frame(x = c(0, 15.25)) |>
   theme(plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
         plot.caption = element_text(size = 12))
+
+
+set.seed(20250513)
+norm_stat_tbl <- tibble(
+  x_1 = rnorm(20, -3, 2),
+  x_2 = rnorm(20, 3, 2)) |> 
+  as_vector() |> 
+  as_tibble()
+
+shapiro_p <- shapiro.test(norm_stat_tbl$value)$p.value |> 
+  scales::pvalue(add_p = TRUE)
+
+p1sample <- norm_stat_tbl  |> 
+  ggplot(aes(x = value)) +
+  theme_void() +
+  geom_density(trim = FALSE, fill = "#E69F00", alpha = 0.8) +
+  annotate("label", -12, 0.09, label = shapiro_p, hjust = "left") +
+  xlim(-12.5, 12.5) +
+  geom_vline(xintercept = -0.6, linewidth = 1) +
+  labs(title = "Zweigipflige Verteilung",
+       subtitle = "Nicht normalverteilt", 
+       caption = "p > 0.05; normalverteilt") +
+  theme(plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12))
+
+set.seed(2025051)
+t_stat_tbl <- tibble(
+  x_1 = rt(20, 3.5)) |> 
+  as_vector() |> 
+  as_tibble()
+
+shapiro_p <- shapiro.test(t_stat_tbl$value)$p.value |> 
+  scales::pvalue(add_p = TRUE)
+
+p2sample <- t_stat_tbl |> 
+  ggplot(aes(x = value)) +
+  theme_void() +
+  geom_density(trim = FALSE, fill = "#0072B2", alpha = 0.8) +
+  xlim(-5.5, 10) +
+  geom_vline(xintercept = -0.1, linewidth = 1) +
+  annotate("label", -5.5, 0.32, label = shapiro_p, hjust = "left") +
+  annotate("text", 4, 0.15, label = "Ohne", hjust = "center") +
+  annotate("text", 4, 0.125, label = "p=0.235", hjust = "center") +
+  geom_curve(x = 4, y = 0.11, xend = 6, yend = 0.05,
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.2, color = "black", alpha = 0.3) +
+  labs(title = "Schmale Verteilung",
+       subtitle = "Approximativ normalverteilt", 
+       caption = "p < 0.05; nicht normalverteilt") +
+  theme(plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12))
+
+set.seed(2025085) #2025051
+chi_stat_tbl <- tibble(
+  x_1 = rchisq(20, 5)) |> 
+  as_vector() |> 
+  as_tibble()
+
+shapiro_p <- shapiro.test(chi_stat_tbl$value)$p.value |> 
+  scales::pvalue(add_p = TRUE)
+
+p3sample <- chi_stat_tbl |> 
+  ggplot(aes(x = value)) +
+  theme_void() +
+  geom_density(trim = FALSE, fill = "#009E73", alpha = 0.8) +
+  xlim(-5.5, 17.5) +
+  geom_vline(xintercept = 3, linewidth = 1) +
+  annotate("label", -5.5, 0.105, label = shapiro_p, hjust = "left") +
+  labs(title = "Linksschiefe Verteilung",
+       subtitle = "Nicht normalverteilt", 
+       caption = "p > 0.05; normalverteilt") +
+  theme(plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12))
