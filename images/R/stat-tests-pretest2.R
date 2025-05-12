@@ -76,3 +76,72 @@ p3kurt <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
         panel.grid.major.x = element_blank(),
         panel.grid.minor.y = element_blank(),
         legend.position = "top")
+
+
+p0norm_dens <- data.frame(x = c(-3.25, 3.25)) |> 
+  ggplot(aes(x)) +
+  theme_void() +
+  stat_function(fun = dnorm, 
+                geom = "line", color = "black") +
+  stat_function(fun = dnorm, 
+                geom = "area", fill = "#F0E442", alpha = 0.8) +
+  geom_vline(xintercept = 0, linewidth = 1) +
+  labs(title = "Theoretische Normalverteilung",
+       subtitle = "Densityplot und Boxplot.",
+       caption = "") +
+  theme(plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12))
+
+p0norm_box <- tibble(y = rnorm(100000, 0, 1)) |> 
+  ggplot(aes(x = 1, y)) +
+  theme_void() +
+  geom_boxplot(fill = "#F0E442", outliers = FALSE, alpha = 0.8) +
+  coord_flip() +
+  labs(caption = "Mittelwert und Median sind gleich.") +
+  theme(plot.caption = element_text(size = 12))
+
+norm_theo_tbl <- tibble(x = seq(-10, 10, 0.1),
+                        x_1 = dnorm(x, -2, 2),
+                        x_2 = dnorm(x, 1.75, 1.75)) |> 
+  mutate(x_max = pmax(x_1, x_2))
+
+p1theo <- norm_theo_tbl |> 
+  ggplot(aes(x = x, y = x_max)) +
+  theme_void() +
+  geom_line() +
+  geom_area(fill = "#E69F00", alpha = 0.8) + 
+  geom_vline(xintercept = -0.125, linewidth = 1) +
+  labs(title = "Zweigipflige Verteilung",
+       subtitle = "Nicht normalverteilt") +
+  theme(plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12)) 
+
+p2theo <- data.frame(x = c(-6.25, 6.25)) |> 
+  ggplot(aes(x)) +
+  theme_void() +
+  stat_function(fun = dt, args = list(df = 1.5),
+                geom = "line", color = "black") + 
+  stat_function(fun = dt, args = list(df = 1.5),
+                geom = "area", fill = "#0072B2", alpha = 0.8) + 
+  geom_vline(xintercept = 0, linewidth = 1) +
+  labs(title = "Schmale Verteilung",
+       subtitle = "Approximativ normalverteilt") +
+  theme(plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12))
+
+p3theo <- data.frame(x = c(0, 15.25)) |> 
+  ggplot(aes(x)) +
+  theme_void() +
+  stat_function(fun = dchisq, args = list(df = 4),
+                geom = "line", color = "black") + 
+  stat_function(fun = dchisq, args = list(df = 4),
+                geom = "area", fill = "#009E73", alpha = 0.8) + 
+  geom_vline(xintercept = 2, linewidth = 1) +
+  labs(title = "Linksschiefe Verteilung",
+       subtitle = "Nicht normalverteilt") +
+  theme(plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12))
