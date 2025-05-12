@@ -1,5 +1,7 @@
 p1kurt <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
   theme_minimal() +
+  stat_function(fun = dnorm, linewidth = 1, args = list(mean = 0, sd = 1), 
+                geom = "area", xlim = c(-4, 4), fill = "#E89F00", alpha = 0.5) +
   geom_segment(aes(x = 0, xend = 0, y = 0, yend = 0.4)) +
   stat_function(fun = dnorm, linewidth = 1, args = list(mean = 0, sd = 1), 
                 xlim = c(-4, 4), color = "#E89F00") +
@@ -23,9 +25,11 @@ p1kurt <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
 
 p2kurt <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
   theme_minimal() +
-  geom_segment(aes(x = 0.8, xend = 0.8, y = 0, yend = 2.46)) +
+  stat_function(fun = dbeta, linewidth = 1, args = list(shape1 = 5, shape2 = 2), 
+                xlim = c(0.15, 1), fill = "#E89F00", alpha = 0.5, geom = "area") +
   geom_segment(aes(x = 0.625, xend = 0.625, y = 0, yend = 1.71),
                linetype = 11) +
+  geom_segment(aes(x = 0.8, xend = 0.8, y = 0, yend = 2.46)) +
   geom_segment(aes(x = 0.45, xend = 0.45, y = 0, yend = 0.68)) +
   stat_function(fun = dbeta, linewidth = 1, args = list(shape1 = 5, shape2 = 2), 
                 xlim = c(0.15, 1), color = "#E89F00") +
@@ -51,6 +55,8 @@ p2kurt <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
 
 p3kurt <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
   theme_minimal() +
+  stat_function(fun = dchisq, linewidth = 1, args = list(df = 4), 
+                xlim = c(0, 16), fill = "#E89F00", alpha = 0.5, geom = "area") +
   geom_segment(aes(x = 2, xend = 2, y = 0, yend = 0.183)) +
   geom_segment(aes(x = 5, xend = 5, y = 0, yend = 0.102),
                linetype = 11) +
@@ -221,3 +227,78 @@ p3sample <- chi_stat_tbl |>
   theme(plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
         plot.caption = element_text(size = 12))
+
+set.seed(20250513)
+norm_stat_small_tbl <- tibble(
+  y = c(rnorm(5,  3, 2), rnorm(20, 3, 2), rnorm(40, 3, 2)),
+  x = c(gl(1, 5, labels = "A"), gl(1, 20, labels = "B"), gl(1, 40, labels = "C")))
+
+p1_small <- norm_stat_small_tbl |>
+  filter(x == "A") |> 
+  ggplot(aes(x = y)) +
+  theme_void() +
+  ylim(NA, 2) +
+  geom_histogram(fill = "#E69F00", alpha = 0.8) +  
+  labs(title = "Normalverteilung",
+       subtitle = "Kleine Fallzahl (n = 5)") +
+  theme(plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12))
+
+p2_small <- norm_stat_small_tbl |>
+  filter(x == "A") |> 
+  ggplot(aes(x = y)) +
+  theme_void() +
+  geom_density(trim = FALSE, fill = "#E69F00", alpha = 0.8) 
+
+p3_small <- norm_stat_small_tbl |>
+  filter(x == "A") |> 
+  ggplot(aes(x = y)) +
+  theme_void() +
+  geom_boxplot(fill = "#E69F00", outliers = FALSE, alpha = 0.8) 
+
+p4_small <- norm_stat_small_tbl |>
+  filter(x == "B") |> 
+  ggplot(aes(x = y)) +
+  theme_void() +
+  geom_histogram(fill = "#0072B2", alpha = 0.8) +  
+  labs(title = "Normalverteilung",
+       subtitle = "Moderate Fallzahl (n = 20)") +
+  theme(plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12))
+
+p5_small <- norm_stat_small_tbl |>
+  filter(x == "B") |> 
+  ggplot(aes(x = y)) +
+  theme_void() +
+  geom_density(trim = FALSE, fill = "#0072B2", alpha = 0.8) 
+
+p6_small <- norm_stat_small_tbl |>
+  filter(x == "B") |> 
+  ggplot(aes(x = y)) +
+  theme_void() +
+  geom_boxplot(fill = "#0072B2", outliers = FALSE, alpha = 0.8)
+
+p7_small <- norm_stat_small_tbl |>
+  filter(x == "C") |> 
+  ggplot(aes(x = y)) +
+  theme_void() +
+  geom_histogram(fill = "#009E73", alpha = 0.8) +  
+  labs(title = "Normalverteilung",
+       subtitle = "Große Fallzahl (n = 40)") +
+  theme(plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12))
+
+p8_small <- norm_stat_small_tbl |>
+  filter(x == "C") |> 
+  ggplot(aes(x = y)) +
+  theme_void() +
+  geom_density(trim = FALSE, fill = "#009E73", alpha = 0.8) 
+
+p9_small <- norm_stat_small_tbl |>
+  filter(x == "C") |> 
+  ggplot(aes(x = y)) +
+  theme_void() +
+  geom_boxplot(fill = "#009E73", outliers = FALSE, alpha = 0.8) 
