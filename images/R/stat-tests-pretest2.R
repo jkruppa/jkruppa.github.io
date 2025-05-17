@@ -234,11 +234,11 @@ norm_stat_small_tbl <- tibble(
   y = c(rnorm(5,  3, 2), rnorm(20, 3, 2), rnorm(40, 3, 2)),
   x = c(gl(1, 5, labels = "A"), gl(1, 20, labels = "B"), gl(1, 40, labels = "C")))
 
-p1_small <- norm_stat_small_tbl |>
+p1_norm_small <- norm_stat_small_tbl |>
   filter(x == "A") |> 
   ggplot(aes(x = y)) +
   theme_void() +
-  ylim(NA, 2) +
+  ylim(NA, 6) +
   geom_histogram(fill = "#E69F00", alpha = 0.8) +  
   labs(title = "Normalverteilung",
        subtitle = "Kleine Fallzahl (n = 5)") +
@@ -246,22 +246,31 @@ p1_small <- norm_stat_small_tbl |>
         plot.subtitle = element_text(size = 12, face = "italic"),
         plot.caption = element_text(size = 12))
 
-p2_small <- norm_stat_small_tbl |>
+p2_norm_small <- norm_stat_small_tbl |>
   filter(x == "A") |> 
   ggplot(aes(x = y)) +
   theme_void() +
   geom_density(trim = FALSE, fill = "#E69F00", alpha = 0.8) 
 
-p3_small <- norm_stat_small_tbl |>
+p3_norm_small <- norm_stat_small_tbl |>
   filter(x == "A") |> 
   ggplot(aes(x = y)) +
   theme_void() +
-  geom_boxplot(fill = "#E69F00", outliers = FALSE, alpha = 0.8) 
+  geom_boxplot(fill = "#E69F00", outlier.shape = NA, alpha = 0.8) 
 
-p4_small <- norm_stat_small_tbl |>
+p4_norm_small <- norm_stat_small_tbl |>
+  filter(x == "A") |> 
+  ggplot(aes(x = x, y = y)) +
+  theme_void() +
+  geom_violindot(alpha = 0.8, size_dots = 4, fill = "#E69F00") +
+  coord_flip() +
+  theme(legend.position = "none")  
+
+p5_norm_small <- norm_stat_small_tbl |>
   filter(x == "B") |> 
   ggplot(aes(x = y)) +
   theme_void() +
+  ylim(NA, 6) +
   geom_histogram(fill = "#0072B2", alpha = 0.8) +  
   labs(title = "Normalverteilung",
        subtitle = "Moderate Fallzahl (n = 20)") +
@@ -269,19 +278,27 @@ p4_small <- norm_stat_small_tbl |>
         plot.subtitle = element_text(size = 12, face = "italic"),
         plot.caption = element_text(size = 12))
 
-p5_small <- norm_stat_small_tbl |>
+p6_norm_small <- norm_stat_small_tbl |>
   filter(x == "B") |> 
   ggplot(aes(x = y)) +
   theme_void() +
   geom_density(trim = FALSE, fill = "#0072B2", alpha = 0.8) 
 
-p6_small <- norm_stat_small_tbl |>
+p7_norm_small <- norm_stat_small_tbl |>
   filter(x == "B") |> 
   ggplot(aes(x = y)) +
   theme_void() +
-  geom_boxplot(fill = "#0072B2", outliers = FALSE, alpha = 0.8)
+  geom_boxplot(fill = "#0072B2", outlier.shape = NA, alpha = 0.8)
 
-p7_small <- norm_stat_small_tbl |>
+p8_norm_small <- norm_stat_small_tbl |>
+  filter(x == "B") |> 
+  ggplot(aes(x = x, y = y)) +
+  theme_void() +
+  geom_violindot(alpha = 0.8, size_dots = 4, fill = "#0072B2") +
+  coord_flip() +
+  theme(legend.position = "none")  
+
+p9_norm_small <- norm_stat_small_tbl |>
   filter(x == "C") |> 
   ggplot(aes(x = y)) +
   theme_void() +
@@ -292,17 +309,25 @@ p7_small <- norm_stat_small_tbl |>
         plot.subtitle = element_text(size = 12, face = "italic"),
         plot.caption = element_text(size = 12))
 
-p8_small <- norm_stat_small_tbl |>
+p10_norm_small <- norm_stat_small_tbl |>
   filter(x == "C") |> 
   ggplot(aes(x = y)) +
   theme_void() +
   geom_density(trim = FALSE, fill = "#009E73", alpha = 0.8) 
 
-p9_small <- norm_stat_small_tbl |>
+p11_norm_small <- norm_stat_small_tbl |>
   filter(x == "C") |> 
   ggplot(aes(x = y)) +
   theme_void() +
-  geom_boxplot(fill = "#009E73", outliers = FALSE, alpha = 0.8) 
+  geom_boxplot(fill = "#009E73", outlier.shape = NA, alpha = 0.8) 
+
+p12_norm_small <- norm_stat_small_tbl |>
+  filter(x == "C") |> 
+  ggplot(aes(x = x, y = y)) +
+  theme_void() +
+  geom_violindot(alpha = 0.8, size_dots = 4, fill = "#009E73") +
+  coord_flip() +
+  theme(legend.position = "none")  
 
 set.seed(20250513)
 var_stat_theo_tbl <- tibble(
@@ -344,11 +369,11 @@ var_stat_small_tbl <- tibble(
         gl(2, 20, labels = c("A", "B")), 
         gl(2, 40, labels = c("A", "B"))))
 
-p1_small <- var_stat_small_tbl |>
+p1_var_small <- var_stat_small_tbl |>
   filter(g == "A") |> 
   ggplot(aes(x = y, fill = x)) +
   theme_void() +
-  ylim(NA, 2) +
+  ylim(NA, 4) +
   geom_histogram(alpha = 0.8,
                  position = position_dodge()) +  
   labs(title = "Varianzhomogenität",
@@ -359,7 +384,7 @@ p1_small <- var_stat_small_tbl |>
         plot.caption = element_text(size = 12)) +
   scale_fill_okabeito(order = c(1,8))
 
-p2_small <- var_stat_small_tbl |>
+p2_var_small <- var_stat_small_tbl |>
   filter(g == "A") |> 
   ggplot(aes(x = y, fill = x)) +
   theme_void() +
@@ -367,20 +392,30 @@ p2_small <- var_stat_small_tbl |>
   theme(legend.position = "none") +
   scale_fill_okabeito(order = c(1,8))
 
-p3_small <- var_stat_small_tbl |>
+p3_var_small <- var_stat_small_tbl |>
   filter(g == "A") |> 
   ggplot(aes(x = y, fill = x)) +
   theme_void() +
-  geom_boxplot(outliers = FALSE, alpha = 0.8) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.8) +
+  theme(legend.position = "none") +
+  scale_fill_okabeito(order = c(1,8)) 
+
+p4_var_small <- var_stat_small_tbl |>
+  filter(g == "A") |> 
+  ggplot(aes(x = x, y = y, fill = x)) +
+  theme_void() +
+  geom_violindot(alpha = 0.8, size_dots = 4) +
+  coord_flip() +
   theme(legend.position = "none") +
   scale_fill_okabeito(order = c(1,8)) 
 
 ##
 
-p4_small <- var_stat_small_tbl |>
+p5_var_small <- var_stat_small_tbl |>
   filter(g == "B") |> 
   ggplot(aes(x = y, fill = x)) +
   theme_void() +
+  ylim(NA, 4) +
   geom_histogram(alpha = 0.8,
                  position = position_dodge()) +  
   labs(title = "Varianzhomogenität",
@@ -391,7 +426,7 @@ p4_small <- var_stat_small_tbl |>
         plot.caption = element_text(size = 12)) +
   scale_fill_okabeito(order = c(5,8))
 
-p5_small <- var_stat_small_tbl |>
+p6_var_small <- var_stat_small_tbl |>
   filter(g == "B") |> 
   ggplot(aes(x = y, fill = x)) +
   theme_void() +
@@ -399,17 +434,26 @@ p5_small <- var_stat_small_tbl |>
   theme(legend.position = "none") +
   scale_fill_okabeito(order = c(5,8))
 
-p6_small <- var_stat_small_tbl |>
+p7_var_small <- var_stat_small_tbl |>
   filter(g == "B") |> 
   ggplot(aes(x = y, fill = x)) +
   theme_void() +
-  geom_boxplot(outliers = FALSE, alpha = 0.8) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.8) +
+  theme(legend.position = "none") +
+  scale_fill_okabeito(order = c(5,8)) 
+
+p8_var_small <- var_stat_small_tbl |>
+  filter(g == "B") |> 
+  ggplot(aes(x = x, y = y, fill = x)) +
+  theme_void() +
+  geom_violindot(alpha = 0.8, size_dots = 4) +
+  coord_flip() +
   theme(legend.position = "none") +
   scale_fill_okabeito(order = c(5,8)) 
 
 ##
 
-p7_small <- var_stat_small_tbl |>
+p9_var_small <- var_stat_small_tbl |>
   filter(g == "C") |> 
   ggplot(aes(x = y, fill = x)) +
   theme_void() +
@@ -423,7 +467,7 @@ p7_small <- var_stat_small_tbl |>
         plot.caption = element_text(size = 12)) +
   scale_fill_okabeito(order = c(3,8))
 
-p8_small <- var_stat_small_tbl |>
+p10_var_small <- var_stat_small_tbl |>
   filter(g == "C") |> 
   ggplot(aes(x = y, fill = x)) +
   theme_void() +
@@ -431,10 +475,20 @@ p8_small <- var_stat_small_tbl |>
   theme(legend.position = "none") +
   scale_fill_okabeito(order = c(3,8))
 
-p9_small <- var_stat_small_tbl |>
+p11_var_small <- var_stat_small_tbl |>
   filter(g == "C") |> 
   ggplot(aes(x = y, fill = x)) +
   theme_void() +
-  geom_boxplot(outliers = FALSE, alpha = 0.8) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.8) +
   theme(legend.position = "none") +
   scale_fill_okabeito(order = c(3,8)) 
+
+p12_var_small <- var_stat_small_tbl |>
+  filter(g == "B") |> 
+  ggplot(aes(x = x, y = y, fill = x)) +
+  theme_void() +
+  geom_violindot(alpha = 0.8, size_dots = 4) +
+  coord_flip() +
+  theme(legend.position = "none") +
+  scale_fill_okabeito(order = c(3,8)) 
+
