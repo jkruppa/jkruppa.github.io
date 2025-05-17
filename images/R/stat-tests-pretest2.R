@@ -102,7 +102,8 @@ p0norm_dens <- data.frame(x = c(-3.25, 3.25)) |>
 p0norm_box <- tibble(y = rnorm(100000, 0, 1)) |> 
   ggplot(aes(x = 1, y)) +
   theme_void() +
-  geom_boxplot(fill = "#F0E442", outliers = FALSE, alpha = 0.8) +
+  geom_boxplot(fill = "#F0E442", outliers = TRUE, alpha = 0.8, 
+               outlier.shape = NA) +
   coord_flip() +
   labs(caption = "Mittelwert und Median sind gleich.") +
   theme(plot.caption = element_text(size = 12))
@@ -302,3 +303,138 @@ p9_small <- norm_stat_small_tbl |>
   ggplot(aes(x = y)) +
   theme_void() +
   geom_boxplot(fill = "#009E73", outliers = FALSE, alpha = 0.8) 
+
+set.seed(20250513)
+var_stat_theo_tbl <- tibble(
+  y = c(rnorm(1e6, 6, 2), rnorm(1e6,  3, 2)),
+  x = c(gl(2, 1e6, labels = c("A", "B"))))
+
+p0var_dens <- var_stat_theo_tbl |> 
+  ggplot(aes(x = y, fill = x)) +
+  theme_void() +
+  geom_density(trim = FALSE, alpha = 0.8)  +
+  geom_vline(xintercept = c(3, 6), linewidth = 1) +
+  labs(title = "Theoretische Varianzhomogenität zwischen zwei Gruppen",
+       subtitle = "Densityplot und Boxplot.",
+       caption = "") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12)) +
+  scale_fill_okabeito(order = c(4,8))
+
+p0var_box <- var_stat_theo_tbl |> 
+  ggplot(aes(x = y, fill = x)) +
+  theme_void() +
+  geom_boxplot(outliers = TRUE, alpha = 0.8, outlier.shape = NA) +
+  labs(caption = "IQR und Whiskers sind gleich.") +
+  theme(legend.position = "none",
+        plot.caption = element_text(size = 12))  +
+  scale_fill_okabeito(order = c(4,8))
+
+set.seed(20250513)
+var_stat_small_tbl <- tibble(
+  y = c(rnorm(5,  3, 2), rnorm(5,  3, 2),
+        rnorm(20, 3, 2), rnorm(20, 3, 2),
+        rnorm(40, 3, 2), rnorm(40, 3, 2)),
+  g = c(gl(1, 10, labels = "A"), 
+        gl(1, 40, labels = "B"), 
+        gl(1, 80, labels = "C")),
+  x = c(gl(2, 5, labels = c("A", "B")), 
+        gl(2, 20, labels = c("A", "B")), 
+        gl(2, 40, labels = c("A", "B"))))
+
+p1_small <- var_stat_small_tbl |>
+  filter(g == "A") |> 
+  ggplot(aes(x = y, fill = x)) +
+  theme_void() +
+  ylim(NA, 2) +
+  geom_histogram(alpha = 0.8,
+                 position = position_dodge()) +  
+  labs(title = "Varianzhomogenität",
+       subtitle = "Kleine Fallzahl (n = 5)") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12)) +
+  scale_fill_okabeito(order = c(1,8))
+
+p2_small <- var_stat_small_tbl |>
+  filter(g == "A") |> 
+  ggplot(aes(x = y, fill = x)) +
+  theme_void() +
+  geom_density(trim = FALSE, alpha = 0.8)  +
+  theme(legend.position = "none") +
+  scale_fill_okabeito(order = c(1,8))
+
+p3_small <- var_stat_small_tbl |>
+  filter(g == "A") |> 
+  ggplot(aes(x = y, fill = x)) +
+  theme_void() +
+  geom_boxplot(outliers = FALSE, alpha = 0.8) +
+  theme(legend.position = "none") +
+  scale_fill_okabeito(order = c(1,8)) 
+
+##
+
+p4_small <- var_stat_small_tbl |>
+  filter(g == "B") |> 
+  ggplot(aes(x = y, fill = x)) +
+  theme_void() +
+  geom_histogram(alpha = 0.8,
+                 position = position_dodge()) +  
+  labs(title = "Varianzhomogenität",
+       subtitle = "Moderate Fallzahl (n = 20)") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12)) +
+  scale_fill_okabeito(order = c(5,8))
+
+p5_small <- var_stat_small_tbl |>
+  filter(g == "B") |> 
+  ggplot(aes(x = y, fill = x)) +
+  theme_void() +
+  geom_density(trim = FALSE, alpha = 0.8)  +
+  theme(legend.position = "none") +
+  scale_fill_okabeito(order = c(5,8))
+
+p6_small <- var_stat_small_tbl |>
+  filter(g == "B") |> 
+  ggplot(aes(x = y, fill = x)) +
+  theme_void() +
+  geom_boxplot(outliers = FALSE, alpha = 0.8) +
+  theme(legend.position = "none") +
+  scale_fill_okabeito(order = c(5,8)) 
+
+##
+
+p7_small <- var_stat_small_tbl |>
+  filter(g == "C") |> 
+  ggplot(aes(x = y, fill = x)) +
+  theme_void() +
+  geom_histogram(alpha = 0.8,
+                 position = position_dodge()) +  
+  labs(title = "Varianzhomogenität",
+       subtitle = "Große Fallzahl (n = 40)") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12)) +
+  scale_fill_okabeito(order = c(3,8))
+
+p8_small <- var_stat_small_tbl |>
+  filter(g == "C") |> 
+  ggplot(aes(x = y, fill = x)) +
+  theme_void() +
+  geom_density(trim = FALSE, alpha = 0.8)  +
+  theme(legend.position = "none") +
+  scale_fill_okabeito(order = c(3,8))
+
+p9_small <- var_stat_small_tbl |>
+  filter(g == "C") |> 
+  ggplot(aes(x = y, fill = x)) +
+  theme_void() +
+  geom_boxplot(outliers = FALSE, alpha = 0.8) +
+  theme(legend.position = "none") +
+  scale_fill_okabeito(order = c(3,8)) 
