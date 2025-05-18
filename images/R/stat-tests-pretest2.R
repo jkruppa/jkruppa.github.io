@@ -90,7 +90,7 @@ p0norm_dens <- data.frame(x = c(-3.25, 3.25)) |>
   stat_function(fun = dnorm, 
                 geom = "line", color = "black") +
   stat_function(fun = dnorm, 
-                geom = "area", fill = "#F0E442", alpha = 0.8) +
+                geom = "area", fill = "#F5C710", alpha = 0.8) +
   geom_vline(xintercept = 0, linewidth = 1) +
   labs(title = "Theoretische Normalverteilung",
        subtitle = "Densityplot und Boxplot.",
@@ -102,7 +102,7 @@ p0norm_dens <- data.frame(x = c(-3.25, 3.25)) |>
 p0norm_box <- tibble(y = rnorm(100000, 0, 1)) |> 
   ggplot(aes(x = 1, y)) +
   theme_void() +
-  geom_boxplot(fill = "#F0E442", outliers = TRUE, alpha = 0.8, 
+  geom_boxplot(fill = "#F5C710", outliers = TRUE, alpha = 0.8, 
                outlier.shape = NA) +
   coord_flip() +
   labs(caption = "Mittelwert und Median sind gleich.") +
@@ -492,3 +492,107 @@ p12_var_small <- var_stat_small_tbl |>
   theme(legend.position = "none") +
   scale_fill_okabeito(order = c(3,8)) 
 
+set.seed(20250513)
+var_stat_theo_control_tbl <- tibble(
+  y = c(rnorm(10, 2, 1), 
+        rnorm(10, 10, 5),
+        rnorm(10, 4, 3),
+        rnorm(10, 8, 4),
+        rnorm(10, 6, 3)),
+  x = c(gl(5, 10, labels = c("C-", "C+", "A", "B", "C"))))
+
+p1_var_theo_example <- ggplot(var_stat_theo_control_tbl, aes(x, y, fill = x)) +
+  theme_minimal() +
+  geom_boxplot(outlier.shape = NA) +
+  labs(title = "Kontrollen vs. Behandlung",
+       subtitle = "Varianzheterogenität durch Kontrollen\nnegative/positive Infektion (C-/C+)",
+       x = "Behandlung", y = "Anzahl Pathogen") +
+  scale_fill_okabeito() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.title.y = element_text(size = 16, face = 2),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"))
+
+set.seed(20250513)
+var_stat_theo_time_tbl <- tibble(
+  y = c(rnorm(10, 2, 1), 
+        rnorm(10, 5, 2.5),
+        rnorm(10, 10, 5),
+        rnorm(10, 20, 12),
+        rnorm(10, 40, 22)),
+  x = c(gl(5, 10, labels = c("t0", "t1", "t2", "t3", "t4"))))
+
+p2_var_theo_example <- ggplot(var_stat_theo_time_tbl, aes(x, y, fill = x)) +
+  theme_minimal() +
+  geom_boxplot(outlier.shape = NA) +
+  labs(title = "Messungen über die Zeit",
+       subtitle = "Varianzheterogenität durch zeitlichen\nVerlauf der Messungen",
+       x = "Messzeitpunkt", y = "Frischgewicht") +
+  scale_fill_okabeito() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 12),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.title.y = element_text(size = 16, face = 2),
+        panel.grid.minor.y = element_blank(),
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"))
+
+set.seed(20250513)
+var_stat_theo_many_tbl <- tibble(
+  y = c(rnorm(5, 3, 2), 
+        rnorm(5, 5, 2),
+        rnorm(5, 7, 2),
+        rnorm(5, 3, 2),
+        rnorm(5, 10, 2),
+        rnorm(5, 8, 2),
+        rnorm(5, 4, 2)),
+  x = c(gl(7, 5, labels = LETTERS[1:7])))
+
+p3_var_theo_example <- ggplot(var_stat_theo_many_tbl, aes(x, y, fill = x)) +
+  theme_minimal() +
+  geom_boxplot(outlier.shape = NA) +
+  labs(title = "Viele Behandlunggruppen",
+       subtitle = "Theoretische Varianzhomogenität\nin den Gruppen (n = 5)",
+       x = "Behandlung", y = "Messwert") +
+  scale_fill_okabeito() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.title.y = element_text(size = 16, face = 2),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"))
+
+
+set.seed(20250513)
+var_stat_theo_wirk_tbl <- tibble(
+  y = c(rnorm(10, 20, 1), 
+        rnorm(10, 12, 3),
+        rnorm(10, 8, 6)),
+  x = c(gl(3, 10, labels = c("Boden / Wurzel", "Boden / Blatt", "Boden / Spross"))))
+
+p4_var_theo_example <- ggplot(var_stat_theo_wirk_tbl, aes(x, y, fill = x)) +
+  theme_minimal() +
+  geom_boxplot(outlier.shape = NA) +
+  labs(title = "Wirkmechanismus",
+       subtitle = "Varianzheterogenität durch räumliche\nTrennung des Wirkorts",
+       x = "Quelle / Verstoffwechselung", y = "Al3+ / Organische Säure") +
+  scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+  scale_fill_okabeito() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.title.y = element_text(size = 16, face = 2),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"))
