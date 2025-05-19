@@ -1032,12 +1032,26 @@ fac2_hatch_fit |>
 ## Statistische Überprüfung
 
 ```{r}
+#| eval: false
 map(1:5, \(...){
   
-    sim_tbl <- tibble(y = c(rnorm(10, 5, 2), rnorm(10, 5, 2)),
-                      x = gl(2, 10))
-  
-    car::leveneTest(y ~ x, data = sim_tbl)[,3][1]
+  n_val <- 100
+  map_dfr(1:1000, \(...){
+    sim_tbl <- tibble(y = c(rnorm(n_val, 5, 2), rnorm(n_val, 5, 2)),
+                      x = gl(2, n_val, labels = c("A", "B")))
+    
+    levene_p <- car::leveneTest(y ~ x, data = sim_tbl)[,3][1]
+    shapiro_p <- sim_tbl |> filter(x == "A") |> pull(y) |>  
+      shapiro.test() |> pluck("p.value")  
+    
+    tibble(n = n_val,
+           levene = levene_p,
+           shapiro = shapiro_p) |> 
+      mutate(levene = levene < 0.05,
+             shapiro = shapiro < 0.05)
+  }) |> 
+    group_by(n) |> 
+    dplyr::summarise(mean(levene), mean(shapiro))
 })
 ```
 
