@@ -619,16 +619,26 @@ tidyplot(data = flea_tbl,
 
 ## Gepaarter Dotplot
 
+Am Ende wollen wir uns dann nochmal den gepaarten t-Test anschauen. Hier ist dann die Abbildung realtiv einfach. Wir können da die Daten `paired_tbl` aus dem gepaarten t-Test nutzen nachdem wir die Daten in das Long-Format überführt haben. Etwas schwieriger ist dann der p-Wert, den p-Wert müssen wir dann erst selber errechnen und dann ergänzen. Also fangen wir einmal an die Daten in das Long-Format zu überführen.
+
 ```{r}
-stats_tbl <- paired_tbl |> 
+paired_long_tbl <- paired_tbl |> 
   pivot_longer(cols = fed:unfed,
-               values_to = "weight",
-               names_to = "trt") |> 
+               values_to = "jump_length",
+               names_to = "trt")
+```
+
+Jetzt können wir den gepaarten t-Test rechnen und zwar aus dem R Paket `{rstatix}`. Dann müssen wir noch alles so umbauen, dass wir die Informationen dann in `{tidyplots}` auch nutzen können.
+
+```{r}
+stats_tbl <- paired_long_tbl |> 
   arrange(id) |> 
-  t_test(weight ~ trt, paired = TRUE) |> 
+  t_test(jump_length ~ trt, paired = TRUE) |> 
   add_significance() |> 
   add_xy_position()
 ```
+
+Wir butzen hier die Funktion `stat_pvalue_manual()` um händisch die p-Werte zu den Dotplot mit den Mittelwert und Standardabweichung zu ergänzen. Die Verbindungen zwischen den Beobachtungen haben wir dann durch `add_line()` erzeugt. Ich gebe zu, dass ist etwas komplizierter. Wenn du dann die Sterne haben willst, dann musst due das Label auf `"p.signif"` setzen. Dann werden statt der p-Werte `"p"` dir die Sterne `*` angezeigt. Wir sehen hier, dass sich die beiden Fütterungslevel in den Sprungweiten signifikant unterscheiden. Der p-Wert ist kleiner als das Signifikanzniveau $\alpha$ gleich 5%.
 
 ```{r}
 #| message: false
@@ -640,11 +650,8 @@ stats_tbl <- paired_tbl |>
 #| fig-width: 3.5
 #| fig-cap: "Dotplot mit Mittelwert und Standardabweichung für die Sprungweiten in [cm] gruppiert nach den Floharten mit mehr Optionen und angepassten Beschriftungen sowie den p-Wert aus einem paired t-Test. Gleiche Messungen an gleichen Flöhen sind mit einer Linie verbunden."
 
-paired_tbl |> 
-  pivot_longer(cols = fed:unfed,
-               values_to = "weight",
-               names_to = "trt") |> 
-  tidyplot(x = trt, y = weight, color = trt, fill = NA) |> 
+paired_long_tbl |> 
+  tidyplot(x = trt, y = jump_length, color = trt, fill = NA) |> 
   add_line(group = id, color = "grey") |> 
   add_data_points() |>
   add_mean_dash(width = 0.2) |> 
@@ -653,9 +660,10 @@ paired_tbl |>
                          bracket.nudge.y = 0.1)) |> 
   remove_legend() |> 
   adjust_font(fontsize = 9) |>
-  adjust_x_axis_title("Flohart") |>
+  adjust_x_axis_title("Fütterung") |>
   adjust_y_axis_title("Sprungweite in [cm]") |> 
-  rename_x_axis_labels(new_names = c("dog" = "Hund", "cat" = "Katze")) |> 
+  reorder_x_axis_labels("unfed", "fed") |>  
+  rename_x_axis_labels(new_names = c("fed" = "gefüttert", "unfed" = "ungefüttert")) |>
   adjust_size(width = NA, height = NA) 
 ```
 :::
