@@ -54,7 +54,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 #| warning: false
 pacman::p_load(tidyverse, magrittr, broom, readxl,
-               infer, see, tidyplots, rstatix, conflicted)
+               infer, see, tidyplots, rstatix, ggpubr,
+               conflicted)
 conflicts_prefer(dplyr::filter)
 conflicts_prefer(rstatix::t_test)
 set.seed(20221206)
@@ -550,12 +551,20 @@ Die Ausgabe des paired t-Test ähnelt stark der Aussage des Student t-Test. Wir 
 
 ## Ergebnisse mit `{tidyplots}`
 
-`add_test_asterisks()`
+Häufig wollen wir nicht nur den p-Wert aus einem t-Test berichten sondern natürlich auch gleich die richtige Abbildung dazu haben. Hier gibt es mit dem R Paket `{tidyplots}` eine gute Möglichkeit. Das R Paket verbindet dabei die Funktionalität von `{ggplot}` und `{ggpubr}`. Dabei bleibt es aber dann sehr einfahc zu bedienen. Insbesondere in dem Fall, dass du nur zwei Gruppen in einem t-Test miteinander vergleichen willst.
 
-Hier nur der Welch t-Test
+::: callout-tip
+## Alternativen zu `{tidyplots}`
+
+Das R Paket `{ggpubr}` bietet auch noch andere Alternativen für die Darstellung von statistischen Vergleichen in deinen Daten unter [ggpubr: ‘ggplot2’ Based Publication Ready Plots](https://rpkgs.datanovia.com/ggpubr/). Vielleicht findest du da auch noch eine bessere Abbildung als hier. Da wir hier sehr viel ähnliches haben, bleibe ich bei `{tidyplots}`.
+:::
+
+Neben den p-Werten, die ich hier mit der Funktion `add_test_pvalue()` ergänze kannst du auch Sterne mit der Funktion `add_test_asterisks()` nutzen. Das liegt dann ganz bei dir. Es geibt auch die Möglichkeit nicht signifikante Ergebnisse auszublenden. Mehr dazu findest du dann auf der [Hilfeseite zu den statistischen Vergleichen in `{tidyplots}`](https://jbengler.github.io/tidyplots/articles/Visualizing-data.html#statistical-comparison). Ich zeige hier dir nur die Standardanwendung. Wichtig ist auch zu wissen, dass wir immer einen Welch t-Test rechnen, also immer für die Varianzheterogenität adjustieren. Das ist auch eigentlich die bessere Variante als der Student t-Test. Häufig ist es sehr schwer in kleinen Fallzahlen abzuschätzen wie die Varianzen in den Gruppen sind. Dann lieber gleich richtig adjsutieren und auf der sicheren Seite sein.
 
 ::: panel-tabset
 ## Barplot
+
+Die Standardabbildung ist sicherlich der Barplot zusammen mit der Standardabweichung als Fehlerbalken. Dann habe ich noch die einzelnen Beobachtungen ergänzt. Die Klammer über den beiden Säulen gibt den Vergleich an und die Zahl ist der p-Wert aus einem Welch t-Test. Wir sehen hier, dass sich die beiden Floharten in den Sprungweiten signifikant unterscheiden. Der p-Wert ist kleiner als das Signifikanzniveau $\alpha$ gleich 5%.
 
 ```{r}
 #| message: false
@@ -565,7 +574,7 @@ Hier nur der Welch t-Test
 #| fig-align: center
 #| fig-height: 3
 #| fig-width: 3.5
-#| fig-cap: "Beispielhafter einfaktorieller Barplot für die Sprungweiten in [cm] gruppiert nach den Floharten mit mehr Optionen und angepassten Beschriftungen."
+#| fig-cap: "Einfaktorieller Barplot für die Sprungweiten in [cm] gruppiert nach den Floharten mit mehr Optionen und angepassten Beschriftungen sowie den p-Wert aus einem Welch t-Test."
 
 tidyplot(data = flea_tbl, 
          x = animal, y = jump_length, color = animal) |> 
@@ -583,6 +592,8 @@ tidyplot(data = flea_tbl,
 
 ## Boxplot
 
+Es gibt auch gute Gründe ienmal den Boxplot zu wählen, wenn wir etwas besser die Verteilung der Sprungweiten darstellen wollen. Ich habe dann noch die einzelnen Beobachtungen ergänzt. Die Klammer über den beiden Säulen gibt den Vergleich an und die Zahl ist der p-Wert aus einem Welch t-Test. Wir sehen hier, dass sich die beiden Floharten in den Sprungweiten signifikant unterscheiden. Der p-Wert ist kleiner als das Signifikanzniveau $\alpha$ gleich 5%.
+
 ```{r}
 #| message: false
 #| echo: true
@@ -591,7 +602,7 @@ tidyplot(data = flea_tbl,
 #| fig-align: center
 #| fig-height: 3
 #| fig-width: 3.5
-#| fig-cap: "Beispielhafter einfaktorieller Barplot für die Sprungweiten in [cm] gruppiert nach den Floharten mit mehr Optionen und angepassten Beschriftungen."
+#| fig-cap: "Einfaktorieller Boxplot für die Sprungweiten in [cm] gruppiert nach den Floharten mit mehr Optionen und angepassten Beschriftungen sowie den p-Wert aus einem Welch t-Test."
 
 tidyplot(data = flea_tbl, 
          x = animal, y = jump_length, color = animal) |> 
@@ -627,7 +638,7 @@ stats_tbl <- paired_tbl |>
 #| fig-align: center
 #| fig-height: 3
 #| fig-width: 3.5
-#| fig-cap: "Beispielhafter einfaktorieller Barplot für die Sprungweiten in [cm] gruppiert nach den Floharten mit mehr Optionen und angepassten Beschriftungen."
+#| fig-cap: "Dotplot mit Mittelwert und Standardabweichung für die Sprungweiten in [cm] gruppiert nach den Floharten mit mehr Optionen und angepassten Beschriftungen sowie den p-Wert aus einem paired t-Test. Gleiche Messungen an gleichen Flöhen sind mit einer Linie verbunden."
 
 paired_tbl |> 
   pivot_longer(cols = fed:unfed,
@@ -636,9 +647,10 @@ paired_tbl |>
   tidyplot(x = trt, y = weight, color = trt, fill = NA) |> 
   add_line(group = id, color = "grey") |> 
   add_data_points() |>
-  add_mean_dash() |> 
-  add_sd_errorbar() |> 
-  add(ggpubr::stat_pvalue_manual(stats_tbl, size = 7/.pt, label = "p")) |> 
+  add_mean_dash(width = 0.2) |> 
+  add_sd_errorbar(width = 0.2) |> 
+  add(stat_pvalue_manual(stats_tbl, size = 7/.pt, label = "p",
+                         bracket.nudge.y = 0.1)) |> 
   remove_legend() |> 
   adjust_font(fontsize = 9) |>
   adjust_x_axis_title("Flohart") |>
