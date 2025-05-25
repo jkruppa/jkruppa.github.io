@@ -596,3 +596,122 @@ p4_var_theo_example <- ggplot(var_stat_theo_wirk_tbl, aes(x, y, fill = x)) +
         panel.grid.minor.y = element_blank(),
         plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"))
+
+p1_var_hetero <- var_hetero_sim_tbl |> 
+  ggplot(aes(n, rate, color = type)) +
+  theme_minimal() +
+  geom_smooth(data = filter(var_hetero_sim_tbl, type == "Bartlett"), 
+              aes(color = type),
+              method = "loess", se = FALSE) +
+  geom_smooth(data = filter(var_hetero_sim_tbl, type == "Levene"), 
+              aes(color = type),
+              method = "lm", se = FALSE) +
+  geom_point(show.legend = FALSE) +
+  labs(x = "Fallzahl in der Gruppe", y = "Erkannte Varianzheterogenität",
+       title = "Varianzheterogene Gruppen", 
+       subtitle = "Erkennung mit einem statistischen Test",
+       caption = expression(n[sim]~"="~1000),
+       color = "") +
+  scale_y_continuous(breaks = c(0, 0.1, 0.25, 0.5, 0.75, 1),
+                     labels = scales::percent_format(accuracy = 1),
+                     limits = c(0,1)) +
+  scale_x_continuous(breaks = c(3:12)) +
+  scale_color_okabeito() +
+  theme(axis.title.y = element_text(size = 14, face = 2),
+        axis.text.y = element_text(size = 12), 
+        axis.title.x = element_text(size = 14, face = 2),
+        axis.text.x = element_text(size = 12),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        legend.position = "top")
+
+p2_var_homo <- var_homo_sim_tbl |> 
+  ggplot(aes(n, rate, color = type)) +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_point(show.legend = FALSE) +
+  labs(x = "Fallzahl in der Gruppe", y = "Erkannte Varianzhomogenität",
+       title = "Varianzhomogene Gruppen", 
+       subtitle = "Erkennung mit einem statistischen Test",
+       caption = expression(n[sim]~"="~1000),
+       color = "") +
+  scale_y_continuous(breaks = c(0, 0.1, 0.25, 0.5, 0.75, 1),
+                     labels = scales::percent_format(accuracy = 1),
+                     limits = c(0,1)) +
+  scale_x_continuous(breaks = c(3:12)) +
+  scale_color_okabeito() +
+  theme(axis.title.y = element_text(size = 14, face = 2),
+        axis.text.y = element_text(size = 12), 
+        axis.title.x = element_text(size = 14, face = 2),
+        axis.text.x = element_text(size = 12),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        legend.position = "top")
+
+p1_nonnormal_sim <- nonnormal_sim_tbl |> 
+  ggplot(aes(n, rate, color = type)) +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE,
+              formula = y ~ log(x)) +
+  geom_point(show.legend = FALSE) +
+  labs(x = "Fallzahl in der Gruppe", y = "Erkannte Nichtnormalverteilung",
+       title = "Nicht normalverteiler Messwert", 
+       subtitle = "Erkennung mit einem statistischen Test",
+       caption = expression(n[sim]~"="~1000),
+       color = "") +
+  scale_y_continuous(breaks = c(0, 0.1, 0.25, 0.5, 0.75, 1),
+                     limits = c(-0.05,1.05),
+                     labels = scales::percent_format(accuracy = 1)) +
+  scale_x_continuous(breaks = c(3:12)) +
+  scale_color_okabeito(order = c(1,3,4,5,7)) +
+  theme(axis.title.y = element_text(size = 14, face = 2),
+        axis.text.y = element_text(size = 12), 
+        axis.title.x = element_text(size = 14, face = 2),
+        axis.text.x = element_text(size = 12),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.position = "top") + 
+  guides(color = guide_legend(nrow = 2)) 
+
+p2_normal_sim <- normal_sim_tbl |> 
+  ggplot(aes(n, rate, color = type)) +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE,
+              formula = y ~ log(x)) +
+  geom_point(show.legend = FALSE) +
+  labs(x = "Fallzahl in der Gruppe", y = "Erkannte Normalverteilung",
+       title = "Normalverteiler Messwert", 
+       subtitle = "Erkennung mit einem statistischen Test",
+       caption = expression(n[sim]~"="~1000),
+       color = "") +
+  scale_y_continuous(breaks = c(0, 0.1, 0.25, 0.5, 0.75, 1),
+                     limits = c(-0.05,1.05),
+                     labels = scales::percent_format(accuracy = 1)) +
+  scale_x_continuous(breaks = c(3:12)) +
+  scale_color_okabeito(order = c(1,3,4,5,7)) +
+  theme(axis.title.y = element_text(size = 14, face = 2),
+        axis.text.y = element_text(size = 12), 
+        axis.title.x = element_text(size = 14, face = 2),
+        axis.text.x = element_text(size = 12),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.position = "top") + 
+  guides(color = guide_legend(nrow = 2)) 
+
+

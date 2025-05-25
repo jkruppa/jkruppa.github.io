@@ -7,8 +7,6 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, quantreg,
 conflicts_prefer(dplyr::filter)
 conflicts_prefer(dplyr::select)
 ##
-source("images/R/stat-tests-pretest2.R")
-##
 gg_template <- ggplot() +
   theme_minimal() +
   theme(#axis.text.x = element_blank(),
@@ -36,6 +34,35 @@ gummi_tbl <- read_excel("data/gummibears.xlsx")  |>
 stat_gummi_tbl <- gummi_tbl |> 
   group_by(gender) |> 
   summarise(n = n())
+```
+
+```{r}
+#| eval: true
+#| echo: false
+#| cache: true
+#| message: false
+#| warning: false
+#| label: levene_sim_pretest
+
+source("simulation/sim-stat-tests-pretest2-var.R")
+```
+
+```{r}
+#| label: shapiro_sim_pretest
+#| eval: true
+#| echo: false
+#| message: false
+#| warning: false
+#| cache: true
+
+source("simulation/sim-stat-tests-pretest2-normal.R")
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+source("images/R/stat-tests-pretest2.R")
 ```
 
 # Der Pre-Test oder Vortest {#sec-pretest}
@@ -1126,61 +1153,10 @@ Kommen wir nun zum etwas kontroversen Teil. Der statistischen Überprüfung der 
 ::: {layout="[15,85]" layout-valign="top"}
 ![](images/personal_opinion.png){fig-align="center" width="100%"}
 
-*Persönliche Meinung*
+> *"Persönliche Meinung" --- Jochen Kruppa-Scheetz, persönliche Meinung*
 :::
 
 [Kapitel zur Testtheorie](#sec-stat-theorie)
-
-```{r}
-#| eval: true
-#| echo: false
-#| cache: true
-#| message: false
-#| warning: false
-#| label: levene_sim_pretest
-levene_sim_tbl <- map_dfr(c(3,4,5,6,7,8,9,11,12), \(n_val){
-  map_dfr(1:1000, \(...){
-    sim_tbl <- tibble(y = c(rnorm(n_val, 5, 1), rnorm(n_val, 5, 3), rnorm(n_val, 5, 5)),
-                      x = gl(3, n_val, labels = c("A", "B", "C")))
-    levene_p <- car::leveneTest(y ~ x, data = sim_tbl)[,3][1]
-    bartlett_p <- bartlett.test(y ~ x, data = sim_tbl)$p.value
-    
-    tibble(n = n_val,
-           levene = levene_p,
-           bartlett = bartlett_p) |> 
-      mutate(levene = levene <= 0.05,
-             bartlett = bartlett <= 0.05) |> 
-      pivot_longer(cols = levene:bartlett,
-                   names_to = "type",
-                   values_to = "bool") |> 
-      mutate(type = factor(type, labels = c("Bartlett", "Levene")))
-  }) |> 
-    group_by(n, type) |> 
-    dplyr::summarise(rate = mean(bool))
-})
-```
-
-```{r}
-#| eval: true
-#| echo: false
-#| cache: true
-#| message: false
-#| warning: false
-#| label: shapiro_sim_pretest
-shapiro_sim_tbl <- map_dfr(c(3,4,5,6,7,8,9,11,12), \(n_val){
-  map_dfr(1:1000, \(...){
-    sim_tbl <- tibble(y = c(rchisq(n_val, 5), rchisq(n_val, 2), rchisq(n_val, 10)),
-                      x = gl(3, n_val, labels = c("A", "B", "C")))
-    shapiro_p <- sim_tbl |> pull(y) |>  
-      shapiro.test() |> pluck("p.value")  
-    tibble(n = n_val,
-           shapiro = shapiro_p) |> 
-      mutate(shapiro = shapiro <= 0.05)
-  }) |> 
-    group_by(n) |> 
-    dplyr::summarise(rate = mean(shapiro))
-})
-```
 
 ```{r}
 #| echo: false
@@ -1192,59 +1168,24 @@ shapiro_sim_tbl <- map_dfr(c(3,4,5,6,7,8,9,11,12), \(n_val){
 #| fig-width: 9.25
 #| fig-cap: "Simulationsstudie zur Erkennung von einem nicht normalverteilten Messwert und Varianzheterogenität zwischen drei Gruppen mit unterschiedlichen Varianzen. Auf der y-Achse ist der Anteil der erkannten Nichtnormalverteilung sowie Varianzheterogenität in den 1000 Simulationen angegeben. Auf der x-Achse sind die Fallzahlen per Gruppe dargestellt. *[Zum Vergrößern anklicken]*"
 
-p1_levene_sim <- levene_sim_tbl |> 
-  ggplot(aes(n, rate, color = type)) +
-  theme_minimal() +
-  geom_smooth(method = "lm", se = FALSE, formula = y ~ log(x)) +
-  geom_point() +
-  labs(x = "Fallzahl in der Gruppe", y = "Erkannte Varianzheterogenität",
-       title = "Varianz heterogene Gruppen", 
-       subtitle = "Erkennung mit dem Levene Test",
-       caption = expression(n[sim]~"="~1000),
-       color = "Methode") +
-  scale_y_continuous(breaks = c(0, 0.1, 0.25, 0.5, 0.75, 1),
-                     labels = scales::percent_format(accuracy = 1)) +
-  scale_x_continuous(breaks = c(3:12)) +
-  scale_color_okabeito() +
-  theme(axis.title.y = element_text(size = 14, face = 2),
-        axis.text.y = element_text(size = 12), 
-        axis.title.x = element_text(size = 14, face = 2),
-        axis.text.x = element_text(size = 12),        
-        plot.title = element_text(size = 17),
-        plot.subtitle = element_text(size = 12, face = "italic"),
-        plot.caption = element_text(size = 12),
-        panel.grid.minor.y = element_blank(),
-        panel.grid.minor.x = element_blank(),
-        legend.text = element_text(size = 14),
-        legend.title = element_text(size = 14, face = 2),
-        legend.position = "top")
+p2_var_homo + p1_var_hetero + 
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
 
-p2_shapiro_sim <- shapiro_sim_tbl |> 
-  ggplot(aes(n, rate)) +
-  theme_minimal() +
-  geom_smooth(method = "lm", se = FALSE, color = "#E69F00",
-              formula = y ~ log(x)) +
-  geom_point(color = "#E69F00") +
-  labs(x = "Fallzahl in der Gruppe", y = "Erkannte Nichtnormalverteilung",
-       title = "Nicht normalverteiler Messwert", 
-       subtitle = "Erkennung mit dem Shapiro-Wilk Test",
-       caption = expression(n[sim]~"="~1000)) +
-  scale_y_continuous(breaks = c(0, 0.1, 0.25, 0.5, 0.75, 1),
-                     limits = c(0,1),
-                     labels = scales::percent_format(accuracy = 1)) +
-  scale_x_continuous(breaks = c(3:12)) +
-  theme(axis.title.y = element_text(size = 14, face = 2),
-        axis.text.y = element_text(size = 12), 
-        axis.title.x = element_text(size = 14, face = 2),
-        axis.text.x = element_text(size = 12),        
-        plot.title = element_text(size = 17),
-        plot.subtitle = element_text(size = 12, face = "italic"),
-        plot.caption = element_text(size = 12),
-        panel.grid.minor.y = element_blank(),
-        panel.grid.minor.x = element_blank(),
-        legend.position = "top")
+```
 
-p2_shapiro_sim + p1_levene_sim + 
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-levene-sim-pretest-02
+#| fig-align: center
+#| fig-height: 5.5
+#| fig-width: 9.25
+#| fig-cap: "Simulationsstudie zur Erkennung von einem nicht normalverteilten Messwert und Varianzheterogenität zwischen drei Gruppen mit unterschiedlichen Varianzen. Auf der y-Achse ist der Anteil der erkannten Nichtnormalverteilung sowie Varianzheterogenität in den 1000 Simulationen angegeben. Auf der x-Achse sind die Fallzahlen per Gruppe dargestellt. *[Zum Vergrößern anklicken]*"
+
+p2_normal_sim + p1_nonnormal_sim + 
   plot_layout(ncol = 2) +
   plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
   theme(plot.tag = element_text(size = 16, face = "bold"))
