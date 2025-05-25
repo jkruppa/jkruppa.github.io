@@ -1115,13 +1115,21 @@ fac2_hatch_fit |>
 
 ## Statistische Überprüfung
 
-Kommen wir nun zum etwas kontroversen Teil. Der statistischen Überprüfung der Varianzhomogenität oder aber auch der Normalverteilung. Die folgenden Überlegungen stimmen aber im Prinzip auch für andere Vortest auf andere statistische Eigenschaften von Daten.
+Kommen wir nun zum etwas kontroversen Teil. Der statistischen Überprüfung der Varianzhomogenität oder aber auch der Normalverteilung. Die folgenden Überlegungen stimmen aber im Prinzip auch für andere Vortest auf andere statistische Eigenschaften von Daten. Wir nutzen hier als Werkzeug eine statistische Simulation um mehr über die Eigenschaften eines Vortest oder allgemeiner eines statistsichen Tests zu erfahren.
 
 ::: {layout="[15,85]" layout-valign="top"}
 ![](images/angel_01_small.png){fig-align="center" width="100%"}
 
-> Die folgenden Betrachtungen sind statistisch estwas schief und semantisch falsch. Aber ich nutze jetzt mal die Umgangssprache um die Sachlage besser verständlich zu machen. Ja, wir können nur Nullhypothesen ablehnen und nichts "erkennen", aber darum geht es hier nicht. Klassisches [lying-to-children](https://en.wikipedia.org/wiki/Lie-to-children) was ich hier betreibe.
+> Die folgenden Betrachtungen sind statistisch etwas schief und semantisch fragwürdig bis falsch. Aber ich nutze jetzt mal die Umgangssprache um die Sachlage besser verständlich zu machen. Ja, wir können nur Nullhypothesen ablehnen und nichts "erkennen", aber darum geht es hier nicht. Klassisches [lying-to-children](https://en.wikipedia.org/wiki/Lie-to-children) was ich hier betreibe.
 :::
+
+::: {layout="[15,85]" layout-valign="top"}
+![](images/personal_opinion.png){fig-align="center" width="100%"}
+
+*Persönliche Meinung*
+:::
+
+[Kapitel zur Testtheorie](#sec-stat-theorie)
 
 ```{r}
 #| eval: true
@@ -1135,12 +1143,20 @@ levene_sim_tbl <- map_dfr(c(3,4,5,6,7,8,9,11,12), \(n_val){
     sim_tbl <- tibble(y = c(rnorm(n_val, 5, 1), rnorm(n_val, 5, 3), rnorm(n_val, 5, 5)),
                       x = gl(3, n_val, labels = c("A", "B", "C")))
     levene_p <- car::leveneTest(y ~ x, data = sim_tbl)[,3][1]
+    bartlett_p <- bartlett.test(y ~ x, data = sim_tbl)$p.value
+    
     tibble(n = n_val,
-           levene = levene_p) |> 
-      mutate(levene = levene <= 0.05)
+           levene = levene_p,
+           bartlett = bartlett_p) |> 
+      mutate(levene = levene <= 0.05,
+             bartlett = bartlett <= 0.05) |> 
+      pivot_longer(cols = levene:bartlett,
+                   names_to = "type",
+                   values_to = "bool") |> 
+      mutate(type = factor(type, labels = c("Bartlett", "Levene")))
   }) |> 
-    group_by(n) |> 
-    dplyr::summarise(rate = mean(levene))
+    group_by(n, type) |> 
+    dplyr::summarise(rate = mean(bool))
 })
 ```
 
@@ -1172,22 +1188,24 @@ shapiro_sim_tbl <- map_dfr(c(3,4,5,6,7,8,9,11,12), \(n_val){
 #| warning: false
 #| label: fig-levene-sim-pretest-01
 #| fig-align: center
-#| fig-height: 5
+#| fig-height: 5.5
 #| fig-width: 9.25
 #| fig-cap: "Simulationsstudie zur Erkennung von einem nicht normalverteilten Messwert und Varianzheterogenität zwischen drei Gruppen mit unterschiedlichen Varianzen. Auf der y-Achse ist der Anteil der erkannten Nichtnormalverteilung sowie Varianzheterogenität in den 1000 Simulationen angegeben. Auf der x-Achse sind die Fallzahlen per Gruppe dargestellt. *[Zum Vergrößern anklicken]*"
 
 p1_levene_sim <- levene_sim_tbl |> 
-  ggplot(aes(n, rate)) +
+  ggplot(aes(n, rate, color = type)) +
   theme_minimal() +
-  geom_smooth(method = "lm", se = FALSE, color = "#E69F00") +
+  geom_smooth(method = "lm", se = FALSE, formula = y ~ log(x)) +
   geom_point() +
   labs(x = "Fallzahl in der Gruppe", y = "Erkannte Varianzheterogenität",
        title = "Varianz heterogene Gruppen", 
        subtitle = "Erkennung mit dem Levene Test",
-       caption = expression(n[sim]~"="~1000)) +
+       caption = expression(n[sim]~"="~1000),
+       color = "Methode") +
   scale_y_continuous(breaks = c(0, 0.1, 0.25, 0.5, 0.75, 1),
                      labels = scales::percent_format(accuracy = 1)) +
   scale_x_continuous(breaks = c(3:12)) +
+  scale_color_okabeito() +
   theme(axis.title.y = element_text(size = 14, face = 2),
         axis.text.y = element_text(size = 12), 
         axis.title.x = element_text(size = 14, face = 2),
@@ -1197,6 +1215,8 @@ p1_levene_sim <- levene_sim_tbl |>
         plot.caption = element_text(size = 12),
         panel.grid.minor.y = element_blank(),
         panel.grid.minor.x = element_blank(),
+        legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
         legend.position = "top")
 
 p2_shapiro_sim <- shapiro_sim_tbl |> 
@@ -1204,7 +1224,7 @@ p2_shapiro_sim <- shapiro_sim_tbl |>
   theme_minimal() +
   geom_smooth(method = "lm", se = FALSE, color = "#E69F00",
               formula = y ~ log(x)) +
-  geom_point() +
+  geom_point(color = "#E69F00") +
   labs(x = "Fallzahl in der Gruppe", y = "Erkannte Nichtnormalverteilung",
        title = "Nicht normalverteiler Messwert", 
        subtitle = "Erkennung mit dem Shapiro-Wilk Test",
