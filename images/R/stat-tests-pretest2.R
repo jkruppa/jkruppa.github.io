@@ -612,7 +612,7 @@ p1_var_hetero <- var_hetero_sim_tbl |>
        subtitle = "Erkennung mit einem statistischen Test",
        caption = expression(n[sim]~"="~1000),
        color = "") +
-  scale_y_continuous(breaks = c(0, 0.1, 0.25, 0.5, 0.75, 1),
+  scale_y_continuous(breaks = c(0, 0.1, 0.25, 0.5, 0.75, 0.9, 1),
                      labels = scales::percent_format(accuracy = 1),
                      limits = c(0,1)) +
   scale_x_continuous(breaks = c(3:12)) +
@@ -640,7 +640,7 @@ p2_var_homo <- var_homo_sim_tbl |>
        subtitle = "Erkennung mit einem statistischen Test",
        caption = expression(n[sim]~"="~1000),
        color = "") +
-  scale_y_continuous(breaks = c(0, 0.1, 0.25, 0.5, 0.75, 1),
+  scale_y_continuous(breaks = c(0, 0.1, 0.25, 0.5, 0.75, 0.9, 1),
                      labels = scales::percent_format(accuracy = 1),
                      limits = c(0,1)) +
   scale_x_continuous(breaks = c(3:12)) +
@@ -669,7 +669,7 @@ p1_nonnormal_sim <- nonnormal_sim_tbl |>
        subtitle = "Erkennung mit einem statistischen Test",
        caption = expression(n[sim]~"="~1000),
        color = "") +
-  scale_y_continuous(breaks = c(0, 0.1, 0.25, 0.5, 0.75, 1),
+  scale_y_continuous(breaks = c(0, 0.1, 0.25, 0.5, 0.75, 0.9, 1),
                      limits = c(-0.05,1.05),
                      labels = scales::percent_format(accuracy = 1)) +
   scale_x_continuous(breaks = c(3:12)) +
@@ -697,7 +697,7 @@ p2_normal_sim <- normal_sim_tbl |>
        subtitle = "Erkennung mit einem statistischen Test",
        caption = expression(n[sim]~"="~1000),
        color = "") +
-  scale_y_continuous(breaks = c(0, 0.1, 0.25, 0.5, 0.75, 1),
+  scale_y_continuous(breaks = c(0, 0.1, 0.25, 0.5, 0.75, 0.9, 1),
                      limits = c(-0.05,1.05),
                      labels = scales::percent_format(accuracy = 1)) +
   scale_x_continuous(breaks = c(3:12)) +
