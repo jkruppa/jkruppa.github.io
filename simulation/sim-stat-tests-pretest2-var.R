@@ -8,14 +8,18 @@ var_hetero_sim_tbl <- map_dfr(c(3,4,5,6,7,8,9,11,12), \(n_val){
     tibble(n = n_val,
            levene = levene_p,
            bartlett = bartlett_p) |> 
-      mutate(levene = levene <= 0.05,
-             bartlett = bartlett <= 0.05) |> 
-      pivot_longer(cols = levene:bartlett,
-                   names_to = "type",
+      mutate(levene_5 = levene <= 0.05,
+             bartlett_5 = bartlett <= 0.05,
+             levene_20 = levene <= 0.2,
+             bartlett_20 = bartlett <= 0.2) |> 
+      pivot_longer(cols = levene_5:bartlett_20,
+                   names_to = c("type", "alpha"),
+                   names_sep = "_",
                    values_to = "bool") |> 
-      mutate(type = factor(type, labels = c("Bartlett", "Levene")))
+      mutate(type = factor(type, labels = c("Bartlett", "Levene")),
+             alpha = factor(alpha, levels = c(5, 20), labels = c("5%", "20%")))
   }) |> 
-    group_by(n, type) |> 
+    group_by(n, type, alpha) |> 
     dplyr::summarise(rate = mean(bool))
 })
 

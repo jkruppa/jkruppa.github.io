@@ -598,25 +598,30 @@ p4_var_theo_example <- ggplot(var_stat_theo_wirk_tbl, aes(x, y, fill = x)) +
         plot.subtitle = element_text(size = 12, face = "italic"))
 
 p1_var_hetero <- var_hetero_sim_tbl |> 
-  ggplot(aes(n, rate, color = type)) +
+  ggplot(aes(n, rate, 
+             shape = alpha)) +
   theme_minimal() +
   geom_smooth(data = filter(var_hetero_sim_tbl, type == "Bartlett"), 
-              aes(color = type),
+              aes(color = type, linetype = alpha),
               method = "loess", se = FALSE) +
   geom_smooth(data = filter(var_hetero_sim_tbl, type == "Levene"), 
-              aes(color = type),
+              aes(color = type, linetype = alpha),
               method = "lm", se = FALSE) +
-  geom_point(show.legend = FALSE) +
+  geom_point(aes(fill = type), show.legend = FALSE) +
+  scale_shape_manual(values = c(21, 24)) +
   labs(x = "Fallzahl in der Gruppe", y = "Erkannte Varianzheterogenität",
        title = "Varianzheterogene Gruppen", 
        subtitle = "Erkennung mit einem statistischen Test",
        caption = expression(n[sim]~"="~1000),
-       color = "") +
+       color = "", linetype = expression(alpha), 
+       shape = expression(alpha),
+       fill = "") +
   scale_y_continuous(breaks = c(0, 0.1, 0.25, 0.5, 0.75, 0.9, 1),
                      labels = scales::percent_format(accuracy = 1),
                      limits = c(0,1)) +
   scale_x_continuous(breaks = c(3:12)) +
   scale_color_okabeito() +
+  scale_fill_okabeito() +  
   theme(axis.title.y = element_text(size = 14, face = 2),
         axis.text.y = element_text(size = 12), 
         axis.title.x = element_text(size = 14, face = 2),
@@ -628,8 +633,11 @@ p1_var_hetero <- var_hetero_sim_tbl |>
         panel.grid.minor.x = element_blank(),
         legend.text = element_text(size = 14),
         legend.title = element_text(size = 14, face = 2),
-        legend.position = "top")
-
+        legend.position = "top",
+        legend.key.width = unit(7, 'mm')) +
+    guides(linetype = guide_legend(override.aes = list(color = "black")),
+           shape = guide_legend(override.aes = list(size = 3)))
+  
 p2_var_homo <- var_homo_sim_tbl |> 
   ggplot(aes(n, rate, color = type)) +
   theme_minimal() +
