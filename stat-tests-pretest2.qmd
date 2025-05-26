@@ -230,9 +230,12 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, olsrr,
                broom, car, performance, 
                see, scales, readxl, nlme,
+               moments, report,
                parameters, conflicted)
 conflicts_prefer(dplyr::filter)
 conflicts_prefer(dplyr::select)
+conflicts_prefer(moments::skewness)
+conflicts_prefer(moments::kurtosis)
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
@@ -1179,9 +1182,11 @@ $$
 H_0: &\; y = \mathcal{N}(\mu, \sigma^2)\\
 H_A: &\; y \ne \mathcal{N}(\mu, \sigma^2)\\
 \end{aligned}
-$$ Jetzt wollen wir nochmal aufschreiben, was das jetzt für unseren statistischen Test auf die Annahme der Normalverteilung bedeutet.
+$$
 
-Entscheidung mit dem statistischen Test zur Normalverteilung
+Jetzt wollen wir nochmal aufschreiben, was das jetzt für unseren statistischen Test auf die Annahme der Normalverteilung bedeutet. Das ist ja immer die Frage, die uns im folgenden Analysen umtreiben wird.
+
+Entscheidung mit einem statistischen Test zur Normalverteilung
 
 :   Wenn wir einen p-Wert kleiner als das Signifikanzniveau $\alpha$ gleich 5% vorliegen haben, dann lehnen wir die Nullhypothese ab. Wir lehnen damit die Normalverteilung im Messwert $y$ ab. Wir haben nichtnormalverteilte Daten vorliegen. Oder andersherum, wenn der p-Wert größer ist als 5% nehmen wir eine Normalverteilung an.
 
@@ -1203,27 +1208,31 @@ p2_normal_sim + p1_nonnormal_sim +
   theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
 
-Was nehmen wir aus den wilden Linien denn nun mit in unsere praktische Auswertung?
+Was nehmen wir aus den wilden Linien denn nun mit in unsere praktische Auswertung? Ich habe hier die Implementierung aus dem R Paket `{oslrr}` genutzt und ein wirklich simples Design gebaut mit drei Gruppen gebaut. Also eigentlich der Klassiker, der keine Probleme machen sollte.
 
--   [Anderson-Darling-Test (abk. *Anderson*)](https://de.wikipedia.org/wiki/Anderson-Darling-Test)
--   [Kolmogorow-Smirnow-Test (abk. *Kolmogorv*)](https://de.wikipedia.org/wiki/Kolmogorow-Smirnow-Test)
--   [Shapiro-Wilk-Test (abk. *Shapiro*)](https://de.wikipedia.org/wiki/Shapiro-Wilk-Test)
--   [Cramér-von-Mises-Test (abk. *Cramer*)](https://de.wikipedia.org/wiki/Cram%C3%A9r-von-Mises-Test)
+-   Der [Kolmogorow-Smirnow-Test (abk. *Kolmogorv*)](https://de.wikipedia.org/wiki/Kolmogorow-Smirnow-Test) erkennt immer eine Normalverteilung. Das sehen wir in der linken Abbildung. Das Problem ist eher, dass der Kolmogorow-Smirnow-Test aber dafür auch gar keine Nichtnormalverteilung erkennt. Für den Test ist alles normalvertielt und gut ist. Keine Empfehlung für den einfachen Anwender und einfach meiden.
+-   Der [Cramér-von-Mises-Test (abk. *Cramer*)](https://de.wikipedia.org/wiki/Cram%C3%A9r-von-Mises-Test) ist die Umkehrung des Kolmogorow-Smirnow-Test. Hier haben wir den Fall, dass wir keine Normalverteilung erkennen, dafür dann aber alles als eine Nichtnormalverteilung bewerten. Auch hier kann ich den Test nicht empfehlen. Die Eigenschaften sind nicht sinnführend für den einfachen Anwender.
+-   Der [Anderson-Darling-Test (abk. *Anderson*)](https://de.wikipedia.org/wiki/Anderson-Darling-Test) funktioniert ähnlich wie der Shapiro-Wilk-Test. Hier haben wir eher das Problem, dass wir mit steigender Fallzahl eben immer im statistischen leichter die Nullhypothese ablehnen können. Daher lehnen wir mit steigender Fallzahl auch eher die Nullhypothese ab. Auf der anderen Seite benötigen wir ca. 10 Beobachtungen per Gruppe um eine Nichtnormalverteilung mit 80% zu erkennen.
+-   Den [Shapiro-Wilk-Test (abk. *Shapiro*)](https://de.wikipedia.org/wiki/Shapiro-Wilk-Test) habe ich einmal modelbasiert gerechnet und einmal auf den vollen Messwertdaten. Wie du siehst kann der Shapiro-Wilk-Test auf den gesamten Daten die Nichtnormalverteilung leichter erkennen. Er hat dann ja auch mehr Fallzahl zu Verfügung. Sonst hat der Shapiro-Wilk-Test die gleichen Probleme mit der steigenden Fallzahl. Der Shapiro-Wilk-Test fängt dann an schneller die Nullhypothese abzulehnen.
+
+Was lernen wir daraus? Das nicht jeder Vortest wirklich geeignet ist um die Frage nach der Normalverteilung zu beantworten. Auch ist es nicht sinnführend eine Funktion wie `ols_test_normality()` zu schreiben, die einfach alle vier Tests rechnet und einen dann im Regen stehen lässt. Welchen der p-Werte soll man denn nehmen? Zum Anderen ist es natürlich so, dass wir mit kleiner Fallzahl keine Varianzheterogeität finden und mit zu großer Fallzahl zu schnell die Nullhypothese ablehnen. Dann schauen wir uns mal an, was wir so machen können. In den folgenden Tabs findest du verschiedene Probleme. Lösungen muss ich schauen, ob welche dabei sind.
 
 :::::: panel-tabset
-## Theoretisch
+## `{moments}`
 
-[How to Calculate Skewness & Kurtosis in R](https://www.statology.org/skewness-kurtosis-in-r/)
+Die eigentlich Idee hinter den ganzen Vortests für die Normalverteilung ist eigentlich, dass die Normalvertielung eine symmetrische Verteilung um einen Mittelwert ist. Das heißt, die beiden Seiten der Verteilung sind gespiegelt am Mittelwert. Wenn das nicht der Fall ist, dann ist die Verteilung schief. Die Schiefe (eng. *skewness*) ist ein Maß für die Asymmetrie einer Verteilung. Dieser Wert kann positiv oder negativ sein.
 
-Die Schiefe (eng. *skewness*) ist ein Maß für die Asymmetrie einer Verteilung. Dieser Wert kann positiv oder negativ sein.
+Wie interpretiert man den Wert der Schiefe?
 
-Eine negative Schiefe deutet darauf hin, dass sich der Schwanz auf der linken Seite der Verteilung befindet, die sich in Richtung negativer Werte erstreckt. Eine positive Schiefe zeigt an, dass sich der Schwanz auf der rechten Seite der Verteilung befindet, die sich in Richtung positiver Werte erstreckt. Ein Wert von Null bedeutet, dass die Verteilung überhaupt nicht schief ist, d. h. die Verteilung ist vollkommen symmetrisch.
+:   Eine negative Schiefe deutet darauf hin, dass sich der Schwanz auf der linken Seite der Verteilung befindet, die sich in Richtung negativer Werte erstreckt. Eine positive Schiefe zeigt an, dass sich der Schwanz auf der rechten Seite der Verteilung befindet, die sich in Richtung positiver Werte erstreckt. Ein Wert von Null bedeutet, dass die Verteilung überhaupt nicht schief ist, d. h. die Verteilung ist vollkommen symmetrisch.
 
-Die Kurtosis (eng. *kurtosis*) ist ein Maß dafür, ob eine Verteilung im Vergleich zu einer Normalverteilung ein starkes oder schwaches Schwanzende aufweist.
+Neben der Schiefe messen wir auch die Kurtosis. Die Kurtosis (eng. *kurtosis*) ist ein Maß dafür, ob eine Verteilung im Vergleich zu einer Normalverteilung ein starkes oder schwaches Schwanzende aufweist.
 
-Die Kurtosis einer Normalverteilung beträgt 3. Wenn eine gegebene Verteilung eine Kurtosis von weniger als 3 aufweist, wird sie als playkurtisch bezeichnet, was bedeutet, dass sie dazu neigt, weniger und weniger extreme Ausreißer zu produzieren als die Normalverteilung. Wenn eine gegebene Verteilung eine Kurtosis größer als 3 hat, wird sie als leptokurtisch bezeichnet, was bedeutet, dass sie dazu neigt, mehr Ausreißer als die Normalverteilung zu produzieren.
+Wie interpretiert man den Wert der Kurtosis?
 
-In einigen Formeln (Definition von Fisher) wird von der Kurtosis 3 abgezogen, um den Vergleich mit der Normalverteilung zu erleichtern. Nach dieser Definition hätte eine Verteilung eine größere Kurtosis als eine Normalverteilung, wenn der Kurtosis-Wert größer als 0 wäre.
+:   Die Kurtosis einer Normalverteilung beträgt 3. Wenn eine gegebene Verteilung eine Kurtosis von weniger als 3 aufweist, wird sie als playkurtisch bezeichnet, was bedeutet, dass sie dazu neigt, weniger und weniger extreme Ausreißer zu produzieren als die Normalverteilung. Wenn eine gegebene Verteilung eine Kurtosis größer als 3 hat, wird sie als leptokurtisch bezeichnet, was bedeutet, dass sie dazu neigt, mehr Ausreißer als die Normalverteilung zu produzieren. In einigen Formeln wird dann noch von der Kurtosis 3 abgezogen, um den Vergleich mit der Normalverteilung zu erleichtern. Nach dieser Definition hätte eine Verteilung eine größere Kurtosis als eine Normalverteilung, wenn der Kurtosis-Wert größer als 0 wäre.
+
+Ich habe dir den Zusammenhang hier nochmal in der folgenden Abbildung dargestellt.
 
 ```{r}
 #| echo: false
@@ -1239,6 +1248,46 @@ p2kurt + p1kurt + p3kurt +
   plot_layout(ncol = 3) +
   plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
   theme(plot.tag = element_text(size = 16, face = "bold"))
+```
+
+```{r}
+skewness(fac2_tbl$hatch_time)
+```
+
+```{r}
+kurtosis(fac2_tbl$hatch_time)
+```
+
+```{r}
+#| message: false
+#| warning: false
+fac2_tbl |> 
+  group_by(animal, sex) |> 
+  summarise(kurtosis = kurtosis(hatch_time),
+            skewness = skewness(hatch_time))
+```
+
+Das R Paket `{moments}` bietet auch die Funktion `jarque.test()`, die einen Anpassungsgütetest durchführt, der feststellt, ob die Stichprobendaten eine Schiefe und eine Wölbung aufweisen, die einer Normalverteilung entsprechen oder nicht. Die Null- und Alternativhypothesen dieses Tests lauten wie folgt:
+
+Nullhypothese: Der Datensatz weist eine Schiefe und Wölbung auf, die einer Normalverteilung entspricht.
+
+Alternativhypothese: Der Datensatz weist eine Schiefe und eine Kurtosis auf, die nicht mit einer Normalverteilung übereinstimmen.
+
+```{r}
+fac2_tbl |> 
+  pull(hatch_time) |> 
+  jarque.test()
+```
+
+```{r}
+fac2_tbl |> 
+  split(~ animal + sex) |> 
+  map(~jarque.test(.x$hatch_time)) |> 
+  map(tidy) |> 
+  bind_rows(.id = "test") |>
+  select(test, p.value) |> 
+  mutate(decision = ifelse(p.value <= 0.05, "reject normal", "normal"),
+         p.value = pvalue(p.value, accuracy = 0.001))
 ```
 
 ## `{performance}`
@@ -1331,48 +1380,6 @@ lm(hatch_time ~ animal + sex + animal:sex, data = fac2_tbl) |>
   scale_fill_okabeito()
 ```
 :::
-
-## `{moments}`
-
-```{r}
-pacman::p_load(moments, broom, scales, report)
-
-#calculate skewness
-skewness(fac2_tbl$hatch_time)
-```
-
-```{r}
-#calculate kurtosis
-kurtosis(fac2_tbl$hatch_time)
-```
-
-```{r}
-fac2_tbl |> 
-  group_by(animal, sex) |> 
-  summarise(kurtosis = kurtosis(hatch_time),
-            skewness = skewness(hatch_time))
-```
-
-Die Momente-Bibliothek bietet auch die Funktion `jarque.test()`, die einen Anpassungsgütetest durchführt, der feststellt, ob die Stichprobendaten eine Schiefe und eine Wölbung aufweisen, die einer Normalverteilung entsprechen oder nicht. Die Null- und Alternativhypothesen dieses Tests lauten wie folgt:
-
-Nullhypothese: Der Datensatz weist eine Schiefe und Wölbung auf, die einer Normalverteilung entspricht.
-
-Alternativhypothese: Der Datensatz weist eine Schiefe und eine Kurtosis auf, die nicht mit einer Normalverteilung übereinstimmen.
-
-```{r}
-jarque.test(fac2_tbl$hatch_time)
-```
-
-```{r}
-fac2_tbl |> 
-  split(~ animal + sex) |> 
-  map(~jarque.test(.x$hatch_time)) |> 
-  map(tidy) |> 
-  bind_rows(.id = "test") |>
-  select(test, p.value) |> 
-  mutate(decision = ifelse(p.value <= 0.05, "reject normal", "normal"),
-         p.value = pvalue(p.value, accuracy = 0.001))
-```
 
 ## `{stats}`
 
