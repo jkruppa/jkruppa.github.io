@@ -613,8 +613,8 @@ p1_var_hetero <- var_hetero_sim_tbl |>
        title = "Varianzheterogene Gruppen", 
        subtitle = "Erkennung mit einem statistischen Test",
        caption = expression(n[sim]~"="~1000),
-       color = "", linetype = expression(alpha), 
-       shape = expression(alpha),
+       color = "", linetype = "", 
+       shape = "",
        fill = "") +
   scale_y_continuous(breaks = c(0, 0.1, 0.25, 0.5, 0.75, 0.9, 1),
                      labels = scales::percent_format(accuracy = 1),
