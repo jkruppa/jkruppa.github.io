@@ -1232,7 +1232,9 @@ Wie interpretiert man den Wert der Kurtosis?
 
 :   Die Kurtosis einer Normalverteilung beträgt 3. Wenn eine gegebene Verteilung eine Kurtosis von weniger als 3 aufweist, wird sie als playkurtisch bezeichnet, was bedeutet, dass sie dazu neigt, weniger und weniger extreme Ausreißer zu produzieren als die Normalverteilung. Wenn eine gegebene Verteilung eine Kurtosis größer als 3 hat, wird sie als leptokurtisch bezeichnet, was bedeutet, dass sie dazu neigt, mehr Ausreißer als die Normalverteilung zu produzieren. In einigen Formeln wird dann noch von der Kurtosis 3 abgezogen, um den Vergleich mit der Normalverteilung zu erleichtern. Nach dieser Definition hätte eine Verteilung eine größere Kurtosis als eine Normalverteilung, wenn der Kurtosis-Wert größer als 0 wäre.
 
-Ich habe dir den Zusammenhang hier nochmal in der folgenden Abbildung dargestellt.
+Dann ist natürlich die Frage welche Grenzen es so gibt. Wir können in @curran1996robustness lesen, dass die Grenzen für Schiefe und Kurtosis bei 2 bis 7 liegen. Je anch Literatur sind es dann nochmal andere Grenzen, wie du in der Übersichtsichtsseite [Testing normality including skewness and kurtosis](https://imaging.mrc-cbu.cam.ac.uk/statswiki/FAQ/Simon) mit Quellen nochmal nachlesen kannst. Am Ende sucht man sich eine Grenze aus und referenziert dann die Quelle dazu.
+
+Ich habe dir den Zusammenhang hier nochmal in der folgenden Abbildung dargestellt. Wir betrachten dabei den Mittelwert, den Median sowie den Modus. Dabei ist der Modus der häufigste Wert in dem Messwert. Wenn wir eine symmetrische Normalverteilung vorliegen haben, dann sind alle statistischen Maßzahlen gleich.
 
 ```{r}
 #| echo: false
@@ -1242,7 +1244,7 @@ Ich habe dir den Zusammenhang hier nochmal in der folgenden Abbildung dargestell
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 8
-#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Zusammenhang vom Mittelwert, Median und dem Modus zur Feststellung einer Normalverteilung. Der Modus ist hierbei der häufigste Wert. **(A)** Linksschiefe Verteilung. Der Modus ist größer als der Median ist größer als der Mittelwert. **(B)** Symmetrische Normalverteilung. Der Mittelwert und Median sowie Modus sind gleich. **(C)** Rechtsschiefe Verteilung der Mittelwert ist größer als der Median ist größer als der Modus. *[Zum Vergrößern anklicken]*"
 
 p2kurt + p1kurt + p3kurt +
   plot_layout(ncol = 3) +
@@ -1250,13 +1252,19 @@ p2kurt + p1kurt + p3kurt +
   theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
 
+Neben der visuellen Darstellung können wir uns auch in dem R Paket `{moments}` die Schiefe und Kurtosis wie folgt berechnen lassen. Wir nutzen die Funktion `skewness()` für die Schiefe.
+
 ```{r}
 skewness(fac2_tbl$hatch_time)
 ```
 
+Dann gibt es noch die Funktion `kurtosis()` für die Berechnung der Kurtosis. Ist irgendwie dann auch einleuchtend.
+
 ```{r}
 kurtosis(fac2_tbl$hatch_time)
 ```
+
+Manchmal wollen wir die Schiefe und Kurtosis nicht auf den gesamten Messwert sondern gruppiert nach den Faktorkombinationen berechnen. Das habe ich dann einmal im Folgenden gemacht.
 
 ```{r}
 #| message: false
@@ -1267,17 +1275,21 @@ fac2_tbl |>
             skewness = skewness(hatch_time))
 ```
 
-Das R Paket `{moments}` bietet auch die Funktion `jarque.test()`, die einen Anpassungsgütetest durchführt, der feststellt, ob die Stichprobendaten eine Schiefe und eine Wölbung aufweisen, die einer Normalverteilung entsprechen oder nicht. Die Null- und Alternativhypothesen dieses Tests lauten wie folgt:
+Das R Paket `{moments}` bietet auch die Funktion `jarque.test()`, die einen Anpassungsgütetest durchführt, der feststellt, ob die Stichprobendaten eine Schiefe und eine Wölbung aufweisen, die einer Normalverteilung entsprechen oder nicht. Die Null- und Alternativhypothesen dieses Tests lauten wie folgt.
 
-Nullhypothese: Der Datensatz weist eine Schiefe und Wölbung auf, die einer Normalverteilung entspricht.
+$H_0$: Der Messwert $y$ weist eine Schiefe und Wölbung auf, die einer Normalverteilung entspricht.
 
-Alternativhypothese: Der Datensatz weist eine Schiefe und eine Kurtosis auf, die nicht mit einer Normalverteilung übereinstimmen.
+$H_A$: Der Messwert $y$ weist eine Schiefe und eine Kurtosis auf, die nicht mit einer Normalverteilung übereinstimmen.
+
+Dann rechnen wir einmal den Test auf den gesamten Messwert und schauen einmal, ob die Schlupfzeiten dann normalverteilt sind. Wir wir sehen können, können wir die Normalverteilung ablehen. Wir gehen dann von nicht normalverteilten Schlupfzeiten aus.
 
 ```{r}
 fac2_tbl |> 
   pull(hatch_time) |> 
   jarque.test()
 ```
+
+Vielleicht möchtest du den ganzen Test dann auch über jede Faktorkombination rechnen, dafür müssen wir uns dann aber etwas strecken und ins `{purrr}` Kochbuch schauen. Aber am Ende haben wir dann für jede Flohart- und Geschlechtskombination einen Test auf die Schiefe und Kurtosis gerechnet. Ich habe dann noch die Entscheidungsregel mit dem p-Wert ergänzt und wir finden heraus, dass alle Faktorkombinationen nicht normalverteilt sind.
 
 ```{r}
 fac2_tbl |> 
@@ -1292,7 +1304,7 @@ fac2_tbl |>
 
 ## `{performance}`
 
-Wenn du überprüfen willst, ob dein Messwert $y$ einer Normalverteilung folgt, dann kannst du die Funktion `check_normality()` nutzt. Die Funktion rechnet dann den [Shapiro-Wilk-Test](https://de.wikipedia.org/wiki/Shapiro-Wilk-Test) um auf eine Abweichung von der Normalverteilung zu testen. Hierzu ist anzumerken, dass der Test relativ empfindlich bei Abweichungen in den Verteilungsschwänzen ist. Darüber hinaus braucht der Shapiro-Wilk-Test auch etwas Fallzahl, damit er auf die Normalverteilung testen kann. Im Folgenden schauen wir uns den Code für ein einfaktorielles, zweifaktorielles und dreifaktorielles Modell einmal an. Am Ende des Abschnitts gehe ich nochmal darauf ein, was du machen kannst, wenn du keine Normalverteilung in deinem Messwert $y$ vorliegen hast.
+Wenn du überprüfen willst, ob dein Messwert $y$ einer Normalverteilung folgt, dann kannst du auch die Funktion `check_normality()` aus dem R Paket `{performance}` nutzen. Die Funktion rechnet dann den [Shapiro-Wilk-Test](https://de.wikipedia.org/wiki/Shapiro-Wilk-Test) um auf eine Abweichung von der Normalverteilung zu testen. Hierzu ist anzumerken, dass der Test relativ empfindlich bei Abweichungen in den Verteilungsschwänzen ist. Dazu mehr in dem Tab `{stats}` zum Shapiro-Wilk-Test. Darüber hinaus braucht der Shapiro-Wilk-Test auch etwas Fallzahl, damit er auf die Normalverteilung testen kann. Im Folgenden schauen wir uns den Code für ein einfaktorielles und zweifaktorielleseinmal an. Am Ende des Kapitels gehe ich nochmal darauf ein, was du machen kannst, wenn du keine Normalverteilung in deinem Messwert $y$ vorliegen hast.
 
 #### Einfaktoriell {.unnumbered .unlisted}
 
@@ -1323,7 +1335,7 @@ lm(jump_length ~ animal, data = fac1_tbl) |>
 
 #### Zweifaktoriell {.unnumbered .unlisted}
 
-Im zweifaktoriellen Fall ändert sich jetzt nur das Model. Wir haben eben zwei Faktoren vorliegen und diese müssen wir dann mit ins Modell nehmen. Ich habe hier auch gleich den Interaktionsterm mit ergänzt, ich teste gerne das Modell, was ich dann später auch auswerten möchte.
+Im zweifaktoriellen Fall ändert sich jetzt nur das Model. Wir haben eben zwei Faktoren vorliegen und diese müssen wir dann mit ins Modell nehmen. Ich habe hier auch gleich den Interaktionsterm mit ergänzt, ich teste gerne das Modell, was ich dann später auch auswerten möchte. Wir wir gleich in den Tabs sehen, sind die Sprungweiten normalverteilt und wie zu erwarten war die Schlupfzeiten nicht.
 
 ::: panel-tabset
 ## Sprungweite `jump_length`
@@ -1354,7 +1366,7 @@ Auch hier haben wir eine Normalverteilung in den Daten vorliegen. Gerne schaue i
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 6
-#| fig-cap: "Schnelle Abbildung der Residuen aus `check_normality()` zur Überprüfung der Normalverteilung des Messwerts in einem zweifaktoriellen Modell."
+#| fig-cap: "Schnelle Abbildung der Residuen aus `check_normality()` zur Überprüfung der Normalverteilung des Messwerts der Sprungweite in einem zweifaktoriellen Modell."
 
 lm(jump_length ~ animal + sex + animal:sex, data = fac2_tbl) |> 
   check_normality() |> 
@@ -1372,7 +1384,7 @@ lm(jump_length ~ animal + sex + animal:sex, data = fac2_tbl) |>
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 6
-#| fig-cap: "Schnelle Abbildung der Residuen aus `check_normality()` zur Überprüfung der Normalverteilung des Messwerts in einem zweifaktoriellen Modell."
+#| fig-cap: "Schnelle Abbildung der Residuen aus `check_normality()` zur Überprüfung der Normalverteilung des Messwerts der Schlupfzeiten in einem zweifaktoriellen Modell."
 
 lm(hatch_time ~ animal + sex + animal:sex, data = fac2_tbl) |> 
   check_normality() |> 
