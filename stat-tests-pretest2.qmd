@@ -1217,7 +1217,7 @@ Was nehmen wir aus den wilden Linien denn nun mit in unsere praktische Auswertun
 
 Was lernen wir daraus? Das nicht jeder Vortest wirklich geeignet ist um die Frage nach der Normalverteilung zu beantworten. Auch ist es nicht sinnführend eine Funktion wie `ols_test_normality()` zu schreiben, die einfach alle vier Tests rechnet und einen dann im Regen stehen lässt. Welchen der p-Werte soll man denn nehmen? Zum Anderen ist es natürlich so, dass wir mit kleiner Fallzahl keine Varianzheterogeität finden und mit zu großer Fallzahl zu schnell die Nullhypothese ablehnen. Dann schauen wir uns mal an, was wir so machen können. In den folgenden Tabs findest du verschiedene Probleme. Lösungen muss ich schauen, ob welche dabei sind.
 
-:::::: panel-tabset
+:::::::: panel-tabset
 ## `{moments}`
 
 Die eigentlich Idee hinter den ganzen Vortests für die Normalverteilung ist eigentlich, dass die Normalvertielung eine symmetrische Verteilung um einen Mittelwert ist. Das heißt, die beiden Seiten der Verteilung sind gespiegelt am Mittelwert. Wenn das nicht der Fall ist, dann ist die Verteilung schief. Die Schiefe (eng. *skewness*) ist ein Maß für die Asymmetrie einer Verteilung. Dieser Wert kann positiv oder negativ sein.
@@ -1415,19 +1415,41 @@ p1sample + p2sample  + p3sample  +
 
 Wir können wie immer einmal den Shapiro-Wilk-Test auf den gesamten Messwerten rechnen. Dafür müssen wir uns nur die Messwerte einmal raus ziehen und dann dann in die Funktion `shapiro.test()` weiterleiten.
 
+::: panel-tabset
+## Sprungweite `jump_length`
+
 ```{r}
 fac2_tbl |> 
   pull(jump_length) |> 
   shapiro.test()
 ```
 
+## Schlupfzeit `hatch_time`
+
 ```{r}
 fac2_tbl |> 
   pull(hatch_time) |> 
   shapiro.test()
 ```
+:::
 
 Auch ist es möglich die einzelnen Faktorkombinationen für die Abweichung von der Normalverteilung zu testen. Aber Achtung, hier geht dann natürlich die Fallzahl sehr in den Keller. Ich nutze hier das `{purrr}` Kochbuch um einmal alle Shapiro-Wilk-Tests zu rechnen.
+
+::: panel-tabset
+## Sprungweite `jump_length`
+
+```{r}
+fac2_tbl |> 
+  split(~ animal + sex) |> 
+  map(~shapiro.test(.x$jump_length)) |> 
+  map(tidy) |> 
+  bind_rows(.id = "test") |>
+  select(test, p.value) |> 
+  mutate(decision = ifelse(p.value <= 0.05, "reject normal", "normal"),
+         p.value = pvalue(p.value, accuracy = 0.001))
+```
+
+## Schlupfzeit `hatch_time`
 
 ```{r}
 fac2_tbl |> 
@@ -1439,6 +1461,7 @@ fac2_tbl |>
   mutate(decision = ifelse(p.value <= 0.05, "reject normal", "normal"),
          p.value = pvalue(p.value, accuracy = 0.001))
 ```
+:::
 
 ## `{oslrr}`
 
@@ -1473,7 +1496,7 @@ fac2_hatch_fit |>
  ols_test_normality()
 ```
 :::
-::::::
+::::::::
 
 ### Varianzhomogenität
 
