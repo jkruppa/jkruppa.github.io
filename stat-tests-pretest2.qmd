@@ -1545,7 +1545,7 @@ Auf jeden Fall sollten wir das Ergebnis unseres Pre-Tests auf Varianzhomogenitä
 *Bitte beachte, dass die meisten Implementierungen eigentlich immer zur einem* $\alpha$ von 5% testen, wenn die Tests eine schriftliche Bewertung von sich aus wiedergeben.
 :::
 
-Aber auch in diesem Fall können wir natürlich eine Varianzhomogenität übersehen oder aber eine Varianzheterogenität fälschlicherweise annehmen. Daher habe ich dir einmal folgende Abbildung erstellt. Wie du siehst ist der Bartlett und der Levene Test gut in der Lage eine vorhandene Varianzhomogenität auch zu erkennen. Auch bei kleinen Fallzahlen klappt das gut. Anders sieht es bei der Varianzheterogenität aus. Hier ist der Bartlett Test auf jeden Fall besser. Wenn wir dann noch das Signifikanzniveau $\alpha$ auf 20% anheben, dann finden wir noch eher eine Varianzheterogenität. Wenn wir aber zu einem Signifikanzniveau von $\alpha$ gleich 20% testen, finden aber auch schwerer eine Varianzhomogenität.
+Aber auch in diesem Fall können wir natürlich eine Varianzhomogenität übersehen oder aber eine Varianzheterogenität fälschlicherweise annehmen. Daher habe ich dir einmal folgende Abbildung erstellt. Wie du siehst ist der Bartlett und der Levene Test gut in der Lage eine vorhandene Varianzhomogenität auch zu erkennen. Auch bei kleinen Fallzahlen klappt das gut. Anders sieht es bei der Varianzheterogenität aus. Hier ist der Bartlett Test auf jeden Fall besser, da wir hier mit Daten aus einer Normalverteilung arbeiten. Da hat es der Bartlett Test etwas einfacher ale der Levene Test. Dazu mehr dann gleich weiter unten. Wenn wir dann noch das Signifikanzniveau $\alpha$ auf 20% anheben, dann finden wir noch eher eine Varianzheterogenität. Wenn wir aber zu einem Signifikanzniveau von $\alpha$ gleich 20% testen, finden aber auch schwerer eine Varianzhomogenität.
 
 ```{r}
 #| echo: false
@@ -1563,76 +1563,69 @@ p2_var_homo + p1_var_hetero +
   theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
 
-Wir nutzen zum statistischen Testen den Levene-Test über die Funktion `leveneTest()` oder den Bartlett-Test über die Funktion `bartlett.test()`. Beide Tests sind in R implementiert und können über das Paket `{car}` genutzte werden. Wir werden uns jetzt nicht die Formel anschauen, wir nutzen wenn die beiden Tests nur in R und rechnen nicht selber die Werte nach.
+Wir nutzen zum statistischen Testen den Levene-Test über die Funktion `leveneTest()` oder den Bartlett-Test über die Funktion `bartlett.test()`. Beide Tests sind in R implementiert und können unter anderem über das Paket `{car}` genutzt werden. Einfach ausgedrückt, überprüft der Bartlett-Test die Homogenität der Varianzen auf der Grundlage des Mittelwerts. Dementsprechend ist der Bartlett-Test empfindlicher gegen eine Abweichung von der Normalverteilung der Daten, die er überprüfen soll. Der Levene-Test überprüft die Homogenität der Varianzen auch auf der Grundlage des Mittelwerts ist daher ebenso anfällig gegen die Abweichung von der Normalverteilung. Wir haben aber auch die Wahl, den Median für den Levene-Test zu nutzen dann ist der Levene-Test robuster gegenüber Ausreißern.
 
-**Satz zu performance Paket**
+Für den Levene Test werde ich mir nochmal die Formeln gleich anschauen, da der Levene und der Bartlett test eng miteinander verwandt sind. Im Weiteren nutzen wir auch noch die R Pakete `{performance}` und `{oslrr}` um etwas automatisierter zu testen ob wir Varianzhomogenität vorliegen haben. Ich empfehle ja immer das R Paket `{performance}` zu nutzen, da wir hier alles in einem Rustsch gut implementiert haben.
 
-Einfach ausgedrückt, überprüft der Bartlett-Test die Homogenität der Varianzen auf der Grundlage des Mittelwerts. Dementsprechend ist der Bartlett-Test empfindlicher gegen eine Abweichung von der Normalverteilung der Daten, die er überprüfen soll. Der Levene-Test überprüft die Homogenität der Varianzen auch auf der Grundlage des Mittelwerts. Wir haben aber auch die Wahl, den Median zu nutzen dann ist der Levene-Test robuster gegenüber Ausreißern.
-
-::::::: panel-tabset
+::::::::: panel-tabset
 ## Theoretisch
 
-Im Folgenden wollen wir uns einmal in der Theorie den Levene-Test anschauen. Der Levene-Test ist eigentlich nichts anderes als eine etwas versteckte einfaktorielle ANOVA, aber dazu dann am Ende mehr. Dafür nutzen wir als erstes die folgende Formel um die Teststatistik zu berechnen. Dabei ist $W$ die Teststatistik, die wir zu einer $F$-Verteilung, die wir schon aus der ANOVA kennen, vergleichen können.
+Im Folgenden wollen wir uns einmal in der Theorie den Levene-Test anschauen. Der Levene-Test ist eigentlich nichts anderes als eine etwas versteckte einfaktorielle ANOVA, aber dazu dann in den folgenden Tabs mehr. Dafür nutzen wir als erstes die folgende Formel um die Teststatistik zu berechnen. Dabei ist $W$ die Teststatistik, die wir zu einer $F$-Verteilung, die wir schon aus der ANOVA kennen, vergleichen können.
+
+Zur Veranschaulichung bauen wir uns einen simplen Datensatz mit $N = 14$ Beobachtungen für $k = 2$ Tierarten mit Hunden und Katzen. Damit hat jede Tierart $7$ Beobachtungen der Sprunglängen der jeweiligen Hunde- und Katzenflöhe. Wir fragen uns nun, ob die Varianzen in den beiden Tierarten gleich sind. Dafür wollen wir dann einmal den Levene Test nutzen und verstehen.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-1fac-table-levene
+#| tbl-cap: "Datenbeispiel für den Levene Test mit sieben Hunde- und Katzenflöhen und deren Sprungweiten. Liegt eine Varianzhomogenität zwischen den Sprungweitend der beiden Floharten vor?."
+
+
+animal_tbl <- tibble(dog = c(5.7, 8.9, 11.8, 8.2, 5.6, 9.1, 7.6),
+                     cat = c(3.2, 2.2, 5.4, 4.1, 1.1, 7.9, 8.6))
+animal_tbl |> 
+  tt(width = 2/3, align = "c", theme = "striped")
+```
+
+Wir haben jetzt die Möglichkeit den Levene-Test einmal händisch zu rechnen oder aber in R in Schritten durchzugehen. Am Ende zeige ich nochmal die Gleichheit zwischen dem Levene Test und der einfaktoriellen ANOVA. Das passt natürlich nur hier für die eine Gruppe und wenn das Beispiel einfach ist.
+
+:::: panel-tabset
+## Mathematisch
+
+Hier einmal die Formel des Levene Tests. Wir berechnen wie immer eine Teststatistik $W$ und fragen uns, ob diese Teststatsitik extrem ist. Wir wollen uns hier aber nur mit der Berechnugn beschäftigen. Die Entscheidung anhand eines kritischen Werts überlassen wir dann R oder aber einer anderen Software.
 
 $$
 W = \frac{(N-k)}{(k-1)} \cdot \frac{\sum_{i=1}^k N_i (\bar{Z}_{i\cdot}-\bar{Z}_{\cdot\cdot})^2} {\sum_{i=1}^k \sum_{j=1}^{N_i} (Z_{ij}-\bar{Z}_{i\cdot})^2}
 $$
 
-Zur Veranschaulichung bauen wir uns einen simplen Datensatz mit $N = 14$ Beobachtungen für $k = 2$ Tierarten mit Hunden und Katzen. Damit hat jede Tierart $7$ Beobachtungen der Sprunglängen der jeweiligen Hunde- und Katzenflöhe.
+mit
 
-```{r}
-#| message: false
+-   $W$, der Teststatistik des Levene Tests.
+-   $N$ und $k$, der gesamten Fallzahl $N$ und der Anzahl der Gruppen $k$. Hier ist $N$ gleich 14 und die Anzahl der Gruppen gleich 3.
+-   $N_i$, der Fallzahl der Gruppe $i$ mit jeweils 7 Flöhen pro Gruppe.
+-   $\bar{Z}_{i\cdot}$, der lokalen Gruppenmittel der absoluten Differenzen $Z$.
+-   $\bar{Z}_{\cdot\cdot}$, dem globalen Mittelwert der absoluten Differenzen $Z$.
+-   $Z_{ij}$, der einzelnen absoluten Differenzen $Z$.
 
-animal_tbl <- tibble(dog = c(5.7, 8.9, 11.8, 8.2, 5.6, 9.1, 7.6),
-                     cat = c(3.2, 2.2, 5.4, 4.1, 1.1, 7.9, 8.6))
-animal_tbl
-```
-
-Dann berechnen wir uns auch gleich die absoluten Abstände $Z_{ij}$ von jeder Beobachtung zu den jeweiligen Mittelwerten der Gruppe. Wir könnten auch die Abstände zu den jeweiligen Medianen der Gruppe berechnen. Beides ist möglich. Hier sehen wir auch den Unterschied zu der ANOVA, wir berechnen hier nicht die *quadratischen* Abstände sondern die absoluten Abstände.
-
-```{r}
-#| message: false
-
-z_tbl <- animal_tbl |> 
-  mutate(dog_abs = abs(dog - mean(dog)),
-         cat_abs = abs(cat - mean(cat)))
-z_tbl
-```
-
-Im Folgenden nochmal in formelschreibweise der Unterschied zwischen den beiden Abstandsberechnungen $Z_{ij}$ für jeden Wert. Wir haben die Wahl zwischen den Abständen von jeder Beobachtung zu dem Mittelwert oder dem Median.
+Dann wollen wir mal die einzelnen Variablen durchgehen. Fangen wir mit den absoluten Differenzen $Z$, die wir wie folgt bestimmen. Wie haben hier die Wahl den Mittelwert oder aber den Median als Referenz zu nehmen. Ich nehme hier den Mittelwert.
 
 $$
 Z_{ij} = 
 \begin{cases}
-|Y_{ij} - \bar{Y}_{i\cdot}|, & \bar{Y}_{i\cdot} \text{ ist der Mittelwert der } i\text{-ten Gruppe}, \\
-|Y_{ij} - \tilde{Y}_{i\cdot}|, & \tilde{Y}_{i\cdot} \text{ ist der Median der } i\text{-ten Gruppe}. 
+|Y_{ij} - \bar{Y}_{i\cdot}|\; \text{oder} \\
+|Y_{ij} - \tilde{Y}_{i\cdot}|
 \end{cases} 
 $$
 
-Berechnen wir nun die Gruppenmittelwerte $\bar{Z}_{i\cdot}$ für die Hunde und die Katzen jeweils einmal separat.
+mit
 
-```{r}
-mean(z_tbl$dog_abs)
-```
+-   $Y_{ij}$, den Werten der einzelnen Beobachtungen, hier die Sprungweiten.
+-   $\bar{Y}_{i\cdot}$ oder $\tilde{Y}_{i\cdot}$, die lokalen Mittelwert oder lokalen Mediane der Gruppen.
 
-```{r}
-mean(z_tbl$cat_abs)
-```
+Der Rest der Variablen ist dann wildes Gerechne. Wir haben dann oben zwei Terme stehen, weil wir einmal die Katzen und einmal die Hunde Sprungweiten haben. Im Nenner summieren wir die Abstände einmal auf. Dazu dann mehr in dem Tab zu R. Ich rechne hier die Summen und die Abweichungen der einzelen absoluten Abstände zu den lokalen Mittel nicht per Hand.
 
-Dann brauchen wir noch den Mittelwert über alle Beobachtungen hinweg $\bar{Z}_{\cdot\cdot}$. Den können wir aus allen Beoachtungen berechnen oder aber einfach den Mittelwert der beiden Gruppenmittelwerte nehmen.
-
-```{r}
-(1.57 + 2.28)/2
-```
-
-Am Ende fehlt uns dann noch der Nenner mit der Summe der einzelnen quadratischen Abstände $Z_{ij}$ zu den Abstandsmitteln der einzelnen Gruppen $\bar{Z}_{i\cdot}$ mit $\sum_{i=1}^k \sum_{j=1}^{N_i} (Z_{ij}-\bar{Z}_{i\cdot})^2$. Den Wert können wir dann in R direkt einmal berechnen. Wir nehmen also die Vektoren der Einzelwerte und ziehen dort immer den Mittelwert der Abstände der Gruppe ab. Abschließend summieren wir dann einmal auf.
-
-```{r}
-sum((z_tbl$dog_abs - 1.57)^2)
-sum((z_tbl$cat_abs - 2.28)^2)
-```
-
-Wir können dann alle Zahlen einmal zusammenbringen und in die Formel des Levene-Test einsetzen. Nun rechen wir dann wieder die quadratischen Abstände auf den absoluten Abständen. Ja, das ist etwas wirr, wenn man es zum ersten Mal liest.
+Dann können wir einmal alles einsetzen und erhalten unsere W Statistik.
 
 $$
 \begin{aligned}
@@ -1647,7 +1640,77 @@ W &=
 \end{aligned}
 $$
 
-Wir erhalten ein $W = 0.968$, was wir direkt als eine F-Statistik interpretieren können. Schauen wir uns das Ergebnis einmal in der R Funktion `leveneTest()` aus dem R Paket `{car}` an. Wir brauchen dafür einmal die Werte für die Sprungweiten und müssen dann die Daten in das long-Format umbauen und dann rechnen wir den Levene-Test. Wir erhalten fast die numerisch gleichen Werte. Bei uns haben wir etwas gerundet und dann kommt die Abweichung zustande.
+Wir würden jetzt die W Statistik zu einem kritischen Wert vergleichen um eine Entscheidung zu finden. Das überlassen wir dann aber R oder eben der Funktion `leveneTest()` aus dem R Paket `{car}`.
+
+## R (Schritt für Schritt)
+
+Hier dann einmal der mathematische Teil Schriit für Schritt in R. Hier kriegst du dann auch die Zahlen her für die ganzen Variablen aus der Formel des Levene Tests. Ich fülle dir dann am Ende auch nochmal die Formel mit den berechneten Zahlen hier aus. Das ist vermutlich einfacher nachzuvollziehen.
+
+##### Datensatz {.unnumbered .unlisted}
+
+```{r}
+#| message: false
+animal_tbl <- tibble(dog = c(5.7, 8.9, 11.8, 8.2, 5.6, 9.1, 7.6),
+                     cat = c(3.2, 2.2, 5.4, 4.1, 1.1, 7.9, 8.6))
+```
+
+##### Absolute Abstände $Z_{ij}$ zum Mittelwert {.unnumbered .unlisted}
+
+```{r}
+#| message: false
+
+z_tbl <- animal_tbl |> 
+  mutate(dog_abs = abs(dog - mean(dog)),
+         cat_abs = abs(cat - mean(cat)))
+z_tbl
+```
+
+##### Lokale Mittelwerte $Z_{i.}$ der Gruppen {.unnumbered .unlisted}
+
+```{r}
+mean(z_tbl$dog_abs)
+```
+
+```{r}
+mean(z_tbl$cat_abs)
+```
+
+##### Globaler Mittelwerte $Z_{..}$ {.unnumbered .unlisted}
+
+```{r}
+(mean(z_tbl$dog_abs) + mean(z_tbl$cat_abs))/2
+```
+
+##### Summierte lokale Abweichungen der Gruppen $Z_{ij}-\bar{Z}_{i.}$ {.unnumbered .unlisted}
+
+```{r}
+sum((z_tbl$dog_abs - 1.57)^2)
+sum((z_tbl$cat_abs - 2.28)^2)
+```
+
+##### Einsetzen in die Formel {.unnumbered .unlisted}
+
+$$
+\begin{aligned}
+W &= \frac{(N-k)}{(k-1)} \cdot \frac{\sum_{i=1}^k N_i (\bar{Z}_{i\cdot}-\bar{Z}_{\cdot\cdot})^2} {\sum_{i=1}^k \sum_{j=1}^{N_i} (Z_{ij}-\bar{Z}_{i\cdot})^2} \\
+&=\cfrac{14-2}{2-1}\cdot
+\cfrac{7 \cdot (1.57 - 1.93)^2 + 7 \cdot (2.28 - 1.93)^2}
+{10.39 + 11.43} \\
+&=
+\cfrac{12}{1} \cdot \cfrac{1.76}{21.82} \\
+&=
+\cfrac{21.12}{21.82} \approx 0.968
+\end{aligned}
+$$
+
+Wir würden jetzt auch hier die W Statistik zu einem kritischen Wert vergleichen um eine Entscheidung zu finden. Das überlassen wir dann aber R oder eben der Funktion `leveneTest()` aus dem R Paket `{car}`.
+
+## R (ANOVA)
+
+Der Levene-Test ist eigentlich nichts anderes als eine einfaktorielle ANOVA auf den absoluten Abständen von den einzelnen Werten zu dem Mittelwert oder dem Median. Das können wir hier einmal nachvollziehen indem wir auf den absoluten Werten einmal eine einfaktorielle ANOVA in R rechnen. Wir erhalten die gleiche Teststatistik die dann eben einmal W und einemal F Statistik heißt. Häufig gibt es ähnliche Dinge in der Statistik, die dann unterschiedlich heißen.
+
+::: panel-tabset
+## `leveneTest()`
 
 ```{r}
 #| message: false
@@ -1656,10 +1719,9 @@ z_tbl |>
   select(dog, cat) |> 
   gather(key = animal, value = jump_length) %$% 
   leveneTest(jump_length ~ animal, center = "mean")
-
 ```
 
-Der Levene-Test ist eigentlich nichts anderes als eine einfaktorielle ANOVA auf den absoluten Abständen von den einzelnen Werten zu dem Mittelwert oder dem Median. Das können wir hier einmal nachvollziehen indem wir auf den absoluten Werten einmal eine einfaktorielle ANOVA in R rechnen. Wir erhalten den gleichen F-Wert in beiden Fällen. Eigentlich ist die ANOVA sogar etwas genauer, da wir hier auch die *Sum of squares* wie auch *Mean squares* erhalten.
+## `anova()`
 
 ```{r}
 z_tbl |> 
@@ -1668,18 +1730,14 @@ z_tbl |>
   lm(jump_length ~ animal) |> 
   anova()
 ```
+:::
 
-Wir wollen uns nun im Folgenden nun zwei Fälle einmal näher anschauen. Zum einen den Fall, dass wir eine niedrige Fallzahl vorliegen haben und Varianzhomogenität sowie den Fall, dass wir eine niedrige Fallzahl und Varianzheterogenität vorliegen haben. Den Fall, dass wir hohe Fallzahl vorliegen haben, betrachten wir jetzt nicht weiter. In dem Fall funktionieren die Tests einigermaßen zuverlässig.
+Es ist immer wieder spannend wie sich dann die einzelnen Methoden aufeinander reimen und was mit was zusammenhängt. Die Idee die absoluten Abstände zu nutzen um die Varianzhomogenität zu überprüfen ist dann auch eine recht pfiffige Idee.
+::::
 
 ## `{performance}`
 
-`check_homogeneity()`
-
-Wir können auch die Funktion `check_homogeneity()` aus dem Paket `{performance}` nutzen. Wir erhalten hier auch gleich eine Entscheidung in englischer Sprache ausgegeben. Die Funktion `check_homogeneity()` nutzt den Bartlett-Test. Wir können in Funktion auch andere Methoden mit `method = c("bartlett", "fligner", "levene", "auto")` wählen.
-
-Wir sehen, dass sich die Implementierung des Bartlett-Tests in `check_homogeneity()` nicht von der Funktion `bartlett.test()` unterscheidet, aber die Entscheidung gegen die Varianzhomogenität zu einem Signifikanzniveau von 5% gefällt wird. Nicht immer hilft einem der Entscheidungtext einer Funktion.
-
-Nachdem wir die Normalverteilung des Messwertes $y$ getestet haben, wollen wir jetzt noch schauen, ob unsere Faktoren einer Varianzhomogenität über die Gruppen genügt. Die Funktion `check_homogeneity()` nutzt den [Bartlett-Test](https://de.wikipedia.org/wiki/Bartlett-Test) um auf eine Abweichung von der Varianzhomogenität zu testen. Es gibt noch verschiedene andere Tests, aber ich würde hier empfehlen bei eiem Test zu bleiben und dann mit dem Ergebnis zu leben. Wild verschiedene Tests auf Varianzhomogenität durchzuführen führt dann auch nur zu einem wilden Fruchtsalat an Ergebnissen mit denen keiner was anfangen kann. Im Folgenden schauen wir uns den Code für ein einfaktorielles, zweifaktorielles und dreifaktorielles Modell einmal an. Am Ende des Abschnitts gehe ich nochmal darauf ein, was du machen kannst, wenn du keine Varianzhomogenität in deinen Faktoren vorliegen hast.
+Zum Testen der Varianzhomogenität in einem Modell können auch die Funktion `check_homogeneity()` aus dem Paket `{performance}` nutzen. Wir erhalten hier auch gleich eine Entscheidung in englischer Sprache ausgegeben. Die Funktion `check_homogeneity()` nutzt den [Bartlett-Test](https://de.wikipedia.org/wiki/Bartlett-Test) um auf eine Abweichung von der Varianzhomogenität zu testen. Wir können in Funktion auch andere Methoden mit `method = c("bartlett", "fligner", "levene", "auto")` wählen. Wie du gleich noch in dem anderen Tab sehen wirst, unterscheidet sich die Implementierung des Bartlett-Tests in `check_homogeneity()` nicht von der Funktion `bartlett.test()`. Die Entscheidung gegen die Varianzhomogenität wird aber zu einem Signifikanzniveau von 5% gefällt. Nicht immer hilft einem der Entscheidungtext einer Funktion.
 
 #### Einfaktoriell {.unnumbered .unlisted}
 
@@ -1690,7 +1748,7 @@ lm(jump_length ~ animal, data = fac1_tbl) |>
   check_homogeneity()
 ```
 
-Wunderbar, wir haben keine Abweichung von der Varianzhomongenität. Wir können uns auch die Daten nochmal anschauen. Hier sehen wir aber schon, dass die Daten etwas heterogen *aussehen* der Test aber die Homogenität nicht ablehnt. Das ist immer schwierig bei kleinen Fallzahlen. Aber an irgendwas muss man eben glauben.
+Wunderbar, wir haben keine Abweichung von der Varianzhomongenität. Wir können uns auch die Daten nochmal anschauen. Hier sehen wir aber schon, dass die Daten etwas heterogen *aussehen* der Test aber die Homogenität nicht ablehnt. Das ist immer schwierig bei kleinen Fallzahlen, wie wir schon wissen.
 
 ```{r}
 #| message: false
@@ -1728,7 +1786,9 @@ lm(hatch_time ~ animal + sex + animal:sex, data = fac2_tbl) |>
 ```
 :::
 
-Wir haben auch hier Varianzhomogenität über alle Gruppen der Faktoren vorliegen. Wenn du dir jetzt die Abbildung zu dem Test anschaust, dann siehst du auch hier, dass die Violinplots eben dann doch alle etas anders aussehen. Wir haben aber hier auch das gleiche Problem wie bei dem einfaktoriellen Fall, wir haben eben dann doch recht wenig Fallzahl in unseren Daten.
+Wir haben auch hier Varianzhomogenität über alle Gruppen der Faktoren für die Sprungweiten vorliegen. Wenn du dir jetzt die Abbildung zu dem Test anschaust, dann siehst du auch hier, dass die Violinplots eben dann doch alle etwas anders aussehen. Wir haben aber hier auch das gleiche Problem wie bei dem einfaktoriellen Fall, wir haben eben dann doch recht wenig Fallzahl in unseren Daten.
+
+Anders sieht es dann bei den Schlupfzeiten aus. Hier haben wir dann ganz klar Varianzheterogenität vorliegen. Die Violinplots passen hier auch, die sehen sehr verzerrt in eine Richtugn aus und vorallem nicht gleichmäßig. Die visuelle Überprüfung ist hier natürlich etwas schwerer, wo endet symmetrisch und wo beginnt eine symmetrische Verteilung? Deshalb hilft hier natürlich auch der Test bei der Entscheidung.
 
 ::: panel-tabset
 ## Sprungweite `jump_length`
@@ -1842,7 +1902,7 @@ fac2_hatch_fit <- lm(hatch_time ~ animal + sex + animal:sex, data = fac2_tbl)
 ols_test_breusch_pagan(fac2_hatch_fit)
 ```
 :::
-:::::::
+:::::::::
 
 ## Auswege
 
