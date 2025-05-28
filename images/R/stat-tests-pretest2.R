@@ -639,20 +639,25 @@ p1_var_hetero <- var_hetero_sim_tbl |>
            shape = guide_legend(override.aes = list(size = 3)))
   
 p2_var_homo <- var_homo_sim_tbl |> 
-  ggplot(aes(n, rate, color = type)) +
+  ggplot(aes(n, rate, 
+             shape = alpha)) +
   theme_minimal() +
-  geom_smooth(method = "lm", se = FALSE) +
-  geom_point(show.legend = FALSE) +
+  geom_point(aes(fill = type), show.legend = FALSE) +
+  scale_shape_manual(values = c(21, 24)) +  
+  geom_smooth(aes(color = type, linetype = alpha), method = "lm", se = FALSE) +
   labs(x = "Fallzahl in der Gruppe", y = "Erkannte Varianzhomogenität",
        title = "Varianzhomogene Gruppen", 
        subtitle = "Erkennung mit einem statistischen Test",
        caption = expression(n[sim]~"="~1000),
+       color = "", linetype = "", 
+       shape = "",
        color = "") +
   scale_y_continuous(breaks = c(0, 0.1, 0.25, 0.5, 0.75, 0.9, 1),
                      labels = scales::percent_format(accuracy = 1),
                      limits = c(0,1)) +
   scale_x_continuous(breaks = c(3:12)) +
-  scale_color_okabeito() +
+    scale_color_okabeito() +
+    scale_fill_okabeito() +  
   theme(axis.title.y = element_text(size = 14, face = 2),
         axis.text.y = element_text(size = 12), 
         axis.title.x = element_text(size = 14, face = 2),
@@ -664,7 +669,9 @@ p2_var_homo <- var_homo_sim_tbl |>
         panel.grid.minor.x = element_blank(),
         legend.text = element_text(size = 14),
         legend.title = element_text(size = 14, face = 2),
-        legend.position = "top")
+        legend.position = "top") +
+    guides(linetype = guide_legend(override.aes = list(color = "black")),
+           shape = guide_legend(override.aes = list(size = 3)))
 
 p1_nonnormal_sim <- nonnormal_sim_tbl |> 
   ggplot(aes(n, rate, color = type)) +
