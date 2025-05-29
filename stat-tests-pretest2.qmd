@@ -1571,11 +1571,17 @@ p2_var_homo + p1_var_hetero +
   theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
 
+Was nehmen wir aus den wilden Linien denn nun mit in unsere praktische Auswertung?
+
+-   Der [Levene-Test (abk. *Levene*)](https://de.wikipedia.org/wiki/Levene-Test)
+-   Der [Bartlett-Test (abk. *Bartlet*)](https://de.wikipedia.org/wiki/Bartlett-Test)
+-   Der Fligner-Killeen (abk. *Flinger*)
+
 Wir nutzen zum statistischen Testen den Levene-Test über die Funktion `leveneTest()` oder den Bartlett-Test über die Funktion `bartlett.test()`. Beide Tests sind in R implementiert und können unter anderem über das Paket `{car}` genutzt werden. Einfach ausgedrückt, überprüft der Bartlett-Test die Homogenität der Varianzen auf der Grundlage des Mittelwerts. Dementsprechend ist der Bartlett-Test empfindlicher gegen eine Abweichung von der Normalverteilung der Daten, die er überprüfen soll. Der Levene-Test überprüft die Homogenität der Varianzen auch auf der Grundlage des Mittelwerts ist daher ebenso anfällig gegen die Abweichung von der Normalverteilung. Wir haben aber auch die Wahl, den Median für den Levene-Test zu nutzen dann ist der Levene-Test robuster gegenüber Ausreißern.
 
 Für den Levene Test werde ich mir nochmal die Formeln gleich anschauen, da der Levene und der Bartlett test eng miteinander verwandt sind. Im Weiteren nutzen wir auch noch die R Pakete `{performance}` und `{oslrr}` um etwas automatisierter zu testen ob wir Varianzhomogenität vorliegen haben. Ich empfehle ja immer das R Paket `{performance}` zu nutzen, da wir hier alles in einem Rustsch gut implementiert haben.
 
-::::::::: panel-tabset
+:::::::: panel-tabset
 ## Theoretisch
 
 Im Folgenden wollen wir uns einmal in der Theorie den Levene-Test anschauen. Der Levene-Test ist eigentlich nichts anderes als eine etwas versteckte einfaktorielle ANOVA, aber dazu dann in den folgenden Tabs mehr. Dafür nutzen wir als erstes die folgende Formel um die Teststatistik zu berechnen. Dabei ist $W$ die Teststatistik, die wir zu einer $F$-Verteilung, die wir schon aus der ANOVA kennen, vergleichen können.
@@ -1838,17 +1844,23 @@ lm(hatch_time ~ animal + sex + animal:sex, data = fac2_tbl) |>
 
 ## `{car}`
 
-Neben der Möglichkeit unser Modell direkt zu testen und dann weiter in `aov()` oder `emmeans()` zu verwenden, können wir auch separat unsere Gruppen auf Varianzhomogenität testen.
-
-`leveneTest()`
+Neben der Möglichkeit unser Modell direkt zu testen und dann weiter in `aov()` oder `emmeans()` zu verwenden, können wir auch separat unsere Gruppen auf Varianzhomogenität testen. Wir nutzen dazu die Funktion `leveneTest()` aus dem R Paket `{car}`. Der Levene Test wird immer mit dem Median als Referenz gerechnet und damit eigentlich relativ robust gegen potenzielle Ausreißer. Eigentlich ist der Weg etwas umständlich, denn wir müssen auch hier ein Modell innerhalb der Funktion definieren. Das Modell können wir dann aber nicht weiter nutzen, so dass wir alles doppelt machen müssen. Das führt dann auch wieder zu neuen potenziellen Fehlern. Deshalb würde ich das R Paket `{performance}` empfehlen.
 
 #### Einfaktoriell {.unnumbered .unlisted}
+
+Die einfaktorielle Analyse ist relativ einfach. Wir bauen uns das Modell direkt in der Funktion `leveneTest()` und erhalten dann einen p-Wert wieder. Den p-Wert können wir dann zu einem selbstgewähten Signifikanzniveau $\alpha$ vergleichen. Da wir hier keinen Entscheidungstext wie bei `check_homogeneity()` haben, müssen wir selber entscheiden.
 
 ```{r}
 leveneTest(jump_length ~ animal, data = fac1_tbl)
 ```
 
+Unabhängig welches Signifikanzniveau $\alpha$ wir wählen, 5% oder eben 20%, würden wir hier die Varianzhomogenität nicht ablehnen. Wir haben also hier für die Sprungweite Varianzhomogenität vorliegen.
+
 #### Zweifaktoriell {.unnumbered .unlisted}
+
+Für den zweifaktoriellen Fall müssen wir das Modell in der kompakten Form mit dem `*` angeben, ansonsten funktioniert die Funktion `leveneTest()` nicht. Meistens ist das auch die Formelschreibweise, die du dann weiter testen willst, aber das muss nicht immer der Fall sein. Daher hier auch einmal überlegen, ob du nicht besser dein Modell in `{performance}` testen willst.
+
+Wie es zu erwarten war, können wir für die Sprungweite die Varianzhomogenität nicht ablehnen. Wir haben einen p-Wert der weit vom Signifikanzniveau entfernt ist. Bei der Schlupfzeit ist es dann spannender. Hier haben wir dann mit dem p-Wert von $0.06$ gerade einen p-Wert wo wir mit einem Signifikanzniveau von 5% die Varianzhomogenität nicht ablehnen würden. Wenn wir mit einem Signifikanzniveau von 20% testen würden, dann hätten wir hier Varianzheterogenität vorliegen.
 
 ::: panel-tabset
 ## Sprungweite `jump_length`
@@ -1866,7 +1878,11 @@ leveneTest(hatch_time ~ animal*sex, data = fac2_tbl)
 
 ## `{stats}`
 
-`bartlett.test()`
+Wir immer gibt es auch die Möglichkeit die Tests nur in der einfachen Variante in R zu nutzen. Ich stelle dann hier nochmal den Bartlett Test sowie den Fligner-Killeen Test vor.
+
+### Bartlett Test {.unnumbered .unlisted}
+
+Die Funktion `bartlett.test()` erlaubt es den Bartlett Test auf ein einfaktorielles Design anzuwenden. Auch hier ist es schnell doppelt, da wir zum einen ein Modell in der Funktion `bartlett.test()` spezifizieren und dann nochmal in den Folgefunktionen. Zweifaktoriell geht leider nicht in dieser Implementierung.
 
 #### Einfaktoriell {.unnumbered .unlisted}
 
@@ -1876,8 +1892,38 @@ bartlett.test(jump_length ~ animal, data = fac1_tbl)
 
 #### Zweifaktoriell {.unnumbered .unlisted}
 
-Geht nicht
+Die zweifaktorielle Variante des Bartlett Test geht nicht in der Standardimplementierung in `{stats}`. Deshalb lohnt es sich hier dann die Funktionalität des R Pakets `{performance}` zu nutzen. Ich war jetzt auch zu faul hier nochmal tiefergreifend zu suchen, wir haben ja eine Lösung.
 
+### Fligner-Killeen Test {.unnumbered .unlisted}
+
+Es gibt noch den Fligner-Killeen Test mit der Funktion `fligner.test()` ist eine weitere Möglichkeit zu schauen, ob wir eine Abweichugn von der Varianzhomogenität haben. Der Test wird als nicht parametrische oder eben Rankalternative beschrieben.
+
+#### Einfaktoriell {.unnumbered .unlisted}
+
+```{r}
+fligner.test(jump_length ~ animal, data = fac1_tbl)
+```
+
+#### Zweifaktoriell {.unnumbered .unlisted}
+
+Die zweifaktorielle Variante des Fligner-Killeen Test geht nicht in der Standardimplementierung in `{stats}`. Deshalb lohnt es sich hier dann die Funktionalität des R Pakets `{performance}` zu nutzen. Ich war jetzt auch zu faul hier nochmal tiefergreifend zu suchen, wir haben ja eine Lösung.
+::::::::
+
+### Varianzheterogenität
+
+Varianzheterogenität (eng. *heteroscedasticity*)
+
+Wort zur Metaanalyse
+
+[White Test](https://rpubs.com/danC614/1030590)
+
+`ncvTest()` aus dem R Paket `{car}` Breusch-Pagan test
+
+`bptest()` aus dem R Paket `{lmtest}` Breusch-Pagan test
+
+`check_heteroscedasticity()` aus dem R Paket `{performance}` Breusch-Pagan test
+
+:::: panel-tabset
 ## `{oslrr}`
 
 [Heteroscedasticity](https://cran.r-project.org/web/packages/olsrr/vignettes/heteroskedasticity.html)
@@ -1912,7 +1958,7 @@ fac2_hatch_fit <- lm(hatch_time ~ animal + sex + animal:sex, data = fac2_tbl)
 ols_test_breusch_pagan(fac2_hatch_fit)
 ```
 :::
-:::::::::
+::::
 
 ## Auswege
 
