@@ -47,6 +47,16 @@ source("simulation/sim-stat-tests-pretest2-var.R")
 ```
 
 ```{r}
+#| eval: true
+#| echo: false
+#| cache: true
+#| message: false
+#| warning: false
+#| label: levene_sim_pretest_hetero
+source("simulation/sim-stat-tests-pretest2-var-02.R")
+```
+
+```{r}
 #| label: shapiro_sim_pretest
 #| eval: true
 #| echo: false
@@ -238,8 +248,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 pacman::p_load(tidyverse, magrittr, olsrr,
                broom, car, performance, 
                see, scales, readxl, nlme,
-               moments, report,
-               parameters, conflicted)
+               moments, report, skedastic, 
+               parameters, lmtest, conflicted)
 conflicts_prefer(dplyr::filter)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(moments::skewness)
@@ -1536,7 +1546,7 @@ H_A: &\; \sigma^2_A \ne \sigma^2_B\\
 \end{aligned}
 $$
 
-Wir sehen, dass in der Nullhypothese die Gleichheit der Varianzen steht und in der Alternativehypothese der Unterschied, also die Varianzheterogenität. Ab wann sollten wir denn die Varianzhomogenität ablehnen? Wenn wir standardmäßig auf 5% testen, dann werden wir zu selten die Varianzhomogenität ablehnen. Daher wird häufiger vorgeschlagen in diesem Fall auf ein Signifikanzniveau von $\alpha$ gleich 20% zu testen.
+Wir sehen, dass in der Nullhypothese die Gleichheit der Varianzen steht und in der Alternativehypothese der Unterschied, also die Varianzheterogenität. Ab wann sollten wir denn die Varianzhomogenität ablehnen? Wenn wir standardmäßig auf 5% testen, dann werden wir zu selten die Varianzhomogenität ablehnen. Wir drehen ja hier eigentlich etwas verqer die Hypothesen. Wir können ja nur den Test rechnen und schauen, ob wir die Nullhypothese ablehnen können. Ein statistischer Test beweist ja nicht die Nullhypothese. Daher wird häufiger vorgeschlagen in diesem Fall auf ein Signifikanzniveau von $\alpha$ gleich 20% zu testen.
 
 Jetzt wollen wir nochmal aufschreiben, was das jetzt für unseren statistischen Test auf die Annahme der Normalverteilung bedeutet. Das ist ja immer die Frage, die uns im folgenden Analysen umtreiben wird.
 
@@ -1563,7 +1573,7 @@ Aber auch in diesem Fall können wir natürlich eine Varianzhomogenität überse
 #| fig-align: center
 #| fig-height: 5.5
 #| fig-width: 9.75
-#| fig-cap: "Simulationsstudie zur Erkennung der Varianzhomogenität und Vamrianzheterogenität in drei Gruppen. Auf der y-Achse ist der Anteil der Erkennung in 1000 Simulationen angegeben. Auf der x-Achse sind die Fallzahlen per Gruppe dargestellt. **(A)** Varianzhomogene Gruppen und zwei statistische Test für deren Erkennung.  **(B)** Varianzheterogene Gruppen und zwei statistische Test für deren Erkennung sowie die Entscheidung mit einem Signifikanzniveau $\\alpha$ von 5% sowie 20%. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Simulationsstudie zur Erkennung der Varianzhomogenität und Vamrianzheterogenität in drei Gruppen. Auf der y-Achse ist der Anteil der Erkennung in 1000 Simulationen angegeben. Auf der x-Achse sind die Fallzahlen per Gruppe dargestellt sowie die Entscheidung mit einem Signifikanzniveau $\\alpha$ von 5% sowie 20%. **(A)** Varianzhomogene Gruppen und zwei statistische Test für deren Erkennung.  **(B)** Varianzheterogene Gruppen und zwei statistische Test für deren Erkennung. *[Zum Vergrößern anklicken]*"
 
 p2_var_homo + p1_var_hetero + 
   plot_layout(ncol = 2) +
@@ -1573,9 +1583,9 @@ p2_var_homo + p1_var_hetero +
 
 Was nehmen wir aus den wilden Linien denn nun mit in unsere praktische Auswertung?
 
--   Der [Levene-Test (abk. *Levene*)](https://de.wikipedia.org/wiki/Levene-Test)
--   Der [Bartlett-Test (abk. *Bartlet*)](https://de.wikipedia.org/wiki/Bartlett-Test)
--   Der Fligner-Killeen (abk. *Flinger*)
+-   Der [Levene-Test (abk. *Levene*)](https://de.wikipedia.org/wiki/Levene-Test) ist einer der häufigsten genutzen Tests um auf Vairanzhomogenität zu testen. Wir können hier auch als Referenz den Median wählen und dann ist der Levene Test noch etwas robuster gegen Ausreißer in den Daten.
+-   Der [Bartlett-Test (abk. *Bartlett*)](https://de.wikipedia.org/wiki/Bartlett-Test) basiert auf der Annahme, dass wir normalverteilte Messwerte vorliegen haben. Ist das nicht der Fall, dann hat der Bartlett Test Probleme eine Varianzheterogenität sicher zu finden.
+-   Der Fligner-Killeen (abk. *Flinger*) ist die nicht parametrische Variante und basiert auf Rängen. Wenn wir also sehr schiefe Messwerte vorliegen haben, dann ist der Fligner-Killeen eine Alternative. Wie wir aber sehen, ist der Test bei kleinen Fallzahlen nicht sehr gut um Finden von Varianzheterogenität.
 
 Wir nutzen zum statistischen Testen den Levene-Test über die Funktion `leveneTest()` oder den Bartlett-Test über die Funktion `bartlett.test()`. Beide Tests sind in R implementiert und können unter anderem über das Paket `{car}` genutzt werden. Einfach ausgedrückt, überprüft der Bartlett-Test die Homogenität der Varianzen auf der Grundlage des Mittelwerts. Dementsprechend ist der Bartlett-Test empfindlicher gegen eine Abweichung von der Normalverteilung der Daten, die er überprüfen soll. Der Levene-Test überprüft die Homogenität der Varianzen auch auf der Grundlage des Mittelwerts ist daher ebenso anfällig gegen die Abweichung von der Normalverteilung. Wir haben aber auch die Wahl, den Median für den Levene-Test zu nutzen dann ist der Levene-Test robuster gegenüber Ausreißern.
 
@@ -1911,45 +1921,51 @@ Die zweifaktorielle Variante des Fligner-Killeen Test geht nicht in der Standard
 
 ### Varianzheterogenität
 
-Varianzheterogenität (eng. *heteroscedasticity*)
+Nun könnte man meinen was diese Abschnitt hier nun noch soll. Es ist ist nunmal der Fall, dass es auch explizit Methoden gibt, die eben auf Varianzheterogenität testen sollen. Das stimmt dann wieder nur am Rande. Die Nullhypothese ist weiterhin, dass wir gleiche Varianzen in den Gruppen haben. Daher ist es hier etwas Augenwischerei, wenn wir auf Varianzheterogenität (eng. *heteroscedasticity*) testen wollen. Trotzdem gibt es die passenden Funktionen und wir finden auch immer wieder was dazu. Daher hier einmal die Methoden, die in dem Zusammenhang genannt und genutzt werden.
 
-Wort zur Metaanalyse
+In der folgenden Abbidlung findest du wieder eine kleine Simulation um zu schauen, ob wir die Varianzheterogenitöt oder Varianzhomogenität in drei Gruppen wiederfinden. Ich habe hier 1000 Simulationen mit immer neuen Daten gerechnet und geschaut, ob die voreingestellte Vairanzheterogenität oder Varianzhomogenität von den statistischen Tests gefunden wird. Wie du schnell siehst, haben wir schwere Probleme bei keinen Fallzahlen die Varianzheterogenität in den Gruppen zu finden. Wenn wir das Signifikanzniveau auf 20% anheben, dann finden wir schon mehr. Bei der Varisnzhomogenitöt sieht es schon besser aus. Sollten wir uns aber für ein Signifikanzniveau von 20% entscheiden, dann haben wir auch hier Probleme.
 
-:::::: panel-tabset
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-var-sim-pretest-03
+#| fig-align: center
+#| fig-height: 5.5
+#| fig-width: 9.75
+#| fig-cap: "Simulationsstudie zur Erkennung der Varianzhomogenität und Vamrianzheterogenität in drei Gruppen. Auf der y-Achse ist der Anteil der Erkennung in 1000 Simulationen angegeben. Auf der x-Achse sind die Fallzahlen per Gruppe dargestellt sowie die Entscheidung mit einem Signifikanzniveau $\\alpha$ von 5% sowie 20%. **(A)** Varianzheterogene Gruppen und zwei statistische Test für deren Erkennung **(B)** Varianzhomogene Gruppen und drei statistische Test für deren Erkennung. *[Zum Vergrößern anklicken]*"
+
+p3_var_hetero + p4_var_homo + 
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+```
+
+Was nehmen wir aus den wilden Linien denn nun mit in unsere praktische Auswertung? Hier muss ich einmal einhaken, dass gerne geschrieben wird, dass die folgenden Tests alle irgendwie mit Breusch-Pagan-Test verwandt sind. Am Ende kriegen wir dann aber doch immer andere p-Werte raus. Daher muss es auch einen Unterschied im Algorithmus geben.
+
+-   Der [Breusch-Pagan-Test (abk. *Breusch-Pagan*)](https://en.wikipedia.org/wiki/Breusch%E2%80%93Pagan_test) ist eine etwas komplexere Angelegenheit was den Algorithmus angeht, aber hat Probleme, wenn wir keine Normalverteilung in den Residuen unserer Messwerte aus dem Modell vorliegen haben.
+-   Der [White-Test (abk. *White*)](https://en.wikipedia.org/wiki/White_test) ist nicht so problematisch, wenn wir keine Normalverteilung in dem Messwert vorliegen haben. Dafür brauchen wir hier deutlich mehr Fallzahl, damit der Test funktioniert und uns gute Ergebnisse liefert.
+-   Score Test for Non-Constant Error Variance (abk. *NCV*) soll eigentlich ähnlich wie der Breusch-Pagan-Test sein produziert hier dann aber als Test doch andere Ergebnisse in der Simulation. Das nehme ich dann mal so hin und wir lernen, nur weil etwas gleich sein soll, muss es nicht gleich sein.
+
+In R haben wir dann wieder eine große Auswahl an möglichen Paketen und Algorithmen. Ich stelle wie immer alles einmal vor, würde mich aber auf die Funktion `check_heteroscedasticity()` aus dem R Paket `{performance}` mit dem Breusch-Pagan-Test festlegen, da wir hier eigentlich eine gute Abfolge haben und das Modell dann gleich testen können. Die anderen Pakete können es auch, aber hier musst du dann schauen, was besser passt.
+
+::::::::: panel-tabset
 ## `{performance}`
 
-`check_heteroscedasticity()` aus dem R Paket `{performance}` Breusch-Pagan test
+Mit der Funktion `check_heteroscedasticity()` aus dem R Paket `{performance}` können wir den Breusch-Pagan Test auf unserem Modell rechnen um zu schauen, ob wir eine Varianzheterogenität in den Gruppen über den Messwert vorliegen haben. Wir kriegen hier auch einen Antworttext auf der Basis eines Signifikanzniveau von 5%. Der p-Wert wird aber auch angezeigt, so dass wir auch hier unsere Entscheidung anders treffen können.
 
 #### Einfaktoriell {.unnumbered .unlisted}
 
-Beginnen wir wieder mit dem einfaktoriellen Modell. Wir stecken das Modell dann einfach in die Funktion `check_homogeneity()` und erhalten die Information über die Varianzhomogenität wiedergegeben.
+Beginnen wir wieder mit dem einfaktoriellen Modell. Wir stecken das Modell dann einfach in die Funktion `check_heteroscedasticity()` und erhalten die Information über die Varianzhomogenität wiedergegeben. Wunderbar, wir haben keine Abweichung von der Varianzhomongenität und der p-Wert ist auch recht groß, so dass wir hier nciht über ein angepasstes Signifkanzniveau nachdenken müssen.
 
 ```{r}
 lm(jump_length ~ animal, data = fac1_tbl) |> 
   check_heteroscedasticity()
 ```
 
-Wunderbar, wir haben keine Abweichung von der Varianzhomongenität. Wir können uns auch die Daten nochmal anschauen. Hier sehen wir aber schon, dass die Daten etwas heterogen *aussehen* der Test aber die Homogenität nicht ablehnt. Das ist immer schwierig bei kleinen Fallzahlen, wie wir schon wissen.
-
-```{r}
-#| message: false
-#| echo: true
-#| warning: false
-#| label: fig-ggplot-check-pretest-variance-f1-hetero
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: "Schnelle Abbildung der Residuen aus `check_homogeneity()` zur Überprüfung der Varianzhomogenität der Faktoren in einem einfaktoriellen Modell."
-
-lm(jump_length ~ animal, data = fac1_tbl) |> 
-  check_heteroscedasticity() |> 
-  plot() +
-  scale_fill_okabeito()
-```
-
 #### Zweifaktoriell {.unnumbered .unlisted}
 
-Jetzt können wir mal schauen, was passiert wenn wir die Anzahl an möglichen Faktorkombinationen erhöhen indem wir ein zweifaktorielles Modell nutzen. Hier haben wir dann ja sechs Faktorkombinationen oder Gruppen die dann alle homogen in den Varianzen sein müssen.
+Jetzt können wir mal schauen, was passiert wenn wir die Anzahl an möglichen Faktorkombinationen erhöhen indem wir ein zweifaktorielles Modell nutzen. Hier haben wir dann ja sechs Faktorkombinationen oder Gruppen die dann alle homogen in den Varianzen sein müssen. Das ist danns chnon seltener der Fall. Dann hier auch die Anwendung einmal auf die Sprungweite sowie auf die Schlupfzeiten. Wie zu erwarten war, haben wir bei den Sprungweiten homogene Varianzen und bei den Schlupfzeiten heterogene Varianzen. Wenn wir zu 20% testen würden, wären beide Endpunkte heterogen. Hier könnte man anmerken, dass die Schlupfzeiten nicht normalverteilt sind und daher der Breusch-Pagan Test falsch liegen könnte.
 
 ::: panel-tabset
 ## Sprungweite `jump_length`
@@ -1964,94 +1980,111 @@ lm(jump_length ~ animal + sex + animal:sex, data = fac2_tbl) |>
 ```{r}
 lm(hatch_time ~ animal + sex + animal:sex, data = fac2_tbl) |> 
   check_heteroscedasticity() 
-```
-:::
-
-::: panel-tabset
-## Sprungweite `jump_length`
-
-```{r}
-#| message: false
-#| echo: true
-#| warning: false
-#| label: fig-ggplot-check-pretest-variance-f2-3
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: "Schnelle Abbildung der Residuen aus `check_homogeneity()` zur Überprüfung der Varianzhomogenität der Faktoren in einem zweifaktoriellen Modell."
-
-lm(jump_length ~ animal + sex + animal:sex, data = fac2_tbl) |> 
-  check_heteroscedasticity() |> 
-  plot() +
-  scale_fill_okabeito()
-```
-
-## Schlupfzeit `hatch_time`
-
-```{r}
-#| message: false
-#| echo: true
-#| warning: false
-#| label: fig-ggplot-check-pretest-variance-f2-4
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: "Schnelle Abbildung der Residuen aus `check_homogeneity()` zur Überprüfung der Varianzhomogenität der Faktoren in einem zweifaktoriellen Modell."
-
-lm(hatch_time ~ animal + sex + animal:sex, data = fac2_tbl) |> 
-  check_heteroscedasticity() |> 
-  plot() +
-  scale_fill_okabeito()
 ```
 :::
 
 ## `bptest()`
 
+#### Einfaktoriell {.unnumbered .unlisted}
+
 `bptest()` aus dem R Paket `{lmtest}` Breusch-Pagan test
 
 ```{r}
-library(lmtest)
 bptest(jump_length ~ animal, data = fac1_tbl) 
 ```
+
+#### Zweifaktoriell {.unnumbered .unlisted}
+
+::: panel-tabset
+## Sprungweite `jump_length`
 
 ```{r}
 bptest(jump_length ~ animal + sex + animal:sex, data = fac2_tbl) 
 ```
 
+## Schlupfzeit `hatch_time`
+
+```{r}
+bptest(hatch_time ~ animal + sex + animal:sex, data = fac2_tbl) 
+```
+:::
+
 ## `ncvTest()`
 
 `ncvTest()` aus dem R Paket `{car}` Breusch-Pagan test
+
+#### Einfaktoriell {.unnumbered .unlisted}
 
 ```{r}
 lm(jump_length ~ animal, data = fac1_tbl) |> 
   ncvTest()
 ```
 
+#### Zweifaktoriell {.unnumbered .unlisted}
+
+::: panel-tabset
+## Sprungweite `jump_length`
+
 ```{r}
 lm(jump_length ~ animal + sex + animal:sex, data = fac2_tbl) |> 
-  ncvTest()  
+  ncvTest() 
 ```
+
+## Schlupfzeit `hatch_time`
+
+```{r}
+lm(hatch_time ~ animal + sex + animal:sex, data = fac2_tbl) |> 
+  ncvTest() 
+```
+:::
 
 ## `{skedastic}`
 
 [White Test](https://rpubs.com/danC614/1030590)
 
+#### Einfaktoriell {.unnumbered .unlisted}
+
 ```{r}
-pacman::p_load(skedastic)
 lm(jump_length ~ animal, data = fac1_tbl) |> 
   white()
 ```
 
+#### Zweifaktoriell {.unnumbered .unlisted}
+
 `interactions`
+
+::: panel-tabset
+## Sprungweite `jump_length`
 
 ```{r}
 lm(jump_length ~ animal + sex + animal:sex, data = fac2_tbl) |> 
   white(interactions = TRUE)
 ```
 
+## Schlupfzeit `hatch_time`
+
+```{r}
+lm(hatch_time ~ animal + sex + animal:sex, data = fac2_tbl) |> 
+  white(interactions = TRUE)
+```
+:::
+
 ## `{oslrr}`
 
 [Heteroscedasticity](https://cran.r-project.org/web/packages/olsrr/vignettes/heteroskedasticity.html)
+
+Hier erhalten wir mal eine saubere Nullhypothese geliefert
+
+### Breusch Pagan Test {.unnumbered .unlisted}
+
+#### Einfaktoriell {.unnumbered .unlisted}
+
+```{r}
+lm(jump_length ~ animal, data = fac1_tbl) |> 
+  ols_test_breusch_pagan()
+```
+
+#### Zweifaktoriell {.unnumbered .unlisted}
 
 Ich mag es, wenn auch ich nich kurz mal stutzen muss und mich frage, wo den jetzt der p-Wert in der Ausgabe ist.
 
@@ -2059,31 +2092,59 @@ Ich mag es, wenn auch ich nich kurz mal stutzen muss und mich frage, wo den jetz
 ## `jump_length`
 
 ```{r}
-fac2_jump_fit <- lm(jump_length ~ animal + sex + animal:sex, data = fac2_tbl) 
-```
-
-```{r}
 #| echo: true
 #| message: false
 #| warning: false
-ols_test_breusch_pagan(fac2_jump_fit)
+lm(jump_length ~ animal + sex + animal:sex, data = fac2_tbl) |> 
+  ols_test_breusch_pagan()
 ```
 
 ## `hatch_time`
 
 ```{r}
-fac2_hatch_fit <- lm(hatch_time ~ animal + sex + animal:sex, data = fac2_tbl) 
+#| echo: true
+#| message: false
+#| warning: false
+lm(hatch_time ~ animal + sex + animal:sex, data = fac2_tbl) |> 
+  ols_test_breusch_pagan()
 ```
+:::
+
+### Score Test {.unnumbered .unlisted}
+
+#### Einfaktoriell {.unnumbered .unlisted}
+
+```{r}
+lm(jump_length ~ animal, data = fac1_tbl) |> 
+  ols_test_score()
+```
+
+#### Zweifaktoriell {.unnumbered .unlisted}
+
+Ich mag es, wenn auch ich nich kurz mal stutzen muss und mich frage, wo den jetzt der p-Wert in der Ausgabe ist.
+
+::: panel-tabset
+## `jump_length`
 
 ```{r}
 #| echo: true
 #| message: false
 #| warning: false
+lm(jump_length ~ animal + sex + animal:sex, data = fac2_tbl) |> 
+  ols_test_score()
+```
 
-ols_test_breusch_pagan(fac2_hatch_fit)
+## `hatch_time`
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+lm(hatch_time ~ animal + sex + animal:sex, data = fac2_tbl) |> 
+  ols_test_score()
 ```
 :::
-::::::
+:::::::::
 
 ## Auswege
 
@@ -2119,14 +2180,92 @@ Du findest die vorgeschlagenen Funktionen dann in den entsprechenden Kapiteln zu
 
 ### Transformation
 
-::: panel-tabset
-## `log()`
+::: callout-warning
+## Achtung, bitte beachten!
+
+Keine Transformation durchführen und danach rechnen, wenn du nicht vorher einmal in einem Densityplot geschaut hast, ob deine Verteilung wirklich mehr einer Normalverteilung ähnelt. Sonst machst du es vielleicht durch die Transformation schlimmer als ohne.
+:::
+
+::: {layout="[15,85]" layout-valign="top"}
+![](images/personal_opinion.png){fig-align="center" width="100%"}
+
+> *"Wenn du deine Messwerte transformierst, dann verlierst du deine Einheit auf der du deine Messwerte erhoben hast. Damit verlierst du auch einen interpretierbaren Effektschätzer auf der Einheit deiner Messwerte. Oder andersherum, mach nur eine Transformation, wenn du damit leben kannst, dass die Relevanz der signifikant gefundenen Unterschiede schwerer zu bestimmen ist." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
+:::
 
 ```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-pretest-rank
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 8
+#| fig-cap: "Zusammenhang vom Mittelwert, Median und dem Modus zur Feststellung einer Normalverteilung. Der Modus ist hierbei der häufigste Wert. **(A)** Linksschiefe Verteilung. Der Modus ist größer als der Median ist größer als der Mittelwert. **(B)** Symmetrische Normalverteilung. Der Mittelwert und Median sowie Modus sind gleich. **(C)** Rechtsschiefe Verteilung der Mittelwert ist größer als der Median ist größer als der Modus. *[Zum Vergrößern anklicken]*"
 
+p2kurt + p1kurt + p3kurt +
+  plot_layout(ncol = 3) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+```
+
+Quadratwurzel moderat schiefe Messwerte:
+
+-   `sqrt(y)` für positiv, schiefe Messwerte
+-   `sqrt(max(y+1) - y)` für negative, schiefe Messwerte
+
+Logarithmus für starke schiefe Messwerte:
+
+-   `log10(y)` für positiv, schiefe Messwerte
+-   `log10(max(y+1) - y)` für negative, schiefe Messwerte
+
+Die Inverse für extrem, schiefe Messwerte:
+
+-   `1/y` für positiv, schiefe Messwerte
+-   `1/(max(y+1) - y)` für negative, schiefe Messwerte
+
+Die Transformation mit Rängen `rank()`
+
+::: panel-tabset
+## `sqrt(y)`
+
+```{r}
+sqrt_tbl <- fac2_tbl |> 
+  mutate(sqrt_hatch_time = sqrt(hatch_time))
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| label: fig-log-pretest-2
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 8
+#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten. **(A)** Nicht transformierte, rohe Daten. **(B)** $sqrt$-transformierte Daten. *[Zum Vergrößern anklicken]*"
+#| layout-nrow: 1
+
+p1 <- ggplot(sqrt_tbl, aes(hatch_time)) +
+  theme_minimal() +
+  geom_density(fill = cbbPalette[2], color = "black") +
+  labs(x = "Zeit bis zum Schlüpfen in [h]", y = "") +
+  xlim(-100, NA)
+
+p2 <- ggplot(sqrt_tbl, aes(sqrt_hatch_time)) +
+  theme_minimal() +
+  geom_density(fill = cbbPalette[3], color = "black") +
+  labs(x = "Zeit bis zum Schlüpfen in sqrt(h)", y = "")
+
+p1 + p2 +
+  theme(panel.grid.minor.x = element_blank()) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
+```
+
+## `log(y)`
+
+```{r}
 log_tbl <- fac2_tbl |> 
   mutate(log_hatch_time = log(hatch_time))
-
 ```
 
 ```{r}
@@ -2143,10 +2282,7 @@ p1 <- ggplot(log_tbl, aes(hatch_time)) +
   theme_minimal() +
   geom_density(fill = cbbPalette[2], color = "black") +
   labs(x = "Zeit bis zum Schlüpfen in [h]", y = "") +
-  xlim(-100, NA) #+
-  #scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
-#                labels = trans_format("log10", math_format(10^.x))) +
- # annotation_logticks(sides = "b")
+  xlim(-100, NA) 
 
 p2 <- ggplot(log_tbl, aes(log_hatch_time)) +
   theme_minimal() +
@@ -2160,35 +2296,33 @@ p1 + p2 +
 
 ```
 
-## `rank()`
+## `1/y`
 
 ```{r}
-
-rank_tbl <- fac2_tbl |> 
-  mutate(rank_hatch_time = rank(hatch_time))
-
+inverse_tbl <- fac2_tbl |> 
+  mutate(inverse_hatch_time = 1/hatch_time)
 ```
 
 ```{r}
 #| message: false
 #| echo: false
-#| label: fig-log-pretest-2
+#| label: fig-inverse-pretest-1
 #| fig-align: center
 #| fig-height: 3.5
 #| fig-width: 8
-#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten. **(A)** Nicht transformierte, rohe Daten. **(B)** $log$-transformierte Daten. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten. **(A)** Nicht transformierte, rohe Daten. **(B)** $inverse$-transformierte Daten. *[Zum Vergrößern anklicken]*"
 #| layout-nrow: 1
 
-p1 <- ggplot(rank_tbl, aes(hatch_time)) +
+p1 <- ggplot(inverse_tbl, aes(hatch_time)) +
   theme_minimal() +
   geom_density(fill = cbbPalette[2], color = "black") +
   labs(x = "Zeit bis zum Schlüpfen in [h]", y = "") +
-  xlim(-100, NA)
+  xlim(-100, NA) 
 
-p2 <- ggplot(rank_tbl, aes(rank_hatch_time)) +
+p2 <- ggplot(inverse_tbl, aes(inverse_hatch_time)) +
   theme_minimal() +
   geom_density(fill = cbbPalette[3], color = "black") +
-  labs(x = "Zeit bis zum Schlüpfen in log(h)", y = "")
+  labs(x = "Zeit bis zum Schlüpfen in (1/h)", y = "")  
 
 p1 + p2 +
   theme(panel.grid.minor.x = element_blank()) +
@@ -2196,42 +2330,12 @@ p1 + p2 +
   theme(plot.tag = element_text(size = 16, face = "bold"))
 
 ```
-
-## `boxcox()`
-
-```{r}
-jump_mod <- lm(hatch_time ~ animal + sex + animal:sex, data = fac2_tbl)
-```
-
-```{r}
-bc_obj <- boxcox(jump_mod, plotit = FALSE)
-lambda <- bc_obj$x[which.max(bc_obj$y)]
-lambda
-```
-
-```{r}
-boxcox_tbl <- fac2_tbl |> 
-  mutate(jump_boxcox = ((jump_length ^ lambda - 1)/lambda))
-```
-
-```{r}
-#| message: false
-#| echo: true
-#| label: fig-boxcox-pretest
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "Histogramm der Box-Cox transfomierten Daten in `ggplot` dargestellt."
-ggplot(data = boxcox_tbl) +
-  theme_minimal() +
-  geom_histogram(aes(x = jump_boxcox), alpha = 0.9,
-                 fill = cbbPalette[3], color = "black") +
-  labs(x = 'Box-Cox transformierte Sprungweiten', y = 'Anzahl')
-
-```
-
-R Paket `{MASS}`
 :::
+
+Automatisierte Transformationen
+
+-   `Gaussianize()` aus dem [R Paket `{LambertW}`](https://cran.r-project.org/web/packages/LambertW/index.html)
+-   `transformTukey()` aus dem R Paket `{rcompanion}`
 
 ### Modellierung
 

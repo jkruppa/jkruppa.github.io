@@ -739,4 +739,92 @@ p2_normal_sim <- normal_sim_tbl |>
         legend.position = "top") + 
   guides(color = guide_legend(nrow = 2)) 
 
+p3_var_hetero <-  
+  var_hetero_2_sim_tbl |> 
+  #  filter(alpha == "5%") |> 
+  ggplot(aes(n, rate, 
+             shape = alpha)) +
+  theme_minimal() +
+    geom_smooth(aes(color = type, linetype = alpha),
+                method = "loess", se = FALSE) +
+#  geom_smooth(data = filter(var_hetero_sim_tbl, type == "Bartlett"), 
+ #             aes(color = type, linetype = alpha),
+  #            method = "loess", se = FALSE) +
+#  geom_smooth(data = filter(var_hetero_sim_tbl, type == "Levene"), 
+ #             aes(color = type, linetype = alpha),
+  #            method = "lm", se = FALSE) +
+  #geom_smooth(data = filter(var_hetero_sim_tbl, type == "Fligner"), 
+  #            aes(color = type, linetype = alpha),
+  #            method = "lm", se = FALSE) +
+  geom_point(aes(fill = type), show.legend = FALSE) +
+  scale_shape_manual(values = c(21, 22, 24)) +
+  labs(x = "Fallzahl in der Gruppe", y = "Erkannte Varianzheterogenität",
+       title = "Varianzheterogene Gruppen", 
+       subtitle = "Erkennung mit einem statistischen Test",
+       caption = expression(n[sim]~"="~1000),
+       color = "", linetype = expression(alpha), 
+       shape = expression(alpha),
+       fill = "") +
+  scale_y_continuous(breaks = c(0, 0.1, 0.25, 0.5, 0.75, 0.9, 1),
+                     labels = scales::percent_format(accuracy = 1),
+                     limits = c(0,1.05)) +
+  scale_x_continuous(breaks = c(3:12)) +
+  scale_color_okabeito() +
+  scale_fill_okabeito() +  
+  theme(axis.title.y = element_text(size = 14, face = 2),
+        axis.text.y = element_text(size = 12), 
+        axis.title.x = element_text(size = 14, face = 2),
+        axis.text.x = element_text(size = 12),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        legend.position = "top",
+        legend.key.width = unit(7, 'mm')) +
+  guides(linetype = guide_legend(override.aes = list(color = "black")),
+         shape = guide_legend(override.aes = list(size = 3),
+                              nrow = 2),
+         color = guide_legend(nrow = 2))
 
+p4_var_homo <- 
+  var_homo_2_sim_tbl |> 
+  #  filter(alpha == "5%") |> 
+  ggplot(aes(n, rate, 
+             shape = alpha)) +
+  theme_minimal() +
+  geom_point(aes(fill = type), show.legend = FALSE) +
+  scale_shape_manual(values = c(21, 22, 24)) +
+  geom_smooth(aes(color = type, linetype = alpha), method = "loess", se = FALSE) +
+  labs(x = "Fallzahl in der Gruppe", y = "Erkannte Varianzhomogenität",
+       title = "Varianzhomogene Gruppen", 
+       subtitle = "Erkennung mit einem statistischen Test",
+       caption = expression(n[sim]~"="~1000),
+       linetype = expression(alpha), 
+       shape = expression(alpha),
+       color = "") +
+  scale_y_continuous(breaks = c(0, 0.1, 0.25, 0.5, 0.75, 0.9, 1),
+                     labels = scales::percent_format(accuracy = 1),
+                     limits = c(0,1)) +
+  scale_x_continuous(breaks = c(3:12)) +
+  scale_color_okabeito() +
+  scale_fill_okabeito() +  
+  theme(axis.title.y = element_text(size = 14, face = 2),
+        axis.text.y = element_text(size = 12), 
+        axis.title.x = element_text(size = 14, face = 2),
+        axis.text.x = element_text(size = 12),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        legend.position = "top") +
+  guides(linetype = guide_legend(override.aes = list(color = "black"),
+                                 nrow = 2),
+         shape = guide_legend(override.aes = list(size = 3),
+                              nrow = 2),
+         color = guide_legend(nrow = 2))
