@@ -2229,55 +2229,129 @@ p1 + p2 +
 
 #### Transformation mit Rängen {.unnumbered .unlisted}
 
-Der Ausweg schlechthin bis in die 90ziger Jahre war vermutlich die nichtparametrische Statistik, wenn es um nicht normalverteilte Messwerte ging. Es wird dann eben ein nichtparametrischer Test, wie der Wilcoxon oder eben Mann-Whitney gerechnet. Und hier kommt dann die Rangtransformations ins Spiel. *Eigentlich* ist die gesamte Nichtparametrik nur eine Rangtransformation auf der wir dann auch genauso gut dann einen t-Test oder eine ANOVA rechnen könnten. Dazu dann aber mehr in den jeweiligen Kapiteln zu den einzelnen nichtparametrischen Tests.
+Der Ausweg schlechthin bis in die 90ziger Jahre war vermutlich die nichtparametrische Statistik, wenn es um nicht normalverteilte Messwerte ging. Es wird dann eben ein nichtparametrischer Test, wie der Wilcoxon oder eben Mann-Whitney gerechnet. Und hier kommt dann die Rangtransformations ins Spiel. *Eigentlich* ist die gesamte Nichtparametrik nur eine Rangtransformation auf der wir dann auch genauso gut dann einen t-Test oder eine ANOVA rechnen könnten. Dazu dann aber mehr in den jeweiligen Kapiteln zu den einzelnen nichtparametrischen Tests. Was ist also die Transformation? Wir geben einfach den sortierten Rang des Messwertes über alle Gruppen. Dann können wir auf dem rangierten Messwert weiterrechnen. In den folgenden Tabellen siehst du dann einmal die orginalen Sprungweiten gemessen in \[cm\] sowie deren rangierten Gegenstücke.
 
--   [Der Wilcoxon-Mann-Whitney-Test](#sec-utest)
--   [Der Kruskal-Wallis-Test](#sec-kruskal)
--   [Der Friedman Test](#sec-friedman)
+::: panel-tabset
+## Orginal
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-1fac-table-org
+#| tbl-cap: "Tabelle der orginalen Sprungweiten in [cm] als Messwert $y$ von Hunde-, Katzen- und Fuchsflöhen."
+
+fac1_tbl |> 
+  pivot_wider(values_from = jump_length,
+              names_from = animal,
+              values_fn = list) |> 
+  unnest(cols = everything() ) |> 
+  tt(width = 2/3, align = "c", theme = "striped")
+
+```
+
+## Rangiert
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-1fac-table-rang
+#| tbl-cap: "Tabelle der rangierten Sprungweiten als Messwert $y$ von Hunde-, Katzen- und Fuchsflöhen. Die Ränge haben keine Einheit mehr."
+
+fac1_tbl |> 
+  mutate(ranked = round(rank(jump_length))) |> 
+  select(animal, ranked) |> 
+  pivot_wider(values_from = ranked,
+              names_from = animal,
+              values_fn = list) |> 
+  unnest(cols = everything() ) |> 
+  tt(width = 2/3, align = "c", theme = "striped")
+```
+:::
+
+Traditionell würden wir jetzt in den Werkzeugkasten der nichtparametrischen Tests greifen. Hier nochmal die Verweise auf die entsprechenden Kapitel mit einer kurzen Beschreibung des nichtparametrischen Tests.
+
+-   [Der Wilcoxon-Mann-Whitney-Test](#sec-utest) oder auch U-Test ist der t-Test auf den Rängen eines Messwertes. Wir vergleichen hier zwei Gruppen miteinander. Wenn wir mehr Gruppen haben, die wir vergleichen wollen, dann brauchen wir mehrere paarweise Wilcoxon Tests um die signifikanten Unterschiede zu bestimmen.
+-   [Der Kruskal-Wallis-Test](#sec-kruskal) ist die einfaktorielle ANOVA auf den Rängen eines Messwertes. Wir vergleichen hier drei oder mehr Gruppen simultan miteinander. Wenn wir dann wissen wollen, welcher paarweise Vergleich signifikant ist, brauchen wir dann einen Posthoc-Test.
+-   [Der Friedman Test](#sec-friedman) ist *keine* zweifaktorielle ANOVA. Bitte einfach den Test sein lassen und vermeiden. Dann lieber eine zweifaktorielle ANOVA auf den Rängen des Messwerts rechnen als den Friedman Test zu verwenden. Mehr dazu dann im entsprechenden Kapitel zum Friedman Test.
+
+Wenn es nach mir ginge würden wir die nichtparametrische Statistik ruhen lassen und uns auf die parametrische Modellierung konzentrieren. Die parametrische Modellierung lösst auch viele Probleme und nur wenige Fallbeispiele fallen unter die unbedingte Anwendung der Nichtparametrik. Aber wie immer, es mag genau bei dir der Fall sein, dass deine wissenschaftliche Fragestellung mit der Nichtparametrik gelöst werden kann.
 
 ### Modellierung
 
-[Statistisches Modellieren](https://jkruppa.github.io/stat-modeling-preface.html)
+Dank des [statistisches Modellieren](https://jkruppa.github.io/stat-modeling-preface.html) können wir viel machen, wenn unser Messwert nicht normalverteilt ist oder aber wir Varianzheterogenität in den Gruppen oder beides in den Gruppen vorliegen haben. Daher würde ich immer das Modellieren der Transformation vorziehen.
 
-#### `glm()` {.unnumbered .unlisted}
+#### Keine Normalverteilung {.unnumbered .unlisted}
 
-Es gibt mehr als nur die Normalverteilung, die wir modellieren können.
+Im Folgenden nochmal die Übersicht möglicher Verteilungen, die dein Messwert folgen könnte je nachdem was du gemessen hast. Dann musst du in den entsprechenden Kapiteln einmal reinschauen. Es muss also nicht immer die Normalverteilung sein, obwohl diese natürlich einiges an Vorzügen hat. Am Meisten vermutlich, dass jeder versteht was ein Mittelwert ist und somit die Effekte als Mittelwertsdifferenzen auch gut zu kommunizieren sind.
 
-#### R Paket `{performance}` {.unnumbered .unlisted}
+| Verteilung | Outcome $\boldsymbol{y}$ | Beispiel |
+|----|----|----|
+| Gaussian / Normal | Kontinuierliche Kommazahlen | Größe; Gewicht; Höhe; Durchmesser |
+| Poisson | Kontinuierliche Zähldaten | Anzahl Insekten; Anzahl Läsionen; Anzahl Früchte |
+| Beta | Wahrscheinlichkeitswerte zwischen $[0,1]$ | Keimungsfähigkeit \[%\]; Jagderfolg \[%\]; Grünbedeckung \[%\] |
+| Ordinal | Kategorielle Messwerte | Noten auf der Likert-Skala |
+| Binomial | Kategorielle Messwerte $0/1$ | Infiziert \[ja/nein\]; Beschädigt \[ja/nein\] |
 
-Wenn du noch etwas weiter gehen möchtest, dann kannst du dir noch die Hilfeseite von dem R Paket `{performance}` [Robust Estimation of Standard Errors, Confidence Intervals, and p-values](https://easystats.github.io/parameters/articles/model_parameters_robust.html?q=Heteroskedasticity#robust-covariance-matrix-estimation-from-model-parameters) anschauen. Die Idee ist hier, dass wir die Varianz/Kovarianz robuster daher mit der Berücksichtigung von Varianzheterogenität (eng. *heteroskedasticity*) schätzen.
+: Mögliche Verteilungen und deren Messwerte als Outcomes zusammen mit einigen möglichen Beispielen. {#tbl-verteilung-übersicht}
+
+Hier sei dann nur kurz erwähnt, dass du über die Funkion `glm()` viele dieser Modellierungen als simple oder multiple Regression abbilden kannst. Die Modelle lassen sich dann in `{emmeans}` für die Gruppeneffekte dann einfach testen. Nur in wenigen Ausnahmen ist keine ANOVA möglich und selbst in diesen selten Fällen gibt es auch nocht im [Kapitel zur ANOVA](#sec-anova) Vorschläge von mir wie das R Paket `{WRS2}`. Mehr dazu dann aber im ANOVA Kapitel mit Beispielen und Anwendungen. Am Ende knnst du dir auch überlegen, ob du nicht eine [nicht lineare Regression](#sec-non-linear) ausprobieren willst, um deine Zusammenhänge darzustellen. Wie du siehst, gibt es in der parametrischen Statistik eine Menge Lösungen für nicht normalverteilte Messwerte.
+
+#### Varianzheterogenität {.unnumbered .unlisted}
+
+Wenn wir es mir der Varianzheterogenität zu tun haben, dann haben wir eine reichhalte Fülle an Möglichkeiten mit der Varianzheterogenität in den Gruppen umzugehen. Dafür können wir entweder das Modell über die Funktion `gls()` aus dem R Paket `{nlme}` direkt anpassen. Oder aber wir nutzen die Funktion `model_parameters()` um nach Fit das Modell für Varianzheterogenität zu adjustieren. Oder aber wir machen es dann eben in dem multiplen Vergleich direlt in der Funktion `emmeans()` aus dem R Paket `{emmeans}`. Bitte mach nur eins davon. Du brauchst nicht alles drei zu machen, davon wird nichts besser. Ich mache häufig erst die Adjustierung für die Vrainzheterogenität in `{emmeans}` aber das hat eher prozessuale Gründe als wirklich inhaltliche.
+
+::: panel-tabset
+## `{nlme}`
+
+In dem R Paket `{nlme}` können wir die Funktion `gls()` nutzen um für jede Faktorkombination eine eigene Varianz zu schätzen. Damit können wir dann für die Varianzheterogenität in den Gruppen adjustieren.
 
 ```{r}
-fit_fac2 <- lm(jump_length ~ animal + sex + animal:sex, data = fac2_tbl)
+gls_fit <- gls(jump_length ~ animal + sex + animal:sex, data = fac2_tbl,
+               weights = varIdent(form = ~ 1 | animal*sex))
 ```
 
+Wir du siehst unterscheidet sich die Varianz als Fehler `SE` in den Koeffizienten der Regression innerhalb der Level der Faktoren. Mit diesem Modell können wir dann weiterechnen, wenn wir einen Posthoc-Tests durchführen wollten.
+
 ```{r}
-fit_fac2 |> 
+gls_fit |> 
   model_parameters()
 ```
 
+Im PRinzip rechnest du hier eine klassiche Gaussian Regression nur ohne die Annahme der Varianzhomogenität. Jetzt könnte man fragen, warum man überhaupt mit der Annahme der Varianzhomogenität rechnt und nicht immer `gls()` nutzt, das hat aber mit der Geschichte der Entwicklung zu tun. Die Implementierung der Funktion`gls()` gibt es erst einen Bruchteil der Zeit wie es die normale Regression gibt.
+
+## `{performance}`
+
+Zuerst brauchen wir eine normale Modellanpassung in der wir dann eine Normalverteilung und homogene Varianzen annehmen. Erst danach werden wir dann für eine potenzielle Varianzheterogenität adustieren.
+
 ```{r}
-fit_fac2 |> 
+performance_fit <- lm(jump_length ~ animal + sex + animal:sex, data = fac2_tbl)
+```
+
+Wenn wir nach dem Fit des Modells für die Varianzheterogenität adjustieren wollen, dann nutzen wir die Funktion `model_parameters()` und setzen die Option `vcov` noch auf `HC3` und können damit dann Fehler erhalten, die sich über die Koeffizienten in den Leveln der Faktoren entsprechend unterscheiden.
+
+```{r}
+performance_fit |> 
   model_parameters(vcov = "HC3")
 ```
 
-#### R Paket `{emmeans}` {.unnumbered .unlisted}
+Wenn du noch etwas weiter gehen möchtest, dann kannst du dir noch die Hilfeseite von dem R Paket `{performance}` [Robust Estimation of Standard Errors, Confidence Intervals, and p-values](https://easystats.github.io/parameters/articles/model_parameters_robust.html?q=Heteroskedasticity#robust-covariance-matrix-estimation-from-model-parameters) anschauen. Die Idee ist hier, dass wir die Varianz/Kovarianz robuster daher mit der Berücksichtigung von Varianzheterogenität (eng. *heteroskedasticity*) schätzen.
+
+## `{emmeans}`
+
+Dann kommen wir noch zu `{emmeans}`. Hier bauen wir wieder unser Modell in dem wir dann eine Normalverteilung und homogene Varianzen annehmen.
 
 ```{r}
-fit_fac2 |>
+emmeans_fit <- lm(jump_length ~ animal + sex + animal:sex, data = fac2_tbl)
+```
+
+Die eigentlich Anpassung erfolgt dann direkt in `{emmeans}`, wo wir dann über die Option `vcov.` eine entsprechende Anpassung auswählen können. Ich wähle hier meistens den Standard mit `vcovHAC`. Jede Faktorkombination hat jetzt seine eigene Varianz dargestellt und den Standardfehler `SE` in der Ausgabe von `emmeans()`. Ohne diese Adjustierung wäre der Standardfehler in allen Gruppen gleich.
+
+```{r}
+emmeans_fit |>
   emmeans(~ animal * sex, vcov. = sandwich::vcovHAC)
 ```
-
-#### R Paket `{nlme}` {.unnumbered .unlisted}
-
-```{r}
-fit_fac2 <- gls(jump_length ~ animal + sex + animal:sex, data = fac2_tbl,
-                weights = varIdent(form = ~ 1 | animal*sex))
-```
-
-```{r}
-fit_fac2 |> 
-  model_parameters()
-```
+:::
 
 ## Referenzen {.unnumbered}
