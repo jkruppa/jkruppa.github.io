@@ -1,5 +1,20 @@
 ```{r echo = FALSE}
-pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
+#| message: false
+#| warning: false
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, performance, parameters,
+               latex2exp, see, patchwork, mfp, multcomp, emmeans, janitor, effectsize,
+               broom, ggmosaic, tinytable, ggrepel, tidyplots,
+               conflicted)
+conflicts_prefer(dplyr::select)
+conflicts_prefer(dplyr::filter)
+cb_pal <- c("#000000", "#E69F00", "#56B4E9", 
+            "#009E73", "#F0E442", "#F5C710", 
+            "#0072B2", "#D55E00", "#CC79A7")
+cbbPalette <- cb_pal
+## data
+fac1_tbl <- read_excel("data/flea_dog_cat.xlsx") |> 
+  select(animal, jump_length) |> 
+  mutate(animal = as_factor(animal))
 ```
 
 # Der U-Test {#sec-utest}
@@ -28,6 +43,30 @@ Was ist jetzt der Unterschied zwischen einem Wilcoxon-Mann-Whitney-Test und eine
 > *"foo." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
 :::
 
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-ggplot-utest-intro
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 4
+#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
+
+tidyplot(data = fac1_tbl, 
+         x = animal, y = jump_length, color = animal) |> 
+  add_data_points() |>
+  add_mean_bar(alpha = 0.4) |> 
+  add_sd_errorbar(width = 0.2) |>
+  add_test_pvalue(method = "wilcox_test", hide_info = FALSE) |>
+  remove_legend() |> 
+  adjust_font(fontsize = 10) |>
+  adjust_x_axis_title("Flohart") |>
+  adjust_y_axis_title("Sprungweite in [cm]") |> 
+  rename_x_axis_labels(new_names = c("dog" = "Hund", "cat" = "Katze")) |> 
+  adjust_size(width = NA, height = NA) 
+```
+
 ## Probleme
 
 ### Geringe Fallzahl
@@ -41,46 +80,119 @@ Der Wilcoxon-Mann-Whitney-Test ist die *nicht-parametrische* Variante in dem wir
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
-pacman::p_load(tidyverse, magrittr, broom, 
-               readxl, coin)
+pacman::p_load(tidyverse, magrittr, broom, tidyplots, rstatix,
+               readxl, coin, ggpubr, 
+               conflicted)
+conflicts_prefer(rstatix::wilcox_test)
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
 
 ## Daten
 
-Bindungen (eng. *ties*) in den Daten sind ein Problem und müssen beachtet werden. Das heißt, wenn es gleiche Zahlen in den Gruppen gibt.{.aside}
-
-Für die Veranschaulichung des Wilcoxon-Mann-Whitney-Test nehmen wir ein simples Beispiel. Wir nehmen ein nicht normalverteiltes $y$ aus den Datensatz `flea_dog_cat_fox.csv` und einen Faktor mit mehr als zwei Leveln. Wir nehmen hierbei an, dass die Sprunglänge jetzt mal nicht normalverteilt ist. Später sind es Boniturnoten, die definitiv nicht normalverteilt sind. Aber mit der Sprunglänge ist das Beispiel einfacher nachzuvollziehen. Darüber hinaus haben wir so keine Bindungen in den Daten. Bindungen (eng. *ties*) heißt, dass wir die numerisch gleichen Zahlen in beiden Gruppen haben.
-
-Im Folgenden selektieren mit der Funktion `select()` die beiden Spalten `jump_length` als $y$ und die Spalte `animal` als $x$. Danach müssen wir noch die Variable `animal` in einen Faktor mit der Funktion `as_factor()` umwandeln. Wir nehmen in diesem Beispiel an, dass die Variable `jump_length` nicht normalverteilt ist.
+#### Unabhängige Messungen {.unnumbered .unlisted}
 
 ```{r}
 #| message: false
 
-data_tbl <- read_excel("data/flea_dog_cat.xlsx") |> 
-  select(animal, jump_length, grade) |> 
+fac1_tbl <- read_excel("data/flea_dog_cat.xlsx") |> 
+  select(animal, jump_length) |> 
   mutate(animal = as_factor(animal))
 ```
 
-Wir erhalten das Objekt `data_tbl` mit dem Datensatz in @tbl-data-utest-1 nochmal dargestellt.
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-1fac-table
+#| tbl-cap: "Tabelle der Sprungweiten in [cm] als Messwert $y$ von Hunde-, Katzen- und Fuchsflöhen. Der Datensatz ist einfaktoriell, da wir nur einen Faktor vorliegen haben."
+
+fac1_raw_tbl <- read_xlsx("data/flea_dog_cat.xlsx") |>
+  select(animal, jump_length) 
+
+rbind(head(fac1_raw_tbl, n = 3),
+      rep("...", times = ncol(fac1_raw_tbl)),
+      tail(fac1_raw_tbl, n = 3)) |> 
+  tt(width = 2/3, align = "c", theme = "striped")
+```
 
 ```{r}
 #| message: false
 #| echo: false
-#| tbl-cap: Selektierter Datensatz für den Wilcoxon-Mann-Whitney-Test mit einer nicht-normalverteilten Variable `jump_length` und einem Faktor `animal` mit zwei Leveln.
-#| label: tbl-data-utest-1
+#| warning: false
+#| label: fig-ggplot-utest-jump
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 8
+#| fig-cap: "Darstellung der Sprungweiten in [cm] gruppiert nach Hunde- und Katzenflöhen. Die graue Raute stellt den entsprechnenden Mittelwert der Sprungweiten dar. **(A)** Einfaktorieller Boxplot. **(B)** Violinplot mit Dotplot. *[Zum Vergrößern anklicken]*"
 
-data_tbl |> kable(align = "c", "pipe")
+p1 <- ggplot(data = fac1_tbl, 
+       aes(x = animal, y = jump_length, fill = animal)) +
+  theme_minimal() +
+  geom_boxplot() +
+  stat_summary(fun.y = mean, geom = "point", 
+               shape=23, size = 3, fill = "gray50") +
+  labs(x = "Flohart", y = "Sprungweite in [cm]") +
+  theme(legend.position = "none") + 
+  scale_fill_okabeito() 
+
+
+p2 <- ggplot(data = fac1_tbl, 
+       aes(x = animal, y = jump_length, fill = animal)) +
+  theme_minimal() +
+  geom_violindot(dots_size = 7, trim = FALSE) +
+  stat_summary(fun.y = mean, geom = "point", 
+               shape=23, size = 3, fill = "gray50") +
+  labs(x = "Flohart", y = "Sprungweite in [cm]") +
+  theme(legend.position = "none") + 
+  scale_fill_okabeito() 
+
+p1 + p2 +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
 
-Wir bauen daher mit den beiden Variablen mit dem Objekt `data_tbl` folgendes Modell für später:
+#### Abhängige Messungen {.unnumbered .unlisted}
 
-$$
-jump\_length \sim animal
-$$
+```{r}
+#| message: false
 
-Bevor wir jetzt das Modell verwenden, müssen wir uns nochmal überlegen, welchen Schluß wir eigentlich über die Nullhypothese machen. Wie immer können wir nur die Nullhypothese ablehnen. Daher überlegen wir uns im Folgenden wie die Nullhypothese in dem Wilcoxon-Mann-Whitney-Test aussieht. Dann bilden wir anhand der Nullhypothese noch die Alternativehypothese.
+paired_tbl <- read_excel("data/flea_dog_cat_repeated.xlsx") 
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: "Tabelle  der Sprunglängen [cm] von fünf Hundeflöhen zu zwei Zeitpunkten. Einmal wurde die Sprungweite mit den hungrigen Flöhen und einmal mit den gleichen satten Flöhen bestimmt."
+#| label: tbl-data-ttest-paired
+
+paired_tbl |> 
+  tt(width = 2/3, align = "c", theme = "striped")
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "Dotplot der Sprungweiten [cm] für Hundeflöhe in zwei verschiedenen Ernährungszuständen gemessen an zwei Zeitpunkten. Die Linien verbinden die Messung an dem gleichen Floh."
+#| label: fig-example-paired
+
+paired_tbl |> 
+  pivot_longer(cols = hungrig:satt,
+               values_to = "jump_length",
+               names_to = "trt") |> 
+ggplot(aes(trt, jump_length, fill = trt)) +
+  theme_minimal() +
+  geom_line(aes(group = id), color = "gray50") +
+  geom_point(shape = 21, size = 4) +
+  scale_fill_okabeito() +
+  theme(legend.position = "none") +
+  labs(x = "Ernährungszustand",
+       y = "Sprungweite in [cm]")
+```
 
 ## Hypothesen
 
@@ -191,7 +303,7 @@ Die Nutzung des Wilcoxon-Mann-Whitney-Test in R ist relativ einfach mit der Funk
 Ohne Bindungen können wir die Funktion `wilxoc.test()` nutzen. Die Funktion benötigt das Modell in `formula` Syntax in der Form `jump_length ~ animal`. Wir geben noch an, dass wir die 95% Konfidenzintervalle wiedergegeben haben wollen.
 
 ```{r}
-wilcox.test(jump_length ~ animal, data = data_tbl, 
+wilcox.test(jump_length ~ animal, data = fac1_tbl, 
             conf.int = TRUE)
 ```
 
@@ -202,7 +314,7 @@ Wir sehen das der Wilcoxon-Mann-Whitney-Test ein signifikantes Ergebnis liefert,
 Mit Bindungen können wir die Funktion `wilxoc_test()` aus dem R Paket `{coin}` nutzen. Wir nutzen hier als $y$ die Boniturnoten `grade` der Hunde und Katzen. Die Funktion benötigt das Modell in `formula` Syntax in der Form `grade ~ animal`. Wir geben noch an, dass wir die 95% Konfidenzintervalle wiedergegeben haben wollen. Wenn du die Funktion `wilcox.test()` nutzen würdest, würde dir R eine Warnung ausgeben: `Warning: cannot compute exact p-value with ties`. Du wüsstest dann, dass du die Funktion wechseln musst.
 
 ```{r}
-wilcox_test(grade ~ animal, data = data_tbl, 
+coin::wilcox_test(jump_length ~ animal, data = fac1_tbl, 
             conf.int = TRUE) 
 ```
 
@@ -251,3 +363,124 @@ wilcox.test(jump_length ~ animal, data = small_tbl)
 ```
 
 Wir sehen hier ein schönes Beispiel für die Begrenztheit von Algorithmen und mathematischen Formeln. Es gibt einen Unterschied, aber der Wilcoxon-Mann-Whitney-Test ist technisch nicht in der Lage einen Unterschied nochzuweisen. Daher solltest du immer versuchen die Ergebnisse eines Testes mit einer Abbildung zu überprüfen.
+
+## Verbundener U-Test mit abhängigen Beobachtungen
+
+## Ergebnisse mit `{tidyplots}`
+
+Häufig wollen wir nicht nur den p-Wert aus einem t-Test berichten sondern natürlich auch gleich die richtige Abbildung dazu haben. Hier gibt es mit dem R Paket `{tidyplots}` eine gute Möglichkeit. Das R Paket verbindet dabei die Funktionalität von `{ggplot}` und `{ggpubr}`. Dabei bleibt es aber dann sehr einfahc zu bedienen. Insbesondere in dem Fall, dass du nur zwei Gruppen in einem t-Test miteinander vergleichen willst.
+
+::: callout-tip
+## Alternativen zu `{tidyplots}`
+
+Das R Paket `{ggpubr}` bietet auch noch andere Alternativen für die Darstellung von statistischen Vergleichen in deinen Daten unter [ggpubr: ‘ggplot2’ Based Publication Ready Plots](https://rpkgs.datanovia.com/ggpubr/). Vielleicht findest du da auch noch eine bessere Abbildung als hier. Da wir hier sehr viel ähnliches haben, bleibe ich bei `{tidyplots}`.
+:::
+
+Neben den p-Werten, die ich hier mit der Funktion `add_test_pvalue()` ergänze kannst du auch Sterne mit der Funktion `add_test_asterisks()` nutzen. Das liegt dann ganz bei dir. Es geibt auch die Möglichkeit nicht signifikante Ergebnisse auszublenden. Mehr dazu findest du dann auf der [Hilfeseite zu den statistischen Vergleichen in `{tidyplots}`](https://jbengler.github.io/tidyplots/articles/Visualizing-data.html#statistical-comparison). Ich zeige hier dir nur die Standardanwendung. Wichtig ist auch zu wissen, dass wir immer einen Welch t-Test rechnen, also immer für die Varianzheterogenität adjustieren. Das ist auch eigentlich die bessere Variante als der Student t-Test. Häufig ist es sehr schwer in kleinen Fallzahlen abzuschätzen wie die Varianzen in den Gruppen sind. Dann lieber gleich richtig adjsutieren und auf der sicheren Seite sein.
+
+::: panel-tabset
+## Barplot
+
+Die Standardabbildung ist sicherlich der Barplot zusammen mit der Standardabweichung als Fehlerbalken. Dann habe ich noch die einzelnen Beobachtungen ergänzt. Die Klammer über den beiden Säulen gibt den Vergleich an und die Zahl ist der p-Wert aus einem Welch t-Test. Wir sehen hier, dass sich die beiden Floharten in den Sprungweiten signifikant unterscheiden. Der p-Wert ist kleiner als das Signifikanzniveau $\alpha$ gleich 5%.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-tidyplot-barplot-ttest
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 3.5
+#| fig-cap: "Einfaktorieller Barplot für die Sprungweiten in [cm] gruppiert nach den Floharten mit mehr Optionen und angepassten Beschriftungen sowie den p-Wert aus einem Welch t-Test."
+
+tidyplot(data = fac1_tbl, 
+         x = animal, y = jump_length, color = animal) |> 
+  add_data_points() |>
+  add_mean_bar(alpha = 0.4, width = 0.4) |> 
+  add_sd_errorbar(width = 0.2) |> 
+  add_test_pvalue(method = "wilcox_test", hide_info = TRUE) |>
+  remove_legend() |> 
+  adjust_font(fontsize = 9) |>
+  adjust_x_axis_title("Flohart") |>
+  adjust_y_axis_title("Sprungweite in [cm]") |> 
+  rename_x_axis_labels(new_names = c("dog" = "Hund", "cat" = "Katze")) |> 
+  adjust_size(width = NA, height = NA) 
+```
+
+## Boxplot
+
+Es gibt auch gute Gründe ienmal den Boxplot zu wählen, wenn wir etwas besser die Verteilung der Sprungweiten darstellen wollen. Ich habe dann noch die einzelnen Beobachtungen ergänzt. Die Klammer über den beiden Säulen gibt den Vergleich an und die Zahl ist der p-Wert aus einem Welch t-Test. Wir sehen hier, dass sich die beiden Floharten in den Sprungweiten signifikant unterscheiden. Der p-Wert ist kleiner als das Signifikanzniveau $\alpha$ gleich 5%.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-tidyplot-boxplot-ttest
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 3.5
+#| fig-cap: "Einfaktorieller Boxplot für die Sprungweiten in [cm] gruppiert nach den Floharten mit mehr Optionen und angepassten Beschriftungen sowie den p-Wert aus einem Welch t-Test."
+
+tidyplot(data = fac1_tbl, 
+         x = animal, y = jump_length, color = animal) |> 
+  add_data_points() |>
+  add_boxplot(alpha = 0.4, box_width = 0.3) |> 
+  add_test_pvalue(method = "wilcox_test", hide_info = TRUE) |> 
+  remove_legend() |> 
+  adjust_font(fontsize = 9) |>
+  adjust_x_axis_title("Flohart") |>
+  adjust_y_axis_title("Sprungweite in [cm]") |> 
+  rename_x_axis_labels(new_names = c("dog" = "Hund", "cat" = "Katze")) |> 
+  adjust_size(width = NA, height = NA) 
+```
+
+## Gepaarter Dotplot
+
+Am Ende wollen wir uns dann nochmal den gepaarten t-Test anschauen. Hier ist dann die Abbildung realtiv einfach. Wir können da die Daten `paired_tbl` aus dem gepaarten t-Test nutzen nachdem wir die Daten in das Long-Format überführt haben. Etwas schwieriger ist dann der p-Wert, den p-Wert müssen wir dann erst selber errechnen und dann ergänzen. Also fangen wir einmal an die Daten in das Long-Format zu überführen.
+
+```{r}
+paired_long_tbl <- paired_tbl |> 
+  pivot_longer(cols = satt:hungrig,
+               values_to = "jump_length",
+               names_to = "trt")
+```
+
+Jetzt können wir den gepaarten t-Test rechnen und zwar aus dem R Paket `{rstatix}`. Dann müssen wir noch alles so umbauen, dass wir die Informationen dann in `{tidyplots}` auch nutzen können.
+
+```{r}
+stats_tbl <- paired_long_tbl |> 
+  arrange(id) |> 
+  wilcox_test(jump_length ~ trt, paired = TRUE) |> 
+  add_significance() |> 
+  add_xy_position()
+```
+
+Wir butzen hier die Funktion `stat_pvalue_manual()` um händisch die p-Werte zu den Dotplot mit den Mittelwert und Standardabweichung zu ergänzen. Die Verbindungen zwischen den Beobachtungen haben wir dann durch `add_line()` erzeugt. Ich gebe zu, dass ist etwas komplizierter. Wenn du dann die Sterne haben willst, dann musst due das Label auf `"p.signif"` setzen. Dann werden statt der p-Werte `"p"` dir die Sterne `*` angezeigt. Wir sehen hier, dass sich die beiden Fütterungslevel in den Sprungweiten signifikant unterscheiden. Der p-Wert ist kleiner als das Signifikanzniveau $\alpha$ gleich 5%.
+
+```{r}
+#| message: false
+#| echo: true
+#| warning: false
+#| label: fig-tidyplot-barplot-ttest-paired
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 3.5
+#| fig-cap: "Dotplot mit Mittelwert und Standardabweichung für die Sprungweiten in [cm] gruppiert nach den Floharten mit mehr Optionen und angepassten Beschriftungen sowie den p-Wert aus einem paired t-Test. Gleiche Messungen an gleichen Flöhen sind mit einer Linie verbunden."
+
+paired_long_tbl |> 
+  tidyplot(x = trt, y = jump_length, color = trt, fill = NA) |> 
+  add_line(group = id, color = "grey") |> 
+  add_data_points() |>
+  add_mean_dash(width = 0.2) |> 
+  add_sd_errorbar(width = 0.2) |> 
+  add(stat_pvalue_manual(stats_tbl, size = 7/.pt, label = "p",
+                         bracket.nudge.y = 0.1)) |> 
+  remove_legend() |> 
+  adjust_font(fontsize = 9) |>
+  adjust_x_axis_title("Fütterung") |>
+  adjust_y_axis_title("Sprungweite in [cm]") |> 
+  reorder_x_axis_labels("hungrig", "satt") |>  
+  rename_x_axis_labels(new_names = c("satt" = "gefüttert", "hungrig" = "ungefüttert")) |>
+  adjust_size(width = NA, height = NA) 
+```
+:::
