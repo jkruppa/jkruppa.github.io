@@ -846,7 +846,10 @@ window.Quarto = {
     <h2 id="toc-title">Inhaltsverzeichnis</h2>
    
   <ul>
-  <li><a href="#friedman-welch" id="toc-friedman-welch" class="nav-link active" data-scroll-target="#friedman-welch">Friedman &amp; Welch</a></li>
+  <li><a href="#mixed-data" id="toc-mixed-data" class="nav-link active" data-scroll-target="#mixed-data">Mixed data</a></li>
+  <li><a href="#concordance-correlation-coefficient-ccc" id="toc-concordance-correlation-coefficient-ccc" class="nav-link" data-scroll-target="#concordance-correlation-coefficient-ccc">Concordance Correlation Coefficient (CCC)</a></li>
+  <li><a href="#sql-als-dbplyr" id="toc-sql-als-dbplyr" class="nav-link" data-scroll-target="#sql-als-dbplyr"><span class="header-section-number">80.1</span> SQL als <code>{dbplyr}</code>?</a></li>
+  <li><a href="#friedman-welch" id="toc-friedman-welch" class="nav-link" data-scroll-target="#friedman-welch">Friedman &amp; Welch</a></li>
   <li><a href="#tabset" id="toc-tabset" class="nav-link" data-scroll-target="#tabset">Tabset</a></li>
   <li><a href="#abbilungen" id="toc-abbilungen" class="nav-link" data-scroll-target="#abbilungen">Abbilungen</a></li>
   <li><a href="#offene-ideen-wartungsarbeiten" id="toc-offene-ideen-wartungsarbeiten" class="nav-link" data-scroll-target="#offene-ideen-wartungsarbeiten">Offene Ideen &amp; Wartungsarbeiten</a></li>
@@ -887,11 +890,166 @@ window.Quarto = {
 </header>
 
 
-<p><em>Letzte Änderung am 26. May 2025 um 21:09:07</em></p>
+<p><em>Letzte Änderung am 02. June 2025 um 09:46:20</em></p>
 <blockquote class="blockquote">
 <p><em>“Denn, um es endlich auf einmal herauszusagen, der Mensch spielt nur, wo er in voller Bedeutung des Worts Mensch ist, und er ist nur da ganz Mensch, wo er spielt.” — Friedrich Schiller</em></p>
 </blockquote>
 <p>Dieses Kapitel ist <em>meine Spielecke</em>, wo ich Ideen und sonst so Zeug sammele, was mir über den Weg läuft und ich noch nicht so richtig weiter im Skript eingeordnet habe. Deshalb hat das hier auch keine Struktur, da mir die Gedanken eben auch noch wirr durch den Kopf geistern.</p>
+<section id="mixed-data" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="mixed-data">Mixed data</h2>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="images/eda/zerforschen_correlation_01.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-1"><img src="images/eda/zerforschen_correlation_01.jpg" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:100.0%"></a></p>
+</figure>
+</div>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="images/eda/zerforschen_mixed_anova.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-2"><img src="images/eda/zerforschen_mixed_anova.jpg" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:100.0%"></a></p>
+</figure>
+</div>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>R Code [zeigen / verbergen]</summary>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(ggshadow)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>o2_tbl <span class="ot">&lt;-</span> <span class="fu">read_excel</span>(<span class="st">"data/sauerstoffmangel.xlsx"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> t0_height<span class="sc">:</span><span class="fu">last_col</span>(),</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>               <span class="at">values_to =</span> <span class="st">"height"</span>,</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>               <span class="at">names_to =</span> <span class="fu">c</span>(<span class="st">"time"</span>, <span class="st">"outcome"</span>),</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>               <span class="at">names_sep =</span> <span class="st">"_"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">light =</span> <span class="fu">as_factor</span>(light),</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>         <span class="at">water_level =</span> <span class="fu">as_factor</span>(water_level),</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>         <span class="at">time_fct =</span> <span class="fu">as_factor</span>(time),</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>         <span class="at">time_num =</span> <span class="fu">as.numeric</span>(time_fct) <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(id, light, water_level, time_fct, time_num, height)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell" data-layout-align="center">
+<details open="" class="code-fold">
+<summary>R Code [zeigen / verbergen]</summary>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(o2_tbl, <span class="fu">aes</span>(time_num, height, <span class="at">linetype =</span> light, <span class="at">color =</span> water_level)) <span class="sc">+</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="fu">aes</span>(<span class="at">group =</span> light), <span class="at">func =</span> <span class="st">"mean"</span>, <span class="at">geom =</span> <span class="st">"line"</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>               <span class="at">size =</span> <span class="dv">4</span>, <span class="at">show.legend =</span> <span class="cn">FALSE</span>, <span class="at">alpha =</span> <span class="fl">0.2</span>) <span class="sc">+</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="fu">aes</span>(<span class="at">group =</span> water_level), <span class="at">func =</span> <span class="st">"mean"</span>, <span class="at">geom =</span> <span class="st">"line"</span>,</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>               <span class="at">size =</span> <span class="dv">4</span>, <span class="at">show.legend =</span> <span class="cn">FALSE</span>, <span class="at">alpha =</span> <span class="fl">0.2</span>) <span class="sc">+</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="at">func =</span> <span class="st">"mean"</span>, <span class="at">geom =</span> <span class="st">"line"</span>, <span class="at">linewidth =</span> <span class="dv">2</span>) </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div id="fig-anwendung-o2-01" class="quarto-float quarto-figure quarto-figure-center anchored" data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-anwendung-o2-01-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="app-spielecke_files/figure-html/fig-anwendung-o2-01-1.png" class="lightbox" data-gallery="quarto-lightbox-gallery-3" title="Abbildung&nbsp;80.1— Boxplot des Fruchtwachstums von fünfzehn Tomatensorten über zehn Wochen unter Trockenstress."><img src="app-spielecke_files/figure-html/fig-anwendung-o2-01-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="768"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-anwendung-o2-01-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Abbildung&nbsp;80.1— Boxplot des Fruchtwachstums von fünfzehn Tomatensorten über zehn Wochen unter Trockenstress.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>R Code [zeigen / verbergen]</summary>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>tomato_tbl <span class="ot">&lt;-</span> <span class="fu">read_excel</span>(<span class="st">"data/repeated_tomato.xlsx"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clean_names</span>() <span class="sc">|&gt;</span> </span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">variety =</span> <span class="fu">relevel</span>(<span class="fu">as_factor</span>(variety), <span class="at">ref =</span> <span class="st">"control"</span>),</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>         <span class="at">time_fct =</span> <span class="fu">as_factor</span>(time))</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell" data-layout-align="center">
+<details open="" class="code-fold">
+<summary>R Code [zeigen / verbergen]</summary>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(tomato_tbl, </span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>       <span class="fu">aes</span>(time_fct, diameter, <span class="at">fill =</span> variety)) <span class="sc">+</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>(<span class="at">outlier.size =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"top"</span>) <span class="sc">+</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_metro</span>() <span class="sc">+</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Zeitpunkte der Messung"</span>, <span class="at">y =</span> <span class="st">"Mittleres Fruchtdurchmesser [cm]"</span>,</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>       <span class="at">color =</span> <span class="st">"Sorte"</span>)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div id="fig-anwendung-tomato-01" class="quarto-float quarto-figure quarto-figure-center anchored" data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-anwendung-tomato-01-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="app-spielecke_files/figure-html/fig-anwendung-tomato-01-1.png" class="lightbox" data-gallery="quarto-lightbox-gallery-4" title="Abbildung&nbsp;80.2— Boxplot des Fruchtwachstums von fünfzehn Tomatensorten über zehn Wochen unter Trockenstress."><img src="app-spielecke_files/figure-html/fig-anwendung-tomato-01-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="768"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-anwendung-tomato-01-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Abbildung&nbsp;80.2— Boxplot des Fruchtwachstums von fünfzehn Tomatensorten über zehn Wochen unter Trockenstress.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell" data-layout-align="center">
+<details open="" class="code-fold">
+<summary>R Code [zeigen / verbergen]</summary>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>ggrepel_tbl <span class="ot">&lt;-</span> tomato_tbl <span class="sc">|&gt;</span> </span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(time, variety) <span class="sc">|&gt;</span> </span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">mean =</span> <span class="fu">mean</span>(diameter, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">|&gt;</span> </span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(time <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">11</span>))</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(tomato_tbl, </span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>       <span class="fu">aes</span>(time, diameter, <span class="at">color =</span> variety, </span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>           <span class="at">group =</span> variety)) <span class="sc">+</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  <span class="do">## geom_point2(position = position_dodge(0.5)) +</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="at">fun =</span> <span class="st">"mean"</span>, <span class="at">geom =</span> <span class="st">"line"</span>) <span class="sc">+</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="at">fun =</span> <span class="st">"mean"</span>, <span class="at">geom =</span> <span class="st">"point"</span>, <span class="at">size =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>  <span class="do">## stat_summary(fun = "median", geom = "line", linetype = 2) +</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_metro</span>() <span class="sc">+</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"top"</span>) <span class="sc">+</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">breaks =</span> <span class="dv">2</span><span class="sc">:</span><span class="dv">11</span>, <span class="at">expand =</span> <span class="fu">expansion</span>(<span class="at">mult =</span> <span class="fu">c</span>(<span class="fl">0.1</span>, .<span class="dv">1</span>))) <span class="sc">+</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Zeitpunkte der Messung"</span>, <span class="at">y =</span> <span class="st">"Mittleres Fruchtdurchmesser [cm]"</span>,</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>       <span class="at">color =</span> <span class="st">"Sorte"</span>) <span class="sc">+</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text_repel</span>(<span class="at">data =</span> ggrepel_tbl, <span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">11</span>, <span class="at">y =</span> mean, <span class="at">label =</span> variety), <span class="at">show.legend =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>                  <span class="at">nudge_x =</span> <span class="fl">0.5</span>, <span class="at">hjust =</span> <span class="st">"left"</span>, <span class="at">size =</span> <span class="dv">3</span>, <span class="at">segment.color =</span> <span class="st">"gray80"</span>)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div id="fig-anwendung-tomato-02" class="quarto-float quarto-figure quarto-figure-center anchored" data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-anwendung-tomato-02-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="app-spielecke_files/figure-html/fig-anwendung-tomato-02-1.png" class="lightbox" data-gallery="quarto-lightbox-gallery-5" title="Abbildung&nbsp;80.3— Das Fruchtwachstum von fünfzehn Tomatensorten über zehn Wochen unter Trockenstress."><img src="app-spielecke_files/figure-html/fig-anwendung-tomato-02-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="768"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-anwendung-tomato-02-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Abbildung&nbsp;80.3— Das Fruchtwachstum von fünfzehn Tomatensorten über zehn Wochen unter Trockenstress.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="concordance-correlation-coefficient-ccc" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="concordance-correlation-coefficient-ccc">Concordance Correlation Coefficient (CCC)</h2>
+<p><em>Kann auch in technische Gleichheit mit rein</em></p>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>R Code [zeigen / verbergen]</summary>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>nirs_wide_tbl <span class="ot">&lt;-</span> <span class="fu">read_excel</span>(<span class="st">"data/nirs_qs_data.xlsx"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clean_names</span>()</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>nirs_long_tbl <span class="ot">&lt;-</span> nirs_wide_tbl <span class="sc">|&gt;</span> </span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> jd_ts<span class="sc">:</span><span class="fu">last_col</span>(),</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>               <span class="at">values_to =</span> <span class="st">"values"</span>,</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>               <span class="at">names_to =</span> <span class="fu">c</span>(<span class="st">"method"</span>, <span class="st">"type"</span>),</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>               <span class="at">names_sep =</span> <span class="st">"_"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">gulleart =</span> <span class="fu">as_factor</span>(gulleart),</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>         <span class="at">method =</span> <span class="fu">as_factor</span>(method),</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>         <span class="at">type =</span> <span class="fu">as_factor</span>(type))</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Expected 2 pieces. Additional pieces discarded in 3 rows [3, 8, 13].</code></pre>
+</div>
+</div>
+<p><a href="https://www.sciencedirect.com/science/article/pii/S0022030218302418">Technical note: Validation and comparison of 2 commercially available activity loggers</a></p>
+<p><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6107969/">User’s guide to correlation coefficients</a></p>
+<p><a href="https://medium.com/@amorimfranchi/concordance-correlation-coefficient-calculation-in-r-98d74ae5f0fc">Concordance correlation coefficient calculation in R</a></p>
+</section>
+<section id="sql-als-dbplyr" class="level2" data-number="80.1">
+<h2 data-number="80.1" class="anchored" data-anchor-id="sql-als-dbplyr"><span class="header-section-number">80.1</span> SQL als <code>{dbplyr}</code>?</h2>
+<p><a href="https://dbplyr.tidyverse.org/">Das R Paket <code>{dbplyr}</code></a> <a href="https://solutions.posit.co/connections/db/getting-started/database-queries/">Database Queries With R</a></p>
+</section>
 <section id="friedman-welch" class="level2 unnumbered">
 <h2 class="unnumbered anchored" data-anchor-id="friedman-welch">Friedman &amp; Welch</h2>
 <p>https://seriousstats.wordpress.com/2012/02/14/friedman/</p>
@@ -983,31 +1141,31 @@ Stand des Kapitels: Archiviert (seit 01.2025)
 <div class="cell">
 <details open="" class="code-fold">
 <summary>R Code [zeigen / verbergen]</summary>
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>anage_tbl <span class="ot">&lt;-</span> <span class="fu">read_delim</span>(<span class="st">"data/anage_data.txt"</span>, <span class="at">delim =</span> <span class="st">"</span><span class="sc">\t</span><span class="st">"</span>)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>anage_tbl <span class="ot">&lt;-</span> <span class="fu">read_delim</span>(<span class="st">"data/anage_data.txt"</span>, <span class="at">delim =</span> <span class="st">"</span><span class="sc">\t</span><span class="st">"</span>)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <div class="cell">
 <details open="" class="code-fold">
 <summary>R Code [zeigen / verbergen]</summary>
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>die_risk_tbl <span class="ot">&lt;-</span> <span class="fu">tibble</span>(<span class="at">age =</span> <span class="fu">c</span>(<span class="dv">25</span>, <span class="dv">60</span>, <span class="dv">80</span>, <span class="dv">100</span>, <span class="dv">108</span>),</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>                       <span class="at">risk =</span> <span class="fu">c</span>(<span class="fl">0.1</span>, <span class="dv">1</span>, <span class="dv">6</span>, <span class="dv">16</span>, <span class="dv">50</span>))</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>fit_nls <span class="ot">&lt;-</span> <span class="fu">nls</span>(risk <span class="sc">~</span> b0 <span class="sc">+</span> <span class="fu">I</span>(b1<span class="sc">^</span>(age)), <span class="at">data =</span> die_risk_tbl, </span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>           <span class="at">start =</span> <span class="fu">c</span>(<span class="at">b0 =</span> <span class="dv">1</span>, <span class="at">b1 =</span> <span class="dv">1</span>))</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>hand_func <span class="ot">&lt;-</span> \(x) {<span class="sc">-</span><span class="dv">5</span> <span class="sc">+</span> <span class="fl">1.037</span><span class="sc">^</span>(x <span class="sc">*</span> <span class="fl">0.97</span>)}</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(die_risk_tbl, <span class="fu">aes</span>(age, risk)) <span class="sc">+</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span></span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> <span class="fu">predict</span>(fit_nls)), <span class="at">size =</span> <span class="dv">1</span>, <span class="at">color =</span> <span class="st">"#CC79A7"</span>) <span class="sc">+</span></span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_function</span>(<span class="at">fun =</span> hand_func, <span class="at">color =</span> <span class="st">"#009E73"</span>, <span class="at">size =</span> <span class="dv">1</span>,</span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>                <span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">25</span>, <span class="dv">110</span>)) </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>die_risk_tbl <span class="ot">&lt;-</span> <span class="fu">tibble</span>(<span class="at">age =</span> <span class="fu">c</span>(<span class="dv">25</span>, <span class="dv">60</span>, <span class="dv">80</span>, <span class="dv">100</span>, <span class="dv">108</span>),</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>                       <span class="at">risk =</span> <span class="fu">c</span>(<span class="fl">0.1</span>, <span class="dv">1</span>, <span class="dv">6</span>, <span class="dv">16</span>, <span class="dv">50</span>))</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>fit_nls <span class="ot">&lt;-</span> <span class="fu">nls</span>(risk <span class="sc">~</span> b0 <span class="sc">+</span> <span class="fu">I</span>(b1<span class="sc">^</span>(age)), <span class="at">data =</span> die_risk_tbl, </span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>           <span class="at">start =</span> <span class="fu">c</span>(<span class="at">b0 =</span> <span class="dv">1</span>, <span class="at">b1 =</span> <span class="dv">1</span>))</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>hand_func <span class="ot">&lt;-</span> \(x) {<span class="sc">-</span><span class="dv">5</span> <span class="sc">+</span> <span class="fl">1.037</span><span class="sc">^</span>(x <span class="sc">*</span> <span class="fl">0.97</span>)}</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(die_risk_tbl, <span class="fu">aes</span>(age, risk)) <span class="sc">+</span></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> <span class="fu">predict</span>(fit_nls)), <span class="at">size =</span> <span class="dv">1</span>, <span class="at">color =</span> <span class="st">"#CC79A7"</span>) <span class="sc">+</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_function</span>(<span class="at">fun =</span> hand_func, <span class="at">color =</span> <span class="st">"#009E73"</span>, <span class="at">size =</span> <span class="dv">1</span>,</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>                <span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">25</span>, <span class="dv">110</span>)) </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><a href="app-spielecke_files/figure-html/unnamed-chunk-3-1.png" class="lightbox" data-gallery="quarto-lightbox-gallery-1"><img src="app-spielecke_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid figure-img" width="672"></a></p>
+<p><a href="app-spielecke_files/figure-html/unnamed-chunk-9-1.png" class="lightbox" data-gallery="quarto-lightbox-gallery-6"><img src="app-spielecke_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid figure-img" width="672"></a></p>
 </figure>
 </div>
 </div>
@@ -1184,10 +1342,10 @@ Stand des Kapitels: Archiviert (seit 01.2025)
 <div class="cell">
 <details open="" class="code-fold">
 <summary>R Code [zeigen / verbergen]</summary>
-<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(owidR)</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>foo <span class="ot">&lt;-</span> <span class="fu">owid_search</span>(<span class="st">"annual"</span>) </span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">owid</span>(<span class="st">"annual-co2-emissions-by-region"</span>)</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">owid</span>(foo[<span class="dv">3</span>])</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(owidR)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>foo <span class="ot">&lt;-</span> <span class="fu">owid_search</span>(<span class="st">"annual"</span>) </span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="fu">owid</span>(<span class="st">"annual-co2-emissions-by-region"</span>)</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="fu">owid</span>(foo[<span class="dv">3</span>])</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <p>Eine wunderbare Sammlung von Datensätzen aus dem Bereich der Agarwissenschaften liefert das R Paket <code>{agridat}</code>. Über die Hilfeseite <a href="https://cran.r-project.org/web/packages/agridat/index.html">agridat: Agricultural Datasets</a> findest du dann einmal einen gesamten Überblick und auch die Informationen über einige ausgewählte Datensätze aus Dutzenden von Datensätzen. Alle Datensätze der wichtigen Bücher zu dem experimentellen Designs sind dort eigentlich enthalten und einmal kuratiert.</p>
@@ -1208,25 +1366,25 @@ Stand des Kapitels: Archiviert (seit 01.2025)
 <div class="cell">
 <details open="" class="code-fold">
 <summary>R Code [zeigen / verbergen]</summary>
-<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(tidyverse, magrittr, janitor, conflicted)</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>animals_tbl <span class="ot">&lt;-</span> <span class="fu">read_excel</span>(<span class="st">"data/cluster_animal.xlsx"</span>, <span class="at">sheet =</span> <span class="dv">1</span>) <span class="sc">|&gt;</span> </span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clean_names</span>() </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(tidyverse, magrittr, janitor, conflicted)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>animals_tbl <span class="ot">&lt;-</span> <span class="fu">read_excel</span>(<span class="st">"data/cluster_animal.xlsx"</span>, <span class="at">sheet =</span> <span class="dv">1</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clean_names</span>() </span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <div class="cell">
 <details open="" class="code-fold">
 <summary>R Code [zeigen / verbergen]</summary>
-<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(poLCA)</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="fu">poLCA</span>(<span class="fu">cbind</span>(warm_blooded, fly, vertebrate, threatened, live_in_groups) <span class="sc">~</span> <span class="dv">1</span>,</span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>      <span class="at">nclass =</span> <span class="dv">3</span>,</span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>      <span class="at">data =</span> animals_tbl,</span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>      <span class="at">nrep =</span> <span class="dv">1</span>,</span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>      <span class="at">na.rm =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>      <span class="at">graphs =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>      <span class="at">maxiter =</span> <span class="dv">100000</span></span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(poLCA)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="fu">poLCA</span>(<span class="fu">cbind</span>(warm_blooded, fly, vertebrate, threatened, live_in_groups) <span class="sc">~</span> <span class="dv">1</span>,</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>      <span class="at">nclass =</span> <span class="dv">3</span>,</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>      <span class="at">data =</span> animals_tbl,</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>      <span class="at">nrep =</span> <span class="dv">1</span>,</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>      <span class="at">na.rm =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>      <span class="at">graphs =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>      <span class="at">maxiter =</span> <span class="dv">100000</span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="In die Zwischenablage kopieren" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <p>Hier hängen wir dann an der Interpretation. Da müssen wir nochmal tiefer schauen.</p>
@@ -1794,380 +1952,508 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       </a>
   </div>
 </nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Quellcode</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
-<div class="sourceCode" id="cb6" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="in">```{r echo = FALSE}</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="in">#| message: false</span></span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="in">#| warning: false</span></span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="in">pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, performance, parameters,</span></span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="in">               latex2exp, see, patchwork, mfp, multcomp, emmeans, janitor, effectsize,</span></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="in">               broom, ggmosaic,</span></span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="in">               conflicted)</span></span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="in">conflicts_prefer(dplyr::select)</span></span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="in">conflicts_prefer(dplyr::filter)</span></span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="in">cb_pal &lt;- c("#000000", "#E69F00", "#56B4E9", </span></span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="in">            "#009E73", "#F0E442", "#F5C710", </span></span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="in">            "#0072B2", "#D55E00", "#CC79A7")</span></span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="in">cbbPalette &lt;- cb_pal</span></span>
-<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="fu"># Spielecke {#sec-spielecke}</span></span>
-<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>*Letzte Änderung am `r format(fs::file_info("app-spielecke.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*</span>
-<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Denn, um es endlich auf einmal herauszusagen, der Mensch spielt nur, wo er in voller Bedeutung des Worts Mensch ist, und er ist nur da ganz Mensch, wo er spielt." --- Friedrich Schiller*</span></span>
-<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>Dieses Kapitel ist *meine Spielecke*, wo ich Ideen und sonst so Zeug sammele, was mir über den Weg läuft und ich noch nicht so richtig weiter im Skript eingeordnet habe. Deshalb hat das hier auch keine Struktur, da mir die Gedanken eben auch noch wirr durch den Kopf geistern.</span>
-<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a><span class="fu">## Friedman &amp; Welch {.unnumbered}</span></span>
-<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>https://seriousstats.wordpress.com/2012/02/14/friedman/</span>
-<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>https://stats.stackexchange.com/questions/142685/equivalent-to-welchs-t-test-in-gls-framework</span>
-<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>https://lindeloev.github.io/tests-as-linear/</span>
-<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>https://www.andrewheiss.com/blog/2022/05/20/marginalia/</span>
-<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a>::: callout-tip</span>
-<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a><span class="fu">## Anwendungsbeispiel: Klinische Studien und das weibliche Geschlecht</span></span>
-<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a>In dem Buch <span class="co">[</span><span class="ot">Eve: How the Female Body Drove 200 Million Years of Human Evolution</span><span class="co">](https://www.penguinrandomhouse.com/books/227568/eve-by-cat-bohannon/)</span> von @miksanek2023eve</span>
-<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a>::: {.callout-caution appearance="simple"}</span>
-<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a><span class="fu">## Stand des Kapitels: Archiviert (seit 01.2025)</span></span>
-<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a>Dieses Kapitel ist archiviert, da ich die Thematik des Kapitels aktuell nicht in meiner Lehre oder der statistischen Beratung benötige. Archivierte Kapitel werden nicht von mir weiter gepflegt oder ergänzt. Auftretende Fehler werden aber natürlich beseitigt, wenn die Fehler mir auffallen.</span>
-<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a><span class="fu">## Tabset {.unnumbered}</span></span>
-<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a>::: panel-tabset</span>
-<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a><span class="fu">## Theoretisch</span></span>
-<span id="cb6-50"><a href="#cb6-50" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-51"><a href="#cb6-51" aria-hidden="true" tabindex="-1"></a><span class="fu">## Händisch</span></span>
-<span id="cb6-52"><a href="#cb6-52" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-53"><a href="#cb6-53" aria-hidden="true" tabindex="-1"></a><span class="fu">## R `{base}`</span></span>
-<span id="cb6-54"><a href="#cb6-54" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-55"><a href="#cb6-55" aria-hidden="true" tabindex="-1"></a><span class="fu">## Excel</span></span>
-<span id="cb6-56"><a href="#cb6-56" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb6-57"><a href="#cb6-57" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-58"><a href="#cb6-58" aria-hidden="true" tabindex="-1"></a><span class="fu">## Abbilungen {.unnumbered}</span></span>
-<span id="cb6-59"><a href="#cb6-59" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-60"><a href="#cb6-60" aria-hidden="true" tabindex="-1"></a><span class="fu">## Offene Ideen &amp; Wartungsarbeiten {.unnumbered}</span></span>
-<span id="cb6-61"><a href="#cb6-61" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-62"><a href="#cb6-62" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"The days can be easy if the years are consistent. You can write a book or get in shape or code a piece of software in 30 minutes per day. But the key is you can't miss a bunch of days." --- James Clear*</span></span>
-<span id="cb6-63"><a href="#cb6-63" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-64"><a href="#cb6-64" aria-hidden="true" tabindex="-1"></a>Was tippe ich gerade zur Zeit und welche Baustellen sind hier im Buch gerade offen? Im Folgenden einmal eine lose Liste an Themen und Fragmenten, die ich noch integrieren möchte. Die dargestellte Reihenfolge ist nicht die Reihenfolge in der ich an den Texten arbeite. Auch schaffe ich meistens nichts alles in ein paar Tagen. Daher handelt es sich nur um einen groben Überblick und eine Rückversicherung für mich, was ich noch offen habe. Teilweise ziemlich lange...</span>
-<span id="cb6-65"><a href="#cb6-65" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-66"><a href="#cb6-66" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Permutationstest &amp; Bootstraping mit Bootstraping ergänzen.</span><span class="co">](#sec-permut)</span></span>
-<span id="cb6-67"><a href="#cb6-67" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Modellieren in R als Einstiegskapitel erstellen</span><span class="co">](#sec-modeling-R)</span> und dabei die Überarbeitung der statistischen Modellierungskapitel und Abbildungen ergänzen</span>
-<span id="cb6-68"><a href="#cb6-68" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Räumliche Daten</span><span class="co">](#sec-spatial-data)</span></span>
-<span id="cb6-69"><a href="#cb6-69" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Metaanalysen</span><span class="co">](#sec-meta)</span></span>
-<span id="cb6-70"><a href="#cb6-70" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Das R Paket <span class="in">`{infer}`</span> passend ergänzen</span>
-<span id="cb6-71"><a href="#cb6-71" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Marginal Models und `{emmeans}` mit mehr Theorie</span><span class="co">](#sec-posthoc)</span></span>
-<span id="cb6-72"><a href="#cb6-72" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Maximum Likelihood als Methode ergänzen</span>
-<span id="cb6-73"><a href="#cb6-73" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Ideen zu Frauen in der Statistik erarbeiten</span><span class="co">](#sec-programming-preface)</span></span>
-<span id="cb6-74"><a href="#cb6-74" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Handzeichnungen in theoretische Statistik durch <span class="in">`{ggplot}`</span> ersetzen.</span>
-<span id="cb6-75"><a href="#cb6-75" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-76"><a href="#cb6-76" aria-hidden="true" tabindex="-1"></a>Folgende allgemeine Wartungs- und Qualitätsarbeiten müssen noch durchgeführt werden. Da diese immer etwas nervig sind, dauert es meistens noch länger, bis ich hier fertig werde.</span>
-<span id="cb6-77"><a href="#cb6-77" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-78"><a href="#cb6-78" aria-hidden="true" tabindex="-1"></a>i)  Zitate zu den Kapiteln ergänzen und sinnvoll anpassen.</span>
-<span id="cb6-79"><a href="#cb6-79" aria-hidden="true" tabindex="-1"></a>ii) Zitate und Quellen für wissenschaftliche Veröffentlichungen ergänzen.</span>
-<span id="cb6-80"><a href="#cb6-80" aria-hidden="true" tabindex="-1"></a>iii) Rechtschreibung und Grammatik systematisch überprüfen.</span>
-<span id="cb6-81"><a href="#cb6-81" aria-hidden="true" tabindex="-1"></a>iv) <span class="in">`{patchwork}`</span> also Ersatz für <span class="in">`column: page`</span></span>
-<span id="cb6-82"><a href="#cb6-82" aria-hidden="true" tabindex="-1"></a>v)  Global Abbildungen ohne sichtbaren Code aufhübschen.</span>
-<span id="cb6-83"><a href="#cb6-83" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-84"><a href="#cb6-84" aria-hidden="true" tabindex="-1"></a><span class="fu">## Links {.unnumbered}</span></span>
-<span id="cb6-85"><a href="#cb6-85" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-86"><a href="#cb6-86" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Statistische Funktionen (Referenz) in Excel</span><span class="co">](https://support.microsoft.com/de-de/office/statistische-funktionen-referenz-624dac86-a375-4435-bc25-76d659719ffd)</span></span>
-<span id="cb6-87"><a href="#cb6-87" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-88"><a href="#cb6-88" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Dyson Sphere</span><span class="co">](https://youtu.be/pP44EPBMb8A)</span></span>
-<span id="cb6-89"><a href="#cb6-89" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-90"><a href="#cb6-90" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Cancer Paradox</span><span class="co">](https://youtu.be/1AElONvi9WQ)</span></span>
-<span id="cb6-91"><a href="#cb6-91" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-92"><a href="#cb6-92" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">R Library Contrast Coding Systems for categorical variables</span><span class="co">](https://stats.oarc.ucla.edu/r/library/r-library-contrast-coding-systems-for-categorical-variables/)</span></span>
-<span id="cb6-93"><a href="#cb6-93" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-96"><a href="#cb6-96" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb6-97"><a href="#cb6-97" aria-hidden="true" tabindex="-1"></a><span class="co">#| warning: false</span></span>
-<span id="cb6-98"><a href="#cb6-98" aria-hidden="true" tabindex="-1"></a><span class="co">#| message: false</span></span>
-<span id="cb6-99"><a href="#cb6-99" aria-hidden="true" tabindex="-1"></a>anage_tbl <span class="ot">&lt;-</span> <span class="fu">read_delim</span>(<span class="st">"data/anage_data.txt"</span>, <span class="at">delim =</span> <span class="st">"</span><span class="sc">\t</span><span class="st">"</span>)</span>
-<span id="cb6-100"><a href="#cb6-100" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb6-101"><a href="#cb6-101" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-104"><a href="#cb6-104" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb6-105"><a href="#cb6-105" aria-hidden="true" tabindex="-1"></a><span class="co">#| warning: false</span></span>
-<span id="cb6-106"><a href="#cb6-106" aria-hidden="true" tabindex="-1"></a><span class="co">#| message: false</span></span>
-<span id="cb6-107"><a href="#cb6-107" aria-hidden="true" tabindex="-1"></a>die_risk_tbl <span class="ot">&lt;-</span> <span class="fu">tibble</span>(<span class="at">age =</span> <span class="fu">c</span>(<span class="dv">25</span>, <span class="dv">60</span>, <span class="dv">80</span>, <span class="dv">100</span>, <span class="dv">108</span>),</span>
-<span id="cb6-108"><a href="#cb6-108" aria-hidden="true" tabindex="-1"></a>                       <span class="at">risk =</span> <span class="fu">c</span>(<span class="fl">0.1</span>, <span class="dv">1</span>, <span class="dv">6</span>, <span class="dv">16</span>, <span class="dv">50</span>))</span>
-<span id="cb6-109"><a href="#cb6-109" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-110"><a href="#cb6-110" aria-hidden="true" tabindex="-1"></a>fit_nls <span class="ot">&lt;-</span> <span class="fu">nls</span>(risk <span class="sc">~</span> b0 <span class="sc">+</span> <span class="fu">I</span>(b1<span class="sc">^</span>(age)), <span class="at">data =</span> die_risk_tbl, </span>
-<span id="cb6-111"><a href="#cb6-111" aria-hidden="true" tabindex="-1"></a>           <span class="at">start =</span> <span class="fu">c</span>(<span class="at">b0 =</span> <span class="dv">1</span>, <span class="at">b1 =</span> <span class="dv">1</span>))</span>
-<span id="cb6-112"><a href="#cb6-112" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-113"><a href="#cb6-113" aria-hidden="true" tabindex="-1"></a>hand_func <span class="ot">&lt;-</span> \(x) {<span class="sc">-</span><span class="dv">5</span> <span class="sc">+</span> <span class="fl">1.037</span><span class="sc">^</span>(x <span class="sc">*</span> <span class="fl">0.97</span>)}</span>
-<span id="cb6-114"><a href="#cb6-114" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-115"><a href="#cb6-115" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(die_risk_tbl, <span class="fu">aes</span>(age, risk)) <span class="sc">+</span></span>
-<span id="cb6-116"><a href="#cb6-116" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
-<span id="cb6-117"><a href="#cb6-117" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span></span>
-<span id="cb6-118"><a href="#cb6-118" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> <span class="fu">predict</span>(fit_nls)), <span class="at">size =</span> <span class="dv">1</span>, <span class="at">color =</span> <span class="st">"#CC79A7"</span>) <span class="sc">+</span></span>
-<span id="cb6-119"><a href="#cb6-119" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_function</span>(<span class="at">fun =</span> hand_func, <span class="at">color =</span> <span class="st">"#009E73"</span>, <span class="at">size =</span> <span class="dv">1</span>,</span>
-<span id="cb6-120"><a href="#cb6-120" aria-hidden="true" tabindex="-1"></a>                <span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">25</span>, <span class="dv">110</span>)) </span>
-<span id="cb6-121"><a href="#cb6-121" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-122"><a href="#cb6-122" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb6-123"><a href="#cb6-123" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-124"><a href="#cb6-124" aria-hidden="true" tabindex="-1"></a>Area under the curve larger than 1?</span>
-<span id="cb6-125"><a href="#cb6-125" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-126"><a href="#cb6-126" aria-hidden="true" tabindex="-1"></a>Why We Die: And How We Live: The New Science of Ageing and Longevity</span>
-<span id="cb6-127"><a href="#cb6-127" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-128"><a href="#cb6-128" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Here's Waldo: Computing the optimal search strategy for finding Waldo</span><span class="co">](https://randalolson.com/2015/02/03/heres-waldo-computing-the-optimal-search-strategy-for-finding-waldo/)</span></span>
-<span id="cb6-129"><a href="#cb6-129" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-130"><a href="#cb6-130" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Waldbrände und Dürren: Wie Korkeichen in Portugal den Klimawandel stoppen sollen</span><span class="co">](https://www.spiegel.de/ausland/waldbraende-und-duerren-wie-korkeichen-in-portugal-den-klimawandel-stoppen-sollen-a-db859f6d-2300-4b43-874c-ae239b76bd43)</span></span>
-<span id="cb6-131"><a href="#cb6-131" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-132"><a href="#cb6-132" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Stock assessment models overstate sustainability of the world’s fisheries</span><span class="co">](https://www.science.org/doi/10.1126/science.adl6282)</span> and <span class="co">[</span><span class="ot">Modelling seasonal data with GAMs</span><span class="co">](https://fromthebottomoftheheap.net/2014/05/09/modelling-seasonal-data-with-gam/)</span></span>
-<span id="cb6-133"><a href="#cb6-133" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-134"><a href="#cb6-134" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Karnickelsterben nun auch in Bremen</span><span class="co">](https://taz.de/Das-Ende-der-Plage/!6027222/)</span></span>
-<span id="cb6-135"><a href="#cb6-135" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-136"><a href="#cb6-136" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Jagd in Niedersachsen</span><span class="co">](https://www.ml.niedersachsen.de/startseite/themen/wald_holz_jagd/jagd_in_niedersachsen/jagd-in-niedersachsen-5138.html)</span></span>
-<span id="cb6-137"><a href="#cb6-137" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-138"><a href="#cb6-138" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Ein Kind meiner Zeit</span><span class="co">](https://www.republik.ch/2024/06/19/ein-kind-meiner-zeit)</span> <span class="co">[</span><span class="ot">Galenus von Pergamon - Leben und Werk</span><span class="co">](https://robl.de/galen/galen.htm)</span></span>
-<span id="cb6-139"><a href="#cb6-139" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-140"><a href="#cb6-140" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">I Will Fucking Piledrive You If You Mention AI Again</span><span class="co">](https://ludic.mataroa.blog/blog/i-will-fucking-piledrive-you-if-you-mention-ai-again/)</span></span>
-<span id="cb6-141"><a href="#cb6-141" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-142"><a href="#cb6-142" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Plötzlich sah ich den entscheidenden Graphen</span><span class="co">](https://www.zeit.de/2024/27/klimaforschung-ozean-klimawandel-umwelt-nachhaltigkeit)</span></span>
-<span id="cb6-143"><a href="#cb6-143" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-144"><a href="#cb6-144" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; Amoc sind riesige Wasserzirkulationen im Ozean, zu denen auch der Golfstrom gehört. Sie sorgen dafür, dass wir in Europa mildes Klima haben. Wenn dieses System zusammenbricht, würde es in den Niederlanden oder Deutschland etwa zehn bis zwanzig Grad kälter werden.</span></span>
-<span id="cb6-145"><a href="#cb6-145" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-146"><a href="#cb6-146" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Atmospheric Response to a Collapse of the North Atlantic</span><span class="co">](https://gmao.gsfc.nasa.gov/gmaoftp/corbe/AMOC/orbe245_revision1.pdf)</span></span>
-<span id="cb6-147"><a href="#cb6-147" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-148"><a href="#cb6-148" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Atlantic meridional overturning circulation</span><span class="co">](https://en.wikipedia.org/wiki/Atlantic_meridional_overturning_circulation)</span></span>
-<span id="cb6-149"><a href="#cb6-149" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-150"><a href="#cb6-150" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">The 2,500-Year-Old History of Adults Blaming the Younger Generation</span><span class="co">](https://historyhustle.com/2500-years-of-people-complaining-about-the-younger-generation/)</span></span>
-<span id="cb6-151"><a href="#cb6-151" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-152"><a href="#cb6-152" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Goals Gone Wild: The Systematic Side Effects of Over-Prescribing Goal Setting</span><span class="co">](https://www.hbs.edu/ris/Publication%20Files/09-083.pdf)</span></span>
-<span id="cb6-153"><a href="#cb6-153" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-154"><a href="#cb6-154" aria-hidden="true" tabindex="-1"></a><span class="fu">## Paper Ideen {.unnumbered}</span></span>
-<span id="cb6-155"><a href="#cb6-155" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-156"><a href="#cb6-156" aria-hidden="true" tabindex="-1"></a>Beide Paper dann mit den jeweiligen FAOSTAT Suchen verbinden.</span>
-<span id="cb6-157"><a href="#cb6-157" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-158"><a href="#cb6-158" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Food and agriculture data</span><span class="co">](https://www.fao.org/faostat/en/#home)</span></span>
-<span id="cb6-159"><a href="#cb6-159" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-160"><a href="#cb6-160" aria-hidden="true" tabindex="-1"></a>Mit dem <span class="co">[</span><span class="ot">R Paket `{FAOSTAT}`</span><span class="co">](https://cran.r-hub.io/web/packages/FAOSTAT/)</span> und der Vignette <span class="co">[</span><span class="ot">FAOSTAT: Download Data from the FAOSTAT Database</span><span class="co">](https://cran.r-hub.io/web/packages/FAOSTAT/vignettes/FAOSTAT.pdf)</span></span>
-<span id="cb6-161"><a href="#cb6-161" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-162"><a href="#cb6-162" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Esoteric beliefs and CAM impact SARS-CoV-2 immunization drivers, uptake and pediatric immunization views in Germany</span><span class="co">](https://www.nature.com/articles/s41541-024-00928-7)</span></span>
-<span id="cb6-163"><a href="#cb6-163" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-164"><a href="#cb6-164" aria-hidden="true" tabindex="-1"></a>Tierpaper</span>
-<span id="cb6-165"><a href="#cb6-165" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-166"><a href="#cb6-166" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Arginine Nutrition in Neonatal Pigs</span><span class="co">](https://www.sciencedirect.com/science/article/pii/S0022316623031279)</span></span>
-<span id="cb6-167"><a href="#cb6-167" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Fiber effects in nutrition and gut health in pigs</span><span class="co">](https://link.springer.com/article/10.1186/2049-1891-5-15)</span></span>
-<span id="cb6-168"><a href="#cb6-168" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Phosphorus nutrition of growing pigs</span><span class="co">](https://www.sciencedirect.com/science/article/pii/S2405654522000373)</span></span>
-<span id="cb6-169"><a href="#cb6-169" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Implications of sorghum in broiler chicken nutrition</span><span class="co">](https://www.sciencedirect.com/science/article/pii/S0377840110000209)</span></span>
-<span id="cb6-170"><a href="#cb6-170" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Proposed bursa of fabricius weight to body weight ratio standard in commercial broilers</span><span class="co">](https://www.sciencedirect.com/science/article/pii/S0032579119322448)</span></span>
-<span id="cb6-171"><a href="#cb6-171" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Growth, efficiency, and yield of commercial broilers from 1957, 1978, and 2005</span><span class="co">](https://www.sciencedirect.com/science/article/pii/S0032579119385505)</span></span>
-<span id="cb6-172"><a href="#cb6-172" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-173"><a href="#cb6-173" aria-hidden="true" tabindex="-1"></a>Pflanzenpaper</span>
-<span id="cb6-174"><a href="#cb6-174" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-175"><a href="#cb6-175" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Hoverfly pollination enhances yield and fruit quality in mango under protected cultivation</span><span class="co">](https://www.sciencedirect.com/science/article/pii/S0304423822004411)</span></span>
-<span id="cb6-176"><a href="#cb6-176" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Plant Growth, Yield, and Fruit Size Improvements in ‘Alicia’ Papaya Multiplied by Grafting</span><span class="co">](https://www.mdpi.com/2223-7747/12/5/1189)</span></span>
-<span id="cb6-177"><a href="#cb6-177" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Growth, yield, plant quality and nutrition of basil (Ocimum basilicum L.) under soilless agricultural systems</span><span class="co">](https://www.sciencedirect.com/science/article/pii/S0570178316300288)</span></span>
-<span id="cb6-178"><a href="#cb6-178" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Growing Hardier Crops for Better Health: Salinity Tolerance and the Nutritional Value of Broccoli</span><span class="co">](https://pubs.acs.org/doi/full/10.1021/jf802994p)</span></span>
-<span id="cb6-179"><a href="#cb6-179" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Influence of Light Intensity and Spectrum on Duckweed Growth and Proteins in a Small-Scale, Re-Circulating Indoor Vertical Farm</span><span class="co">](https://www.mdpi.com/2223-7747/11/8/1010)</span></span>
-<span id="cb6-180"><a href="#cb6-180" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-181"><a href="#cb6-181" aria-hidden="true" tabindex="-1"></a><span class="fu">## Zitate {.unnumbered}</span></span>
-<span id="cb6-182"><a href="#cb6-182" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-183"><a href="#cb6-183" aria-hidden="true" tabindex="-1"></a>Copycat</span>
-<span id="cb6-184"><a href="#cb6-184" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-185"><a href="#cb6-185" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"" ---*</span></span>
-<span id="cb6-186"><a href="#cb6-186" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-187"><a href="#cb6-187" aria-hidden="true" tabindex="-1"></a>------------------------------------------------------------------------</span>
-<span id="cb6-188"><a href="#cb6-188" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-189"><a href="#cb6-189" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"My God, it's full of stars." --- 2001, A Space Odessey*</span></span>
-<span id="cb6-190"><a href="#cb6-190" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-191"><a href="#cb6-191" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Der Sinn des Lebens besteht darin, deine Gabe zu finden. Der Zweck des Lebens ist, sie zu verschenken." --- Pablo Picasso*</span></span>
-<span id="cb6-192"><a href="#cb6-192" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-193"><a href="#cb6-193" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"If you are allowed one wish for your child, seriously consider wishing him or her optimism. Optimists are normally cheerful and happy, and therefore popular; they are resilient in adapting to failures and hardships, their chances of clinical depression are reduced, their immune system is stronger, they take better care of their health, they feel healthier than others and are in fact likely to live longer. Optimistic individuals play a disproportionate role in shaping our lives. Their decisions make a difference; they are the inventors, the entrepreneurs, the political and military leaders – not average people. They got to where they are by seeking challenges and taking risks. They are talented and they have been lucky, almost certainly luckier than they acknowledge... the people who have the greatest influence on the lives of others are likely to be optimistic and overconfident, and to take more risks than they realize." --- Daniel Kahneman, Thinking, Fast and Slow*</span></span>
-<span id="cb6-194"><a href="#cb6-194" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-195"><a href="#cb6-195" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Above all, do not lose your desire to walk: every day I walk myself into a state of well-being and walk away from every illness; I have walked myself into my best thoughts, and I know of no thought so burdensome that one cannot walk away from it. Even if one were to walk for one's health and it were constantly one station ahead—I would still say: Walk! Besides, it is also apparent that in walking one constantly gets as close to well-being as possible, even if one does not quite reach it—but by sitting still, and the more one sits still, the closer one comes to feeling ill. Health and salvation can be found only in motion... if one just keeps on walking, everything will be all right." --- [Soren Kierkegaard](https://www.die-inkognito-philosophin.de/kierkegaard)*</span></span>
-<span id="cb6-196"><a href="#cb6-196" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-197"><a href="#cb6-197" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Numerical quantities focus on expected values, graphical summaries on unexpected values." --- John Tukey*</span></span>
-<span id="cb6-198"><a href="#cb6-198" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-199"><a href="#cb6-199" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Nobody belongs anywhere, nobody exists on purpose, everybody's going to die." --- [Rick and Morty](https://www.youtube.com/watch?v=E_qvy82U4RE)*</span></span>
-<span id="cb6-200"><a href="#cb6-200" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-201"><a href="#cb6-201" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"To celebrate the noun do the verb." --- [Ryan Holiyday](https://www.youtube.com/shorts/zvJozTZo18o)*</span></span>
-<span id="cb6-202"><a href="#cb6-202" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-203"><a href="#cb6-203" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"The formulation of a problem is often more essential than its solution, which may be merely a matter of mathematical or experimental skill. To raise new questions, new possibilities, to regard old problems from a new angle requires creative imagination and marks real advances in science" --- Albert Einstein*</span></span>
-<span id="cb6-204"><a href="#cb6-204" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-205"><a href="#cb6-205" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"The whole world is a very narrow bridge and the main thing is to have no fear at all." --- [Kol Ha'Olam Kulo](https://jwa.org/media/lyrics-to-kol-haolam-kulo)*</span></span>
-<span id="cb6-206"><a href="#cb6-206" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-207"><a href="#cb6-207" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"The graveyard is full of 'irreplaceable' and important people." --- Charles De Gaulle [and others](https://quoteinvestigator.com/2011/11/21/graveyards-full/)*</span></span>
-<span id="cb6-208"><a href="#cb6-208" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-209"><a href="#cb6-209" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"20 years from now, the only people who will remember that you worked late are your kids." --- David Clarke on [r/antiwork](https://www.reddit.com/r/antiwork/comments/12uz90c/psa_20_years_from_now_the_only_people_who_will/?rdt=47059)*</span></span>
-<span id="cb6-210"><a href="#cb6-210" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-211"><a href="#cb6-211" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"You have to finish things — that's what you learn from, you learn by finishing things." --- Neil Gaiman in Advice to Aspiring Writers*</span></span>
-<span id="cb6-212"><a href="#cb6-212" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-213"><a href="#cb6-213" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Je größer die Insel des Wissens, desto größer der Strand der Verzweiflung." --- unbekannt*</span></span>
-<span id="cb6-214"><a href="#cb6-214" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-215"><a href="#cb6-215" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Leben heißt leiden, überleben heißt, im Leiden einen Sinn finden." --- Friedrich Nietzsche*</span></span>
-<span id="cb6-216"><a href="#cb6-216" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-217"><a href="#cb6-217" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Wachstum ist nicht alles, das ist wahr. Aber ohne Wachstum ist alles nichts." --- Angela Merkel*</span></span>
-<span id="cb6-218"><a href="#cb6-218" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-219"><a href="#cb6-219" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Competition is for losers!" --- Peter Thiel*</span></span>
-<span id="cb6-220"><a href="#cb6-220" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-221"><a href="#cb6-221" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Das Pferd frisst keinen Gurkensalat" --- Philipp Reis erster 1981 telefonisch übertragende Satz*</span></span>
-<span id="cb6-222"><a href="#cb6-222" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-223"><a href="#cb6-223" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"One glance at a book and you hear the voice of another person perhaps someone dead for thousands of years. Across the millennia the author is speaking clearly and silently inside your head, directly to YOU." --- Carl Sagan*</span></span>
-<span id="cb6-224"><a href="#cb6-224" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-225"><a href="#cb6-225" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"If you feel safe in the area that you're working in, you're not working in the right area. Always go a little further into the water than you feel you're capable of being in. Go a little bit out of your depth, and when you don't feel that your feet are quite touching the bottom, you're just about in the right place to do something exciting." -- David Bowie*</span></span>
-<span id="cb6-226"><a href="#cb6-226" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-227"><a href="#cb6-227" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"(1) Alles was es schon gab, als Du geboren wurdest, ist normal und gewöhnlich. Diese Dinge werden als natürlich wahrgenommen und halten die Welt am Laufen. (2) Alles was zwischen Deinem 16ten und 36ten Lebensjahr erfunden wird ist neu, aufregend und revoltionär. Und vermutlich kannst Du in dem Bereich sogar Karriere machen. (3) Alles was nach dem 36ten Lebensjahr erfunden wird ist gegen die natürliche Ordnung der Dinge." --- Douglas Adams, Per Anhalter durch die Galaxis*</span></span>
-<span id="cb6-228"><a href="#cb6-228" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-229"><a href="#cb6-229" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Debugging is twice as hard as writing the code in the first place. Therefore, if you write the code as cleverly as possible, you are, by definition, not smart enough to debug it." --- Brian Kernighan, professor at Princeton University.*</span></span>
-<span id="cb6-230"><a href="#cb6-230" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-231"><a href="#cb6-231" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"The three stages of career development are: 1. I want to be in the meeting; 2. I want to run the meeting; 3. I want to avoid meetings." --- Jay Ferro*</span></span>
-<span id="cb6-232"><a href="#cb6-232" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-233"><a href="#cb6-233" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Freude ist ein Akt des Trotzes. Mit Freude gewinnen wir, auch wenn wir verlieren. Gut gelebt zu haben ist alles was uns bleibt, denn sterben müssen wir alle." --- Jaghatai Khan, The Lost and the Damned*</span></span>
-<span id="cb6-234"><a href="#cb6-234" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-235"><a href="#cb6-235" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Freude ist ein Akt des Trotzes. Durch sie gewinnen wir, auch wenn wir verlieren. Denn sterben müssen wir alle und ein schönes Leben ist alles was uns bleibt." --- Jaghatai Khan, The Lost and the Damned*</span></span>
-<span id="cb6-236"><a href="#cb6-236" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-237"><a href="#cb6-237" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"\[Alice Munro\] habe sich, erzählte sie einmal, die Sätze ihrer Erzählungen jeweils beim Kartoffelschälen ausgedacht und diese, während die Kartoffeln kochten, zwischendurch im Wohnzimmer notiert." --- [Alice Munro &amp; Die Kunst des Nebenbeischreibens](https://www.zeit.de/kultur/literatur/2024-05/alice-munro-schriftstellerin-nobelpreis-nachruf)*</span></span>
-<span id="cb6-238"><a href="#cb6-238" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-239"><a href="#cb6-239" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Gott würfelt nicht!" --- Albert Einstein*</span></span>
-<span id="cb6-240"><a href="#cb6-240" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-241"><a href="#cb6-241" aria-hidden="true" tabindex="-1"></a><span class="fu">## Korrelation {.unnumbered}</span></span>
-<span id="cb6-242"><a href="#cb6-242" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-243"><a href="#cb6-243" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">How does Polychoric Correlation Work? (aka Ordinal-to-Ordinal correlation)</span><span class="co">](https://www.r-bloggers.com/2021/02/how-does-polychoric-correlation-work-aka-ordinal-to-ordinal-correlation/)</span></span>
-<span id="cb6-244"><a href="#cb6-244" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-245"><a href="#cb6-245" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">An Alternative to the Correlation Coefficient That Works For Numeric and Categorical Variables</span><span class="co">](https://rviews.rstudio.com/2021/04/15/an-alternative-to-the-correlation-coefficient-that-works-for-numeric-and-categorical-variables/)</span></span>
-<span id="cb6-246"><a href="#cb6-246" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-247"><a href="#cb6-247" aria-hidden="true" tabindex="-1"></a><span class="fu">## Pakete, die ich mal anschauen will... {.unnumbered}</span></span>
-<span id="cb6-248"><a href="#cb6-248" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-249"><a href="#cb6-249" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">R Paket `{ggdist}`</span><span class="co">](https://mjskay.github.io/ggdist/index.html)</span></span>
-<span id="cb6-250"><a href="#cb6-250" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-251"><a href="#cb6-251" aria-hidden="true" tabindex="-1"></a>Das R Paket <span class="in">`{visibly}`</span> auf <span class="co">[</span><span class="ot">An Introduction to Visibly</span><span class="co">](https://m-clark.github.io/visibly/articles/intro.html)</span></span>
-<span id="cb6-252"><a href="#cb6-252" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-253"><a href="#cb6-253" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">R Paket `{innsight}`</span><span class="co">](https://github.com/bips-hb/innsight)</span></span>
-<span id="cb6-254"><a href="#cb6-254" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-255"><a href="#cb6-255" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">`{snakecase}`</span><span class="co">](https://tazinho.github.io/snakecase/)</span></span>
-<span id="cb6-256"><a href="#cb6-256" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-257"><a href="#cb6-257" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">`{visdat}`</span><span class="co">](https://docs.ropensci.org/visdat/)</span></span>
-<span id="cb6-258"><a href="#cb6-258" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-259"><a href="#cb6-259" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Make an R Cheat Sheet</span><span class="co">](https://biol355.github.io/midterm/midterm.html)</span></span>
-<span id="cb6-260"><a href="#cb6-260" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-261"><a href="#cb6-261" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">`{vroom}`</span><span class="co">](https://vroom.r-lib.org/)</span></span>
-<span id="cb6-262"><a href="#cb6-262" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-263"><a href="#cb6-263" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">`{gt}`</span><span class="co">](https://github.com/rstudio/gt)</span></span>
-<span id="cb6-264"><a href="#cb6-264" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-265"><a href="#cb6-265" aria-hidden="true" tabindex="-1"></a><span class="fu">## Learning text {.unnumbered}</span></span>
-<span id="cb6-266"><a href="#cb6-266" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-267"><a href="#cb6-267" aria-hidden="true" tabindex="-1"></a>Wachsamkeit und Konzentration kann ein Mensch nur für 90 Minuten halten. Selbst dann ist Aufmerksamkeit ein Flackern von höherer und niedrigerer Intensität. Danach muss der Mensch 1-2 Stunden lang wirklich ruhen, bevor er wieder sehr hart arbeiten &amp; lernen kann.</span>
-<span id="cb6-268"><a href="#cb6-268" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-269"><a href="#cb6-269" aria-hidden="true" tabindex="-1"></a>Folgende Dinge, die innerhalb von 4 Stunden nach diesen 90-minütigen Lerneinheiten durchgeführt werden, beschleunigen das Lernen.</span>
-<span id="cb6-270"><a href="#cb6-270" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-271"><a href="#cb6-271" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Kurzes Nickerchen</span>
-<span id="cb6-272"><a href="#cb6-272" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Nichtschlafende tiefe Ruhe (NSDR)</span>
-<span id="cb6-273"><a href="#cb6-273" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Yoga Nidra</span>
-<span id="cb6-274"><a href="#cb6-274" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Formen der Meditation, die nicht viel fokussierte Konzentration erfordern,</span>
-<span id="cb6-275"><a href="#cb6-275" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-276"><a href="#cb6-276" aria-hidden="true" tabindex="-1"></a>Folgende Dinge helfen während der Lernphase das Lernen zu verstärken und zu festigen. Der Hippocampus wiederholt während dieser Zeit die Informationen mit 20-facher Geschwindigkeit und beschleunigt das Lernen und das Behalten der neu gelernten Informationen.</span>
-<span id="cb6-277"><a href="#cb6-277" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-278"><a href="#cb6-278" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Mache ab und zu 10 Sekunden Pause vom Lernen, in denen du absolut nichts tust</span>
-<span id="cb6-279"><a href="#cb6-279" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Mache den Kopf frei (Lückeneffekt/Mikropausen),</span>
-<span id="cb6-280"><a href="#cb6-280" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Inkrementelles Lernen. Du kannst das Lernen in kleine, konzentrierte Einheiten aufteilen.</span>
-<span id="cb6-281"><a href="#cb6-281" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Stelle dir einen Timer für 3 Minuten ein, schalte das Telefon aus und verbringe die 3 Minuten damit, eine Sache intensiv zu lernen, auch wenn es sich anfühlt, als würde es aktuell nichts bringen.</span>
-<span id="cb6-282"><a href="#cb6-282" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Wenn du das wiederholt tust, können diese kleinen Schritte des Lernens zu einer übergroßen Menge des Lernens insgesamt führen.</span>
-<span id="cb6-283"><a href="#cb6-283" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-284"><a href="#cb6-284" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">How to Learn Anything You Want \| Andrew Huberman</span><span class="co">](https://youtu.be/8oyA-ctqq3g)</span></span>
-<span id="cb6-285"><a href="#cb6-285" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-286"><a href="#cb6-286" aria-hidden="true" tabindex="-1"></a><span class="fu">## Weitere Datenquellen {.unnumbered}</span></span>
-<span id="cb6-287"><a href="#cb6-287" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-288"><a href="#cb6-288" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Food and agriculture data</span><span class="co">](https://www.fao.org/faostat/en/#home)</span></span>
-<span id="cb6-289"><a href="#cb6-289" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-290"><a href="#cb6-290" aria-hidden="true" tabindex="-1"></a>Mit dem <span class="co">[</span><span class="ot">R Paket `{FAOSTAT}`</span><span class="co">](https://cran.r-hub.io/web/packages/FAOSTAT/)</span> und der Vignette <span class="co">[</span><span class="ot">FAOSTAT: Download Data from the FAOSTAT Database</span><span class="co">](https://cran.r-hub.io/web/packages/FAOSTAT/vignettes/FAOSTAT.pdf)</span></span>
-<span id="cb6-291"><a href="#cb6-291" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-294"><a href="#cb6-294" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb6-295"><a href="#cb6-295" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
-<span id="cb6-296"><a href="#cb6-296" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-297"><a href="#cb6-297" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-298"><a href="#cb6-298" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb6-299"><a href="#cb6-299" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-300"><a href="#cb6-300" aria-hidden="true" tabindex="-1"></a>Mit dem <span class="co">[</span><span class="ot">R Paket `{owidR}`</span><span class="co">](https://cran.r-project.org/web/packages/owidR/index.html)</span> haben wir auch eine Möglichkeit direkt auf die Datenbank von <span class="co">[</span><span class="ot">Our World in Data</span><span class="co">](https://ourworldindata.org/)</span> zuzugreifen.</span>
-<span id="cb6-301"><a href="#cb6-301" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-304"><a href="#cb6-304" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb6-305"><a href="#cb6-305" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
-<span id="cb6-306"><a href="#cb6-306" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-307"><a href="#cb6-307" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(owidR)</span>
-<span id="cb6-308"><a href="#cb6-308" aria-hidden="true" tabindex="-1"></a>foo <span class="ot">&lt;-</span> <span class="fu">owid_search</span>(<span class="st">"annual"</span>) </span>
-<span id="cb6-309"><a href="#cb6-309" aria-hidden="true" tabindex="-1"></a><span class="fu">owid</span>(<span class="st">"annual-co2-emissions-by-region"</span>)</span>
-<span id="cb6-310"><a href="#cb6-310" aria-hidden="true" tabindex="-1"></a><span class="fu">owid</span>(foo[<span class="dv">3</span>])</span>
-<span id="cb6-311"><a href="#cb6-311" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb6-312"><a href="#cb6-312" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-313"><a href="#cb6-313" aria-hidden="true" tabindex="-1"></a>Eine wunderbare Sammlung von Datensätzen aus dem Bereich der Agarwissenschaften liefert das R Paket <span class="in">`{agridat}`</span>. Über die Hilfeseite <span class="co">[</span><span class="ot">agridat: Agricultural Datasets</span><span class="co">](https://cran.r-project.org/web/packages/agridat/index.html)</span> findest du dann einmal einen gesamten Überblick und auch die Informationen über einige ausgewählte Datensätze aus Dutzenden von Datensätzen. Alle Datensätze der wichtigen Bücher zu dem experimentellen Designs sind dort eigentlich enthalten und einmal kuratiert.</span>
-<span id="cb6-314"><a href="#cb6-314" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-315"><a href="#cb6-315" aria-hidden="true" tabindex="-1"></a>Hier noch der Link zu <span class="co">[</span><span class="ot">agridat - Datensätze mit Abbildungen in `{desplot}`</span><span class="co">](https://kwstat.github.io/agridat/reference/index.html)</span>. Du musst dann auf die jeweiligen Datensätze in der Liste klicken und dann kommst du zu dem Datensatz mit mehr Details sowie meistens auch einer Abbildung in <span class="in">`desplot`</span>.</span>
-<span id="cb6-316"><a href="#cb6-316" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-317"><a href="#cb6-317" aria-hidden="true" tabindex="-1"></a><span class="fu">## Marginal effects {.unnumbered}</span></span>
-<span id="cb6-318"><a href="#cb6-318" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-319"><a href="#cb6-319" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Marginal Effects Zoo</span><span class="co">](https://marginaleffects.com)</span></span>
-<span id="cb6-320"><a href="#cb6-320" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-321"><a href="#cb6-321" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">R Paket `{marginaleffects}`</span><span class="co">](https://marginaleffects.com)</span></span>
-<span id="cb6-322"><a href="#cb6-322" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-323"><a href="#cb6-323" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Marginal and conditional effects for GLMMs with `{marginaleffects}`</span><span class="co">](https://www.andrewheiss.com/blog/2022/11/29/conditional-marginal-marginaleffects/)</span></span>
-<span id="cb6-324"><a href="#cb6-324" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-325"><a href="#cb6-325" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Marginalia: A guide to figuring out what the heck marginal effects, marginal slopes, average marginal effects, marginal effects at the mean, and all these other marginal things are</span><span class="co">](https://www.andrewheiss.com/blog/2022/05/20/marginalia/#what-about-marginal-things-in-statistics)</span></span>
-<span id="cb6-326"><a href="#cb6-326" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-327"><a href="#cb6-327" aria-hidden="true" tabindex="-1"></a><span class="fu">## Latent Class Analysis {.unnumbered}</span></span>
-<span id="cb6-328"><a href="#cb6-328" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-329"><a href="#cb6-329" aria-hidden="true" tabindex="-1"></a>Wie immer gibt es eine Reihe von Tutorien auf denen dieser Abschnitt aufbaut. Zum einen wirf einfach mal einen Blick in das Tutorium <span class="co">[</span><span class="ot">Latent Class Analysis Using R</span><span class="co">](https://pop.princeton.edu/events/2020/latent-class-analysis-using-r)</span>. Eine leider etwas veraltete Übersicht über mögliche R Pakete liefert <span class="co">[</span><span class="ot">Ways to do Latent Class Analysis in R</span><span class="co">](https://maksimrudnev.com/2016/12/28/latent-class-analysis-in-r/)</span>. Ich habe da immer mal quer geschaut und mich dann für die Pakete hier entschieden. Es gibt sicherlich noch andere Möglichkeiten eine *latent class analysis* zu rechnen.</span>
-<span id="cb6-330"><a href="#cb6-330" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-331"><a href="#cb6-331" aria-hidden="true" tabindex="-1"></a>Wenn du mehr über *latent class analysis* erfahren möchtest, dann kann ich dir nur das <span class="co">[</span><span class="ot">LCA Frequently Asked Questions (FAQ)</span><span class="co">](https://www.john-uebersax.com/stat/faq.htm)</span> empfehlen. Das FAQ ist sehr umfangreich und beschäftigt sich mit allen wichtigen Punkten. Wir wollen uns ja mit dem R Paket <span class="in">`poLCA`</span> beschäftigen. Hier gibt es zwei Tutorien. Einmal gibt es das Tutorium <span class="co">[</span><span class="ot">Example for a latent class analysis with the poLCA-package in R</span><span class="co">](https://statistics.ohlsen-web.de/latent-class-analysis-polca/)</span> und das Tutroium <span class="co">[</span><span class="ot">Latent Class Analysis</span><span class="co">](https://rpubs.com/eogawac/poLCA)</span>. Und natürlich die Litertur von @linzer2011polca mit der entsprechenden Veröffentlichung <span class="co">[</span><span class="ot">poLCA: An R Package for Polytomous Variable Latent Class Analysis</span><span class="co">](https://www.sscnet.ucla.edu/polisci/faculty/lewis/pdf/poLCA-JSS-final.pdf)</span></span>
-<span id="cb6-332"><a href="#cb6-332" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-333"><a href="#cb6-333" aria-hidden="true" tabindex="-1"></a>Grundsätzlich basiert die *latent class analysis* nicht auf Distanzen sondern versucht über eine Modellierung der Klassenzugehörigkeitswahrscheinlichkeit getrennte Gruppen zu bilden. Wir wollen also $k$ Klassen haben und im idealen Fall können wir durch unsere Variablen in dem Datensatz jeweils mit einer 100% Wahrscheinlichkeit einer der drei Klassen zuordnen. Was dann diese $k$ Klassen aussagen, müssen wir dann selber anhand der zugewiesenen Variablen aus unseren Daten interpretieren.</span>
-<span id="cb6-334"><a href="#cb6-334" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-337"><a href="#cb6-337" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb6-338"><a href="#cb6-338" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
-<span id="cb6-339"><a href="#cb6-339" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(tidyverse, magrittr, janitor, conflicted)</span>
-<span id="cb6-340"><a href="#cb6-340" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-341"><a href="#cb6-341" aria-hidden="true" tabindex="-1"></a>animals_tbl <span class="ot">&lt;-</span> <span class="fu">read_excel</span>(<span class="st">"data/cluster_animal.xlsx"</span>, <span class="at">sheet =</span> <span class="dv">1</span>) <span class="sc">|&gt;</span> </span>
-<span id="cb6-342"><a href="#cb6-342" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clean_names</span>() </span>
-<span id="cb6-343"><a href="#cb6-343" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb6-344"><a href="#cb6-344" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-347"><a href="#cb6-347" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb6-348"><a href="#cb6-348" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
-<span id="cb6-349"><a href="#cb6-349" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(poLCA)</span>
-<span id="cb6-350"><a href="#cb6-350" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-351"><a href="#cb6-351" aria-hidden="true" tabindex="-1"></a><span class="fu">poLCA</span>(<span class="fu">cbind</span>(warm_blooded, fly, vertebrate, threatened, live_in_groups) <span class="sc">~</span> <span class="dv">1</span>,</span>
-<span id="cb6-352"><a href="#cb6-352" aria-hidden="true" tabindex="-1"></a>      <span class="at">nclass =</span> <span class="dv">3</span>,</span>
-<span id="cb6-353"><a href="#cb6-353" aria-hidden="true" tabindex="-1"></a>      <span class="at">data =</span> animals_tbl,</span>
-<span id="cb6-354"><a href="#cb6-354" aria-hidden="true" tabindex="-1"></a>      <span class="at">nrep =</span> <span class="dv">1</span>,</span>
-<span id="cb6-355"><a href="#cb6-355" aria-hidden="true" tabindex="-1"></a>      <span class="at">na.rm =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb6-356"><a href="#cb6-356" aria-hidden="true" tabindex="-1"></a>      <span class="at">graphs =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb6-357"><a href="#cb6-357" aria-hidden="true" tabindex="-1"></a>      <span class="at">maxiter =</span> <span class="dv">100000</span></span>
-<span id="cb6-358"><a href="#cb6-358" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb6-359"><a href="#cb6-359" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-360"><a href="#cb6-360" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb6-361"><a href="#cb6-361" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-362"><a href="#cb6-362" aria-hidden="true" tabindex="-1"></a>Hier hängen wir dann an der Interpretation. Da müssen wir nochmal tiefer schauen.</span>
-<span id="cb6-363"><a href="#cb6-363" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-364"><a href="#cb6-364" aria-hidden="true" tabindex="-1"></a><span class="fu">## Structural Equation Modeling {.unnumbered}</span></span>
-<span id="cb6-365"><a href="#cb6-365" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-366"><a href="#cb6-366" aria-hidden="true" tabindex="-1"></a>@van2023best <span class="co">[</span><span class="ot">tidySEM</span><span class="co">](https://cjvanlissa.github.io/tidySEM/index.html)</span></span>
-<span id="cb6-367"><a href="#cb6-367" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-368"><a href="#cb6-368" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Structural Equation Modeling</span><span class="co">](https://bookdown.org/bean_jerry/using_r_for_social_work_research/structural-equation-modeling.html)</span></span>
-<span id="cb6-369"><a href="#cb6-369" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-370"><a href="#cb6-370" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Introduction to structural equation modeling (sem) in r with lavaan</span><span class="co">](https://stats.oarc.ucla.edu/r/seminars/rsem/)</span></span>
-<span id="cb6-371"><a href="#cb6-371" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-372"><a href="#cb6-372" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Intro to structural equation modeling</span><span class="co">](https://rpubs.com/Agrele/SEM)</span></span>
-<span id="cb6-373"><a href="#cb6-373" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-374"><a href="#cb6-374" aria-hidden="true" tabindex="-1"></a>Schöne Diagramme <span class="co">[</span><span class="ot">Structural Equation Models</span><span class="co">](https://advstats.psychstat.org/book/sem/index.php)</span></span>
-<span id="cb6-375"><a href="#cb6-375" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-376"><a href="#cb6-376" aria-hidden="true" tabindex="-1"></a><span class="fu">## Links &amp; Quellen {.unnumbered}</span></span>
-<span id="cb6-377"><a href="#cb6-377" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-378"><a href="#cb6-378" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Large language models, explained with a minimum of math and jargon</span><span class="co">](https://www.understandingai.org/p/large-language-models-explained-with)</span></span>
-<span id="cb6-379"><a href="#cb6-379" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-380"><a href="#cb6-380" aria-hidden="true" tabindex="-1"></a>Data Science</span>
-<span id="cb6-381"><a href="#cb6-381" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-382"><a href="#cb6-382" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Real World Data @liu2022real</span>
-<span id="cb6-383"><a href="#cb6-383" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Warum **Data** Science @hariri2019uncertainty</span>
-<span id="cb6-384"><a href="#cb6-384" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Paradigmenwechsel?</span>
-<span id="cb6-385"><a href="#cb6-385" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-386"><a href="#cb6-386" aria-hidden="true" tabindex="-1"></a><span class="fu">## Referenzen {.unnumbered}</span></span>
+<div class="sourceCode" id="cb13" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="in">```{r echo = FALSE}</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="in">#| message: false</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="in">#| warning: false</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="in">pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, performance, parameters,</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="in">               latex2exp, see, patchwork, mfp, multcomp, emmeans, janitor, effectsize,</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="in">               broom, ggmosaic, ggrepel,</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="in">               conflicted)</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="in">conflicts_prefer(dplyr::select)</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a><span class="in">conflicts_prefer(dplyr::filter)</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a><span class="in">cb_pal &lt;- c("#000000", "#E69F00", "#56B4E9", </span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a><span class="in">            "#009E73", "#F0E442", "#F5C710", </span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a><span class="in">            "#0072B2", "#D55E00", "#CC79A7")</span></span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a><span class="in">cbbPalette &lt;- cb_pal</span></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a><span class="fu"># Spielecke {#sec-spielecke}</span></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>*Letzte Änderung am `r format(fs::file_info("app-spielecke.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Denn, um es endlich auf einmal herauszusagen, der Mensch spielt nur, wo er in voller Bedeutung des Worts Mensch ist, und er ist nur da ganz Mensch, wo er spielt." --- Friedrich Schiller*</span></span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a>Dieses Kapitel ist *meine Spielecke*, wo ich Ideen und sonst so Zeug sammele, was mir über den Weg läuft und ich noch nicht so richtig weiter im Skript eingeordnet habe. Deshalb hat das hier auch keine Struktur, da mir die Gedanken eben auch noch wirr durch den Kopf geistern.</span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a><span class="fu">## Mixed data {.unnumbered}</span></span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a><span class="al">![](images/eda/zerforschen_correlation_01.jpg)</span>{fig-align="center" width="100%"}</span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a><span class="al">![](images/eda/zerforschen_mixed_anova.jpg)</span>{fig-align="center" width="100%"}</span>
+<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb13-33"><a href="#cb13-33" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(ggshadow)</span>
+<span id="cb13-34"><a href="#cb13-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-35"><a href="#cb13-35" aria-hidden="true" tabindex="-1"></a>o2_tbl <span class="ot">&lt;-</span> <span class="fu">read_excel</span>(<span class="st">"data/sauerstoffmangel.xlsx"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb13-36"><a href="#cb13-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> t0_height<span class="sc">:</span><span class="fu">last_col</span>(),</span>
+<span id="cb13-37"><a href="#cb13-37" aria-hidden="true" tabindex="-1"></a>               <span class="at">values_to =</span> <span class="st">"height"</span>,</span>
+<span id="cb13-38"><a href="#cb13-38" aria-hidden="true" tabindex="-1"></a>               <span class="at">names_to =</span> <span class="fu">c</span>(<span class="st">"time"</span>, <span class="st">"outcome"</span>),</span>
+<span id="cb13-39"><a href="#cb13-39" aria-hidden="true" tabindex="-1"></a>               <span class="at">names_sep =</span> <span class="st">"_"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb13-40"><a href="#cb13-40" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">light =</span> <span class="fu">as_factor</span>(light),</span>
+<span id="cb13-41"><a href="#cb13-41" aria-hidden="true" tabindex="-1"></a>         <span class="at">water_level =</span> <span class="fu">as_factor</span>(water_level),</span>
+<span id="cb13-42"><a href="#cb13-42" aria-hidden="true" tabindex="-1"></a>         <span class="at">time_fct =</span> <span class="fu">as_factor</span>(time),</span>
+<span id="cb13-43"><a href="#cb13-43" aria-hidden="true" tabindex="-1"></a>         <span class="at">time_num =</span> <span class="fu">as.numeric</span>(time_fct) <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb13-44"><a href="#cb13-44" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(id, light, water_level, time_fct, time_num, height)</span>
+<span id="cb13-45"><a href="#cb13-45" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-46"><a href="#cb13-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-49"><a href="#cb13-49" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb13-50"><a href="#cb13-50" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: true</span></span>
+<span id="cb13-51"><a href="#cb13-51" aria-hidden="true" tabindex="-1"></a><span class="co">#| message: false</span></span>
+<span id="cb13-52"><a href="#cb13-52" aria-hidden="true" tabindex="-1"></a><span class="co">#| warning: false</span></span>
+<span id="cb13-53"><a href="#cb13-53" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-anwendung-o2-01</span></span>
+<span id="cb13-54"><a href="#cb13-54" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-align: center</span></span>
+<span id="cb13-55"><a href="#cb13-55" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-height: 5</span></span>
+<span id="cb13-56"><a href="#cb13-56" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-width: 8</span></span>
+<span id="cb13-57"><a href="#cb13-57" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "Boxplot des Fruchtwachstums von fünfzehn Tomatensorten über zehn Wochen unter Trockenstress."</span></span>
+<span id="cb13-58"><a href="#cb13-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-59"><a href="#cb13-59" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(o2_tbl, <span class="fu">aes</span>(time_num, height, <span class="at">linetype =</span> light, <span class="at">color =</span> water_level)) <span class="sc">+</span></span>
+<span id="cb13-60"><a href="#cb13-60" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb13-61"><a href="#cb13-61" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="fu">aes</span>(<span class="at">group =</span> light), <span class="at">func =</span> <span class="st">"mean"</span>, <span class="at">geom =</span> <span class="st">"line"</span>,</span>
+<span id="cb13-62"><a href="#cb13-62" aria-hidden="true" tabindex="-1"></a>               <span class="at">size =</span> <span class="dv">4</span>, <span class="at">show.legend =</span> <span class="cn">FALSE</span>, <span class="at">alpha =</span> <span class="fl">0.2</span>) <span class="sc">+</span></span>
+<span id="cb13-63"><a href="#cb13-63" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="fu">aes</span>(<span class="at">group =</span> water_level), <span class="at">func =</span> <span class="st">"mean"</span>, <span class="at">geom =</span> <span class="st">"line"</span>,</span>
+<span id="cb13-64"><a href="#cb13-64" aria-hidden="true" tabindex="-1"></a>               <span class="at">size =</span> <span class="dv">4</span>, <span class="at">show.legend =</span> <span class="cn">FALSE</span>, <span class="at">alpha =</span> <span class="fl">0.2</span>) <span class="sc">+</span></span>
+<span id="cb13-65"><a href="#cb13-65" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="at">func =</span> <span class="st">"mean"</span>, <span class="at">geom =</span> <span class="st">"line"</span>, <span class="at">linewidth =</span> <span class="dv">2</span>) </span>
+<span id="cb13-66"><a href="#cb13-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-67"><a href="#cb13-67" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-68"><a href="#cb13-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-71"><a href="#cb13-71" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb13-72"><a href="#cb13-72" aria-hidden="true" tabindex="-1"></a>tomato_tbl <span class="ot">&lt;-</span> <span class="fu">read_excel</span>(<span class="st">"data/repeated_tomato.xlsx"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb13-73"><a href="#cb13-73" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clean_names</span>() <span class="sc">|&gt;</span> </span>
+<span id="cb13-74"><a href="#cb13-74" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">variety =</span> <span class="fu">relevel</span>(<span class="fu">as_factor</span>(variety), <span class="at">ref =</span> <span class="st">"control"</span>),</span>
+<span id="cb13-75"><a href="#cb13-75" aria-hidden="true" tabindex="-1"></a>         <span class="at">time_fct =</span> <span class="fu">as_factor</span>(time))</span>
+<span id="cb13-76"><a href="#cb13-76" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-77"><a href="#cb13-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-80"><a href="#cb13-80" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb13-81"><a href="#cb13-81" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: true</span></span>
+<span id="cb13-82"><a href="#cb13-82" aria-hidden="true" tabindex="-1"></a><span class="co">#| message: false</span></span>
+<span id="cb13-83"><a href="#cb13-83" aria-hidden="true" tabindex="-1"></a><span class="co">#| warning: false</span></span>
+<span id="cb13-84"><a href="#cb13-84" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-anwendung-tomato-01</span></span>
+<span id="cb13-85"><a href="#cb13-85" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-align: center</span></span>
+<span id="cb13-86"><a href="#cb13-86" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-height: 5</span></span>
+<span id="cb13-87"><a href="#cb13-87" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-width: 8</span></span>
+<span id="cb13-88"><a href="#cb13-88" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "Boxplot des Fruchtwachstums von fünfzehn Tomatensorten über zehn Wochen unter Trockenstress."</span></span>
+<span id="cb13-89"><a href="#cb13-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-90"><a href="#cb13-90" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(tomato_tbl, </span>
+<span id="cb13-91"><a href="#cb13-91" aria-hidden="true" tabindex="-1"></a>       <span class="fu">aes</span>(time_fct, diameter, <span class="at">fill =</span> variety)) <span class="sc">+</span></span>
+<span id="cb13-92"><a href="#cb13-92" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb13-93"><a href="#cb13-93" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>(<span class="at">outlier.size =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb13-94"><a href="#cb13-94" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"top"</span>) <span class="sc">+</span></span>
+<span id="cb13-95"><a href="#cb13-95" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_metro</span>() <span class="sc">+</span></span>
+<span id="cb13-96"><a href="#cb13-96" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Zeitpunkte der Messung"</span>, <span class="at">y =</span> <span class="st">"Mittleres Fruchtdurchmesser [cm]"</span>,</span>
+<span id="cb13-97"><a href="#cb13-97" aria-hidden="true" tabindex="-1"></a>       <span class="at">color =</span> <span class="st">"Sorte"</span>)</span>
+<span id="cb13-98"><a href="#cb13-98" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-99"><a href="#cb13-99" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-102"><a href="#cb13-102" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb13-103"><a href="#cb13-103" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: true</span></span>
+<span id="cb13-104"><a href="#cb13-104" aria-hidden="true" tabindex="-1"></a><span class="co">#| message: false</span></span>
+<span id="cb13-105"><a href="#cb13-105" aria-hidden="true" tabindex="-1"></a><span class="co">#| warning: false</span></span>
+<span id="cb13-106"><a href="#cb13-106" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-anwendung-tomato-02</span></span>
+<span id="cb13-107"><a href="#cb13-107" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-align: center</span></span>
+<span id="cb13-108"><a href="#cb13-108" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-height: 5</span></span>
+<span id="cb13-109"><a href="#cb13-109" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-width: 8</span></span>
+<span id="cb13-110"><a href="#cb13-110" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "Das Fruchtwachstum von fünfzehn Tomatensorten über zehn Wochen unter Trockenstress."</span></span>
+<span id="cb13-111"><a href="#cb13-111" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-112"><a href="#cb13-112" aria-hidden="true" tabindex="-1"></a>ggrepel_tbl <span class="ot">&lt;-</span> tomato_tbl <span class="sc">|&gt;</span> </span>
+<span id="cb13-113"><a href="#cb13-113" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(time, variety) <span class="sc">|&gt;</span> </span>
+<span id="cb13-114"><a href="#cb13-114" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">mean =</span> <span class="fu">mean</span>(diameter, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">|&gt;</span> </span>
+<span id="cb13-115"><a href="#cb13-115" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(time <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">11</span>))</span>
+<span id="cb13-116"><a href="#cb13-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-117"><a href="#cb13-117" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(tomato_tbl, </span>
+<span id="cb13-118"><a href="#cb13-118" aria-hidden="true" tabindex="-1"></a>       <span class="fu">aes</span>(time, diameter, <span class="at">color =</span> variety, </span>
+<span id="cb13-119"><a href="#cb13-119" aria-hidden="true" tabindex="-1"></a>           <span class="at">group =</span> variety)) <span class="sc">+</span></span>
+<span id="cb13-120"><a href="#cb13-120" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb13-121"><a href="#cb13-121" aria-hidden="true" tabindex="-1"></a>  <span class="do">## geom_point2(position = position_dodge(0.5)) +</span></span>
+<span id="cb13-122"><a href="#cb13-122" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="at">fun =</span> <span class="st">"mean"</span>, <span class="at">geom =</span> <span class="st">"line"</span>) <span class="sc">+</span></span>
+<span id="cb13-123"><a href="#cb13-123" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="at">fun =</span> <span class="st">"mean"</span>, <span class="at">geom =</span> <span class="st">"point"</span>, <span class="at">size =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb13-124"><a href="#cb13-124" aria-hidden="true" tabindex="-1"></a>  <span class="do">## stat_summary(fun = "median", geom = "line", linetype = 2) +</span></span>
+<span id="cb13-125"><a href="#cb13-125" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_metro</span>() <span class="sc">+</span></span>
+<span id="cb13-126"><a href="#cb13-126" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"top"</span>) <span class="sc">+</span></span>
+<span id="cb13-127"><a href="#cb13-127" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">breaks =</span> <span class="dv">2</span><span class="sc">:</span><span class="dv">11</span>, <span class="at">expand =</span> <span class="fu">expansion</span>(<span class="at">mult =</span> <span class="fu">c</span>(<span class="fl">0.1</span>, .<span class="dv">1</span>))) <span class="sc">+</span></span>
+<span id="cb13-128"><a href="#cb13-128" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Zeitpunkte der Messung"</span>, <span class="at">y =</span> <span class="st">"Mittleres Fruchtdurchmesser [cm]"</span>,</span>
+<span id="cb13-129"><a href="#cb13-129" aria-hidden="true" tabindex="-1"></a>       <span class="at">color =</span> <span class="st">"Sorte"</span>) <span class="sc">+</span></span>
+<span id="cb13-130"><a href="#cb13-130" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text_repel</span>(<span class="at">data =</span> ggrepel_tbl, <span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">11</span>, <span class="at">y =</span> mean, <span class="at">label =</span> variety), <span class="at">show.legend =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb13-131"><a href="#cb13-131" aria-hidden="true" tabindex="-1"></a>                  <span class="at">nudge_x =</span> <span class="fl">0.5</span>, <span class="at">hjust =</span> <span class="st">"left"</span>, <span class="at">size =</span> <span class="dv">3</span>, <span class="at">segment.color =</span> <span class="st">"gray80"</span>)</span>
+<span id="cb13-132"><a href="#cb13-132" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-133"><a href="#cb13-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-134"><a href="#cb13-134" aria-hidden="true" tabindex="-1"></a><span class="fu">## Concordance Correlation Coefficient (CCC) {.unnumbered}</span></span>
+<span id="cb13-135"><a href="#cb13-135" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-136"><a href="#cb13-136" aria-hidden="true" tabindex="-1"></a>*Kann auch in technische Gleichheit mit rein*</span>
+<span id="cb13-137"><a href="#cb13-137" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-140"><a href="#cb13-140" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb13-141"><a href="#cb13-141" aria-hidden="true" tabindex="-1"></a>nirs_wide_tbl <span class="ot">&lt;-</span> <span class="fu">read_excel</span>(<span class="st">"data/nirs_qs_data.xlsx"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb13-142"><a href="#cb13-142" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clean_names</span>()</span>
+<span id="cb13-143"><a href="#cb13-143" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-144"><a href="#cb13-144" aria-hidden="true" tabindex="-1"></a>nirs_long_tbl <span class="ot">&lt;-</span> nirs_wide_tbl <span class="sc">|&gt;</span> </span>
+<span id="cb13-145"><a href="#cb13-145" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> jd_ts<span class="sc">:</span><span class="fu">last_col</span>(),</span>
+<span id="cb13-146"><a href="#cb13-146" aria-hidden="true" tabindex="-1"></a>               <span class="at">values_to =</span> <span class="st">"values"</span>,</span>
+<span id="cb13-147"><a href="#cb13-147" aria-hidden="true" tabindex="-1"></a>               <span class="at">names_to =</span> <span class="fu">c</span>(<span class="st">"method"</span>, <span class="st">"type"</span>),</span>
+<span id="cb13-148"><a href="#cb13-148" aria-hidden="true" tabindex="-1"></a>               <span class="at">names_sep =</span> <span class="st">"_"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb13-149"><a href="#cb13-149" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">gulleart =</span> <span class="fu">as_factor</span>(gulleart),</span>
+<span id="cb13-150"><a href="#cb13-150" aria-hidden="true" tabindex="-1"></a>         <span class="at">method =</span> <span class="fu">as_factor</span>(method),</span>
+<span id="cb13-151"><a href="#cb13-151" aria-hidden="true" tabindex="-1"></a>         <span class="at">type =</span> <span class="fu">as_factor</span>(type))</span>
+<span id="cb13-152"><a href="#cb13-152" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-153"><a href="#cb13-153" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-154"><a href="#cb13-154" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Technical note: Validation and comparison of 2 commercially available activity loggers</span><span class="co">](https://www.sciencedirect.com/science/article/pii/S0022030218302418)</span></span>
+<span id="cb13-155"><a href="#cb13-155" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-156"><a href="#cb13-156" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">User's guide to correlation coefficients</span><span class="co">](https://pmc.ncbi.nlm.nih.gov/articles/PMC6107969/)</span></span>
+<span id="cb13-157"><a href="#cb13-157" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-158"><a href="#cb13-158" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Concordance correlation coefficient calculation in R</span><span class="co">](https://medium.com/@amorimfranchi/concordance-correlation-coefficient-calculation-in-r-98d74ae5f0fc)</span></span>
+<span id="cb13-159"><a href="#cb13-159" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-160"><a href="#cb13-160" aria-hidden="true" tabindex="-1"></a><span class="fu">## SQL als `{dbplyr}`?</span></span>
+<span id="cb13-161"><a href="#cb13-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-162"><a href="#cb13-162" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Das R Paket `{dbplyr}`</span><span class="co">](https://dbplyr.tidyverse.org/)</span> <span class="co">[</span><span class="ot">Database Queries With R</span><span class="co">](https://solutions.posit.co/connections/db/getting-started/database-queries/)</span></span>
+<span id="cb13-163"><a href="#cb13-163" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-164"><a href="#cb13-164" aria-hidden="true" tabindex="-1"></a><span class="fu">## Friedman &amp; Welch {.unnumbered}</span></span>
+<span id="cb13-165"><a href="#cb13-165" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-166"><a href="#cb13-166" aria-hidden="true" tabindex="-1"></a>https://seriousstats.wordpress.com/2012/02/14/friedman/</span>
+<span id="cb13-167"><a href="#cb13-167" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-168"><a href="#cb13-168" aria-hidden="true" tabindex="-1"></a>https://stats.stackexchange.com/questions/142685/equivalent-to-welchs-t-test-in-gls-framework</span>
+<span id="cb13-169"><a href="#cb13-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-170"><a href="#cb13-170" aria-hidden="true" tabindex="-1"></a>https://lindeloev.github.io/tests-as-linear/</span>
+<span id="cb13-171"><a href="#cb13-171" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-172"><a href="#cb13-172" aria-hidden="true" tabindex="-1"></a>https://www.andrewheiss.com/blog/2022/05/20/marginalia/</span>
+<span id="cb13-173"><a href="#cb13-173" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-174"><a href="#cb13-174" aria-hidden="true" tabindex="-1"></a>::: callout-tip</span>
+<span id="cb13-175"><a href="#cb13-175" aria-hidden="true" tabindex="-1"></a><span class="fu">## Anwendungsbeispiel: Klinische Studien und das weibliche Geschlecht</span></span>
+<span id="cb13-176"><a href="#cb13-176" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-177"><a href="#cb13-177" aria-hidden="true" tabindex="-1"></a>In dem Buch <span class="co">[</span><span class="ot">Eve: How the Female Body Drove 200 Million Years of Human Evolution</span><span class="co">](https://www.penguinrandomhouse.com/books/227568/eve-by-cat-bohannon/)</span> von @miksanek2023eve</span>
+<span id="cb13-178"><a href="#cb13-178" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb13-179"><a href="#cb13-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-180"><a href="#cb13-180" aria-hidden="true" tabindex="-1"></a>::: {.callout-caution appearance="simple"}</span>
+<span id="cb13-181"><a href="#cb13-181" aria-hidden="true" tabindex="-1"></a><span class="fu">## Stand des Kapitels: Archiviert (seit 01.2025)</span></span>
+<span id="cb13-182"><a href="#cb13-182" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-183"><a href="#cb13-183" aria-hidden="true" tabindex="-1"></a>Dieses Kapitel ist archiviert, da ich die Thematik des Kapitels aktuell nicht in meiner Lehre oder der statistischen Beratung benötige. Archivierte Kapitel werden nicht von mir weiter gepflegt oder ergänzt. Auftretende Fehler werden aber natürlich beseitigt, wenn die Fehler mir auffallen.</span>
+<span id="cb13-184"><a href="#cb13-184" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb13-185"><a href="#cb13-185" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-186"><a href="#cb13-186" aria-hidden="true" tabindex="-1"></a><span class="fu">## Tabset {.unnumbered}</span></span>
+<span id="cb13-187"><a href="#cb13-187" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-188"><a href="#cb13-188" aria-hidden="true" tabindex="-1"></a>::: panel-tabset</span>
+<span id="cb13-189"><a href="#cb13-189" aria-hidden="true" tabindex="-1"></a><span class="fu">## Theoretisch</span></span>
+<span id="cb13-190"><a href="#cb13-190" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-191"><a href="#cb13-191" aria-hidden="true" tabindex="-1"></a><span class="fu">## Händisch</span></span>
+<span id="cb13-192"><a href="#cb13-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-193"><a href="#cb13-193" aria-hidden="true" tabindex="-1"></a><span class="fu">## R `{base}`</span></span>
+<span id="cb13-194"><a href="#cb13-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-195"><a href="#cb13-195" aria-hidden="true" tabindex="-1"></a><span class="fu">## Excel</span></span>
+<span id="cb13-196"><a href="#cb13-196" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb13-197"><a href="#cb13-197" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-198"><a href="#cb13-198" aria-hidden="true" tabindex="-1"></a><span class="fu">## Abbilungen {.unnumbered}</span></span>
+<span id="cb13-199"><a href="#cb13-199" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-200"><a href="#cb13-200" aria-hidden="true" tabindex="-1"></a><span class="fu">## Offene Ideen &amp; Wartungsarbeiten {.unnumbered}</span></span>
+<span id="cb13-201"><a href="#cb13-201" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-202"><a href="#cb13-202" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"The days can be easy if the years are consistent. You can write a book or get in shape or code a piece of software in 30 minutes per day. But the key is you can't miss a bunch of days." --- James Clear*</span></span>
+<span id="cb13-203"><a href="#cb13-203" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-204"><a href="#cb13-204" aria-hidden="true" tabindex="-1"></a>Was tippe ich gerade zur Zeit und welche Baustellen sind hier im Buch gerade offen? Im Folgenden einmal eine lose Liste an Themen und Fragmenten, die ich noch integrieren möchte. Die dargestellte Reihenfolge ist nicht die Reihenfolge in der ich an den Texten arbeite. Auch schaffe ich meistens nichts alles in ein paar Tagen. Daher handelt es sich nur um einen groben Überblick und eine Rückversicherung für mich, was ich noch offen habe. Teilweise ziemlich lange...</span>
+<span id="cb13-205"><a href="#cb13-205" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-206"><a href="#cb13-206" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Permutationstest &amp; Bootstraping mit Bootstraping ergänzen.</span><span class="co">](#sec-permut)</span></span>
+<span id="cb13-207"><a href="#cb13-207" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Modellieren in R als Einstiegskapitel erstellen</span><span class="co">](#sec-modeling-R)</span> und dabei die Überarbeitung der statistischen Modellierungskapitel und Abbildungen ergänzen</span>
+<span id="cb13-208"><a href="#cb13-208" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Räumliche Daten</span><span class="co">](#sec-spatial-data)</span></span>
+<span id="cb13-209"><a href="#cb13-209" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Metaanalysen</span><span class="co">](#sec-meta)</span></span>
+<span id="cb13-210"><a href="#cb13-210" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Das R Paket <span class="in">`{infer}`</span> passend ergänzen</span>
+<span id="cb13-211"><a href="#cb13-211" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Marginal Models und `{emmeans}` mit mehr Theorie</span><span class="co">](#sec-posthoc)</span></span>
+<span id="cb13-212"><a href="#cb13-212" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Maximum Likelihood als Methode ergänzen</span>
+<span id="cb13-213"><a href="#cb13-213" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Ideen zu Frauen in der Statistik erarbeiten</span><span class="co">](#sec-programming-preface)</span></span>
+<span id="cb13-214"><a href="#cb13-214" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Handzeichnungen in theoretische Statistik durch <span class="in">`{ggplot}`</span> ersetzen.</span>
+<span id="cb13-215"><a href="#cb13-215" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-216"><a href="#cb13-216" aria-hidden="true" tabindex="-1"></a>Folgende allgemeine Wartungs- und Qualitätsarbeiten müssen noch durchgeführt werden. Da diese immer etwas nervig sind, dauert es meistens noch länger, bis ich hier fertig werde.</span>
+<span id="cb13-217"><a href="#cb13-217" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-218"><a href="#cb13-218" aria-hidden="true" tabindex="-1"></a>i)  Zitate zu den Kapiteln ergänzen und sinnvoll anpassen.</span>
+<span id="cb13-219"><a href="#cb13-219" aria-hidden="true" tabindex="-1"></a>ii) Zitate und Quellen für wissenschaftliche Veröffentlichungen ergänzen.</span>
+<span id="cb13-220"><a href="#cb13-220" aria-hidden="true" tabindex="-1"></a>iii) Rechtschreibung und Grammatik systematisch überprüfen.</span>
+<span id="cb13-221"><a href="#cb13-221" aria-hidden="true" tabindex="-1"></a>iv) <span class="in">`{patchwork}`</span> also Ersatz für <span class="in">`column: page`</span></span>
+<span id="cb13-222"><a href="#cb13-222" aria-hidden="true" tabindex="-1"></a>v)  Global Abbildungen ohne sichtbaren Code aufhübschen.</span>
+<span id="cb13-223"><a href="#cb13-223" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-224"><a href="#cb13-224" aria-hidden="true" tabindex="-1"></a><span class="fu">## Links {.unnumbered}</span></span>
+<span id="cb13-225"><a href="#cb13-225" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-226"><a href="#cb13-226" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Statistische Funktionen (Referenz) in Excel</span><span class="co">](https://support.microsoft.com/de-de/office/statistische-funktionen-referenz-624dac86-a375-4435-bc25-76d659719ffd)</span></span>
+<span id="cb13-227"><a href="#cb13-227" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-228"><a href="#cb13-228" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Dyson Sphere</span><span class="co">](https://youtu.be/pP44EPBMb8A)</span></span>
+<span id="cb13-229"><a href="#cb13-229" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-230"><a href="#cb13-230" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Cancer Paradox</span><span class="co">](https://youtu.be/1AElONvi9WQ)</span></span>
+<span id="cb13-231"><a href="#cb13-231" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-232"><a href="#cb13-232" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">R Library Contrast Coding Systems for categorical variables</span><span class="co">](https://stats.oarc.ucla.edu/r/library/r-library-contrast-coding-systems-for-categorical-variables/)</span></span>
+<span id="cb13-233"><a href="#cb13-233" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-236"><a href="#cb13-236" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb13-237"><a href="#cb13-237" aria-hidden="true" tabindex="-1"></a><span class="co">#| warning: false</span></span>
+<span id="cb13-238"><a href="#cb13-238" aria-hidden="true" tabindex="-1"></a><span class="co">#| message: false</span></span>
+<span id="cb13-239"><a href="#cb13-239" aria-hidden="true" tabindex="-1"></a>anage_tbl <span class="ot">&lt;-</span> <span class="fu">read_delim</span>(<span class="st">"data/anage_data.txt"</span>, <span class="at">delim =</span> <span class="st">"</span><span class="sc">\t</span><span class="st">"</span>)</span>
+<span id="cb13-240"><a href="#cb13-240" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-241"><a href="#cb13-241" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-244"><a href="#cb13-244" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb13-245"><a href="#cb13-245" aria-hidden="true" tabindex="-1"></a><span class="co">#| warning: false</span></span>
+<span id="cb13-246"><a href="#cb13-246" aria-hidden="true" tabindex="-1"></a><span class="co">#| message: false</span></span>
+<span id="cb13-247"><a href="#cb13-247" aria-hidden="true" tabindex="-1"></a>die_risk_tbl <span class="ot">&lt;-</span> <span class="fu">tibble</span>(<span class="at">age =</span> <span class="fu">c</span>(<span class="dv">25</span>, <span class="dv">60</span>, <span class="dv">80</span>, <span class="dv">100</span>, <span class="dv">108</span>),</span>
+<span id="cb13-248"><a href="#cb13-248" aria-hidden="true" tabindex="-1"></a>                       <span class="at">risk =</span> <span class="fu">c</span>(<span class="fl">0.1</span>, <span class="dv">1</span>, <span class="dv">6</span>, <span class="dv">16</span>, <span class="dv">50</span>))</span>
+<span id="cb13-249"><a href="#cb13-249" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-250"><a href="#cb13-250" aria-hidden="true" tabindex="-1"></a>fit_nls <span class="ot">&lt;-</span> <span class="fu">nls</span>(risk <span class="sc">~</span> b0 <span class="sc">+</span> <span class="fu">I</span>(b1<span class="sc">^</span>(age)), <span class="at">data =</span> die_risk_tbl, </span>
+<span id="cb13-251"><a href="#cb13-251" aria-hidden="true" tabindex="-1"></a>           <span class="at">start =</span> <span class="fu">c</span>(<span class="at">b0 =</span> <span class="dv">1</span>, <span class="at">b1 =</span> <span class="dv">1</span>))</span>
+<span id="cb13-252"><a href="#cb13-252" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-253"><a href="#cb13-253" aria-hidden="true" tabindex="-1"></a>hand_func <span class="ot">&lt;-</span> \(x) {<span class="sc">-</span><span class="dv">5</span> <span class="sc">+</span> <span class="fl">1.037</span><span class="sc">^</span>(x <span class="sc">*</span> <span class="fl">0.97</span>)}</span>
+<span id="cb13-254"><a href="#cb13-254" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-255"><a href="#cb13-255" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(die_risk_tbl, <span class="fu">aes</span>(age, risk)) <span class="sc">+</span></span>
+<span id="cb13-256"><a href="#cb13-256" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb13-257"><a href="#cb13-257" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb13-258"><a href="#cb13-258" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> <span class="fu">predict</span>(fit_nls)), <span class="at">size =</span> <span class="dv">1</span>, <span class="at">color =</span> <span class="st">"#CC79A7"</span>) <span class="sc">+</span></span>
+<span id="cb13-259"><a href="#cb13-259" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_function</span>(<span class="at">fun =</span> hand_func, <span class="at">color =</span> <span class="st">"#009E73"</span>, <span class="at">size =</span> <span class="dv">1</span>,</span>
+<span id="cb13-260"><a href="#cb13-260" aria-hidden="true" tabindex="-1"></a>                <span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">25</span>, <span class="dv">110</span>)) </span>
+<span id="cb13-261"><a href="#cb13-261" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-262"><a href="#cb13-262" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-263"><a href="#cb13-263" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-264"><a href="#cb13-264" aria-hidden="true" tabindex="-1"></a>Area under the curve larger than 1?</span>
+<span id="cb13-265"><a href="#cb13-265" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-266"><a href="#cb13-266" aria-hidden="true" tabindex="-1"></a>Why We Die: And How We Live: The New Science of Ageing and Longevity</span>
+<span id="cb13-267"><a href="#cb13-267" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-268"><a href="#cb13-268" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Here's Waldo: Computing the optimal search strategy for finding Waldo</span><span class="co">](https://randalolson.com/2015/02/03/heres-waldo-computing-the-optimal-search-strategy-for-finding-waldo/)</span></span>
+<span id="cb13-269"><a href="#cb13-269" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-270"><a href="#cb13-270" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Waldbrände und Dürren: Wie Korkeichen in Portugal den Klimawandel stoppen sollen</span><span class="co">](https://www.spiegel.de/ausland/waldbraende-und-duerren-wie-korkeichen-in-portugal-den-klimawandel-stoppen-sollen-a-db859f6d-2300-4b43-874c-ae239b76bd43)</span></span>
+<span id="cb13-271"><a href="#cb13-271" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-272"><a href="#cb13-272" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Stock assessment models overstate sustainability of the world’s fisheries</span><span class="co">](https://www.science.org/doi/10.1126/science.adl6282)</span> and <span class="co">[</span><span class="ot">Modelling seasonal data with GAMs</span><span class="co">](https://fromthebottomoftheheap.net/2014/05/09/modelling-seasonal-data-with-gam/)</span></span>
+<span id="cb13-273"><a href="#cb13-273" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-274"><a href="#cb13-274" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Karnickelsterben nun auch in Bremen</span><span class="co">](https://taz.de/Das-Ende-der-Plage/!6027222/)</span></span>
+<span id="cb13-275"><a href="#cb13-275" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-276"><a href="#cb13-276" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Jagd in Niedersachsen</span><span class="co">](https://www.ml.niedersachsen.de/startseite/themen/wald_holz_jagd/jagd_in_niedersachsen/jagd-in-niedersachsen-5138.html)</span></span>
+<span id="cb13-277"><a href="#cb13-277" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-278"><a href="#cb13-278" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Ein Kind meiner Zeit</span><span class="co">](https://www.republik.ch/2024/06/19/ein-kind-meiner-zeit)</span> <span class="co">[</span><span class="ot">Galenus von Pergamon - Leben und Werk</span><span class="co">](https://robl.de/galen/galen.htm)</span></span>
+<span id="cb13-279"><a href="#cb13-279" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-280"><a href="#cb13-280" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">I Will Fucking Piledrive You If You Mention AI Again</span><span class="co">](https://ludic.mataroa.blog/blog/i-will-fucking-piledrive-you-if-you-mention-ai-again/)</span></span>
+<span id="cb13-281"><a href="#cb13-281" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-282"><a href="#cb13-282" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Plötzlich sah ich den entscheidenden Graphen</span><span class="co">](https://www.zeit.de/2024/27/klimaforschung-ozean-klimawandel-umwelt-nachhaltigkeit)</span></span>
+<span id="cb13-283"><a href="#cb13-283" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-284"><a href="#cb13-284" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; Amoc sind riesige Wasserzirkulationen im Ozean, zu denen auch der Golfstrom gehört. Sie sorgen dafür, dass wir in Europa mildes Klima haben. Wenn dieses System zusammenbricht, würde es in den Niederlanden oder Deutschland etwa zehn bis zwanzig Grad kälter werden.</span></span>
+<span id="cb13-285"><a href="#cb13-285" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-286"><a href="#cb13-286" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Atmospheric Response to a Collapse of the North Atlantic</span><span class="co">](https://gmao.gsfc.nasa.gov/gmaoftp/corbe/AMOC/orbe245_revision1.pdf)</span></span>
+<span id="cb13-287"><a href="#cb13-287" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-288"><a href="#cb13-288" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Atlantic meridional overturning circulation</span><span class="co">](https://en.wikipedia.org/wiki/Atlantic_meridional_overturning_circulation)</span></span>
+<span id="cb13-289"><a href="#cb13-289" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-290"><a href="#cb13-290" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">The 2,500-Year-Old History of Adults Blaming the Younger Generation</span><span class="co">](https://historyhustle.com/2500-years-of-people-complaining-about-the-younger-generation/)</span></span>
+<span id="cb13-291"><a href="#cb13-291" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-292"><a href="#cb13-292" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Goals Gone Wild: The Systematic Side Effects of Over-Prescribing Goal Setting</span><span class="co">](https://www.hbs.edu/ris/Publication%20Files/09-083.pdf)</span></span>
+<span id="cb13-293"><a href="#cb13-293" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-294"><a href="#cb13-294" aria-hidden="true" tabindex="-1"></a><span class="fu">## Paper Ideen {.unnumbered}</span></span>
+<span id="cb13-295"><a href="#cb13-295" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-296"><a href="#cb13-296" aria-hidden="true" tabindex="-1"></a>Beide Paper dann mit den jeweiligen FAOSTAT Suchen verbinden.</span>
+<span id="cb13-297"><a href="#cb13-297" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-298"><a href="#cb13-298" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Food and agriculture data</span><span class="co">](https://www.fao.org/faostat/en/#home)</span></span>
+<span id="cb13-299"><a href="#cb13-299" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-300"><a href="#cb13-300" aria-hidden="true" tabindex="-1"></a>Mit dem <span class="co">[</span><span class="ot">R Paket `{FAOSTAT}`</span><span class="co">](https://cran.r-hub.io/web/packages/FAOSTAT/)</span> und der Vignette <span class="co">[</span><span class="ot">FAOSTAT: Download Data from the FAOSTAT Database</span><span class="co">](https://cran.r-hub.io/web/packages/FAOSTAT/vignettes/FAOSTAT.pdf)</span></span>
+<span id="cb13-301"><a href="#cb13-301" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-302"><a href="#cb13-302" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Esoteric beliefs and CAM impact SARS-CoV-2 immunization drivers, uptake and pediatric immunization views in Germany</span><span class="co">](https://www.nature.com/articles/s41541-024-00928-7)</span></span>
+<span id="cb13-303"><a href="#cb13-303" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-304"><a href="#cb13-304" aria-hidden="true" tabindex="-1"></a>Tierpaper</span>
+<span id="cb13-305"><a href="#cb13-305" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-306"><a href="#cb13-306" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Arginine Nutrition in Neonatal Pigs</span><span class="co">](https://www.sciencedirect.com/science/article/pii/S0022316623031279)</span></span>
+<span id="cb13-307"><a href="#cb13-307" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Fiber effects in nutrition and gut health in pigs</span><span class="co">](https://link.springer.com/article/10.1186/2049-1891-5-15)</span></span>
+<span id="cb13-308"><a href="#cb13-308" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Phosphorus nutrition of growing pigs</span><span class="co">](https://www.sciencedirect.com/science/article/pii/S2405654522000373)</span></span>
+<span id="cb13-309"><a href="#cb13-309" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Implications of sorghum in broiler chicken nutrition</span><span class="co">](https://www.sciencedirect.com/science/article/pii/S0377840110000209)</span></span>
+<span id="cb13-310"><a href="#cb13-310" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Proposed bursa of fabricius weight to body weight ratio standard in commercial broilers</span><span class="co">](https://www.sciencedirect.com/science/article/pii/S0032579119322448)</span></span>
+<span id="cb13-311"><a href="#cb13-311" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Growth, efficiency, and yield of commercial broilers from 1957, 1978, and 2005</span><span class="co">](https://www.sciencedirect.com/science/article/pii/S0032579119385505)</span></span>
+<span id="cb13-312"><a href="#cb13-312" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-313"><a href="#cb13-313" aria-hidden="true" tabindex="-1"></a>Pflanzenpaper</span>
+<span id="cb13-314"><a href="#cb13-314" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-315"><a href="#cb13-315" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Hoverfly pollination enhances yield and fruit quality in mango under protected cultivation</span><span class="co">](https://www.sciencedirect.com/science/article/pii/S0304423822004411)</span></span>
+<span id="cb13-316"><a href="#cb13-316" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Plant Growth, Yield, and Fruit Size Improvements in ‘Alicia’ Papaya Multiplied by Grafting</span><span class="co">](https://www.mdpi.com/2223-7747/12/5/1189)</span></span>
+<span id="cb13-317"><a href="#cb13-317" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Growth, yield, plant quality and nutrition of basil (Ocimum basilicum L.) under soilless agricultural systems</span><span class="co">](https://www.sciencedirect.com/science/article/pii/S0570178316300288)</span></span>
+<span id="cb13-318"><a href="#cb13-318" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Growing Hardier Crops for Better Health: Salinity Tolerance and the Nutritional Value of Broccoli</span><span class="co">](https://pubs.acs.org/doi/full/10.1021/jf802994p)</span></span>
+<span id="cb13-319"><a href="#cb13-319" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span><span class="co">[</span><span class="ot">Influence of Light Intensity and Spectrum on Duckweed Growth and Proteins in a Small-Scale, Re-Circulating Indoor Vertical Farm</span><span class="co">](https://www.mdpi.com/2223-7747/11/8/1010)</span></span>
+<span id="cb13-320"><a href="#cb13-320" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-321"><a href="#cb13-321" aria-hidden="true" tabindex="-1"></a><span class="fu">## Zitate {.unnumbered}</span></span>
+<span id="cb13-322"><a href="#cb13-322" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-323"><a href="#cb13-323" aria-hidden="true" tabindex="-1"></a>Copycat</span>
+<span id="cb13-324"><a href="#cb13-324" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-325"><a href="#cb13-325" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"" ---*</span></span>
+<span id="cb13-326"><a href="#cb13-326" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-327"><a href="#cb13-327" aria-hidden="true" tabindex="-1"></a>------------------------------------------------------------------------</span>
+<span id="cb13-328"><a href="#cb13-328" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-329"><a href="#cb13-329" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"My God, it's full of stars." --- 2001, A Space Odessey*</span></span>
+<span id="cb13-330"><a href="#cb13-330" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-331"><a href="#cb13-331" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Der Sinn des Lebens besteht darin, deine Gabe zu finden. Der Zweck des Lebens ist, sie zu verschenken." --- Pablo Picasso*</span></span>
+<span id="cb13-332"><a href="#cb13-332" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-333"><a href="#cb13-333" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"If you are allowed one wish for your child, seriously consider wishing him or her optimism. Optimists are normally cheerful and happy, and therefore popular; they are resilient in adapting to failures and hardships, their chances of clinical depression are reduced, their immune system is stronger, they take better care of their health, they feel healthier than others and are in fact likely to live longer. Optimistic individuals play a disproportionate role in shaping our lives. Their decisions make a difference; they are the inventors, the entrepreneurs, the political and military leaders – not average people. They got to where they are by seeking challenges and taking risks. They are talented and they have been lucky, almost certainly luckier than they acknowledge... the people who have the greatest influence on the lives of others are likely to be optimistic and overconfident, and to take more risks than they realize." --- Daniel Kahneman, Thinking, Fast and Slow*</span></span>
+<span id="cb13-334"><a href="#cb13-334" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-335"><a href="#cb13-335" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Above all, do not lose your desire to walk: every day I walk myself into a state of well-being and walk away from every illness; I have walked myself into my best thoughts, and I know of no thought so burdensome that one cannot walk away from it. Even if one were to walk for one's health and it were constantly one station ahead—I would still say: Walk! Besides, it is also apparent that in walking one constantly gets as close to well-being as possible, even if one does not quite reach it—but by sitting still, and the more one sits still, the closer one comes to feeling ill. Health and salvation can be found only in motion... if one just keeps on walking, everything will be all right." --- [Soren Kierkegaard](https://www.die-inkognito-philosophin.de/kierkegaard)*</span></span>
+<span id="cb13-336"><a href="#cb13-336" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-337"><a href="#cb13-337" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Numerical quantities focus on expected values, graphical summaries on unexpected values." --- John Tukey*</span></span>
+<span id="cb13-338"><a href="#cb13-338" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-339"><a href="#cb13-339" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Nobody belongs anywhere, nobody exists on purpose, everybody's going to die." --- [Rick and Morty](https://www.youtube.com/watch?v=E_qvy82U4RE)*</span></span>
+<span id="cb13-340"><a href="#cb13-340" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-341"><a href="#cb13-341" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"To celebrate the noun do the verb." --- [Ryan Holiyday](https://www.youtube.com/shorts/zvJozTZo18o)*</span></span>
+<span id="cb13-342"><a href="#cb13-342" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-343"><a href="#cb13-343" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"The formulation of a problem is often more essential than its solution, which may be merely a matter of mathematical or experimental skill. To raise new questions, new possibilities, to regard old problems from a new angle requires creative imagination and marks real advances in science" --- Albert Einstein*</span></span>
+<span id="cb13-344"><a href="#cb13-344" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-345"><a href="#cb13-345" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"The whole world is a very narrow bridge and the main thing is to have no fear at all." --- [Kol Ha'Olam Kulo](https://jwa.org/media/lyrics-to-kol-haolam-kulo)*</span></span>
+<span id="cb13-346"><a href="#cb13-346" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-347"><a href="#cb13-347" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"The graveyard is full of 'irreplaceable' and important people." --- Charles De Gaulle [and others](https://quoteinvestigator.com/2011/11/21/graveyards-full/)*</span></span>
+<span id="cb13-348"><a href="#cb13-348" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-349"><a href="#cb13-349" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"20 years from now, the only people who will remember that you worked late are your kids." --- David Clarke on [r/antiwork](https://www.reddit.com/r/antiwork/comments/12uz90c/psa_20_years_from_now_the_only_people_who_will/?rdt=47059)*</span></span>
+<span id="cb13-350"><a href="#cb13-350" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-351"><a href="#cb13-351" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"You have to finish things — that's what you learn from, you learn by finishing things." --- Neil Gaiman in Advice to Aspiring Writers*</span></span>
+<span id="cb13-352"><a href="#cb13-352" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-353"><a href="#cb13-353" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Je größer die Insel des Wissens, desto größer der Strand der Verzweiflung." --- unbekannt*</span></span>
+<span id="cb13-354"><a href="#cb13-354" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-355"><a href="#cb13-355" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Leben heißt leiden, überleben heißt, im Leiden einen Sinn finden." --- Friedrich Nietzsche*</span></span>
+<span id="cb13-356"><a href="#cb13-356" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-357"><a href="#cb13-357" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Wachstum ist nicht alles, das ist wahr. Aber ohne Wachstum ist alles nichts." --- Angela Merkel*</span></span>
+<span id="cb13-358"><a href="#cb13-358" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-359"><a href="#cb13-359" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Competition is for losers!" --- Peter Thiel*</span></span>
+<span id="cb13-360"><a href="#cb13-360" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-361"><a href="#cb13-361" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Das Pferd frisst keinen Gurkensalat" --- Philipp Reis erster 1981 telefonisch übertragende Satz*</span></span>
+<span id="cb13-362"><a href="#cb13-362" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-363"><a href="#cb13-363" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"One glance at a book and you hear the voice of another person perhaps someone dead for thousands of years. Across the millennia the author is speaking clearly and silently inside your head, directly to YOU." --- Carl Sagan*</span></span>
+<span id="cb13-364"><a href="#cb13-364" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-365"><a href="#cb13-365" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"If you feel safe in the area that you're working in, you're not working in the right area. Always go a little further into the water than you feel you're capable of being in. Go a little bit out of your depth, and when you don't feel that your feet are quite touching the bottom, you're just about in the right place to do something exciting." -- David Bowie*</span></span>
+<span id="cb13-366"><a href="#cb13-366" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-367"><a href="#cb13-367" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"(1) Alles was es schon gab, als Du geboren wurdest, ist normal und gewöhnlich. Diese Dinge werden als natürlich wahrgenommen und halten die Welt am Laufen. (2) Alles was zwischen Deinem 16ten und 36ten Lebensjahr erfunden wird ist neu, aufregend und revoltionär. Und vermutlich kannst Du in dem Bereich sogar Karriere machen. (3) Alles was nach dem 36ten Lebensjahr erfunden wird ist gegen die natürliche Ordnung der Dinge." --- Douglas Adams, Per Anhalter durch die Galaxis*</span></span>
+<span id="cb13-368"><a href="#cb13-368" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-369"><a href="#cb13-369" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Debugging is twice as hard as writing the code in the first place. Therefore, if you write the code as cleverly as possible, you are, by definition, not smart enough to debug it." --- Brian Kernighan, professor at Princeton University.*</span></span>
+<span id="cb13-370"><a href="#cb13-370" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-371"><a href="#cb13-371" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"The three stages of career development are: 1. I want to be in the meeting; 2. I want to run the meeting; 3. I want to avoid meetings." --- Jay Ferro*</span></span>
+<span id="cb13-372"><a href="#cb13-372" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-373"><a href="#cb13-373" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Freude ist ein Akt des Trotzes. Mit Freude gewinnen wir, auch wenn wir verlieren. Gut gelebt zu haben ist alles was uns bleibt, denn sterben müssen wir alle." --- Jaghatai Khan, The Lost and the Damned*</span></span>
+<span id="cb13-374"><a href="#cb13-374" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-375"><a href="#cb13-375" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Freude ist ein Akt des Trotzes. Durch sie gewinnen wir, auch wenn wir verlieren. Denn sterben müssen wir alle und ein schönes Leben ist alles was uns bleibt." --- Jaghatai Khan, The Lost and the Damned*</span></span>
+<span id="cb13-376"><a href="#cb13-376" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-377"><a href="#cb13-377" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"\[Alice Munro\] habe sich, erzählte sie einmal, die Sätze ihrer Erzählungen jeweils beim Kartoffelschälen ausgedacht und diese, während die Kartoffeln kochten, zwischendurch im Wohnzimmer notiert." --- [Alice Munro &amp; Die Kunst des Nebenbeischreibens](https://www.zeit.de/kultur/literatur/2024-05/alice-munro-schriftstellerin-nobelpreis-nachruf)*</span></span>
+<span id="cb13-378"><a href="#cb13-378" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-379"><a href="#cb13-379" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Gott würfelt nicht!" --- Albert Einstein*</span></span>
+<span id="cb13-380"><a href="#cb13-380" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-381"><a href="#cb13-381" aria-hidden="true" tabindex="-1"></a><span class="fu">## Korrelation {.unnumbered}</span></span>
+<span id="cb13-382"><a href="#cb13-382" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-383"><a href="#cb13-383" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">How does Polychoric Correlation Work? (aka Ordinal-to-Ordinal correlation)</span><span class="co">](https://www.r-bloggers.com/2021/02/how-does-polychoric-correlation-work-aka-ordinal-to-ordinal-correlation/)</span></span>
+<span id="cb13-384"><a href="#cb13-384" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-385"><a href="#cb13-385" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">An Alternative to the Correlation Coefficient That Works For Numeric and Categorical Variables</span><span class="co">](https://rviews.rstudio.com/2021/04/15/an-alternative-to-the-correlation-coefficient-that-works-for-numeric-and-categorical-variables/)</span></span>
+<span id="cb13-386"><a href="#cb13-386" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-387"><a href="#cb13-387" aria-hidden="true" tabindex="-1"></a><span class="fu">## Pakete, die ich mal anschauen will... {.unnumbered}</span></span>
+<span id="cb13-388"><a href="#cb13-388" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-389"><a href="#cb13-389" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">R Paket `{ggdist}`</span><span class="co">](https://mjskay.github.io/ggdist/index.html)</span></span>
+<span id="cb13-390"><a href="#cb13-390" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-391"><a href="#cb13-391" aria-hidden="true" tabindex="-1"></a>Das R Paket <span class="in">`{visibly}`</span> auf <span class="co">[</span><span class="ot">An Introduction to Visibly</span><span class="co">](https://m-clark.github.io/visibly/articles/intro.html)</span></span>
+<span id="cb13-392"><a href="#cb13-392" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-393"><a href="#cb13-393" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">R Paket `{innsight}`</span><span class="co">](https://github.com/bips-hb/innsight)</span></span>
+<span id="cb13-394"><a href="#cb13-394" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-395"><a href="#cb13-395" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">`{snakecase}`</span><span class="co">](https://tazinho.github.io/snakecase/)</span></span>
+<span id="cb13-396"><a href="#cb13-396" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-397"><a href="#cb13-397" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">`{visdat}`</span><span class="co">](https://docs.ropensci.org/visdat/)</span></span>
+<span id="cb13-398"><a href="#cb13-398" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-399"><a href="#cb13-399" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Make an R Cheat Sheet</span><span class="co">](https://biol355.github.io/midterm/midterm.html)</span></span>
+<span id="cb13-400"><a href="#cb13-400" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-401"><a href="#cb13-401" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">`{vroom}`</span><span class="co">](https://vroom.r-lib.org/)</span></span>
+<span id="cb13-402"><a href="#cb13-402" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-403"><a href="#cb13-403" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">`{gt}`</span><span class="co">](https://github.com/rstudio/gt)</span></span>
+<span id="cb13-404"><a href="#cb13-404" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-405"><a href="#cb13-405" aria-hidden="true" tabindex="-1"></a><span class="fu">## Learning text {.unnumbered}</span></span>
+<span id="cb13-406"><a href="#cb13-406" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-407"><a href="#cb13-407" aria-hidden="true" tabindex="-1"></a>Wachsamkeit und Konzentration kann ein Mensch nur für 90 Minuten halten. Selbst dann ist Aufmerksamkeit ein Flackern von höherer und niedrigerer Intensität. Danach muss der Mensch 1-2 Stunden lang wirklich ruhen, bevor er wieder sehr hart arbeiten &amp; lernen kann.</span>
+<span id="cb13-408"><a href="#cb13-408" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-409"><a href="#cb13-409" aria-hidden="true" tabindex="-1"></a>Folgende Dinge, die innerhalb von 4 Stunden nach diesen 90-minütigen Lerneinheiten durchgeführt werden, beschleunigen das Lernen.</span>
+<span id="cb13-410"><a href="#cb13-410" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-411"><a href="#cb13-411" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Kurzes Nickerchen</span>
+<span id="cb13-412"><a href="#cb13-412" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Nichtschlafende tiefe Ruhe (NSDR)</span>
+<span id="cb13-413"><a href="#cb13-413" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Yoga Nidra</span>
+<span id="cb13-414"><a href="#cb13-414" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Formen der Meditation, die nicht viel fokussierte Konzentration erfordern,</span>
+<span id="cb13-415"><a href="#cb13-415" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-416"><a href="#cb13-416" aria-hidden="true" tabindex="-1"></a>Folgende Dinge helfen während der Lernphase das Lernen zu verstärken und zu festigen. Der Hippocampus wiederholt während dieser Zeit die Informationen mit 20-facher Geschwindigkeit und beschleunigt das Lernen und das Behalten der neu gelernten Informationen.</span>
+<span id="cb13-417"><a href="#cb13-417" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-418"><a href="#cb13-418" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Mache ab und zu 10 Sekunden Pause vom Lernen, in denen du absolut nichts tust</span>
+<span id="cb13-419"><a href="#cb13-419" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Mache den Kopf frei (Lückeneffekt/Mikropausen),</span>
+<span id="cb13-420"><a href="#cb13-420" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Inkrementelles Lernen. Du kannst das Lernen in kleine, konzentrierte Einheiten aufteilen.</span>
+<span id="cb13-421"><a href="#cb13-421" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Stelle dir einen Timer für 3 Minuten ein, schalte das Telefon aus und verbringe die 3 Minuten damit, eine Sache intensiv zu lernen, auch wenn es sich anfühlt, als würde es aktuell nichts bringen.</span>
+<span id="cb13-422"><a href="#cb13-422" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Wenn du das wiederholt tust, können diese kleinen Schritte des Lernens zu einer übergroßen Menge des Lernens insgesamt führen.</span>
+<span id="cb13-423"><a href="#cb13-423" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-424"><a href="#cb13-424" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">How to Learn Anything You Want \| Andrew Huberman</span><span class="co">](https://youtu.be/8oyA-ctqq3g)</span></span>
+<span id="cb13-425"><a href="#cb13-425" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-426"><a href="#cb13-426" aria-hidden="true" tabindex="-1"></a><span class="fu">## Weitere Datenquellen {.unnumbered}</span></span>
+<span id="cb13-427"><a href="#cb13-427" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-428"><a href="#cb13-428" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Food and agriculture data</span><span class="co">](https://www.fao.org/faostat/en/#home)</span></span>
+<span id="cb13-429"><a href="#cb13-429" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-430"><a href="#cb13-430" aria-hidden="true" tabindex="-1"></a>Mit dem <span class="co">[</span><span class="ot">R Paket `{FAOSTAT}`</span><span class="co">](https://cran.r-hub.io/web/packages/FAOSTAT/)</span> und der Vignette <span class="co">[</span><span class="ot">FAOSTAT: Download Data from the FAOSTAT Database</span><span class="co">](https://cran.r-hub.io/web/packages/FAOSTAT/vignettes/FAOSTAT.pdf)</span></span>
+<span id="cb13-431"><a href="#cb13-431" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-434"><a href="#cb13-434" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb13-435"><a href="#cb13-435" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
+<span id="cb13-436"><a href="#cb13-436" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-437"><a href="#cb13-437" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-438"><a href="#cb13-438" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-439"><a href="#cb13-439" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-440"><a href="#cb13-440" aria-hidden="true" tabindex="-1"></a>Mit dem <span class="co">[</span><span class="ot">R Paket `{owidR}`</span><span class="co">](https://cran.r-project.org/web/packages/owidR/index.html)</span> haben wir auch eine Möglichkeit direkt auf die Datenbank von <span class="co">[</span><span class="ot">Our World in Data</span><span class="co">](https://ourworldindata.org/)</span> zuzugreifen.</span>
+<span id="cb13-441"><a href="#cb13-441" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-444"><a href="#cb13-444" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb13-445"><a href="#cb13-445" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
+<span id="cb13-446"><a href="#cb13-446" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-447"><a href="#cb13-447" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(owidR)</span>
+<span id="cb13-448"><a href="#cb13-448" aria-hidden="true" tabindex="-1"></a>foo <span class="ot">&lt;-</span> <span class="fu">owid_search</span>(<span class="st">"annual"</span>) </span>
+<span id="cb13-449"><a href="#cb13-449" aria-hidden="true" tabindex="-1"></a><span class="fu">owid</span>(<span class="st">"annual-co2-emissions-by-region"</span>)</span>
+<span id="cb13-450"><a href="#cb13-450" aria-hidden="true" tabindex="-1"></a><span class="fu">owid</span>(foo[<span class="dv">3</span>])</span>
+<span id="cb13-451"><a href="#cb13-451" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-452"><a href="#cb13-452" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-453"><a href="#cb13-453" aria-hidden="true" tabindex="-1"></a>Eine wunderbare Sammlung von Datensätzen aus dem Bereich der Agarwissenschaften liefert das R Paket <span class="in">`{agridat}`</span>. Über die Hilfeseite <span class="co">[</span><span class="ot">agridat: Agricultural Datasets</span><span class="co">](https://cran.r-project.org/web/packages/agridat/index.html)</span> findest du dann einmal einen gesamten Überblick und auch die Informationen über einige ausgewählte Datensätze aus Dutzenden von Datensätzen. Alle Datensätze der wichtigen Bücher zu dem experimentellen Designs sind dort eigentlich enthalten und einmal kuratiert.</span>
+<span id="cb13-454"><a href="#cb13-454" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-455"><a href="#cb13-455" aria-hidden="true" tabindex="-1"></a>Hier noch der Link zu <span class="co">[</span><span class="ot">agridat - Datensätze mit Abbildungen in `{desplot}`</span><span class="co">](https://kwstat.github.io/agridat/reference/index.html)</span>. Du musst dann auf die jeweiligen Datensätze in der Liste klicken und dann kommst du zu dem Datensatz mit mehr Details sowie meistens auch einer Abbildung in <span class="in">`desplot`</span>.</span>
+<span id="cb13-456"><a href="#cb13-456" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-457"><a href="#cb13-457" aria-hidden="true" tabindex="-1"></a><span class="fu">## Marginal effects {.unnumbered}</span></span>
+<span id="cb13-458"><a href="#cb13-458" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-459"><a href="#cb13-459" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Marginal Effects Zoo</span><span class="co">](https://marginaleffects.com)</span></span>
+<span id="cb13-460"><a href="#cb13-460" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-461"><a href="#cb13-461" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">R Paket `{marginaleffects}`</span><span class="co">](https://marginaleffects.com)</span></span>
+<span id="cb13-462"><a href="#cb13-462" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-463"><a href="#cb13-463" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Marginal and conditional effects for GLMMs with `{marginaleffects}`</span><span class="co">](https://www.andrewheiss.com/blog/2022/11/29/conditional-marginal-marginaleffects/)</span></span>
+<span id="cb13-464"><a href="#cb13-464" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-465"><a href="#cb13-465" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Marginalia: A guide to figuring out what the heck marginal effects, marginal slopes, average marginal effects, marginal effects at the mean, and all these other marginal things are</span><span class="co">](https://www.andrewheiss.com/blog/2022/05/20/marginalia/#what-about-marginal-things-in-statistics)</span></span>
+<span id="cb13-466"><a href="#cb13-466" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-467"><a href="#cb13-467" aria-hidden="true" tabindex="-1"></a><span class="fu">## Latent Class Analysis {.unnumbered}</span></span>
+<span id="cb13-468"><a href="#cb13-468" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-469"><a href="#cb13-469" aria-hidden="true" tabindex="-1"></a>Wie immer gibt es eine Reihe von Tutorien auf denen dieser Abschnitt aufbaut. Zum einen wirf einfach mal einen Blick in das Tutorium <span class="co">[</span><span class="ot">Latent Class Analysis Using R</span><span class="co">](https://pop.princeton.edu/events/2020/latent-class-analysis-using-r)</span>. Eine leider etwas veraltete Übersicht über mögliche R Pakete liefert <span class="co">[</span><span class="ot">Ways to do Latent Class Analysis in R</span><span class="co">](https://maksimrudnev.com/2016/12/28/latent-class-analysis-in-r/)</span>. Ich habe da immer mal quer geschaut und mich dann für die Pakete hier entschieden. Es gibt sicherlich noch andere Möglichkeiten eine *latent class analysis* zu rechnen.</span>
+<span id="cb13-470"><a href="#cb13-470" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-471"><a href="#cb13-471" aria-hidden="true" tabindex="-1"></a>Wenn du mehr über *latent class analysis* erfahren möchtest, dann kann ich dir nur das <span class="co">[</span><span class="ot">LCA Frequently Asked Questions (FAQ)</span><span class="co">](https://www.john-uebersax.com/stat/faq.htm)</span> empfehlen. Das FAQ ist sehr umfangreich und beschäftigt sich mit allen wichtigen Punkten. Wir wollen uns ja mit dem R Paket <span class="in">`poLCA`</span> beschäftigen. Hier gibt es zwei Tutorien. Einmal gibt es das Tutorium <span class="co">[</span><span class="ot">Example for a latent class analysis with the poLCA-package in R</span><span class="co">](https://statistics.ohlsen-web.de/latent-class-analysis-polca/)</span> und das Tutroium <span class="co">[</span><span class="ot">Latent Class Analysis</span><span class="co">](https://rpubs.com/eogawac/poLCA)</span>. Und natürlich die Litertur von @linzer2011polca mit der entsprechenden Veröffentlichung <span class="co">[</span><span class="ot">poLCA: An R Package for Polytomous Variable Latent Class Analysis</span><span class="co">](https://www.sscnet.ucla.edu/polisci/faculty/lewis/pdf/poLCA-JSS-final.pdf)</span></span>
+<span id="cb13-472"><a href="#cb13-472" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-473"><a href="#cb13-473" aria-hidden="true" tabindex="-1"></a>Grundsätzlich basiert die *latent class analysis* nicht auf Distanzen sondern versucht über eine Modellierung der Klassenzugehörigkeitswahrscheinlichkeit getrennte Gruppen zu bilden. Wir wollen also $k$ Klassen haben und im idealen Fall können wir durch unsere Variablen in dem Datensatz jeweils mit einer 100% Wahrscheinlichkeit einer der drei Klassen zuordnen. Was dann diese $k$ Klassen aussagen, müssen wir dann selber anhand der zugewiesenen Variablen aus unseren Daten interpretieren.</span>
+<span id="cb13-474"><a href="#cb13-474" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-477"><a href="#cb13-477" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb13-478"><a href="#cb13-478" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
+<span id="cb13-479"><a href="#cb13-479" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(tidyverse, magrittr, janitor, conflicted)</span>
+<span id="cb13-480"><a href="#cb13-480" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-481"><a href="#cb13-481" aria-hidden="true" tabindex="-1"></a>animals_tbl <span class="ot">&lt;-</span> <span class="fu">read_excel</span>(<span class="st">"data/cluster_animal.xlsx"</span>, <span class="at">sheet =</span> <span class="dv">1</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb13-482"><a href="#cb13-482" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clean_names</span>() </span>
+<span id="cb13-483"><a href="#cb13-483" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-484"><a href="#cb13-484" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-487"><a href="#cb13-487" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb13-488"><a href="#cb13-488" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
+<span id="cb13-489"><a href="#cb13-489" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(poLCA)</span>
+<span id="cb13-490"><a href="#cb13-490" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-491"><a href="#cb13-491" aria-hidden="true" tabindex="-1"></a><span class="fu">poLCA</span>(<span class="fu">cbind</span>(warm_blooded, fly, vertebrate, threatened, live_in_groups) <span class="sc">~</span> <span class="dv">1</span>,</span>
+<span id="cb13-492"><a href="#cb13-492" aria-hidden="true" tabindex="-1"></a>      <span class="at">nclass =</span> <span class="dv">3</span>,</span>
+<span id="cb13-493"><a href="#cb13-493" aria-hidden="true" tabindex="-1"></a>      <span class="at">data =</span> animals_tbl,</span>
+<span id="cb13-494"><a href="#cb13-494" aria-hidden="true" tabindex="-1"></a>      <span class="at">nrep =</span> <span class="dv">1</span>,</span>
+<span id="cb13-495"><a href="#cb13-495" aria-hidden="true" tabindex="-1"></a>      <span class="at">na.rm =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb13-496"><a href="#cb13-496" aria-hidden="true" tabindex="-1"></a>      <span class="at">graphs =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb13-497"><a href="#cb13-497" aria-hidden="true" tabindex="-1"></a>      <span class="at">maxiter =</span> <span class="dv">100000</span></span>
+<span id="cb13-498"><a href="#cb13-498" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb13-499"><a href="#cb13-499" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-500"><a href="#cb13-500" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-501"><a href="#cb13-501" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-502"><a href="#cb13-502" aria-hidden="true" tabindex="-1"></a>Hier hängen wir dann an der Interpretation. Da müssen wir nochmal tiefer schauen.</span>
+<span id="cb13-503"><a href="#cb13-503" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-504"><a href="#cb13-504" aria-hidden="true" tabindex="-1"></a><span class="fu">## Structural Equation Modeling {.unnumbered}</span></span>
+<span id="cb13-505"><a href="#cb13-505" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-506"><a href="#cb13-506" aria-hidden="true" tabindex="-1"></a>@van2023best <span class="co">[</span><span class="ot">tidySEM</span><span class="co">](https://cjvanlissa.github.io/tidySEM/index.html)</span></span>
+<span id="cb13-507"><a href="#cb13-507" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-508"><a href="#cb13-508" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Structural Equation Modeling</span><span class="co">](https://bookdown.org/bean_jerry/using_r_for_social_work_research/structural-equation-modeling.html)</span></span>
+<span id="cb13-509"><a href="#cb13-509" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-510"><a href="#cb13-510" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Introduction to structural equation modeling (sem) in r with lavaan</span><span class="co">](https://stats.oarc.ucla.edu/r/seminars/rsem/)</span></span>
+<span id="cb13-511"><a href="#cb13-511" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-512"><a href="#cb13-512" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Intro to structural equation modeling</span><span class="co">](https://rpubs.com/Agrele/SEM)</span></span>
+<span id="cb13-513"><a href="#cb13-513" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-514"><a href="#cb13-514" aria-hidden="true" tabindex="-1"></a>Schöne Diagramme <span class="co">[</span><span class="ot">Structural Equation Models</span><span class="co">](https://advstats.psychstat.org/book/sem/index.php)</span></span>
+<span id="cb13-515"><a href="#cb13-515" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-516"><a href="#cb13-516" aria-hidden="true" tabindex="-1"></a><span class="fu">## Links &amp; Quellen {.unnumbered}</span></span>
+<span id="cb13-517"><a href="#cb13-517" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-518"><a href="#cb13-518" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Large language models, explained with a minimum of math and jargon</span><span class="co">](https://www.understandingai.org/p/large-language-models-explained-with)</span></span>
+<span id="cb13-519"><a href="#cb13-519" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-520"><a href="#cb13-520" aria-hidden="true" tabindex="-1"></a>Data Science</span>
+<span id="cb13-521"><a href="#cb13-521" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-522"><a href="#cb13-522" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Real World Data @liu2022real</span>
+<span id="cb13-523"><a href="#cb13-523" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Warum **Data** Science @hariri2019uncertainty</span>
+<span id="cb13-524"><a href="#cb13-524" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Paradigmenwechsel?</span>
+<span id="cb13-525"><a href="#cb13-525" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-526"><a href="#cb13-526" aria-hidden="true" tabindex="-1"></a><span class="fu">## Referenzen {.unnumbered}</span></span>
 </code><button title="In die Zwischenablage kopieren" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
