@@ -71,6 +71,8 @@ p_small_d <- tibble(rsp = c(rnorm(10000, 5, 1), rnorm(10000, 6, 1)),
                linetype = 2, color = "gray50") +
   annotate("label", x = 5.5, y = 0.425, label = expression(Delta~"="~1),
            size = 5) +  
+  annotate("text", x = 2, y = 0.4, label = "p = 0.72",
+           size = 4) +  
   labs(title = "Mittelwertsdifferenz ist klein",
        subtitle = "Nicht signifikanter Unterschied") +
   theme(axis.title.y = element_blank(),
@@ -100,6 +102,8 @@ p_mid_d <- tibble(rsp = c(rnorm(10000, 5, 1), rnorm(10000, 8, 1)),
                linetype = 2, color = "gray50") +
   annotate("label", x = 6.5, y = 0.425, label = expression(Delta~"="~3),
            size = 5) +  
+  annotate("text", x = 2, y = 0.4, label = "p = 0.06",
+           size = 4) +  
   labs(title = "Mittelwertsdifferenz ist moderat",
        subtitle = "") +
   theme(axis.title.y = element_blank(),
@@ -129,6 +133,8 @@ p_high_d <- tibble(rsp = c(rnorm(10000, 5, 1), rnorm(10000, 12, 1)),
                linetype = 2, color = "gray50") +
   annotate("label", x = 8.5, y = 0.425, label = expression(Delta~"="~7),
            size = 5) +
+  annotate("text", x = 2.2, y = 0.4, label = "p = <0.001",
+           size = 4) +  
   labs(title = "Mittelwertsdifferenz ist groß",
        subtitle = "Signifikanter Unterschied") +
   theme(axis.title.y = element_blank(),
