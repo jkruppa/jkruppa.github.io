@@ -56,3 +56,91 @@ p2_sample <- min_wilcox_eff_tbl |>
         legend.text = element_text(size = 12),
         legend.title = element_text(size = 14, face = 2),
         legend.position = "none") 
+
+set.seed(20250602)
+p_small_d <- tibble(rsp = c(rnorm(10000, 5, 1), rnorm(10000, 6, 1)),
+                    trt = gl(2, 10000, labels = c("A", "B"))) |> 
+  ggplot(aes(x = rsp, fill = trt)) + 
+  theme_minimal() +
+  geom_density(alpha = 0.5) +
+  geom_vline(xintercept = c(5, 6), color = "black", linewidth = 0.7) +
+  scale_fill_okabeito() +
+  scale_x_continuous(breaks = c(5,6)) +
+  scale_y_continuous(limits = c(0, 0.43)) +
+  geom_segment(aes(x = 5, xend = 6, y = 0.425, yend = 0.425),
+               linetype = 2, color = "gray50") +
+  annotate("label", x = 5.5, y = 0.425, label = expression(Delta~"="~1),
+           size = 5) +  
+  labs(title = "Mittelwertsdifferenz ist klein",
+       subtitle = "Nicht signifikanter Unterschied") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(), 
+        axis.title.x = element_blank(),
+        axis.text.x = element_text(size = 12),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14, face = 2),
+        legend.position = "none") 
+
+p_mid_d <- tibble(rsp = c(rnorm(10000, 5, 1), rnorm(10000, 8, 1)),
+                  trt = gl(2, 10000, labels = c("A", "B"))) |> 
+  ggplot(aes(x = rsp, fill = trt)) + 
+  theme_minimal() +
+  geom_density(alpha = 0.5) +
+  geom_vline(xintercept = c(5, 8), color = "black", linewidth = 0.7) +
+  scale_fill_okabeito() +
+  scale_x_continuous(breaks = c(5,8)) +
+  scale_y_continuous(limits = c(0, 0.43)) +
+  geom_segment(aes(x = 5, xend = 8, y = 0.425, yend = 0.425),
+               linetype = 2, color = "gray50") +
+  annotate("label", x = 6.5, y = 0.425, label = expression(Delta~"="~3),
+           size = 5) +  
+  labs(title = "Mittelwertsdifferenz ist moderat",
+       subtitle = "") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(), 
+        axis.title.x = element_blank(),
+        axis.text.x = element_text(size = 12),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14, face = 2),
+        legend.position = "none") 
+
+p_high_d <- tibble(rsp = c(rnorm(10000, 5, 1), rnorm(10000, 12, 1)),
+                   trt = gl(2, 10000, labels = c("A", "B"))) |> 
+  ggplot(aes(x = rsp, fill = trt)) + 
+  theme_minimal() +
+  geom_density(alpha = 0.5) +
+  geom_vline(xintercept = c(5, 12), color = "black", linewidth = 0.75) +
+  scale_fill_okabeito() +
+  scale_x_continuous(breaks = c(5,12)) +
+  scale_y_continuous(limits = c(0, 0.43)) +
+  geom_segment(aes(x = 5, xend = 12, y = 0.425, yend = 0.425),
+               linetype = 2, color = "gray50") +
+  annotate("label", x = 8.5, y = 0.425, label = expression(Delta~"="~7),
+           size = 5) +
+  labs(title = "Mittelwertsdifferenz ist groß",
+       subtitle = "Signifikanter Unterschied") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(), 
+        axis.title.x = element_blank(),
+        axis.text.x = element_text(size = 12),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14, face = 2),
+        legend.position = "none") 
