@@ -13,11 +13,13 @@ cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 
 {{< video https://youtu.be/iECcenEDzOM >}}
 
-::: callout-note
-## Was macht der t-Test?
+Beginnen wir unsere Reise durch die statistischen Tests mit dem t-Test. Damit beginnen wir auch historisch korrekt, da der t-Test auch der erste statistische Test war, der entwickelt wurde. Wir sehen die Nutzung des t-Tests in vielen wissenschaftlichen Publikationen, wie zum Beispiel der Veröffentlichung von @erb2012anthropogenic zu dem Auftreten von Säugetieren entlang des [Appalachian Trail](https://de.wikipedia.org/wiki/Appalachian_Trail) in den USA. Gibt es einen Unterschied im Auftreten von Schwarzbären und Rotfüchsen in Abhängigkeit von der Trailnutzung? Wie du erkennst, handelt es sich hier um Säulendiagramme als Mittelwerte und Standardfehler. Der t-Test versteckt sich hinter den Sternen, die du als eine mögliche Darstellung der p-Werte aus dem statistischen Testen kennst.
 
-Der t-Test vergleicht zwei Mittelwerte, gewichtet nach der Standardabweichung und der Fallzahl, miteinander. Etwas statistisch genauer vergleicht der t-Test die Parameter zweier Normalverteilungen miteinander.
-:::
+![*Vorrausichtliches Auftreten von Schwarzbären und Rotfüchsen im Appalachian Trail Korridor nach der Häufigkeit der Nutzung. Die Sterne stellen das Signifikanzniveau auf der Grundlage eines t-Tests mit zwei Stichproben unter der Annahme ungleicher Varianz dar (\*\*\* p \< 0.001).* Quelle: @erb2012anthropogenic](images/preface_t_test.png){#fig-utest-intro fig-align="center" width="100%"}
+
+Woher kommen nun die Sterne über die Säulen und was soll ungleiche Varianzen bedeuten? Hier wollen wir dann mal einsteigen und verstehen was der t-Test macht und warum der t-Test für den zwei Gruppenvergleich immer noch der Goldstandard ist.
+
+## Allgemeiner Hintergrund
 
 Der t-Test ist *der* bedeutende Test, wenn es um das Verständnis der Algorithmen und Konzepte in der Statistik geht. Wir haben den t-Test schon genutzt um die Idee des statistischen Testens zu verstehen und wir werdend den t-Test auch im statistischen Modellieren wiedertreffen. Dort finden wir aber die Teststatistik des t-Tests. Wir werden dort nicht direkt den t-Test rechnen sondern das Konzept des t-Tests wieder nutzen. Natürlich hat der t-Test auch wieder verschiedene Namen, je nachdem welche Software du nutzen möchtest. Deshalb nochmal eine kurze Übersicht in der nachfolgenden Tabelle für R und Excel.
 
@@ -55,7 +57,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| warning: false
 pacman::p_load(tidyverse, magrittr, broom, readxl,
                infer, see, tidyplots, rstatix, ggpubr,
-               conflicted)
+               ggrepel, conflicted)
 conflicts_prefer(dplyr::filter)
 conflicts_prefer(rstatix::t_test)
 set.seed(20221206)
@@ -77,23 +79,22 @@ flea_tbl <- read_excel("data/flea_dog_cat.xlsx") |>
   select(animal, jump_length)
 ```
 
+Wir benötigen für den t-Test ein normalverteiltes $y$ womit wir uns hier erstmal für die kontinuierliche Sprungweite entscheiden. Dann brauchen wir einen Faktor mit zwei Leveln als $x$ und da bietet sich natürlich die beiden Gruppen Hunde- und Katzenflöhe an. Wir wählen daher mit `select()` die Spalte `jump_length` und `animal` aus dem Datensatz `flea_dog_cat.xlsx` aus. Wichtig ist, dass wir die Spalte `animal` mit der Funktion `as_factor()` in einen Faktor umwandeln. Anschließend speichern wir die Auswahl in dem Objekt `flea_tbl`. Hier dann nochmal die Datentabelle.
+
 ```{r}
 #| echo: false
 #| message: false
-#| tbl-cap: "Tabelle von sieben Hunde- und Katzenflöhen mit der Sprunglänge [cm], Anzahl an Haaren am rechten Flohbein, Gewicht der Flöhe, Boniturnote sowie der Infektionsstatus für Flohschnupfen."
+#| tbl-cap: "Tabelle von sieben Hunde- und Katzenflöhen mit der Sprunglänge [cm]."
 #| label: tbl-data-ttest
 
 flea_tbl <- read_excel("data/flea_dog_cat.xlsx") |> 
-  mutate(animal = as_factor(animal))
+  mutate(animal = as_factor(animal)) |> 
+  select(animal, jump_length)
 
 flea_tbl |> kable(align = "c", "pipe")
 ```
 
-Wir benötigen für den t-Test ein normalverteiltes $y$ womit wir uns hier erstmal für die kontinuierliche Sprungweite entscheiden. Dann brauchen wir einen Faktor mit zwei Leveln als $x$ und da bietet sich natürlich die beiden Gruppen Hunde- und Katzenflöhe an. Wir wählen daher mit `select()` die Spalte `jump_length` und `animal` aus dem Datensatz `flea_dog_cat.xlsx` aus. Wichtig ist, dass wir die Spalte `animal` mit der Funktion `as_factor()` in einen Faktor umwandeln. Anschließend speichern wir die Auswahl in dem Objekt `flea_tbl`.
-
-Wir haben jetzt die Daten richtig vorbereiten und können uns nun mit dem t-Test beschäftigen. Bevor wir den t-Test jedoch rechnen können, müssen wir uns nochmal überlegen, was der t-Test eigentlich testet und uns die Daten einmal visualisieren.
-
-Bevor wir einen statistischen Test rechnen, wollen wir uns erstmal die Daten, die dem Test zugrunde liegen, visualisieren. Klassischerweise wollen wir einen t-Test rechnen, da wirzwei Säulen in einem Barplot miteinander vergleichen wollen. Dafür schauen wir uns in @fig-barplot-ttest einmal den Barplot und den Boxplot für die Sprungweiten getrennt nach Hund und Katze an.
+Wir haben jetzt die Daten richtig vorbereiten und können uns nun mit dem t-Test beschäftigen. Bevor wir den t-Test jedoch rechnen können, müssen wir uns nochmal überlegen, was der t-Test eigentlich testet und uns die Daten einmal visualisieren. Klassischerweise wollen wir einen t-Test rechnen, da wir zwei Säulen in einem Barplot miteinander vergleichen wollen. Dafür schauen wir uns in @fig-barplot-ttest einmal den Barplot und den Boxplot für die Sprungweiten getrennt nach Hund und Katze an.
 
 ```{r}
 #| echo: false
@@ -101,7 +102,7 @@ Bevor wir einen statistischen Test rechnen, wollen wir uns erstmal die Daten, di
 #| warning: false
 #| label: fig-barplot-ttest
 #| fig-align: center
-#| fig-height: 4.5
+#| fig-height: 4
 #| fig-width: 7
 #| fig-cap: "Visualisierung der Sprungweiten der Hunde- und Katzenflöhe. **(A)** Säulendiagramm oder Barplot mit den Mittelwerten und der Standardabweichung. **(B)** Boxplot mit den Median und dem IQR. *[Zum Vergrößern anklicken]*"
 
@@ -132,7 +133,6 @@ p2 <- ggplot(flea_tbl, aes(x = animal, y = jump_length,
 
 p1 + p2 + 
   plot_layout(ncol = 2) +
-  plot_annotation(tag_levels = 'A') +
   plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
   theme(plot.tag = element_text(size = 16, face = "bold"))
 
@@ -147,11 +147,11 @@ Manchmal ist es etwas verwirrend, dass wir uns in einem Boxplot mit Median und I
 
 ```{r}
 #| message: false
-#| echo: true
+#| echo: false
 #| fig-align: center
-#| fig-height: 4.5
+#| fig-height: 4
 #| fig-width: 6
-#| fig-cap: Dotplot der Sprungweiten [cm] von Hunden und Katzen zusammen mit dem Mittelwert und der Stanardabweichung als Fehlerbalken.
+#| fig-cap: "Dotplot der Sprungweiten [cm] von Hunden und Katzen zusammen mit dem Mittelwert und der Standardabweichung als Fehlerbalken."
 #| label: fig-dotplot-ttest
 
 
@@ -160,8 +160,9 @@ ggplot(flea_tbl, aes(x = animal, y = jump_length,
   theme_minimal() +  
   geom_dotplot(binaxis = 'y', stackdir = 'center') + 
   stat_summary(fun.data = mean_sdl, fun.args = list(mult=1), 
-               geom = "errorbar", color = "black", width = 0.1) +
-  stat_summary(fun = "mean", geom="point", color="black", size = 5) +
+               geom = "errorbar", color = "gray50", width = 0.1) +
+  stat_summary(fun = "mean", geom="point", color="gray50", size = 5,
+               shape = 23) +
   labs(x = "Tierart", y = "Sprungweite [cm]") +
   theme(legend.position = "none") +
   scale_x_discrete(labels = c("Hund", "Katze")) +
@@ -174,11 +175,14 @@ Wir nutzen aber später häufig den Boxplot zur Visualisierung der einzelnen Gru
 
 #### Abhängige Messungen {.unnumbered .unlisted}
 
+Der t-Test erlaubt auch abhängige Daten zu analysieren. Das heißt wir haben die gleichen sieben Hundeflöhe wiederholt gemessen. Einmal haben wir einen Hundefloh gemessen bevor er was gegessen hat, also hungrig ist, und einmal nachdem der gleiche Floh sich satt gegessen hat. Daher haben wir hier abhängige oder verbundene Bebachtungen. Im folgenden einmal der Datensatz eingelesen im Wide-Format.
+
 ```{r}
 #| message: false
-
 paired_tbl <- read_excel("data/flea_dog_cat_repeated.xlsx") 
 ```
+
+Wie du sehen kannst haben wir die sieben Flöhe wiederholt gemessen. Die Daten sind nicht im `tidy`-Format, da nicht jede Zeile nur eine Messunfg für eine Beobachtung beinhaltet. Das ändern wir dann einmal gleich in Long-Format.
 
 ```{r}
 #| message: false
@@ -189,6 +193,17 @@ paired_tbl <- read_excel("data/flea_dog_cat_repeated.xlsx")
 paired_tbl |> 
   tt(width = 2/3, align = "c", theme = "striped")
 ```
+
+Dann hier nochmal die Long-Formatvariante mit der Funktion `pivot_longer()`. Wir brauchen das Long-Format für die Auswertung in den unteren Abschnitten für das R Paket `{rstatix}`.
+
+```{r}
+paired_long_tbl <- paired_tbl |> 
+  pivot_longer(cols = hungrig:satt,
+               values_to = "jump_length",
+               names_to = "trt") 
+```
+
+Manchmal ist es schwer zu verstehen, was jetzt wiederholt oder gepaart heißen soll. Deshalb hier nochmal die Visualiserung der Daten für die beiden Sprünge vor und nach der Fütterung. Ich habe die Messungen, die zusammengehören mit einer Linie verbunden. Dazu dann auch noch die jeweiligen IDs der Flöhe ergänzt.
 
 ```{r}
 #| message: false
@@ -208,16 +223,10 @@ ggplot(aes(trt, jump_length, fill = trt)) +
   geom_line(aes(group = id), color = "gray50") +
   geom_point(shape = 21, size = 4) +
   scale_fill_okabeito() +
+  geom_text(aes(label = id), position = position_nudge(x = 0.05, y = -0.05)) +
   theme(legend.position = "none") +
   labs(x = "Ernährungszustand",
        y = "Sprungweite in [cm]")
-```
-
-```{r}
-paired_long_tbl <- paired_tbl |> 
-  pivot_longer(cols = hungrig:satt,
-               values_to = "jump_length",
-               names_to = "trt") 
 ```
 
 ## Hypothesen
@@ -335,7 +344,7 @@ $$
 
 Wir erhalten eine Teststatistik $T_{D} = 3.14$ die wir mit dem kritischen Wert $T_{\alpha = 5\%} = 2.17$ vergleichen können. Da $T_{D} > T_{\alpha = 5\%}$ ist, können wir die Nullhypothese ablehnen. Wir haben ein signifikanten Unterschied zwischen den mittleren Sprungweiten von Hunde- und Katzenflöhen nachgewiesen.
 
-## `{base}`
+## `{stats}`
 
 Soweit für den Weg zu Fuß. Wir rechnen in der Anwendung keinen Student t-Test per Hand. Wir nutzen die Formel `t.test()`. Da wir den Student t-Test unter der Annahme der Varianzhomogenität nutzen wollen, müssen wir noch die Option `var.equal = TRUE` wählen. Die Funktion `t.test()` benötigt erst die das $y$ und $x$ in der Modellschreibweise mit den Namen, wie die beiden Variablen auch im Datensatz `flea_tbl` stehen. In unserem Fall ist die Modellschreibweise dann `jump_length ~ animal`. Im Weiteren müssen wir noch den Datensatz angeben den wir verwenden wollen durch die Option `data = flea_tbl`. Dann können wir die Funktion `t.test()` ausführen.
 
@@ -361,6 +370,16 @@ t.test(jump_length ~ animal,
 ```
 
 Wir erkennen als erstes den Mittelwertsunterschied zwischen den beiden Gruppen von $3.39cm$. Danach folgen die einzelnen Mittelwerte der Sprungweiten der Hunde und Katzenflöhe mit jeweils $8.13cm$ und $4.74cm$. Darauf folgt noch der p-Wert als `p.value` mit 0.00891 und die beiden Grenzen des Konfidenzintervalls \[1.03; 5.75\].
+
+## `{rstatix}`
+
+Ich würde eher die Implementierung in `{rstatix}` der Standardimplementierung in `{stats}` vorziehen, da wir hier die Daten über die Pipe in die Funktion weiterleiten können. Das macht es dann doch etwas einfacher. Am Ende kommt aber das gleiche raus, so dass ich die Funktion hier als Alternative stehen lasse. Das wir noch eine Datentabelle als Ausgabe kriegen, ist natürlich auch super schön.
+
+```{r}
+t_test(jump_length ~ animal, 
+       data = flea_tbl, var.equal = TRUE) |> 
+  select(group1, group2, p)
+```
 
 ## Excel
 
@@ -451,7 +470,7 @@ $$
 
 Wir erhalten eine Teststatistik $T_{D} = 3.13$ die wir mit dem kritischen Wert $T_{\alpha = 5\%} = 2.17$ vergleichen können. Da $T_{D} > T_{\alpha = 5\%}$ ist, können wir die Nullhypothese ablehnen. Wir haben ein signifikanten Unterschied zwischen den mittleren Sprungweiten von Hunde- und Katzenflöhen nachgewiesen.
 
-## `{base}`
+## `{stats}`
 
 Wir schauen uns gleich die Umsetzung in R an. Wir nutzen erneut die Funktion `t.test()` und zwar diesmal mit der Option `var.equal = FALSE`. Damit geben wir an, dass die Varianzen heterogen zwischen den beiden Gruppen sind. Wir nutzen in unserem Beispiel die gleichen Zahlen und Daten wie schon im obigen Student t-Test Beispiel.
 
@@ -474,6 +493,16 @@ Wir sehen das viele Zahlen nahezu gleich zum Student t-Test sind. Das liegt auch
 t.test(jump_length ~ animal, 
        data = flea_tbl, var.equal = FALSE) |> 
   tidy() 
+```
+
+## `{rstatix}`
+
+Ich würde eher die Implementierung in `{rstatix}` der Standardimplementierung in `{stats}` vorziehen, da wir hier die Daten über die Pipe in die Funktion weiterleiten können. Das macht es dann doch etwas einfacher. Am Ende kommt aber das gleiche raus, so dass ich die Funktion hier als Alternative stehen lasse. Das wir noch eine Datentabelle als Ausgabe kriegen, ist natürlich auch super schön.
+
+```{r}
+t_test(jump_length ~ animal, 
+       data = flea_tbl, var.equal = FALSE) |> 
+  select(group1, group2, p)
 ```
 
 ## Excel
@@ -533,7 +562,7 @@ Den Wert der Teststatistik aus den Daten $T_{D}$ können wir dann wie immer mit 
 
 ## Händisch
 
-Im folgenden Datenbeispiel in @tbl-data-ttest-paired haben wir eine verbundene Stichprobe. Das heißt wir haben nicht zehn Flöhe gemessen sondern fünf Flöhe jewiels zweimal. Einmal haben wir die Sprungweite der Flöhe im ungefütterten Zustand `unfed` und einmal im gefütterten Zustand `fed` gemessen. Wir wollen nun wissen, ob der Fütterungszustand Auswirkungen auf die Sprungweite in \[cm\] hat.
+Im folgenden Datenbeispiel in @tbl-data-ttest-paired haben wir eine verbundene Stichprobe. Das heißt wir haben nicht zehn Flöhe gemessen sondern fünf Flöhe jewiels zweimal. Einmal haben wir die Sprungweite der Flöhe im ungefütterten Zustand `hungrig` und einmal im gefütterten Zustand `satt` gemessen. Wir wollen nun wissen, ob der Fütterungszustand Auswirkungen auf die Sprungweite in \[cm\] hat. Hier dann nochmal die Tabelle als Erinnerung.
 
 ```{r}
 #| message: false
@@ -574,22 +603,26 @@ $$
 
 Jetzt brauchen wir natürlich noch einen kritischen Wert $T_{\alpha = 5\%}$ und der wäre in diesem Fall gleich $`r round(qt(0.95, (5 + 5 - 2), lower.tail = TRUE), 2)`$. Damit können wir dann die Nullhypothese ablehnen, dass wir keinen Effekt der Behandlung vorliegen haben. Es macht einen Unterschied, wie wir die Flöhe gefüttert haben. Da das $\Delta$ positiv ist, können wir auch sagen, dass gefütterte Flöhe weiter springen als nicht gefütterte Flöhe.
 
-## `{base}`
+## `{stats}`
 
 Dann haben wir hier einmal unseren kleinen Datensatz, den wir für unseren gepaarten t-Test nutzen wollen. Wir brauchen die `id` um später nochmal die Daten besser darstellen zu können. Ich möchte nämlich in den Ergebnisabbildungen weiter unten die Beobachtungen miteinander verbinden.
 
 Um den die Funktion `t.test()`in R mit der Option `paired = TRUE` für den paired t-Test zu nutzen, müssen wir die Daten jeweils als Vektor in die Funktion übergeben. Daher als erstes die Spalte mit den Informationen zu den ungefütterten Flöhen und dann die Spalte mit der Information zu den gefütterten Flöhen. Wir wollen nun wissen, ob der Fütterungszustand nun eine Auswirkungen auf die Sprungweite in \[cm\] hat.
 
 ```{r}
-t.test(paired_tbl$satt, paired_tbl$hungrig, paired = TRUE)
+t.test(paired_tbl$satt, paired_tbl$hungrig, 
+       paired = TRUE)
 ```
 
 Die Ausgabe des paired t-Test ähnelt stark der Aussage des Student t-Test. Wir erhalten ebenfalls den wichtigen p-Wert mit 0.0025 sowie das 95% Konfidenzintervall mit \[0.47; 1.13\]. Zum einen ist $0.0025 < \alpha$ und somit können wir die Nullhypothese ablehnen, zum anderen ist auch die 0 nicht mit in dem Konfidenzintervall, womit wir auch hier die Nullhypothese ablehnen können.
 
 ## `{rstatix}`
 
+Ich würde eher die Implementierung in `{rstatix}` der Standardimplementierung in `{stats}` vorziehen, da wir hier die Daten über die Pipe in die Funktion weiterleiten können. Das macht es dann doch etwas einfacher. Am Ende kommt aber das gleiche raus, so dass ich die Funktion hier als Alternative stehen lasse. Das wir noch eine Datentabelle als Ausgabe kriegen, ist natürlich auch super schön.
+
 ```{r}
-t_test(jump_length ~ trt, data = paired_long_tbl, paired = TRUE) |> 
+t_test(jump_length ~ trt, data = paired_long_tbl, 
+       paired = TRUE) |> 
   select(group1, group2, p)
 ```
 :::
@@ -604,7 +637,7 @@ Häufig wollen wir nicht nur den p-Wert aus einem t-Test berichten sondern natü
 Das R Paket `{ggpubr}` bietet auch noch andere Alternativen für die Darstellung von statistischen Vergleichen in deinen Daten unter [ggpubr: ‘ggplot2’ Based Publication Ready Plots](https://rpkgs.datanovia.com/ggpubr/). Vielleicht findest du da auch noch eine bessere Abbildung als hier. Da wir hier sehr viel ähnliches haben, bleibe ich bei `{tidyplots}`.
 :::
 
-Neben den p-Werten, die ich hier mit der Funktion `add_test_pvalue()` ergänze kannst du auch Sterne mit der Funktion `add_test_asterisks()` nutzen. Das liegt dann ganz bei dir. Es geibt auch die Möglichkeit nicht signifikante Ergebnisse auszublenden. Mehr dazu findest du dann auf der [Hilfeseite zu den statistischen Vergleichen in `{tidyplots}`](https://jbengler.github.io/tidyplots/articles/Visualizing-data.html#statistical-comparison). Ich zeige hier dir nur die Standardanwendung. Wichtig ist auch zu wissen, dass wir immer einen Welch t-Test rechnen, also immer für die Varianzheterogenität adjustieren. Das ist auch eigentlich die bessere Variante als der Student t-Test. Häufig ist es sehr schwer in kleinen Fallzahlen abzuschätzen wie die Varianzen in den Gruppen sind. Dann lieber gleich richtig adjsutieren und auf der sicheren Seite sein.
+Neben den p-Werten, die ich hier mit der Funktion `add_test_pvalue()` ergänze kannst du auch Sterne mit der Funktion `add_test_asterisks()` nutzen. Das liegt dann ganz bei dir. Es gibt auch die Möglichkeit nicht signifikante Ergebnisse auszublenden. Mehr dazu findest du dann auf der [Hilfeseite zu den statistischen Vergleichen in `{tidyplots}`](https://jbengler.github.io/tidyplots/articles/Visualizing-data.html#statistical-comparison). Ich zeige hier dir nur die Standardanwendung. Wichtig ist auch zu wissen, dass wir immer einen Welch t-Test rechnen, also immer für die Varianzheterogenität adjustieren. Das ist auch eigentlich die bessere Variante als der Student t-Test. Häufig ist es sehr schwer in kleinen Fallzahlen abzuschätzen wie die Varianzen in den Gruppen sind. Dann lieber gleich richtig adjsutieren und auf der sicheren Seite sein.
 
 ::: panel-tabset
 ## Barplot
