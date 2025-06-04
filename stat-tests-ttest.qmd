@@ -1,6 +1,6 @@
 ```{r echo = FALSE}
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc,
-               patchwork, see)
+               patchwork, see, tinytable)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
@@ -65,7 +65,15 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 
 ## Daten
 
+#### Unabhängige Messungen {.unnumbered .unlisted}
+
 Beginnen wir mit einem Datenbeispiel zu den Hunde- und Katzenflöhen. Was brauchen wir damit wir den t-Test rechnen können? Wir brauchen für den t-Test eine Spalte $y$ mit kontinuierlichen Zahlen und einer Spalte $x$ in dem wir einen Faktor mit zwei Leveln finden oder eben zwei Gruppen. Jedes Level steht dann für eine der beiden Gruppen. Das war es schon. Schauen wir uns nochmal den Datensatz `flea_dog_cat.xlsx` in @tbl-data-ttest an und überlegen, was wir dort auswählen können.
+
+```{r}
+flea_tbl <- read_excel("data/flea_dog_cat.xlsx") |> 
+  mutate(animal = as_factor(animal)) |> 
+  select(animal, jump_length)
+```
 
 ```{r}
 #| echo: false
@@ -81,17 +89,7 @@ flea_tbl |> kable(align = "c", "pipe")
 
 Wir benötigen für den t-Test ein normalverteiltes $y$ womit wir uns hier erstmal für die kontinuierliche Sprungweite entscheiden. Dann brauchen wir einen Faktor mit zwei Leveln als $x$ und da bietet sich natürlich die beiden Gruppen Hunde- und Katzenflöhe an. Wir wählen daher mit `select()` die Spalte `jump_length` und `animal` aus dem Datensatz `flea_dog_cat.xlsx` aus. Wichtig ist, dass wir die Spalte `animal` mit der Funktion `as_factor()` in einen Faktor umwandeln. Anschließend speichern wir die Auswahl in dem Objekt `flea_tbl`.
 
-```{r}
-flea_tbl <- read_excel("data/flea_dog_cat.xlsx") |> 
-  mutate(animal = as_factor(animal)) |> 
-  select(animal, jump_length)
-
-flea_tbl
-```
-
 Wir haben jetzt die Daten richtig vorbereiten und können uns nun mit dem t-Test beschäftigen. Bevor wir den t-Test jedoch rechnen können, müssen wir uns nochmal überlegen, was der t-Test eigentlich testet und uns die Daten einmal visualisieren.
-
-## Visualisierung
 
 Bevor wir einen statistischen Test rechnen, wollen wir uns erstmal die Daten, die dem Test zugrunde liegen, visualisieren. Klassischerweise wollen wir einen t-Test rechnen, da wirzwei Säulen in einem Barplot miteinander vergleichen wollen. Dafür schauen wir uns in @fig-barplot-ttest einmal den Barplot und den Boxplot für die Sprungweiten getrennt nach Hund und Katze an.
 
@@ -171,6 +169,54 @@ ggplot(flea_tbl, aes(x = animal, y = jump_length,
 ```
 
 Wir nutzen aber später häufig den Boxplot zur Visualisierung der einzelnen Gruppen. Über den Boxplot können wir auch gut abschätzen, ob wir eine annähernde bzw. approximative Normalverteilung vorliegen haben. Häufig werden aber auch Barplots verlangt, so dass du hier relativ frei bist, was du verwendest. Am Ende ist es aber nicht so wichtig, ob wir eine Normalverteilung vorliegen haben oder nicht. Der t-Test ist recht robust gegen eine Abweichung. Viel wichtiger ist, das du eben Mittelwerte vergleichst. Also dann zum Beispiel mittlere Boniturnoten oder mittlere Anzahlen.
+
+#### Abhängige Messungen {.unnumbered .unlisted}
+
+```{r}
+#| message: false
+
+paired_tbl <- read_excel("data/flea_dog_cat_repeated.xlsx") 
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: "Tabelle  der Sprunglängen [cm] von fünf Hundeflöhen zu zwei Zeitpunkten. Einmal wurde die Sprungweite mit den hungrigen Flöhen und einmal mit den gleichen satten Flöhen bestimmt."
+#| label: tbl-data-ttest-paired-01
+
+paired_tbl |> 
+  tt(width = 2/3, align = "c", theme = "striped")
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "Dotplot der Sprungweiten [cm] für Hundeflöhe in zwei verschiedenen Ernährungszuständen gemessen an zwei Zeitpunkten. Die Linien verbinden die Messung an dem gleichen Floh."
+#| label: fig-example-paired
+
+paired_tbl |> 
+  pivot_longer(cols = hungrig:satt,
+               values_to = "jump_length",
+               names_to = "trt") |> 
+ggplot(aes(trt, jump_length, fill = trt)) +
+  theme_minimal() +
+  geom_line(aes(group = id), color = "gray50") +
+  geom_point(shape = 21, size = 4) +
+  scale_fill_okabeito() +
+  theme(legend.position = "none") +
+  labs(x = "Ernährungszustand",
+       y = "Sprungweite in [cm]")
+```
+
+```{r}
+paired_long_tbl <- paired_tbl |> 
+  pivot_longer(cols = hungrig:satt,
+               values_to = "jump_length",
+               names_to = "trt") 
+```
 
 ## Hypothesen
 
@@ -493,17 +539,13 @@ Im folgenden Datenbeispiel in @tbl-data-ttest-paired haben wir eine verbundene S
 #| tbl-cap: "Tabelle  der Sprunglängen [cm] von fünf Flöhen zu zwei Zeitpunkten. Einmal wurde die Sprungweite ungefüttert und einmal gefüttert bestimmt."
 #| label: tbl-data-ttest-paired
 
-paired_raw_tbl <- tibble(unfed = c(5.2, 4.1, 3.5, 3.2, 4.6),
-                         fed = c(6.1, 5.2, 3.9, 4.1, 5.3),
-                         diff = fed - unfed) 
+paired_raw_tbl <- tibble(hungrig = c(5.2, 4.1, 3.5, 3.2, 4.6),
+                         satt = c(6.1, 5.2, 3.9, 4.1, 5.3),
+                         diff = satt - hungrig) 
 
 paired_mean <- mean(paired_raw_tbl$diff)
 paired_sd <- round(sd(paired_raw_tbl$diff), 2)
 paired_t <- round(sqrt(5) * paired_mean/paired_sd, 2)
-
-paired_tbl <- paired_raw_tbl |>
-  select(unfed, fed) |> 
-  gather(food_status, jump_length)
 
 paired_raw_tbl |> 
   kable(align = "c", "pipe")
@@ -534,19 +576,20 @@ Jetzt brauchen wir natürlich noch einen kritischen Wert $T_{\alpha = 5\%}$ und 
 
 Dann haben wir hier einmal unseren kleinen Datensatz, den wir für unseren gepaarten t-Test nutzen wollen. Wir brauchen die `id` um später nochmal die Daten besser darstellen zu können. Ich möchte nämlich in den Ergebnisabbildungen weiter unten die Beobachtungen miteinander verbinden.
 
-```{r}
-paired_tbl <- tibble(id = 1:5,
-                     unfed = c(5.2, 4.1, 3.5, 3.2, 4.6),
-                     fed = c(6.1, 5.2, 3.9, 4.1, 5.3)) 
-```
-
 Um den die Funktion `t.test()`in R mit der Option `paired = TRUE` für den paired t-Test zu nutzen, müssen wir die Daten jeweils als Vektor in die Funktion übergeben. Daher als erstes die Spalte mit den Informationen zu den ungefütterten Flöhen und dann die Spalte mit der Information zu den gefütterten Flöhen. Wir wollen nun wissen, ob der Fütterungszustand nun eine Auswirkungen auf die Sprungweite in \[cm\] hat.
 
 ```{r}
-t.test(paired_tbl$fed, paired_tbl$unfed, paired = TRUE)
+t.test(paired_tbl$satt, paired_tbl$hungrig, paired = TRUE)
 ```
 
 Die Ausgabe des paired t-Test ähnelt stark der Aussage des Student t-Test. Wir erhalten ebenfalls den wichtigen p-Wert mit 0.0025 sowie das 95% Konfidenzintervall mit \[0.47; 1.13\]. Zum einen ist $0.0025 < \alpha$ und somit können wir die Nullhypothese ablehnen, zum anderen ist auch die 0 nicht mit in dem Konfidenzintervall, womit wir auch hier die Nullhypothese ablehnen können.
+
+## `{rstatix}`
+
+```{r}
+t_test(jump_length ~ trt, data = paired_long_tbl, paired = TRUE) |> 
+  select(group1, group2, p)
+```
 :::
 
 ## Ergebnisse mit `{tidyplots}`
@@ -619,14 +662,7 @@ tidyplot(data = flea_tbl,
 
 ## Gepaarter Dotplot
 
-Am Ende wollen wir uns dann nochmal den gepaarten t-Test anschauen. Hier ist dann die Abbildung realtiv einfach. Wir können da die Daten `paired_tbl` aus dem gepaarten t-Test nutzen nachdem wir die Daten in das Long-Format überführt haben. Etwas schwieriger ist dann der p-Wert, den p-Wert müssen wir dann erst selber errechnen und dann ergänzen. Also fangen wir einmal an die Daten in das Long-Format zu überführen.
-
-```{r}
-paired_long_tbl <- paired_tbl |> 
-  pivot_longer(cols = fed:unfed,
-               values_to = "jump_length",
-               names_to = "trt")
-```
+Am Ende wollen wir uns dann nochmal den gepaarten t-Test anschauen. Hier ist dann die Abbildung realtiv einfach. Wir können da die Daten `paired_tbl` aus dem gepaarten t-Test nutzen nachdem wir die Daten in das Long-Format überführt haben. Etwas schwieriger ist dann der p-Wert, den p-Wert müssen wir dann erst selber errechnen und dann ergänzen. Hier nutzen wir dann den gepaarten Datensatz in dem Long-Format.
 
 Jetzt können wir den gepaarten t-Test rechnen und zwar aus dem R Paket `{rstatix}`. Dann müssen wir noch alles so umbauen, dass wir die Informationen dann in `{tidyplots}` auch nutzen können.
 
