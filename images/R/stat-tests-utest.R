@@ -258,3 +258,39 @@ p2_hypo <- hypo_alt_tbl |>
         legend.text = element_text(size = 12),
         legend.title = element_text(size = 14, face = 2),
         legend.position = "none")
+
+
+rank_tbl <- tibble(id = 1:14, 
+                   trt = gl(2, 7, label = c("A", "B")),
+                   Orginal = c(c(1.2, 2.1, 3.5, 4.1, 6.2, 6.5, 7.1), 
+                               c(4.7, 6.3, 6.8, 7.3, 8.2, 9.1, 10.3)),
+                   Rangiert = rank(Orginal))
+
+
+p_rank_intro <- rank_tbl |> 
+  pivot_longer(cols = Orginal:Rangiert,
+               values_to = "rsp",
+               names_to = "type") |> 
+  mutate(type = as_factor(type)) |> 
+  ggplot(aes(x = type, y = rsp, fill = trt)) +
+  theme_minimal() +
+  geom_line(aes(group = id, color = trt), position = position_dodge(0.15),
+            alpha = 0.75) +
+  geom_point(shape = 21, size = 4, position = position_dodge(0.2)) +
+  scale_y_continuous(limits = c(1, NA), breaks = 1:15,
+                     sec.axis = sec_axis(~ ., breaks = 1:15)) +
+  geom_text(aes(label = rsp), position = position_dodge(0.5), size = 2.5) +
+  scale_color_okabeito() +
+  scale_fill_okabeito() +
+  theme(legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(size = 12),  
+        axis.text.y = element_blank(),
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank(),
+        legend.position = "none")
