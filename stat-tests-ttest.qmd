@@ -1,8 +1,11 @@
 ```{r echo = FALSE}
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc,
-               patchwork, see, tinytable)
+               patchwork, see, tinytable, infer)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+fac1_tbl <- read_excel("data/flea_dog_cat.xlsx") |> 
+  mutate(animal = as_factor(animal)) |> 
+  select(animal, jump_length)
 ```
 
 # Der t-Test {#sec-ttest}
@@ -48,6 +51,79 @@ Auch findet @de2010five in der Veröffentlichung [Five-point Likert items: t tes
 
 > "*In conclusion, for five-point Likert items, the t test and wilcoxon mann whitney test generally have similar power, and researchers do not have to worry about finding a difference whilst there is none in the population."* --- @de2010five
 
+## Theoretischer Hintergrund
+
+Wenn du direkt aus dem statistischen Testen hierher kommst, dann ist die Berechnung des Student t-Tests für dich kein Problem. Das machen wir im statistischen Testen ja schon als Beispiel für die Teststatistik und den p-Wert. Hier kommen dann gleich fertige Funktionen in R, die dir alles in einem berechnen. Da ist es dann immer etwas schwerer nachzuvollziehen, was die einzelnen Schritte im statistischen Testen eigentlich sind.
+
+Hier hilft dann das R Paket `{infer}` mit einer Schritt für Schritt Prozedur bei Durchführung des statistischen Testen. Dann machen wir es also einmal genau so, wie wir es schon kennen. Erst die Teststatistik $T_D$ der Daten berechenen. Dann die Verteilung der Nullhypothese der Grundgesamtheit bestimmen und dann beides zusammenbringen. Ein weiterer Vorteil von `{infer}` ist, dass wir die Funktionen sehr gut mit dem `|>` Operator nutzen können.
+
+Als erstes berechnen wir die Teststatistik für den t-Test $T_D$ aus den beobachteten Daten. Dafür nutzen wir unsere Sprungweiten der Hunde- und Katzenflöhe. Mehr zu den Daten auch gleich weiter unten im Abschnitt zu den genutzen Daten im Kapitel.
+
+```{r}
+t_d <- fac1_tbl |> 
+  specify(jump_length ~ animal) |> 
+  calculate(stat = "t", order = c("dog", "cat"))
+t_d
+```
+
+Mit der Teststatistik der Daten $T_D$ können wir so erstmal nichts anfangen. Wir brauchen noch einen vergleich zu der Verteilung der Nullhypothese. Daher bestimmen wir im Folgednen die Verteilung der Nullhypothese zu der wir unsere berechnete Teststatistik $T_D$ aus den Daten vergleichen wollen.
+
+```{r}
+set.seed(202506)
+null_dist_data <- fac1_tbl |> 
+  specify(jump_length ~ animal) |> 
+  hypothesize(null = "independence") |> 
+  generate(reps = 1000, type = "permute") |> 
+  calculate(stat = "t", order = c("dog", "cat"))
+```
+
+Dann schauen wir uns einmal die Verteilung der Nullhypothese an. Wie wir sehen können, liegen die meisten Teststatistiken bei der Null. Macht ja auch Sinn, in der Nullhypothese haben wir ja auch Gleichheit zwischend Hunde- und Katzenflöhen angenommen.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-theo-infer-01
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "Verteilung der Nullhypothese in unseren Daten der Sprungweiten von Hunde- und Katzenflöhen. *[Zum Vergrößern anklicken]*"
+
+visualize(null_dist_data) +
+  theme_minimal() +
+  labs(x = "Statistik", y = "Absolute Häufigkeit") 
+```
+
+Dann wollen wir noch die Fläche neben unsere berechnete Teststatistik $T_D$ um damit den $p$-Wert zu bestimmen.
+
+```{r}
+null_dist_data %>%
+  get_p_value(obs_stat = t_d, direction = "two-sided")
+```
+
+Wie du dich noch erinnerst, ist der p-Wert die Fläche neben der berechneten Teststatistik $T_D$ zu den Verteilungsenden hin. Das wollen wir uns dann in der folgenden Abbildung nochmal anschauen, damit wir den Zusammenhang nochmal besser verstehen.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-theo-infer-02
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "Verteilung der Nullhypothese in unseren Daten der Sprungweiten von Hunde- und Katzenflöhen. Die rote Linie stellt die berechnete Teststatistik $T_D$ der Daten dar. Die Eingefärbte Fläche ist der p-Wert. *[Zum Vergrößern anklicken]*"
+
+visualize(null_dist_data) +
+  theme_minimal() +
+  shade_p_value(obs_stat = t_d, direction = "two-sided",
+                color = "#CC79A7") +
+  labs(x = "Statistik", y = "Absolute Häufigkeit") 
+```
+
+Die Abfolge der Schritte erfolgt so nicht in der generischen Funktion `t.test()`, die wir dann in der Anwendung viel nutzen. Daher ist das R Paket `{infer}` nochmal gut um die Schritte der Berechnung sich klar werden zu lassen. Später nutzen wir dann nur eine Funktion, aber der Prozess ist im Hintergrund immer sehr ähnlich.
+
+Eine detailliertere Einführung mit mehr Beispielen für die Nutzung vom [R Paket `{infer}`](https://infer.netlify.app/) findest du im Kapitel [Testen in R](#sec-test-R). Hier soll es dann bei der kurzen Gegenüberstellung bleiben.
+
 ## Genutzte R Pakete
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
@@ -74,12 +150,12 @@ In den folgendne Abschnitten brauchen wir dann zwei Datensätze. Der erste Daten
 Beginnen wir mit einem Datenbeispiel zu den Hunde- und Katzenflöhen. Was brauchen wir damit wir den t-Test rechnen können? Wir brauchen für den t-Test eine Spalte $y$ mit kontinuierlichen Zahlen und einer Spalte $x$ in dem wir einen Faktor mit zwei Leveln finden oder eben zwei Gruppen. Jedes Level steht dann für eine der beiden Gruppen. Das war es schon. Schauen wir uns nochmal den Datensatz `flea_dog_cat.xlsx` in @tbl-data-ttest an und überlegen, was wir dort auswählen können.
 
 ```{r}
-flea_tbl <- read_excel("data/flea_dog_cat.xlsx") |> 
+fac1_tbl <- read_excel("data/flea_dog_cat.xlsx") |> 
   mutate(animal = as_factor(animal)) |> 
   select(animal, jump_length)
 ```
 
-Wir benötigen für den t-Test ein normalverteiltes $y$ womit wir uns hier erstmal für die kontinuierliche Sprungweite entscheiden. Dann brauchen wir einen Faktor mit zwei Leveln als $x$ und da bietet sich natürlich die beiden Gruppen Hunde- und Katzenflöhe an. Wir wählen daher mit `select()` die Spalte `jump_length` und `animal` aus dem Datensatz `flea_dog_cat.xlsx` aus. Wichtig ist, dass wir die Spalte `animal` mit der Funktion `as_factor()` in einen Faktor umwandeln. Anschließend speichern wir die Auswahl in dem Objekt `flea_tbl`. Hier dann nochmal die Datentabelle.
+Wir benötigen für den t-Test ein normalverteiltes $y$ womit wir uns hier erstmal für die kontinuierliche Sprungweite entscheiden. Dann brauchen wir einen Faktor mit zwei Leveln als $x$ und da bietet sich natürlich die beiden Gruppen Hunde- und Katzenflöhe an. Wir wählen daher mit `select()` die Spalte `jump_length` und `animal` aus dem Datensatz `flea_dog_cat.xlsx` aus. Wichtig ist, dass wir die Spalte `animal` mit der Funktion `as_factor()` in einen Faktor umwandeln. Anschließend speichern wir die Auswahl in dem Objekt `fac1_tbl`. Hier dann nochmal die Datentabelle.
 
 ```{r}
 #| echo: false
@@ -87,11 +163,11 @@ Wir benötigen für den t-Test ein normalverteiltes $y$ womit wir uns hier erstm
 #| tbl-cap: "Tabelle von sieben Hunde- und Katzenflöhen mit der Sprunglänge [cm]."
 #| label: tbl-data-ttest
 
-flea_tbl <- read_excel("data/flea_dog_cat.xlsx") |> 
+fac1_tbl <- read_excel("data/flea_dog_cat.xlsx") |> 
   mutate(animal = as_factor(animal)) |> 
   select(animal, jump_length)
 
-flea_tbl |> kable(align = "c", "pipe")
+fac1_tbl |> kable(align = "c", "pipe")
 ```
 
 Wir haben jetzt die Daten richtig vorbereiten und können uns nun mit dem t-Test beschäftigen. Bevor wir den t-Test jedoch rechnen können, müssen wir uns nochmal überlegen, was der t-Test eigentlich testet und uns die Daten einmal visualisieren. Klassischerweise wollen wir einen t-Test rechnen, da wir zwei Säulen in einem Barplot miteinander vergleichen wollen. Dafür schauen wir uns in @fig-barplot-ttest einmal den Barplot und den Boxplot für die Sprungweiten getrennt nach Hund und Katze an.
@@ -106,7 +182,7 @@ Wir haben jetzt die Daten richtig vorbereiten und können uns nun mit dem t-Test
 #| fig-width: 7
 #| fig-cap: "Visualisierung der Sprungweiten der Hunde- und Katzenflöhe. **(A)** Säulendiagramm oder Barplot mit den Mittelwerten und der Standardabweichung. **(B)** Boxplot mit den Median und dem IQR. *[Zum Vergrößern anklicken]*"
 
-stat_tbl <- flea_tbl |> 
+stat_tbl <- fac1_tbl |> 
   group_by(animal) |> 
   summarise(mean = mean(jump_length),
             sd = sd(jump_length),
@@ -122,7 +198,7 @@ p1 <- ggplot(stat_tbl, aes(x = animal, y = mean, fill = animal)) +
   scale_x_discrete(labels = c("Hund", "Katze")) +
   scale_fill_okabeito()
 
-p2 <- ggplot(flea_tbl, aes(x = animal, y = jump_length, 
+p2 <- ggplot(fac1_tbl, aes(x = animal, y = jump_length, 
                      fill = animal)) +
   geom_boxplot() +
   labs(x = "Tierart", y = "Sprungweite [cm]") +
@@ -155,7 +231,7 @@ Manchmal ist es etwas verwirrend, dass wir uns in einem Boxplot mit Median und I
 #| label: fig-dotplot-ttest
 
 
-ggplot(flea_tbl, aes(x = animal, y = jump_length, 
+ggplot(fac1_tbl, aes(x = animal, y = jump_length, 
                              fill = animal)) + 
   theme_minimal() +  
   geom_dotplot(binaxis = 'y', stackdir = 'center') + 
@@ -346,11 +422,11 @@ Wir erhalten eine Teststatistik $T_{D} = 3.14$ die wir mit dem kritischen Wert $
 
 ## `{stats}`
 
-Soweit für den Weg zu Fuß. Wir rechnen in der Anwendung keinen Student t-Test per Hand. Wir nutzen die Formel `t.test()`. Da wir den Student t-Test unter der Annahme der Varianzhomogenität nutzen wollen, müssen wir noch die Option `var.equal = TRUE` wählen. Die Funktion `t.test()` benötigt erst die das $y$ und $x$ in der Modellschreibweise mit den Namen, wie die beiden Variablen auch im Datensatz `flea_tbl` stehen. In unserem Fall ist die Modellschreibweise dann `jump_length ~ animal`. Im Weiteren müssen wir noch den Datensatz angeben den wir verwenden wollen durch die Option `data = flea_tbl`. Dann können wir die Funktion `t.test()` ausführen.
+Soweit für den Weg zu Fuß. Wir rechnen in der Anwendung keinen Student t-Test per Hand. Wir nutzen die Formel `t.test()`. Da wir den Student t-Test unter der Annahme der Varianzhomogenität nutzen wollen, müssen wir noch die Option `var.equal = TRUE` wählen. Die Funktion `t.test()` benötigt erst die das $y$ und $x$ in der Modellschreibweise mit den Namen, wie die beiden Variablen auch im Datensatz `fac1_tbl` stehen. In unserem Fall ist die Modellschreibweise dann `jump_length ~ animal`. Im Weiteren müssen wir noch den Datensatz angeben den wir verwenden wollen durch die Option `data = fac1_tbl`. Dann können wir die Funktion `t.test()` ausführen.
 
 ```{r}
 t.test(jump_length ~ animal, 
-       data = flea_tbl, var.equal = TRUE)
+       data = fac1_tbl, var.equal = TRUE)
 ```
 
 Wir erhalten eine sehr lange Ausgabe, die auch etwas verwirrend aussieht. Gehen wir die Ausgabe einmal durch. Ich gehe nicht auf alle Punkte ein, sondern konzentriere mich hier auf die wichtigsten Aspekte.
@@ -365,7 +441,7 @@ Wie wir sehen fehlt der Mittelwertsunterschied als Effekt $\Delta$ in der Standa
 
 ```{r}
 t.test(jump_length ~ animal, 
-       data = flea_tbl, var.equal = TRUE) |> 
+       data = fac1_tbl, var.equal = TRUE) |> 
   tidy() 
 ```
 
@@ -377,7 +453,7 @@ Ich würde eher die Implementierung in `{rstatix}` der Standardimplementierung i
 
 ```{r}
 t_test(jump_length ~ animal, 
-       data = flea_tbl, var.equal = TRUE) |> 
+       data = fac1_tbl, var.equal = TRUE) |> 
   select(group1, group2, p)
 ```
 
@@ -476,7 +552,7 @@ Wir schauen uns gleich die Umsetzung in R an. Wir nutzen erneut die Funktion `t.
 
 ```{r}
 t.test(jump_length ~ animal, 
-       data = flea_tbl, var.equal = FALSE)
+       data = fac1_tbl, var.equal = FALSE)
 ```
 
 Wir erhalten eine sehr lange Ausgabe, die auch etwas verwirrend aussieht. Gehen wir die Ausgabe einmal durch. Ich gehe nicht auf alle Punkte ein, sondern konzentriere mich hier auf die wichtigsten Aspekte.
@@ -491,7 +567,7 @@ Wir sehen das viele Zahlen nahezu gleich zum Student t-Test sind. Das liegt auch
 
 ```{r}
 t.test(jump_length ~ animal, 
-       data = flea_tbl, var.equal = FALSE) |> 
+       data = fac1_tbl, var.equal = FALSE) |> 
   tidy() 
 ```
 
@@ -501,7 +577,7 @@ Ich würde eher die Implementierung in `{rstatix}` der Standardimplementierung i
 
 ```{r}
 t_test(jump_length ~ animal, 
-       data = flea_tbl, var.equal = FALSE) |> 
+       data = fac1_tbl, var.equal = FALSE) |> 
   select(group1, group2, p)
 ```
 
@@ -654,7 +730,7 @@ Die Standardabbildung ist sicherlich der Barplot zusammen mit der Standardabweic
 #| fig-width: 3.5
 #| fig-cap: "Einfaktorieller Barplot für die Sprungweiten in [cm] gruppiert nach den Floharten mit mehr Optionen und angepassten Beschriftungen sowie den p-Wert aus einem Welch t-Test."
 
-tidyplot(data = flea_tbl, 
+tidyplot(data = fac1_tbl, 
          x = animal, y = jump_length, color = animal) |> 
   add_data_points() |>
   add_mean_bar(alpha = 0.4, width = 0.4) |> 
@@ -682,7 +758,7 @@ Es gibt auch gute Gründe ienmal den Boxplot zu wählen, wenn wir etwas besser d
 #| fig-width: 3.5
 #| fig-cap: "Einfaktorieller Boxplot für die Sprungweiten in [cm] gruppiert nach den Floharten mit mehr Optionen und angepassten Beschriftungen sowie den p-Wert aus einem Welch t-Test."
 
-tidyplot(data = flea_tbl, 
+tidyplot(data = fac1_tbl, 
          x = animal, y = jump_length, color = animal) |> 
   add_data_points() |>
   add_boxplot(alpha = 0.4, box_width = 0.3) |> 
@@ -791,50 +867,5 @@ ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
         axis.text.y = element_blank()) +
   labs(x = "", y = "") 
 ```
-
-## Der t-Test in `{infer}`
-
-Auch hier können wir den t-Test in dem R Paket `{infer}` realisieren. Ein Vorteil von `{infer}` ist, dass wir die Funktionen sehr gut mit dem `|>` Operator nutzen können. Deshalb hier einmal die *bessere* Implementierung, da ich finde, dass die Implementierung in `{infer}` intuitiver zu verstehen ist.
-
-::: panel-tabset
-## `{infer}`
-
-Wir berechnen die Teststatistik für den t-Test $T_D$ aus den beobachteten Daten.
-
-```{r}
-#| eval: false
-t_d <- flea_tbl |> 
-  specify(jump_length ~ animal) |> 
-  calculate(stat = "t", order = c("dog", "cat"))
-```
-
-Dann bestimmen wir die Verteilung der Nullhypothese zu der wir unsere berechnete Teststatistik $T_D$ aus den Daten vergleichen.
-
-```{r}
-#| eval: false
-null_dist_theory <- flea_tbl |> 
-  specify(jump_length ~ animal) |> 
-  assume("t")
-```
-
-Dann wollen wir noch die Fläche neben unsere berechnete Teststatistik $T_D$ um damit den $p$-Wert zu bestimmen.
-
-```{r}
-#| eval: false
-null_dist_theory %>%
-  get_p_value(obs_stat = t_d, direction = "two-sided")
-```
-
-## `{base}`
-
-In der Standardfunktion ist natürlich alles super kurz. Leider fehlt auch die Idee was wir eigentlich machen. Wenn du das verstanden hast, dann geht die Funktion `t.test()` in `{base}` natürlich schneller.
-
-```{r}
-#| eval: false
-t.test(jump_length ~ animal, data = flea_tbl)
-```
-:::
-
-Eine detailliertere Einführung mit mehr Beispielen für die Nutzung vom [R Paket `{infer}`](https://infer.netlify.app/) findest du im Kapitel [Testen in R](#sec-test-R). Hier soll es dann bei der kurzen Gegenüberstellung bleiben.
 
 ## Referenzen {.unnumbered}
