@@ -262,13 +262,13 @@ p2_hypo <- hypo_alt_tbl |>
 
 rank_tbl <- tibble(id = 1:14, 
                    trt = gl(2, 7, label = c("A", "B")),
-                   Orginal = c(c(1.2, 2.1, 3.5, 4.1, 6.2, 6.5, 7.1), 
+                   Original = c(c(1.2, 2.1, 3.5, 4.1, 6.2, 6.5, 7.1), 
                                c(4.7, 6.3, 6.8, 7.3, 8.2, 9.1, 10.3)),
-                   Rangiert = rank(Orginal))
+                   Rangiert = rank(Original))
 
 
 p_rank_intro <- rank_tbl |> 
-  pivot_longer(cols = Orginal:Rangiert,
+  pivot_longer(cols = Original:Rangiert,
                values_to = "rsp",
                names_to = "type") |> 
   mutate(type = as_factor(type)) |> 
