@@ -189,71 +189,57 @@ p_shift <- shift_tbl |>
         legend.position = "none") 
 
 
-hypo_null_tbl <- tibble(Dog = c(NA, NA, NA, 4, NA, NA, NA),
-                        Cat = c(1,2,3,5,6,7,8)) |> 
-  gather() |> 
-  na.omit() |> 
-  mutate(col = as_factor(c(1, 2, 2, 2, 3, 3, 3,3)),
-         key = fct_rev(as_factor(key)))
 
-p1_hypo <- hypo_null_tbl |> 
-  ggplot(aes(x = value, y = key, fill = col)) +
+
+p_hypo_null <- tibble(X = c(1:4, 1:4),
+       Y = c(rep(1, 4), rep(2, 4))) |> 
+  ggplot(aes(x = X, y = Y, fill = as_factor(Y))) +
   theme_minimal() +
-  geom_point(shape = 21, size = 5, show.legend = FALSE) +
-  scale_fill_okabeito() +
-  annotate("text", x = c(1, 2, 3, 5, 6, 7, 8)+0.2, y = 1-0.15, 
-           label = c(expression(c[1]), expression(c[2]), expression(c[3]),
-                     expression(c[4]), expression(c[5]), expression(c[6]),
-                     expression(c[7]))) +
-  annotate("text", x = c(4)+0.2, y = 2-0.15, 
-           label = expression(d[1])) +
-  annotate("label", x = 6.1, y = 2, hjust = "left",
-           label = expression(Pr~(Dog<Cat)~"="~frac(3, 7)~"≈"~0.5))+
+  annotate("segment", 
+           x = c(rep(1, 4), rep(2, 4), rep(3, 4), rep(4, 4)), 
+           xend = rep(1:4, times = 4), 
+           y = rep(2, 16), 
+           yend = rep(1, 16), color = "gray50", linewidth = 0.25) +
+  annotate("segment", 
+           x = 1:4, 
+           xend = 1:4, 
+           y = rep(2, 4), 
+           yend = rep(1, 4), color = "#009E73", linewidth = 1) +
+  annotate("segment", 
+           x = c(2, 3, 4, 3, 4, 4),  
+           xend = c(rep(1, 3), rep(2, 2), rep(3, 1)),
+           y = rep(1, 6), 
+           yend = rep(2, 6), color = "#CC79A7", linewidth = 1) +
+  geom_point(shape = 21, size = 5, show.legend = FALSE, fill = "gray75") +
+  scale_x_continuous(limits = c(1, 7), breaks = 1:4) +
+  scale_y_continuous(breaks = c(1,2), labels = c("Y", "X")) +
+  annotate("label", x = c(1.4, 1.8, 2.2, 2.425, 2.8, 3.4),
+           y = 1.6, label = 1:6, fill = "#CC79A7", size = 3) +
+  annotate("label", x = 4.5, y = 1.75, hjust = "left",
+           label = expression(Pr~(X<Y)~"="~frac(6, 16)~"="~0.375), 
+           color = "#CC79A7", size = 5) +
+  annotate("label", x = c(1:4),
+           y = 1.5, label = 1:4, fill = "#009E73", size = 3) +
+  annotate("label", x = 4.5, y = 1.5, hjust = "left",
+           label = expression(frac(1, 2)~Pr~(X~"="~Y)~"="~frac(1, 2)%.%frac(4, 16)~"="~0.125), 
+           color = "#009E73", size = 5) +
   labs(x = "", y = "") +
+  annotate("text", x = 4.5, y = 1.3, hjust = "left",
+           label = "Nullhypothese gilt da:", 
+           color = "black", size = 5, fontface = 2) +
+  annotate("label", x = 4.5, y = 1.18, hjust = "left",
+           label = expression(0.375+0.125~"="~0.5), 
+           color = "black", size = 5) +
   theme(axis.title.y = element_text(size = 14, face = 2),
-        axis.text.y = element_text(size = 12), 
+        axis.text.y = element_text(size = 14, face = 2), 
         axis.title.x = element_text(size = 14, face = 2),
-        axis.text.x = element_blank(),
+        axis.text.x = element_text(size = 12),
         plot.title = element_text(size = 17),
         plot.subtitle = element_text(size = 12, face = "italic"),
         plot.caption = element_text(size = 12),
         panel.grid.minor.y = element_blank(),
         panel.grid.major.x = element_blank(),
-        panel.grid.minor.x = element_blank(),
-        legend.text = element_text(size = 12),
-        legend.title = element_text(size = 14, face = 2),
-        legend.position = "none")
-
-hypo_alt_tbl <- tibble(Dog = c(1, NA, NA, NA, NA, NA, NA),
-                       Cat = c(2,3,4,5,6,7,8)) |> 
-  gather() |> 
-  na.omit() |> 
-  mutate(col = as_factor(c(1, 3, 3, 3, 3, 3, 3,3)),
-         key = fct_rev(as_factor(key)))
-
-p2_hypo <- hypo_alt_tbl |> 
-  ggplot(aes(x = value, y = key, fill = col)) +
-  theme_minimal() +
-  geom_point(shape = 21, size = 5, show.legend = FALSE) +
-  scale_fill_okabeito(order = c(1,3)) +
-  annotate("text", x = c(2, 3, 4, 5, 6, 7, 8)+0.2, y = 1-0.15, 
-           label = c(expression(c[1]), expression(c[2]), expression(c[3]),
-                     expression(c[4]), expression(c[5]), expression(c[6]),
-                     expression(c[7]))) +
-  annotate("text", x = c(1)+0.2, y = 2-0.15, 
-           label = expression(d[1])) +
-  annotate("label", x = 6.1, y = 2, hjust = "left",
-           label = expression(Pr~(Dog<Cat)~"="~frac(0, 7)~"≈"~0))+
-  labs(x = "Sprungweite in [cm]", y = "") +
-  theme(axis.title.y = element_text(size = 14, face = 2),
-        axis.text.y = element_text(size = 12), 
-        axis.title.x = element_text(size = 14, face = 2),
-        axis.text.x = element_blank(),
-        plot.title = element_text(size = 17),
-        plot.subtitle = element_text(size = 12, face = "italic"),
-        plot.caption = element_text(size = 12),
-        panel.grid.minor.y = element_blank(),
-        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_blank(),
         panel.grid.minor.x = element_blank(),
         legend.text = element_text(size = 12),
         legend.title = element_text(size = 14, face = 2),
