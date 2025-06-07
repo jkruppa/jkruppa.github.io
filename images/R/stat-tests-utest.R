@@ -280,3 +280,90 @@ p_rank_intro <- rank_tbl |>
         panel.grid.minor.y = element_blank(),
         panel.grid.major.y = element_blank(),
         legend.position = "none")
+
+
+p_lognormal_t_u <- ggplot(data.frame(x = c(0, 1250)), aes(x)) +
+  theme_minimal() +
+  stat_function(fun = dlnorm, linewidth = 1, args = list(meanlog = 5, sd = 1), 
+                color = "#E89F00") +
+  stat_function(fun = dlnorm, linewidth = 1, args = list(meanlog = 5, sd = 1), 
+                geom = "area", fill = "#E89F00", alpha = 0.25) +
+  geom_vline(xintercept = c(0)) + 
+  geom_hline(yintercept = c(0)) +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 14, face = 2),
+        axis.text.x = element_text(size = 12),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        panel.grid = element_blank(),
+        legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        legend.position = "none") +
+  labs(x = "Messwerte", y = "",
+       title = "Log-normal Verteilung",
+       subtitle = "Datengrundlage für den Vergleich t-Test und U-Test")
+
+
+
+p_p_t_u_1 <- p_t_u_tbl |> 
+  ggplot(aes(x = wilcox, y = ttest, color = n)) +
+  theme_minimal() +
+  geom_point2(alpha = 0.2, show.legend = FALSE) +
+  annotate("segment", x = 0, xend = 1, y = 0, yend = 1,
+           color = "gray70", size = 1) +
+  stat_summary(fun = "mean", geom = "line") +
+  coord_cartesian(xlim=c(0, 0.5), ylim=c(0, 0.5)) +
+  scale_color_okabeito() +
+  labs(x = "U-Test", y = "Welch t-Test",
+       title = "Vergleich der p-Werte", 
+       subtitle = "Rangtransformiert vs. orginal Daten",
+       caption = expression(n[sim]~"="~10000),
+       color = expression(n[Gruppe])) +
+  theme(axis.title.y = element_text(size = 14, face = 2),
+        axis.text.y = element_text(size = 12), 
+        axis.title.x = element_text(size = 14, face = 2),
+        axis.text.x = element_text(size = 12),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        legend.position = c(0.9, 0.35),
+        legend.background = element_rect(fill="white",
+                                         size=0.5, linetype="solid", 
+                                         colour ="gray50")) 
+
+p_p_t_u_2 <- p_t_u_tbl |> 
+  #filter(wilcox != 1) |> 
+  ggplot(aes(x = wilcox, y = dev, color = n)) +
+  theme_minimal() +
+  stat_summary(fun = "mean", geom = "line") +
+  scale_y_continuous(limits = c(-0.1, 0)) +
+  scale_x_continuous(#limits = c(0, 0.52), 
+    breaks = c(0.05, 0.25, 0.5, 0.75, 1)) +
+  scale_color_okabeito() +
+  annotate("segment", x = 0, xend = 1, y = 0, yend = 0,
+           color = "gray70", size = 1) +
+  annotate("segment", x = 0.05, xend = 0.05, y = 0, yend = -0.1,
+           color = "gray70", size = 1, linetype = 2) +
+  labs(x = "U-Test", y = "Welch t-Test",
+       title = "Abweichung der p-Werte", 
+       subtitle = "Wie stark weichen die p-Werte des t-Test ab?",
+       caption = expression(n[sim]~"="~10000),
+       color = expression(n[Gruppe])) +
+  theme(axis.title.y = element_text(size = 14, face = 2),
+        axis.text.y = element_text(size = 12), 
+        axis.title.x = element_text(size = 14, face = 2),
+        axis.text.x = element_text(size = 12),        
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, face = 2),
+        legend.position = "none") 
