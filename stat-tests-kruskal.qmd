@@ -16,6 +16,19 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 Dieses Kapitel wird überarbeitet. Ziel ist es die Nichtparametrik zum Start des Wintersemesters 2025/26 überarbeitet zu haben. Da ich hier direkt im Kapitel arbeite, kann es sein, dass mal die ein oder andere Funktion nicht funktioniert oder aber Teile im Nichts enden. Wird dann repariert.
 :::
 
+**ToDo**
+
+-   Beispiel Paperabbildung
+-   Daten umbauen und anpassen
+
+## Allgemeiner Hintergrund
+
+[Der U-Test](#sec-utest) für Hintergründe und weitere Informationen zu dem nichtparametrischen Testen bachten.
+
+![*The results of a Kruskal Wallis test comparing restriction levels, during increasing and decreasing periods, by pandemic phase are shown as the title of each graph in (a) and (b): the H and p values are provided along with degrees of freedom for each H value in brackets as is the common practice. The p values for the subsequent post hoc Dunn’s test are shown in (a) and (b) as horizontal lines connecting the phases for which there is a significant difference in restriction level with the corresponding p value threshold shown. Similarly, the results of the one-way ANOVA and Tukey HSD tests are shown in (c) and (d) for mobility drops with the F and p values for the one-way ANOVA indicated in the titles of (c) and (d) and the subsequent Tukey HSD results for significant pairs shown in the corresponding bar graph.* Quelle: @smyth2022fading](images/preface_kruskal.png){#fig-utest-intro fig-align="center" width="100%"}
+
+@smyth2022fading
+
 Wann nutzen wir den Kruskal-Wallis-Test? Wir nutzen den Kruskal-Wallis-Test wenn wir mehrere Verteilungen miteinander vergleichen wollen. Das ist jetzt sehr abstrakt. Konkret, wenn wir mehrere Gruppen haben und ein nicht normalverteiltes $y$. Haben wir ein normalverteiltes $y$ rechnen wir meist eine einfaktorielle ANOVA. Das heißt, der Kruskal-Wallis-Test ist im Prinzip die einfaktorielle ANOVA für nicht-normalverteilte Daten. Die Entscheidung, ob ein $y$ normal verteilt ist oder nicht kann an dem Boxplot der Daten abgeschätzt werden.
 
 Was ist jetzt der Unterschied zwischen einem Kruskal-Wallis-Test und einer einfaktoriellen ANOVA? Die ANOVA vergleicht die Mittelwerte mehrerer Normalverteilungen, also zum Beispiel die Verteilung der Sprungweiten der Hundeflöhe gegen die Verteilung der Sprungweiten der Katzenflöhe sowie gegen die Verteilung der Sprungweiten von Fuchsflöhen. Dazu nutzt die ANOVA die Abweichungsquadrate von den Mittelwerten. Damit nutze die ANOVAB Parameter einer Verteilung und somit ist der ANOVA ein parametrischer Test.
@@ -27,8 +40,11 @@ Der Kruskal-Wallis-Test ist die *nicht-parametrische* Variante in dem wir die Za
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
+#| message: false
+#| warning: false
 pacman::p_load(tidyverse, magrittr, broom, 
-               readxl, rstatix)
+               readxl, rstatix,
+               conflicted)
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
@@ -92,13 +108,16 @@ $$
 
 Wir schauen uns jetzt einmal den Kruskal-Wallis-Test theoretisch an bevor wir uns mit der Anwendung des Kruskal-Wallis-Test in R beschäftigen.
 
+## Der Kruskal-Wallis-Test
+
+::: panel-tabset
 ## Theoretisch
 
 Der Kruskal-Wallis-Test berechnet die H Teststatistik auf den Rängend der Daten. Es gibt genau soviele Ränge wie es Beobachtungen im Datensatz gibt. Wir haben $n = 21$ Beobachtungen in unseren Daten zu der Sprungweite in \[cm\] von den Hunde-, Katzen- und Fuchsflöhen. Somit müssen wir auch einundzwanzig Ränge vergeben.
 
 Die @tbl-kruskal-rank zeigt das Vorgehen der Rangvergabe. Wir sortieren als erstes das $y$ aufsteigend. In unserem Fall ist das $y$ die Sprunglänge. Dann vergeben wir die Ränge jweiles zugehörig zu der Position der Sprunglänge und der Tierart. Abschließend addieren wir die Rangsummmen für `cat`, `dog` und `fox` zu den Rangsummen $R_{cat}$, $R_{dog}$ und $R_{fox}$.
 
-| Rank | animal | jump_length  |  Ränge "cat"   |  Ränge "dog"   |   Ränge "fox"   |
+| Rank | animal | jump_length  |  Ränge `cat`   |  Ränge `dog`   |   Ränge `fox`   |
 |:----:|:------:|:------------:|:--------------:|:--------------:|:---------------:|
 |  1   |  cat   |     2.2      |       1        |                |                 |
 |  2   |  cat   |     3.2      |       2        |                |                 |
@@ -148,15 +167,7 @@ $$
 
 Der kritische Wert für die H Statistik ist $H_{\alpha = 5\%} = 5.99$. Bei der Entscheidung mit der berechneten Teststatistik $H_{D}$ gilt, wenn $H_{D} \geq U_{\alpha = 5\%}$ wird die Nullhypothese (H$_0$) abgelehnt. Da in unserem Fall das $H_{D}$ mit $11.27$ größer ist als das $H_{\alpha = 5\%} = 5.99$ können wir die Nullhypothese ablehnen. Wir haben ein signifkianten Unterschied in den Medianen zwischen den beiden Tierarten im Bezug auf die Sprungweite in \[cm\] von Flöhen.
 
-::: callout-important
-## Entscheidung mit der berechneten Teststatistik $F_{\boldsymbol{D}}$
-
-Bei der Entscheidung mit der berechneten Teststatistik $H_{D}$ gilt, wenn $H_{D} \geq H_{\alpha = 5\%}$ wird die Nullhypothese (H$_0$) abgelehnt.
-
-**Achtung --** Wir nutzen die Entscheidung mit der Teststatistik *nur und ausschließlich* in der Klausur. In der praktischen Anwendung hat die Betrachtung der berechneten Teststatistik *keine* Verwendung mehr.
-:::
-
-## Praktisch in R
+## `{stats}`
 
 Die Nutzung des Kruskal-Wallis-Test in R ist relativ einfach mit der Funktion `kruskal.test()`. Wir nutzen die `formual` Syntax um das Modell zu definieren und können dann schon die Funktion nutzen.
 
@@ -173,3 +184,16 @@ fac1_tbl |> kruskal_effsize(jump_length ~ animal)
 ```
 
 Das $\eta^2$ nimmt Werte von 0 bis 1 an und gibt, multipliziert mit 100, den Prozentsatz der Varianz der durch die $x$ Variable erklärt wird. In unserem Beispiel wird 51.1% der Varianz in de Daten durch den Faktor `animal` erklärt.
+
+## `{coin}`
+
+`kruskal_test()`
+
+## `{rstatix}`
+
+`kruskal_test()`
+:::
+
+#### Effektschätzer {.unnumbered .unlisted}
+
+`kruskal_effsize()` aus `{rstatix}`
