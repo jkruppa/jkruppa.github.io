@@ -28,22 +28,31 @@ source("stat-tests-anova_plot/repeated_plots.R")
 Dieses Kapitel wird überarbeitet. Ziel ist es die Nichtparametrik zum Start des Wintersemesters 2025/26 überarbeitet zu haben. Da ich hier direkt im Kapitel arbeite, kann es sein, dass mal die ein oder andere Funktion nicht funktioniert oder aber Teile im Nichts enden. Wird dann repariert.
 :::
 
-**To Do**
-
--   Anderer Datensatz; repated measure?
--   Oder zweifaktorieller Blocksatz?
+[Zwei Arten des Friedman Tests](https://math.montana.edu/jobo/thainp/ksampa.pdf)
 
 ## Allgemeiner Hintergrund
 
 [Beware the Friedman test!](https://seriousstats.wordpress.com/2012/02/14/friedman/)
 
+[Tutorium zum Firedman Test](https://rcompanion.org/handbook/F_10.html)
+
 @zimmerman1993relative
 
-Der Friedman Test ist der Kruskal Wallis Test für abhängige Daten.
+Der Friedman Test ist der Kruskal Wallis Test für abhängige Daten. Oder doch nicht?
 
-Wann nutzen wir den Friedman Test? Wir nutzen den Friedman Test, wenn wir zwei Faktoren vorliegen haben und keine Normalverteilung annehmen können. Wichtig hierbei ist, dass wir *zwei* Faktoren vorliegen haben, die wir in unserem Modell berücksichtigen wollen. Du kannst den Friedman Test als das Äquivalent zu der zweifaktoriellen ANOVA sehen. Mit der Einschränkung, dass wir leider keine Interaktion berücksichtigen können.
+#### Datenformat {.unnumbered .unlisted}
 
-In unserem Fall rechnen wir den Friedman-Test nicht per Hand. Es gibt dafür keinen Grund. Wir haben ja im vorherigen Kapitel uns mit der Berechnung des Kruskal-Wallis-Test beschäftigt, der Friedman-Test unterscheidet sich nur in Nuancen bei der Berechnung, so dass ich hier keinen Lerngewinn mehr sehe. Der Friedman-Test somit ein klarer Anwendungsfall. Wir nutzen den Friedman Test in unserer Abschlussarbeit, wenn wir zum Beispiel Boniturnoten auf der Likertskala auswerten wollen.
+In der Datentabelle für den Friedman Test haben wir keine Wiederholungen für die Faktorkombinationen vorliegen.
+
+| Faktor B | A.1  | A.2  | A.3  | A.4  |
+|----------|------|------|------|------|
+| **B.1**  | 9.1  | 10.2 | 12.2 | 14.1 |
+| **B.2**  | 4.2  | 5.2  | 6.2  | 7.3  |
+| **B.3**  | 12.1 | 14.5 | 12.5 | 13.7 |
+| **B.4**  | 1.2  | 3.6  | 3.5  | 7.1  |
+| **B.5**  | 4.1  | 4.5  | 4.7  | 8.1  |
+
+: Beispielhafte, aggregierte Datentabelle für einen Friedman Test. In den Spalten ist der Behandlungsfaktor A mit den entsprechenden Leveln A.1 bis A.4 eingetragen. In den Zeilen finden sich der Faktor für Wiederholungen wie Blöcke oder individuelle IDs. Es liegen keine Messwiederholungen für die Faktorkombinationen vor. {#tbl-test}
 
 ## Genutzte R Pakete
 
@@ -52,8 +61,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 #| warning: false
-pacman::p_load(tidyverse, magrittr, broom, 
-               readxl, rstatix, coin,
+pacman::p_load(tidyverse, magrittr, broom, pgirmess,
+               readxl, rstatix, coin, nparcomp,
                effectsize, PMCMRplus, rcompanion,
                conflicted)
 conflicts_prefer(dplyr::select)
@@ -82,9 +91,9 @@ block_raw_tbl <- read_excel("data/friedman_data.xlsx",
 block_raw_tbl <- read_excel("data/friedman_data.xlsx",
                         sheet = "block") 
 
-rbind(head(block_raw_tbl, n = 3),
+rbind(head(block_raw_tbl, n = 4),
       rep("...", times = ncol(block_raw_tbl)),
-      tail(block_raw_tbl, n = 3)) |> 
+      tail(block_raw_tbl, n = 4)) |> 
   tt(width = 2/3, align = "c", theme = "striped")
 ```
 
@@ -146,12 +155,7 @@ repeated_tbl <- read_excel("data/friedman_data.xlsx",
 #| label: tbl-1fac-table-repeated
 #| tbl-cap: "Tabelle der Sprungweiten in [cm] als Messwert $y$ von Hunde-, Katzen- und Fuchsflöhen. Der Datensatz ist einfaktoriell, da wir nur einen Faktor vorliegen haben."
 
-repeated_raw_tbl <- read_excel("data/friedman_data.xlsx",
-                        sheet = "repeated") 
-
-rbind(head(repeated_raw_tbl, n = 3),
-      rep("...", times = ncol(repeated_raw_tbl)),
-      tail(repeated_raw_tbl, n = 3)) |> 
+repeated_tbl |> 
   tt(width = 2/3, align = "c", theme = "striped")
 ```
 
@@ -257,6 +261,18 @@ Wir haben also herausgefunden, dass wir einen starken Effekt haben und sich die 
 
 #### Parametrische Lösung: Die ANOVA {.unnumbered .unlisted}
 
+```{r}
+signed_rank <- function(x) sign(x) * rank(abs(x))
+```
+
+`{rstatix}`
+
+```{r}
+block_long_tbl |> 
+  mutate(ranked_jump_length = signed_rank(jump_length)) |> 
+  anova_test(ranked_jump_length ~ feeding + block) 
+```
+
 ### ... mit abhängigen Messwerten
 
 ::: callout-warning
@@ -271,9 +287,53 @@ Wir haben also herausgefunden, dass wir einen starken Effekt haben und sich die 
 
 `mctp.rm()`
 
+```{r}
+mctp.rm_obj <- mctp.rm(jump_length ~ time_fct, data = repeated_long_tbl,
+                       info = FALSE)
+mctp.rm_obj$Analysis
+```
+
 #### Parametrische Lösung: Die repeated ANOVA {.unnumbered .unlisted}
 
+```{r}
+signed_rank <- function(x) sign(x) * rank(abs(x))
+```
+
+`{rstatix}`
+
+```{r}
+repeated_aov <- repeated_long_tbl |> 
+  mutate(ranked_jump_length = signed_rank(jump_length)) |> 
+  anova_test(dv = ranked_jump_length, wid = flea_id, within = time_fct)
+get_anova_table(repeated_aov)
+```
+
 ## Post-hoc Test
+
+::: panel-tabset
+## `{pgirmess}`
+
+`friedmanmc()`
+
+```{r}
+#| message: false
+#| warning: false
+friedmanmc_res <-  friedmanmc(y = block_long_tbl$jump_length,
+                               groups = block_long_tbl$feeding,
+                               blocks = block_long_tbl$block)
+```
+
+```{r}
+friedmanmc_tbl <- friedmanmc_res$dif.com |> 
+  rownames_to_column("comparison") |> 
+  as_tibble()
+```
+
+```{r}
+cldList(p.value ~ comparison, data = friedmanmc_tbl)
+```
+
+## `{PMCMRplus}`
 
 Nachdem wir jetzt festgestellt haben, dass sich mindestens ein Gruppenunterschied zwischen den Weizensorten finden lassen muss, wollen wir noch feststellen wo dieser Unterschied liegt. Wir nutzen dafür den Siegel- und Castellan-Vergleichstests für alle Paare durch. Der Test ist mit der Funktion `frdAllPairsSiegelTest()` in dem R Paket `{PMCMRplus}` implementiert und einfach nutzbar. In dem Paket sind noch eine weitere Reihe an statistischen Test für paarweise nicht-parametrische Test enthalten. Leider sind das Paket und die Funktion schon älter, so dass wir nicht einmal die Formelschreibweise zu Verfügung haben. Wir müssen alle Spalten aus unserem Datensatz mit dem `$` einzeln selektieren und den Optionen zuordnen.
 
@@ -292,7 +352,7 @@ Ich empfehle ja immer eine Adjustierung für multiple Vergleiche, aber du kannst
 Damit wir auch das *compact letter display* aus unseren $p$-Werte berechnen können, müssen wir unser Ergebnisobjekt nochmal in eine Tabelle umwandeln. Dafür gibt es dann auch eine passende Funktion mit `PMCMRTable`. Wir sehen, es ist alles etwas altbacken.
 
 ```{r}
-siegel_test_tab <- PMCMRTable(siegel_test_res )
+siegel_test_tab <- PMCMRTable(siegel_test_res)
 
 siegel_test_tab
 ```
@@ -304,5 +364,6 @@ cldList(p.value ~ Comparison, data = siegel_test_tab)
 ```
 
 Am *compact letter display* sehen wir im Prinzip das gleiche Muster wie in den $p$-Werten. Nur nochmal etwas anders dargestellt und mit dem Fokus auf die *nicht* Unterschiede.
+:::
 
 ## Referenzen {.unnumbered}
