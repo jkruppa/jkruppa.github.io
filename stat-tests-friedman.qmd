@@ -1,5 +1,17 @@
 ```{r echo = FALSE}
-pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
+#| message: false
+#| warning: false
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, performance, parameters,
+               latex2exp, see, patchwork, mfp, multcomp, emmeans, janitor, effectsize,
+               broom, ggmosaic, tinytable, ggrepel, tidyplots,
+               conflicted)
+conflicts_prefer(dplyr::select)
+conflicts_prefer(dplyr::filter)
+cb_pal <- c("#000000", "#E69F00", "#56B4E9", 
+            "#009E73", "#F0E442", "#F5C710", 
+            "#0072B2", "#D55E00", "#CC79A7")
+cbbPalette <- cb_pal
+source("stat-tests-anova_plot/repeated_plots.R")
 ```
 
 # Der Friedman Test {#sec-friedman}
@@ -16,9 +28,18 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
 Dieses Kapitel wird überarbeitet. Ziel ist es die Nichtparametrik zum Start des Wintersemesters 2025/26 überarbeitet zu haben. Da ich hier direkt im Kapitel arbeite, kann es sein, dass mal die ein oder andere Funktion nicht funktioniert oder aber Teile im Nichts enden. Wird dann repariert.
 :::
 
+**To Do**
+
+-   Anderer Datensatz; repated measure?
+-   Oder zweifaktorieller Blocksatz?
+
+## Allgemeiner Hintergrund
+
 [Beware the Friedman test!](https://seriousstats.wordpress.com/2012/02/14/friedman/)
 
 @zimmerman1993relative
+
+Der Friedman Test ist der Kruskal Wallis Test für abhängige Daten.
 
 Wann nutzen wir den Friedman Test? Wir nutzen den Friedman Test, wenn wir zwei Faktoren vorliegen haben und keine Normalverteilung annehmen können. Wichtig hierbei ist, dass wir *zwei* Faktoren vorliegen haben, die wir in unserem Modell berücksichtigen wollen. Du kannst den Friedman Test als das Äquivalent zu der zweifaktoriellen ANOVA sehen. Mit der Einschränkung, dass wir leider keine Interaktion berücksichtigen können.
 
@@ -29,55 +50,138 @@ In unserem Fall rechnen wir den Friedman-Test nicht per Hand. Es gibt dafür kei
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
+#| message: false
+#| warning: false
 pacman::p_load(tidyverse, magrittr, broom, 
                readxl, rstatix, coin,
-               effectsize, PMCMRplus, rcompanion)
+               effectsize, PMCMRplus, rcompanion,
+               conflicted)
+conflicts_prefer(dplyr::select)
+conflicts_prefer(dplyr::filter)
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
 
 ## Daten
 
-Für das Datenbeispiel bauen wir uns den Datensatz schnell selber zusammen. Wir wollen uns fünf Weizensorten $A$ bis $E$ anschauen und bonitieren, wie die Qualität der Pflanzen nach einer Dürreperiode aussieht. Daher vergeben wir einen Score auf der Likertskala von $1$ bis $9$, wobei $9$ bedeutet, dass die Weizenpflanze vollkommen intakt ist. Wir haben unseren Versuch in vier Blöcken angelegt.
+#### Unabhängige Messungen {.unnumbered .unlisted}
 
 ```{r}
 #| message: false
-#| warning: false
-grade_tbl <- tibble(block = 1:4,
-                    A = c(2,3,4,3),
-                    B = c(7,9,8,9),
-                    C = c(6,5,4,7),
-                    D = c(2,3,1,2),
-                    E = c(4,5,7,6)) |>
-  gather(key = variety, value = grade, A:E) |> 
-  mutate(block =  as_factor(block))
+block_raw_tbl <- read_excel("data/friedman_data.xlsx",
+                            sheet = "block") 
 ```
-
-Schauen wir uns nochmal unseren Datensatz an. Wir haben den Datensatz jetzt im Long-Format vorliegen und können dann gleich mit dem Datensatz weiterarbeiten.
 
 ```{r}
-grade_tbl
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-1fac-table-block
+#| tbl-cap: "foo."
+
+block_raw_tbl <- read_excel("data/friedman_data.xlsx",
+                        sheet = "block") 
+
+rbind(head(block_raw_tbl, n = 3),
+      rep("...", times = ncol(block_raw_tbl)),
+      tail(block_raw_tbl, n = 3)) |> 
+  tt(width = 2/3, align = "c", theme = "striped")
 ```
 
-In @fig-fried-ggplot sehen wir nochmal die Visualisierung der Boniturnoten über die fünf Weizensorten und den vier Blöcken. Bei einer so kleinen Fallzahl von nur vier Blöcken pro Sorte entscheiden wir uns dann für einen Dotplot um uns die Daten einmal anzuschauen.
+```{r}
+block_tbl <- block_raw_tbl |>
+  group_by(block) |> 
+  summarise(across(ctrl:ketchup, mean)) 
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-1fac-table-block-aggr
+#| tbl-cap: "foo."
+
+block_tbl |> 
+  tt(width = 2/3, align = "c", theme = "striped")
+```
+
+```{r}
+block_long_tbl <- block_tbl |> 
+  pivot_longer(cols = ctrl:ketchup,
+               names_to = "feeding",
+               values_to = "jump_length") |> 
+  mutate(block = as_factor(block),
+         feeding = as_factor(feeding))
+```
 
 ```{r}
 #| echo: true
 #| message: false
-#| label: fig-fried-ggplot
+#| warning: false
+#| label: fig-fried-ggplot-block
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
 #| fig-cap: "Dotplot des Datenbeispiels für die Bonitur von fünf Weizensorten."
 
-ggplot(grade_tbl, aes(variety, grade, fill = block)) +
+ggplot(block_long_tbl, aes(feeding, jump_length, fill = block)) +
   theme_minimal() +
   geom_dotplot(binaxis = "y", stackdir='center', 
                position=position_dodge(0.3)) +
-  scale_y_continuous(breaks = 1:9, limits = c(1,9))
+  scale_fill_okabeito() 
 ```
 
-Im Folgenden schauen wir usn nun einmal die Hypothesen des Friedman Tests an und rechen dann den Friedman Test in R einmal durch.
+#### Abhängige Messungen {.unnumbered .unlisted}
+
+```{r}
+#| message: false
+repeated_tbl <- read_excel("data/friedman_data.xlsx",
+                           sheet = "repeated") 
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-1fac-table-repeated
+#| tbl-cap: "Tabelle der Sprungweiten in [cm] als Messwert $y$ von Hunde-, Katzen- und Fuchsflöhen. Der Datensatz ist einfaktoriell, da wir nur einen Faktor vorliegen haben."
+
+repeated_raw_tbl <- read_excel("data/friedman_data.xlsx",
+                        sheet = "repeated") 
+
+rbind(head(repeated_raw_tbl, n = 3),
+      rep("...", times = ncol(repeated_raw_tbl)),
+      tail(repeated_raw_tbl, n = 3)) |> 
+  tt(width = 2/3, align = "c", theme = "striped")
+```
+
+```{r}
+repeated_long_tbl <- repeated_tbl |> 
+  pivot_longer(cols = t1:t4,
+               names_to = "time",
+               values_to = "jump_length") |> 
+  mutate(flea_id = as_factor(flea_id),
+         time_fct = as_factor(time))
+```
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| label: fig-fried-ggplot-repeated
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 6
+#| fig-cap: "Dotplot des Datenbeispiels für die Bonitur von fünf Weizensorten."
+
+ggplot(repeated_long_tbl, aes(time_fct, jump_length, fill = flea_id)) +
+  theme_minimal() +
+geom_line(aes(group = flea_id), color = "gray",
+            position=position_dodge(0.3)) +
+  geom_dotplot(binaxis = "y", stackdir='center', 
+               position=position_dodge(0.3)) +
+  scale_fill_okabeito() 
+```
 
 ## Hypothesen
 
@@ -97,50 +201,88 @@ H_A: &\; \widetilde{y}_{A} \ne \widetilde{y}_{B}\\
 \phantom{H_A:} &\; \widetilde{y}_{D} \ne \widetilde{y}_{E}\\
 \phantom{H_A:} &\; \mbox{für mindestens ein Paar}
 \end{aligned}
-$$ Damit kommen uns die Hypothesen nicht so unbekannt vor. Die Hypothesenpaare sind die gleichen wie in einer ANOVA bzw. dem Kruskal-Wallis-Test.
+$$
 
-## Praktisch in R
+Damit kommen uns die Hypothesen nicht so unbekannt vor. Die Hypothesenpaare sind die gleichen wie in einer ANOVA bzw. dem Kruskal-Wallis-Test.
+
+## Der Friedman Test
+
+### ... mit unabhängigen Messwerten
+
+Das [Tutorial von Salvatore S. Mangiafico zum Friedman Test](https://rcompanion.org/handbook/F_10.html) liefert eine sehr ausführliche Anwendung über mehrere R Pakete hinweg.
 
 Der Friedman Test ist in R in verschiedenen Paketen implementiert. Wir nehmen die Standardfunktion `friedman.test()`. Wichtig ist wie wir in der Funktion das Modell definieren. Wir nutzen das Symbol `|` um die Behandlung von dem Block zu trennen. Vor dem `|` Symbol steht die Behandlung, hinter dem `|` steht der Block. Damit sieht das Modell etwas anders aus, aber im Prinzip ist die Definition des Modells einfach.
 
-::: column-margin
-Das [Tutorial von Salvatore S. Mangiafico zum Friedman Test](https://rcompanion.org/handbook/F_10.html) liefert eine sehr ausführliche Anwendung über mehrere R Pakete hinweg.
+::: panel-tabset
+## `{stats}`
+
+```{r}
+#| message: false
+#| warning: false
+friedman.test(jump_length ~ feeding | block, data = block_long_tbl)
+```
+
+Nachdem wir die Funktion aufgerufen haben, erhalten wir auch gleich den $p$-Wert von $0.005$ wieder. Da der $p$-Wert kleienr ist als das Signifikanzniveau $\alpha$ von 5% können wir die Nullhypothese ablehnen. Es gibt mindestens einen paarweisen Unterschied. Das war auch anhand des Doplots zu erwarten.
+
+## `{coin}`
+
+`friedman_test()`
+
+```{r}
+#| message: false
+#| warning: false
+coin::friedman_test(jump_length ~ feeding | block, data = block_long_tbl)
+```
+
+## `{rstatix}`
+
+[Friedman Test in R](https://www.datanovia.com/en/lessons/friedman-test-in-r/)
+
+```{r}
+#| message: false
+#| warning: false
+rstatix::friedman_test(jump_length ~ feeding | block, data = block_long_tbl)
+```
 :::
 
-```{r}
-#| message: false
-#| warning: false
-friedman.test(grade ~ variety | block, data = grade_tbl)
-```
-
-Nachdem wir die Funktion aufgerufen haben, erhalten wir auch gleich den $p$-Wert von $0.005$ wieder. Da der $p$-Wert kleienr ist als das Signifikanzniveau $\alpha$ von 5% können wir die Nullhypothese ablehnen. Es gibt mindestens einen paarweisen Unterschied. Das war auch anhand des Doplots zu erwarten. Nun stellt sich noch die Frage, wie groß der Effekt ist. Das können wir mit Kendalls $W$ bestimmen. Auch die Funktionalität ist in der R Paket `{effectsize}` implementiert. Wir müssen nur wieder das ganze Modell in die Funktion `kendalls_w()` stecken.
+#### Effektschätzer {.unnumbered .unlisted}
 
 ```{r}
 #| message: false
 #| warning: false
-kendalls_w(grade ~ variety | block, data = grade_tbl)
-```
-
-Nun kriegen wir ein Kendalls $W$ von 0.92 raus. Wir immer ist die Frage nach der Interpretation. Dankenswerterweise gibt es auch die Funktion `interpret_kendalls_w()`, die uns mit Quelle ausgibt, wie stark der Effekt ist. Einfach nochmal für die Referenz in die Hilfeseite von der Funktion schauen.
-
-```{r}
-#| message: false
-#| warning: false
-interpret_kendalls_w(0.92)
+friedman_effsize(jump_length ~ feeding | block, data = block_long_tbl)
 ```
 
 Wir haben also herausgefunden, dass wir einen starken Effekt haben und sich die Mediane der Gruppen unterscheiden.
 
-## Posthoc Test
+#### Parametrische Lösung: Die ANOVA {.unnumbered .unlisted}
+
+### ... mit abhängigen Messwerten
+
+::: callout-warning
+## Achtung, bitte beachten!
+
+[Beware the Friedman test!](https://seriousstats.wordpress.com/2012/02/14/friedman/)
+
+@zimmerman1993relative
+:::
+
+`{nparcomp}`
+
+`mctp.rm()`
+
+#### Parametrische Lösung: Die repeated ANOVA {.unnumbered .unlisted}
+
+## Post-hoc Test
 
 Nachdem wir jetzt festgestellt haben, dass sich mindestens ein Gruppenunterschied zwischen den Weizensorten finden lassen muss, wollen wir noch feststellen wo dieser Unterschied liegt. Wir nutzen dafür den Siegel- und Castellan-Vergleichstests für alle Paare durch. Der Test ist mit der Funktion `frdAllPairsSiegelTest()` in dem R Paket `{PMCMRplus}` implementiert und einfach nutzbar. In dem Paket sind noch eine weitere Reihe an statistischen Test für paarweise nicht-parametrische Test enthalten. Leider sind das Paket und die Funktion schon älter, so dass wir nicht einmal die Formelschreibweise zu Verfügung haben. Wir müssen alle Spalten aus unserem Datensatz mit dem `$` einzeln selektieren und den Optionen zuordnen.
 
 ```{r}
 #| message: false
 #| warning: false
-siegel_test_res <-  frdAllPairsSiegelTest(y = grade_tbl$grade,
-                                          groups = grade_tbl$variety,
-                                          blocks = grade_tbl$block,
+siegel_test_res <-  frdAllPairsSiegelTest(y = block_long_tbl$jump_length,
+                                          groups = block_long_tbl$feeding,
+                                          blocks = block_long_tbl$block,
                                           p.adjust.method = "none")
 siegel_test_res
 ```
