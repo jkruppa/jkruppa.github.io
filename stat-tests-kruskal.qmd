@@ -74,7 +74,6 @@ In den folgenden Abschnitten zur Anwendung des Kruskal-Wallis-Test brauchen wir 
 fac1_tbl <- read_xlsx("data/flea_dog_cat_fox.xlsx") |>
   select(animal, jump_length) |> 
   mutate(animal = as_factor(animal))
-
 ```
 
 In der folgenden Tabelle siehst du dann einmal einen Auszug aus den Daten der Sprungweiten für die drei Floharten. Dabei ist dann die Spalte `animal` unser Faktor über den wir den Gruppenvergleich für die Sprungweiten `jump_length` als Messwert rechnen wollen.
@@ -148,7 +147,7 @@ Wir schauen uns jetzt einmal den Kruskal-Wallis-Test theoretisch an bevor wir un
 
 ## Der Kruskal-Wallis-Test
 
-Wir können den Kruskal-Wallis-Test natürlich auch händisch rechnen. Wir machen das händische Rechnen jetzt nur um uns nochmal klar werden zu lassen wie die Analyse durchläuft. Für die Anwendung des Kruskal-Wallis-Test ist es natürlich nicht notwendig händisch den Test rechnen zu können. Ich zeige dir die Anwendung einmal im Standardpaket `{stats}` sowie der Implementierung in `{coin}` und `{rstatix}`. Das letzte Paket `{rstatix}` ruft im Prinzip die Funktionen aus `{coin}` auf hat aber eine bessere Implementierung, die sich einfacher nutzen lässt.
+Wir können den Kruskal-Wallis-Test natürlich auch händisch rechnen. Wir machen das händische Rechnen jetzt nur um uns nochmal klar werden zu lassen wie die Analyse durchläuft. Für die Anwendung des Kruskal-Wallis-Test ist es natürlich nicht notwendig händisch den Test rechnen zu können. Ich zeige dir die Anwendung einmal im Standardpaket `{stats}` sowie der Implementierung in `{coin}` und `{rstatix}`. Das letzte Paket `{rstatix}` ruft im Prinzip die Funktionen aus `{coin}` auf hat aber eine bessere Implementierung, die sich einfacher nutzen lässt. Immer häufiger ist der Kruskal-Wallis-Test nur als [zusätzliche Funktion](https://www.sthda.com/english/articles/24-ggpubr-publication-ready-plots/76-add-p-values-and-significance-levels-to-ggplots/) implementiert wie im R Paket `{ggpubr}` um dann einer Abbildung den p-Wert für den Kruskal-Wallis-Test zu ergänzen.
 
 ::: panel-tabset
 ## Theoretisch
@@ -238,6 +237,8 @@ rstatix::kruskal_test(jump_length ~ animal, data = fac1_tbl)
 Mit einem p-Wert von $0.0037$ können wir die Nullhypothese ablehnen, da der p-Wert kleiner ist als das Signifikanzniveau $\alpha$ von 5%. Wir haben mindestens einen medianen Unterschied zwischen den Sprungweiten der Hunde-, Katzen- und Fuchsflöhen.
 :::
 
+Soweit so gut. Im Prinzip produzieren alle drei Funktionen und Implementierungen den gleichen p-Wert. Daher kannst du dir hier aussuchen was du verwenden willst. Ich nehme dann immer häufiger `{rstatix}` oder aber die [Implementierung direkt in `{ggpubr}`](https://www.sthda.com/english/articles/24-ggpubr-publication-ready-plots/76-add-p-values-and-significance-levels-to-ggplots/). Es kommt hier dann imm darauf an was du zeigen möchtest. Am Ende ist es vermutlich nicht ganz so wichtig, ob deine Abbildung einen p-Wert für den Kruskal-Wallis-Test hat oder nicht.
+
 #### Effektschätzer {.unnumbered .unlisted}
 
 Für die Betrachtung der Effektgröße in einem Kruskal-Wallis-Test nutzen wir das R Paket `{rstatix}` und die darin enthaltende Funktion `kruskal_effsize()`. Wir berechnen hierbei analog zu einfaktoriellen ANOVA den $\eta^2$ Wert.
@@ -246,11 +247,11 @@ Für die Betrachtung der Effektgröße in einem Kruskal-Wallis-Test nutzen wir d
 fac1_tbl |> kruskal_effsize(jump_length ~ animal)
 ```
 
-Das $\eta^2$ nimmt Werte von 0 bis 1 an und gibt, multipliziert mit 100, den Prozentsatz der Varianz der durch die $x$ Variable erklärt wird. In unserem Beispiel wird 51.1% der Varianz in de Daten durch den Faktor `animal` erklärt.
+Das $\eta^2$ nimmt Werte von 0 bis 1 an und gibt, multipliziert mit 100, den Prozentsatz der Varianz der durch die $x$ Variable erklärt wird. In unserem Beispiel wird 51.1% der Varianz in de Daten durch den Faktor `animal` erklärt. Das R Paket `{effectsize}` liefert mit der [Funktion `kendalls_w()`](https://easystats.github.io/effectsize/reference/rank_epsilon_squared.html) eine weitere Möglichkeit sich den Effektschätzer berechnen zu lassen. Die Funktion `interpret_kendalls_w()` liefert dann auch gleich die Regel für die Bewertung nach.
 
-Das R Paket `{effectsize}` liefert mit der [Funktion `kendalls_w()`](https://easystats.github.io/effectsize/reference/rank_epsilon_squared.html) eine weitere Möglichkeit sich den Effektschätzer berechnen zu lassen. Die Funktion `interpret_kendalls_w()` liefert dann auch gleich die Regel für die Bewertung nach.
+## Weitere Lösungen
 
-## Weitere Lösungen...
+Kommen wir jetzt nochmal zu den Alternativen zu dem Kruskal-Wallis-Test.
 
 #### Einfaktorielle ANOVA {.unnumbered .unlisted}
 
@@ -264,11 +265,15 @@ fac1_tbl |>
   anova_test(ranked_jump_length ~ animal) 
 ```
 
-#### Van der Waerden's Normal Scores Test {.unnumbered .unlisted}
+#### Van-der-Waerden-Test {.unnumbered .unlisted}
+
+Warum jetzt auf einmal so ein seltsamer Test von dem ich bis vor kurzem auch noch nichts gehört hatte? Ich bin in den Arbeiten von @lupsen2015varianzanalysen und @luepsen2018comparison darauf gestoßen. Der Vorteil des Van-der-Waerden-Tests besteht darin, dass der Test im Vergleich zur einfaktoriellen ANOVA gut abschneidet, wenn die Stichproben der Gruppenpopulation normalverteilt sind, und im Vergleich zum Kruskal-Wallis-Test, wenn die Stichproben nicht normalverteilt sind. Das klingt doch super. Deshalb hier auch die Implementierung in der Formelschreibweise aus dem R Paket `{PMCMRplus}`.
 
 ```{r}
 vanWaerdenTest(jump_length ~ animal, data = fac1_tbl)
 ```
+
+Mit einem p-Wert von $0.0048$ können wir auch hier die Nullhypothese ablehnen, da der p-Wert kleiner ist als das Signifikanzniveau $\alpha$ von 5%. Wir haben mindestens einen medianen Unterschied zwischen den Sprungweiten der Hunde-, Katzen- und Fuchsflöhen. Die Hypothesen sind im Prinzip gleich wie bei dem Kruskal-Wallis-Test.
 
 ## Post-hoc Test
 
