@@ -77,11 +77,12 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 
 ## Daten
 
-Eigentlich sind die Datensätze hier zweimla das Gleiche, aber es gibt eben diese [zwei Arten des Friedman Tests](https://math.montana.edu/jobo/thainp/ksampa.pdf), die im Orbit rumgeistern. Deshalb hier im Folgenden einmal der agrawissenschaftliche Datenstz mit einem, Block in den Zeilen sowie einen Datensatz zu Messwiederholungen an Individuen mit unseren Flöhen. Damit haben wir beide Fälle abgefrühstückt und können uns dann die Auswertung einmal näher anschauen.
+Eigentlich sind die Datensätze hier zweimal das Gleiche, aber es gibt eben diese [zwei Arten des Friedman Tests](https://math.montana.edu/jobo/thainp/ksampa.pdf), die im Orbit rumgeistern. Deshalb hier im Folgenden einmal der agrawissenschaftliche Datensatz mit einem, Block in den Zeilen sowie einen Datensatz zu Messwiederholungen an Individuen mit unseren Flöhen. Damit haben wir beide Fälle abgefrühstückt und können uns dann die Auswertung einmal näher anschauen.
 
-#### Randomisiertes vollständiges Blockdesign {.unnumbered .unlisted}
+::: panel-tabset
+## Randomisiertes vollständiges Blockdesign
 
-Randomisiertes vollständiges Blockdesign (eng. *Randomized Complete Block Design*)
+Beginnen wir einmal mit dem randomisierten vollständigen Blockdesign (eng. *Randomized Complete Block Design*). Wir haben die Daten in der folgenden Datei in dem Reiter `block` abliegen. Die Besonderheit ist hier, dass wir dennoch Messwiederholungen in den Blöcken vorliegen haben. Ich habe die Daten mal etwas realistischer gebaut. Wir haben hier pro Block jeweils die Sprungweite von drei Hundeflöhen gemessen. Dabei sind die Flöhe dann unter verschiedenen Ernährungsformen gesprungen. Wir haben aber nicht den gleichen Floh in jeder Behandlung gemessen. Jeder Zahlenwert entspricht der Sprungweite eines individuellen Hundeflohs. Der Weg hier vom Wide-Format zum Long-Format über die Aggregation ist etwas lang, aber geht so nicht anders.
 
 ```{r}
 #| message: false
@@ -89,12 +90,14 @@ block_raw_tbl <- read_excel("data/friedman_data.xlsx",
                             sheet = "block") 
 ```
 
+In der folgenden Datentabelle siehst du einmal den Datensatz mit den Sprungweiten unter den verschiedenen Ernährungsformen. Wir haben eine Wiederholung in den Blöcken vorliegen, diese Wiederholung müssen wir dann noch aggregieren, so dass wir dann nur eine Zeile pro Block haben.
+
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
 #| label: tbl-1fac-table-block
-#| tbl-cap: "foo."
+#| tbl-cap: "Auszug aus der Datentabelle eines randomisierten vollständigen Blockdesign mit drei Messweiderholungen pro Block. Für die einzelnen Hundeflöhe wurden unter verschiedenen Ernährungsformen die Sprungweiten gemessen. Jeder Wert entspricht einem individuellen Floh. Die Daten müssen noch aggregiert werden damit wir den Friedman Test anwenden können."
 
 block_raw_tbl <- read_excel("data/friedman_data.xlsx",
                         sheet = "block") 
@@ -105,23 +108,29 @@ rbind(head(block_raw_tbl, n = 4),
   tt(width = 1, align = "c", theme = "striped")
 ```
 
+Dann bilden wir einmal den Mittelwert über jede Zeile für jeden Block. Somit haben wir dann die Blockmittel für jede Ernährungsform und nur noch einen Wert für die Sprungweite für jede Faktorkombination. In jeden Zahlenwert gehen jetzt die individuellen Sprungweiten der drei Hundeflöhe auf.
+
 ```{r}
 block_tbl <- block_raw_tbl |>
   group_by(block) |> 
   summarise(across(ctrl:ketchup, mean))  
 ```
 
+In der folgenden Tabelle siehst du dann das Ergebnis der Aggregation. Wir haben dann nur noch eine Sprungweite der Hundeflöhe für jede Faktorkombination der Ernährungsform und des Blocks vorliegen.
+
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
 #| label: tbl-1fac-table-block-aggr
-#| tbl-cap: "foo."
+#| tbl-cap: "Aggregierte Datentabelle eines randomisierten vollständigen Blockdesign mit den mittleren Sprungweiten pro Block.  Jeder Wert entspricht dem Mittel der Sprungweiten der drei Flöhe. Jede Faktorkombination ist nur einmal vertreten."
 
 block_tbl |> 
   mutate_if(is.numeric, round, 2) |> 
   tt(width = 2/3, align = "c", theme = "striped")
 ```
+
+Das reicht dann aber natürlich wieder nicht, den wir haben damit die Daten im Wide-Format in der vorherigen Tabelle vorliegen. Die Analysen in R verlangen aber da Long-Format, so dass ich hier nochmal mit der Funktion `pivot_longer()` einen entsprechenden Datensatz baue. Dann kann ich auch gleich die entsprechenden Faktoren umwandeln.
 
 ```{r}
 block_long_tbl <- block_tbl |> 
@@ -132,6 +141,8 @@ block_long_tbl <- block_tbl |>
          feeding = as_factor(feeding))
 ```
 
+Der Weg war jetzt etwas länger, aber so ist es manchmal, wenn wir mit etwas veralteten Algorithmen rechnen wollen. In der folgenden Abbildung siehst du dann nochmal die Daten in einem Dotplot dargestellt. Wir sehen, dass die Kontrolle eine etwas weitere Sprungweite hat als das Blut und auch die Ernährung mit Ketchup.
+
 ```{r}
 #| echo: true
 #| message: false
@@ -140,16 +151,17 @@ block_long_tbl <- block_tbl |>
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 6
-#| fig-cap: "Dotplot des Datenbeispiels für die Bonitur von fünf Weizensorten."
+#| fig-cap: "Dotplot des Datenbeispiels für die fünf Blöcke und die drei Ernährungsformen."
 
 ggplot(block_long_tbl, aes(feeding, jump_length, fill = block)) +
   theme_minimal() +
   geom_dotplot(binaxis = "y", stackdir='center', 
                position=position_dodge(0.3)) +
+  labs(x = "Ernährungsform", y = "Sprungweite in [cm]", color = "Block") +
   scale_fill_okabeito() 
 ```
 
-#### Design mit wiederholten Messungen {.unnumbered .unlisted}
+## Design mit wiederholten Messungen
 
 Einfaches Design mit wiederholten Messungen (eng. *Simple Repeated Measures Design*)
 
@@ -197,6 +209,7 @@ geom_line(aes(group = flea_id), color = "gray",
                position=position_dodge(0.3)) +
   scale_fill_okabeito() 
 ```
+:::
 
 ## Hypothesen
 
@@ -314,9 +327,7 @@ block_long_tbl |>
 ::: callout-warning
 ## Achtung, bitte beachten!
 
-[Beware the Friedman test!](https://seriousstats.wordpress.com/2012/02/14/friedman/)
-
-@zimmerman1993relative
+[Beware the Friedman test!](https://seriousstats.wordpress.com/2012/02/14/friedman/). Das ist der wichtigste Punkt. Wenn du den Friedman Test rechnen willst, weil in deinen Zeilen Messwiederholungen sind, dann bitte lassen. Du also bei jedem Floh wiederholt die Sprungweite gemessen und möchtest jetzt wissen, ob es einen Unterschied in den Zeitpunkten gibt. Die Alternativen hat @zimmerman1993relative einmal diskutiert und ich zeige dir dann auch die besseren Lösungen.
 :::
 
 ::: panel-tabset
@@ -354,6 +365,14 @@ $$
 $$
 
 $\mathcal{X}^2_{\alpha = 5\%}$ ist in unserem Fall mit $7.82$ gegeben.
+
+## `{stats}`
+
+```{r}
+#| message: false
+#| warning: false
+friedman.test(jump_length ~ time_fct | flea_id, data = repeated_long_tbl)
+```
 
 ## `{nparcomp}`
 
