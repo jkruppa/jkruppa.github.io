@@ -1178,19 +1178,7 @@ p11 <- data_11_tbl |>
          p-Wert~f[A]%~~%0.01*";"~
            f[B]%~~%0.03*";"~
            f[A]%*%f[B]%~~%0.81)) +
-  scale_fill_okabeito() +
-  scale_y_continuous(breaks = c(mean(data_11_tbl$rsp)),
-                     labels = c(expression(beta[0])),
-                     limits = c(0, 10)) +
-  geom_segment(aes(x = 0.9, y = 6.5, xend = 1.2, yend = 4.5),
-               lineend = "round", linejoin = "bevel", size = 1,
-               arrow = arrow(length = unit(0.03, "npc")), color = "#009E73") +
-  geom_segment(aes(x = 1.9, y = 10, xend = 2.2, yend = 8),
-               lineend = "round", linejoin = "bevel", size = 1,
-               arrow = arrow(length = unit(0.03, "npc")), color = "#009E73") +
-  geom_segment(aes(x = 2.9, y = 5, xend = 3.2, yend = 3),
-               lineend = "round", linejoin = "bevel", size = 1,
-               arrow = arrow(length = unit(0.03, "npc")), color = "#009E73") 
+  scale_fill_okabeito()
 
 ## ---------------------------------------------------------------------------
 
