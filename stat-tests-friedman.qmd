@@ -379,9 +379,11 @@ aov_car(ranked_jump_length ~ feeding + Error(block/feeding),
 [Beware the Friedman test!](https://seriousstats.wordpress.com/2012/02/14/friedman/) Das ist der wichtigste Punkt. Wenn du den Friedman Test rechnen willst, weil in deinen Zeilen Messwiederholungen sind, dann bitte lassen. Du also bei jedem Floh wiederholt die Sprungweite gemessen und möchtest jetzt wissen, ob es einen Unterschied in den Zeitpunkten gibt. Die Alternativen hat @zimmerman1993relative einmal diskutiert und ich zeige dir dann auch die besseren Lösungen.
 :::
 
-Die Frage ist, warum sollte man auf Messwiederholungen einen Friedman Test rechnen? Weil die Normalverteilung für den Messwert in einer ANOVA nicht gegeben ist. Dafür brauchen wir aber nicht den Friedman Test wir können da auch einen anderen Weg gehen.
+Die Frage ist, warum sollte man auf Messwiederholungen einen Friedman Test rechnen? Weil die Normalverteilung für den Messwert in einer ANOVA nicht gegeben ist. Dafür brauchen wir aber nicht den Friedman Test wir können da auch einen anderen Weg gehen. Nach dem folgenden Zitat können wir auch eine repeated ANOVA rechnen. Das machen wir dann auch gleich im Anschluss. Wenn du dich dafür entscheidest, die Alternative zu nutzen, dann kannst du gerne einmal die Arbeit von @zimmerman1993relative zitieren.
 
 > *"\[In cases\] where one-way repeated measures ANOVA is not appropriate, rank transformation followed by ANOVA will provide a more robust test with greater statistical power than the Friedman test." --- [Beware the Friedman test!](https://seriousstats.wordpress.com/2012/02/14/friedman/) und @zimmerman1993relative*
+
+Aber wie immer zeige ich natürlich auch die Anwendung des Friedman Test auf unser Design mit wiederholten Messungen. Hier haben wir dann unsere einzelnen Hundeflöhe wiederholt zu unterschiedlichen Zeitpunkten gemessen. Daher sind die einzelnen Zeitpunkte für jeden Floh nicht unabhängig voneinander. Leider ignoriert der Friedman Test jegliche Beziehungen zwischen den Flöhen, so dass hier der Test mit Vorsicht zu genießen ist.
 
 ::: panel-tabset
 ## Theoretisch
@@ -434,36 +436,61 @@ Wir haben den kritischen Wert $\mathcal{X}^2_{\alpha = 5\%}$ in unserem Fall mit
 
 ## `{stats}`
 
+Dann kommen wir auch schon zu dem statistischen Test in `{stats}`. Wir müssen hier nur schauen, dass die Zeilen als Faktor hinter dem Strich `|` stehen. Dann rechnet sich alles sehr schnell.
+
 ```{r}
 #| message: false
 #| warning: false
 friedman.test(jump_length ~ time_fct | flea_id, data = repeated_long_tbl)
 ```
 
+Nachdem wir die Funktion aufgerufen haben, erhalten wir auch gleich den $p$-Wert von $0.014$ wieder. Da der $p$-Wert kleiner ist als das Signifikanzniveau $\alpha$ von 5% können wir die Nullhypothese ablehnen. Das war auch anhand des Doplots zu erwarten.
+
+## `{rstatix}`
+
+Dann kommen wir auch schon zu dem statistischen Test in `{rstatix}` mit der Funktion `friedman_test()`. Da die Funktion gleich heißt wie im R Paket `{coin}` muss ich die Funktion nochmal explizit aufrufen. Wir müssen hier nur schauen, dass die Zeilen als Faktor hinter dem Strich `|` stehen. Dann rechnet sich alles sehr schnell. Mehr zu der Funktion erfährst du auch im Tutorium [Friedman Test in R](https://www.datanovia.com/en/lessons/friedman-test-in-r/).
+
+```{r}
+#| message: false
+#| warning: false
+rstatix::friedman_test(jump_length ~ time_fct | flea_id, data = repeated_long_tbl)
+```
+
+Nachdem wir die Funktion aufgerufen haben, erhalten wir auch gleich den $p$-Wert von $0.012$ wieder. Damit fast das gleiche Eregbnis wie schon vorher. Da der $p$-Wert kleiner ist als das Signifikanzniveau $\alpha$ von 5% können wir die Nullhypothese ablehnen. Das war auch anhand des Doplots zu erwarten.
+
 ## `{nparcomp}`
 
-`mctp.rm()`
+Abschöießend gibt es noch in dem R Paket `{nparcomp}` die Funktion `mctp.rm()` die es uns ermöglicht eine repeated ANOVA mit einem nichtparametrischen Verfahren zu rechnen. Daher ist diese Variante natürlich den anderen beiden vorzuziehen. Wir erhalten hier aber keine globale Aussage sondern gleich die paarweisen Vergleiche. Sozusagen der Post-hoc Test in einem Test. Wir müssen uns hier leider merken welche Faktorlevel wir vorliegen haben, den die Ausgabe gibt uns leider nur die Zahlen und nicht die Gruppennamen. Das ist natürlich unschön und fehleranfällig. Wir haben eine automatische Adjustierung für multiple Vergleiche.
 
 ```{r}
 mctp.rm_obj <- mctp.rm(jump_length ~ time_fct, data = repeated_long_tbl,
                        info = FALSE)
 mctp.rm_obj$Analysis
 ```
+
+Wir sehen, dass nur der Zeitpunkt `t3` mit dem Zeitpunkt `t2` signifikant unterschiedlich ist. Alle anderen Zeitpunkte sind zeigen keinen p-Wert unter dem Signifikanzniveau $\alpha$ vo 5%.
 :::
 
 #### Parametrische Lösung: Die repeated ANOVA {.unnumbered .unlisted}
+
+Dann hier auch die parametrische Lösung des Problems mit der repeated ANOVA. Wir wollen jetzt einfach nur unsere Messwerte einmal Rangtransformieren. Dafür nutze ich entweder die Funktion `rank()` oder aber die folgende Funktion `signed_rank()`, wenn ich negative Werte in meinen Messungen erwarte.
 
 ```{r}
 signed_rank <- function(x) sign(x) * rank(abs(x))
 ```
 
-`{rstatix}`
+Konkret habe ich meine Sprungweiten der Flöhe. Jetzt mutiere ich die Sprungweite über die Funktion `signed_rank()` in Ränge und nutze diese Spalte dann für die ANOVA.
 
 ```{r}
-repeated_aov <- repeated_long_tbl |> 
-  mutate(ranked_jump_length = signed_rank(jump_length)) |> 
-  anova_test(dv = ranked_jump_length, wid = flea_id, within = time_fct)
-get_anova_table(repeated_aov)
+repeated_long_ranked_tbl <- repeated_long_tbl |> 
+  mutate(ranked_jump_length = signed_rank(jump_length))
+```
+
+Wir können die Daten in der Form als Messwiederholungen innerhalb des Flöhe modellieren. Dann haben wir ein einfaktorielles repeated Design für die ANOVA. Hier nutze ich die Funktion `aov_car()` aus dem R Paket `{afex}`. Hier sehen wir, dass wir dann einen signifikanten Unterschied finden unser p-Wert ist mit $0.041$ immer noch kleiner als das Signifikanzniveau $\alpha$. Der p-Wert ist nicht ganz so klein wie bei dem Friedman Test.
+
+```{r}
+aov_car(ranked_jump_length ~ time_fct + Error(flea_id/time_fct), 
+        data = repeated_long_ranked_tbl)
 ```
 
 ## Post-hoc Test
