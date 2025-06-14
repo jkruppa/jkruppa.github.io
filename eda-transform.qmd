@@ -8,6 +8,13 @@ conflicts_prefer(dplyr::filter)
 conflicts_prefer(dplyr::select)
 ```
 
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+source("images/R/eda-transform.R")
+```
+
 # Transformieren von Daten {#sec-eda-transform}
 
 *Letzte Änderung am `r format(fs::file_info("eda-transform.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*
@@ -22,13 +29,21 @@ conflicts_prefer(dplyr::select)
 Dieses Kapitel wird überarbeitet, da ich nochmal an den Kern der Transformation ran möchte. Daher kann es sein, dass es in den nächsten Wochen hier zu Problemen und nicht funktionierenden Code kommt. Das repariere ich dann aber meistens in den folgenden Tagen. Ziel ist es bis zum Start des WiSe 2025/26 das Kapitel neu aufgestellt zu haben.
 :::
 
+text
+
+## Allgemeiner Hintergrund
+
 Warum müssen wir Daten transformieren? Meistens hat dies drei Hauptgründe.
+
+#### Das Modell {.unnumbered .unlisted}
 
 1)  Wir wollen eine ANOVA oder eine Gaussian lineare Regression rechen und benötigen ein normalverteiltes Outcome $y$.
 2)  Wir wollen einen Algorithmus zur Prädiktion (deu. *Vorhersage*) nutzen und haben sehr viele Einflussvariablen $x$ in sehr unterschiedlichen Einheiten.
 3)  Wir wollen eine komplexere Analyse wie die Hauptkomponentenanalyse oder Clusteranalyse rechnen und brauchen Variablen, die alle eine ähnliche Spannweite haben.
 
 Im ersten Fall wollen wir meist unsere Daten $log$-Transformieren um aus einem *nicht*-normalverteilten Outcome $y$ ein $log$-normalverteiltes $y$ zu erschaffen. Im zweiten Fall wollen wir unsere Daten Standardisieren oder Normalisieren. Wir brauchen normalisierte Daten später beim Klassifizieren im Rahmen von maschinellen Lernverfahren. Bitte beachte auch, dass die Transformationen hier eher für kleine Datensätze geeignet sind. Im [Kapitel zur Klassifikation](#sec-pre-processing) gehe ich nochmal auf die Automatisierung über mehrere Variablen ein. Wenn du also einen großen Datensatz hast, den du vielleicht oft bearbeiten musst, dann mag dir dort mehr geholfen sein.
+
+Ein Wort zum R Paket `{recipes}`
 
 Wir wollen uns nun die Verfahren zur Transformation von Daten in den folgenden Abschnitten einmal näher anschauen.
 
@@ -39,6 +54,8 @@ Wir oben schon erwähnt, kann dieses Kapitel nicht die umfangreiche Literatur de
 
 -   Ich verweise hier auch nochmal auf das tolle Tutorium von Matus Seci auf dem [Coding Club - Transforming and scaling data: Understand the fundamental concepts of manipulating data distributions for modelling and visualization](https://ourcodingclub.github.io/tutorials/data-scaling/). Du findest auch dort mehr Informationen zu der Rücktransformation und der Anwendung von Transformationen auf einen komplexeren Datensatz.
 -   [Transformations](https://onlinestatbook.com/2/transformations/contents.html)
+-   [Data Transformation mit `dlookr`](https://choonghyunryu.github.io/dlookr/articles/transformation.html#standardization-and-resolving-skewness)
+-   [Transforming Data](https://rcompanion.org/handbook/I_12.html)
 :::
 
 ## Genutzte R Pakete
@@ -51,7 +68,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| echo: true
 
 pacman::p_load(tidyverse, magrittr, scales, see, MASS, bestNormalize,
-               conflicted)
+               dlookr, conflicted)
 conflicts_prefer(MASS::boxcox)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(dplyr::filter)
@@ -59,7 +76,7 @@ cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
-Im Folgenden ist das R Paket `{dlookr}` aus dem Code entfernt, da du das Paket extra installieren musst, Stand Ende 2023. Das führt bei mir zu Schluckauf im Code, so dass ich die Funktionen jetzt nur noch erwähne. Anscheinend funktioniert aber die gängige Installation wieder, da das R Paket `{dlookr}` Anfang 2024 überarbeitet wurde.
+Zwischenzeitlich musste ich das R Paket `{dlookr}` aus dem Code entfernt, da das Paket extra installieren musstest. Das R Paket war nicht mehr bei CRAN gelistet. Das führt bei mir zu Schluckauf im Code, so dass ich die Funktionen jetzt in einem Extraabschnitt bearbeite. Sollte das Paket sich mal nicht installieren lassen, dann gibt es hier noch einen alternativen Weg.
 
 ::: callout-caution
 ## Alternative Installation von `{dlookr}`
@@ -81,24 +98,241 @@ Wir wollen uns in diesem Kapitel mit der normalverteilten Variable `jump_length`
 ```{r}
 #| message: false
 
-fac2_tbl <- read_csv2("data/flea_dog_cat_length_weight.csv") |>
-  select(jump_length, hatch_time)
+fac2_tbl <- read_excel("data/flea_dog_cat_length_weight.xlsx") |>
+  select(jump_length, hatch_time) |> 
+  filter(hatch_time <= 1500)
 ```
 
 In der @tbl-trans-1 ist der Datensatz `fac2_tbl` nochmal dargestellt. Wir zeigen hier nur die ersten sieben zeilen des Datensatzes.
 
 ```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-trans-1
+#| tbl-cap: "Selektierter Datensatz mit einer normalverteilten Variable `jump_length` und der nicht-normalverteilten Variable `hatch_time`. Wir betrachten die ersten sieben Zeilen des Datensatzes."
+
+fac2_raw_tbl <- read_excel("data/flea_dog_cat_length_weight.xlsx") |>
+  select(animal, jump_length, hatch_time) 
+
+rbind(head(fac2_raw_tbl, n = 3),
+      rep("...", times = ncol(fac2_raw_tbl)),
+      tail(fac2_raw_tbl, n = 3)) |> 
+  tt(width = 2/3, align = "c", theme = "striped")
+```
+
+```{r}
 #| message: false
 #| echo: false
-#| tbl-cap: Selektierter Datensatz mit einer normalverteilten Variable `jump_length` und der nicht-normalverteilten Variable `hatch_time`. Wir betrachten die ersten sieben Zeilen des Datensatzes.
-#| label: tbl-trans-1
+#| warning: false
+#| label: fig-data-intro
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 8
+#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| layout-nrow: 1
 
-fac2_tbl |> head(7) |> kable(align = "c", "pipe")
+p1 <- ggplot(fac2_tbl, aes(jump_length)) +
+  theme_minimal() +
+  geom_density(fill = cbbPalette[2], color = "black") +
+  labs(x = "Sprungweiten in [cm]", y = "") +
+  xlim(8, 33)
+
+p2 <- ggplot(fac2_tbl, aes(hatch_time)) +
+  theme_minimal() +
+  geom_density(fill = cbbPalette[3], color = "black") +
+  labs(x = "Zeit bis zum Schlüpfen in sqrt(h)", y = "") +
+  xlim(-100, 1500)
+
+p1 + p2 +
+  theme(panel.grid.minor.x = element_blank()) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
 ```
 
 Im Folgenden nutzen wir oft die Funktion `mutate()`. Schau dir im Zweifel nochmal im Kapitel zu Programmierung die Funktion `mutate()` an.
 
 ## Transformationen
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-pretest-rank
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 8
+#| fig-cap: "Zusammenhang vom Mittelwert, Median und dem Modus zur Feststellung einer Normalverteilung. Der Modus ist hierbei der häufigste Wert. **(A)** Linksschiefe Verteilung. Der Modus ist größer als der Median ist größer als der Mittelwert. **(B)** Symmetrische Normalverteilung. Der Mittelwert und Median sowie Modus sind gleich. **(C)** Rechtsschiefe Verteilung der Mittelwert ist größer als der Median ist größer als der Modus. *[Zum Vergrößern anklicken]*"
+
+p2kurt + p1kurt + p3kurt +
+  plot_layout(ncol = 3) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+```
+
+Quadratwurzel moderat schiefe Messwerte:
+
+-   `sqrt(y)` für positiv, schiefe Messwerte
+-   `sqrt(max(y+1) - y)` für negative, schiefe Messwerte
+
+Logarithmus für starke schiefe Messwerte:
+
+-   `log10(y)` für positiv, schiefe Messwerte
+-   `log10(max(y+1) - y)` für negative, schiefe Messwerte
+
+Die Inverse für extrem, schiefe Messwerte:
+
+-   `1/y` für positiv, schiefe Messwerte
+-   `1/(max(y+1) - y)` für negative, schiefe Messwerte
+
+Die Transformation mit Rängen `rank()`
+
+Schnelle Übersicht...
+
+::: panel-tabset
+## `sqrt(y)`
+
+```{r}
+sqrt_tbl <- fac2_tbl |> 
+  mutate(sqrt_hatch_time = sqrt(hatch_time))
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| label: fig-log-pretest-2
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 8
+#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten. **(A)** Nicht transformierte, rohe Daten. **(B)** $sqrt$-transformierte Daten. *[Zum Vergrößern anklicken]*"
+#| layout-nrow: 1
+
+p1 <- ggplot(sqrt_tbl, aes(hatch_time)) +
+  theme_minimal() +
+  geom_density(fill = cbbPalette[2], color = "black") +
+  labs(x = "Zeit bis zum Schlüpfen in [h]", y = "") +
+  xlim(-100, NA)
+
+p2 <- ggplot(sqrt_tbl, aes(sqrt_hatch_time)) +
+  theme_minimal() +
+  geom_density(fill = cbbPalette[3], color = "black") +
+  labs(x = "Zeit bis zum Schlüpfen in sqrt(h)", y = "")
+
+p1 + p2 +
+  theme(panel.grid.minor.x = element_blank()) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
+```
+
+## `log(y)`
+
+```{r}
+log_tbl <- fac2_tbl |> 
+  mutate(log_hatch_time = log(hatch_time))
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| label: fig-log-pretest-1
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 8
+#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten. **(A)** Nicht transformierte, rohe Daten. **(B)** $log$-transformierte Daten. *[Zum Vergrößern anklicken]*"
+#| layout-nrow: 1
+
+p1 <- ggplot(log_tbl, aes(hatch_time)) +
+  theme_minimal() +
+  geom_density(fill = cbbPalette[2], color = "black") +
+  labs(x = "Zeit bis zum Schlüpfen in [h]", y = "") +
+  xlim(-100, NA) 
+
+p2 <- ggplot(log_tbl, aes(log_hatch_time)) +
+  theme_minimal() +
+  geom_density(fill = cbbPalette[3], color = "black") +
+  labs(x = "Zeit bis zum Schlüpfen in log(h)", y = "")  
+
+p1 + p2 +
+  theme(panel.grid.minor.x = element_blank()) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
+```
+
+## `1/y`
+
+```{r}
+inverse_tbl <- fac2_tbl |> 
+  mutate(inverse_hatch_time = 1/hatch_time)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| label: fig-inverse-pretest-1
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 8
+#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten. **(A)** Nicht transformierte, rohe Daten. **(B)** $inverse$-transformierte Daten. *[Zum Vergrößern anklicken]*"
+#| layout-nrow: 1
+
+p1 <- ggplot(inverse_tbl, aes(hatch_time)) +
+  theme_minimal() +
+  geom_density(fill = cbbPalette[2], color = "black") +
+  labs(x = "Zeit bis zum Schlüpfen in [h]", y = "") +
+  xlim(-100, NA) 
+
+p2 <- ggplot(inverse_tbl, aes(inverse_hatch_time)) +
+  theme_minimal() +
+  geom_density(fill = cbbPalette[3], color = "black") +
+  labs(x = "Zeit bis zum Schlüpfen in (1/h)", y = "")  
+
+p1 + p2 +
+  theme(panel.grid.minor.x = element_blank()) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
+```
+:::
+
+### Quadratwurzel
+
+Die Quadratwurzel-Transformationen ist eine etwas seltenere Transformation. Meist wird die Quadratwurzel-Transformationen als die schwächere $log$-Transformation bezeichnet. Wir sehen in @fig-log-scale-2-2 den Grund dafür. Aber zuerst müssen wir aber über die Funktion `sqrt()` unsere Daten transformieren. Wir können auch die Funktion `transform()` aus dem R Paket `{dlookr}` verwenden und haben eine große Auswahl an möglichen Transformationen. Einfach mal die Hilfeseite von `transform()` aufrufen und nachschauen.
+
+```{r}
+
+sqrt_tbl <- fac2_tbl |> 
+  mutate(sqrt_hatch_time = sqrt(hatch_time))
+
+```
+
+In @fig-log-scale-2-1 sehen wir die nicht transformierte, rohe Daten. Es gibt einen klaren Peak Schlüpfzeiten am Anfang. Dann läuft die Verteilung langsam nach rechts aus. Wir können nicht annehmen, dass die Schlüpfzeiten normalverteilt sind. @fig-log-scale-2-2 zeigt die Wurzel-transmutierten Daten. Unser Ziel besser normalverteilte Daten vorliegen zu haben, haben wir aber mit der Quadratwurzel-Transformationen nicht erreicht. Die Daten sind immer noch rechtsschief. Wir würden also die $log$-Transformation bevorzugen.
+
+```{r}
+#| message: false
+#| echo: false
+#| label: fig-log-scale-2
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten."
+#| fig-subcap: 
+#|   - "Nicht transformierte, rohe Daten"
+#|   - "Wurzel-transformierte Daten."
+#| layout-nrow: 1
+
+ggplot(sqrt_tbl, aes(hatch_time)) +
+  geom_histogram(fill = cbbPalette[2], color = "black") +
+  theme_minimal() +
+  labs(x = "Zeit bis zum Schlüpfen in [h]", y = "Anzahl")
+
+ggplot(sqrt_tbl, aes(sqrt_hatch_time)) +
+  geom_histogram(fill = cbbPalette[3], color = "black") +
+  theme_minimal() +
+  labs(x = expression("Zeit bis zum Schlüpfen in" ~ sqrt(h)), y = "Anzahl")
+```
 
 ### Logarithmus
 
@@ -168,89 +402,7 @@ ggplot(log_tbl, aes(hatch_time)) +
 2.  Wir ergänzen noch die richtige Schreibweise.
 3.  Die Ticks werden auch richtig gezeichnet. Du kannst mit `l` auch auf der $y$-Achse $\log$-Ticks anzeigen lassen.
 
-### Quadratwurzel
-
-Die Quadratwurzel-Transformationen ist eine etwas seltenere Transformation. Meist wird die Quadratwurzel-Transformationen als die schwächere $log$-Transformation bezeichnet. Wir sehen in @fig-log-scale-2-2 den Grund dafür. Aber zuerst müssen wir aber über die Funktion `sqrt()` unsere Daten transformieren. Wir können auch die Funktion `transform()` aus dem R Paket `{dlookr}` verwenden und haben eine große Auswahl an möglichen Transformationen. Einfach mal die Hilfeseite von `transform()` aufrufen und nachschauen.
-
-```{r}
-
-sqrt_tbl <- fac2_tbl |> 
-  mutate(sqrt_hatch_time = sqrt(hatch_time))
-
-```
-
-In @fig-log-scale-2-1 sehen wir die nicht transformierte, rohe Daten. Es gibt einen klaren Peak Schlüpfzeiten am Anfang. Dann läuft die Verteilung langsam nach rechts aus. Wir können nicht annehmen, dass die Schlüpfzeiten normalverteilt sind. @fig-log-scale-2-2 zeigt die Wurzel-transmutierten Daten. Unser Ziel besser normalverteilte Daten vorliegen zu haben, haben wir aber mit der Quadratwurzel-Transformationen nicht erreicht. Die Daten sind immer noch rechtsschief. Wir würden also die $log$-Transformation bevorzugen.
-
-```{r}
-#| message: false
-#| echo: false
-#| label: fig-log-scale-2
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten."
-#| fig-subcap: 
-#|   - "Nicht transformierte, rohe Daten"
-#|   - "Wurzel-transformierte Daten."
-#| layout-nrow: 1
-
-ggplot(sqrt_tbl, aes(hatch_time)) +
-  geom_histogram(fill = cbbPalette[2], color = "black") +
-  theme_minimal() +
-  labs(x = "Zeit bis zum Schlüpfen in [h]", y = "Anzahl")
-
-ggplot(sqrt_tbl, aes(sqrt_hatch_time)) +
-  geom_histogram(fill = cbbPalette[3], color = "black") +
-  theme_minimal() +
-  labs(x = expression("Zeit bis zum Schlüpfen in" ~ sqrt(h)), y = "Anzahl")
-```
-
-### Box-Cox
-
-Die Box-Cox-Transformation ist ein statistisches Verfahren zur Umwandlung von nicht normalverteilten Daten in eine Normalverteilung. Die Transformation ist nicht so einfach wie die logarithmische Transformation oder die Quadratwurzeltransformation und erfordert etwas mehr Erklärung. Beginnen wir zunächst die Gleichung zu verstehen, die die Transformation beschreibt. Die grundsätzliche Idee ist, dass wir unser $y$ als Outcome mit einem $\lambda$-Exponenten transformieren. Die Frage ist jetzt, welches $\lambda$ produziert die besten normalverteilten Daten? Wenn wir ein $\lambda$ von Null finden sollten, dann rechnen wir einfach eine $\log$-Transformation. Die Idee ist also recht simpel.
-
-$$
-y(\lambda)=\left\{\begin{matrix} \dfrac{y^{\lambda}-1} {\lambda} & \quad  \mathrm{f\ddot ur\;\;}\lambda \ne 0 \\[10pt] \log(y) &\quad  \mathrm{f\ddot ur\;\;}\lambda = 0\end{matrix}\right.
-$$
-
-Wir werden natürlich jetzt nicht händisch alle möglichen $\lambda$ durchprobieren bis wir das beste $\lambda$ gefunden haben. Dafür gibt es die Funktion `boxcox` aus dem R Paket `{MASS}`, die ein lineares Modell benötigt. Daher bauen wir usn erst unser lineares Modell und dann stecken wir das Modell in die Funktion `boxcox()`.
-
-```{r}
-jump_mod <- lm(jump_length ~ 1, data = fac2_tbl)
-```
-
-Jetzt einmal die Funktion `boxcox()` ausführen und danach das $\lambda$ extrahieren. Hier ist es etwas umständlicher, da das $\lambda$ in der Ausgabe der Funktion etwas vergraben ist. Dafür ist das R Paket `{MASS}` einfach nicht mehr das jüngste Paket und hat keine so guten Funktionen zum Erhalten von wichtigen Parametern. Ich möchte die Abbildung nicht haben, daher die Option `plotit = FALSE`.
-
-```{r}
-bc_obj <- boxcox(jump_mod, plotit = FALSE)
-lambda <- bc_obj$x[which.max(bc_obj$y)]
-lambda
-```
-
-Wir erhalten also ein $\lambda$ von `r lambda` wieder. Dieses $\lambda$ können wir dann nutzen um unsere Daten nach Box-Cox zu transformieren. Dafür übersetzen wir dann die obige Matheformel einmal in R Code.
-
-```{r}
-fac2_tbl <- fac2_tbl |>
-  mutate(jump_boxcox = ((jump_length ^ lambda - 1)/lambda))
-```
-
-In der @fig-boxcox-ggplot sehen wir dann einmal das Ergebnis der Transformation. Sieht gar nicht mal so schlecht aus und noch besser als die reine $\log$-Transformation. Wie immer musst du aber auch hier rumprobieren, was dann am besten einer Normalverteilung folgt.
-
-```{r}
-#| message: false
-#| echo: true
-#| label: fig-boxcox-ggplot
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "Histogramm der Box-Cox transfomierten Daten in `ggplot` dargestellt."
-ggplot(data = fac2_tbl) +
-  theme_minimal() +
-  geom_histogram(aes(x = jump_boxcox), alpha = 0.9,
-                 fill = cbbPalette[3], color = "black") +
-  labs(x = 'Box-Cox transformierte Sprungweiten', y = 'Anzahl')
-
-```
+### Inverse
 
 ### Inverse Normalverteilung
 
@@ -420,157 +572,77 @@ ggplot(as_tibble(x_trans), aes(x_trans)) +
   theme_minimal() 
 ```
 
-## NEW
+### ... mit `{rcompanion}`
+
+`transformTukey()` aus dem R Paket `{rcompanion}`
+
+### ... mit `{LambertW}`
+
+`Gaussianize()` aus dem [R Paket `{LambertW}`](https://cran.r-project.org/web/packages/LambertW/index.html)
+
+### ... mit `{MASS}`
+
+Die Box-Cox-Transformation ist ein statistisches Verfahren zur Umwandlung von nicht normalverteilten Daten in eine Normalverteilung. Die Transformation ist nicht so einfach wie die logarithmische Transformation oder die Quadratwurzeltransformation und erfordert etwas mehr Erklärung. Beginnen wir zunächst die Gleichung zu verstehen, die die Transformation beschreibt. Die grundsätzliche Idee ist, dass wir unser $y$ als Outcome mit einem $\lambda$-Exponenten transformieren. Die Frage ist jetzt, welches $\lambda$ produziert die besten normalverteilten Daten? Wenn wir ein $\lambda$ von Null finden sollten, dann rechnen wir einfach eine $\log$-Transformation. Die Idee ist also recht simpel.
+
+$$
+y(\lambda)=\left\{\begin{matrix} \dfrac{y^{\lambda}-1} {\lambda} & \quad  \mathrm{f\ddot ur\;\;}\lambda \ne 0 \\[10pt] \log(y) &\quad  \mathrm{f\ddot ur\;\;}\lambda = 0\end{matrix}\right.
+$$
+
+Wir werden natürlich jetzt nicht händisch alle möglichen $\lambda$ durchprobieren bis wir das beste $\lambda$ gefunden haben. Dafür gibt es die Funktion `boxcox` aus dem R Paket `{MASS}`, die ein lineares Modell benötigt. Daher bauen wir usn erst unser lineares Modell und dann stecken wir das Modell in die Funktion `boxcox()`.
 
 ```{r}
-#| echo: false
-#| message: false
-#| warning: false
-source("images/R/eda-transform.R")
+jump_mod <- lm(jump_length ~ 1, data = fac2_tbl)
 ```
 
+Jetzt einmal die Funktion `boxcox()` ausführen und danach das $\lambda$ extrahieren. Hier ist es etwas umständlicher, da das $\lambda$ in der Ausgabe der Funktion etwas vergraben ist. Dafür ist das R Paket `{MASS}` einfach nicht mehr das jüngste Paket und hat keine so guten Funktionen zum Erhalten von wichtigen Parametern. Ich möchte die Abbildung nicht haben, daher die Option `plotit = FALSE`.
+
 ```{r}
-#| echo: false
+bc_obj <- boxcox(jump_mod, plotit = FALSE)
+lambda <- bc_obj$x[which.max(bc_obj$y)]
+lambda
+```
+
+Wir erhalten also ein $\lambda$ von `r lambda` wieder. Dieses $\lambda$ können wir dann nutzen um unsere Daten nach Box-Cox zu transformieren. Dafür übersetzen wir dann die obige Matheformel einmal in R Code.
+
+```{r}
+fac2_tbl <- fac2_tbl |>
+  mutate(jump_boxcox = ((jump_length ^ lambda - 1)/lambda))
+```
+
+In der @fig-boxcox-ggplot sehen wir dann einmal das Ergebnis der Transformation. Sieht gar nicht mal so schlecht aus und noch besser als die reine $\log$-Transformation. Wie immer musst du aber auch hier rumprobieren, was dann am besten einer Normalverteilung folgt.
+
+```{r}
 #| message: false
-#| warning: false
-#| label: fig-pretest-rank
+#| echo: true
+#| label: fig-boxcox-ggplot
 #| fig-align: center
-#| fig-height: 4
-#| fig-width: 8
-#| fig-cap: "Zusammenhang vom Mittelwert, Median und dem Modus zur Feststellung einer Normalverteilung. Der Modus ist hierbei der häufigste Wert. **(A)** Linksschiefe Verteilung. Der Modus ist größer als der Median ist größer als der Mittelwert. **(B)** Symmetrische Normalverteilung. Der Mittelwert und Median sowie Modus sind gleich. **(C)** Rechtsschiefe Verteilung der Mittelwert ist größer als der Median ist größer als der Modus. *[Zum Vergrößern anklicken]*"
-
-p2kurt + p1kurt + p3kurt +
-  plot_layout(ncol = 3) +
-  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
-  theme(plot.tag = element_text(size = 16, face = "bold"))
-```
-
-Quadratwurzel moderat schiefe Messwerte:
-
--   `sqrt(y)` für positiv, schiefe Messwerte
--   `sqrt(max(y+1) - y)` für negative, schiefe Messwerte
-
-Logarithmus für starke schiefe Messwerte:
-
--   `log10(y)` für positiv, schiefe Messwerte
--   `log10(max(y+1) - y)` für negative, schiefe Messwerte
-
-Die Inverse für extrem, schiefe Messwerte:
-
--   `1/y` für positiv, schiefe Messwerte
--   `1/(max(y+1) - y)` für negative, schiefe Messwerte
-
-Die Transformation mit Rängen `rank()`
-
-Automatisierte Transformationen
-
--   `Gaussianize()` aus dem [R Paket `{LambertW}`](https://cran.r-project.org/web/packages/LambertW/index.html)
--   `transformTukey()` aus dem R Paket `{rcompanion}`
-
-::: panel-tabset
-## `sqrt(y)`
-
-```{r}
-sqrt_tbl <- fac2_tbl |> 
-  mutate(sqrt_hatch_time = sqrt(hatch_time))
-```
-
-```{r}
-#| message: false
-#| echo: false
-#| label: fig-log-pretest-2
-#| fig-align: center
-#| fig-height: 3.5
-#| fig-width: 8
-#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten. **(A)** Nicht transformierte, rohe Daten. **(B)** $sqrt$-transformierte Daten. *[Zum Vergrößern anklicken]*"
-#| layout-nrow: 1
-
-p1 <- ggplot(sqrt_tbl, aes(hatch_time)) +
+#| fig-height: 5
+#| fig-width: 5
+#| fig-cap: "Histogramm der Box-Cox transfomierten Daten in `ggplot` dargestellt."
+ggplot(data = fac2_tbl) +
   theme_minimal() +
-  geom_density(fill = cbbPalette[2], color = "black") +
-  labs(x = "Zeit bis zum Schlüpfen in [h]", y = "") +
-  xlim(-100, NA)
-
-p2 <- ggplot(sqrt_tbl, aes(sqrt_hatch_time)) +
-  theme_minimal() +
-  geom_density(fill = cbbPalette[3], color = "black") +
-  labs(x = "Zeit bis zum Schlüpfen in sqrt(h)", y = "")
-
-p1 + p2 +
-  theme(panel.grid.minor.x = element_blank()) +
-  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
-  theme(plot.tag = element_text(size = 16, face = "bold"))
+  geom_histogram(aes(x = jump_boxcox), alpha = 0.9,
+                 fill = cbbPalette[3], color = "black") +
+  labs(x = 'Box-Cox transformierte Sprungweiten', y = 'Anzahl')
 
 ```
 
-## `log(y)`
+### ... mit `{dlookr}`
 
-```{r}
-#| eval: false
-log_tbl <- fac2_tbl |> 
-  mutate(log_hatch_time = log(hatch_time))
-```
+::: callout-warning
+## Achtung, bitte beachten!
 
-```{r}
-#| message: false
-#| echo: false
-#| label: fig-log-pretest-1
-#| fig-align: center
-#| fig-height: 3.5
-#| fig-width: 8
-#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten. **(A)** Nicht transformierte, rohe Daten. **(B)** $log$-transformierte Daten. *[Zum Vergrößern anklicken]*"
-#| layout-nrow: 1
-
-p1 <- ggplot(log_tbl, aes(hatch_time)) +
-  theme_minimal() +
-  geom_density(fill = cbbPalette[2], color = "black") +
-  labs(x = "Zeit bis zum Schlüpfen in [h]", y = "") +
-  xlim(-100, NA) 
-
-p2 <- ggplot(log_tbl, aes(log_hatch_time)) +
-  theme_minimal() +
-  geom_density(fill = cbbPalette[3], color = "black") +
-  labs(x = "Zeit bis zum Schlüpfen in log(h)", y = "")  
-
-p1 + p2 +
-  theme(panel.grid.minor.x = element_blank()) +
-  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
-  theme(plot.tag = element_text(size = 16, face = "bold"))
-
-```
-
-## `1/y`
-
-```{r}
-inverse_tbl <- fac2_tbl |> 
-  mutate(inverse_hatch_time = 1/hatch_time)
-```
-
-```{r}
-#| message: false
-#| echo: false
-#| label: fig-inverse-pretest-1
-#| fig-align: center
-#| fig-height: 3.5
-#| fig-width: 8
-#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten. **(A)** Nicht transformierte, rohe Daten. **(B)** $inverse$-transformierte Daten. *[Zum Vergrößern anklicken]*"
-#| layout-nrow: 1
-
-p1 <- ggplot(inverse_tbl, aes(hatch_time)) +
-  theme_minimal() +
-  geom_density(fill = cbbPalette[2], color = "black") +
-  labs(x = "Zeit bis zum Schlüpfen in [h]", y = "") +
-  xlim(-100, NA) 
-
-p2 <- ggplot(inverse_tbl, aes(inverse_hatch_time)) +
-  theme_minimal() +
-  geom_density(fill = cbbPalette[3], color = "black") +
-  labs(x = "Zeit bis zum Schlüpfen in (1/h)", y = "")  
-
-p1 + p2 +
-  theme(panel.grid.minor.x = element_blank()) +
-  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
-  theme(plot.tag = element_text(size = 16, face = "bold"))
-
-```
+Das R Paket `{dlookr}` lies sich eine Zeit nicht über CRAN einfach installieren.
 :::
+
+::: {layout="[15,85]" layout-valign="top"}
+![](images/personal_opinion.png){fig-align="center" width="100%"}
+
+> *"foo." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
+:::
+
+### ... mit `{trafo}`
+
+[The R Package trafo for Transforming Linear Regression Models](https://cran.r-project.org/web/packages/trafo/vignettes/vignette_trafo.pdf)
+
+## Referenzen {.unnumbered}
