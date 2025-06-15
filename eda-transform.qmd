@@ -3,7 +3,7 @@
 #| warning: false
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, quantreg,
                multcomp, emmeans, ggpubr, multcompView, nlme, tinytable,
-               see, patchwork, conflicted)
+               see, patchwork, ggrepel, conflicted)
 conflicts_prefer(dplyr::filter)
 conflicts_prefer(dplyr::select)
 ```
@@ -62,22 +62,19 @@ Ein Wort zum R Paket `{recipes}`
 Wir wollen uns nun die Verfahren zur Transformation von Daten in den folgenden Abschnitten einmal näher anschauen.
 
 ```{r}
-growth_tbl <- tibble(year = seq(1670, 1860, by = 10),
-                     pop = c(1, 1.1, 1.2, 1.3,
-                             1.5, 1.7, 2, 2.2, 2.7,
-                             3, 3.5, 4.2, 5, 6,
-                             7.5, 10, 14, 18, 24, 32),
-                     log_pop = log(pop))
-growth_tbl |> 
-  ggplot(aes(year, pop)) +
-  geom_point()
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-ggplot-utest-intro-sim-02
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 8
+#| fig-cap: "foo. **(A)** br. **(B)** fff. *[Zum Vergrößern anklicken]*"
 
-growth_tbl |> 
-  ggplot(aes(year, log_pop)) +
-  geom_point() +
-  geom_text(aes(label = year))
-
-
+p1_intro_pop + p2_intro_pop +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
 
 ::: callout-tip
@@ -105,8 +102,9 @@ pacman::p_load(tidyverse, magrittr, scales, see, MASS, bestNormalize,
 conflicts_prefer(MASS::boxcox)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(dplyr::filter)
-cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
-                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", 
+                "#009E73", "#F0E442", "#F5C710", 
+                "#0072B2", "#D55E00", "#CC79A7")
 ```
 
 Zwischenzeitlich musste ich das R Paket `{dlookr}` aus dem Code entfernt, da das Paket extra installieren musstest. Das R Paket war nicht mehr bei CRAN gelistet. Das führt bei mir zu Schluckauf im Code, so dass ich die Funktionen jetzt in einem Extraabschnitt bearbeite. Sollte das Paket sich mal nicht installieren lassen, dann gibt es hier noch einen alternativen Weg.
@@ -126,7 +124,7 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 
 ## Daten
 
-#### Sprungweiten von Flöhen {.unnumbered .unlisted}
+#### Schlupfzeiten von Flöhen {.unnumbered .unlisted}
 
 Wir wollen uns in diesem Kapitel mit der normalverteilten Variable `jump_length` gemessen in \[cm\] und der nicht-normalverteilten Variable `hatch_time` gemessen in \[h\] aus dem Datensatz `flea_dog_cat_length_weight.csv"` beschäftigen. Wir wählen über die Funktion `select()` nur die beiden Spalten aus dem Datensatz, die wir benötigen.
 
@@ -194,8 +192,65 @@ Im Folgenden nutzen wir oft die Funktion `mutate()`. Schau dir im Zweifel nochma
 #| message: false
 #| warning: false
 anage_tbl <- read_delim("data/anage_data.txt", delim = "\t") |> 
-  select("Common name", "Adult weight (g)", "Maximum longevity (yrs)") |> 
+  select(name = "Common name", weight = "Adult weight (g)", 
+         age = "Maximum longevity (yrs)") |> 
+  mutate(weight = weight/1000) |> 
   na.omit()
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-trans-weight-age
+#| tbl-cap: "foo"
+
+anage_raw_tbl <- read_delim("data/anage_data.txt", delim = "\t") |> 
+  select("Common name", "Adult weight (g)", 
+         "Maximum longevity (yrs)") |> 
+  na.omit()
+
+rbind(head(anage_raw_tbl, n = 3),
+      rep("...", times = ncol(anage_raw_tbl)),
+      tail(anage_raw_tbl, n = 3)) |> 
+  tt(width = 2/3, align = "c", theme = "striped")
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-ggplot-weight-age
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 8
+#| fig-cap: "foo. **(A)** br. **(B)** fff. *[Zum Vergrößern anklicken]*"
+
+anage_tbl |> 
+  ggplot(aes(weight, age)) +
+  theme_minimal() +
+  geom_point(alpha = 0.5) +
+  geom_vline(xintercept = 1e4, color = "gray") +
+  geom_hline(yintercept = 150, color = "gray") +
+  geom_text_repel(data = filter(anage_tbl, weight > 1e4),
+                  aes(label = name), size = 3,
+                  min.segment.length = unit(0, 'lines')) +
+  geom_text_repel(data = filter(anage_tbl, age > 150),
+                  aes(label = name), size = 3,
+                  min.segment.length = unit(0, 'lines')) +
+  labs(x = "Gewicht in [kg]", y = "Alter in [yrs]") +
+  scale_x_continuous(labels = scales::comma,
+                     breaks = c(1e4, 5e4, 1e5)) +
+  theme(axis.title.y = element_text(size = 16, face = 2),
+        axis.text.y = element_text(size = 12),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 12),  
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        legend.position = "top")
 ```
 
 ## Transformationen

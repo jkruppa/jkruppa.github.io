@@ -82,3 +82,42 @@ p3kurt <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
         panel.grid.major.x = element_blank(),
         panel.grid.minor.y = element_blank(),
         legend.position = "top")
+
+growth_tbl <- tibble(year = seq(1670, 1860, by = 10),
+                     pop = c(1, 1.1, 1.2, 1.3,
+                             1.5, 1.7, 2, 2.2, 2.7,
+                             3, 3.5, 4.2, 5, 6,
+                             7.5, 10, 14, 18, 24, 32),
+                     log_pop = log(pop))
+
+p1_intro_pop <- growth_tbl |> 
+  ggplot(aes(year, pop)) +
+  theme_minimal() +
+  geom_smooth(method = "loess", color = "#56B4E9", se = FALSE) +
+  geom_point() +
+  labs(x = "Jahr", y = "Population",
+       title = "Exponentielles Wachstum") +
+  theme(plot.title = element_text(size = 17),
+        axis.title.y = element_text(size = 16, face = 2),
+        axis.text.y = element_text(size = 12),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 12),        
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        legend.position = "top")
+
+p2_intro_pop <- growth_tbl |> 
+  ggplot(aes(year, log_pop)) +
+  theme_minimal() +
+  geom_smooth(method = "lm", color = "#F5C710", se = FALSE) +
+  geom_point() +
+  labs(x =  "Jahr", y = "Population [log]",
+       title = "Log-lineares Wachstum") +
+  theme(plot.title = element_text(size = 17),
+        axis.title.y = element_text(size = 16, face = 2),
+        axis.text.y = element_text(size = 12),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 12),        
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        legend.position = "top")
