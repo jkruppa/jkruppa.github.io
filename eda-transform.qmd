@@ -98,10 +98,13 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| echo: true
 
 pacman::p_load(tidyverse, magrittr, scales, see, MASS, bestNormalize,
-               conflicted)
+               rcompanion, LambertW, trafo, conflicted)
 conflicts_prefer(MASS::boxcox)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(dplyr::filter)
+conflicts_prefer(parameters::skewness)
+conflicts_prefer(parameters::kurtosis)
+conflicts_prefer(bestNormalize::boxcox)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", 
                 "#009E73", "#F0E442", "#F5C710", 
                 "#0072B2", "#D55E00", "#CC79A7")
@@ -132,8 +135,7 @@ Wir wollen uns in diesem Kapitel mit der normalverteilten Variable `jump_length`
 #| message: false
 
 fac1_tbl <- read_excel("data/flea_dog_cat_length_weight.xlsx") |>
-  filter(animal == "dog") |> 
-  select(animal, jump_length, hatch_time) |> 
+  select(animal, jump_length, weight, hatch_time) |> 
   filter(hatch_time <= 1500)
 ```
 
@@ -147,7 +149,6 @@ In der @tbl-trans-1 ist der Datensatz `fac1_tbl` nochmal dargestellt. Wir zeigen
 #| tbl-cap: "Selektierter Datensatz mit einer normalverteilten Variable `jump_length` und der nicht-normalverteilten Variable `hatch_time`. Wir betrachten die ersten sieben Zeilen des Datensatzes."
 
 fac1_raw_tbl <- read_excel("data/flea_dog_cat_length_weight.xlsx") |>
-  filter(animal == "dog") |> 
   select(animal, jump_length, hatch_time) 
 
 rbind(head(fac1_raw_tbl, n = 3),
@@ -292,18 +293,21 @@ Die Transformation mit Rängen `rank()`
 
 Schnelle Übersicht...
 
-::: panel-tabset
-## `sqrt(y)`
+### Quadratwurzel
+
+Die Quadratwurzel-Transformationen ist eine etwas seltenere Transformation. Meist wird die Quadratwurzel-Transformationen als die schwächere $log$-Transformation bezeichnet. Wir sehen in @fig-log-scale-2-2 den Grund dafür. Aber zuerst müssen wir aber über die Funktion `sqrt()` unsere Daten transformieren. Wir können auch die Funktion `transform()` aus dem R Paket `{dlookr}` verwenden und haben eine große Auswahl an möglichen Transformationen. Einfach mal die Hilfeseite von `transform()` aufrufen und nachschauen.
 
 ```{r}
 sqrt_tbl <- fac1_tbl |> 
   mutate(sqrt_hatch_time = sqrt(hatch_time))
 ```
 
+In der folgenden Abbildung sehen wir die nicht transformierte, rohe Daten sowie die transformierten Daten mit der Quadratwurzel. Es gibt einen klaren Peak Schlüpfzeiten am Anfang. Dann läuft die Verteilung langsam nach rechts aus. Wir können nicht annehmen, dass die Schlüpfzeiten normalverteilt sind. Unser Ziel besser normalverteilte Daten vorliegen zu haben, haben wir aber mit der Quadratwurzel-Transformationen nicht erreicht. Die Daten sind immer noch rechtsschief.
+
 ```{r}
 #| message: false
 #| echo: false
-#| label: fig-log-pretest-2
+#| label: fig-trans-sqrt
 #| fig-align: center
 #| fig-height: 3.5
 #| fig-width: 8
@@ -328,17 +332,27 @@ p1 + p2 +
 
 ```
 
-## `log(y)`
+### Logarithmus
+
+Wir nutzen die $log$-Transformation, wenn wir aus einem nicht-normalverteiltem Outcome $y$ ein approxomativ normalverteiltes Outcome $y$ machen wollen. Dabei ist wichtig, dass wir natürlich auch die Einheit mit $log$-transformieren.
+
+Im Folgenden sehen wir die $log$-Transformation der Variable `hatch_time` mit der Funktion `log()`. Wir erschaffen eine neue Spalte im `tibble` damit wir die beiden Variable vor und nach der $log$-Transformation miteinander vergleichen können.
+
+Das [R Paket `{dlookr}`](https://yuzar-blog.netlify.app/posts/2021-01-30-r-package-reviews-dlookr-diagnose-explore-and-transform-your-data/#standardization-and-resolving-skewness) hat eine große Auswahl an implementierten Funktionen für $y$-Transformationen.
 
 ```{r}
+
 log_tbl <- fac1_tbl |> 
   mutate(log_hatch_time = log(hatch_time))
+
 ```
+
+Wir können dann über ein Histogramm die beiden Verteilungen anschauen. In der folgenden Abbildung sehen wir die nicht transformierte, rohe Daten sowie die Log-transformierten Daten. Es gibt einen klaren Peak Schlüpfzeiten am Anfang. Dann läuft die Verteilung langsam aus. Wir können nicht annehmen, dass die Schlüpfzeiten normalverteilt sind. Die Log-Transformation hat einigermaßen funktioniert. Wir sehen in diesem Fall approximativ normalverteilte Daten. Wir haben also ein $log$ normalverteiltes Outcome $y$ mit dem wir jetzt weiterechnen können.
 
 ```{r}
 #| message: false
 #| echo: false
-#| label: fig-log-pretest-1
+#| label: fig-log
 #| fig-align: center
 #| fig-height: 3.5
 #| fig-width: 8
@@ -363,7 +377,33 @@ p1 + p2 +
 
 ```
 
-## `1/y`
+In der folgenden Abbildung siehst du nochmal die Anwendung der $\log$-Skala in `{ggplot}` auf die Daten. Aber Achtung, die ursprünglichen Daten sind *nicht* transformiert. Du schaust dir hier nur an, wie die Daten transformiert aussehen würden. Es gibt auch hierzu ein kleines Tutorium zu [ggplot log scale transformation](https://www.datanovia.com/en/blog/ggplot-log-scale-transformation/). Da kannst du dann auch einmal nachschauen, wie die $\log_2$-Skala in `{ggplot}` funktioniert.
+
+```{r}
+#| message: false
+#| echo: true
+#| label: fig-log-scale-ggplot
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 8
+#| fig-cap: "Histogramm der nicht transfomierten Daten einmal auf der $log_{10}$-Skala in `ggplot` dargestellt. Achtung, hier ist nur die Darstellung transformiert. Die ursprünglichen Daten bleiben von der Transformation *in* `{ggplot}` unberührt."
+
+ggplot(log_tbl, aes(hatch_time)) +
+  geom_histogram(fill = cbbPalette[2], color = "black") +
+  theme_minimal() +
+  labs(x = expression("Zeit bis zum Schlüpfen in" ~ log[10](h)), y = "Anzahl") +
+  ## here starts the log scale
+  scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x), # <1>
+                labels = trans_format("log10", math_format(10^.x))) + # <2>
+  annotation_logticks(sides = "b")  # <3>
+
+```
+
+1.  Hier wird die $x$-Achse einmal auf die $\log$-Skala gestellt und die `breaks` entsprechend angepasst.
+2.  Wir ergänzen noch die richtige Schreibweise.
+3.  Die Ticks werden auch richtig gezeichnet. Du kannst mit `l` auch auf der $y$-Achse $\log$-Ticks anzeigen lassen.
+
+### Inverse
 
 ```{r}
 inverse_tbl <- fac1_tbl |> 
@@ -373,7 +413,7 @@ inverse_tbl <- fac1_tbl |>
 ```{r}
 #| message: false
 #| echo: false
-#| label: fig-inverse-pretest-1
+#| label: fig-inverse
 #| fig-align: center
 #| fig-height: 3.5
 #| fig-width: 8
@@ -397,114 +437,6 @@ p1 + p2 +
   theme(plot.tag = element_text(size = 16, face = "bold"))
 
 ```
-:::
-
-### Quadratwurzel
-
-Die Quadratwurzel-Transformationen ist eine etwas seltenere Transformation. Meist wird die Quadratwurzel-Transformationen als die schwächere $log$-Transformation bezeichnet. Wir sehen in @fig-log-scale-2-2 den Grund dafür. Aber zuerst müssen wir aber über die Funktion `sqrt()` unsere Daten transformieren. Wir können auch die Funktion `transform()` aus dem R Paket `{dlookr}` verwenden und haben eine große Auswahl an möglichen Transformationen. Einfach mal die Hilfeseite von `transform()` aufrufen und nachschauen.
-
-```{r}
-
-sqrt_tbl <- fac1_tbl |> 
-  mutate(sqrt_hatch_time = sqrt(hatch_time))
-
-```
-
-In @fig-log-scale-2-1 sehen wir die nicht transformierte, rohe Daten. Es gibt einen klaren Peak Schlüpfzeiten am Anfang. Dann läuft die Verteilung langsam nach rechts aus. Wir können nicht annehmen, dass die Schlüpfzeiten normalverteilt sind. @fig-log-scale-2-2 zeigt die Wurzel-transmutierten Daten. Unser Ziel besser normalverteilte Daten vorliegen zu haben, haben wir aber mit der Quadratwurzel-Transformationen nicht erreicht. Die Daten sind immer noch rechtsschief. Wir würden also die $log$-Transformation bevorzugen.
-
-```{r}
-#| message: false
-#| echo: false
-#| label: fig-log-scale-2
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten."
-#| fig-subcap: 
-#|   - "Nicht transformierte, rohe Daten"
-#|   - "Wurzel-transformierte Daten."
-#| layout-nrow: 1
-
-ggplot(sqrt_tbl, aes(hatch_time)) +
-  geom_histogram(fill = cbbPalette[2], color = "black") +
-  theme_minimal() +
-  labs(x = "Zeit bis zum Schlüpfen in [h]", y = "Anzahl")
-
-ggplot(sqrt_tbl, aes(sqrt_hatch_time)) +
-  geom_histogram(fill = cbbPalette[3], color = "black") +
-  theme_minimal() +
-  labs(x = expression("Zeit bis zum Schlüpfen in" ~ sqrt(h)), y = "Anzahl")
-```
-
-### Logarithmus
-
-Wir nutzen die $log$-Transformation, wenn wir aus einem nicht-normalverteiltem Outcome $y$ ein approxomativ normalverteiltes Outcome $y$ machen wollen. Dabei ist wichtig, dass wir natürlich auch die Einheit mit $log$-transformieren.
-
-Im Folgenden sehen wir die $log$-Transformation der Variable `hatch_time` mit der Funktion `log()`. Wir erschaffen eine neue Spalte im `tibble` damit wir die beiden Variable vor und nach der $log$-Transformation miteinander vergleichen können.
-
-Das [R Paket `{dlookr}`](https://yuzar-blog.netlify.app/posts/2021-01-30-r-package-reviews-dlookr-diagnose-explore-and-transform-your-data/#standardization-and-resolving-skewness) hat eine große Auswahl an implementierten Funktionen für $y$-Transformationen.
-
-```{r}
-
-log_tbl <- fac1_tbl |> 
-  mutate(log_hatch_time = log(hatch_time))
-
-```
-
-Wir können dann über ein Histogramm die beiden Verteilungen anschauen. In @fig-log-scale-1-1 sehen wir die nicht transformierte, rohe Daten. Es gibt einen klaren Peak Schlüpfzeiten am Anfang. Dann läuft die Verteilung langsam aus. Wir können nicht annehmen, dass die Schlüpfzeiten normalverteilt sind. @fig-log-scale-1-2 zeigt die $log$-transmutierten Daten. In diesem Fall sehen wir normalverteilte Daten. Wir haben also ein $log$ normalverteiltes Outcome $y$ mit dem wir jetzt weiterechnen können.
-
-```{r}
-#| message: false
-#| echo: false
-#| label: fig-log-scale-1
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten."
-#| fig-subcap: 
-#|   - "Nicht transformierte, rohe Daten"
-#|   - "$log$-transformierte Daten."
-#| layout-nrow: 1
-
-ggplot(log_tbl, aes(hatch_time)) +
-  geom_histogram(fill = cbbPalette[2], color = "black") +
-  theme_minimal() +
-  labs(x = "Zeit bis zum Schlüpfen in [h]", y = "Anzahl")
-
-ggplot(log_tbl, aes(log_hatch_time)) +
-  geom_histogram(fill = cbbPalette[3], color = "black") +
-  theme_minimal() +
-  labs(x = "Zeit bis zum Schlüpfen in log(h)", y = "Anzahl")
-
-```
-
-In der Abbildung @fig-log-scale-ggplot siehst du nochmal die Anwendung der $\log$-Skala in `ggplot` auf die Daten. Aber Achtung, die ursprünglichen Daten sind *nicht* transformiert. Du schaust dir hier nur an, wie die Daten transformiert aussehen würden. Es gibt auch hierzu ein kleines Tutorium zu [ggplot log scale transformation](https://www.datanovia.com/en/blog/ggplot-log-scale-transformation/). Da kannst du dann auch einmal nachschauen, wie die $\log_2$-Skala in `ggplot` funktioniert.
-
-```{r}
-#| message: false
-#| echo: true
-#| label: fig-log-scale-ggplot
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "Histogramm der nicht transfomierten Daten einmal auf der $log_{10}$-Skala in `ggplot` dargestellt. Achtung, hier ist nur die Darstellung transformiert. Die ursprünglichen Daten bleiben von der Transformation *in* `ggplot` unberührt."
-
-ggplot(log_tbl, aes(hatch_time)) +
-  geom_histogram(fill = cbbPalette[2], color = "black") +
-  theme_minimal() +
-  labs(x = expression("Zeit bis zum Schlüpfen in" ~ log[10](h)), y = "Anzahl") +
-  ## here starts the log scale
-  scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x), # <1>
-                labels = trans_format("log10", math_format(10^.x))) + # <2>
-  annotation_logticks(sides = "b")  # <3>
-
-```
-
-1.  Hier wird die $x$-Achse einmal auf die $\log$-Skala gestellt und die `breaks` entsprechend angepasst.
-2.  Wir ergänzen noch die richtige Schreibweise.
-3.  Die Ticks werden auch richtig gezeichnet. Du kannst mit `l` auch auf der $y$-Achse $\log$-Ticks anzeigen lassen.
-
-### Inverse
 
 ### Inverse Normalverteilung
 
@@ -517,6 +449,39 @@ invers_norm <- function(x) qnorm((rank(x, na.last="keep") - 0.5)/sum(!is.na(x)))
 [What is the inverse normal transformation (INT) and what are the reasons behind using it?](https://stats.stackexchange.com/questions/588992/what-is-the-inverse-normal-transformation-int-and-what-are-the-reasons-behind)
 
 [Rank-Based Inverse Normal Transformations are Increasingly Used, But are They Merited?](https://pmc.ncbi.nlm.nih.gov/articles/PMC2921808/) von @beasley2009rank
+
+```{r}
+invers_norm_tbl <- fac1_tbl |> 
+  mutate(inverse_hatch_time = invers_norm(hatch_time))
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| label: fig-inverse-norm
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 8
+#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten. **(A)** Nicht transformierte, rohe Daten. **(B)** $inverse$-transformierte Daten. *[Zum Vergrößern anklicken]*"
+#| layout-nrow: 1
+
+p1 <- ggplot(invers_norm_tbl, aes(hatch_time)) +
+  theme_minimal() +
+  geom_density(fill = cbbPalette[2], color = "black") +
+  labs(x = "Zeit bis zum Schlüpfen in [h]", y = "") +
+  xlim(-100, NA) 
+
+p2 <- ggplot(invers_norm_tbl, aes(inverse_hatch_time)) +
+  theme_minimal() +
+  geom_density(fill = cbbPalette[3], color = "black") +
+  labs(x = "Zeit bis zum Schlüpfen in (1/h)", y = "")  
+
+p1 + p2 +
+  theme(panel.grid.minor.x = element_blank()) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
+```
 
 ### Rangtransformation
 
@@ -557,25 +522,24 @@ In @fig-log-scale-3-1 sehen wir nochmal die nicht transformierten, rohen Daten. 
 #| echo: false
 #| label: fig-log-scale-3
 #| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten."
-#| fig-subcap: 
-#|   - "Nicht transformierte, rohe Daten"
-#|   - "$z$-transformierte Daten."
-#| layout-nrow: 1
+#| fig-height: 3.5
+#| fig-width: 8
+#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten. **(A)** Nicht transformierte, rohe Daten. **(B)** $inverse$-transformierte Daten. *[Zum Vergrößern anklicken]*"
 
-
-ggplot(scale_tbl, aes(jump_length)) +
+p1 <- ggplot(scale_tbl, aes(jump_length)) +
   geom_histogram(fill = cbbPalette[2], color = "black") +
   theme_minimal() +
   labs(x = "Sprungweite in [cm]", y = "Anzahl")
 
-ggplot(scale_tbl, aes(scale_jump_length)) +
+p2 <- ggplot(scale_tbl, aes(scale_jump_length)) +
   geom_histogram(fill = cbbPalette[3], color = "black") +
   theme_minimal() +
   labs(x = "Sprungweite auf der z-Skala", y = "Anzahl")
 
+p1 + p2 +
+  theme(panel.grid.minor.x = element_blank()) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
 
 ### Normalisierung
@@ -600,24 +564,24 @@ In @fig-log-scale-4-1 sehen wir nochmal die nicht transformierten, rohen Daten. 
 #| echo: false
 #| label: fig-log-scale-4
 #| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten."
-#| fig-subcap: 
-#|   - "Nicht transformierte, rohe Daten"
-#|   - "Normalisierte Daten"
-#| layout-nrow: 1
+#| fig-height: 3.5
+#| fig-width: 8
+#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten. **(A)** Nicht transformierte, rohe Daten. **(B)** $inverse$-transformierte Daten. *[Zum Vergrößern anklicken]*"
 
-ggplot(norm_tbl, aes(jump_length)) +
+p1 <- ggplot(norm_tbl, aes(jump_length)) +
   geom_histogram(fill = cbbPalette[2], color = "black") +
   theme_minimal() +
   labs(x = "Sprungweite in [cm]", y = "Anzahl")
 
-ggplot(norm_tbl, aes(norm_jump_length)) +
+p2 <- ggplot(norm_tbl, aes(norm_jump_length)) +
   geom_histogram(fill = cbbPalette[3], color = "black") +
   theme_minimal() +
   labs(x = "Normalisierte Sprungweite", y = "Anzahl")
 
+p1 + p2 +
+  theme(panel.grid.minor.x = element_blank()) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
 
 ## Automatische Transformationen...
@@ -628,31 +592,25 @@ Die Standardisierung versucht auch, die Symmetrie mit dem Mittelwert 0 und der S
 
 ### ... mit `{bestNormalize}`
 
-Dann sind wir bis hierher gekommen und fragen uns nun welche ist den jetzt die beste Transformation für unsere Daten um einigermaßen eine Normalverteilung hinzubekommen? Da hilft uns jetzt das [R Paket `{bestNormalize}`](https://cran.r-project.org/web/packages/bestNormalize/vignettes/bestNormalize.html). Die [Kurzanleitung zum Paket](https://petersonr.github.io/bestNormalize/index.html) erlaubt es automatisiert auf einem Datenvektor die beste Transformation zu finden um die Daten in eine Normalverteilung zu verwandeln. Wie immer geht noch mehr, aber wir machen hier einmal den schnellen Durchlauf. Wir bauen uns dazu einmal einen Datenvektor `x` mit 1000 Beobachtungen, die einer Gamma-Verteilung folgen.
-
-```{r}
-x <- rgamma(1000, 1, 1)
-```
-
-Jetzt fragst du dich, wie sieht so eine Gamma-Verteilung aus? Zuerst natürlich nicht wie eine Normalverteilung. Ich habe dir in der @fig-trans-bestNorm-1 einmal das Histogramm der x-Werte dargestellt. Wir haben also eine sehr schiefe Verteilung vorliegen.
+Dann sind wir bis hierher gekommen und fragen uns nun welche ist den jetzt die beste Transformation für unsere Daten um einigermaßen eine Normalverteilung hinzubekommen? Da hilft uns jetzt das [R Paket `{bestNormalize}`](https://cran.r-project.org/web/packages/bestNormalize/vignettes/bestNormalize.html). Die [Kurzanleitung zum Paket](https://petersonr.github.io/bestNormalize/index.html) erlaubt es automatisiert auf einem Datenvektor die beste Transformation zu finden um die Daten in eine Normalverteilung zu verwandeln.
 
 ```{r}
 #| message: false
 #| echo: false
 #| label: fig-trans-bestNorm-1
 #| fig-align: center
-#| fig-height: 5
-#| fig-width: 7
-#| fig-cap: "Histogramm der Gamma-Verteilung."
-ggplot(as_tibble(x), aes(x)) +
-   geom_histogram(fill = cbbPalette[4], color = "black") +
+#| fig-height: 3.5
+#| fig-width: 8
+#| fig-cap: "Histogramm."
+ggplot(fac1_tbl, aes(hatch_time)) +
+  geom_histogram(fill = cbbPalette[4], color = "black") +
   theme_minimal() 
 ```
 
 Jetzt können wir die Funktion `bestNormalize()` nutzen um uns die beste Transformationsmethode wiedergeben zu lassen. Das ist super praktisch in der Anwendung. Wir können uns theoretisch noch verschiedene Gütekriterien aussuchen aber für hier reicht die Standardimplementierung. Wichtig ist noch, dass wir hier eine Kreuzvalidierung durchführen, so dass die Ergebnisse und die Auswahl des Algorithmus robust sein sollte.
 
 ```{r}
-bn_obj <- bestNormalize(x)
+bn_obj <- bestNormalize(fac1_tbl$hatch_time)
 bn_obj
 ```
 
@@ -671,31 +629,109 @@ x_trans_back <- predict(bn_obj, newdata = x_trans, inverse = TRUE)
 Einmal dann der Vergleich ob alle `x_trans_back` Werte den ursprünglichen `x` Werten entsprechen. Ja, das sieht gut aus.
 
 ```{r}
-all.equal(x_trans_back, x)
+all.equal(x_trans_back, fac1_tbl$hatch_time)
 ```
 
-Und zum Abschluss nochmal eine Abbildung der transformierten `x` Werte. In der @fig-trans-bestNorm-2 siehst du dann einmal das entsprechende Histogramm. Das sieht doch sehr gut aus und wir mussten nicht zig verschiedene Algorithmen selber testen.
+Und zum Abschluss nochmal eine Abbildung der transformierten `x` Werte.In der folgenden Abbildung siehst du dann einmal das entsprechende Histogramm. Das sieht doch sehr gut aus und wir mussten nicht zig verschiedene Algorithmen selber testen.
 
 ```{r}
 #| message: false
 #| echo: false
 #| label: fig-trans-bestNorm-2
 #| fig-align: center
-#| fig-height: 5
-#| fig-width: 7
+#| fig-height: 3.5
+#| fig-width: 8
 #| fig-cap: "Histogramm der transformierten `x` Werte mit der Box-Cos Transformation aus dem R Paket `{bestNormalize}`."
-ggplot(as_tibble(x_trans), aes(x_trans)) +
-   geom_histogram(fill = cbbPalette[4], color = "black") +
-  theme_minimal() 
+
+p1 <- ggplot(log_tbl, aes(hatch_time)) +
+  theme_minimal() +
+  geom_density(fill = cbbPalette[2], color = "black") +
+  labs(x = "Zeit bis zum Schlüpfen in [h]", y = "") +
+  xlim(-100, NA) 
+
+p2 <- ggplot(as_tibble(x_trans), aes(x_trans)) +
+  theme_minimal() +
+  geom_density(fill = cbbPalette[3], color = "black") +
+  labs(x = "Zeit bis zum Schlüpfen in log(h)", y = "")  
+
+p1 + p2 +
+  theme(panel.grid.minor.x = element_blank()) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
 
 ### ... mit `{rcompanion}`
 
 `transformTukey()` aus dem R Paket `{rcompanion}`
 
+```{r}
+tt_obj <- transformTukey(fac1_tbl$hatch_time,
+                         plotit = FALSE)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| label: fig-trans-transformTukey
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 8
+#| fig-cap: "Histogramm ."
+
+p1 <- ggplot(log_tbl, aes(hatch_time)) +
+  theme_minimal() +
+  geom_density(fill = cbbPalette[2], color = "black") +
+  labs(x = "Zeit bis zum Schlüpfen in [h]", y = "") +
+  xlim(-100, NA) 
+
+p2 <- ggplot(as_tibble(tt_obj), aes(tt_obj)) +
+  theme_minimal() +
+  geom_density(fill = cbbPalette[3], color = "black") +
+  labs(x = "Zeit bis zum Schlüpfen in log(h)", y = "")  
+
+p1 + p2 +
+  theme(panel.grid.minor.x = element_blank()) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
+```
+
 ### ... mit `{LambertW}`
 
 `Gaussianize()` aus dem [R Paket `{LambertW}`](https://cran.r-project.org/web/packages/LambertW/index.html)
+
+-   type: what type of non-normality: symmetric heavy-tails "h" (default), skewed heavy-tails "hh", or just skewed "s".
+
+```{r}
+gaus_obj <- Gaussianize(fac1_tbl$hatch_time, type = "s")
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| label: fig-trans-Gaussianize
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 8
+#| fig-cap: "Histogramm ."
+
+p1 <- ggplot(log_tbl, aes(hatch_time)) +
+  theme_minimal() +
+  geom_density(fill = cbbPalette[2], color = "black") +
+  labs(x = "Zeit bis zum Schlüpfen in [h]", y = "") +
+  xlim(-100, NA) 
+
+p2 <- ggplot(as_tibble(gaus_obj), aes(gaus_obj)) +
+  theme_minimal() +
+  geom_density(fill = cbbPalette[3], color = "black") +
+  labs(x = "Zeit bis zum Schlüpfen in log(h)", y = "")  
+
+p1 + p2 +
+  theme(panel.grid.minor.x = element_blank()) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
+```
 
 ### ... mit `{MASS}`
 
@@ -714,7 +750,7 @@ jump_mod <- lm(jump_length ~ 1, data = fac1_tbl)
 Jetzt einmal die Funktion `boxcox()` ausführen und danach das $\lambda$ extrahieren. Hier ist es etwas umständlicher, da das $\lambda$ in der Ausgabe der Funktion etwas vergraben ist. Dafür ist das R Paket `{MASS}` einfach nicht mehr das jüngste Paket und hat keine so guten Funktionen zum Erhalten von wichtigen Parametern. Ich möchte die Abbildung nicht haben, daher die Option `plotit = FALSE`.
 
 ```{r}
-bc_obj <- boxcox(jump_mod, plotit = FALSE)
+bc_obj <- MASS::boxcox(jump_mod, plotit = FALSE)
 lambda <- bc_obj$x[which.max(bc_obj$y)]
 lambda
 ```
@@ -744,6 +780,18 @@ ggplot(data = fac1_tbl) +
 
 ```
 
+### ... mit `{trafo}`
+
+[The R Package trafo for Transforming Linear Regression Models](https://cran.r-project.org/web/packages/trafo/vignettes/vignette_trafo.pdf)
+
+```{r}
+lm_fit <- lm(hatch_time ~ weight, data = fac1_tbl)
+```
+
+```{r}
+assumptions(lm_fit)
+```
+
 ### ... mit `{dlookr}`
 
 ::: callout-warning
@@ -764,9 +812,5 @@ pacman::p_load(dlookr)
 
 > *"foo." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
 :::
-
-### ... mit `{trafo}`
-
-[The R Package trafo for Transforming Linear Regression Models](https://cran.r-project.org/web/packages/trafo/vignettes/vignette_trafo.pdf)
 
 ## Referenzen {.unnumbered}
