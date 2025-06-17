@@ -41,13 +41,21 @@ Warum müssen wir Daten transformieren? Meistens hat dies drei Hauptgründe.
 > *"foo." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
 :::
 
-#### Das Modell {.unnumbered .unlisted}
+In der folgenden Abbildung aus @yang2014duration siehst du einmal den Zusammenhang des Körpergewichts und der Dauer des Urinierens. Wir haben hier eine Darstellung auf der logarithmischen Skala der Zeit und des Gewichts. Daher können wir auch deas Gewicht der Maus und das Gewicht des Elefanten einigermaßen sinnvoll auf der Abbildung darstellen ohne das wir die Abbuildung sehr stark stauchen würden. Wir sehen das es keinen Unterschied gibt, die Gerade läuft parallel zu der Masse. Egal wie schwer ein Säugetier ist, es pinkelt immer die gleiche Zeit.
 
-1)  Wir wollen eine ANOVA oder eine Gaussian lineare Regression rechen und benötigen ein normalverteiltes Outcome $y$.
-2)  Wir wollen einen Algorithmus zur Prädiktion (deu. *Vorhersage*) nutzen und haben sehr viele Einflussvariablen $x$ in sehr unterschiedlichen Einheiten.
-3)  Wir wollen eine komplexere Analyse wie die Hauptkomponentenanalyse oder Clusteranalyse rechnen und brauchen Variablen, die alle eine ähnliche Spannweite haben.
+![*Zusammenhang zwischen dem Körpergewicht und der Dauer des Urinierens von verschiedneen Säugetieren auf der logarithmischen Skala. Einige der Punkte sind als Pictogramme der entprechenden Tiere dargestellt.* Quelle: @yang2014duration](images/preface_transformation.jpeg){#fig-utest-intro fig-align="center" width="100%"}
 
-![*foo.* Quelle: @yang2014duration](images/preface_transformation.jpeg){#fig-utest-intro fig-align="center" width="100%"}
+#### Wir brauchen eine Normalverteilung {.unnumbered .unlisted}
+
+Wir wollen eine ANOVA oder eine Gaussian lineare Regression rechen und benötigen ein normalverteiltes Outcome $y$.
+
+#### Wir wollen eine Vorhersage machen {.unnumbered .unlisted}
+
+Wir wollen einen Algorithmus zur Prädiktion (deu. *Vorhersage*) nutzen und haben sehr viele Einflussvariablen $x$ in sehr unterschiedlichen Einheiten.
+
+#### Wir wollen Gruppen / Cluster erkennen {.unnumbered .unlisted}
+
+Wir wollen eine komplexere Analyse wie die Hauptkomponentenanalyse oder Clusteranalyse rechnen und brauchen Variablen, die alle eine ähnliche Spannweite haben.
 
 Im ersten Fall wollen wir meist unsere Daten $log$-Transformieren um aus einem *nicht*-normalverteilten Outcome $y$ ein $log$-normalverteiltes $y$ zu erschaffen. Im zweiten Fall wollen wir unsere Daten Standardisieren oder Normalisieren. Wir brauchen normalisierte Daten später beim Klassifizieren im Rahmen von maschinellen Lernverfahren. Bitte beachte auch, dass die Transformationen hier eher für kleine Datensätze geeignet sind. Im [Kapitel zur Klassifikation](#sec-pre-processing) gehe ich nochmal auf die Automatisierung über mehrere Variablen ein. Wenn du also einen großen Datensatz hast, den du vielleicht oft bearbeiten musst, dann mag dir dort mehr geholfen sein.
 
@@ -320,16 +328,20 @@ In der folgenden Abbildung sehen wir die nicht transformierte, rohe Daten sowie 
 #| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten. **(A)** Nicht transformierte, rohe Daten. **(B)** $sqrt$-transformierte Daten. *[Zum Vergrößern anklicken]*"
 #| layout-nrow: 1
 
-p1 <- ggplot(sqrt_tbl, aes(hatch_time)) +
+p1 <- ggplot(sqrt_tbl, aes(hatch_time, fill = animal)) +
   theme_minimal() +
-  geom_density(fill = cbbPalette[2], color = "black") +
-  labs(x = "Zeit bis zum Schlüpfen in [h]", y = "") +
-  xlim(-100, NA)
+  geom_density(color = "black", alpha = 0.5) +
+  scale_fill_okabeito() +
+  labs(x = "Zeit bis zum Schlüpfen in [h]", y = "", fill = "") +
+  xlim(-100, NA) +
+  theme(legend.position = "top")
 
-p2 <- ggplot(sqrt_tbl, aes(sqrt_hatch_time)) +
+p2 <- ggplot(sqrt_tbl, aes(sqrt_hatch_time, fill = animal)) +
   theme_minimal() +
-  geom_density(fill = cbbPalette[3], color = "black") +
-  labs(x = "Zeit bis zum Schlüpfen in sqrt(h)", y = "")
+  geom_density(color = "black", alpha = 0.5) +
+  scale_fill_okabeito() +
+  labs(x = "Zeit bis zum Schlüpfen in sqrt(h)", y = "", fill = "") +
+  theme(legend.position = "top")
 
 p1 + p2 +
   theme(panel.grid.minor.x = element_blank()) +
@@ -430,6 +442,7 @@ anage_log_tbl |>
   geom_vline(xintercept = 10, color = "gray") +
   geom_hline(yintercept = 4, color = "gray") +
   geom_hline(yintercept = 0, color = "gray") +
+  geom_smooth(method = "lm", se = FALSE, color = "#0072B2") +
   geom_text_repel(data = filter(anage_log_tbl, age > 4 & weight > 10),
                   aes(label = name), size = 3,
                   min.segment.length = unit(0, 'lines')) +
@@ -865,6 +878,22 @@ p1 + p2 +
 
 ```
 
+### ... mit `{trafo}`
+
+[The R Package trafo for Transforming Linear Regression Models](https://cran.r-project.org/web/packages/trafo/vignettes/vignette_trafo.pdf)
+
+```{r}
+lm_fit <- lm(hatch_time ~ weight, data = fac1_tbl)
+```
+
+```{r}
+trafo_lm(lm_fit)
+```
+
+## Friedhof der R Pakete
+
+Warum gibt es hier den Friedhof? Nun, es gibt nur eine begrenzte Anzahl an möglichen Transformationen. Diese Transformationen sind dann aber in vielen R Paketen eingebaut. Mit der Zeit habe ich dann neuere und bessere R Pakete gefunden, die ich hier weiter oben vorstelle. Die alten Pakete, die ich auch mal genutzt habe, schiebe ich dann hier in den Friedhof. Meistens können die neuren Pakete das was die alten können plus die neuen Pakete sind einfacher zu bedienen oder aber aber haben andere Vorteile. Als Referenz bleibt der Firedhof aber offen.
+
 ### ... mit `{MASS}`
 
 Die Box-Cox-Transformation ist ein statistisches Verfahren zur Umwandlung von nicht normalverteilten Daten in eine Normalverteilung. Die Transformation ist nicht so einfach wie die logarithmische Transformation oder die Quadratwurzeltransformation und erfordert etwas mehr Erklärung. Beginnen wir zunächst die Gleichung zu verstehen, die die Transformation beschreibt. Die grundsätzliche Idee ist, dass wir unser $y$ als Outcome mit einem $\lambda$-Exponenten transformieren. Die Frage ist jetzt, welches $\lambda$ produziert die besten normalverteilten Daten? Wenn wir ein $\lambda$ von Null finden sollten, dann rechnen wir einfach eine $\log$-Transformation. Die Idee ist also recht simpel.
@@ -910,18 +939,6 @@ ggplot(data = fac1_tbl) +
                  fill = cbbPalette[3], color = "black") +
   labs(x = 'Box-Cox transformierte Sprungweiten', y = 'Anzahl')
 
-```
-
-### ... mit `{trafo}`
-
-[The R Package trafo for Transforming Linear Regression Models](https://cran.r-project.org/web/packages/trafo/vignettes/vignette_trafo.pdf)
-
-```{r}
-lm_fit <- lm(hatch_time ~ weight, data = fac1_tbl)
-```
-
-```{r}
-trafo_lm(lm_fit)
 ```
 
 ### ... mit `{dlookr}`
