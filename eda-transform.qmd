@@ -29,7 +29,7 @@ source("images/R/eda-transform.R")
 Dieses Kapitel wird überarbeitet, da ich nochmal an den Kern der Transformation ran möchte. Daher kann es sein, dass es in den nächsten Wochen hier zu Problemen und nicht funktionierenden Code kommt. Das repariere ich dann aber meistens in den folgenden Tagen. Ziel ist es bis zum Start des WiSe 2025/26 das Kapitel neu aufgestellt zu haben.
 :::
 
-text
+In diesem Kapitel wollen wir uns nochmal mit der Transformation von Daten beschäftigen. Hier geht es aber jetzt nicht nur um vollständige Transformationen ganzer Exceldateien, sondern eher um die Transformation einzelner Messwerte. Wir haben also etwas gemessen, was uns auf der Skala der Einheiten wie wir es gemessen haben nicht gefällt. Deshalb nutzen wir eine mathematische Funktione, die uns aus unseren originalen Messwerten neue einheitslose Werte erschafft. Hier ist mal wieder wichtig, dass wir am Ende einheitslose Messwerte haben, die sich dann der biologischen Interpretation entziehen. Aber wie immer gilt, je nach Fragestellung ist die Transformation von Daten wichtig bis notwendig. Deshalb einmal hier alle gesammelt zu der Transformation.
 
 ## Allgemeiner Hintergrund
 
@@ -409,7 +409,49 @@ ggplot(log_tbl, aes(hatch_time)) +
 2.  Wir ergänzen noch die richtige Schreibweise.
 3.  Die Ticks werden auch richtig gezeichnet. Du kannst mit `l` auch auf der $y$-Achse $\log$-Ticks anzeigen lassen.
 
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-ggplot-weight-age-log
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 8
+#| fig-cap: "foo. **(A)** br. **(B)** fff. *[Zum Vergrößern anklicken]*"
+
+anage_log_tbl <- anage_tbl |> 
+  mutate(weight = log(weight),
+         age = log(age))
+
+anage_log_tbl |> 
+  ggplot(aes(weight, age)) +
+  theme_minimal() +
+  geom_point(alpha = 0.5) +
+  geom_vline(xintercept = 10, color = "gray") +
+  geom_hline(yintercept = 4, color = "gray") +
+  geom_hline(yintercept = 0, color = "gray") +
+  geom_text_repel(data = filter(anage_log_tbl, age > 4 & weight > 10),
+                  aes(label = name), size = 3,
+                  min.segment.length = unit(0, 'lines')) +
+  geom_text_repel(data = filter(anage_log_tbl, age <= 0),
+                  aes(label = name), size = 3,
+                  min.segment.length = unit(0, 'lines')) +
+  labs(x = "Gewicht in [log(kg)]", y = "Alter in [log(yrs)]") +
+  theme(axis.title.y = element_text(size = 16, face = 2),
+        axis.text.y = element_text(size = 12),
+        axis.title.x = element_text(size = 16, face = 2),
+        axis.text.x = element_text(size = 12),  
+        plot.title = element_text(size = 17),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(size = 12),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        legend.position = "top")
+```
+
 ### Inverse
+
+$1/x$
 
 ```{r}
 inverse_tbl <- fac1_tbl |> 
@@ -449,7 +491,7 @@ p1 + p2 +
 [Inverse normal transformation -- What is it and how to do it?](https://yingji15.github.io/2019-08-17-inverse-normal-transformation/)
 
 ```{r}
-invers_norm <- function(x) qnorm((rank(x, na.last="keep") - 0.5)/sum(!is.na(x)))
+invers_norm <- function(y) qnorm((rank(y, na.last="keep") - 0.5)/sum(!is.na(y)))
 ```
 
 [What is the inverse normal transformation (INT) and what are the reasons behind using it?](https://stats.stackexchange.com/questions/588992/what-is-the-inverse-normal-transformation-int-and-what-are-the-reasons-behind)
@@ -514,7 +556,7 @@ $$
 y_z = \cfrac{y_i - \bar{y}}{s_y} 
 $$
 
-In R können wir für die Standardisierung die Funktion `scale()` verwenden. Wir müssen auch nichts weiter in den Optionen von `scale()` angeben. Die Standardwerte der Funktion sind so eingestellt, dass eine Standardnormalverteilung berechnet wird. Wir können auch die Funktion `transform()` aus dem R Paket `{dlookr}` verwenden. Die Option wäre dann `zscore`.
+In R können wir für die Standardisierung die Funktion `scale()` verwenden. Wir müssen auch nichts weiter in den Optionen von `scale()` angeben. Die Standardwerte der Funktion sind so eingestellt, dass eine Standardnormalverteilung berechnet wird.
 
 ```{r}
 scale_tbl <- fac1_tbl |> 
@@ -540,7 +582,8 @@ p1 <- ggplot(scale_tbl, aes(jump_length)) +
 p2 <- ggplot(scale_tbl, aes(scale_jump_length)) +
   geom_histogram(fill = cbbPalette[3], color = "black") +
   theme_minimal() +
-  labs(x = "Sprungweite auf der z-Skala", y = "Anzahl")
+  labs(x = "Sprungweite auf der z-Skala", y = "Anzahl") +
+  theme(axis.text.x = element_text(color = "#CC79A7"))
 
 p1 + p2 +
   theme(panel.grid.minor.x = element_blank()) +
@@ -595,15 +638,15 @@ $$
 y_n = \cfrac{y_i - \min(y)}{\max(y) - \min(y)} 
 $$
 
-In R gibt es die Normalisierungsfunktion nicht direkt. Wir könnten hier ein extra Paket laden, aber bei so einer simplen Formel können wir auch gleich die Berechnung in der Funktion `mutate()` machen. Wir müssen nur etwas mit den Klammern aufpassen. Wir können auch die Funktion `transform()` aus dem R Paket `{dlookr}` mit der Option `minmax` verwenden.
+```{r}
+normalize <- function(y) {(y - min(y))/(max(y) - min(y))}
+```
+
+In R gibt es die Normalisierungsfunktion nicht direkt. Wir könnten hier ein extra Paket laden, aber bei so einer simplen Formel können wir auch gleich die Berechnung in der Funktion `mutate()` machen. Wir müssen nur etwas mit den Klammern aufpassen.
 
 ```{r}
 norm_tbl <- fac1_tbl |> 
   mutate(norm_jump_length = (jump_length - min(jump_length))/(max(jump_length) - min(jump_length)))
-```
-
-```{r}
-normalize <- function(x) {(x - min(x))/(max(x) - min(x))}
 ```
 
 In @fig-log-scale-4-1 sehen wir nochmal die nicht transformierten, rohen Daten. In @fig-log-scale-4-2 sehen wir die normalisierten Daten. Hier fällt dann auf, dass die normalisierten Sprungweiten nur noch Werte zwischen Null und Eins annehmen. Die Zahlen der auf der x-Achse haben jetzt aber keine Bedeutung mehr. Wie können die normalisierten Sprungweiten nicht mehr biologisch interpretieren.
@@ -625,7 +668,8 @@ p1 <- ggplot(norm_tbl, aes(jump_length)) +
 p2 <- ggplot(norm_tbl, aes(norm_jump_length)) +
   geom_histogram(fill = cbbPalette[3], color = "black") +
   theme_minimal() +
-  labs(x = "Normalisierte Sprungweite", y = "Anzahl")
+  labs(x = "Normalisierte Sprungweite", y = "Anzahl") +
+  theme(axis.text.x = element_text(color = "#CC79A7"))
 
 p1 + p2 +
   theme(panel.grid.minor.x = element_blank()) +
