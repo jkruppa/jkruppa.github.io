@@ -84,21 +84,64 @@ Jetzt fragst du dich sicherlich, welche $\lambda$-Werte soll ich nehmen? Folgend
 
 : Tukey's Ladder of Powers oder wie kann können Messwerte $y$ transformiert werden? Das $\lambda$ gibt die Potenz von dem Messwert $y$ an. {#tbl-tukey-ladder}
 
-Warum müssen wir Daten transformieren? Meistens hat dies drei Hauptgründe.
+In der folgenden Abbildung habe ich dir dann mal verschiedene $\lambda$-Werte visualisiert. Das Ziel ist immer einen linearen Zusammenhang zu finden. Wie können wir die Potenz von $y$ wählen, so dass wir dann einen linearen Zusammenhang finden? In der Abbildung hier haben wir dann einen linearen Zusammenhang gegeben und ich zeige einmal wie die verschiedene $\lambda$-Werte den Zusammenhang ändern. Wir müssen später wirklich nicht alle händisch durchprobieren, wir haben dann dafür automatisierte Transformationen in R vorliegen. Diese Algorithmen finden dann das beste $\lambda$ für uns.
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| label: fig-ggplot-utest-intro-lambda
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 8
+#| fig-cap: "Verschiedene $\\lambda$ Transformationen für einen linearen Zusammenhang zwischen $x$ und $y$. Der $\\lambda$-Wert ist als $y^{\\lambda}$ zu verstehen. Somit beschreibt der $\\lambda$-Wert die Potenz vom Messwert. Gesucht ist der $\\lambda$-Wert bei dem ein linearer Zusammenhang zwischen $x$ und $y$ vorliegt. *[Zum Vergrößern anklicken]*"
+
+
+map(c(-2, -1, -0.5, 0, 0.5, 1, 2,3), \(x){
+  if(x < 0)
+    return(-(seq(1, 10, by = 0.5))^x)
+  if(x == 0)
+    return(log(seq(1, 10, by = 0.5)))
+  if(x > 0)
+    return((seq(1, 10, by = 0.5))^x)
+}) |> 
+  set_names(c(-2, -1, -0.5, 0, 0.5, 1, 2,3)) |> 
+  bind_cols() |> 
+  mutate(x = seq(1, 10, by = 0.5)) |> 
+  pivot_longer("-2":"3",
+               names_to = "lambda",
+               values_to = "values") |> 
+  mutate(lambda_fct = as_factor(lambda)) |> 
+  ggplot(aes(x, values, group = lambda_fct)) +
+  theme_minimal() +
+  geom_point() +
+  geom_smooth(method = "loess", color = "#56B4E9", se = FALSE) +
+  facet_wrap(~lambda_fct + lambda, scales = "free", nrow = 2,
+             labeller = label_bquote(lambda~"="~.(lambda))) +
+  labs(x = "", y = "") +
+  theme(axis.text.y = element_blank(),
+        axis.text.x = element_blank(),       
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        strip.text = element_text(size=14)) 
+
+```
+
+Warum müssen wir Daten transformieren? Meistens hat dies drei Hauptgründe. Ich habe hier nochmal die Gründe zusammengefasst und sortiert. Sicherlich gibt es neben diesen drei Gründen auch noch weitere Gründe, aber ich denke, dass es die häufigsten sind. In einem faktoriellen Design wollen wir häufig für die Gruppenvergleiche eine ANOVA rechnen, so dass es sicherlich eine der häufigsten Ziele einer Transformation ist. Gehen wir mal die Gründe durch.
 
 #### Wir brauchen eine Normalverteilung {.unnumbered .unlisted}
 
-Wir wollen eine ANOVA oder eine Gaussian lineare Regression rechen und benötigen ein normalverteiltes Outcome $y$. Wir wollen also meist unsere Daten $log$-Transformieren um aus einem nicht-normalverteilten Messwert $y$ ein $log$-normalverteilten Messwert $y$ zu erschaffen.
+Warum brauchen wir eine Normalverteilung in unseren Messwerten? Wir wollen eine ANOVA oder eine Gaussian lineare Regression rechen und benötigen ein normalverteiltes Outcome $y$. Wir wollen also meist unsere Daten $log$-Transformieren um aus einem nicht-normalverteilten Messwert $y$ ein $log$-normalverteilten Messwert $y$ zu erschaffen. Dann können wir relativ entspannt einen Mittelwertsvergleich über den ANOVA Pfad rechnen.
 
 #### Wir wollen eine Vorhersage machen {.unnumbered .unlisted}
 
-Wir wollen einen Algorithmus zur Prädiktion (deu. *Vorhersage*) nutzen und haben sehr viele Einflussvariablen $x$ in sehr unterschiedlichen Einheiten. Wir wollen dann unsere Daten Standardisieren oder Normalisieren. Wir brauchen normalisierte Daten später beim Klassifizieren im Rahmen von maschinellen Lernverfahren. Bitte beachte auch, dass die Transformationen hier in diesem Kapitel eher für kleine Datensätze geeignet sind. Im [Kapitel zur Klassifikation](#sec-pre-processing) gehe ich nochmal auf die Automatisierung über das R Paket `{recipes}` ein. Wenn du also einen großen Datensatz hast, den du vielleicht oft bearbeiten musst, dann mag dir dort mehr geholfen sein.
+Immer häufiger wollen wir auch Modelle rechnen, wo wir verschiedene Einflussvariablen und Messwerte vorliegen haben. Wir wollen jetzt einen einen Algorithmus zur Prädiktion (deu. *Vorhersage*) nutzen und haben sehr viele Einflussvariablen $x$ in sehr unterschiedlichen Einheiten. Wir wollen dann unsere Einflussvariablen Standardisieren oder Normalisieren. Wir brauchen normalisierte Daten später beim Klassifizieren im Rahmen von maschinellen Lernverfahren. Bitte beachte auch, dass die Transformationen hier in diesem Kapitel eher für kleine Datensätze geeignet sind. Im [Kapitel zur Klassifikation](#sec-pre-processing) gehe ich nochmal auf die Automatisierung über das R Paket `{recipes}` ein. Wenn du also einen großen Datensatz hast, den du vielleicht oft bearbeiten musst, dann mag dir dort mehr geholfen sein.
 
 #### Wir wollen Gruppen / Cluster erkennen {.unnumbered .unlisted}
 
-Wir wollen eine komplexere Analyse wie die Hauptkomponentenanalyse oder Clusteranalyse rechnen und brauchen Variablen, die alle eine ähnliche Spannweite haben.
+Eine andere Anwendung ist auch das Gruppieren von Dtaen. Wir wollen eine komplexere Analyse wie die Hauptkomponentenanalyse oder Clusteranalyse rechnen und brauchen Variablen, die alle eine ähnliche Spannweite haben. Hier haben wir dann auch das Problem der Einheiten. Wenn wir zu unterschiedliche Einheiten vorliegen haben, funktionieren die Modelle nicht mehr. Wir wollen dann unsere Einflussvariablen Standardisieren oder Normalisieren. Auch hier können viele Funktionen in R das schon automatisch, deshalb einmal schauen, ob du überhaupt Transformieren musst. Es spricht aber nichts dagegen vorher zu Transformieren, da du dich dann schonmal mit den Ergebnissen der Transformation auseinander gesetzt hast. Dann hast du auch nicht eine algorithmische Blackbox vorliegen.
 
-Wir wollen uns nun die Verfahren zur Transformation von Daten in den folgenden Abschnitten einmal näher anschauen.
+Wir wollen uns nun die Verfahren zur Transformation von Daten in den folgenden Abschnitten einmal näher anschauen. Zuerst gehe auf die Standardverfahren mit `mutate()` und den entsprechenden Funktionen ein. Danach zeige ich dir dann noch die automatisierten Varianten. Bei den automatisierten Varianten habe ich schon angefangen einmal aufzuräumen und die veralteten Funktionen in den Friedhof zur Referenzierung geschoben.
 
 ::: callout-tip
 ## Weitere Tutorien für das Transformieren von Daten.
@@ -106,9 +149,8 @@ Wir wollen uns nun die Verfahren zur Transformation von Daten in den folgenden A
 Wir oben schon erwähnt, kann dieses Kapitel nicht die umfangreiche Literatur der Transformation von Daten abarbeiten. Daher präsentiere ich hier eine Liste von Literatur und Links, die mich für dieses Kapitel hier inspiriert haben. Nicht alles habe ich genutzt, aber vielleicht ist für dich was dabei.
 
 -   Ich verweise hier auch nochmal auf das tolle Tutorium von Matus Seci auf dem [Coding Club - Transforming and scaling data: Understand the fundamental concepts of manipulating data distributions for modelling and visualization](https://ourcodingclub.github.io/tutorials/data-scaling/). Du findest auch dort mehr Informationen zu der Rücktransformation und der Anwendung von Transformationen auf einen komplexeren Datensatz.
--   [Transformations](https://onlinestatbook.com/2/transformations/contents.html)
--   [Data Transformation mit `dlookr`](https://choonghyunryu.github.io/dlookr/articles/transformation.html#standardization-and-resolving-skewness)
--   [Transforming Data](https://rcompanion.org/handbook/I_12.html)
+-   Das Kapitel [Transformations](https://onlinestatbook.com/2/transformations/contents.html) liefert auch nochmal einen schönen Überblick über verschiedene Transformtionen.
+-   Das Kapitel [Transforming Data](https://rcompanion.org/handbook/I_12.html) geht nochmal auf speziellere Funktionen ein und hilft hier nochmal bei der automatisierten Verwendung.
 :::
 
 ## Genutzte R Pakete
