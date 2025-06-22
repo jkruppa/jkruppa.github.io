@@ -3,9 +3,17 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc,
                patchwork, see, tinytable, infer)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
-fac1_tbl <- read_excel("data/flea_dog_cat.xlsx") |> 
-  mutate(animal = as_factor(animal)) |> 
-  select(animal, jump_length)
+fac1_tbl <- read_excel("data/flea_dog_cat_length_weight.xlsx") |> 
+  select(animal, sex, jump_length, flea_count) |> 
+  filter(animal != "fox") |> 
+  mutate(jump_target_reached = ifelse(jump_length > 20, 1, 0),
+         jump_target_reached = as_factor(jump_target_reached),
+         infected = ifelse(flea_count > 1, 1, 0),
+         infected = as_factor(infected))
+
+fac1_tbl |> 
+  janitor::tabyl(jump_target_reached, animal)
+
 ```
 
 # Der $\mathcal{X}^2$-Test {#sec-chi-test}
@@ -30,6 +38,13 @@ Der $\mathcal{X}^2$-Test wird häufig verwendet, wenn wir zwei Faktoren mit jewe
 
 Im Bereich der Agrarwissenschaften kommt der $\mathcal{X}^2$-Test eher selten vor. Im Bereich der Humanwissenschaften und vor allem der Epidemiologie ist der $\mathcal{X}^2$-Test weit verbreitet. Das eigentlich besondere an dem $\mathcal{X}^2$-Test ist gar nicht mal der Test selber sondern die Datenstruktur die der $\mathcal{X}^2$-Test zugrunde liegt: der Vierfeldertafel oder 2x2 Kreuztabelle. Wir werden diese Form von Tabelle noch später im maschinellen Lernen und in der Testdiagnostik wiederfinden.
 
+```{r}
+fac1_tbl |> 
+  janitor::tabyl(jump_target_reached, sex)
+```
+
+`{coin}` `{rstatix}`
+
 ## Theoretischer Hintergrund
 
 Wenn du direkt aus dem statistischen Testen hierher kommst, dann ist die Berechnung des Student t-Tests für dich kein Problem. Das machen wir im statistischen Testen ja schon als Beispiel für die Teststatistik und den p-Wert. Hier kommen dann gleich fertige Funktionen in R, die dir alles in einem berechnen. Da ist es dann immer etwas schwerer nachzuvollziehen, was die einzelnen Schritte im statistischen Testen eigentlich sind.
@@ -40,9 +55,9 @@ Als erstes berechnen wir die Teststatistik für den t-Test $T_D$ aus den beobach
 
 ```{r}
 chi_d <- fac1_tbl |> 
-  specify(jump_length ~ animal) |> 
-  calculate(stat = "t", order = c("dog", "cat"))
-t_d
+  specify(jump_target_reached ~ animal, succes = "1") |> 
+  calculate(stat = "Chisq", order = c("dog", "cat"))
+chi_d
 ```
 
 Mit der Teststatistik der Daten $T_D$ können wir so erstmal nichts anfangen. Wir brauchen noch einen vergleich zu der Verteilung der Nullhypothese. Daher bestimmen wir im Folgednen die Verteilung der Nullhypothese zu der wir unsere berechnete Teststatistik $T_D$ aus den Daten vergleichen wollen.
@@ -50,10 +65,10 @@ Mit der Teststatistik der Daten $T_D$ können wir so erstmal nichts anfangen. Wi
 ```{r}
 set.seed(202506)
 null_dist_data <- fac1_tbl |> 
-  specify(jump_length ~ animal) |> 
+  specify(jump_target_reached ~ animal, succes = "1") |> 
   hypothesize(null = "independence") |> 
   generate(reps = 1000, type = "permute") |> 
-  calculate(stat = "t", order = c("dog", "cat"))
+  calculate(stat = "Chisq", order = c("dog", "cat"))
 ```
 
 Dann schauen wir uns einmal die Verteilung der Nullhypothese an. Wie wir sehen können, liegen die meisten Teststatistiken bei der Null. Macht ja auch Sinn, in der Nullhypothese haben wir ja auch Gleichheit zwischend Hunde- und Katzenflöhen angenommen.
@@ -77,7 +92,7 @@ Dann wollen wir noch die Fläche neben unsere berechnete Teststatistik $T_D$ um 
 
 ```{r}
 null_dist_data %>%
-  get_p_value(obs_stat = t_d, direction = "two-sided")
+  get_p_value(obs_stat = chi_d, direction = "two-sided")
 ```
 
 Wie du dich noch erinnerst, ist der p-Wert die Fläche neben der berechneten Teststatistik $T_D$ zu den Verteilungsenden hin. Das wollen wir uns dann in der folgenden Abbildung nochmal anschauen, damit wir den Zusammenhang nochmal besser verstehen.
@@ -94,7 +109,7 @@ Wie du dich noch erinnerst, ist der p-Wert die Fläche neben der berechneten Tes
 
 visualize(null_dist_data) +
   theme_minimal() +
-  shade_p_value(obs_stat = t_d, direction = "two-sided",
+  shade_p_value(obs_stat = chi_d, direction = "two-sided",
                 color = "#CC79A7") +
   labs(x = "Statistik", y = "Absolute Häufigkeit") 
 ```
