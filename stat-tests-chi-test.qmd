@@ -1,19 +1,12 @@
 ```{r echo = FALSE}
+#| message: false
+#| warning: false
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc,
                patchwork, see, tinytable, infer)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
-fac1_tbl <- read_excel("data/flea_dog_cat_length_weight.xlsx") |> 
-  select(animal, sex, jump_length, flea_count) |> 
-  filter(animal != "fox") |> 
-  mutate(jump_target_reached = ifelse(jump_length > 20, 1, 0),
-         jump_target_reached = as_factor(jump_target_reached),
-         infected = ifelse(flea_count > 1, 1, 0),
-         infected = as_factor(infected))
-
-fac1_tbl |> 
-  janitor::tabyl(jump_target_reached, animal)
-
+fac1_tbl <- read_excel("data/fleas_model_data.xlsx") |> 
+  select(stage, infected) 
 ```
 
 # Der $\mathcal{X}^2$-Test {#sec-chi-test}
@@ -40,7 +33,7 @@ Im Bereich der Agrarwissenschaften kommt der $\mathcal{X}^2$-Test eher selten vo
 
 ```{r}
 fac1_tbl |> 
-  janitor::tabyl(jump_target_reached, sex)
+  janitor::tabyl(infected, stage)
 ```
 
 `{coin}` `{rstatix}`
@@ -55,8 +48,8 @@ Als erstes berechnen wir die Teststatistik für den t-Test $T_D$ aus den beobach
 
 ```{r}
 chi_d <- fac1_tbl |> 
-  specify(jump_target_reached ~ animal, succes = "1") |> 
-  calculate(stat = "Chisq", order = c("dog", "cat"))
+  specify(infected ~ stage, succes = "1") |> 
+  calculate(stat = "Chisq", order = c("juvenile", "adult"))
 chi_d
 ```
 
@@ -65,10 +58,10 @@ Mit der Teststatistik der Daten $T_D$ können wir so erstmal nichts anfangen. Wi
 ```{r}
 set.seed(202506)
 null_dist_data <- fac1_tbl |> 
-  specify(jump_target_reached ~ animal, succes = "1") |> 
+  specify(infected ~ stage, succes = "1") |> 
   hypothesize(null = "independence") |> 
-  generate(reps = 1000, type = "permute") |> 
-  calculate(stat = "Chisq", order = c("dog", "cat"))
+  generate(reps = 10000, type = "bootstrap") |> 
+  calculate(stat = "Chisq", order = c("juvenile", "adult"))
 ```
 
 Dann schauen wir uns einmal die Verteilung der Nullhypothese an. Wie wir sehen können, liegen die meisten Teststatistiken bei der Null. Macht ja auch Sinn, in der Nullhypothese haben wir ja auch Gleichheit zwischend Hunde- und Katzenflöhen angenommen.
@@ -92,7 +85,7 @@ Dann wollen wir noch die Fläche neben unsere berechnete Teststatistik $T_D$ um 
 
 ```{r}
 null_dist_data %>%
-  get_p_value(obs_stat = chi_d, direction = "two-sided")
+  get_p_value(obs_stat = chi_d, direction = "greater")
 ```
 
 Wie du dich noch erinnerst, ist der p-Wert die Fläche neben der berechneten Teststatistik $T_D$ zu den Verteilungsenden hin. Das wollen wir uns dann in der folgenden Abbildung nochmal anschauen, damit wir den Zusammenhang nochmal besser verstehen.
@@ -109,7 +102,7 @@ Wie du dich noch erinnerst, ist der p-Wert die Fläche neben der berechneten Tes
 
 visualize(null_dist_data) +
   theme_minimal() +
-  shade_p_value(obs_stat = chi_d, direction = "two-sided",
+  shade_p_value(obs_stat = chi_d, direction = "greater",
                 color = "#CC79A7") +
   labs(x = "Statistik", y = "Absolute Häufigkeit") 
 ```
@@ -126,7 +119,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| warning: false
 #| message: false
 pacman::p_load(tidyverse, magrittr, effectsize, rstatix,
-               scales, parameters, conflicted)
+               scales, parameters, rcompanion, conflicted)
 conflicts_prefer(stats::chisq.test)
 conflicts_prefer(stats::fisher.test)
 ```
@@ -169,6 +162,31 @@ $$
 
 Wir schauen uns jetzt einmal den $\mathcal{X}^2$-Test theoretisch an bevor wir uns mit der Anwendung des $\mathcal{X}^2$-Test in R beschäftigen.
 
+## Anpassungstest
+
+Verweis zur Genetik und eventuell Quantitative Genetik
+
+```{r}
+obs <- c(AA = 12, AB = 24, BB = 15)
+```
+
+```{r}
+exp <- c(AA = 1/4, AB = 2/4, BB = 1/4)
+```
+
+```{r}
+chisq.test(x = obs, p = exp, simulate.p.value = TRUE)
+```
+
+`{rcompanion}`
+
+```{r}
+cohenW(x = obs, p = exp)
+```
+
+## Unabhängigkeitstest
+
+::: panel-tabset
 ## Theoretisch
 
 In @tbl-chi-square-obs von oben hatten wir die *beobachteten* Werte. Das sind die Zahlen, die wir in unserem Experiment erhoben und gemessen haben. Der $\mathcal{X}^2$-Test vergleicht nun die *beobachteten* Werte mit den anhand der Randsummen zu *erwartenden* Werte. Daher ist die Formel für den $\mathcal{X}^2$-Test wie folgt.
@@ -203,6 +221,25 @@ Wir können dann die Formel für den $\mathcal{X}^2$-Test entsprechend ausfülle
 
 Es ergibt sich ein $\chi^2_{D}$ von $1.25$ mit der Regel, dass wenn $\chi^2_{D} \geq \chi^2_{\alpha=5\%}$ die Nullhypothese abgelehnt werden kann. Mit einem $\chi^2_{\alpha=5\%} = `r round(qchisq(p = 0.05, df = 1, lower.tail = FALSE), 2)`$ können wir die Nullhypothese nicht ablehnen. Es besteht kein Zusammenhang zwischen den Befall mit Flöhen und der Tierart. Oder anders herum, Hunde und Katzen werden gleich stark mit Flöhen infiziert.
 
+## `{stats}`
+
+Wenn wir den $\mathcal{X}^2$-Test in R rechnen wollen nutzen wir die Funktion `chisq.test()`, die eine Matrix von Zahlen verlangt. Dies ist etwas umständlich. Wir müssen nur beachten, dass wir die Matrix so bauen, wie wir die Matrix auch brauchen. Deshalb immer mal doppelt schauen, ob deine Matrix auch deinen beobachteten Werten entspricht.
+
+```{r}
+
+mat <- matrix(c(23, 10, 18, 14), 
+              byrow = TRUE, nrow = 2,
+              dimnames = list(animal = c("dog", "cat"),
+                              infected = c("yes", "no")))
+chisq.test(mat, correct = FALSE)
+
+```
+
+Als ein mögliches Effektmaß können wir Cramers $V$ berechnen. Wir nutzen hierzu die Funktion `cramers_v()`. Auf einer reinen 2x2 Kreuztabelle wäre aber Pearsons $\phi$ durch die Funktion `phi()` vorzuziehen. Siehe dazu auch [$\phi$ and Other Contingency Tables Correlations](https://easystats.github.io/effectsize/reference/phi.html) auf der Hilfeseite des R Paketes `{effectsize}`. Wir bleiben hier dann aber bei Cramers $V$.
+:::
+
+#### Effektschätzer {.unnumbered .unlisted}
+
 Wie stark ist nun der beobachtete Effekt? Wir konnten zwar die Nullhypothese nicht ablehnen, aber es wäre auch von Interesse für die zukünftige Versuchsplanung, wie stark sich die Hunde und Katzen im Befall mit Flöhen unterscheiden. Wir haben nun die Wahl zwischen zwei statistischen Maßzahlen für die Beschreibung eines Effektes bei einem $\mathcal{X}^2$-Test.
 
 Zum einen Cramers $V$, das wir in etwa interpretieren wie eine Korrelation und somit auch einheitslos ist. Wenn Cramers $V$ gleich 0 ist, dann haben wir keinen Unterschied zwischen den Hunden und Katzen gegeben dem Flohbefall. Bei einem Cramers $V$ von 0.5 haben wir einen sehr starken Unterschied zwischen dem Flohbefall zwischen den beiden Tierarten. Der Vorteil von Cramers V ist, dass wir Cramers $V$ auch auf einer beliebig großen Kreuztabelle berechnen können. Die Formel ist nicht sehr komplex.
@@ -236,27 +273,38 @@ $$
 
 Es ist zwingend notwendig für die folgenden Interpretation der Odds Ratios, dass in den Spalten links die $ja$ Spalte steht und rechts die $nein$ Spalte. Ebenso interpretieren wie die Odds Ratios im Bezug zur oberen Zeile. In unserem Fall ist also die Chance sich mit Flöhen zu infizieren *bei Hunden* 1.79 mal größer als bei Katzen. Diese Interpretation ist nur korrekt, wenn die 2x2 Kreuztabelle wie beschrieben erstellt ist!
 
-## Praktisch in R
-
-Wenn wir den $\mathcal{X}^2$-Test in R rechnen wollen nutzen wir die Funktion `chisq.test()`, die eine Matrix von Zahlen verlangt. Dies ist etwas umständlich. Wir müssen nur beachten, dass wir die Matrix so bauen, wie wir die Matrix auch brauchen. Deshalb immer mal doppelt schauen, ob deine Matrix auch deinen beobachteten Werten entspricht.
-
-```{r}
-
-mat <- matrix(c(23, 10, 18, 14), 
-              byrow = TRUE, nrow = 2,
-              dimnames = list(animal = c("dog", "cat"),
-                              infected = c("yes", "no")))
-chisq.test(mat, correct = FALSE)
-
-```
-
-Als ein mögliches Effektmaß können wir Cramers $V$ berechnen. Wir nutzen hierzu die Funktion `cramers_v()`. Auf einer reinen 2x2 Kreuztabelle wäre aber Pearsons $\phi$ durch die Funktion `phi()` vorzuziehen. Siehe dazu auch [$\phi$ and Other Contingency Tables Correlations](https://easystats.github.io/effectsize/reference/phi.html) auf der Hilfeseite des R Paketes `{effectsize}`. Wir bleiben hier dann aber bei Cramers $V$.
-
 ```{r}
 cramers_v(mat) 
 ```
 
 Wir sehen, dass der Effekt mit einem $V = 0.06$ schwach ist. Ein Wert von 0 bedeutet keine Assoziation und ein Wert von 1 einen maximalen Zusammenhang. Wir können die Werte von $V$ wie eine Korrelation interpretieren. Der in R berechnete Wert unterscheidet sich von unseren händsichen berechneten Wert, da wir hier mit dem adjustierten Cramers $V$ rechnen. Wir würden auch in der Anwendung den adjustierten Wert verwenden, aber für das Verständnis reicht der händisch berechnete Wert.
+
+## Modellierung
+
+[Score test oder Rao Statistik](https://en.wikipedia.org/wiki/Score_test)
+
+```{r}
+#| eval: false
+
+glm(counts ~ mood, data = D, family = poisson()) |> 
+  anova(test = 'Rao')
+```
+
+Jetzt brauchen wir eine 2x2 Tabelle also zwei Spalten...
+
+```{r}
+#| eval: false
+
+D = data.frame(
+  mood = c('happy', 'happy', 'meh', 'meh', 'sad', 'sad'),
+  sex = c('male', 'female', 'male', 'female', 'male', 'female'),
+  Freq = c(100, 70, 30, 32, 110, 120)
+)
+
+MASS::loglm(Freq ~ mood + sex, D)
+```
+
+## Friedhof
 
 Haben wir eine geringe Zellbelegung von unter 5 in einer der Zellen der 2x2 Kreuztabelle, dann verwenden wir den Fisher Exakt Test. Der Fisher Exakt Test hat auch den Vorteil, dass wir direkt die Odds Ratios wiedergegeben bekommen. Wir können auch den Fisher Exakt Test rechnen, wenn wir viele Beobachtungen pro Zelle haben und einfach an die Odds Ratios rankommen wollen. Der Unterschied zwischen dem klassischen $\mathcal{X}^2$-Test und dem Fisher Exakt Test ist in der praktischen Anwendung nicht so groß.
 
@@ -265,3 +313,5 @@ fisher.test(mat)
 ```
 
 Wir sehen auch hier den nicht signifikanten $p$-Wert sowie eine Odds Ratio von 1.77. Hunde haben aso eine um 1.77 höhere Chance sich mit Flöhen zu infizieren.
+
+## Referenzen {.unnumbered}
