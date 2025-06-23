@@ -133,7 +133,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| warning: false
 pacman::p_load(tidyverse, magrittr, broom, readxl,
                infer, see, tidyplots, rstatix, ggpubr,
-               ggrepel, conflicted)
+               ggrepel, nlme, conflicted)
 conflicts_prefer(dplyr::filter)
 conflicts_prefer(rstatix::t_test)
 set.seed(20221206)
@@ -702,6 +702,63 @@ Ich würde eher die Implementierung in `{rstatix}` der Standardimplementierung i
 t_test(jump_length ~ trt, data = paired_long_tbl, 
        paired = TRUE) |> 
   select(group1, group2, p)
+```
+:::
+
+## Modellierung
+
+Für vielleicht viele, auch für die sich schon länger mit der Statistik beschäftigen, ist es immer wieder eine Überraschung, dass sich die gängigen statistischen Tests auch als Modelle abbilden lassen. Die Übersicht [Common statistical tests are linear models](https://lindeloev.github.io/tests-as-linear/) liefert hier nochmal eine wunderbare Tabelle. Ich zeige hier die Modellierungen in `lm()` sowie `gls()`, die ja eigentlich als Regression gilt udn nicht als Test. Hier siehst du, wie sich dann auch über die Jahre Zusammenhänge herausgestellt haben, die dann methodisch vereinheitlicht wurden. Ich habe dir den direkten Vergleich dann immer in den zweiten Tab gelegt. Dann beginnen wir mit dem linearen Modell mit `lm()`, die dann auf einer kategoriellen Einflussvariable einen t-Test rechnet.
+
+::: panel-tabset
+## `lm()`
+
+```{r}
+lm(jump_length ~ animal, data = fac1_tbl) |> 
+  summary()
+```
+
+## `t.test()`
+
+```{r}
+t.test(jump_length ~ animal, 
+       data = fac1_tbl, var.equal = TRUE)
+```
+:::
+
+Neben der klassischen Regression, die dann homogene Varianzen in den Gruppen annimmt, können wir die Regression auch mit der Funktion `gls()` aus dem R Paket `{nlme}` rechen. Dann haben wir auch die Möglichkeit die heterogenen Varianzen in den Gruppen zu berücksichten.
+
+::: panel-tabset
+## `gls()`
+
+```{r}
+gls(jump_length ~ animal, data = fac1_tbl, 
+    weights = varIdent(form = ~ 1 | animal)) |> 
+  summary()
+```
+
+## `t.test()`
+
+```{r}
+t.test(jump_length ~ animal, 
+       data = fac1_tbl, var.equal = FALSE)
+```
+:::
+
+Dann haben wir noch den Fall, dass wir einen paarweisen Vergleich rechnen wollen. In dem Fall nutzen wir wieder die Funktion `lm()` in einem linearen Modell, rechnen aber mit der Differenz. Die Schreibweise ist etwas wild, aber wir schauen einfach, ob sich die Differenz der beiden Spalten von Null unterscheidet. Nichts anderes macht ja auch der gepaarte t-Test.
+
+::: panel-tabset
+## `lm()`
+
+```{r}
+lm(hungrig - satt ~ 1, data = paired_tbl) |> 
+  summary()
+```
+
+## `t.test()`
+
+```{r}
+t.test(paired_tbl$satt, paired_tbl$hungrig, 
+       paired = TRUE)
 ```
 :::
 
