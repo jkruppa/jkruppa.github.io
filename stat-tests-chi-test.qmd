@@ -33,13 +33,15 @@ Im Bereich der Agrarwissenschaften kommt der $\mathcal{X}^2$-Test eher selten vo
 
 `{coin}` `{rstatix}`
 
-> *"The value of the cell expecteds should be 5 or more in at least 80% of the cells, and no cell should have an expected of less than one. This assumption is most likely to be met if the sample size equals at least the number of cells multiplied by 5. Essentially, this assumption specifies the number of cases (sample size) needed to use the* $\mathcal{X}^2$ *for any number of cells in that* $\mathcal{X}^2$*. " --- @mchugh2013chi*
+> *"The value of the cell expecteds should be 5 or more in at least 80% of the cells, and no cell should have an expected of less than one. This assumption is most likely to be met if the sample size equals at least the number of cells multiplied by 5. Essentially, this assumption specifies the number of cases (sample size) needed to use the* $\mathcal{X}^2$ *for any number of cells in that* $\mathcal{X}^2$*." --- @mchugh2013chi*
 
 @mchugh2013chi [The chi-square test of independence](https://pubmed.ncbi.nlm.nih.gov/23894860/)
 
 > *"If you can avoid chi-square contingency tables with greater than one degree of freedom, you should do so." --- @sharpe2015your*
 
 @sharpe2015your [Your Chi-Square Test is Statistically Significant: Now What?](https://files.eric.ed.gov/fulltext/EJ1059772.pdf)
+
+Wort zur Yates Korrektur
 
 ## Theoretischer Hintergrund
 
@@ -135,8 +137,9 @@ Am Ende des Kapitels findest du nochmal den gesamten R Code in einem Rutsch zum 
 ```{r}
 fac1_tbl <- read_excel("data/fleas_model_data.xlsx") |> 
   select(stage, infected) |> 
-  mutate(stage_fct = as_factor(stage),
-         infected_num = as.numeric(infected))
+  mutate(infected_num = as.numeric(infected),
+         stage = as_factor(stage),
+         infected = as_factor(infected))
 ```
 
 ```{r}
@@ -164,7 +167,8 @@ fac1_tbl |>
 ggplot(data = fac1_tbl) +
   theme_minimal() +
   geom_mosaic(aes(x = product(infected, stage), fill = stage)) +
-  theme(legend.position = "none")
+  theme(legend.position = "none") +
+  scale_fill_okabeito()
 ```
 
 ## Hypothesen
@@ -330,16 +334,7 @@ cohenW(x = obs, p = exp)
 
 ## Modellierung
 
-Wir können den Unabhängigkeitstest auch modellieren.
-
-[Score test oder Rao Statistik](https://en.wikipedia.org/wiki/Score_test)
-
-```{r}
-glm(infected_num ~ stage_fct, data = fac1_tbl, family = poisson()) |> 
-  anova(test = 'Rao') 
-```
-
-Jetzt brauchen wir eine 2x2 Tabelle also zwei Spalten...
+Für vielleicht viele, auch für die sich schon länger mit der Statistik beschäftigen, ist es immer wieder eine Überraschung, dass sich die gängigen statistischen Tests auch als Modelle abbilden lassen. Die Übersicht [Common statistical tests are linear models](https://lindeloev.github.io/tests-as-linear/) liefert hier nochmal eine wunderbare Tabelle. Ich zeige hier die Modellierungen in `lm()` sowie `gls()`, die ja eigentlich als Regression gilt udn nicht als Test. Hier siehst du, wie sich dann auch über die Jahre Zusammenhänge herausgestellt haben, die dann methodisch vereinheitlicht wurden. Ich habe dir den direkten Vergleich dann immer in den zweiten Tab gelegt. Dann beginnen wir mit dem linearen Modell mit `lm()`, die dann auf einer kategoriellen Einflussvariable einen t-Test rechnet.
 
 ```{r}
 loglm_tbl <- fac1_tbl |> 
@@ -348,11 +343,43 @@ loglm_tbl <- fac1_tbl |>
   pivot_longer(cols = adult:juvenile,
                names_to = "stage",
                values_to = "freq")
+loglm_tbl
 ```
+
+::: panel-tabset
+## `glm()`
+
+```{r}
+glm(freq ~ infected * stage, data = loglm_tbl, family = poisson()) |>
+  anova(test = 'Rao') 
+```
+
+Jetzt brauchen wir eine 2x2 Tabelle also zwei Spalten...
+
+## `chisq.test()`
+
+```{r}
+fac1_tbl |> 
+  tabyl(infected, stage) |> 
+  janitor::chisq.test(correct = FALSE)
+```
+:::
+
+::: panel-tabset
+## `loglm()`
 
 ```{r}
 MASS::loglm(freq ~ stage + infected, loglm_tbl)
 ```
+
+## `chisq.test()`
+
+```{r}
+fac1_tbl |> 
+  tabyl(infected, stage) |> 
+  janitor::chisq.test(correct = FALSE)
+```
+:::
 
 ## Friedhof
 
