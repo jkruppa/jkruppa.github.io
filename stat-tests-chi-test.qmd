@@ -282,7 +282,7 @@ Es ergibt sich ein $\mathcal{X}^2_{D}$ von $3.05$ mit der Regel, dass wenn $\mat
 ::: {layout="[15,85]" layout-valign="top"}
 ![](images/personal_opinion.png){fig-align="center" width="100%"}
 
-> *"Wie immer gilt, liegt der p-Wert nahe an der Signifikanzschwelle von* $\alpha$ gleich 5%, dann ist die Aussage gewagt hier von einem oder keinen Unterschied zu sprechen. Wir sind eben numerisch an der Grenze und wenn du dann nochmal in die 2x2 Tafel schaust, dann würde ich sagen, dass wir höchstens einen Trend, aber nicht wirklich was bedeutendes vorliegen haben." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.
+> *"Wie immer gilt, liegt der p-Wert nahe an der Signifikanzschwelle von* $\alpha$ *gleich 5%, dann ist die Aussage gewagt hier von einem oder keinen Unterschied zu sprechen. Wir sind eben numerisch an der Grenze und wenn du dann nochmal in die 2x2 Tafel schaust, dann würde ich sagen, dass wir höchstens einen Trend, aber nicht wirklich was bedeutendes vorliegen haben." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
 :::
 
 ## `{stats}`
@@ -362,23 +362,33 @@ table(fac1_tbl$infected, fac1_tbl$stage) |>
   cramers_v() 
 ```
 
+::: {layout="[15,85]" layout-valign="top"}
+![](images/personal_opinion.png){fig-align="center" width="100%"}
+
+> *"Effektschätzer wie Cramers V habe ich selten berichtet gesehen. Wenn, dann wollen wir eher Odss Ratios haben, aber in dem Fall würde ich eher zu einer logistischen Regression raten, als hier einen* $\mathcal{X}^2$*-Test zu rechnen. In der logistischen Regression auf einem binären Endpunkt kommst du dann weiter." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
+:::
+
 ## Anpassungstest
 
-Verweis zur Genetik und eventuell Quantitative Genetik
+Der Anpassungstest (eng. *goodness-of-fit*) wird häufig in der Genetik verwendet, wenn wir testen wollen, ob wir ein erwartetes Spaltungsverhältnis beobachtet haben oder eben eine Abweichung vom Hardy-Weinberg Gesetz vorliegt. Noch allgemeiner gesprochen Testen wir hier, ob unsere beobachteten Werte von erwarteten Anteilen unterscheiden. Daher beobachten wir eben das Auftreten von drei genetischen Markern $AA$, $AB$ und $BB$ und wollen jetzt wissen, ob diese auch in einem Verhältnis von 1:2:1 auftreten.
 
 ```{r}
 obs <- c(AA = 12, AB = 24, BB = 15)
 ```
 
+Bei einem Verhältnis von 1:2:1 sollten wir dann folgende Aufteilung erwarten.
+
 ```{r}
 exp <- c(AA = 1/4, AB = 2/4, BB = 1/4)
 ```
+
+Dann können wir die beobachteten Werte und die zu erwartenden Verhältnisse einmal in die Funktion `chisq.test()` stecken. Wir erhalten dann einen p-Wert, der uns aussagt, ob wir eine Abweichung vorliegen haben. Mit einem p-Wert von $0.81$ können wir die Nullhypothese der Gleicheit nicht ablehnen. Die beobachteten Werte weichen nicht von einem Verhältnis von 1:2:1 ab.
 
 ```{r}
 chisq.test(x = obs, p = exp, simulate.p.value = TRUE)
 ```
 
-`{rcompanion}`
+In den sehr seltenen Fällen wo du noch einen Effektschätzer brauchst, kannst du im R Paket `{rcompanion}` die Funktion `cohenW()` verwenden. Die Interpretation ist ähnlich wie bei Cramers V. Ein Wert nahe Null ist kein Effekt und je größer desto stärker.
 
 ```{r}
 cohenW(x = obs, p = exp)
@@ -386,7 +396,9 @@ cohenW(x = obs, p = exp)
 
 ## Modellierung
 
-Für vielleicht viele, auch für die sich schon länger mit der Statistik beschäftigen, ist es immer wieder eine Überraschung, dass sich die gängigen statistischen Tests auch als Modelle abbilden lassen. Die Übersicht [Common statistical tests are linear models](https://lindeloev.github.io/tests-as-linear/) liefert hier nochmal eine wunderbare Tabelle. Ich zeige hier die Modellierungen in `lm()` sowie `gls()`, die ja eigentlich als Regression gilt udn nicht als Test. Hier siehst du, wie sich dann auch über die Jahre Zusammenhänge herausgestellt haben, die dann methodisch vereinheitlicht wurden. Ich habe dir den direkten Vergleich dann immer in den zweiten Tab gelegt. Dann beginnen wir mit dem linearen Modell mit `lm()`, die dann auf einer kategoriellen Einflussvariable einen t-Test rechnet.
+Für vielleicht viele, auch für die sich schon länger mit der Statistik beschäftigen, ist es immer wieder eine Überraschung, dass sich die gängigen statistischen Tests auch als Modelle abbilden lassen. Die Übersicht [Common statistical tests are linear models](https://lindeloev.github.io/tests-as-linear/) liefert hier nochmal eine wunderbare Tabelle. Ich zeige hier die Modellierungen in `glm()` sowie `loglm()`, die ja eigentlich als Regression gilt und nicht als Test. Hier siehst du, wie sich dann auch über die Jahre Zusammenhänge herausgestellt haben, die dann methodisch vereinheitlicht wurden. Ich habe dir den direkten Vergleich dann immer in den zweiten Tab gelegt.
+
+Wir brauchen hier aber die Daten einmal als Long_Format, so dass ich hier einmal etwas die Daten bearbeiten muss, damit wir dann auch mit denen Rechnen können.
 
 ```{r}
 loglm_tbl <- fac1_tbl |> 
@@ -398,6 +410,8 @@ loglm_tbl <- fac1_tbl |>
 loglm_tbl
 ```
 
+Dann beginnen wir mit dem linearen Modell mit `glm()`, die dann auf einer kategoriellen Einflussvariable einen Chi-Quadrat-Test rechnet. Auch nutzen wir hier einmal nicht die klassische ANOVA sondern nochmal eine andere Implementierung. Die Ergebnisse sind gleich, wenn wir auf eine Korrektur nach Yates verzichten.
+
 ::: panel-tabset
 ## `glm()`
 
@@ -405,8 +419,6 @@ loglm_tbl
 glm(freq ~ infected * stage, data = loglm_tbl, family = poisson()) |>
   anova(test = 'Rao') 
 ```
-
-Jetzt brauchen wir eine 2x2 Tabelle also zwei Spalten...
 
 ## `chisq.test()`
 
@@ -416,6 +428,8 @@ fac1_tbl |>
   janitor::chisq.test(correct = FALSE)
 ```
 :::
+
+Die Nutzung des Funktion `loglm()` ist etwas einfacher und wir brauchen auch keine ANOVA um auf das Ergebnis zu kommen. Auch hier haben wir die gleiche Entscheidung wie bei einem unkorrigierten Chi-Quadrat-Test
 
 ::: panel-tabset
 ## `loglm()`
@@ -435,16 +449,22 @@ fac1_tbl |>
 
 ## Friedhof
 
-### ... der Fisher's exact test
+Es gibt immer mal wieder statistische Tests nach denen ich gefragt werde, die eigentlich veraltet sind oder aber nicht mehr genutzt werden sollten. Dennoch wird danach gefragt und wenn ich die Tests hier nicht beschreibe, dann findest du die Tests auch nicht. Also hier einmal der Friedhof der Chi-Qudrat-Tests, die ich nicht mehr anwenden würde.
 
-[When and how to avoid inappropriate use of Fisher's exact test](https://stats.stackexchange.com/questions/364417/when-and-how-to-avoid-inappropriate-use-of-fishers-exact-test)
+### ... der Fisher Exakt Test
 
-Haben wir eine geringe Zellbelegung von unter 5 in einer der Zellen der 2x2 Kreuztabelle, dann verwenden wir den Fisher Exakt Test. Der Fisher Exakt Test hat auch den Vorteil, dass wir direkt die Odds Ratios wiedergegeben bekommen. Wir können auch den Fisher Exakt Test rechnen, wenn wir viele Beobachtungen pro Zelle haben und einfach an die Odds Ratios rankommen wollen. Der Unterschied zwischen dem klassischen $\mathcal{X}^2$-Test und dem Fisher Exakt Test ist in der praktischen Anwendung nicht so groß.
+Im allgemeinen Sprachgebrauch der Statistik wird der Fisher Exakt Testa bei kleiner Zellbelegung verwendet. Wie du in dem Beitrag [When and how to avoid inappropriate use of Fisher's exact test](https://stats.stackexchange.com/questions/364417/when-and-how-to-avoid-inappropriate-use-of-fishers-exact-test) nachlesen kannst, ist der Fisher Exakt Test nicht zu empfehlen.
+
+Haben wir eine geringe Zellbelegung von unter 5 in einer der Zellen der 2x2 Kreuztabelle, dann verwenden wir den Fisher Exakt Test. Der Fisher Exakt Test hat auch den Vorteil, dass wir direkt die Odds Ratios wiedergegeben bekommen. Wir können auch den Fisher Exakt Test rechnen, wenn wir viele Beobachtungen pro Zelle haben und einfach an die Odds Ratios rankommen wollen. Der Unterschied zwischen dem klassischen $\mathcal{X}^2$-Test und dem Fisher Exakt Test ist in der praktischen Anwendung nicht so groß. Wie schon bemerkt, heutzutage wird der Fisher Exakt Test nicht mehr empfohlen.
 
 ```{r}
-fisher.test(mat)
+fac1_tbl |>
+  mutate(infected = ordered(infected, levels = c(1, 0)),
+         stage = ordered(stage, levels = c("juvenile", "adult"))) |> 
+  tabyl(infected, stage) |> 
+  janitor::fisher.test()
 ```
 
-Wir sehen auch hier den nicht signifikanten $p$-Wert sowie eine Odds Ratio von 1.77. Hunde haben aso eine um 1.77 höhere Chance sich mit Flöhen zu infizieren.
+Wir sehen auch hier den nicht signifikanten $p$-Wert sowie eine Odds Ratio von 3.3. Hunde haben also eine um 1.77 höhere Chance sich mit Flöhen zu infizieren.
 
 ## Referenzen {.unnumbered}
