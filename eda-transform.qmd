@@ -358,6 +358,8 @@ Wir haben jetzt also erkannt, dass wir eine schiefe Verteilung in unseren Daten 
 
 Neben diesen sehr häufig vorkommenden Transformationen können wir auch eine inverse Normaltransformation nutzen oder aber die Transformation mit Rängen. Die inverse Normaltransformation ist teilweise sehr effizient aber auch umstritten, weil sie im Prinzip alle Daten in eine Normalverteilung presst, egal wie gut die Messwerte passen würden. Die Rangtransformation führt dann zu den Tests der Parametrik, wie dem U-Test und dem Kruskal-Wallis-Test. Hierzu erfährst du dann mehr in dem Abschnit weiter unten.
 
+Wenn dir gleich das ganze Ausprobieren etwas zu anstrengend ist, dann zeige hier dir auch noch weiter unten die automatisierte Transformation. Es gibt mittlerweile Algorithmen, die eben dann eine ganze Reihe an Transformationen durchprobieren und dir die Transformation zurückgeben, die am Besten eine Normalverteilung in deinen Messwert erschafft. Das ist natürlich auch sehr praktisch und ist schneller als alles händisch durchzuprobieren.
+
 ::: callout-warning
 ## Achtung, bitte beachten!
 
@@ -559,22 +561,20 @@ p1 + p2 +
 
 ### Inverse Normaltransformation
 
-Kommen wir fast zum Schluß noch zur inversen Normaltransformation. Die inverse Normaltransformation sieht ein wenig wild in der Formel aus. Ich zeige hier die Implementierung in R einmal und gehe nicht weiter mathematisch auf die Transformation ein. In den letzten Jahren wird die Transformation immer beliebter, so dass ich hier auch gerne auf die Arbeit von @beasley2009rank und [Rank-Based Inverse Normal Transformations are Increasingly Used, But are They Merited?](https://pmc.ncbi.nlm.nih.gov/articles/PMC2921808/) verweise.
+Kommen wir fast zum Schluß noch zur inversen Normaltransformation. Die inverse Normaltransformation sieht ein wenig wild in der Formel aus. Ich zeige hier die Implementierung in R einmal und gehe nicht weiter mathematisch auf die Transformation ein. In den letzten Jahren wird die Transformation immer beliebter, so dass ich hier auch gerne auf die Arbeit von @beasley2009rank und [Rank-Based Inverse Normal Transformations are Increasingly Used, But are They Merited?](https://pmc.ncbi.nlm.nih.gov/articles/PMC2921808/) verweise. Dann habe ich noch die Diskussion auf StackExchange mit [What is the inverse normal transformation (INT) and what are the reasons behind using it?](https://stats.stackexchange.com/questions/588992/what-is-the-inverse-normal-transformation-int-and-what-are-the-reasons-behind) gelesen. Am Ende presst du deine Messwerte in eine Normalverteilung, denn du wirst durch die inversen Normaltransformation immer eine Normalverteilung erhalten. Die Idee ist eben, dass deine Messwerte in Wirklichkeit normalverteilt sind und du hier nur eine ungünstige Repräsentation in deiner Stichprobe hast. In R würden wir dann folgende Funktion nutzen.
 
 ```{r}
 invers_norm <- function(y) qnorm((rank(y, na.last="keep") - 0.5)/sum(!is.na(y)))
 ```
 
-[What is the inverse normal transformation (INT) and what are the reasons behind using it?](https://stats.stackexchange.com/questions/588992/what-is-the-inverse-normal-transformation-int-and-what-are-the-reasons-behind)
-
-von @beasley2009rank
-
-[Inverse normal transformation -- What is it and how to do it?](https://yingji15.github.io/2019-08-17-inverse-normal-transformation/)
+Dann können wir schon die Funktion auf unseren Messwert der Schlupfzeiten anwenden.
 
 ```{r}
 invers_norm_tbl <- fac1_tbl |> 
   mutate(inverse_hatch_time = invers_norm(hatch_time))
 ```
+
+Wie zu erwarten presst die inverse Normaltransformation die Messwerte der Schlupfzeiten in einer Normalverteilung. Jetzt kann man argumentieren, dass es vielleicht nicht die beste Idee ist, da die Schlupfzeiten vermutich nicht normalverteilt sind und wir hier die Daten künstlich in eine Normalverteilung schieben. Auf der anderen Seite ist es eben dann auch das Ziel der Transformation eine Normalverteilung auf Teufel komm raus zu erhalten. Für mich eine mühsige Diskussion. Die inverse Normaltransformation funktioniert manchmal ganz gut, wie wir hier sehen und dann können wir auch diese Transformation verwenden.
 
 ```{r}
 #| message: false
@@ -583,7 +583,7 @@ invers_norm_tbl <- fac1_tbl |>
 #| fig-align: center
 #| fig-height: 3.5
 #| fig-width: 8
-#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten. **(A)** Nicht transformierte, rohe Daten. **(B)** $inverse$-transformierte Daten. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten. **(A)** Nicht transformierte, rohe Daten. **(B)** inversenormal-transformierte Daten. *[Zum Vergrößern anklicken]*"
 #| layout-nrow: 1
 
 p1 <- ggplot(invers_norm_tbl, aes(hatch_time, fill = animal)) +
@@ -615,19 +615,21 @@ Der Ausweg schlechthin bis in die 90ziger Jahre war vermutlich die nichtparametr
 -   [Der Wilcoxon-Mann-Whitney-Test](#sec-utest) oder auch U-Test ist der t-Test auf den Rängen eines Messwertes. Wir vergleichen hier zwei Gruppen miteinander. Wenn wir mehr Gruppen haben, die wir vergleichen wollen, dann brauchen wir mehrere paarweise Wilcoxon Tests um die signifikanten Unterschiede zu bestimmen.
 -   [Der Kruskal-Wallis-Test](#sec-kruskal) ist die einfaktorielle ANOVA auf den Rängen eines Messwertes. Wir vergleichen hier drei oder mehr Gruppen simultan miteinander. Wenn wir dann wissen wollen, welcher paarweise Vergleich signifikant ist, brauchen wir dann einen Posthoc-Test.
 
-Was ist also die Rangtransformation? Wir geben einfach den sortierten Rang des Messwertes über alle Gruppen. Dann können wir auf dem rangierten Messwert weiterrechnen. In den folgenden Tabellen siehst du dann einmal die orginalen Sprungweiten gemessen in \[cm\] sowie deren rangierten Gegenstücke.
+Was ist also die Rangtransformation? Wir geben einfach den sortierten Rang des Messwertes über alle Gruppen. Dann können wir auf dem rangierten Messwert weiterrechnen. Ich habe dir hier einmal die Funktion mitgebracht, die auch negative Messwerte korrekt mit berücksichtigt. Ansonsten geht natürlich auch ganz einfach die Funktion `rank()`.
 
 ```{r}
 signed_rank <- function(x) sign(x) * rank(abs(x))
 ```
 
-`rank()`
+Ich gehe hier jetzt nicht weiter auf die Rangtransformation ein, denn du findest dann alle Informationen zu dieser Transformation in den Kapiteln zu dem nichtparametrischen Testen. Schaue einfach einmal dahin, wenn dich die Algorithmen um die Ränge von Messwerten interessieren. Dann verlässt du auch den ANOVA Pfad und nutzt andere Algorithmen.
 
 ## Skalierung
 
+Kommen wir jetzt noch zur Skalierung. Hier wird es manchmal dann etwas wild was das Verständnis angeht. Wir skalieren oder normalisieren Daten, um die Daten in einen fixen Werteraum zu kriegen. Die Normalisierung hat also nichts mit der Erschaffung von einer Normalverteilung zu tun. Wir nutzen beide Verfahren um Einheiten loszuwerden und Messwerte näher zueinander zu bringen. Ja, im Prinzip tut das auch die Logtransformation aber die Skalierung ist dann nochmal ein Extrafeld. Wir wenden die Skalierung gerne in der Klassifikation und dem maschinellen Lernen an. Dort brauchen wir sehr gleichförmige Variablen und da bietet sich die Skalierung für an. Hier gleich vorweg, häufig ändert sich die Verteilung nicht, sondern nur die Werte.
+
 ### Standardisierung
 
-Die Standardisierung wird auch $z$-Transformation genannt. In dem Fall der Standardisierung schieben wir die Daten auf den Ursprung, in dem wir von jedem Datenpunkt $y_i$ den Mittelwert $\bar{y}$ abziehen. Dann setzen wir noch die Standardabweichung auf Eins in dem wir durch die Standardabweichung $y_s$ teilen. Unser standardisiertes $y$ ist nun standardnormalverteilt mit $\mathcal{N(0,1)}$. Wir nutzen für die Standardisierung folgende Formel.
+Die Standardisierung wird auch gerne $z$-Transformation genannt. In dem Fall der Standardisierung schieben wir die Daten auf den Nullursprung, in dem wir von jedem Datenpunkt $y_i$ den Mittelwert $\bar{y}$ abziehen. Dann setzen wir noch die Standardabweichung auf Eins in dem wir durch die Standardabweichung $s$ teilen. Unser standardisiertes $y$ ist nun standardnormalverteilt mit $\mathcal{N(0,1)}$. Wir nutzen für die Standardisierung folgende Formel.
 
 $$
 y_z = \cfrac{y_i - \bar{y}}{s_y} 
@@ -640,7 +642,7 @@ scale_tbl <- fac1_tbl |>
   mutate(scale_jump_length = scale(jump_length))
 ```
 
-In der folgenden Abbildung sehen wir nochmal die nicht transformierten, rohen Daten. Wir haben in diesem Beispiel die normalvertielte Variable `jump_length` gewählt. Der Mittelwert von `jump_length` ist `r round(mean(fac1_tbl$jump_length), 2)` und die Standardabweichung ist `r round(sd(fac1_tbl$jump_length), 2)`. Ziehen wir nun von jedem Wert von `jump_length` den Mittelwert mit 19.3 ab, so haben wir einen neuen Schwerpunkt bei Null. Teilen wir dann jede Zahl durch 3.36 so haben wir eine reduzierte Spannweite der Verteilung. Es ergibt sich die folgende Abbildung als Standardnormalverteilung. Die Zahlen der auf der x-Achse haben jetzt aber keine Bedeutung mehr. Wie können die Sprungweite auf der $z$-Skala nicht mehr biologisch interpretieren.
+In der folgenden Abbildung sehen wir nochmal die nicht transformierten, rohen Daten. Wir haben in diesem Beispiel die normalverteilte Variable `jump_length` gewählt. Der Mittelwert von `jump_length` ist `r round(mean(fac1_tbl$jump_length), 2)` und die Standardabweichung ist `r round(sd(fac1_tbl$jump_length), 2)`. Ziehen wir nun von jedem Wert von `jump_length` den Mittelwert mit 19.3 ab, so haben wir einen neuen Schwerpunkt bei Null. Teilen wir dann jede Zahl durch 3.36 so haben wir eine reduzierte Spannweite der Verteilung. Es ergibt sich die folgende Abbildung als Standardnormalverteilung. Die Zahlen der auf der x-Achse haben jetzt aber keine Bedeutung mehr. Wie können die Sprungweite auf der $z$-Skala nicht mehr biologisch interpretieren.
 
 ```{r}
 #| message: false
@@ -649,7 +651,7 @@ In der folgenden Abbildung sehen wir nochmal die nicht transformierten, rohen Da
 #| fig-align: center
 #| fig-height: 3.5
 #| fig-width: 8
-#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten. **(A)** Nicht transformierte, rohe Daten. **(B)** $inverse$-transformierte Daten. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Histogramm der nicht skalierten und skalierten Daten. Achtung, die Einheiten auf der x-Achse ändern sich. Die Form der Verteilung bleibt davon häufig unberührt. **(A)** Nicht skalierte, rohe Daten. **(B)** Standardisierte Daten. *[Zum Vergrößern anklicken]*"
 
 p1 <- ggplot(scale_tbl, aes(jump_length)) +
   geom_histogram(fill = cbbPalette[2], color = "black") +
@@ -668,6 +670,8 @@ p1 + p2 +
   theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
 
+Wir können uns den Effekt der Standardisierung nochmal auf unseren Lebensdauerdaten verschiedener Tiere anschauen. Auf den ersten Blick hat sich eigentlich nichts geändert. Ich habe dir extra einmal die Werte auf der x-Achse und y-Achse rot hervorgehoben. Wir du siehst, rücken jetzt die Werte weiter zusammen. Wir haben also nicht mehr einen Abstand von tausenden Kilos auf der x-Achse sondern eben nur noch das zehnfache bis dreißigfache. Das Gleiche gilt dann auch für das Lebensalter. Ob das jetzt gut für einen Lernalgorithmus funktioniert, hängt dann vom Algorithmus und der Fragestellung ab.
+
 ```{r}
 #| message: false
 #| echo: false
@@ -676,7 +680,7 @@ p1 + p2 +
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 8
-#| fig-cap: "foo. **(A)** br. **(B)** fff. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Standardisierter Zusammenhang zwischen dem Gewicht und dem Alter von Tierarten. Durch die Standardisierung wird die große Bandbreite der Körpergewichte nicht aufgebrochen sondern die Werte näher aneinander geschoben. *[Zum Vergrößern anklicken]*"
 
 anage_scale_tbl <- anage_tbl |> 
   mutate(weight = scale(weight),
@@ -709,21 +713,23 @@ anage_scale_tbl |>
 
 ### Normalisierung
 
-Abschließend wollen wir uns nochmal die Normalisierung anschauen. In diesem Fall wollen wir die Daten so transformieren, dass die Daten nur noch in der Spannweite 0 bis 1 vorkommen. Egal wie die Einheiten vorher waren, alle Variablen haben jetzt nur noch eine Ausprägung von 0 bis 1. Das ist besonders wichtig wenn wir viele Variablen haben und anhand der Variablen eine Vorhersage machen wollen. Uns interessieren die Werte in den Variablen an sich nicht, sondern wir wollen ein Outcome vorhersagen. Wir brauchen die Normalisierung später für das maschinelle Lernen und die Klassifikation. Die Formel für die Normalisierung lautet wie folgt.
+Abschließend wollen wir uns nochmal die Normalisierung anschauen. In diesem Fall wollen wir die Daten so transformieren, dass die Daten nur noch in der Spannweite 0 bis 1 vorkommen. Egal wie die Einheiten vorher waren, alle Variablen haben jetzt nur noch eine Ausprägung von 0 bis 1. Das ist besonders wichtig wenn wir viele Variablen haben und anhand der Variablen eine Vorhersage machen wollen. Uns interessieren die Werte in den Variablen an sich nicht, sondern wir wollen ein Outcome \[0/1\] meist vorhersagen. Wir brauchen die Normalisierung später für das maschinelle Lernen und die Klassifikation. Die Formel für die Normalisierung lautet wie folgt.
 
 $$
 y_n = \cfrac{y_i - \min(y)}{\max(y) - \min(y)} 
 $$
 
+In R gibt es die Normalisierungsfunktion nicht direkt. Wir könnten hier ein extra Paket laden, aber bei so einer simplen Formel können wir auch gleich die Berechnung in R machen. Wir müssen nur etwas mit den Klammern aufpassen. Und dann nochmal die Implementierung in R als Funktion.
+
 ```{r}
 normalize <- function(y) {(y - min(y))/(max(y) - min(y))}
 ```
 
-In R gibt es die Normalisierungsfunktion nicht direkt. Wir könnten hier ein extra Paket laden, aber bei so einer simplen Formel können wir auch gleich die Berechnung in der Funktion `mutate()` machen. Wir müssen nur etwas mit den Klammern aufpassen.
+Hier dann die Anwendung mit `mutate()` für die Normalisierung. Später können wir dann hier auch Automatisierungen nutzen, wie du im Kapitel zur Klassifikation nachlesen kannst.
 
 ```{r}
 norm_tbl <- fac1_tbl |> 
-  mutate(norm_jump_length = (jump_length - min(jump_length))/(max(jump_length) - min(jump_length)))
+  mutate(norm_jump_length = normalize(jump_length))
 ```
 
 In der folgenden Abbildung auf der linken Seite sehen wir nochmal die nicht transformierten, rohen Daten. Auf der rechten Seiten sehen wir die normalisierten Daten. Hier fällt dann auf, dass die normalisierten Sprungweiten nur noch Werte zwischen Null und Eins annehmen. Die Zahlen der auf der x-Achse haben jetzt aber keine Bedeutung mehr. Wie können die normalisierten Sprungweiten nicht mehr biologisch interpretieren.
@@ -735,7 +741,7 @@ In der folgenden Abbildung auf der linken Seite sehen wir nochmal die nicht tran
 #| fig-align: center
 #| fig-height: 3.5
 #| fig-width: 8
-#| fig-cap: "Histogramm der nicht transfomierten und transformierten Daten. **(A)** Nicht transformierte, rohe Daten. **(B)** $inverse$-transformierte Daten. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Histogramm der nicht skalierten und skalierten Daten. Achtung, die Einheiten auf der x-Achse ändern sich. Die Form der Verteilung bleibt davon häufig unberührt. **(A)** Nicht skalierte, rohe Daten. **(B)** Normalisierte Daten. *[Zum Vergrößern anklicken]*"
 
 p1 <- ggplot(norm_tbl, aes(jump_length)) +
   geom_histogram(fill = cbbPalette[2], color = "black") +
@@ -754,6 +760,8 @@ p1 + p2 +
   theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
 
+Wir können uns den Effekt der Normalisierung nochmal auf unseren Lebensdauerdaten verschiedener Tiere anschauen. Auf den ersten Blick hat sich eigentlich nichts geändert. Ich habe dir extra einmal die Werte auf der x-Achse und y-Achse rot hervorgehoben. Wir du siehst, rücken jetzt die Werte auf einen Bereich zwischen Null und Eins zusammen. Wir haben also nicht mehr einen Abstand von tausenden Kilos auf der x-Achse sondern das leichteste Tier erhält die Null und das schwerste Tier die Eins. Alle anderen ordnen sich dazwischen ein. Das Gleiche gilt dann auch für das Lebensalter. Ob das jetzt gut für einen Lernalgorithmus funktioniert, hängt dann vom Algorithmus und der Fragestellung ab.
+
 ```{r}
 #| message: false
 #| echo: false
@@ -762,7 +770,7 @@ p1 + p2 +
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 8
-#| fig-cap: "foo. **(A)** br. **(B)** fff. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Normalisierter Zusammenhang zwischen dem Gewicht und dem Alter von Tierarten. Durch die Normalisierung wird die große Bandbreite der Körpergewichte nicht aufgebrochen sondern die Werte auf den Wertebereich [0/1] geschoben. *[Zum Vergrößern anklicken]*"
 
 anage_normalize_tbl <- anage_tbl |> 
   mutate(weight = normalize(weight),
