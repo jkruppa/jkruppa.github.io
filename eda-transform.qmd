@@ -21,14 +21,6 @@ source("images/R/eda-transform.R")
 
 > *"It's morphin' time! I never get tired of that! Now, go, go Power Rangers!" --- Power Rangers morphing phrase*
 
-![](images/caution.png){fig-align="center" width="100%"}
-
-::: {.callout-caution appearance="simple"}
-## Stand des Kapitels: Baustelle (seit 06.2025)
-
-Dieses Kapitel wird überarbeitet, da ich nochmal an den Kern der Transformation ran möchte. Daher kann es sein, dass es in den nächsten Wochen hier zu Problemen und nicht funktionierenden Code kommt. Das repariere ich dann aber meistens in den folgenden Tagen. Ziel ist es bis zum Start des WiSe 2025/26 das Kapitel neu aufgestellt zu haben.
-:::
-
 In diesem Kapitel wollen wir uns nochmal mit der Transformation von Daten beschäftigen. Hier geht es aber jetzt nicht nur um vollständige Transformationen ganzer Exceldateien, sondern eher um die Transformation einzelner Messwerte. Wir haben also etwas gemessen, was uns auf der Skala der Einheiten wie wir es gemessen haben nicht gefällt. Deshalb nutzen wir eine mathematische Funktione, die uns aus unseren originalen Messwerten neue einheitslose Werte erschafft. Hier ist mal wieder wichtig, dass wir am Ende einheitslose Messwerte haben, die sich dann der biologischen Interpretation entziehen. Aber wie immer gilt, je nach Fragestellung ist die Transformation von Daten wichtig bis notwendig. Deshalb einmal hier alle gesammelt zu der Transformation.
 
 ## Allgemeiner Hintergrund
@@ -598,7 +590,7 @@ p2 <- ggplot(invers_norm_tbl, aes(inverse_hatch_time, fill = animal)) +
   theme_minimal() +
   geom_density(color = "black", alpha = 0.5) +
   scale_fill_okabeito() +
-  labs(x = "Zeit bis zum Schlüpfen in (1/h)", y = "") +
+  labs(x = "Zeit bis zum Schlüpfen transformiert", y = "") +
   theme(legend.position = "top")   
 
 p1 + p2 +
@@ -821,34 +813,22 @@ Es gibt eine Reihe von Pakten, die sich mit der automatischen Transformation von
 
 ### ... mit `{bestNormalize}`
 
-Dann sind wir bis hierher gekommen und fragen uns nun welche ist den jetzt die beste Transformation für unsere Daten um einigermaßen eine Normalverteilung hinzubekommen? Da hilft uns jetzt das [R Paket `{bestNormalize}`](https://cran.r-project.org/web/packages/bestNormalize/vignettes/bestNormalize.html). Die [Kurzanleitung zum Paket](https://petersonr.github.io/bestNormalize/index.html) erlaubt es automatisiert auf einem Datenvektor die beste Transformation zu finden um die Daten in eine Normalverteilung zu verwandeln. Das ist eigentlich auch nur der einzige Nachteil, wir müssen die Funktion mit einem Vektor füttern und können daher schlecht pipen.
+Dann sind wir bis hierher gekommen und fragen uns nun welche ist den jetzt die beste Transformation für unsere Daten um einigermaßen eine Normalverteilung hinzubekommen? Da hilft uns jetzt das [R Paket `{bestNormalize}`](https://cran.r-project.org/web/packages/bestNormalize/vignettes/bestNormalize.html). Die [Kurzanleitung zum Paket](https://petersonr.github.io/bestNormalize/index.html) erlaubt es automatisiert auf einem Datenvektor die beste Transformation zu finden um die Daten in eine Normalverteilung zu verwandeln. Das ist eigentlich auch nur der einzige Nachteil, wir müssen die Funktion mit einem Vektor füttern und können daher schlecht pipen. Kein echter Grund das Paket nicht zu verwenden.
 
-Jetzt können wir die Funktion `bestNormalize()` nutzen um uns die beste Transformationsmethode wiedergeben zu lassen. Das ist super praktisch in der Anwendung. Wir können uns theoretisch noch verschiedene Gütekriterien aussuchen aber für hier reicht die Standardimplementierung. Wichtig ist noch, dass wir hier eine Kreuzvalidierung durchführen, so dass die Ergebnisse und die Auswahl des Algorithmus robust sein sollte.
+Jetzt können wir die Funktion `bestNormalize()` nutzen um uns die beste Transformationsmethode wiedergeben zu lassen. Das ist super praktisch in der Anwendung. Wir können uns theoretisch noch verschiedene Gütekriterien aussuchen aber für hier reicht die Standardimplementierung. Wichtig ist noch, dass wir hier eine Kreuzvalidierung durchführen, so dass die Ergebnisse und die Auswahl des Algorithmus robust sein sollte. Oder andersherum, das Paket produziert valide Transformationen um einen normalverteilten Messwert zu erhalten.
 
 ```{r}
 bn_obj <- bestNormalize(fac1_tbl$hatch_time)
 bn_obj
 ```
 
-Laut dem Algorithmus sollen wir eine `Standardized Yeo-Johnson Transformation` durchführen. Was immer das jetzt konkret ist. Wir leben damit. Okay, wie machen wir das jetzt? Wir hätten zwar die Parameter in der Ausgabe angegeben und die könnten wir dann auch in einer Veröffentlichung angeben, aber wenn es schneller gehen soll, dann können wir die Funktion `predict()` nutzen, die uns die transformierten `y` Werte wiedergibt.
+Laut dem Algorithmus sollen wir eine `Standardized Yeo-Johnson Transformation` durchführen. Wie du siehst testet der Algorithmus noch eine Reihe von weiteren Transformationen. Was immer das jetzt auch konkret für eine Transformation ist wir leben damit. Okay, wie machen wir das jetzt? Wir hätten zwar die Parameter in der Ausgabe angegeben und die könnten wir dann auch in einer Veröffentlichung angeben, aber wenn es schneller gehen soll, dann können wir die Funktion `predict()` nutzen, die uns die transformierten Messwerte wiedergibt.
 
 ```{r}
 y_trans <- predict(bn_obj)
 ```
 
-Dann nochmal schnell gucken, ob das auch mit der Rücktransformation klappen würde.
-
-```{r}
-y_trans_back <- predict(bn_obj, newdata = y_trans, inverse = TRUE)
-```
-
-Einmal dann der Vergleich ob alle `y_trans_back` Werte den ursprünglichen `y` Werten entsprechen. Ja, das sieht gut aus.
-
-```{r}
-all.equal(y_trans_back, fac1_tbl$hatch_time)
-```
-
-Und zum Abschluss nochmal eine Abbildung der transformierten `y` Werte. In der folgenden Abbildung siehst du dann einmal das entsprechende Histogramm. Das sieht doch sehr gut aus und wir mussten nicht zig verschiedene Algorithmen selber testen.
+Und zum Abschluss schauen wir uns dann in der folgenden Abbildung einmal die transformierten Messwerte der Schlupfzeiten an. In der folgenden Abbildung siehst du dann einmal das entsprechende Histogramm. Das sieht doch sehr gut aus und wir mussten nicht zig verschiedene Algorithmen selber testen, sondern haben mi zwei Zeilen Code dann unsere annährend normalverteilten Daten.
 
 ```{r}
 #| message: false
@@ -857,7 +837,7 @@ Und zum Abschluss nochmal eine Abbildung der transformierten `y` Werte. In der f
 #| fig-align: center
 #| fig-height: 3.5
 #| fig-width: 8
-#| fig-cap: "Histogramm der transformierten Werte mit der Standardized Yeo-Johnson Transformation aus dem R Paket `{bestNormalize}` für die Schlupfzeiten. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Histogramm der transformierten Werte mit der Standardized Yeo-Johnson Transformation aus dem R Paket `{bestNormalize}` für die Schlupfzeiten.  **(A)** Nicht skalierte, rohe Daten. **(B)** Transformierte Daten. *[Zum Vergrößern anklicken]*"
 
 p1 <- ggplot(log_tbl, aes(hatch_time)) +
   theme_minimal() +
@@ -868,7 +848,7 @@ p1 <- ggplot(log_tbl, aes(hatch_time)) +
 p2 <- ggplot(as_tibble(y_trans), aes(y_trans)) +
   theme_minimal() +
   geom_density(fill = cbbPalette[3], color = "black") +
-  labs(x = "Zeit bis zum Schlüpfen nach Yeo-Johnson Transformation", y = "")  
+  labs(x = "Zeit bis zum Schlüpfen mit Transformation", y = "")  
 
 p1 + p2 +
   theme(panel.grid.minor.x = element_blank()) +
@@ -878,12 +858,14 @@ p1 + p2 +
 
 ### ... mit `{rcompanion}`
 
-`transformTukey()` aus dem R Paket `{rcompanion}`
+Zu Begin des Kapitels haben wir ja die Ladder of Powers von Tukey kennengelernt. Faktisch können wir aber jede beliebige Potenz für $\lambda$ einsetzen. Das maht dann für uns die Funktion `transformTukey()` aus dem R Paket `{rcompanion}`. Der Algorithmus durchläuft im Prinzip einmal viele $\lambda$-Werte und schaut dann, welcher Wert die beste Normalverteilung in den Messwert verursacht. Diesen Wert erhalten wir zusammen mit den transformierten Messwerten ausgegeben. Die Funktion hat noch eine angenehme Visualisierung und du kannst dir dann eine Menge auch anschauen. Ich stelle das hier mal ab, du kannst aber den Code durchführen und die Wiedergabe der Abbildungen einfach auf `TRUE` setzen.
 
 ```{r}
 tt_obj <- transformTukey(fac1_tbl$hatch_time,
                          plotit = FALSE)
 ```
+
+Dann können wir uns auch schon die Transformation einmal anschauen. Hier haben wir ein $\lambda$-Wert von $0.05$ erhalten und nutzen diesen Wert für die Transformation. Spannenderweise sieht jetzt die Verteilung unser transformierten Werte gar nicht so unterschiedlich zu dem R Paket `{bestNormalize}` aus. Nur die Werte der Transformation unterschieden sich. Vermutlich weil es dann doch sehr simple Transformationen sind und es eben immer eine gewisse Ähnlichkeit zwischen den mathematischen Funktionen gibt.
 
 ```{r}
 #| message: false
@@ -892,7 +874,7 @@ tt_obj <- transformTukey(fac1_tbl$hatch_time,
 #| fig-align: center
 #| fig-height: 3.5
 #| fig-width: 8
-#| fig-cap: "Histogramm der transformierten Werte mit der $\\lambda = 0.05$ Transformation aus dem R Paket `{rcompanion}` für die Schlupfzeiten. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Histogramm der transformierten Werte mit der $\\lambda = 0.05$ Transformation aus dem R Paket `{rcompanion}` für die Schlupfzeiten. **(A)** Nicht skalierte, rohe Daten. **(B)** Transformierte Daten. *[Zum Vergrößern anklicken]*"
 
 p1 <- ggplot(log_tbl, aes(hatch_time)) +
   theme_minimal() +
@@ -903,7 +885,7 @@ p1 <- ggplot(log_tbl, aes(hatch_time)) +
 p2 <- ggplot(as_tibble(tt_obj), aes(tt_obj)) +
   theme_minimal() +
   geom_density(fill = cbbPalette[3], color = "black") +
-  labs(x = "Zeit bis zum Schlüpfen mit $\\lambda = 0.05$ Transformation", y = "")  
+  labs(x = "Zeit bis zum Schlüpfen mit Transformation", y = "")  
 
 p1 + p2 +
   theme(panel.grid.minor.x = element_blank()) +
@@ -914,13 +896,13 @@ p1 + p2 +
 
 ### ... mit `{LambertW}`
 
-`Gaussianize()` aus dem [R Paket `{LambertW}`](https://cran.r-project.org/web/packages/LambertW/index.html)
-
--   type: what type of non-normality: symmetric heavy-tails "h" (default), skewed heavy-tails "hh", or just skewed "s".
+Dann gibt es noch die Funktion `Gaussianize()` aus dem [R Paket `{LambertW}`](https://cran.r-project.org/web/packages/LambertW/index.html), die eben wie der Name schon sagt uns dann normalverteilte Daten erschaffen will. Wir müssen bei dieser Funktion aber sagen, was für einen Typus wir an schiefen Messwerten vorliegen haben. Ein klarer Nachteil zu den beiden obigen Funktionen, da schmeißen wir die Messwerte rein und gut ist. Wir müssen also entscheiden welche Art der Schiefe wir vorliegen haben. Wir können uns zwischen *symmetric heavy-tails "h" (default)* oder *skewed heavy-tails "hh"* sowie *skewed "s"* entschieden. Ich habe hier alle drei durchprobiert und mich dann für `s` entschieden, da wir hier das beste Ergebnis gleich sehen. Du kannst dann auch alle drei einmal durchprobieren
 
 ```{r}
 gaus_obj <- Gaussianize(fac1_tbl$hatch_time, type = "s")
 ```
+
+In der folgenden Abbildung siehst du dann einmal das Ergebnis der Transformation. Erstaunlicherweise sind dei Messwerte sehr ähnlich transformiert wie auch schon in den Paketen zuvor. Nur die Werte der Transformation unterschieden sich. Ich würde daher das Paket eher nicht verwenden. Du musst hier selber dreimal rumprobieren und dann am Ende entscheiden. Im besten Fall kriegst du das gleiche Ergebnis wie bei den anderen Paketen.
 
 ```{r}
 #| message: false
@@ -929,7 +911,7 @@ gaus_obj <- Gaussianize(fac1_tbl$hatch_time, type = "s")
 #| fig-align: center
 #| fig-height: 3.5
 #| fig-width: 8
-#| fig-cap: "Histogramm ."
+#| fig-cap: "Histogramm der transformierten Werte mit der `s` Transformation aus dem R Paket `{rcompanion}` für die Schlupfzeiten. **(A)** Nicht skalierte, rohe Daten. **(B)** Transformierte Daten. *[Zum Vergrößern anklicken]*"
 
 p1 <- ggplot(log_tbl, aes(hatch_time)) +
   theme_minimal() +
@@ -940,7 +922,7 @@ p1 <- ggplot(log_tbl, aes(hatch_time)) +
 p2 <- ggplot(as_tibble(gaus_obj), aes(gaus_obj)) +
   theme_minimal() +
   geom_density(fill = cbbPalette[3], color = "black") +
-  labs(x = "Zeit bis zum Schlüpfen in log(h)", y = "")  
+  labs(x = "Zeit bis zum Schlüpfen mit Transformation", y = "")  
 
 p1 + p2 +
   theme(panel.grid.minor.x = element_blank()) +
@@ -951,19 +933,37 @@ p1 + p2 +
 
 ### ... mit `{trafo}`
 
-[The R Package trafo for Transforming Linear Regression Models](https://cran.r-project.org/web/packages/trafo/vignettes/vignette_trafo.pdf)
+Kommen wir dann noch zum R Paket `{trafo}`. Das Paket ist groß und du kannst in der Vingette [The R Package `{trafo}` for Transforming Linear Regression Models](https://cran.r-project.org/web/packages/trafo/vignettes/vignette_trafo.pdf) noch sehr viel mehr nachlesen. Die Idee ist eigentlich simple. Wir nehmen ein lineares Modell, was nicht funktioniert hat, da wir keine Normalverteilung in den Residuen und damit dem Messwert vorliegen haben. Dann können wir das Modell so transformieren, dass wir eine Normalverteilung vorliegen haben. Hier liegt der Reiz vorallem darin, dass wir hier auch komplexere Modelle transformieren können. Da wir dann aber die Einheiten verlieren handelt es sich hier mehr oder minder um statistische Modelle für die Vorhersage. Dazu dann aber mehr in dem Kapitel zu den Regressionen.
+
+Hier also einmal eine lineare Regression für die Schlupzeit und dem Gewicht. Hat das Gewicht einen Einfluss auf die Schlupfzeit? Wir können erstmal wieder eine Regression mit `lm()` rechnen. Es gibt auch andere Modelle die prinzipiell in `{trafo}` gerechnet werden können, aber ich fokusiere mich hier einmal auf die klassische Regression mit der Annahme der Normalverteilung an die Residuen.
 
 ```{r}
 lm_fit <- lm(hatch_time ~ weight, data = fac1_tbl)
 ```
 
+Dann können wir uns einmal das Ergebnis in der Funktion `trafo_lm()` anschauen. In dem ersten Tab zeige ich nur die Koeffizienten der Regression. Die Funktion `trafo_lm()` gibt dir erstmal das untransformierte Modell und einmal das transformierte Modell wieder. Du kannst dann direkt die Koeffizienten und andere statistische Maßzahlen miteinander vergleichen.
+
+::: panel-tabset
+## `trafo_lm()`
+
+Im Folgenden also einmal das lineare Modell mit den Koeffizienten. Die Koeffizienten sind im untransformierten Modell noch zu interpretieren. Mit jedem Gramm mehr Gewicht sinkt die Schlupfzeit um 6.6 Stunden. Das Modell mag aber falsch sein, da wir hier nicht normalverteilte Daten vorliegen haben. Das transformierte Modell lässt sich nicht biologisch interpretieren.
+
 ```{r}
-trafo_lm(lm_fit)
+trafo_lm(lm_fit) 
 ```
+
+## `summary()`
+
+Wenn wir die zusammenfassende Ausgabe der Funktion `trafo_lm()` betrachten, dann sehen wir schnell, dass wir im untransformierten Modell keien normalverteilten Residuen haben. Die Residuen sind nicht im Mittel bei Null und haben auch ungleiche Quartile. Das sieht sehr viel besser aus für das transformierte Modell. Daher können wir von einem annährend normalverteilten Modell durch die TRansformation ausgehen.
+
+```{r}
+trafo_lm(lm_fit) |> summary()
+```
+:::
 
 ## Friedhof der R Pakete
 
-Warum gibt es hier den Friedhof? Nun, es gibt nur eine begrenzte Anzahl an möglichen Transformationen. Diese Transformationen sind dann aber in vielen R Paketen eingebaut. Mit der Zeit habe ich dann neuere und bessere R Pakete gefunden, die ich hier weiter oben vorstelle. Die alten Pakete, die ich auch mal genutzt habe, schiebe ich dann hier in den Friedhof. Meistens können die neuren Pakete das was die alten können plus die neuen Pakete sind einfacher zu bedienen oder aber aber haben andere Vorteile. Als Referenz bleibt der Firedhof aber offen.
+Warum gibt es hier den Friedhof? Nun, es gibt nur eine begrenzte Anzahl an möglichen Transformationen. Diese Transformationen sind dann aber in vielen R Paketen eingebaut. Mit der Zeit habe ich dann neuere und bessere R Pakete gefunden, die ich hier weiter oben vorstelle. Die alten Pakete, die ich auch mal genutzt habe, schiebe ich dann hier in den Friedhof. Meistens können die neuren Pakete das was die alten können plus die neuen Pakete sind einfacher zu bedienen oder aber aber haben andere Vorteile. Als Referenz bleibt der Friedhof aber offen.
 
 ### ... mit `{MASS}`
 
