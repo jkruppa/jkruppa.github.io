@@ -231,7 +231,7 @@ p1 + p2 +
 
 ## Einfaktoriell
 
-Nachdem wir uns nun einmal die Daten angeschaut haben, können wir jetzt einmal die einfaktorille MANOVA rechnen. Auch hier nochmal wichtig, wir haben einen Faktor dafür aber zwei oder mehr Messwerte, die wir simultan auf einen Unterschied in dem Faktor testen. Der häufigste Fall ist sicherlich die einfaktorielle MANOVA. Zum einen da es immer schwerer wird mehr als zwei Messwerte sinnvoll simultan zu interpretieren, insbesondere wenn die Einheiten unterschiedlich sind. Zum anderen wird es auch bei mehr als einem Behandlungsfaktor sehr schnell schwierig die MANOVA zu interpretieren. Es sind eben dann schnell viele Faktorombinationen, die in einem kompelxen Modell interpretiert werden müssen.
+Nachdem wir uns nun einmal die Daten angeschaut haben, können wir jetzt einmal die einfaktorielle MANOVA rechnen. Auch hier nochmal wichtig, wir haben einen Faktor dafür aber zwei oder mehr Messwerte, die wir simultan auf einen Unterschied in dem Faktor testen. Der häufigste Fall ist sicherlich die einfaktorielle MANOVA. Zum einen da es immer schwerer wird mehr als zwei Messwerte sinnvoll simultan zu interpretieren, insbesondere wenn die Einheiten unterschiedlich sind. Zum anderen wird es auch bei mehr als einem Behandlungsfaktor sehr schnell schwierig die MANOVA zu interpretieren. Es sind eben dann schnell viele Faktorombinationen, die in einem kompelxen Modell interpretiert werden müssen.
 
 #### Testen ausgewählter Annahmen {.unnumbered .unlisted}
 
@@ -257,20 +257,30 @@ Wir haben hier Glück und können unsere beiden Messwerte dann zusammen mit der 
 
 #### Einfakorielle MANOVA {.unnumbered .unlisted}
 
+In den folgenden Tabs findest du dann einmal die einfaktorielle MANOVA. Dabei ist die Implementierung in `{stats}` simple. Wir haben hier keine weiteren Optionen. Das R Paket `{car}` erlaubt mit der Funktion `Manova()` dann schon mehr Optionen. Hier musst du dann aber ein Modell aus der Funktion `lm()` weiterleiten. Als nichtparametrische Alternative für nichtnormalverteilte Messwerte zeige ich dann noch das R Paket `{MANOVA.RM}`.
+
 ::: panel-tabset
 ## `{stats}`
+
+Das einzige Besondere in der Formelschreibweise ist, dass wir die Messwerte über dir Funktion `cbind()` miteinander verschmelzen müssen. Der Rest ist die bekannte Schreibweise in R. Dann können wir uns auch gleich die Ergebnisse anschauen.
 
 ```{r}
 manova(cbind(jump_length, weight) ~ animal, data = fac1_cov_tbl) |> 
   summary()
 ```
 
+Wir haben einen signifikanten Effekt der Floharten auf die kombinierten Sprungweiten und Flohgewichte. Daher müssen wir jetzt im Anschluss nochmal schauen, wo die Signifikanz liegt. Sind die univariaten Modelle nnur mit der Sprungweite und dem Gewicht jeweils auch signifikant? Oder ist es wirklich das Wechselspiel der beiden Messwerte? Das sagt uns jetzt die MANOVA leider nicht.
+
 ## `{car}`
+
+Das R Paket `{car}` rechnet die gleiche MANOVA wie im vorherigen Tab. Der einzige Unterschied ist hier, dass wir auch eine andere Methode zum Testen nutzen könnten. Wir haben hier die Auswahl an vier Algorithmen mit *Pillai*, *Wilks*, *Hotelling-Lawley* und *Roy*. Der Standard ist hierbei *Pillai* und würde ich auch so lassen. Die Statistik nach *Pillai* hat gute Eigenschaften und sollte auch für die meisten Fälle genügen.
 
 ```{r}
 lm(cbind(jump_length, weight) ~ animal, data = fac1_cov_tbl) |> 
   Manova()
 ```
+
+Das Ergebnis ist identisch zum vorherigen Tab und dem R Paket `{stats}`. Wir haben einen signifikanten Effekt der Floharten auf die kombinierten Sprungweiten und Flohgewichte.
 
 ## `{MANOVA.RM}`
 
@@ -280,14 +290,18 @@ lm(cbind(jump_length, weight) ~ animal, data = fac1_cov_tbl) |>
 
 ```{r}
 MANOVA.wide(cbind(jump_length, weight) ~ animal, data = fac1_cov_tbl,
-            iter = 100) |> 
+            iter = 1000) |> 
   summary()
 ```
 :::
 
 ## Zweifaktoriell
 
+Die zweifaktorielle MANOVA ist ziemlich selten. Jedenfalls ist mir die zweifaktorielle MANOVA noch nicht so oft in meinem Bereichen begegenet. In den Sozialwissenschaften mag das dann wieder anders sein. Warum ist die zweifaktorielle MANOVA nicht ganz so einfach? Zum einen verbinden wir hier wieder mehrere Messwerte miteinander. Darüber hinaus kommt jetzt aber nicht ein Faktor hinzu sondern eben zwei. Mit den zwei Faktoren haben wir dann auch noch eine mögliche Interaktion vorliegen, was die Modelle nochmal zusätzlich erschwert. Am Ende kann es dann in der Interpretation herausforderend sein. Die MANOVA gleibt ein globaler Test und woarum jetzt was signifikant ist, kann dann manachmal schwer zu ergründen sein.
+
 #### Testen ausgewählter Annahmen {.unnumbered .unlisted}
+
+Wir können für die MANOVA einiges an Vorraussetzungen testen. Im Tutorium [One-Way MANOVA in R](https://www.datanovia.com/en/lessons/one-way-manova-in-r/) wird nochmal die ganze Phalanx der Vortests gezeigt. Das Beispiel konzentriert sich zwar auf die einfaktorielle MANOVA in der Analyse, aber die Vortests gehen dann auch für die zweifaktorielle MANOVA. Ich konzentriere mich hier einmal auf die beiden aus meiner Sicht wichtigsten Vortests. Zum einen ob wir wirklich eine multivariate Normalverteilung zwischen den beiden Messwerten vorliegen haben. Dazu können wir die Funktion `mshapiro_test()` nutzen. Der Shapiro-Test testet auf die Normalverteilung. Wenn wir die Nullhypothese ablehnen können, dann haben wir keine Normalverteilung vorliegen.
 
 ```{r}
 fac2_cov_tbl |> 
@@ -295,7 +309,9 @@ fac2_cov_tbl |>
   mshapiro_test()
 ```
 
-Wenn du mehr als zwei Variablen hast, dann nutze `cor_mat()`
+Der Test kann die Nullhypothese leider ablehnen. Wir haben damit dann eine Abweichung von der Normalverteilung vorliegen. Wir können also nicht von einer multivariaten Normalverteilung in den beiden Messwerten der Sprungweite und Flohgewicht ausgehen. Das ist jetzt etwas problematischer. Hier würde ich dann den Ergebnissen der nichtparametrischen MANOVA aus dem R Paket `{MANOVA.RM}` mehr vertrauen.
+
+Die MANOVA tut sich sehr schwer, wenn die beiden Messwerte sehr stark miteinander korrelieren. Damit meine ich, dass wir dann keine verlässlichen Ergebnisse aus einer MANOVA erwarten können. Daher schauen wir uns hier einmal die Korrelation zwischen den beiden Messwerten an. Wir nutzen die Funktion `cor_test()`. Wenn du mehr als zwei Variablen hast, dann nutze `cor_mat()`. Die Grenze liegt je nach Literatur zwischen 0.7 und 0.9, die dann die Korrelation nicht übersteigen darf.
 
 ```{r}
 fac2_cov_tbl |> 
@@ -303,10 +319,14 @@ fac2_cov_tbl |>
   select(var1, var2, cor)
 ```
 
+Wir haben hier dann ebenfalls Glück und können unsere beiden Messwerte dann zusammen mit der MANOVA auswerten. Wenn du eien zu hohe Korrelation hast, dann solltest du von der Verwendung der MANOVA absehen. Deine Messwerte sind zu ähnlich, es macht keinen Sinn diese simultan auszuwerten. Immerhin sind die Messwerte bei einer hohen Korrelation untereinander austauschbar.
+
 #### Zweifakorielle MANOVA {.unnumbered .unlisted}
 
+In den folgenden Tabs findest du dann einmal die zweifaktorielle MANOVA. Dabei ist die Implementierung in `{stats}` simple. Wir haben hier keine weiteren Optionen. Das R Paket `{car}` erlaubt mit der Funktion `Manova()` dann schon mehr Optionen. Hier musst du dann aber ein Modell aus der Funktion `lm()` weiterleiten. Als nichtparametrische Alternative für nichtnormalverteilte Messwerte zeige ich dann noch das R Paket `{MANOVA.RM}`.
+
 ::: panel-tabset
-## `{base}`
+## `{stats}`
 
 ```{r}
 manova(cbind(jump_length, weight) ~ animal*stage, data = fac2_cov_tbl) |> 
