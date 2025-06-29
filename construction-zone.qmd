@@ -28,25 +28,142 @@ Dieses Kapitel wird in den nächsten Wochen geschrieben. Ich plane zum Beginn de
 ::: {layout="[15,85]" layout-valign="top"}
 ![](images/personal_opinion.png){fig-align="center" width="100%"}
 
-> *"Aktuell wird gerade nichts extern gebaut..." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
+> *"Aktuell wird gerade an den Marginal effects models gebaut... das wird jedenfalls so seine Zeit noch brauchen, bis ich hier einen Strang und Grund drin habe." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
 :::
 
-```{r}
- # library
-library(ggplot2)
- 
-tiger_tbl <- read_excel("data/survey-serengeti-tiger-king.xlsx", na = "NA",
-                        sheet = "results-survey-lime")
+## Marginal effects models
 
-# create a dataset
-specie <- c(rep("sorgho" , 3) , rep("poacee" , 3) , rep("banana" , 3) , rep("triticum" , 3) )
-condition <- rep(c("normal" , "stress" , "Nitrogen") , 4)
-value <- abs(rnorm(12 , 0 , 15))
-data <- data.frame(specie,condition,value)
+!["Should I cut the red wire or the blue one!?" "WAIT! We're going to watch ALL the action movies from the '80s and '90s and then calculate the average!" Quelle: wumo.com](images/average.jpg){#fig-pretest-barplot-02 fig-align="center" width="100%"}
 
-tiger_tbl |> 
-  tabyl(f1Verbandsarbeit, geschlecht) |> 
-  pivot_longer(Männlich:Weiblich) |> 
-  ggplot(aes(x = name, y=value, fill=f1Verbandsarbeit)) + 
-    geom_bar(position="fill", stat="identity")
+> *"Statistics is all about lines, and lines have slopes, or derivatives. These slopes represent the marginal changes in an outcome. As you move an independent/explanatory variable, what happens to the dependent/outcome variable?" --- @heiss2022*
+
+## Allgemeiner Hintergrund
+
+![foo. Übersetzt nach @heiss2022](images/marginal/slider-switch-annotated-trans.png){#fig-utest-intro fig-align="center" width="100%"}
+
+![foo. Übersetzt nach @heiss2022](images/marginal/mixer-board-annotated-trans.png){#fig-utest-intro fig-align="center" width="100%"}
+
+::: callout-tip
+## Weitere Tutorien für die Marginal effects models
+
+Wir oben schon erwähnt, kann dieses Kapitel nicht alle Themen der Marginal effects models abarbeiten. Daher präsentiere ich hier eine Liste von Literatur und Links, die mich für dieses Kapitel hier inspiriert haben. Nicht alles habe ich genutzt, aber vielleicht ist für dich was dabei.
+
+-   Ohne den Blogpost [Marginalia: A guide to figuring out what the heck marginal effects, marginal slopes, average marginal effects, marginal effects at the mean, and all these other marginal things are](https://www.andrewheiss.com/blog/2022/05/20/marginalia/) von @heiss2022 wäre dieses Kapitel nicht möglich gewesen.
+:::
+
+## Genutzte R Pakete
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+#| message: false
+#| warning: false
+pacman::p_load(tidyverse, gtsummary, 
+               conflicted)
+conflicts_prefer(dplyr::mutate)
+conflicts_prefer(dplyr::summarize)
+conflicts_prefer(dplyr::filter)
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
+
+An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
+
+## Daten
+
+```{r}
+flea_model_tbl <- read_excel("data/fleas_model_data.xlsx") |> 
+  mutate(feeding = as_factor(feeding),
+         stage = as_factor(stage),
+         bonitur = as.numeric(bonitur),
+         infected = factor(infected, labels = c("healthy", "infected"))) |> 
+  select(feeding, stage, count_leg, jump_length, bonitur, infected)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-fac1cov-table
+#| tbl-cap: "Daten für die einfaktorielle MANOVA mit der Sprungweite in [cm] und dem Gewicht der Flöhe in [mg] für drei Floharten."
+
+flea_model_raw_tbl <-  read_excel("data/fleas_model_data.xlsx") |> 
+  mutate(bonitur = as.numeric(bonitur),
+         infected = as.character(factor(infected, labels = c("healthy", "infected")))) |> 
+  select(feeding, stage, count_leg, jump_length, bonitur, infected) |> 
+  mutate_if(is.numeric, round, 2)
+
+rbind(head(flea_model_raw_tbl, n = 3),
+      rep("...", times = ncol(flea_model_raw_tbl)),
+      tail(flea_model_raw_tbl, n = 3)) |> 
+  tt(width = 1, align = "c", theme = "striped")
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 10
+#| fig-cap: "foo. **(A)** Kombinierte Darstellung in einem Scatterplot **(B)** Aufgeteilte Darstellung für beide Entwicklungsstadien. *[Zum Vergrößern anklicken]*"
+#| label: fig-example-6
+
+p1 <- ggplot(flea_model_tbl, aes(x = feeding, y = jump_length, fill = stage)) +
+  theme_minimal() +
+  geom_boxplot() +
+  scale_fill_okabeito() +
+  theme(legend.position = "top") +
+  labs(x = "Ernährungsform", y = "Sprungweite in [cm]",
+       fill = "") +
+  scale_x_discrete(guide = guide_axis(n.dodge=2))
+
+p2 <- ggplot(flea_model_tbl, aes(x = feeding, y = log(count_leg), fill = stage)) +
+  theme_minimal() +
+  geom_boxplot() +
+  scale_fill_okabeito() +
+  theme(legend.position = "top") +
+  labs(x = "Ernährungsform", y = "Anzahl Beinhaare [log]",
+       fill = "") +
+  scale_x_discrete(guide = guide_axis(n.dodge=2))
+
+p3 <- ggplot(flea_model_tbl, aes(x = feeding, y = bonitur, fill = stage)) +
+  theme_minimal() +
+  geom_dotplot(binaxis = "y", stackdir = "center") +
+  facet_wrap(~stage) +
+  scale_fill_okabeito() +
+  theme(legend.position = "none") +
+  labs(x = "Ernährungsform", y = "Boniturnoten",
+       fill = "") +
+  scale_x_discrete(guide = guide_axis(n.dodge=2))
+
+p1 + p2 + p3 +
+  plot_layout(ncol = 3, widths = c(1.25, 1.25, 2)) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-infected-model-fleas
+#| tbl-cap: "Deskriptive Statistik des Infektionsstatus (0 = nein / 1 = ja) mit Flohschnupfen aufgeteilt nach den Faktoren und anderen Variablen."
+
+flea_model_tbl |>
+  select(infected, feeding, stage) |> 
+  tbl_summary(
+    by = infected,
+    statistic = list(
+      all_continuous() ~ "{mean} ({sd})",
+      all_categorical() ~ "{n} / {N} ({p}%)"
+    ),
+    digits = all_continuous() ~ 2,
+    #label = count_color ~ "Anzahl Farben",
+    missing_text = "(Missing)"
+  )
+```
+
+## Marginal effects models
+
+## Referenzen {.unnumbered}
