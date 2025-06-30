@@ -1,9 +1,9 @@
 ```{r echo = FALSE}
 #| message: false
 #| warning: false
-pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, performance, parameters,
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, performance, parameters,
                latex2exp, see, patchwork, mfp, multcomp, emmeans, janitor, effectsize,
-               broom, ggmosaic, tinytable, ggrepel,
+               broom, ggmosaic, tinytable, ggrepel, glue, ggtext,
                conflicted)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(dplyr::filter)
@@ -11,6 +11,16 @@ cb_pal <- c("#000000", "#E69F00", "#56B4E9",
             "#009E73", "#F0E442", "#F5C710", 
             "#0072B2", "#D55E00", "#CC79A7")
 cbbPalette <- cb_pal
+theme_mfx <- function() {
+  theme_minimal(base_family = "IBM Plex Sans Condensed") +
+    theme(panel.grid.minor = element_blank(),
+          plot.background = element_rect(fill = "white", color = NA),
+          plot.title = element_text(face = "bold"),
+          axis.title = element_text(face = "bold"),
+          strip.text = element_text(face = "bold"),
+          strip.background = element_rect(fill = "grey80", color = NA),
+          legend.title = element_text(face = "bold"))
+}
 ```
 
 # Baustelle {#sec-construction}
@@ -38,6 +48,88 @@ Dieses Kapitel wird in den nächsten Wochen geschrieben. Ich plane zum Beginn de
 > *"Statistics is all about lines, and lines have slopes, or derivatives. These slopes represent the marginal changes in an outcome. As you move an independent/explanatory variable, what happens to the dependent/outcome variable?" --- @heiss2022*
 
 ## Allgemeiner Hintergrund
+
+```{r}
+a_line <- function(x) (2 * x) - 1
+
+slope_annotations <- tibble(x = c(-0.25, 1.2, 2.4)) |> 
+  mutate(y = a_line(x)) |> 
+  mutate(nice_y = y + 1) |> 
+  mutate(nice_label = glue("x: {x}; y: {y}<br>",
+                           "Slope (dy/dx): **{2}**"))
+
+ggplot() +
+  geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_function(fun = a_line, linewidth = 1) +
+  geom_point(data = slope_annotations, aes(x = x, y = y)) +
+  geom_richtext(data = slope_annotations, 
+                aes(x = x, y = y, label = nice_label),
+                nudge_y = 0.5) +
+  scale_x_continuous(breaks = -2:5, limits = c(-1, 3)) +
+  scale_y_continuous(breaks = -3:9) +
+  labs(x = "x", y = "y") +
+  coord_equal() +
+  theme_mfx()
+```
+
+```{r}
+a_parabola <- function(x) (-0.5 * x^2) + (5 * x) + 5
+
+ggplot() +
+  geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_function(fun = a_parabola, linewidth = 1) +
+  xlim(-5, 15) +
+  labs(x = "x", y = "y") +
+  coord_cartesian(ylim = c(-5, 20)) +
+  theme_mfx()
+```
+
+```{r}
+parabola_slope <- function(x) (-x) + 5
+
+find_intercept <- function(x1, y1, slope) {
+  intercept <- slope * (-x1) + y1
+  return(intercept)
+}
+
+slope_annotations <- tibble(
+  x = c(0, 3, 8)
+) |> 
+  mutate(y = a_parabola(x),
+         slope = parabola_slope(x),
+         intercept = find_intercept(x, y, slope),
+         nice_slope = glue("Slope (dy/dx)<br><span style='font-size:12pt;color:{cb_pal[4]}'>**{slope}**</span>"))
+
+ggplot() +
+  geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_function(fun = a_parabola, linewidth = 1) +
+  geom_abline(data = slope_annotations,
+              aes(slope = slope, intercept = intercept),
+              linewidth = 0.5, linetype = "21") +
+  geom_point(data = slope_annotations, aes(x = x, y = y),
+             size = 3) +
+  geom_richtext(data = slope_annotations, aes(x = x, y = y, label = nice_slope),
+                nudge_y = 2) +
+  xlim(-5, 15) +
+  labs(x = "x", y = "y") +
+  coord_cartesian(ylim = c(-5, 20)) +
+  theme_mfx()
+```
+
+```{r}
+u_cookies <- function(x) (-0.5 * x^2) + (5 * x)
+
+ggplot() +
+  geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_function(fun = u_cookies, linewidth = 1) +
+  scale_x_continuous(breaks = seq(0, 12, 2), limits = c(0, 12)) +
+  labs(x = "Cookies", y = "Utility (happiness points)") +
+  theme_mfx()
+```
 
 ![foo. Übersetzt nach @heiss2022](images/marginal/slider-switch-annotated-trans.png){#fig-utest-intro fig-align="center" width="100%"}
 
