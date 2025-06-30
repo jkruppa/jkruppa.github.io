@@ -158,6 +158,8 @@ p1 + p2 +
 
 ![foo. Übersetzt nach @heiss2022](images/marginal/mixer-board-annotated-trans.png){#fig-utest-intro fig-align="center" width="100%"}
 
+## Unterschied zwischen `{marginaleffects}` und `{emmeans}`
+
 ::: callout-tip
 ## Weitere Tutorien für die Marginal effects models
 
@@ -173,13 +175,14 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 #| warning: false
-pacman::p_load(tidyverse, gtsummary, 
+pacman::p_load(tidyverse, gtsummary, marginaleffects, emmeans, 
                conflicted)
 conflicts_prefer(dplyr::mutate)
 conflicts_prefer(dplyr::summarize)
 conflicts_prefer(dplyr::filter)
-cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
-                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+cb_pal <- c("#000000", "#E69F00", "#56B4E9", 
+            "#009E73", "#F0E442", "#F5C710", 
+            "#0072B2", "#D55E00", "#CC79A7")
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
@@ -260,37 +263,6 @@ p1 + p2 + p3 +
 ```
 
 ```{r}
-#| message: false
-#| echo: false
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 9.5
-#| fig-cap: "foo. **(A)** Kombinierte Darstellung in einem Scatterplot **(B)** Aufgeteilte Darstellung für beide Entwicklungsstadien. *[Zum Vergrößern anklicken]*"
-#| label: fig-marginal-data-2
-
-p1 <- ggplot(flea_model_tbl, aes(x = hatched, y = jump_length)) +
-  theme_marginal() +
-  geom_point() +
-  stat_smooth(method = "lm", formula = y ~ x, linewidth = 1, 
-              color = cb_pal[2], se = FALSE) +
-  labs(x = "Schlupfzeit in [h]", y = "Sprungweite in [cm]",
-       title = "Linearer Zusammenhang") 
-
-p2 <- ggplot(flea_model_tbl, aes(x = weight, y = jump_length)) +
-  theme_marginal() +
-  geom_point() +
-  stat_smooth(method = "lm", formula = y ~ 0 +  x + I(x^2), linewidth = 1, 
-              color = cb_pal[3], se = FALSE) +
-  labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]",
-       title = "Quadratischer Zusammenhang") 
-
-p1 + p2 +
-  plot_layout(ncol = 2) +
-  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
-  theme(plot.tag = element_text(size = 16, face = "bold"))
-```
-
-```{r}
 #| echo: false
 #| message: false
 #| warning: false
@@ -313,6 +285,62 @@ flea_model_tbl |>
 
 ## Marginal effects models
 
+::: callout-note
+## Wie zeichne ich Modelle ein?
+
+`geom_function()`
+
+`geom_line(aes(y = predict(model_fit)))`
+
+`geom_smooth()`
+
+[Add regression line equation and R\^2 on graph](https://stackoverflow.com/questions/7549694/add-regression-line-equation-and-r2-on-graph)
+
+[Fitted-Model-Based Annotations](https://cran.r-project.org/web/packages/ggpmisc/vignettes/model-based-annotations.html)
+:::
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 9.5
+#| fig-cap: "foo. **(A)** Kombinierte Darstellung in einem Scatterplot **(B)** Aufgeteilte Darstellung für beide Entwicklungsstadien. *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-data-2
+
+p1 <- ggplot(flea_model_tbl, aes(x = hatched, y = jump_length)) +
+  theme_marginal() +
+  geom_point() +
+  stat_smooth(method = "lm", formula = y ~ x, linewidth = 1, 
+              color = cb_pal[2], se = FALSE) +
+  geom_richtext(aes(x = 625, y = 113, 
+                    label = "f(x) = 52.07 + 1.61x<br>f'(x) = 1.61")) +
+  labs(x = "Schlupfzeit in [h]", y = "Sprungweite in [cm]",
+       title = "Linearer Zusammenhang") 
+
+p2 <- ggplot(flea_model_tbl, aes(x = weight, y = jump_length)) +
+  theme_marginal() +
+  geom_point() +
+  stat_smooth(method = "lm", formula = y ~ 0 +  x + I(x^2), linewidth = 1, 
+              color = cb_pal[3], se = FALSE) +
+  geom_richtext(aes(x = 15, y = 112, 
+                    label = "f(x) = 0 + 10.62x - 0.32x²<br>f'(x) = 10.62 - 0.64x")) +
+  labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]",
+       title = "Quadratischer Zusammenhang") 
+
+p1 + p2 +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+```
+
+```{r}
+model_ln <- lm(jump_length ~ weight,
+               data = flea_model_tbl)
+tidy(model_ln)
+```
+
 ```{r}
 model_sq <- lm(jump_length ~ 0 + weight + I(weight^2),
                data = flea_model_tbl)
@@ -332,9 +360,20 @@ ggplot(flea_model_tbl, aes(x = weight, y = jump_length)) +
   theme_minimal() +
   geom_point() +
   geom_line(aes(y = predict(model_sq))) + 
+  geom_function(fun = \(x) 0 + 10.62 * x -0.3152609 * x ^2, color = "blue") + 
   labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]") 
 
 
 ```
+
+## Links
+
+-   [Mixed](https://stats.stackexchange.com/questions/95054/how-to-get-an-overall-p-value-and-effect-size-for-a-categorical-factor-in-a-mi)
+-   [Mixed II](https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html)
+-   [Marginal and conditional effects for GLMMs with {marginaleffects} \| Andrew Heiss – Andrew Heiss](https://www.andrewheiss.com/blog/2022/11/29/conditional-marginal-marginaleffects/)
+-   [R Paket `{gapminder}`](https://github.com/jennybc/gapminder)
+-   [Gapminder](https://www.gapminder.org/data/)
+-   [Lists are my secret weapon for reporting stats with knitr - Higher Order Functions](https://tjmahr.github.io/lists-knitr-secret-weapon/)
+-   [Visualizing {dplyr}’s mutate(), summarize(), group_by(), and ungroup() with animations \| Andrew Heiss – Andrew Heiss](https://www.andrewheiss.com/blog/2024/04/04/group_by-summarize-ungroup-animations/)
 
 ## Referenzen {.unnumbered}
