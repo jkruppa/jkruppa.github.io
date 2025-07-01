@@ -158,6 +158,14 @@ p1 + p2 +
 
 ![foo. Übersetzt nach @heiss2022](images/marginal/mixer-board-annotated-trans.png){#fig-utest-intro fig-align="center" width="100%"}
 
+Marginal effect
+
+:   der statistische Effekt für kontinuierliche erklärende Variablen; die partielle Ableitung einer Variablen in einem Regressionsmodell; der Effekt eines einzelnen Schiebereglers.
+
+Conditional effect oder group contrast
+
+:   der statistische Effekt für kategoriale erklärende Variablen; der Unterschied in den Mittelwerten, wenn eine Bedingung eingeschaltet ist und wenn sie ausgeschaltet ist; der Effekt eines einzelnen Schalters.
+
 ## Unterschied zwischen `{marginaleffects}` und `{emmeans}`
 
 ::: callout-tip
@@ -175,7 +183,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 #| warning: false
-pacman::p_load(tidyverse, gtsummary, marginaleffects, emmeans, 
+pacman::p_load(tidyverse, gtsummary, marginaleffects, emmeans, scales,
                conflicted)
 conflicts_prefer(dplyr::mutate)
 conflicts_prefer(dplyr::summarize)
@@ -183,6 +191,13 @@ conflicts_prefer(dplyr::filter)
 cb_pal <- c("#000000", "#E69F00", "#56B4E9", 
             "#009E73", "#F0E442", "#F5C710", 
             "#0072B2", "#D55E00", "#CC79A7")
+## 
+nice_number <- label_number(style_negative = "minus", accuracy = 0.01)
+nice_p <- label_pvalue(prefix = c("p < ", "p = ", "p > "))
+find_intercept <- function(x1, y1, slope) {
+  intercept <- slope * (-x1) + y1
+  return(intercept)
+}
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
@@ -322,10 +337,10 @@ p1 <- ggplot(flea_model_tbl, aes(x = hatched, y = jump_length)) +
 p2 <- ggplot(flea_model_tbl, aes(x = weight, y = jump_length)) +
   theme_marginal() +
   geom_point() +
-  stat_smooth(method = "lm", formula = y ~ 0 +  x + I(x^2), linewidth = 1, 
+  stat_smooth(method = "lm", formula = y ~ x + I(x^2), linewidth = 1, 
               color = cb_pal[3], se = FALSE) +
   geom_richtext(aes(x = 15, y = 112, 
-                    label = "f(x) = 0 + 10.62x - 0.32x²<br>f'(x) = 10.62 - 0.64x")) +
+                    label = "f(x) = 47.10 + 2.62x - 0.04x²<br>f'(x) = 2.62 - 0.08x")) +
   labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]",
        title = "Quadratischer Zusammenhang") 
 
@@ -335,34 +350,88 @@ p1 + p2 +
   theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
 
+::: panel-tabset
+## Linearer Zusammenhang ($y \sim x$)
+
 ```{r}
 model_ln <- lm(jump_length ~ weight,
                data = flea_model_tbl)
 tidy(model_ln)
 ```
 
+$$
+\begin{aligned}
+\operatorname{E}[y \mid x] &= \beta_0 + \beta_1 x \\[4pt]
+\frac{\partial \operatorname{E}[y \mid x]}{\partial x} &= \beta_1
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+\operatorname{E}[\text{Sprungweite} \mid \text{Gewicht}] &= 52.10 + 1.61 \times \text{Gewicht} \\[6pt]
+\frac{\partial \operatorname{E}[\text{Sprungweite} \mid \text{Gewicht}]}{\partial\ \text{Gewicht}} &= 1.61
+\end{aligned}
+$$
+
+## Quadratischer Zusammenhang ($y \sim x + x^2$)
+
 ```{r}
-model_sq <- lm(jump_length ~ 0 + weight + I(weight^2),
+model_sq <- lm(jump_length ~ weight + I(weight^2),
                data = flea_model_tbl)
 tidy(model_sq)
+```
+
+$$
+\begin{aligned}
+\operatorname{E}[y \mid x] &= \beta_0 + \beta_1 x + \beta_2 x^2 \\[4pt]
+\frac{\partial \operatorname{E}[y \mid x]}{\partial x} &= \beta_1 + 2 \beta_2 x
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+\operatorname{E}[\text{Sprungweite} \mid \text{Gewicht}] &= 47.10 + (2.62 \times \text{Gewicht}) + (−0.04 \times \text{Gewicht}^2) \\[6pt]
+\frac{\partial \operatorname{E}[\text{Sprungweite} \mid \text{Gewicht}]}{\partial\ \text{Gewicht}} &= 2.62 + (2\times −0.04 \times \text{Gewicht})
+\end{aligned}
+$$
+:::
+
+```{r}
+jump_weight_slope <- function(x) 2.62 + (2 *-0.04 * x)
+jump_weight_slope(c(5, 10, 15))
 ```
 
 ```{r}
 #| message: false
 #| echo: false
+#| warning: false
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 7
-#| fig-cap: "foo. **(A)** Kombinierte Darstellung in einem Scatterplot **(B)** Aufgeteilte Darstellung für beide Entwicklungsstadien. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "foo. . *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-data-3
 
-ggplot(flea_model_tbl, aes(x = weight, y = jump_length)) +
-  theme_minimal() +
-  geom_point() +
-  geom_line(aes(y = predict(model_sq))) + 
-  geom_function(fun = \(x) 0 + 10.62 * x -0.3152609 * x ^2, color = "blue") + 
-  labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]") 
+tangents <- model_sq |> 
+  augment(newdata = tibble(weight = c(5, 15, 25))) |> 
+  mutate(slope = jump_weight_slope(weight),
+         intercept = find_intercept(weight, .fitted, slope)) |> 
+  mutate(nice_label = glue("Gewicht: {weight}<br>",
+                           "Fitted Gewicht: {nice_number(.fitted)}<br>",
+                           "Steigung: **{nice_number(slope)}**"))
 
+ggplot(flea_model_tbl, aes(x = weight, y = jump_length)) +
+  theme_marginal() +
+  geom_point() +
+  stat_smooth(method = "lm", formula = y ~ x + I(x^2), linewidth = 1.25, 
+              se = FALSE, color = cb_pal[3], fullrange = TRUE) +
+  geom_abline(data = tangents, aes(slope = slope, intercept = intercept), 
+              linewidth = 0.5, color = cb_pal[8], linetype = "21") +
+  geom_point(data = tangents, aes(x = weight, y = .fitted), 
+             size = 4, shape = 18, color = cb_pal[9]) +
+  geom_richtext(data = tangents,
+                aes(x = weight, y = .fitted, label = nice_label), nudge_y = -7) +
+  scale_x_continuous(breaks = seq(0, 30, 5), limits = c(0, 30)) +
+  labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]") 
 
 ```
 
