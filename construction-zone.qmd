@@ -435,6 +435,143 @@ ggplot(flea_model_tbl, aes(x = weight, y = jump_length)) +
 
 ```
 
+::: panel-tabset
+## `{marginaleffects}`
+
+```{r}
+#| message: false
+#| warning: false
+model_sq |> 
+  slopes(newdata = datagrid(weight = c(5, 15, 25)))
+```
+
+## `{emmeans}`
+
+```{r}
+#| message: false
+#| warning: false
+model_sq |> 
+  emtrends(~ weight, var = "weight",
+           at = list(weight = c(5, 15, 25))) |> 
+  test()
+```
+:::
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 7
+#| fig-cap: "foo. . *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-data-4
+
+plot_slopes(model_sq, 
+            variables = "weight", 
+            condition = "weight") +
+  labs(x = "Civil liberties", y = "Marginal effect of civil liberties on public sector corruption",
+       subtitle = "Created automatically with marginaleffects::plot_slopes()") +
+  theme_marginal()
+```
+
+## Philosophien zur Mittelwertbildung
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 9.5
+#| fig-cap: "foo. **(A)** Kombinierte Darstellung in einem Scatterplot **(B)** Aufgeteilte Darstellung für beide Entwicklungsstadien. *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-data-5
+
+tangents <- model_sq |> 
+  augment(newdata = tibble(weight = c(1:27))) |> 
+  mutate(slope = jump_weight_slope(weight),
+         intercept = find_intercept(weight, .fitted, slope)) |> 
+  mutate(nice_label = glue("Gewicht: {weight}<br>",
+                           "Fitted Gewicht: {nice_number(.fitted)}<br>",
+                           "Steigung: **{nice_number(slope)}**"))
+
+p1 <- ggplot(flea_model_tbl, aes(x = weight, y = jump_length)) +
+  theme_marginal() +
+  geom_point() +
+  geom_abline(data = tangents, aes(slope = slope, intercept = intercept), 
+              linewidth = 0.5, color = cb_pal[8], linetype = "21") +
+  stat_smooth(method = "lm", formula = y ~ x + I(x^2), linewidth = 1.25, 
+              se = FALSE, color = cb_pal[3], fullrange = TRUE) +
+  geom_point(data = tangents, aes(x = weight, y = .fitted), 
+             size = 4, shape = 18, color = cb_pal[9]) +
+  geom_richtext(aes(x = 15, y = 88, label = "Gemittelte Steigung: 1.83"),
+                site = 20) +
+  scale_x_continuous(breaks = seq(0, 30, 5), limits = c(0, 30)) +
+  labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]",
+       title = "Average marginal effects (AME)") 
+
+
+p2 <- ggplot(flea_model_tbl, aes(x = weight, y = jump_length)) +
+  theme_marginal() +
+  geom_point() +
+  stat_smooth(method = "lm", formula = y ~ x + I(x^2), linewidth = 1.25, 
+              se = FALSE, color = cb_pal[3], fullrange = TRUE) +
+  geom_abline(intercept = find_intercept(9.95375, 69.24257, 1.83), slope = 1.83,
+              linewidth = 0.5, color = cb_pal[8], linetype = "21") +
+  annotate("point", x = 9.95375, y = 69.24, size = 4, shape = 18, 
+           color = cb_pal[9]) +
+  geom_richtext(aes(x = 10, y = 75, label = "Steigung am Mittelwert: 1.83"),
+                site = 20) +
+  scale_x_continuous(breaks = seq(0, 30, 5), limits = c(0, 30)) +
+  labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]",
+       title = "Marginal effects at the mean (MEM)") 
+
+p1 + p2 +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+```
+
+### Average marginal effects (AME)
+
+```{r}
+mfx_sq <- slopes(model_sq)
+head(mfx_sq)
+```
+
+```{r}
+mfx_sq |> 
+  group_by(term) |> 
+  summarize(avg_slope = mean(estimate))
+```
+
+```{r}
+avg_slopes(model_sq)
+```
+
+### Marginal effects at the mean (MEM)
+
+```{r}
+avg_jump_weight <- mean(flea_model_tbl$weight)
+avg_jump_weight
+```
+
+```{r}
+jump_weight_fitted <- model_sq |> 
+  augment(newdata = tibble(weight = c(avg_jump_weight, avg_jump_weight + 0.001)))
+jump_weight_fitted
+```
+
+```{r}
+model_sq |> 
+  emtrends(~ weight, var = "weight")
+```
+
+```{r}
+model_sq |> 
+  avg_slopes(newdata = "mean")
+```
+
 ## Links
 
 -   [Mixed](https://stats.stackexchange.com/questions/95054/how-to-get-an-overall-p-value-and-effect-size-for-a-categorical-factor-in-a-mi)
