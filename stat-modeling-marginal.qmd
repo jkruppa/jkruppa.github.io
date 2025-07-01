@@ -1,0 +1,180 @@
+```{r echo = FALSE}
+#| message: false
+#| warning: false
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, performance, parameters,
+               latex2exp, see, patchwork, mfp, multcomp, emmeans, janitor, effectsize,
+               broom, ggmosaic, tinytable, ggrepel, tidyplots,
+               conflicted)
+conflicts_prefer(dplyr::select)
+conflicts_prefer(dplyr::filter)
+cb_pal <- c("#000000", "#E69F00", "#56B4E9", 
+            "#009E73", "#F0E442", "#F5C710", 
+            "#0072B2", "#D55E00", "#CC79A7")
+cbbPalette <- cb_pal
+theme_marginal <- function() {
+  theme_minimal() +
+    theme(panel.grid.minor = element_blank(),
+          plot.background = element_rect(fill = "white", color = NA),
+          plot.title = element_text(size = 16, face = "bold"),
+          plot.subtitle = element_text(size = 12, face = "italic"),
+          plot.caption = element_text(face = "italic"),
+          axis.title = element_text(face = "bold"),
+          axis.text = element_text(size = 12),
+          strip.text = element_text(face = "bold"),
+          strip.background = element_rect(fill = "grey80", color = NA))
+}
+```
+
+```{r}
+#| echo: false
+#| eval: false
+#| message: false
+#| warning: false
+source("images/R/stat-tests-utest.R")
+```
+
+# Marginal effect models {#sec-marginal}
+
+*Letzte Änderung am `r format(fs::file_info("stat-modeling-marginal.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*
+
+> *"Life is difficult." --- Morgan Scott Peck, The Road Less Traveled*
+
+![](images/caution.png){fig-align="center" width="100%"}
+
+::: {.callout-caution appearance="simple"}
+## Stand des Kapitels: Konstruktion (seit 07.2025)
+
+Dieses Kapitel wird in den nächsten Wochen geschrieben und ist damit meine aktuelle Großbaustelle. Ich plane zum Beginn des WiSe 2025/26 eine fertige Version des Kapitels erstellt zu haben. Während das Kapitel entsteht, funktioniert so manches dann nicht so wie es soll. Bitte daher hier dann abwarten.
+:::
+
+::: callout-tip
+## Weitere Tutorien für die Marginal effects models
+
+Wir oben schon erwähnt, kann dieses Kapitel nicht alle Themen der Marginal effects models abarbeiten. Daher präsentiere ich hier eine Liste von Literatur und Links, die mich für dieses Kapitel hier inspiriert haben. Nicht alles habe ich genutzt, aber vielleicht ist für dich was dabei.
+
+-   Ohne den Blogpost [Marginalia: A guide to figuring out what the heck marginal effects, marginal slopes, average marginal effects, marginal effects at the mean, and all these other marginal things are](https://www.andrewheiss.com/blog/2022/05/20/marginalia/) von @heiss2022 wäre dieses Kapitel nicht möglich gewesen.
+:::
+
+## Genutzte R Pakete
+
+Wir wollen folgende R Pakete in diesem Kapitel nutzen.
+
+```{r echo = TRUE}
+#| message: false
+#| warning: false
+pacman::p_load(tidyverse, gtsummary, marginaleffects, emmeans, scales,
+               conflicted)
+conflicts_prefer(dplyr::mutate)
+conflicts_prefer(dplyr::summarize)
+conflicts_prefer(dplyr::filter)
+cb_pal <- c("#000000", "#E69F00", "#56B4E9", 
+            "#009E73", "#F0E442", "#F5C710", 
+            "#0072B2", "#D55E00", "#CC79A7")
+## 
+nice_number <- label_number(style_negative = "minus", accuracy = 0.01)
+nice_p <- label_pvalue(prefix = c("p < ", "p = ", "p > "))
+find_intercept <- function(x1, y1, slope) {
+  intercept <- slope * (-x1) + y1
+  return(intercept)
+}
+```
+
+An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
+
+## Daten
+
+```{r}
+flea_model_tbl <- read_excel("data/fleas_model_data.xlsx") |> 
+  mutate(feeding = as_factor(feeding),
+         stage = as_factor(stage),
+         bonitur = as.numeric(bonitur),
+         infected = factor(infected, labels = c("healthy", "infected"))) |> 
+  select(feeding, stage, jump_length, weight, hatched, count_leg,  bonitur, infected)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-fac1cov-table
+#| tbl-cap: "Daten für die einfaktorielle MANOVA mit der Sprungweite in [cm] und dem Gewicht der Flöhe in [mg] für drei Floharten."
+
+flea_model_raw_tbl <-  read_excel("data/fleas_model_data.xlsx") |> 
+  mutate(bonitur = as.numeric(bonitur),
+         infected = as.character(factor(infected, labels = c("healthy", "infected")))) |> 
+  select(feeding, stage, jump_length, weight, count_leg, hatched, bonitur, infected) |> 
+  mutate_if(is.numeric, round, 2)
+
+rbind(head(flea_model_raw_tbl, n = 3),
+      rep("...", times = ncol(flea_model_raw_tbl)),
+      tail(flea_model_raw_tbl, n = 3)) |> 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 10.5
+#| fig-cap: "foo. **(A)** Kombinierte Darstellung in einem Scatterplot **(B)** Aufgeteilte Darstellung für beide Entwicklungsstadien. *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-data-1
+
+p1 <- ggplot(flea_model_tbl, aes(x = feeding, y = jump_length, fill = stage)) +
+  theme_marginal() +
+  geom_boxplot() +
+  scale_fill_okabeito() +
+  theme(legend.position = "top") +
+  labs(x = "Ernährungsform", y = "Sprungweite in [cm]",
+       fill = "") +
+  scale_x_discrete(guide = guide_axis(n.dodge=2))
+
+p2 <- ggplot(flea_model_tbl, aes(x = feeding, y = log(count_leg), fill = stage)) +
+  theme_marginal() +
+  geom_boxplot() +
+  scale_fill_okabeito() +
+  theme(legend.position = c(0.5, 1)) +
+  labs(x = "Ernährungsform", y = "Anzahl Beinhaare [log]",
+       fill = "") +
+  scale_x_discrete(guide = guide_axis(n.dodge=2))
+
+p3 <- ggplot(flea_model_tbl, aes(x = feeding, y = bonitur, fill = stage)) +
+  theme_marginal() +
+  geom_dotplot(binaxis = "y", stackdir = "center") +
+  facet_wrap(~stage) +
+  scale_fill_okabeito() +
+  theme(legend.position = "none") +
+  labs(x = "Ernährungsform", y = "Boniturnoten",
+       fill = "") +
+  scale_x_discrete(guide = guide_axis(n.dodge=2))
+
+p1 + p2 + p3 +
+  plot_layout(ncol = 3, widths = c(1.25, 1.25, 2.5)) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-infected-model-fleas
+#| tbl-cap: "Deskriptive Statistik des Infektionsstatus (0 = nein / 1 = ja) mit Flohschnupfen aufgeteilt nach den Faktoren und anderen Variablen."
+
+flea_model_tbl |>
+  select(infected, feeding, stage) |> 
+  tbl_summary(
+    by = infected,
+    statistic = list(
+      all_continuous() ~ "{mean} ({sd})",
+      all_categorical() ~ "{n} / {N} ({p}%)"
+    ),
+    digits = all_continuous() ~ 2,
+    #label = count_color ~ "Anzahl Farben",
+    missing_text = "(Missing)"
+  )
+```
+
+## Referenzen {.unnumbered}
