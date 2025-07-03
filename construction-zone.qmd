@@ -43,8 +43,6 @@ Dieses Kapitel wird in den nächsten Wochen geschrieben. Ich plane zum Beginn de
 > *"Aktuell wird gerade an den Marginal effects models gebaut... das wird jedenfalls so seine Zeit noch brauchen, bis ich hier einen Strang und Grund drin habe." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
 :::
 
-## Allgemeiner Hintergrund
-
 ## Genutzte R Pakete
 
 Wir wollen folgende R Pakete in diesem Kapitel nutzen.
@@ -83,12 +81,16 @@ flea_model_tbl <- read_excel("data/fleas_model_data.xlsx") |>
   select(feeding, stage, jump_length, weight, hatched, count_leg,  bonitur, infected)
 ```
 
+## Weitere R Pakete
+
+Das [R Paket `{modelbased}`](https://easystats.github.io/modelbased/)
+
 ## Marginal effects models
 
 :::: callout-note
 ## Wie zeichne ich Modelle ein?
 
-In dem folgenden Abschnitten wollen wir immer Modell in unsere Visualisierungen einzeichen. Nehmen wir einmal einen simplen Datensatz,d en wir uns einfach selber bauen und dann wollen wir dort eine Linie durchzeichnen.
+In dem folgenden Abschnitten wollen wir immer Modell in unsere Visualisierungen einzeichen. Nehmen wir einmal einen simplen Datensatz,d en wir uns einfach selber bauen und dann wollen wir dort eine Linie durchzeichnen. Dafür nehmen wri einmal zwanzig x-Werte und bauen uns dann die y-Werte nach $y = 1.5 + 0.75 \cdot x$ zusammen. Dann addieren wir noch einen Fehler aus einer Standardnormalverteilung hinzu. Wenn wir keinen Fehler hinzuaddieren würden, dann lägen die Punkte wie auf einer Perlenschnur aneinandergereit.
 
 ```{r}
 set.seed(20250703)
@@ -96,16 +98,23 @@ modell_line_tbl <- tibble(x = rnorm(20, 2, 1),
                           y = 1.5 + 0.75 * x + rnorm(length(x), 0, 1))
 ```
 
-#### ...mit `{ggplot}` {.unnumbered .unlisted}
+Jetzt können wir einmal das Modell anpassen und schauen, ob wir die Koeffizienten des Modells wiederfinden. Dann wollen wir natürlich auch sehen, ob unser Modell durch die Punkte läuft. Also erstmal das Modell mit `lm()` gebaut. Dann schauen wir uns noch die Koeffizienten einmal mit an. Bei nur so wenigen Beobachtungen werden die Koeffizienten aus dem Modell nicht mit den voreingestellten übereinstimmen.
+
+```{r}
+model_fit <- lm(y ~ x, modell_line_tbl)
+model_fit
+```
+
+In der folgenden Abbildung siehst du dann einmal den Scatterplot von unseren x-Werten und y-Werten. Wir wollen jetzt die Gerade, die wir im Modell geschätzt haben einmal durch die Punkte legen um zu schauen, ob das Modell auch die Punkte beschreibt. Dabei soll die Gerade durch die Mitte der Punkte laufen und die Punkte sollten auf beiden Seiten der Geraden gleichmäßig verteilt sein.
 
 ```{r}
 #| message: false
 #| echo: false
 #| warning: false
 #| fig-align: center
-#| fig-height: 4
+#| fig-height: 3
 #| fig-width: 7
-#| fig-cap: "foo. . *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Scatterplot der x-Werte und y-Werte. Durch die Punkte soll die Gerade aus dem Modell gelegt werden. *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-model-line-01
 
 ggplot(modell_line_tbl, aes(x, y)) +
@@ -113,40 +122,44 @@ ggplot(modell_line_tbl, aes(x, y)) +
   geom_point()
 ```
 
+Wir haben jetzt verschiedene Möglichkeiten die Koeffizienten und damit das Modell in den obigen Plot einzuzeichnen. Ich zeige dir hier einmal die häufigsten, die ich dann auch nutze. Erstmal die Anwendung direkt in `{ggplot}` und dann einmal noch in dem R Paket `{ggpmisc}`.
+
+#### ...mit `{ggplot}` {.unnumbered .unlisted}
+
 ::: panel-tabset
 ## `geom_function()`
+
+In der Funktion `geom_function()` müssen wir die Funktion angeben, die wir dann abbilden wollen. Wenn du verstehst, was die Koeffizienten in dem Modell bedeuten, dann kannst du natürlich die mathematische Funktion wie hier entsprechend ergänzen.
 
 ```{r}
 #| message: false
 #| echo: true
 #| warning: false
 #| fig-align: center
-#| fig-height: 4
+#| fig-height: 3
 #| fig-width: 7
-#| fig-cap: "foo. . *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Scatterplot der x-Werte und y-Werte. Durch die Punkte läuft die Gerade mit den Koeffizienten aus dem Modell. *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-model-line-02
 
 ggplot(modell_line_tbl, aes(x, y)) +
   theme_minimal() +
   geom_point() +
-  geom_function(fun = \(x) 1.5 + 0.75 * x, 
+  geom_function(fun = \(x) 1.9574 + 0.5534 * x, 
                 color = "#CC79A7")
 ```
 
 ## `geom_line(aes(y = predict(model_fit)))`
 
-```{r}
-model_fit <- lm(y ~ x, modell_line_tbl)
-```
+Manchmal ist das Modell zu komplex, dass wir die mathematische Funktion einfach aufschreiben könnten. In dem Fall hilft die Funktion `geom_line()` die wir dann die vorhergesagten y-Werte mit der Funktion `predict()` aus dem Modell übergeben. Das funktioniert auch sehr gut.
 
 ```{r}
 #| message: false
 #| echo: true
 #| warning: false
 #| fig-align: center
-#| fig-height: 4
+#| fig-height: 3
 #| fig-width: 7
-#| fig-cap: "foo. . *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Scatterplot der x-Werte und y-Werte. Durch die Punkte läuft die Gerade mit den vorhergesagten Werten aus dem Modell. *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-model-line-03
 
 ggplot(modell_line_tbl, aes(x, y)) +
@@ -158,37 +171,39 @@ ggplot(modell_line_tbl, aes(x, y)) +
 
 ## `geom_smooth()`
 
+Abschließend können wir auch einfach so eine Gerade durch die Punkte legen indem wir die Funktion `geom_smooth()` als eine Art der Glättung nutzen. Aber hier muss ich sagen, dass uns dann die Geradengleichung fehlt. So mal zum gucken ist das wunderbar. Du kannst über die Option `formula` auch eine Funktion übergeben. Darüber hinaus erhalten wir dann noch einen Fehlerbalken des Standardfehlers, was in manchen Fällen nützlich ist. Wenn du die Geradengleichung brauchst, dann schaue einmal in dem Paket `{ggpmisc}` rein.
+
 ```{r}
 #| message: false
 #| echo: true
 #| warning: false
 #| fig-align: center
-#| fig-height: 4
+#| fig-height: 3
 #| fig-width: 7
-#| fig-cap: "foo. . *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Scatterplot der x-Werte und y-Werte. Durch die Punkte läuft die Gerade aus einer Glättung. *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-model-line-04
 
 ggplot(modell_line_tbl, aes(x, y)) +
   theme_minimal() +
   geom_point() +
-  geom_smooth(method = "lm", color = "#CC79A7")
+  geom_smooth(method = "lm", color = "#CC79A7") +
+  geom_smooth(method = "lm", formula = y ~ I(x^4), 
+              color = "#0072B2")
 ```
 :::
 
 #### ...mit `{ggpmisc}` {.unnumbered .unlisted}
 
-[Add regression line equation and R\^2 on graph](https://stackoverflow.com/questions/7549694/add-regression-line-equation-and-r2-on-graph)
-
-[Fitted-Model-Based Annotations](https://cran.r-project.org/web/packages/ggpmisc/vignettes/model-based-annotations.html)
+Ich möchte hier nich zu sehr in die Tiefe von `{ggpmisc}` gehen, aber das Paket verbindet im Prinzip die Funktion `geom_smooth()` mit der Wiedergabe der Informationen zu den Regressionsgleichungen. Du findest bei StackOverflow einmal eine schöne Übersicht in [Add regression line equation and R\^2 on graph](https://stackoverflow.com/questions/7549694/add-regression-line-equation-and-r2-on-graph). Wenn du mehr willst, dann schaue dir einmal die Hilfeseite von `{ggpmisc}` mit [Fitted-Model-Based Annotations](https://cran.r-project.org/web/packages/ggpmisc/vignettes/model-based-annotations.html) näher an. Es geht echt eine Menge, von dem ich hier nur einmal den Klassiker zeige. Wir wollen einmal die Regressionsgleichung plus das Bestimmtheitsmaß einzeichnen. Das geht über drei Funktionen zusammen mit der Regressionsgeraden.
 
 ```{r}
 #| message: false
 #| echo: true
 #| warning: false
 #| fig-align: center
-#| fig-height: 4
+#| fig-height: 3
 #| fig-width: 7
-#| fig-cap: "foo. . *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Scatterplot der x-Werte und y-Werte. Durch die Punkte läuft die Gerade aus einer Glättung plus die Geradengleichung und das Bestimmtheitsmaß. *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-model-line-05
 
 ggplot(modell_line_tbl, aes(x, y)) +
