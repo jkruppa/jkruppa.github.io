@@ -74,6 +74,18 @@ p2_intro_02 <- ggplot() +
   coord_cartesian(ylim = c(-10, 15))
 ## -----------------------------------------------------------------------------
 
+p1_intro_00 <- ggplot(modell_line_tbl, aes(x, y)) +
+  theme_marginal() +
+  geom_point2() +
+  theme(axis.text = element_blank()) +
+  geom_function(fun = \(x) 1.5 + 0.75 * x, color = "#E69F00", linewidth = 1) 
+
+p2_intro_00 <- ggplot(modell_square_tbl, aes(x, y)) +
+  theme_marginal() +
+  geom_point2() +
+  theme(axis.text = element_blank()) +
+  geom_function(fun = \(x) 1.5 + 0.75 * -x^2, color = "#56B4E9", linewidth = 1)
+
 ## -----------------------------------------------------------------------------
 
 ## -----------------------------------------------------------------------------
