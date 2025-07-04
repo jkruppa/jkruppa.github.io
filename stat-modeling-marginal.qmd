@@ -23,6 +23,11 @@ theme_marginal <- function() {
           strip.text = element_text(face = "bold"),
           strip.background = element_rect(fill = "grey80", color = NA))
 }
+set.seed(20250703)
+modell_square_tbl <- tibble(x = rnorm(20, 5, 5),
+                          y = 1.5 + 0.75 * -x^2 + rnorm(length(x), 0, 5))
+modell_line_tbl <- tibble(x = rnorm(20, 2, 1),
+                            y = 1.5 + 0.75 * x + rnorm(length(x), 0, 0.5))
 ```
 
 ```{r}
@@ -46,15 +51,49 @@ source("images/R/stat-modeling-marginal.R")
 Dieses Kapitel wird in den nächsten Wochen geschrieben und ist damit meine aktuelle Großbaustelle. Ich plane zum Beginn des WiSe 2025/26 eine fertige Version des Kapitels erstellt zu haben. Während das Kapitel entsteht, funktioniert so manches dann nicht so wie es soll. Bitte daher hier dann abwarten.
 :::
 
-Lange habe ich gebraucht um mich dazu durchzuringen das Kapitel zu den *Marginal effect models* (deu. marginale Effektmodelle, ungebräuchlich) zu schreiben. Ich werde hier bei dem englischen Begriff bleiben, den deutschen Begriff habe ich eher selten gehört und daher sind es für mich *Marginal effect models*. Insbesondere da der Begriff <marginal> auch sehr an gering oder minderwertig erinnert. Damit haben aber die *Marginal effect models* nicht im geringsten zu tun. Die Modelle sind sehr mächtig und können uns helfen wichtige Fragen an unsere Daten zu beantworten. Insbesondere die Dualität der beiden Pakete `{emmeans}` für experimentelle Daten und `{marginaleffects}` für beobachtete Daten ist spannend und möchte ich hier nochmal genauer betrachten. Es gibt natürlich noch mehr R Pakete und auch dort werden wir dann einal reinschauen.
+Lange habe ich gebraucht um mich dazu durchzuringen das Kapitel zu den *Marginal effect models* (deu. *marginale Effektmodelle*, ungebräuchlich) zu schreiben. Ich werde hier bei dem englischen Begriff bleiben, den deutschen Begriff habe ich eher selten gehört und daher sind es für mich *Marginal effect models*. Insbesondere da der Begriff "marginal" auch sehr an gering oder minderwertig erinnert. Damit haben aber die *Marginal effect models* nicht im geringsten zu tun. Die Modelle sind sehr mächtig und können uns helfen wichtige Fragen an unsere Daten zu beantworten. Insbesondere die Dualität der beiden Pakete `{emmeans}` für experimentelle Daten und `{marginaleffects}` für beobachtete Daten ist spannend und möchte ich hier nochmal genauer betrachten. Neben diesen beiden Ecksteinen gibt es noch andere Pakete und ich werde auch hier einmal in die Pakete reinschauen. Anfangen kann ich aber nicht ohne @heiss2022 mit seinem Blogpost [Marginalia: A guide to figuring out what the heck marginal effects, marginal slopes, average marginal effects, marginal effects at the mean, and all these other marginal things are](https://www.andrewheiss.com/blog/2022/05/20/marginalia/) zu erwähnen. Vieles entlehnt sich direkt oder indirekt an seine Ausführungen. Wie immer habe ich etwas angepasst, wenn ich der Meinung war, dass es noch besser zu verstehen ist. Fangen wir also an *Marginal effect models* zu zerforschen.
 
-@heiss2024 mit [Model to meaning --- How to Interpret Statistical Models With marginaleffects for R and Python](https://marginaleffects.com/)
-
-!["Should I cut the red wire or the blue one!?" "WAIT! We're going to watch ALL the action movies from the '80s and '90s and then calculate the average!" Quelle: wumo.com](images/average.jpg){#fig-pretest-barplot-02 fig-align="center" width="100%"}
+## Allgemeiner Hintergrund
 
 > *"Statistics is all about lines, and lines have slopes, or derivatives. These slopes represent the marginal changes in an outcome. As you move an independent/explanatory variable, what happens to the dependent/outcome variable?" --- @heiss2022*
 
-## Allgemeiner Hintergrund
+Wenn wir mit dem Verstehen und Zerforschen vorankommen wollen, dann können wir @heiss2022 und @heiss2024 mit der Veröffentlichung [Model to meaning --- How to Interpret Statistical Models With marginaleffects for R and Python](https://marginaleffects.com/) nicht ignorieren. Ich nutze jetzt eine etwas allgemeinere Erklärung der *Marginal effect models* und konzentriere mich erstmal auf ein normalverteiltes $x$ sowie ein normalverteiltes $y$. Daher haben wir hier in unserem $x$ keine Gruppen vorliegen sondern einen klassischen Scatterplot mit Punkten als Beobachtungen. Wir können die *Marginal effect models* auch auf beliebige kategorielle $x$ wie eben Behandlungsgruppen sowie jedes beliebige $y$ anwenden, aber hier fangen wir einmal einfach an.
+
+Die zentrale Frage, die wir beantworten wollen:
+
+:   Wenn sich das $x$ um einen Wert oder eine Einheit erhöht, um wieviele Einheiten verändert sich dann der Wert von $y$?
+
+In der folgenden Abbildung siehst du einmal zwei Scatterplots. In dem linkenm Scatterplot haben wir einen linearen Zusammenhang zwischen unseren $x$-Werten und den $y$-Werten. Wir können sagen, dass wenn sich $x$ um einen Wert erhöht, dann erhöht sich auch y um einen konstanten Wert. Dieser konstante Wert um den sich die $y$-Werte mit ansteigenden $x$ erhöhen, nennen wir auch die Steigung $\beta_1$. In einem linearen Zusammenhang ist die Frage damit mit der Steigung der Geraden eigentlich beantwortet. Straigt $x$ um einen Wert, dann steigt $y$ um den Wert der Steigung $\beta_1$ der Geraden. Spanndender wird die Sachlage in einem quadratischen Zusammenhang. Oder allgemeiner gesprochen, wenn wir keinen linearen Zusammenhang vorliegen haben. Jetzt ändert sich die Steigung von $x$ in Abhängigkeit von dem betrachteten $x$! Wenn wir $x$-Werte links betrachten, dann leigt hier eher eine Steigung nahe Null vor. Wenn wir nach rechts laufen, dann sehen wir immer stärkere negative Steigungen. Und hier kommen dann die *Marginal effect models* ins Spiel. Wir können allgemein gesprochen uns mit den *Marginal effect models* für jedes $x$ die Steigung wiedergeben lassen.
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "Scatterplot der kontinuierlichen x-Werte und kontinuierlichen y-Werte. In einem Modell wollen wir die Abhängigkeit von y und x modellieren. Ein  *Marginal effect models* aggregiert die Ergebnisse des Modelles für die Änderung in den x-Werten. **(A)** Linearer Zusammenhang. **(B)** Quadratischer Zusammenhang. *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-model-intro-00
+
+p1 <- ggplot(modell_line_tbl, aes(x, y)) +
+  theme_marginal() +
+  geom_point2() +
+  theme(axis.text = element_blank()) +
+  geom_function(fun = \(x) 1.5 + 0.75 * x, color = "#E69F00", linewidth = 1) 
+
+p2 <- ggplot(modell_square_tbl, aes(x, y)) +
+  theme_marginal() +
+  geom_point2() +
+  theme(axis.text = element_blank()) +
+  geom_function(fun = \(x) 1.5 + 0.75 * -x^2, color = "#56B4E9", linewidth = 1)
+
+p1 + p2 +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+```
+
+!["Should I cut the red wire or the blue one!?" "WAIT! We're going to watch ALL the action movies from the '80s and '90s and then calculate the average!" Quelle: wumo.com](images/average.jpg){#fig-pretest-barplot-02 fig-align="center" width="100%"}
 
 ```{r}
 #| message: false
@@ -99,7 +138,7 @@ Marginal effect
 
 :   der statistische Effekt für kontinuierliche erklärende Variablen; die partielle Ableitung einer Variablen in einem Regressionsmodell; der Effekt eines einzelnen Schiebereglers.
 
-Conditional effect oder group contrast
+Conditional effect oder Gruppenkontrast (eng. *group contrast*)
 
 :   der statistische Effekt für kategoriale erklärende Variablen; der Unterschied in den Mittelwerten, wenn eine Bedingung eingeschaltet ist und wenn sie ausgeschaltet ist; der Effekt eines einzelnen Schalters.
 
