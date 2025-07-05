@@ -59,7 +59,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 #| warning: false
 pacman::p_load(tidyverse, gtsummary, marginaleffects, emmeans, scales,
-               ggpmisc, conflicted)
+               ggpmisc, readxl, conflicted)
 conflicts_prefer(dplyr::mutate)
 conflicts_prefer(dplyr::summarize)
 conflicts_prefer(dplyr::filter)
@@ -87,6 +87,123 @@ flea_model_tbl <- read_excel("data/fleas_model_data.xlsx") |>
          bonitur = as.numeric(bonitur),
          infected = factor(infected, labels = c("healthy", "infected"))) |> 
   select(feeding, stage, jump_length, weight, hatched, count_leg,  bonitur, infected)
+```
+
+## Hypothesen
+
+$$
+Z=\frac{h(\hat{\theta})-H_0}{\sqrt{\hat{V}[h(\hat{\theta})]}}
+$$
+
+```{r}
+feeding_fit = lm(jump_length ~ 0 + feeding, data = flea_model_tbl)
+coef(feeding_fit)
+```
+
+```{r}
+summary(feeding_fit) |> coef()
+```
+
+$$
+Z = \cfrac{\hat{\beta_1}-H_0}{\sqrt{\widehat{V}[\beta_1]}} = \cfrac{75.43938 - 0}{4.791469} = 15.74
+$$
+
+```{r}
+2*pt(15.74452, df = 45, lower.tail = FALSE)
+```
+
+```{r}
+feeding_fit = lm(jump_length ~ feeding * stage, data = flea_model_tbl)
+coef(feeding_fit)
+```
+
+::: panel-tabset
+## `{emmeans}`
+
+```{r}
+feeding_fit |> 
+  emmeans(~ feeding | stage, vcov = sandwich::vcovHAC)
+
+feeding_fit |> 
+  emmeans(~ feeding | stage, vcov = sandwich::vcovHAC) |> 
+  contrast(method = "pairwise", adjust = "bonferroni")
+```
+
+## `{marginaleffects}`
+
+```{r}
+predictions(feeding_fit)
+```
+
+```{r}
+avg_predictions(feeding_fit, by = c("stage", "feeding"), vcov = "HAC")
+```
+
+```{r}
+avg_predictions(feeding_fit, by = c("stage", "feeding"), vcov = "HAC",
+                hypothesis = ~pairwise | stage)
+```
+
+```{r}
+avg_comparisons(feeding_fit,
+    by = "stage",
+    variables = list("feeding" = "pairwise"),
+    vcov = "HC3")
+```
+:::
+
+```{r}
+dat <- within(mtcars, {
+    gear = factor(gear)
+    cyl = factor(cyl)
+})
+dat <- sort_by(dat, ~ gear + cyl + am)
+mod <- lm(mpg ~ am * wt * factor(cyl), data = dat)
+
+
+avg_comparisons(mod, 
+    variables = "cyl",
+    by = "am")
+
+avg_comparisons(mod, 
+    variables = "cyl",
+    by = "am", 
+    hypothesis = ~ pairwise | contrast)
+
+avg_comparisons(feeding_fit, 
+    variables = "feeding",
+    by = "stage", 
+    hypothesis = ~ pairwise | contrast)
+
+avg_comparisons(feeding_fit,
+    by = "stage",
+    variables = list("feeding" = "pairwise"),
+    vcov = "HC3")
+
+
+library(dplyr)
+library(lme4)
+library(emmeans)
+
+dat <- read.csv("https://vincentarelbundock.github.io/Rdatasets/csv/lme4/VerbAgg.csv")
+dat$woman <- as.numeric(dat$Gender == "F")
+
+mod <- glmer(
+    woman ~ btype * resp + situ + (1 + Anger | item),
+    family = binomial,
+    data = dat)
+
+emmeans(mod, specs = "btype", by = "resp") |>
+    contrast(method = "revpairwise", adjust = "none")
+
+emmeans(mod, specs = ~ btype | resp) |>
+    contrast(method = "revpairwise", adjust = "none")
+
+
+avg_comparisons(mod,
+    by = "resp",
+    variables = list("btype" = "pairwise"))
+
 ```
 
 ## Weitere R Pakete
@@ -664,6 +781,7 @@ model_grp_sq |>
 ```
 
 ```{r}
+#| eval: false
 model_grp_sq |> 
   slopes(variables = "weight",
          newdata = datagrid(weight = c(5),
