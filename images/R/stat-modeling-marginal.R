@@ -43,11 +43,57 @@ p2_intro_00_2 <- enzyme_tbl|>
   geom_function(fun = a_line, linewidth = 1, color = "#56B4E9") +
   geom_point(data = slope_annotations, aes(x = x, y = y),
              shape = 23, fill = "#CC79A7", size = 3) +
+  geom_label(data = slope_annotations, aes(x = x, y = y, label = round(y, 1)),
+             alpha = 0.5, fill = "#CC79A7",
+             size = 3, position = position_nudge(x = c(0.5, 0.6, 0.5), y = -4)) +
   scale_x_continuous(breaks = c(-1, 2.5, 6), limits = c(-2, 8)) +
   scale_y_continuous(breaks = c(-50, 0, 50, 100), limits = c(-55, 75)) +
   labs(x = "Standardisierter pH-Wert (X)", y = "Standardisierte Enzymaktivität (Y)",
        title = "Vorhersage (eng. prediction)", subtitle = "Welche Werte für Y sagt das Modell für X vorraus?") +
   theme(panel.grid.major.x = element_blank())
+
+p3_intro_00_3 <- enzyme_tbl |> 
+  filter(x %in% c(-1, 2, 5)) |> 
+  mutate(x = as_factor(x)) |> 
+  ggplot(aes(x, y)) +
+  theme_marginal() +
+  geom_point(color = "gray50", alpha = 0.5) +
+  stat_summary(fun.data=mean_sdl, mult=1, 
+               geom="pointrange", shape = 23, fill = "#CC79A7", size = 0.75) +
+  stat_summary(fun = mean, geom = "label", aes(label = round(..y..,2)),
+               size = 3, position = position_nudge(x = .26, y = -1),
+               fill = "#CC79A7", alpha = 0.5) +
+  labs(x = "Standardisierter pH-Wert (A)", y = "Standardisierte Enzymaktivität (Y)",
+       title = "Vorhersage Gruppenmittel", subtitle = "Was sind die Gruppenmittelwerte von Y für A?") 
+
+p4_intro_00_4 <- enzyme_tbl |> 
+  filter(x %in% c(-1,0, 2,3, 5,6)) |> 
+  mutate(x = as_factor(x)) |> 
+  ungroup() |> 
+  mutate(g1 = rep(c("low", "mid", "high"), times = c(9, 8, 8)),
+         g1 = factor(g1, labels = c("-1", "2", "5")),
+         g2 = c(rep(c("Prokaryot", "Eukaryot"), times = c(5, 4)),
+                rep(c("Prokaryot", "Eukaryot"), times = c(4, 4)),
+                rep(c("Prokaryot", "Eukaryot"), times = c(3, 5)))) |> 
+  ggplot(aes(g1, y, group = g2)) +
+  theme_marginal() +
+  geom_point(color = "gray50", alpha = 0.5,
+             position = position_dodge(0.5)) +
+  stat_summary(fun.data=mean_sdl, mult=1, 
+               geom="pointrange", shape = 23, 
+               aes(fill = g2), size = 0.75,
+               position = position_dodge(0.5)) +
+  stat_summary(fun = mean, geom = "label", aes(label = round(..y..,2), fill = g2),
+               size = 3, position = position_nudge(x = c(-.4, -.4, -.38, .38, .38, .38),
+                                                   y = c(-1, -1, -1, -1.95, 1.95, -1)),
+               alpha = 0.5, show.legend = FALSE) +
+  scale_fill_okabeito() +
+  labs(x = "Standardisierter pH-Wert (A)", y = "Standardisierte Enzymaktivität (Y)",
+       fill = "Gruppe (B)",
+       title = "Vorhersage Gruppenmittel", subtitle = "Was sind die Gruppenmittelwerte von Y für B in A?") +
+  theme(legend.position = "top",
+        legend.title = element_text(size = 11, face = 2))
+
 
 ## -----------------------------------------------------------------------------
 
