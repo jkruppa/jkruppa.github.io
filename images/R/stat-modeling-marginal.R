@@ -27,7 +27,7 @@ p1_intro_00_1 <- enzyme_tbl|>
               linewidth = 0.5, linetype = "21", color = cb_pal[4]) +
   geom_point(data = slope_annotations, aes(x = x, y = y),
              shape = 23, fill = "#009E73", size = 3) +
-  labs(x = "Korrigierter pH-Wert (X)", y = "Standardisierte Enzymaktivität (Y)",
+  labs(x = "Standardisierter pH-Wert (X)", y = "Standardisierte Enzymaktivität (Y)",
        title = "Steigung (eng. slope)", subtitle = "Wenn X sich ändert, wie ändert sich dann Y?") 
 
 p2_intro_00_2 <- enzyme_tbl|>
@@ -45,7 +45,7 @@ p2_intro_00_2 <- enzyme_tbl|>
              shape = 23, fill = "#CC79A7", size = 3) +
   scale_x_continuous(breaks = c(-1, 2.5, 6), limits = c(-2, 8)) +
   scale_y_continuous(breaks = c(-50, 0, 50, 100), limits = c(-55, 75)) +
-  labs(x = "Korrigierter pH-Wert (X)", y = "Standardisierte Enzymaktivität (Y)",
+  labs(x = "Standardisierter pH-Wert (X)", y = "Standardisierte Enzymaktivität (Y)",
        title = "Vorhersage (eng. prediction)", subtitle = "Welche Werte für Y sagt das Modell für X vorraus?") +
   theme(panel.grid.major.x = element_blank())
 
