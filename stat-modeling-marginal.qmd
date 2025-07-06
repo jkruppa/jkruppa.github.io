@@ -28,6 +28,15 @@ modell_square_tbl <- tibble(x = rnorm(20, 5, 5),
                           y = 1.5 + 0.75 * -x^2 + rnorm(length(x), 0, 5))
 modell_line_tbl <- tibble(x = rnorm(20, 2, 1),
                             y = 1.5 + 0.75 * x + rnorm(length(x), 0, 0.5))
+set.seed(20250708)
+enzyme_tbl <- tibble(x = rep(c(-2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 7.5), each = 10),
+                     y = x^3 + -8*x^2 + 10*x + 10 + rnorm(length(x), 0, 10)) |> 
+  group_by(x) |> 
+  sample_n(size = sample(c(3:5), 1)) |> 
+  mutate_if(is.numeric, round, 2)
+enzyme_tbl |> 
+  set_names(c("ph", "activity")) |> 
+  writexl::write_xlsx("data/enzyme_kinetic.xlsx")
 ```
 
 ```{r}
@@ -56,6 +65,24 @@ Lange habe ich gebraucht um mich dazu durchzuringen das Kapitel zu den *Marginal
 ## Allgemeiner Hintergrund
 
 > *"Statistics is all about lines, and lines have slopes, or derivatives. These slopes represent the marginal changes in an outcome. As you move an independent/explanatory variable, what happens to the dependent/outcome variable?" --- @heiss2022*
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 9.5
+#| fig-cap: "Scatterplot der kontinuierlichen x-Werte und kontinuierlichen y-Werte. In einem Modell wird die Abhängigkeit von y und x modellieren. **(A)** Linearer Zusammenhang. **(B)** Quadratischer Zusammenhang. *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-model-intro-02
+
+p1_intro_00_1 + p2_intro_00_2 +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+```
+
+## Theoretischer Hintergrund
 
 Wenn wir mit dem Verstehen und Zerforschen vorankommen wollen, dann können wir @heiss2022 und @heiss2024 mit der Veröffentlichung [Model to meaning --- How to Interpret Statistical Models With marginaleffects for R and Python](https://marginaleffects.com/) nicht ignorieren. Ich nutze jetzt eine etwas allgemeinere Erklärung der *Marginal effect models* und konzentriere mich erstmal auf ein normalverteiltes $x$ sowie ein normalverteiltes $y$. Daher haben wir hier in unserem $x$ keine Gruppen vorliegen sondern einen klassischen Scatterplot mit Punkten als Beobachtungen. Wir können die *Marginal effect models* auch auf beliebige kategorielle $x$ wie eben Behandlungsgruppen sowie jedes beliebige $y$ anwenden, aber hier fangen wir einmal einfach an.
 
@@ -192,7 +219,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 #| warning: false
 pacman::p_load(tidyverse, gtsummary, marginaleffects, emmeans, scales,
-               conflicted)
+               janitor, conflicted)
 conflicts_prefer(dplyr::mutate)
 conflicts_prefer(dplyr::summarize)
 conflicts_prefer(dplyr::filter)
@@ -212,6 +239,80 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 
 ## Daten
 
+#### Modellierung von Enzymen {.unnumbered .unlisted}
+
+```{r}
+enzyme_tbl <- read_excel("data/enzyme_kinetic.xlsx") 
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-margin-table-01
+#| tbl-cap: "Daten für die einfaktorielle MANOVA mit der Sprungweite in [cm] und dem Gewicht der Flöhe in [mg] für drei Floharten."
+
+enzyme_raw_tbl <- read_excel("data/enzyme_kinetic.xlsx") 
+
+rbind(head(enzyme_raw_tbl, n = 3),
+      rep("...", times = ncol(enzyme_raw_tbl)),
+      tail(enzyme_raw_tbl, n = 3)) |> 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-margin-table-02
+#| tbl-cap: "Daten für die einfaktorielle MANOVA mit der Sprungweite in [cm] und dem Gewicht der Flöhe in [mg] für drei Floharten."
+
+enzyme_raw_tbl |> 
+  tabyl(ph) |> 
+  mutate(percent = scales::percent(percent)) |> 
+  kable(align = "c", "pipe")
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 9.5
+#| fig-cap: "Scatterplot der kontinuierlichen x-Werte und kontinuierlichen y-Werte. In einem Modell wird die Abhängigkeit von y und x modellieren. **(A)** Linearer Zusammenhang. **(B)** Quadratischer Zusammenhang. *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-model-intro-00-1
+
+a_line <- \(x) x^3 + -8*x^2 + 10*x + 10
+a_slope <- \(x) 10 - 16*x + 3*x^2
+
+slope_annotations <- tibble(x = c(-1, 2.5, 6)) |> 
+  mutate(y = a_line(x),
+         slope = a_slope(x),
+         intercept = find_intercept(x, y, slope),
+         nice_label = glue("x: {x}; y: {y}<br>",
+                           "Steigung (dy/dx): **{slope}**"))
+
+p1_intro_00_1 <- enzyme_tbl|> 
+  ggplot(aes(x, y)) +
+  geom_point(color = "gray50", alpha = 0.5) +
+  theme_marginal() +
+  geom_function(fun = a_line, linewidth = 1, color = cb_pal[2]) +
+  geom_richtext(aes(x = 4.25, y = 50, 
+                    label = "f(x) = x³ - 8x² + 10x + 10<br>f'(x) = 3x² -16x +10")) +
+  scale_x_continuous(breaks = c(-1, 2.5, 6), limits = c(-2, 8)) +
+  scale_y_continuous(breaks = c(-50, 0, 50, 100), limits = c(-55, 75)) +
+  geom_abline(data = slope_annotations,
+              aes(slope = slope, intercept = intercept),
+              linewidth = 0.5, linetype = "21", color = cb_pal[4]) +
+  geom_point(data = slope_annotations, aes(x = x, y = y),
+             shape = 23, fill = "#009E73", size = 3) +
+  labs(x = "Korrigierter pH-Wert (X)", y = "Standardisierte Enzymaktivität (Y)",
+       title = "Steigung (eng. slope)", subtitle = "Wenn X sich ändert, wie ändert sich dann Y?") 
+```
+
+#### Modellierung von Flöhen {.unnumbered .unlisted}
+
 ```{r}
 flea_model_tbl <- read_excel("data/fleas_model_data.xlsx") |> 
   mutate(feeding = as_factor(feeding),
@@ -228,7 +329,7 @@ flea_model_tbl <- read_excel("data/fleas_model_data.xlsx") |>
 #| label: tbl-fac1cov-table
 #| tbl-cap: "Daten für die einfaktorielle MANOVA mit der Sprungweite in [cm] und dem Gewicht der Flöhe in [mg] für drei Floharten."
 
-flea_model_raw_tbl <-  read_excel("data/fleas_model_data.xlsx") |> 
+flea_model_raw_tbl <- read_excel("data/fleas_model_data.xlsx") |> 
   mutate(bonitur = as.numeric(bonitur),
          infected = as.character(factor(infected, labels = c("healthy", "infected")))) |> 
   select(feeding, stage, jump_length, weight, count_leg, hatched, bonitur, infected) |> 
