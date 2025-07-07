@@ -113,37 +113,8 @@ p1_intro_00_1 + p2_intro_00_2 +
 #| echo: false
 #| warning: false
 enzyme_tbl <- read_excel("data/enzyme_kinetic.xlsx")
-gam_fit <- gam(activity ~ s(ph), data = enzyme_tbl)
 poly_fit <- lm(activity ~ poly(ph, 3), data = enzyme_tbl)
-loess_fit <- loess(activity ~ ph, data = enzyme_tbl)
-slopes(gam_fit, newdata = datagrid(ph = c(-1, 2, 6)))
 slopes(poly_fit, newdata = datagrid(ph = c(-1, 2, 6)))
-slopes(loess_fit, newdata = datagrid(ph = c(-1, 2, 6)))
-```
-
-```{r}
-#| message: false
-#| echo: false
-#| warning: false
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 9.5
-#| fig-cap: " *[Zum Vergrößern anklicken]*"
-#| label: fig-marginal-model-intro-02
-
-a_line <- \(x) x^3 + -8*x^2 + 10*x + 10
-enzyme_tbl|> 
-  ggplot(aes(ph, activity)) +
-  theme_marginal()  + 
-  geom_point(color = "gray50", alpha = 0.5) +
-  geom_function(fun = a_line, linewidth = 2, color = "black", alpha = 0.5) +
-  geom_line(aes(y = predict(gam_fit), color = "gam()"), linewidth = 1) +
-  geom_line(aes(y = predict(poly_fit), color = "poly()"), linewidth = 1) +
-  geom_line(aes(y = predict(loess_fit), color = "loess()"), linewidth = 1) +
-  labs(x = "Standardisierter pH-Wert (X)", y = "Standardisierte Enzymaktivität (Y)",
-       title = "Steigung", subtitle = "Wenn X sich ändert, wie ändert sich dann Y?",
-       color = "Methode") +
-  scale_color_okabeito()
 ```
 
 ## Interpretation Vorhersage
@@ -161,47 +132,8 @@ enzyme_tbl|>
 #| echo: false
 #| warning: false
 enzyme_tbl <- read_excel("data/enzyme_kinetic.xlsx")
-gam_fit <- gam(activity ~ s(ph), data = enzyme_tbl)
 poly_fit <- lm(activity ~ poly(ph, 3), data = enzyme_tbl)
-loess_fit <- loess(activity ~ ph, data = enzyme_tbl)
-gam_pred <- predictions(gam_fit, newdata = datagrid(ph = c(-1, 2, 6)))
-predictions(gam_fit, newdata = datagrid(ph = c(-1, 2, 6)))
-poly_pred <- predictions(poly_fit, newdata = datagrid(ph = c(-1, 2, 6)))
 predictions(poly_fit, newdata = datagrid(ph = c(-1, 2, 6)))
-loess_pred <- predictions(loess_fit, newdata = datagrid(ph = c(-1, 2, 6)))
-predictions(loess_fit, newdata = datagrid(ph = c(-1, 2, 6)))
-```
-
-```{r}
-#| message: false
-#| echo: false
-#| warning: false
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 9.5
-#| fig-cap: " *[Zum Vergrößern anklicken]*"
-#| label: fig-marginal-model-intro-03
-
-a_line <- \(x) x^3 + -8*x^2 + 10*x + 10
-enzyme_tbl|> 
-  ggplot(aes(ph, activity)) +
-  theme_marginal()  + 
-  geom_point(color = "gray50", alpha = 0.5) +
-  geom_function(fun = a_line, linewidth = 2, color = "black", alpha = 0.5) +
-  geom_line(aes(y = predict(gam_fit), color = "gam()"), linewidth = 1) +
-  geom_line(aes(y = predict(loess_fit), color = "loess()"), linewidth = 1) +
-  geom_line(aes(y = predict(poly_fit), color = "poly()"), linewidth = 1) +
-  geom_point(data = gam_pred, aes(ph, estimate, fill = "gam()"),
-             show.legend = FALSE, shape = 21, size = 3) +
-  geom_point(data = loess_pred, aes(ph, estimate, fill = "loess()"),
-             show.legend = FALSE, shape = 21, size = 3) +
-  geom_point(data = poly_pred, aes(ph, estimate, fill = "poly()"),
-             show.legend = FALSE, shape = 21, size = 3) +
-  labs(x = "Standardisierter pH-Wert (X)", y = "Standardisierte Enzymaktivität (Y)",
-       title = "Steigung", subtitle = "Wenn X sich ändert, wie ändert sich dann Y?",
-       color = "Methode") +
-  scale_color_okabeito() +
-  scale_fill_okabeito()
 ```
 :::
 
@@ -381,7 +313,138 @@ Was will uns nun dieser Text sagen und was bedeutet der Unterschied zwischen exp
 
 ### Steigung (eng. *slopes*)
 
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+enzyme_tbl <- read_excel("data/enzyme_kinetic.xlsx")
+gam_fit <- gam(activity ~ s(ph), data = enzyme_tbl)
+poly_fit <- lm(activity ~ poly(ph, 3), data = enzyme_tbl)
+loess_fit <- loess(activity ~ ph, data = enzyme_tbl)
+slopes(gam_fit, newdata = datagrid(ph = c(-1, 2, 6)))
+slopes(poly_fit, newdata = datagrid(ph = c(-1, 2, 6)))
+slopes(loess_fit, newdata = datagrid(ph = c(-1, 2, 6)))
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 9.5
+#| fig-cap: " **(A)** Linearer Zusammenhang. **(B)** ggg *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-model-slope-01
+
+a_line <- \(x) x^3 + -8*x^2 + 10*x + 10
+a_slope <- \(x) 10 - 16*x + 3*x^2
+
+find_intercept <- function(x1, y1, slope) {
+  intercept <- slope * (-x1) + y1
+  return(intercept)
+}
+
+slope_annotations <- tibble(x = c(-1, 2, 6)) |> 
+  mutate(y = a_line(x),
+         slope = a_slope(x),
+         intercept = find_intercept(x, y, slope),
+         nice_label = glue("x: {x}; y: {y}<br>",
+                           "Steigung (dy/dx): **{slope}**"))
+
+p1_slope_00 <- 
+  enzyme_tbl|> 
+  ggplot(aes(ph, activity)) +
+  theme_marginal()  + 
+  geom_point(color = "gray50", alpha = 0.5) +
+  geom_function(fun = a_line, linewidth = 2, color = "black", alpha = 0.5) +
+  geom_line(aes(y = predict(poly_fit), color = "poly()"), linewidth = 1) +
+  labs(x = "Standardisierter pH-Wert (X)", y = "Standardisierte Enzymaktivität (Y)",
+       title = "Steigung", subtitle = "Wenn X sich ändert, wie ändert sich dann Y?",
+       color = "Methode") +
+  geom_abline(data = slope_annotations,
+              aes(slope = slope, intercept = intercept),
+              linewidth = 0.5, linetype = "21", color = "black", alpha = 0.5) +
+  geom_abline(aes(slope = c(28.3), 
+                  intercept = find_intercept(c(-1), c(-4.545), c(28.3)), 
+                  color = "poly()"),
+              linewidth = 0.5, linetype = "21", show.legend = FALSE) +
+  geom_abline(aes(slope = c(-10.3), 
+                  intercept = find_intercept(c(2), c(8.951), c(-10.3)), 
+                  color = "poly()"),
+              linewidth = 0.5, linetype = "21", show.legend = FALSE) +
+  geom_abline(aes(slope = c(21.4), 
+                  intercept = find_intercept(c(6), c(-0.545), c(21.4)), 
+                  color = "poly()"),
+              linewidth = 0.5, linetype = "21", show.legend = FALSE) +
+  geom_point(aes(-1, -4.545, fill = "poly()"),
+             shape = 23, size = 3, show.legend = FALSE) +  
+  geom_point(aes(2, 8.951, fill = "poly()"),
+             shape = 23, size = 3, show.legend = FALSE) +  
+  geom_point(aes(6, -0.545, fill = "poly()"),
+             shape = 23, size = 3, show.legend = FALSE) +  
+  scale_color_okabeito(order = 3) +
+    scale_fill_okabeito(order = 3)
+
+p1_intro_00_1 + p1_slope_00  +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+```
+
 ### Vorhersagen (eng. *predictions*)
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+enzyme_tbl <- read_excel("data/enzyme_kinetic.xlsx")
+gam_fit <- gam(activity ~ s(ph), data = enzyme_tbl)
+poly_fit <- lm(activity ~ poly(ph, 3), data = enzyme_tbl)
+loess_fit <- loess(activity ~ ph, data = enzyme_tbl)
+gam_pred <- predictions(gam_fit, newdata = datagrid(ph = c(-1, 2, 6)))
+predictions(gam_fit, newdata = datagrid(ph = c(-1, 2, 6)))
+poly_pred <- predictions(poly_fit, newdata = datagrid(ph = c(-1, 2, 6)))
+predictions(poly_fit, newdata = datagrid(ph = c(-1, 2, 6)))
+loess_pred <- predictions(loess_fit, newdata = datagrid(ph = c(-1, 2, 6)))
+predictions(loess_fit, newdata = datagrid(ph = c(-1, 2, 6)))
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 9.5
+#| fig-cap: "**(A)** Linearer Zusammenhang. **(B)** ggg *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-model-predict-01
+
+a_line <- \(x) x^3 + -8*x^2 + 10*x + 10
+p1_predict_00 <- enzyme_tbl|> 
+  ggplot(aes(ph, activity)) +
+  theme_marginal()  + 
+  geom_point(color = "gray50", alpha = 0.5) +
+  geom_function(fun = a_line, linewidth = 2, color = "black", alpha = 0.5) +
+  geom_line(aes(y = predict(gam_fit), color = "gam()"), linewidth = 1) +
+  geom_line(aes(y = predict(loess_fit), color = "loess()"), linewidth = 1) +
+  geom_line(aes(y = predict(poly_fit), color = "poly()"), linewidth = 1) +
+  geom_point(data = gam_pred, aes(ph, estimate, fill = "gam()"),
+             show.legend = FALSE, shape = 21, size = 3) +
+  geom_point(data = loess_pred, aes(ph, estimate, fill = "loess()"),
+             show.legend = FALSE, shape = 21, size = 3) +
+  geom_point(data = poly_pred, aes(ph, estimate, fill = "poly()"),
+             show.legend = FALSE, shape = 21, size = 3) +
+  labs(x = "Standardisierter pH-Wert (X)", y = "Standardisierte Enzymaktivität (Y)",
+       title = "Steigung", subtitle = "Wenn X sich ändert, wie ändert sich dann Y?",
+       color = "Methode") +
+  scale_color_okabeito() +
+  scale_fill_okabeito()
+
+p1_intro_00_1 + p1_predict_00 +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+```
 
 ### Kontrafaktische Vergleiche (eng. *counterfactual*)
 
