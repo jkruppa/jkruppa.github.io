@@ -3,8 +3,8 @@
 #| warning: false
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, performance, parameters,
                latex2exp, see, patchwork, mfp, multcomp, emmeans, janitor, effectsize,
-               broom, ggmosaic, tinytable, ggrepel, tidyplots, glue, ggtext,
-               conflicted)
+               broom, ggmosaic, tinytable, ggrepel, tidyplots, glue, ggtext, marginaleffects,
+               mgcv, conflicted)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(dplyr::filter)
 cb_pal <- c("#000000", "#E69F00", "#56B4E9", 
@@ -33,9 +33,16 @@ enzyme_tbl <- tibble(x = rep(c(-2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 7.5), each = 10),
                      y = x^3 + -8*x^2 + 10*x + 10 + rnorm(length(x), 0, 10)) |> 
   group_by(x) |> 
   sample_n(size = sample(c(3:5), 1)) |> 
+  ungroup() |> 
   mutate_if(is.numeric, round, 2)
 enzyme_tbl |> 
-  set_names(c("ph", "activity")) |> 
+  mutate(g1 = case_when(x < 2 ~ "niedrig",
+                        x < 5 ~ "mittel",
+                        x < 8 ~ "hoch")) |> 
+  mutate(g2 = c(rep(c("Prokaryot", "Eukaryot"), times = c(8, 8)),
+                rep(c("Prokaryot", "Eukaryot"), times = c(8, 7)),
+                rep(c("Prokaryot", "Eukaryot"), times = c(5, 7)))) |> 
+  set_names(c("ph", "activity", "grp", "type")) |> 
   writexl::write_xlsx("data/enzyme_kinetic.xlsx")
 ```
 
@@ -66,6 +73,14 @@ Lange habe ich gebraucht um mich dazu durchzuringen das Kapitel zu den *Marginal
 
 > *"Statistics is all about lines, and lines have slopes, or derivatives. These slopes represent the marginal changes in an outcome. As you move an independent/explanatory variable, what happens to the dependent/outcome variable?" --- @heiss2022*
 
+$$
+y = x^3 - 8x^2 + 10x + 10
+$$ Funktion der Steigung als erste Ableitung nach
+
+$$
+y' = 3x^2 - 16x + 10
+$$
+
 ```{r}
 #| message: false
 #| echo: false
@@ -73,13 +88,37 @@ Lange habe ich gebraucht um mich dazu durchzuringen das Kapitel zu den *Marginal
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 9.5
-#| fig-cap: "Scatterplot der kontinuierlichen x-Werte und kontinuierlichen y-Werte. In einem Modell wird die Abhängigkeit von y und x modellieren. **(A)** Linearer Zusammenhang. **(B)** Quadratischer Zusammenhang. *[Zum Vergrößern anklicken]*"
-#| label: fig-marginal-model-intro-02
+#| fig-cap: "Modellierung des nicht linearen Zusammenhangs zwischen der standardisierten Enzymeaktivität und dem standardisierten pH-Wert. Der pH-Wert ist kontinuierlich. **(A)** Berechnung der Steigung (eng. *slope*) für ausgewählte pH Werte anhand der Modellierung. **(B)** Berechnete Vorhersagewerte (eng. *prediction*) der standardisierten Enzymeaktivität für ausgewählte pH-Werte anhand der Modellierung. *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-model-intro-01
 
 p1_intro_00_1 + p2_intro_00_2 +
   plot_layout(ncol = 2) +
   plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
   theme(plot.tag = element_text(size = 16, face = "bold"))
+```
+
+::: panel-tabset
+## Interpretation Steigung
+
+| pH  | Steigung (dy/dx) | Interpretation |
+|-----|------------------|----------------|
+| -1  | 29               |                |
+| 2   | -10              |                |
+| 6   | 22               |                |
+
+: {#tbl-intro-inter-slope}
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+enzyme_tbl <- read_excel("data/enzyme_kinetic.xlsx")
+gam_fit <- gam(activity ~ s(ph), data = enzyme_tbl)
+poly_fit <- lm(activity ~ poly(ph, 3), data = enzyme_tbl)
+loess_fit <- loess(activity ~ ph, data = enzyme_tbl)
+slopes(gam_fit, newdata = datagrid(ph = c(-1, 2, 6)))
+slopes(poly_fit, newdata = datagrid(ph = c(-1, 2, 6)))
+slopes(loess_fit, newdata = datagrid(ph = c(-1, 2, 6)))
 ```
 
 ```{r}
@@ -89,8 +128,92 @@ p1_intro_00_1 + p2_intro_00_2 +
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 9.5
-#| fig-cap: "Scatterplot der kontinuierlichen x-Werte und kontinuierlichen y-Werte. In einem Modell wird die Abhängigkeit von y und x modellieren. **(A)** Linearer Zusammenhang. **(B)** Quadratischer Zusammenhang. *[Zum Vergrößern anklicken]*"
+#| fig-cap: " *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-model-intro-02
+
+a_line <- \(x) x^3 + -8*x^2 + 10*x + 10
+enzyme_tbl|> 
+  ggplot(aes(ph, activity)) +
+  theme_marginal()  + 
+  geom_point(color = "gray50", alpha = 0.5) +
+  geom_function(fun = a_line, linewidth = 2, color = "black", alpha = 0.5) +
+  geom_line(aes(y = predict(gam_fit), color = "gam()"), linewidth = 1) +
+  geom_line(aes(y = predict(poly_fit), color = "poly()"), linewidth = 1) +
+  geom_line(aes(y = predict(loess_fit), color = "loess()"), linewidth = 1) +
+  labs(x = "Standardisierter pH-Wert (X)", y = "Standardisierte Enzymaktivität (Y)",
+       title = "Steigung", subtitle = "Wenn X sich ändert, wie ändert sich dann Y?",
+       color = "Methode") +
+  scale_color_okabeito()
+```
+
+## Interpretation Vorhersage
+
+| pH  | Vorhersage (y) | Interpretation |
+|-----|----------------|----------------|
+| -1  | -9             |                |
+| 2   | 6              |                |
+| 6   | -2             |                |
+
+: test {#tbl-intro-inter-vorhersage}
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+enzyme_tbl <- read_excel("data/enzyme_kinetic.xlsx")
+gam_fit <- gam(activity ~ s(ph), data = enzyme_tbl)
+poly_fit <- lm(activity ~ poly(ph, 3), data = enzyme_tbl)
+loess_fit <- loess(activity ~ ph, data = enzyme_tbl)
+gam_pred <- predictions(gam_fit, newdata = datagrid(ph = c(-1, 2, 6)))
+predictions(gam_fit, newdata = datagrid(ph = c(-1, 2, 6)))
+poly_pred <- predictions(poly_fit, newdata = datagrid(ph = c(-1, 2, 6)))
+predictions(poly_fit, newdata = datagrid(ph = c(-1, 2, 6)))
+loess_pred <- predictions(loess_fit, newdata = datagrid(ph = c(-1, 2, 6)))
+predictions(loess_fit, newdata = datagrid(ph = c(-1, 2, 6)))
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 9.5
+#| fig-cap: " *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-model-intro-03
+
+a_line <- \(x) x^3 + -8*x^2 + 10*x + 10
+enzyme_tbl|> 
+  ggplot(aes(ph, activity)) +
+  theme_marginal()  + 
+  geom_point(color = "gray50", alpha = 0.5) +
+  geom_function(fun = a_line, linewidth = 2, color = "black", alpha = 0.5) +
+  geom_line(aes(y = predict(gam_fit), color = "gam()"), linewidth = 1) +
+  geom_line(aes(y = predict(loess_fit), color = "loess()"), linewidth = 1) +
+  geom_line(aes(y = predict(poly_fit), color = "poly()"), linewidth = 1) +
+  geom_point(data = gam_pred, aes(ph, estimate, fill = "gam()"),
+             show.legend = FALSE, shape = 21, size = 3) +
+  geom_point(data = loess_pred, aes(ph, estimate, fill = "loess()"),
+             show.legend = FALSE, shape = 21, size = 3) +
+  geom_point(data = poly_pred, aes(ph, estimate, fill = "poly()"),
+             show.legend = FALSE, shape = 21, size = 3) +
+  labs(x = "Standardisierter pH-Wert (X)", y = "Standardisierte Enzymaktivität (Y)",
+       title = "Steigung", subtitle = "Wenn X sich ändert, wie ändert sich dann Y?",
+       color = "Methode") +
+  scale_color_okabeito() +
+  scale_fill_okabeito()
+```
+:::
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 9.5
+#| fig-cap: "Modellierung des Zusammenhangs zwischen der standardisierten Enzymeaktivität und den gruppierten pH-Werten nach niedrigen, mittleren und hohen pH-Werten. Der pH-Wert ist kategorial. **(A)** Einfaktorielle Vorhersage der Gruppenmittelwerte der Enzymeaktivität. **(B)** Zweifaktorielle Vorhersage der Gruppenmittelwerte der Enzymeaktivität aufgetrennt nach der Gruppe der Eukaryoten und Prokaryoten. *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-model-intro-04
 
 p3_intro_00_3 + p4_intro_00_4 +
   plot_layout(ncol = 2) +
@@ -99,7 +222,54 @@ p3_intro_00_3 + p4_intro_00_4 +
 
 ```
 
+::: panel-tabset
+## Vorhersage 1-faktoriell
+
+| pH      | Mittelwert | Interpretation |
+|---------|------------|----------------|
+| niedrig | 3.2        |                |
+| mittel  | 2.59       |                |
+| hoch    | -5.6       |                |
+
+: test {#tbl-intro-inter-slope}
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+enzyme_tbl <- read_excel("data/enzyme_kinetic.xlsx")  |> 
+  mutate(grp = factor(grp, levels = c("niedrig", "mittel", "hoch"))) 
+enzyme_fit <-  lm(activity ~ grp, data = enzyme_tbl)
+avg_predictions(enzyme_fit, by = c("grp"), vcov = "HAC")
+```
+
+## Vorhersage 2-faktoriell
+
+| pH      | Gruppe    | Mittelwert | Interpretation |
+|---------|-----------|------------|----------------|
+| niedrig | Eukaryot  | 12.43      |                |
+| niedrig | Prokaryot | -4.19      |                |
+| mittel  | Eukaryot  | -4.73      |                |
+| mittel  | Prokaryot | 9.91       |                |
+| hoch    | Eukaryot  | -5.14      |                |
+| hoch    | Prokaryot | -6.37      |                |
+
+: test {#tbl-intro-inter-vorhersage}
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+enzyme_tbl <- read_excel("data/enzyme_kinetic.xlsx") |> 
+  mutate(grp = factor(grp, levels = c("niedrig", "mittel", "hoch"))) 
+enzyme_fit <- lm(activity ~ grp * type, data = enzyme_tbl)
+avg_predictions(enzyme_fit, by = c("grp", "type"), vcov = "HAC")
+```
+:::
+
 ## Theoretischer Hintergrund
+
+> *"What he says?" --- Asterix Sieg über Caesar*
 
 Wenn wir mit dem Verstehen und Zerforschen vorankommen wollen, dann können wir @heiss2022 und @heiss2024 mit der Veröffentlichung [Model to meaning --- How to Interpret Statistical Models With marginaleffects for R and Python](https://marginaleffects.com/) nicht ignorieren. Ich nutze jetzt eine etwas allgemeinere Erklärung der *Marginal effect models* und konzentriere mich erstmal auf ein normalverteiltes $x$ sowie ein normalverteiltes $y$. Daher haben wir hier in unserem $x$ keine Gruppen vorliegen sondern einen klassischen Scatterplot mit Punkten als Beobachtungen. Wir können die *Marginal effect models* auch auf beliebige kategorielle $x$ wie eben Behandlungsgruppen sowie jedes beliebige $y$ anwenden, aber hier fangen wir einmal einfach an.
 
@@ -117,7 +287,7 @@ In der folgenden Abbildung siehst du einmal zwei Scatterplots. In dem linken Sca
 #| fig-height: 3.5
 #| fig-width: 7
 #| fig-cap: "Scatterplot der kontinuierlichen x-Werte und kontinuierlichen y-Werte. In einem Modell wird die Abhängigkeit von y und x modellieren. **(A)** Linearer Zusammenhang. **(B)** Quadratischer Zusammenhang. *[Zum Vergrößern anklicken]*"
-#| label: fig-marginal-model-intro-00
+#| label: fig-marginal-model-intro-05
 
 p1_intro_00 + p2_intro_00 +
   plot_layout(ncol = 2) +
@@ -134,7 +304,7 @@ Schauen wir mal in ein Zahlenbeispiel und lassen die Beobachtungen weg. Beginnen
 #| fig-height: 5
 #| fig-width: 9.5
 #| fig-cap: "Gerade des Modells für einen linearen Zusammenhang. In einem Modell wird die Abhängigkeit von y und x modellieren. **(A)** Lineares Modell mit Gleichung. **(B)** Steigung an der Geraden für ausgewählte Punktepaare. *[Zum Vergrößern anklicken]*"
-#| label: fig-marginal-intro-01
+#| label: fig-marginal-intro-06
 
 p1_intro_01 + p2_intro_01 +
   plot_layout(ncol = 2) +
@@ -151,7 +321,7 @@ Spanndender wird die Sachlage in einem quadratischen Zusammenhang in der folgend
 #| fig-height: 5
 #| fig-width: 9.5
 #| fig-cap: "Gerade des Modells für einen quadratischen Zusammenhang. In einem Modell wird die Abhängigkeit von y und x modellieren. **(A)** Quadratisches Modell mit Gleichung. **(B)** Steigung an der Geraden für ausgewählte Punktepaare. *[Zum Vergrößern anklicken]*"
-#| label: fig-marginal-intro-04
+#| label: fig-marginal-intro-07
 
 
 p1_intro_02 + p2_intro_02 +
@@ -211,9 +381,9 @@ Was will uns nun dieser Text sagen und was bedeutet der Unterschied zwischen exp
 
 ### Steigung (eng. *slopes*)
 
-### Kontrafaktische Vergleiche (eng. *counterfactual*)
-
 ### Vorhersagen (eng. *predictions*)
+
+### Kontrafaktische Vergleiche (eng. *counterfactual*)
 
 ### Hypothesen- und Äquivalenztests
 

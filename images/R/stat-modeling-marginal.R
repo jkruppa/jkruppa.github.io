@@ -6,32 +6,38 @@ find_intercept <- function(x1, y1, slope) {
   return(intercept)
 }
 
-slope_annotations <- tibble(x = c(-1, 2.5, 6)) |> 
+slope_annotations <- tibble(x = c(-1, 2, 6)) |> 
   mutate(y = a_line(x),
          slope = a_slope(x),
          intercept = find_intercept(x, y, slope),
          nice_label = glue("x: {x}; y: {y}<br>",
                            "Steigung (dy/dx): **{slope}**"))
 
+enzyme_tbl <- read_excel("data/enzyme_kinetic.xlsx")
+
+
 p1_intro_00_1 <- enzyme_tbl|> 
-  ggplot(aes(x, y)) +
+  ggplot(aes(ph, activity)) +
   geom_point(color = "gray50", alpha = 0.5) +
   theme_marginal() +
   geom_function(fun = a_line, linewidth = 1, color = cb_pal[2]) +
   geom_richtext(aes(x = 4.25, y = 50, 
-                    label = "f(x) = x³ - 8x² + 10x + 10<br>f'(x) = 3x² -16x +10")) +
-  scale_x_continuous(breaks = c(-1, 2.5, 6), limits = c(-2, 8)) +
+                    label = "y = x³ - 8x² + 10x + 10<br>y' = 3x² -16x +10")) +
+  scale_x_continuous(breaks = c(-1, 2, 6), limits = c(-2, 8)) +
   scale_y_continuous(breaks = c(-50, 0, 50, 100), limits = c(-55, 75)) +
   geom_abline(data = slope_annotations,
               aes(slope = slope, intercept = intercept),
               linewidth = 0.5, linetype = "21", color = cb_pal[4]) +
   geom_point(data = slope_annotations, aes(x = x, y = y),
              shape = 23, fill = "#009E73", size = 3) +
+  geom_label(data = slope_annotations, aes(x = x, y = y, label = round(slope, 1)),
+             alpha = 0.5, fill = "#009E73",
+             size = 3, position = position_nudge(x = c(0.5, 0.7, 0.5), y = -4)) +
   labs(x = "Standardisierter pH-Wert (X)", y = "Standardisierte Enzymaktivität (Y)",
-       title = "Steigung (eng. slope)", subtitle = "Wenn X sich ändert, wie ändert sich dann Y?") 
+       title = "Steigung", subtitle = "Wenn X sich ändert, wie ändert sich dann Y?") 
 
 p2_intro_00_2 <- enzyme_tbl|>
-  ggplot(aes(x, y)) +
+  ggplot(aes(ph, activity)) +
   geom_point(color = "gray50", alpha = 0.5) +
   theme_marginal() +
   annotate("segment", x = -1, y = -55, xend = -1, yend = -9, color = "#CC79A7",
@@ -49,13 +55,13 @@ p2_intro_00_2 <- enzyme_tbl|>
   scale_x_continuous(breaks = c(-1, 2.5, 6), limits = c(-2, 8)) +
   scale_y_continuous(breaks = c(-50, 0, 50, 100), limits = c(-55, 75)) +
   labs(x = "Standardisierter pH-Wert (X)", y = "Standardisierte Enzymaktivität (Y)",
-       title = "Vorhersage (eng. prediction)", subtitle = "Welche Werte für Y sagt das Modell für X vorraus?") +
+       title = "Vorhersage", subtitle = "Welche Werte für Y sagt das Modell für X vorraus?") +
   theme(panel.grid.major.x = element_blank())
 
+
 p3_intro_00_3 <- enzyme_tbl |> 
-  filter(x %in% c(-1, 2, 5)) |> 
-  mutate(x = as_factor(x)) |> 
-  ggplot(aes(x, y)) +
+  mutate(grp = factor(grp, levels = c("niedrig", "mittel", "hoch"))) |> 
+  ggplot(aes(grp, activity)) +
   theme_marginal() +
   geom_point(color = "gray50", alpha = 0.5) +
   stat_summary(fun.data=mean_sdl, mult=1, 
@@ -63,34 +69,27 @@ p3_intro_00_3 <- enzyme_tbl |>
   stat_summary(fun = mean, geom = "label", aes(label = round(..y..,2)),
                size = 3, position = position_nudge(x = .26, y = -1),
                fill = "#CC79A7", alpha = 0.5) +
-  labs(x = "Standardisierter pH-Wert (A)", y = "Standardisierte Enzymaktivität (Y)",
-       title = "Vorhersage Gruppenmittel", subtitle = "Was sind die Gruppenmittelwerte von Y für A?") 
+  labs(x = "Gruppierter pH-Wert (A)", y = "Standardisierte Enzymaktivität (Y)",
+       title = "Einfaktorielle Vorhersage", subtitle = "Was sind die Gruppenmittelwerte von Y für A?") 
 
 p4_intro_00_4 <- enzyme_tbl |> 
-  filter(x %in% c(-1,0, 2,3, 5,6)) |> 
-  mutate(x = as_factor(x)) |> 
-  ungroup() |> 
-  mutate(g1 = rep(c("low", "mid", "high"), times = c(9, 8, 8)),
-         g1 = factor(g1, labels = c("-1", "2", "5")),
-         g2 = c(rep(c("Prokaryot", "Eukaryot"), times = c(5, 4)),
-                rep(c("Prokaryot", "Eukaryot"), times = c(4, 4)),
-                rep(c("Prokaryot", "Eukaryot"), times = c(3, 5)))) |> 
-  ggplot(aes(g1, y, group = g2)) +
+  mutate(grp = factor(grp, levels = c("niedrig", "mittel", "hoch"))) |> 
+  ggplot(aes(grp, activity, group = type)) +
   theme_marginal() +
   geom_point(color = "gray50", alpha = 0.5,
              position = position_dodge(0.5)) +
   stat_summary(fun.data=mean_sdl, mult=1, 
                geom="pointrange", shape = 23, 
-               aes(fill = g2), size = 0.75,
+               aes(fill = type), size = 0.75,
                position = position_dodge(0.5)) +
-  stat_summary(fun = mean, geom = "label", aes(label = round(..y..,2), fill = g2),
-               size = 3, position = position_nudge(x = c(-.4, -.4, -.38, .38, .38, .38),
-                                                   y = c(-1, -1, -1, -1.95, 1.95, -1)),
+  stat_summary(fun = mean, geom = "label", aes(label = round(..y..,2), fill = type),
+               size = 3, position = position_nudge(x = c(-.4, -.38, -.38, .38, .38, .38),
+                                                   y = c(-1, 0, -1, -2, -1, -1)),
                alpha = 0.5, show.legend = FALSE) +
   scale_fill_okabeito() +
-  labs(x = "Standardisierter pH-Wert (A)", y = "Standardisierte Enzymaktivität (Y)",
+  labs(x = "Gruppierter pH-Wert (A)", y = "Standardisierte Enzymaktivität (Y)",
        fill = "Gruppe (B)",
-       title = "Vorhersage Gruppenmittel", subtitle = "Was sind die Gruppenmittelwerte von Y für B in A?") +
+       title = "Zweifaktorielle Vorhersage", subtitle = "Was sind die Gruppenmittelwerte von Y für B in A?") +
   theme(legend.position = "top",
         legend.title = element_text(size = 11, face = 2))
 
