@@ -290,7 +290,7 @@ Wenn wir *Marginal effect models* rechnen wollen, dann können wir im Prinzip au
 
 Wie unterscheiden sich `{emmeans}` und `{marginaleffects}`?
 
-:   Das R Paket `{emmeans}` erstellt Durchschnittswerte der Daten und fügt diese Durchschnittswerte dann in Modelle ein. Das R Paket `{marginaleffects}` fügt alle Werte der Daten in ein Modell ein und erstellt dann Durchschnittswerte aus der Ausgabe des Modells.
+:   Das R Paket `{emmeans}` erstellt Durchschnittswerte der Daten und fügt diese Durchschnittswerte dann in Modelle ein. Das R Paket `{marginaleffects}` fügt alle Werte der Daten in ein Modell ein und erstellt dann Durchschnittswerte aus der Ausgabe des Modells. Am Ende ist es vermutlich dann auch wieder ein nur kleiner Unterschied, der was ausmachen kann. Aber da kommt es dann auf die wissenschaftliche Fragestellung an.
 
 Dabei gibt es noch einen weiteren bedeutenden Unterschied zwischen den beiden Paketen, die sich dann direkt aus der Aggregierung der Daten ableitet. Die Frage ist ja, erst den Mittelwert bilden und dann Modellieren oder umgekehrt. Das R Paket `{emmeans}` hat als philosophischen Hintergrund experimentelle Daten als Basis. Das R Paket `{marginaleffects}` hingegen nimmt beobachtete Daten an. Hier möchte ich dann einmal die Vingette des R Pakets `{emmeans}` zitieren.
 
@@ -719,6 +719,21 @@ p1_intro_00_1 +
 
 ### Vorhersagen (eng. *predictions*)
 
+```{r}
+#| message: false
+#| warning: false
+
+loess_fit <- loess(activity ~ ph, data = enzyme_tbl)
+```
+
+```{r}
+predictions(loess_fit)
+```
+
+```{r}
+predictions(loess_fit, by = "ph")
+```
+
 #### Kontinuierliche $x$-Werte {.unnumbered .unlisted}
 
 ::: panel-tabset
@@ -726,10 +741,13 @@ p1_intro_00_1 +
 
 ```{r}
 #| message: false
-#| echo: false
 #| warning: false
-
 gam_fit <- gam(activity ~ s(ph), data = enzyme_tbl)
+```
+
+```{r}
+#| message: false
+#| warning: false
 gam_pred <- predictions(gam_fit, newdata = datagrid(ph = c(-1, 2, 6)))
 gam_pred
 ```
@@ -738,10 +756,11 @@ gam_pred
 
 ```{r}
 #| message: false
-#| echo: false
 #| warning: false
-
 poly_fit <- lm(activity ~ poly(ph, 3), data = enzyme_tbl)
+```
+
+```{r}
 poly_pred <- predictions(poly_fit, newdata = datagrid(ph = c(-1, 2, 6)))
 poly_pred
 ```
@@ -750,9 +769,11 @@ poly_pred
 
 ```{r}
 #| message: false
-#| echo: false
 #| warning: false
 loess_fit <- loess(activity ~ ph, data = enzyme_tbl)
+```
+
+```{r}
 loess_pred <- predictions(loess_fit, newdata = datagrid(ph = c(-1, 2, 6)))
 loess_pred
 ```
@@ -781,7 +802,7 @@ p2_intro_00_2 +
 ::: callout-warning
 ## Achtung, bitte beachten!
 
-Ich persönlich finde die Implementierung des multiplen Testens in `{emmeans}` um Längen besser gelöst. Den Rest von `{marginaleffects}` dann eher nicht so. Daher würde ich dir hier davon abraten, deine Gruppenvergleiche mit `avg_predictions()` zu rechnen. Es ist gut zu verstehen was die Funktion macht, aber `{emmeans}` hat den klaren Vorteil, dass wir das *Compact letter disply* berechnen können. Darüber hinaus finde ich die zweifaktorielle Analyse besser gelöst durch die beiden Zeichen Stern `*` und Strich `|` besser gelöst. In `{marginaleffects}` haben wir dann die Problematik mit den Hypothesen und Gruppennamen innerhalb der Ausgabe der Funktion `hypotheses()`. Hier nochmal die Alternativen in `{emmeans}`, die ich hier aber dann nicht ausführen lasse. Bitte schaue dann nochmal in das [Kapitel zu den Post-hoc Tests](#sec-posthoc) vorbei.
+Ich persönlich finde die Implementierung des multiplen Testens in `{emmeans}` um Längen besser gelöst. Den Rest von `{marginaleffects}` dann eher nicht so. Daher würde ich dir hier davon abraten, deine Gruppenvergleiche mit `predictions()` zu rechnen. Es ist gut zu verstehen was die Funktion macht, aber `{emmeans}` hat den klaren Vorteil, dass wir das *Compact letter disply* berechnen können. Darüber hinaus finde ich die zweifaktorielle Analyse besser gelöst durch die beiden Zeichen Stern `*` und Strich `|` besser gelöst. In `{marginaleffects}` haben wir dann die Problematik mit den Hypothesen und Gruppennamen innerhalb der Ausgabe der Funktion `hypotheses()`. Hier nochmal die Alternativen in `{emmeans}`, die ich hier aber dann nicht ausführen lasse. Bitte schaue dann nochmal in das [Kapitel zu den Post-hoc Tests](#sec-posthoc) vorbei.
 
 ```{r}
 #| eval: false
@@ -798,6 +819,14 @@ enzyme_2fac_fit |>
 ```
 :::
 
+::: {layout="[15,85]" layout-valign="top"}
+![](images/personal_opinion.png){fig-align="center" width="100%"}
+
+> *"Manchmal schaue ich mir sehr lange Funktionen oder Pakete wie hier `{marginaleffects}` an und muss dann feststellen, dass für eien spezielle Orichideenanwendung dann doch ein anderes Paket besser ist. Ist nicht schlimm, dann musst du dir nicht die Arbeit machen. Für das faktorielle Experiment würde ich dann immer `{emmeans}` nehmen." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
+:::
+
+Die Funktion `hypotheses()` ist mächtig.
+
 ::: panel-tabset
 ## Vorhersage 1-faktoriell
 
@@ -808,18 +837,36 @@ enzyme_1fac_fit <-  lm(activity ~ grp, data = enzyme_tbl)
 ```{r}
 #| message: false
 #| warning: false
-avg_predictions(enzyme_1fac_fit, by = c("grp"), vcov = "HAC")
+predictions(enzyme_1fac_fit, by = c("grp"), vcov = "HAC")
 ```
 
 ```{r}
 #| message: false
 #| warning: false
-avg_predictions(enzyme_1fac_fit, by = c("grp"), vcov = "HAC") |> 
-  hypotheses(~pairwise, multcomp = "bonferroni")
+predictions(enzyme_1fac_fit, by = c("grp"), vcov = "HAC",
+            hypothesis = ~pairwise)  |> 
+  hypotheses(multcomp = "bonferroni")
 ```
 
 ```{r}
-plot_predictions(enzyme_1fac_fit, by = c("grp"))
+#| message: false
+#| warning: false
+predictions(enzyme_1fac_fit, by = c("grp"), vcov = "HAC",
+            hypothesis = ~pairwise) 
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "**(A)** Linearer Zusammenhang. **(B)** ggg *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-model-predict-02
+
+plot_predictions(enzyme_1fac_fit, by = c("grp")) +
+  theme_minimal()
 ```
 
 ## Vorhersage 2-faktoriell
@@ -832,19 +879,30 @@ enzyme_2fac_fit <- lm(activity ~ grp * type, data = enzyme_tbl)
 #| message: false
 #| warning: false
 
-avg_predictions(enzyme_2fac_fit, by = c("grp", "type"), vcov = "HAC",
-                hypothesis = ~pairwise | type, multcomp = "bonferroni") 
+predictions(enzyme_2fac_fit, by = c("grp", "type"), vcov = "HAC",
+            hypothesis = ~pairwise | type, 
+            newdata = "balanced") 
 ```
 
 ```{r}
 #| message: false
 #| warning: false
 
-avg_predictions(enzyme_2fac_fit, by = c("grp", "type"), vcov = "HAC") |> 
+predictions(enzyme_2fac_fit, by = c("grp", "type"), vcov = "HAC",
+            newdata = "balanced") |> 
   hypotheses(~pairwise | type, multcomp = "bonferroni")
 ```
 
 ```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "**(A)** Linearer Zusammenhang. **(B)** ggg *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-model-predict-03
+
 plot_predictions(enzyme_2fac_fit, by = c("grp", "type"))
 ```
 :::
