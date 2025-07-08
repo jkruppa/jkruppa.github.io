@@ -301,8 +301,6 @@ Was will uns nun dieser Text sagen und was bedeutet der Unterschied zwischen exp
 -   Wir nutzen `{emmeans}`, wenn wir Gruppenvergleiche aus einem experimentellen, faktoriellen Design rechnen wollen. Solche faktorielle Designs sind in den Agrarwissenschaften sehr häufig.
 -   Wir nutzen `{marginaleffects}`, wenn wir beobachtete Daten vorliegen haben. Dies ist sehr häufig bei zeitlichen Verläufen der Fall. Wenn wir also wissen wollen, wie ändert sich den Messwert über die Zeit?
 
-![foo. Entnommen von @heiss2022](images/marginal/marginal_emmeans.png){fig-align="center" width="100%"}
-
 ### Kontrafaktische Vergleiche (eng. *counterfactual*)
 
 ### Hypothesen- und Äquivalenztests
@@ -349,7 +347,8 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 #### Modellierung von Enzymen {.unnumbered .unlisted}
 
 ```{r}
-enzyme_tbl <- read_excel("data/enzyme_kinetic.xlsx") 
+enzyme_tbl <- read_excel("data/enzyme_kinetic.xlsx") |> 
+  mutate(grp = factor(grp, levels = c("niedrig", "mittel", "hoch")))  
 ```
 
 ```{r}
@@ -720,6 +719,8 @@ p1_intro_00_1 +
 
 ### Vorhersagen (eng. *predictions*)
 
+#### Kontinuierliche $x$-Werte {.unnumbered .unlisted}
+
 ::: panel-tabset
 ## `gam()`
 
@@ -774,5 +775,78 @@ p2_intro_00_2 +
   plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
   theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
+
+#### Kategoriale $x$-Werte {.unnumbered .unlisted}
+
+::: callout-warning
+## Achtung, bitte beachten!
+
+Ich persönlich finde die Implementierung des multiplen Testens in `{emmeans}` um Längen besser gelöst. Den Rest von `{marginaleffects}` dann eher nicht so. Daher würde ich dir hier davon abraten, deine Gruppenvergleiche mit `avg_predictions()` zu rechnen. Es ist gut zu verstehen was die Funktion macht, aber `{emmeans}` hat den klaren Vorteil, dass wir das *Compact letter disply* berechnen können. Darüber hinaus finde ich die zweifaktorielle Analyse besser gelöst durch die beiden Zeichen Stern `*` und Strich `|` besser gelöst. In `{marginaleffects}` haben wir dann die Problematik mit den Hypothesen und Gruppennamen innerhalb der Ausgabe der Funktion `hypotheses()`. Hier nochmal die Alternativen in `{emmeans}`, die ich hier aber dann nicht ausführen lasse. Bitte schaue dann nochmal in das [Kapitel zu den Post-hoc Tests](#sec-posthoc) vorbei.
+
+```{r}
+#| eval: false
+enzyme_1fac_fit |> 
+  emmeans(~ grp, vcov = sandwich::vcovHAC) |> 
+  contrast(method = "pairwise", adjust = "bonferroni")
+```
+
+```{r}
+#| eval: false
+enzyme_2fac_fit |> 
+  emmeans(~ grp | type, vcov = sandwich::vcovHAC) |> 
+  contrast(method = "pairwise", adjust = "bonferroni")
+```
+:::
+
+::: panel-tabset
+## Vorhersage 1-faktoriell
+
+```{r}
+enzyme_1fac_fit <-  lm(activity ~ grp, data = enzyme_tbl)
+```
+
+```{r}
+#| message: false
+#| warning: false
+avg_predictions(enzyme_1fac_fit, by = c("grp"), vcov = "HAC")
+```
+
+```{r}
+#| message: false
+#| warning: false
+avg_predictions(enzyme_1fac_fit, by = c("grp"), vcov = "HAC") |> 
+  hypotheses(~pairwise, multcomp = "bonferroni")
+```
+
+```{r}
+plot_predictions(enzyme_1fac_fit, by = c("grp"))
+```
+
+## Vorhersage 2-faktoriell
+
+```{r}
+enzyme_2fac_fit <- lm(activity ~ grp * type, data = enzyme_tbl)
+```
+
+```{r}
+#| message: false
+#| warning: false
+
+avg_predictions(enzyme_2fac_fit, by = c("grp", "type"), vcov = "HAC",
+                hypothesis = ~pairwise | type, multcomp = "bonferroni") 
+```
+
+```{r}
+#| message: false
+#| warning: false
+
+avg_predictions(enzyme_2fac_fit, by = c("grp", "type"), vcov = "HAC") |> 
+  hypotheses(~pairwise | type, multcomp = "bonferroni")
+```
+
+```{r}
+plot_predictions(enzyme_2fac_fit, by = c("grp", "type"))
+```
+:::
 
 ## Referenzen {.unnumbered}
