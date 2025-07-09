@@ -36,7 +36,8 @@ p1_intro_00_1 <- enzyme_tbl|>
   labs(x = "Standardisierter pH-Wert (X)", y = "Standardisierte Enzymaktivität (Y)",
        title = "Steigung", subtitle = "Wenn X sich ändert, wie ändert sich dann Y?") 
 
-p2_intro_00_2 <- enzyme_tbl|>
+p2_intro_00_2 <- 
+  enzyme_tbl|>
   ggplot(aes(ph, activity)) +
   geom_point(color = "gray50", alpha = 0.5) +
   theme_marginal() +
@@ -55,7 +56,12 @@ p2_intro_00_2 <- enzyme_tbl|>
   scale_x_continuous(breaks = c(-1, 2.5, 6), limits = c(-2, 8)) +
   scale_y_continuous(breaks = c(-50, 0, 50, 100), limits = c(-55, 75)) +
   labs(x = "Standardisierter pH-Wert (X)", y = "Standardisierte Enzymaktivität (Y)",
-       title = "Vorhersage", subtitle = "Welche Werte für Y sagt das Modell für X vorraus?") +
+#       title = "Vorhersage", subtitle = "Welche Werte für Y sagt das Modell für X vorraus?") +
+#    annotate("text", x = 2.5, y = -35, label = expression(y[vorhergesagt]), size = 5,
+#             color = "#CC79A7") +
+#    geom_curve(x = 1.8, y = -35, xend = -0.9, yend = -10.5, color = "gray25",
+#               arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
+#               curvature = -0.25, linewidth = 0.25) +
   theme(panel.grid.major.x = element_blank())
 
 
