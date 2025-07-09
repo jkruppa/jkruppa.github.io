@@ -56,7 +56,7 @@ p2_intro_00_2 <-
   scale_x_continuous(breaks = c(-1, 2.5, 6), limits = c(-2, 8)) +
   scale_y_continuous(breaks = c(-50, 0, 50, 100), limits = c(-55, 75)) +
   labs(x = "Standardisierter pH-Wert (X)", y = "Standardisierte Enzymaktivität (Y)",
-#       title = "Vorhersage", subtitle = "Welche Werte für Y sagt das Modell für X vorraus?") +
+       title = "Vorhersage", subtitle = "Welche Werte für Y sagt das Modell für X vorraus?") +
 #    annotate("text", x = 2.5, y = -35, label = expression(y[vorhergesagt]), size = 5,
 #             color = "#CC79A7") +
 #    geom_curve(x = 1.8, y = -35, xend = -0.9, yend = -10.5, color = "gray25",

@@ -67,11 +67,13 @@ source("images/R/stat-modeling-marginal.R")
 Dieses Kapitel wird in den nächsten Wochen geschrieben und ist damit meine aktuelle Großbaustelle. Ich plane zum Beginn des WiSe 2025/26 eine fertige Version des Kapitels erstellt zu haben. Während das Kapitel entsteht, funktioniert so manches dann nicht so wie es soll. Bitte daher hier dann abwarten.
 :::
 
-Lange habe ich gebraucht um mich dazu durchzuringen das Kapitel zu den *Marginal effect models* (deu. *marginale Effektmodelle*, ungebräuchlich) zu schreiben. Ich werde hier bei dem englischen Begriff bleiben, den deutschen Begriff habe ich eher selten gehört und daher sind es für mich *Marginal effect models*. Insbesondere da der Begriff "marginal" auch sehr an gering oder minderwertig erinnert. Damit haben aber die *Marginal effect models* nicht im geringsten zu tun. Die Modelle sind sehr mächtig und können uns helfen wichtige Fragen an unsere Daten zu beantworten. Insbesondere die Dualität der beiden Pakete `{emmeans}` für experimentelle Daten und `{marginaleffects}` für beobachtete Daten ist spannend und möchte ich hier nochmal genauer betrachten. Neben diesen beiden Ecksteinen gibt es noch andere Pakete und ich werde auch hier einmal in die Pakete reinschauen. Anfangen kann ich aber nicht ohne @heiss2022 mit seinem Blogpost [Marginalia: A guide to figuring out what the heck marginal effects, marginal slopes, average marginal effects, marginal effects at the mean, and all these other marginal things are](https://www.andrewheiss.com/blog/2022/05/20/marginalia/) zu erwähnen. Vieles entlehnt sich direkt oder indirekt an seine Ausführungen. Wie immer habe ich etwas angepasst, wenn ich der Meinung war, dass es noch besser zu verstehen ist. Fangen wir also an *Marginal effect models* zu zerforschen.
+Lange habe ich gebraucht um mich dazu durchzuringen das Kapitel zu den *Marginal effect models* (deu. *marginale Effektmodelle*, ungebräuchlich) zu schreiben. Ich werde hier bei dem englischen Begriff bleiben, den deutschen Begriff habe ich eher selten gehört und daher sind es für mich *Marginal effect models*. Insbesondere da der Begriff "marginal" auch sehr an gering oder minderwertig erinnert. Damit haben aber die *Marginal effect models* nicht im geringsten zu tun. Die Modelle sind sehr mächtig und können uns helfen wichtige Fragen an unsere Daten zu beantworten. Insbesondere die Dualität der beiden Pakete `{emmeans}` für experimentelle Daten und `{marginaleffects}` für beobachtete Daten ist spannend und möchte ich hier nochmal genauer betrachten. Neben diesen beiden Ecksteinen gibt es noch andere Pakete und ich werde auch hier einmal in die Pakete reinschauen. Anfangen kann ich aber nicht ohne @heiss2022 mit seinem Blogpost [Marginalia: A guide to figuring out what the heck marginal effects, marginal slopes, average marginal effects, marginal effects at the mean, and all these other marginal things are](https://www.andrewheiss.com/blog/2022/05/20/marginalia/) zu erwähnen. Vieles entlehnt sich direkt oder indirekt an seine Ausführungen. Wie immer habe ich etwas angepasst, wenn ich der Meinung war, dass es noch besser zu verstehen ist. Fangen wir also an *Marginal effect models* zu zerforschen. Beginnen wollen wir aber mit einem allgemeinen Hintergrund bevor wir uns dann nochmal tiefer mit den *Marginal effect models* beschäftigen.
 
 ## Allgemeiner Hintergrund
 
 > *"Statistics is all about lines, and lines have slopes, or derivatives. These slopes represent the marginal changes in an outcome. As you move an independent/explanatory variable, what happens to the dependent/outcome variable?" --- @heiss2022*
+
+Wenn wir von *Marginal effect models* sprechen, dann können wir uns im Prinzip zwei Aspekte anschauen. Wir können über die Steigung einer Funktion einer Geraden sprechen oder aber über die vorhergesagten $y$-Werte auf der Geraden für beliebige $x$-Werte. Damit sind wir dann bei den beiden Aspekten Steigung und Vorhersage. Wenn wir uns in der Welt der linearen Modelle bewegen, dann ist die Steigung eigentlich kein Problem und die Vorhersage auch nicht so komplex. Spannender wird das Zusammenspiel eines nichtlinearen Modells und eben den *Marginal effect models*. Hier kommt dann die eigentliche Kraft der *Marginal effect models* zu trage. In den folgenden beiden Abbildungen habe ich dir einmal eine nichtlinere Funktion dargestellt. Wir schauen uns hier den Zusammenhang zwischen der standardisierten Enzymeaktivität und dem standardisierten pH-Wert an. Wir haben die Enzymeaktivität zu festen pH-Werten wiederholt gemessen. Auf der linken Seite betrachten wir die Steigung der Geraden an drei Punkten und auf der rechten Seite sehen wir einmal die Vorhersage für drei pH-Werte auf der Geraden.
 
 ```{r}
 #| message: false
@@ -80,7 +82,7 @@ Lange habe ich gebraucht um mich dazu durchzuringen das Kapitel zu den *Marginal
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 9.5
-#| fig-cap: "Modellierung des nicht linearen Zusammenhangs zwischen der standardisierten Enzymeaktivität und dem standardisierten pH-Wert. Der pH-Wert ist kontinuierlich. **(A)** Berechnung der Steigung (eng. *slope*) für ausgewählte pH Werte anhand der Modellierung. **(B)** Berechnete Vorhersagewerte (eng. *prediction*) der standardisierten Enzymeaktivität für ausgewählte pH-Werte anhand der Modellierung. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Modellierung des nichtlinearen Zusammenhangs zwischen der standardisierten Enzymeaktivität und dem standardisierten pH-Wert. Der pH-Wert ist kontinuierlich. **(A)** Berechnung der Steigung (eng. *slope*) für ausgewählte pH Werte anhand der Modellierung. **(B)** Berechnete Vorhersagewerte (eng. *prediction*) der standardisierten Enzymeaktivität für ausgewählte pH-Werte anhand der Modellierung. *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-model-intro-01
 
 p1_intro_00_1 + p2_intro_00_2 +
@@ -89,16 +91,30 @@ p1_intro_00_1 + p2_intro_00_2 +
   theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
 
+Betrachten wir also einmal die Antworten, die die Steigung und die Vorhersage liefert. Dabei haben wir hier in diesem Fall ein kontinuierliches $X$ vorliegen und machen uns die Sachlage auch einfacher indem wir ein kontinuierliches $Y$ mit der standardisierten Enzymeaktivität vorliegen haben.
+
+Welche Antwort liefert die Steigung?
+
+:   *Wenn sich* $X$ *ändert, wie ändert sich dann* $Y$ *an dem Wert von* $X$*?* Hierbei muss sich $X$ nicht um eine Einheit verändern, wie wir es gerne im linearen Zusammenhang sagen, sondern wir wollen die Steigung direkt im Punkt von $(X|Y)$ haben.
+
+Welche Antowort liefert die Vorhersage?
+
+:   *Welche Werte für* $Y$ *sagt das Modell für* $X$ *vorraus?* Wir müssen hier die beobachteten Werte von $Y$, die in unserem Beispiel für einen pH-Wert wiederholt vorkommen, von dem einen vorhergesagten $Y$ Wert aus dem Modell für ein gegebenes $X$ unterscheiden.
+
+Dann können wir auch schon die Steigung und die Vorhersage einmal interpretieren. In dem linken Tab findest du einmal die Interpretation der Steigung sowie die Ausgabe der Funktion `slopes()` aus dem R Paket `{marginaleffects}`. In dem rechten Tab dann die Ergebnisse der Vorhersage und die Ausgabe der Funktion `predictions()`. Mehr zu den beiden Funktionen dann weiter unten in der Anwendung. Ich berechne hier die Steigung und bestimme die vorhergesagten Werte für drei ausgewählte pH-Werte.
+
 ::: panel-tabset
 ## Interpretation Steigung
 
-| pH  | Steigung (dy/dx) | Interpretation |
-|-----|------------------|----------------|
-| -1  | 29               |                |
-| 2   | -10              |                |
-| 6   | 22               |                |
+| pH | Steigung | Interpretation |
+|----|----|----|
+| -1 | 29 | *Bei einem standardisierten pH-Wert von -1 steigt die Enzymeaktivität um 29U an.* |
+| 2 | -10 | *Bei einem standardisierten pH-Wert von 2 sinkt die Enzymeaktivität um 10U.* |
+| 6 | 22 | *Bei einem standardisierten pH-Wert von 6 steigt die Enzymeaktivität um 22U an.* |
 
-: {#tbl-intro-inter-slope}
+: Interpretation der Steigung der Enzymeaktivität an drei ausgewählten pH-Werten. {#tbl-intro-inter-slope}
+
+Wir können uns dann die Steigung auch direkt mit der Funktion `slopes()` bestimmen lassen und erhalten dann die folgenden Informationen. Hier ahben wir dann auch die p-Werte sowie einen entsprechenden Fehler.
 
 ```{r}
 #| message: false
@@ -195,7 +211,7 @@ avg_predictions(enzyme_fit, by = c("grp", "type"), vcov = "HAC")
 
 > *"What he says?" --- Asterix Sieg über Caesar*
 
-Wenn wir mit dem Verstehen und Zerforschen vorankommen wollen, dann können wir @heiss2022 und @heiss2024 mit der Veröffentlichung [Model to meaning --- How to Interpret Statistical Models With marginaleffects for R and Python](https://marginaleffects.com/) nicht ignorieren. Ich nutze jetzt eine etwas allgemeinere Erklärung der *Marginal effect models* und konzentriere mich erstmal auf ein normalverteiltes $x$ sowie ein normalverteiltes $y$. Daher haben wir hier in unserem $x$ keine Gruppen vorliegen sondern einen klassischen Scatterplot mit Punkten als Beobachtungen. Wir können die *Marginal effect models* auch auf beliebige kategorielle $x$ wie eben Behandlungsgruppen sowie jedes beliebige $y$ anwenden, aber hier fangen wir einmal einfach an.
+Soweit so gut. Wenn du verstanden hast, was die *Marginal effect models* können, dann kannst du auch bei den Daten und deren Auswertung weitermachen. Hier geht es dann etwas tiefer und ich gehe nochmal auf einzelen Aspekte etwas ausführtlicher ein. Wenn wir dabei mit dem Verstehen und Zerforschen vorankommen wollen, dann können wir @heiss2022 und @heiss2024 mit der Veröffentlichung [Model to meaning --- How to Interpret Statistical Models With marginaleffects for R and Python](https://marginaleffects.com/) nicht ignorieren. Ich nutze jetzt eine etwas allgemeinere Erklärung der *Marginal effect models* und konzentriere mich erstmal auf ein normalverteiltes $x$ sowie ein normalverteiltes $y$. Daher haben wir hier in unserem $x$ keine Gruppen vorliegen sondern einen klassischen Scatterplot mit Punkten als Beobachtungen. Wir können die *Marginal effect models* auch auf beliebige kategorielle $x$ wie eben Behandlungsgruppen sowie jedes beliebige $y$ anwenden, aber hier fangen wir einmal einfach an.
 
 Welche Frage wollen wir mit *Marginal effect models* beantworten?
 
@@ -608,14 +624,16 @@ ggplot(modell_line_tbl, aes(x, y)) +
 
 ## Datenraster
 
-Was ist ein Datenraster (eng. *data grid*) eigentlich? Wir brauchen die Idee des Datenrasters um überhaupt die Vorhersagen und die Steigungen zu verstehen. Im Prinzip beinhaltet das Datenraster die Information zu welchen Beobachtungen wir eine Vorhersage machen wollen. Wenn wir nochmal kutz zu dem Enyzmebeispiel kommen, zu welchen pH-Werten möchtest du dann eine Steigung oder aber eine Vorhersage der Enzymetätigkeit haben?
+Was ist ein Datenraster (eng. *data grid*) eigentlich? Wir brauchen die Idee des Datenrasters um überhaupt die Vorhersagen und die Steigungen zu verstehen. Im Prinzip beinhaltet das Datenraster die Information zu welchen Beobachtungen wir eine Vorhersage machen wollen. Wenn wir nochmal kutz zu dem Enyzmebeispiel kommen, zu welchen pH-Werten möchtest du dann eine Steigung oder aber eine Vorhersage der Enzymetätigkeit haben? Beginnen wir mit einem einfachen Beispiel um zu verstehen was die einzelnen Datenraster aussagen wollen.
+
+In Folgenden siehst du einmal einen kleinen Datensatz mit einer numerischen Variable, einer dichotomen Variable sowie einer Variable mit drei Kategorien. So ähnlich haben wir ja auch Datensätze in echt vorliegen.
 
 ```{r}
 set.seed(20250709)
-grid_tbl <-  tibble(numerisch = rnorm(n = 10),
-                    dichotom = rbinom(n = 10, size = 1, prob = 0.5),
+grid_tbl <-  tibble(numerisch = rnorm(n = 8),
+                    dichotom = rbinom(n = 8, size = 1, prob = 0.5),
                     kategorial = sample(c("niedrig", "mittel", "hoch"), 
-                                        size = 10, replace = TRUE))
+                                        size = 8, replace = TRUE))
 ```
 
 #### Beobachtetes Raster (eng. *empirical grid*) {.unnumbered .unlisted}
