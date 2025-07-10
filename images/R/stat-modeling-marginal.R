@@ -21,8 +21,6 @@ p1_intro_00_1 <- enzyme_tbl|>
   geom_point(color = "gray50", alpha = 0.5) +
   theme_marginal() +
   geom_function(fun = a_line, linewidth = 1, color = cb_pal[2]) +
-#  geom_richtext(aes(x = 4.25, y = 50, 
-#                    label = "y = x³ - 8x² + 10x + 10<br>y' = 3x² -16x +10")) +
   scale_x_continuous(breaks = c(-1, 2, 6), limits = c(-2, 8)) +
   scale_y_continuous(breaks = c(-50, 0, 50, 100), limits = c(-55, 75)) +
   geom_abline(data = slope_annotations,
@@ -59,11 +57,6 @@ p2_intro_00_2 <-
   labs(x = "Standardisierter pH-Wert (X)", y = "Standardisierte Enzymaktivität (Y)",
        title = "Vorhersage", subtitle = "Welche Werte für Y sagt das Modell für X vorraus?",
        caption = "Funktionsgleichung: y = x³ - 8x² + 10x + 10\ny' = 3x² -16x +10") +
-#    annotate("text", x = 2.5, y = -35, label = expression(y[vorhergesagt]), size = 5,
-#             color = "#CC79A7") +
-#    geom_curve(x = 1.8, y = -35, xend = -0.9, yend = -10.5, color = "gray25",
-#               arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
-#               curvature = -0.25, linewidth = 0.25) +
   theme(panel.grid.major.x = element_blank())
 
 

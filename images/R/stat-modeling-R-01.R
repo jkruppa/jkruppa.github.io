@@ -30,7 +30,7 @@ p11 <-
        axis.text.x = element_blank(),
         axis.text.y = element_blank(),
         axis.text = element_text(size = 12),
-        title = element_text(size = 14)) +
+        title = element_text(size = 14, face = "bold")) +
   annotate("text", x = 0.5, y = 3, hjust = "left", color = "#0072B2", size = 4, 
            label = TeX(r"($y = 0.02 + 1.04 \cdot x$)")) +
   annotate("text", x = 0.5, y = 2.8, hjust = "left", color = "#0072B2", size = 4, 
