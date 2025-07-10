@@ -34,7 +34,8 @@ p1_intro_00_1 <- enzyme_tbl|>
              alpha = 0.5, fill = "#009E73",
              size = 3, position = position_nudge(x = c(0.5, 0.7, 0.5), y = -4)) +
   labs(x = "Standardisierter pH-Wert (X)", y = "Standardisierte Enzymaktivität (Y)",
-       title = "Steigung", subtitle = "Wenn X sich ändert, wie ändert sich dann Y?") 
+       title = "Steigung", subtitle = "Wenn X sich ändert, wie ändert sich dann Y?",
+       caption = "Funktionsgleichung: y = x³ - 8x² + 10x + 10\ny' = 3x² -16x +10") 
 
 p2_intro_00_2 <- 
   enzyme_tbl|>
@@ -56,7 +57,8 @@ p2_intro_00_2 <-
   scale_x_continuous(breaks = c(-1, 2.5, 6), limits = c(-2, 8)) +
   scale_y_continuous(breaks = c(-50, 0, 50, 100), limits = c(-55, 75)) +
   labs(x = "Standardisierter pH-Wert (X)", y = "Standardisierte Enzymaktivität (Y)",
-       title = "Vorhersage", subtitle = "Welche Werte für Y sagt das Modell für X vorraus?") +
+       title = "Vorhersage", subtitle = "Welche Werte für Y sagt das Modell für X vorraus?",
+       caption = "Funktionsgleichung: y = x³ - 8x² + 10x + 10\ny' = 3x² -16x +10") +
 #    annotate("text", x = 2.5, y = -35, label = expression(y[vorhergesagt]), size = 5,
 #             color = "#CC79A7") +
 #    geom_curve(x = 1.8, y = -35, xend = -0.9, yend = -10.5, color = "gray25",
@@ -337,13 +339,15 @@ p1_intro_00 <- ggplot(modell_line_tbl, aes(x, y)) +
   theme_marginal() +
   geom_point2() +
   theme(axis.text = element_blank()) +
-  geom_function(fun = \(x) 1.5 + 0.75 * x, color = "#E69F00", linewidth = 1) 
+  geom_function(fun = \(x) 1.5 + 0.75 * x, color = "#E69F00", linewidth = 1) +
+  labs(caption = "Funktionsgleichung: y = 2x - 1\ny' = 2")
 
 p2_intro_00 <- ggplot(modell_square_tbl, aes(x, y)) +
   theme_marginal() +
   geom_point2() +
   theme(axis.text = element_blank()) +
-  geom_function(fun = \(x) 1.5 + 0.75 * -x^2, color = "#56B4E9", linewidth = 1)
+  geom_function(fun = \(x) 1.5 + 0.75 * -x^2, color = "#56B4E9", linewidth = 1) +
+  labs(caption = "Funktionsgleichung: y = -0.5x² + 5x\ny' = -x + 5")
 
 ## -----------------------------------------------------------------------------
 a_line <- \(x) x^3 + -8*x^2 + 10*x + 10
