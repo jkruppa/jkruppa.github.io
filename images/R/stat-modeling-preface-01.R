@@ -30,23 +30,33 @@ gg_template <- ggplot() +
   scale_color_okabeito() +
   scale_fill_okabeito() 
 
-p11 <- gg_template %+%
+poly_fit <- lm(y_normal ~ poly(x_num, 3), data = cross_tbl)
+
+p11 <- 
+  gg_template %+%
   cross_tbl + 
   aes(x_num, y_normal) +
   geom_point() +
   labs(x = "Kontinuierlich", y = "Kontinuierlich",
        title = "Lineare Regression",
        subtitle = "Regressionsgleichung, Korrelation und\nBestimmtheitsmaß") +
-  annotate("text", x = 1, y = 7, hjust = "left", color = "black", size = 4, 
+  annotate("text", x = 3.35, y = 7-5.5, hjust = "left", color = "#0072B2", size = 4, 
            label = TeX(r"($y = 0.02 + 1.04 \cdot x$)")) +
-  annotate("text", x = 1, y = 6.25, hjust = "left", color = "black", size = 4, 
+  annotate("text", x = 3.35, y = 6.25-5.5, hjust = "left", color = "#0072B2", size = 4, 
            label = TeX(r"($r = 0.76\; (p<0.001)$)")) +
-  annotate("text", x = 1, y = 5.5, hjust = "left", color = "black", size = 4, 
+  annotate("text", x = 3.35, y = 5.5-5.5, hjust = "left", color = "#0072B2", size = 4, 
            label = TeX(r"($R^2 = 0.58$)")) +
-  geom_smooth(method = "lm", se = FALSE, color = "gray") +
-  geom_curve(x = 2.6, y = 7, xend = 4.5, yend = 4.8,
-             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
-             curvature = -0.5) 
+  geom_smooth(method = "lm", se = FALSE, color = "#56B4E9") +
+  geom_line(aes(y = predict(poly_fit)), color = "#E69F00") +
+  annotate("text", x = 1, y = 7, hjust = "left", color = "#D55E00", size = 4, 
+           label = TeX(r"($y = 1.04 \cdot x - 2.11 \cdot x^2 + 0.03 \cdot x^3$)")) +
+  annotate("text", x = 1, y = 6.25, hjust = "left", color = "#D55E00", size = 4, 
+           label = TeX(r"($r = 0.89\; (p<0.001)$)")) +
+  annotate("text", x = 1, y = 5.5, hjust = "left", color = "#D55E00", size = 4, 
+           label = TeX(r"($R^2 = 0.71$)")) 
+#  geom_curve(x = 2.6, y = 7, xend = 4.5, yend = 4.8,
+#           arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+#           curvature = -0.5) 
 
 p12 <- gg_template %+%
   cross_tbl + 
