@@ -101,29 +101,43 @@ p_lhs_rhs <- ggplot() +
              curvature = -0.35, color = "gray50") +
   scale_x_continuous(limits = c(-10, 10)) +
   scale_y_continuous(limits = c(-6, 6)) +
-  labs(caption = "LHS = left hand side\nRHS = right hand side")  +
-  theme(plot.caption = element_text(face = "italic"))
+  labs(title = "Modellschreibweise",
+       caption = "LHS = left hand side\nRHS = right hand side")  +
+  theme(plot.caption = element_text(face = "italic"),
+        plot.title = element_text(size = 16, face = "bold"))
 
 p_simple_model <- ggplot() +
   theme_void() +
   annotate("text", 0, 0, 
-           label = expression(bold(Y)~"~"~bold(beta)[1]%.%bold(X[1])), 
+           label = expression(bold(Y)~"~"~bold(beta)[0]~"+"~bold(beta)[1]%.%bold(X[1])~"+"~bold(epsilon)), 
            size = 10, fontface = 2, hjust = "center") +
-  annotate("text", x = 8, y = -7.5, label = "Koeffizienten", size = 6, 
+  annotate("text", x = 7, y = -7.5, label = "Residuen", size = 6, 
            fontface = 3, color = "gray50") +
-  geom_curve(aes(x = 5.5, y = -7.75, xend = 0, yend = -2.5),
+  geom_curve(aes(x = 5.3, y = -7.75, xend = 4.5, yend = -2),
              arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
-             curvature = -0.2, color = "gray50") +
-  annotate("label", x = -5, y = 7, label = "Messwert", size = 5, 
+             curvature = -0.6, color = "gray50") +
+  annotate("text", x = -7.8, y = -9.5, label = "Koeffizienten", size = 6, 
+           fontface = 3, color = "gray50") +
+  geom_curve(aes(x = -5.5, y = -9.75, xend = -2.5, yend = -4),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.2, color = "gray50") +
+  geom_curve(aes(x = -5.5, y = -9.75, xend = 0, yend = -3.5),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.2, color = "gray50") +
+  annotate("label", x = -7, y = 7, label = "Messwert", size = 5, 
            fontface = 3, fill = "#E69F00", alpha = 0.5) +
   annotate("label", x = 7, y = 7, label = "Erklärende Variable(n)", size = 5, 
            fontface = 3, fill = "#E69F00", alpha = 0.5) +
-  geom_curve(aes(x = -5, y =4.5, xend = -2.8, yend = 0.5),
+  geom_curve(aes(x = -7, y =4.5, xend = -5, yend = 0.5),
              arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
              curvature = 0.2, color = "#E69F00") +
-  geom_curve(aes(x = 3.5, y = 7, xend = 1.8, yend = 3.5),
+  geom_curve(aes(x = 3.5, y = 7, xend = 2.2, yend = 3.5),
              arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
              curvature = 0.2, color = "#E69F00") +
+  annotate("label", x = 0.35, y = 5, label = "Steigung", size = 3, 
+           fontface = 2, fill = "#009E73", alpha = 0.5) +  
+  annotate("label", x = -2.1, y = 5, label = "Intercept", size = 3, 
+           fontface = 2, fill = "#009E73", alpha = 0.5) +  
   scale_x_continuous(limits = c(-10, 10)) +
   scale_y_continuous(limits = c(-10, 10)) +
   labs(title = "Simples lineares Modell",
@@ -134,27 +148,35 @@ p_simple_model <- ggplot() +
 p_mult_model <- ggplot() +
   theme_void() +
   annotate("text", 0, 0, 
-           label = expression(bold(Y)~"~"~bold(beta)[1]%.%bold(X[1])~"+"~cdots~"+"~bold(beta)[p]%.%bold(X[p])), 
+           label = expression(bold(Y)~"~"~bold(beta)[0]~"+"~bold(beta)[1]%.%bold(X[1])~"+"~cdots~"+"~bold(beta)[p]%.%bold(X[p])~"+"~bold(epsilon)), 
            size = 10, fontface = 2, hjust = "center") +
-  annotate("text", x = 8, y = -7.5, label = "Koeffizienten", size = 6, 
+  annotate("text", x = 6, y = -7.5, label = "Residuen", size = 6, 
            fontface = 3, color = "gray50") +
-  geom_curve(aes(x = 5.5, y = -7.75, xend = -3.75, yend = -2.5),
+  geom_curve(aes(x = 7.75, y = -7.75, xend = 8.25, yend = -2),
              arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
-             curvature = -0.2, color = "gray50") +
-  geom_curve(aes(x = 5.5, y = -7.75, xend = 3.4, yend = -2.7),
+             curvature = 0.6, color = "gray50") +
+  annotate("text", x = -8, y = -9.5, label = "Koeffizienten", size = 6, 
+           fontface = 3, color = "gray50") +
+  geom_curve(aes(x = -5.5, y = -9.75, xend = -3.75, yend = -4),
              arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
-             curvature = -0.2, color = "gray50") +
+             curvature = 0.2, color = "gray50") +
+  geom_curve(aes(x = -5.5, y = -9.75, xend = 3.2, yend = -1),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.1, color = "gray50") +
+  geom_curve(aes(x = -5.5, y = -9.75, xend = -5.5, yend = -3),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.6, color = "gray50") +
   annotate("label", x = -8.5, y = 7, label = "Messwert", size = 5, 
            fontface = 3, fill = "#E69F00", alpha = 0.5) +
   annotate("label", x = 7, y = 7, label = "Erklärende Variable(n)", size = 5, 
            fontface = 3, fill = "#E69F00", alpha = 0.5) +
-  geom_curve(aes(x = -8.5, y =4.5, xend = -6.5, yend = 0.5),
+  geom_curve(aes(x = -9.5, y =4.5, xend = -8.5, yend = 0.5),
              arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
              curvature = 0.2, color = "#E69F00") +
-  geom_curve(aes(x = 3.3, y = 7, xend = -1.75, yend = 3.5),
+  geom_curve(aes(x = 3.3, y = 7, xend = -1.5, yend = 3.5),
              arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
              curvature = 0.2, color = "#E69F00") +
-  geom_curve(aes(x = 7.5, y = 4.5, xend = 6.3, yend = 1),
+  geom_curve(aes(x = 7, y = 4.5, xend = 6.3, yend = 1),
              arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
              curvature = -0.3, color = "#E69F00") +
   scale_x_continuous(limits = c(-10, 10)) +
@@ -163,7 +185,6 @@ p_mult_model <- ggplot() +
        caption = "Y = Messwert, Endpunkt, Outcome oder Response\nX = Erklärende Variable(n) oder Einflussvariable(n)")  +
   theme(plot.title = element_text(size = 16, face = "bold"),
         plot.caption = element_text(face = "italic")) 
-
 p_2fac_model <- ggplot() +
   theme_void() +
   annotate("text", 0, 0, 

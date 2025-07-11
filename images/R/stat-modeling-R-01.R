@@ -31,26 +31,26 @@ p11 <-
         axis.text.y = element_blank(),
         axis.text = element_text(size = 12),
         title = element_text(size = 14, face = "bold")) +
-  annotate("text", x = 0.5, y = 3, hjust = "left", color = "#0072B2", size = 4, 
+  annotate("text", x = 0.5, y = 3, hjust = "left", color = "#56B4E9", size = 4, 
            label = TeX(r"($y = 0.02 + 1.04 \cdot x$)")) +
-  annotate("text", x = 0.5, y = 2.8, hjust = "left", color = "#0072B2", size = 4, 
+  annotate("text", x = 0.5, y = 2.8, hjust = "left", color = "#56B4E9", size = 4, 
            label = TeX(r"($r = 0.76\; (p<0.001)$)")) +
-  annotate("text", x = 0.5, y = 2.6, hjust = "left", color = "#0072B2", size = 4, 
+  annotate("text", x = 0.5, y = 2.6, hjust = "left", color = "#56B4E9", size = 4, 
            label = TeX(r"($R^2 = 0.58$)")) +
   geom_curve(x = 1.6, y = 3, xend = 2.5, yend = 2.3,
              arrow = arrow(length = unit(0.03, "npc")),
-             curvature = -0.5, color = "#0072B2") +
+             curvature = -0.5, color = "#56B4E9") +
     geom_smooth(method = "lm", se = FALSE, color = "#56B4E9") +
     geom_smooth(method = "loess", se = FALSE, color = "#E69F00") +    
-    annotate("text", x = 2, y = 1, hjust = "left", color = "#D55E00", size = 4, 
+    annotate("text", x = 2, y = 1, hjust = "left", color = "#E69F00", size = 4, 
              label = TeX(r"($y = 1.04 \cdot x - 2.11 \cdot x^2 + 0.03 \cdot x^3$)")) +
-    annotate("text", x = 2, y = 0.8, hjust = "left", color = "#D55E00", size = 4, 
+    annotate("text", x = 2, y = 0.8, hjust = "left", color = "#E69F00", size = 4, 
              label = TeX(r"($r = 0.89\; (p<0.001)$)")) +
-    annotate("text", x = 2, y = 0.6, hjust = "left", color = "#D55E00", size = 4, 
+    annotate("text", x = 2, y = 0.6, hjust = "left", color ="#E69F00", size = 4, 
              label = TeX(r"($R^2 = 0.71$)"))   +
     geom_curve(aes(x = 1.9, y = 1, xend = 1.3, yend = 1.5),
                arrow = arrow(length = unit(0.03, "npc")),
-               curvature = -0.5, color = "#D55E00") 
+               curvature = -0.5, color = "#E69F00") 
 
 p12 <- ggplot(pred_tbl, aes(weight, jump_length, color = status, shape = status)) +
   stat_smooth(method = "lm", se = FALSE, fullrange = TRUE, 
