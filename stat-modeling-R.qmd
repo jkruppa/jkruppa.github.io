@@ -6,6 +6,7 @@ pacman::p_load(tidyverse, readxl, knitr, kableExtra, see,
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 conflicts_prefer(dplyr::filter)
+set.seed(20250701)
 ```
 
 ```{r}
@@ -28,6 +29,10 @@ source("images/R/stat-modeling-R.R")
 
 Dieses Kapitel wird in den nächsten Wochen geschrieben und ist damit meine aktuelle Großbaustelle. Ich plane zum Beginn des WiSe 2025/26 eine fertige Version des Kapitels erstellt zu haben. Während das Kapitel entsteht, funktioniert so manches dann nicht so wie es soll. Bitte daher hier dann abwarten.
 :::
+
+Was ist eine Kovariate $c$?
+
+> *"In statistics courses taught by statisticians we don't use "independent variable" because we use independent on to mean stochastic independence. Instead we say predictor or covariate (either). And, similarly, we don't say "dependent variable" either. We say response." --- [User berf auf r/AskStatistics](https://www.reddit.com/r/AskStatistics/comments/qt1hvu/comment/hkigiks/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button)*
 
 Dieses Startkapitel gibt dir nochmal eine Übersicht über das statistische Modellieren in R. Hier liegt vor allem der Fokus auf R. Es gibt eben eine Reihe von *zusätzlichen* Pakten, die es dir erlauben noch mehr aus einem statistischen Modell rauszuholen. Am Ende wurde es mir dann aber zu detailliert alle Pakete in jedem Kapitel vorzustellen und anzuwenden. Das ist auch nicht immer sinnig. Häufig willst du erstmal *nur* das Modell rechnen. Später kannst du dann noch tiefer ins Detail gehen oder aber komplexere Verfahren nutzen. Ich tue mich also etwas schwer dieses Kapitel einzuordnen. Entweder packen wir es ans Ende vom statistischen Modellieren und schauen, dann wie wir alles in R machen. Das steht aber etwas der Intuition entgegen, dass wir in jedem Kapitel zum statistischen Modellieren ja schon was selber machen wollen. In R gibt es dazu dann noch sehr gute Pakete, die das Modellieren sehr viel einfacher machen, dabei dann aber auch für den Anfänger etwas komplexer sind. Ich habe mich daher entschieden, diese aktuelle und komplexere Modellierung einmal hier am Anfang vorzustellen und in den folgenden Kapiteln teilweise darauf zu verweisen, wenn ich es sinnig fand. Du kannst alle Modelle auf althergebrachte Art und Weise rechnen ohne was zu verpassen. Aber manchmal möchte man dann auch effizienter Modellieren. Dafür ist dann dieses Kapitel da: Eine erweiterte Idee von der statistischen Modellierung zu erlangen. Fangen wir also erstmal mit der naheliegenden Frage an.
 
@@ -212,6 +217,187 @@ p_1fac_model
 p_2fac_model
 ```
 
+## Interpretation
+
+### Simple Modelle
+
+::: panel-tabset
+## $c_1$
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2
+#| fig-width: 7
+#| fig-cap: "Übersicht der Namen der Funktionen in R für das lm(), glm() und glmer(). *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-10
+
+p_1cov_model 
+```
+
+```{r}
+cov1_tbl <- tibble(c_1 = rnorm(10, 0, 1),
+                   y = 2 + 1.5 * c_1 + rnorm(10, 0, 1))
+```
+
+```{r}
+lm(y ~ c_1, cov1_tbl) |> 
+  summary() |> coef()
+```
+
+## $f_A$ mit 2 Leveln
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2
+#| fig-width: 7
+#| fig-cap: "Übersicht der Namen der Funktionen in R für das lm(), glm() und glmer(). *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-15
+
+p_1fac_2lvl_model
+```
+
+```{r}
+fac1_tbl <- tibble(f_a = gl(2, 5),
+                   y = 2 + 2 * as.numeric(f_a) + rnorm(10, 0, 1))
+```
+
+```{r}
+lm(y ~ f_a, fac1_tbl) |> 
+  summary() |> coef()
+```
+
+## $f_A$ mit \>2 Leveln
+
+Hier dann mal mit drei Leveln oder Gruppen
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2
+#| fig-width: 7
+#| fig-cap: "Übersicht der Namen der Funktionen in R für das lm(), glm() und glmer(). *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-11
+
+p_1fac_3lvl_model
+```
+
+```{r}
+fac1_tbl <- tibble(f_a = gl(3, 5),
+                   y = 2 + 2 * as.numeric(f_a) + rnorm(15, 0, 1))
+```
+
+#### *Treatment coding* mit `contr.treatment` (default) {.unnumbered .unlisted}
+
+```{r}
+lm(y ~ f_a, fac1_tbl, contrasts = list(f_a = "contr.treatment")) |> 
+  summary() |> coef()
+```
+
+#### *Effect coding* mit `contr.sum` {.unnumbered .unlisted}
+
+```{r}
+lm(y ~ f_a, fac1_tbl, contrasts = list(f_a = "contr.sum")) |> 
+  summary() |> coef()
+```
+:::
+
+### Multiple Modelle
+
+::: panel-tabset
+## $c_1 + c_2$
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2
+#| fig-width: 7
+#| fig-cap: "Übersicht der Namen der Funktionen in R für das lm(), glm() und glmer(). *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-12
+
+p_2cov_model
+```
+
+```{r}
+cov2_tbl <- tibble(c_1 = rnorm(10, 0, 1),
+                   c_2 = rnorm(10, 0, 1),
+                   y = 2 + 1 * c_1 + 2 * c_2 + rnorm(10, 0, 1))
+```
+
+```{r}
+lm(y ~ c_1 + c_2, cov2_tbl) |> 
+  summary() |> coef()
+```
+
+## $f_A + c_1$
+
+Einfaktorielle ANCOVA
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2
+#| fig-width: 7
+#| fig-cap: "Übersicht der Namen der Funktionen in R für das lm(), glm() und glmer(). *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-14
+
+p_fa_c1_model
+```
+
+```{r}
+cov1_fac1_tbl <- tibble(c_1 = rnorm(15, 0, 1),
+                        f_a = gl(3, 5),
+                        y = 2 + 1 * c_1 + 2 * as.numeric(f_a) + rnorm(15, 0, 1))
+```
+
+```{r}
+lm(y ~ f_a + c_1, cov1_fac1_tbl) |> 
+  summary() |> coef()
+```
+
+## $c_1 + f_A + f_B$
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2
+#| fig-width: 7
+#| fig-cap: "Übersicht der Namen der Funktionen in R für das lm(), glm() und glmer(). *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-16
+
+p_c1_fa_2lvl_fb_3lvl_model
+```
+
+## $f_A + f_B + f_A \times f_B$
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2
+#| fig-width: 7
+#| fig-cap: "Übersicht der Namen der Funktionen in R für das lm(), glm() und glmer(). *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-13
+
+p_2fac_model  +
+  labs(title = "") 
+```
+:::
+
 In sehen wir wie wir den Namen einer Regression bilden. Zuerst entscheiden wir, ob wir nur ein $x$ haben oder mehrere. Mit einem $x$ sprechen wir von einem simplen Modell, wenn wir mehrere $x$ haben wir ein multiples Modell. Im nächsten Schritt benennen wir die Verteilung für das Outcome $y$. Dann müssen wir noch entscheiden, ob wir ein gemischtes Modell vorliegen haben, dann schreiben wir das hin. Sonst lassen wir den Punkt leer. Anschließend kommt noch lineares Modell hinten ran.
 
 ```{r}
@@ -233,7 +419,7 @@ p2
 
 Veraltet aber manchmal ganz nützlich das [R Paket `{modelr}`](https://modelr.tidyverse.org/)
 
-### Konfidenzintervall vs. Prädiktionsintervall
+## Konfidenzintervall vs. Prädiktionsintervall
 
 Ein Konfidenzintervall gibt den Wertebereich für einen gesuchten Parameter der Grundgesamtheit mit einer bestimmten Wahrscheinlichkeit an. Ein Prognoseintervall gibt den Wertebereich für einen individuellen, zukünftig zu beobachtenden Wert mit einer bestimmten Wahrscheinlichkeit an.
 

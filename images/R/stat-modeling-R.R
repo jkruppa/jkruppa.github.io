@@ -92,7 +92,7 @@ p_lhs_rhs_detail <- ggplot() +
   annotate("text", -1.5, 0, label = "Y", size = 10, fontface = 2, hjust = "center") +
   annotate("text", 1.5, 0, label = "X", size = 10, fontface = 2, hjust = "center") +
   ## x seite
-  annotate("label", 5, 4, label = expression(x[1]~"+"~x[2]~"+"~cdots), size = 6, 
+  annotate("label", 5, 4, label = expression(c[1]~"+"~c[2]~"+"~cdots), size = 6, 
            fontface = 2, hjust = "left") +
   annotate("label", x = 6.8, y = 5, label = "kontinuierlich", size = 3, 
            fontface = 2, fill = "#009E73", hjust = "left") + 
@@ -100,7 +100,7 @@ p_lhs_rhs_detail <- ggplot() +
            fontface = 2, hjust = "left") +
   annotate("label", x = 6.5, y = 1, label = "faktoriell / kategorial", size = 3, 
            fontface = 2, fill = "#009E73", hjust = "left") + 
-  annotate("label", 5, -4, label = expression(x[1]~"+"~f[A]~"+"~cdots), size = 6, 
+  annotate("label", 5, -4, label = expression(c[1]~"+"~f[A]~"+"~cdots), size = 6, 
            fontface = 2, hjust = "left") +
   annotate("label", x = 7.3, y = -3, label = "kombiniert", size = 3, 
            fontface = 2, fill = "#009E73", hjust = "left") + 
@@ -249,10 +249,11 @@ p_mult_model <- ggplot() +
        caption = "Y = Messwert, Endpunkt, Outcome oder Response\nX = Erklärende Variable(n) oder Einflussvariable(n)")  +
   theme(plot.title = element_text(size = 16, face = "bold"),
         plot.caption = element_text(face = "italic")) 
+
 p_2fac_model <- ggplot() +
   theme_void() +
   annotate("text", 0, 0, 
-           label = expression(bold(Y)~"~"~bold(f[A])~"+"~bold(f[B])~"+"~bold(f[A]*":"~f[B])), 
+           label = expression(bold(Y)~"~"~bold(f[A])~"+"~bold(f[B])~"+"~bold(f[A]%*%f[B])), 
            size = 10, fontface = 2, hjust = "center") +
   annotate("text", x = -6, y = -7, label = "Faktor A", size = 6, 
            fontface = 3, color = "gray50") +
@@ -290,6 +291,114 @@ p_1fac_model <- ggplot() +
   labs(title = "Einfaktorielles Modell")  +
   theme(plot.title = element_text(size = 16, face = "bold"),
         plot.caption = element_text(face = "italic")) 
+
+p_1fac_2lvl_model <- ggplot() +
+  theme_void() +
+  annotate("text", 0, 0, 
+           label = expression(bold(Y)~"~"~bold(f[A])), 
+           size = 10, fontface = 2, hjust = "center") +
+  annotate("text", x = 3.5, y = -7, label = "Faktor A", size = 6, 
+           fontface = 3, color = "gray50") +
+  geom_curve(aes(x = 1.8, y = -7, xend = 1, yend = -3),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.35, color = "gray50") +
+  annotate("label", x = 1, y = 3.5, label = "2 Level", size = 3, 
+           fontface = 2, fill = "#56B4E9", alpha = 0.5) +
+  scale_x_continuous(limits = c(-10, 10)) +
+  scale_y_continuous(limits = c(-10, 10)) 
+
+p_1fac_3lvl_model <- ggplot() +
+  theme_void() +
+  annotate("text", 0, 0, 
+           label = expression(bold(Y)~"~"~bold(f[A])), 
+           size = 10, fontface = 2, hjust = "center") +
+  annotate("text", x = 3.5, y = -7, label = "Faktor A", size = 6, 
+           fontface = 3, color = "gray50") +
+  geom_curve(aes(x = 1.8, y = -7, xend = 1, yend = -3),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.35, color = "gray50") +
+  annotate("label", x = 1, y = 3.5, label = "3 Level", size = 3, 
+           fontface = 2, fill = "#56B4E9", alpha = 0.5) +
+  scale_x_continuous(limits = c(-10, 10)) +
+  scale_y_continuous(limits = c(-10, 10)) 
+
+p_1cov_model <- ggplot() +
+  theme_void() +
+  annotate("text", 0, 0, 
+           label = expression(bold(Y)~"~"~bold(c[1])), 
+           size = 10, fontface = 2, hjust = "center") +
+  annotate("text", x = 4, y = -7, label = "Covariate 1", size = 6, 
+           fontface = 3, color = "gray50") +
+  geom_curve(aes(x = 1.8, y = -7, xend = 1, yend = -3),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.35, color = "gray50") +
+  scale_x_continuous(limits = c(-10, 10)) +
+  scale_y_continuous(limits = c(-10, 10)) +
+  labs(title = "")  
+
+p_2cov_model <- ggplot() +
+  theme_void() +
+  annotate("text", 0, 0, 
+           label = expression(bold(Y)~"~"~bold(c[1])~"+"~bold(c[2])), 
+           size = 10, fontface = 2, hjust = "center") +
+  annotate("text", x = -4, y = -7, label = "Covariate 1", size = 6, 
+           fontface = 3, color = "gray50") +
+  annotate("text", x = 6, y = -7, label = "Covariate 2", size = 6, 
+           fontface = 3, color = "gray50") +
+  geom_curve(aes(x = 4, y = -7, xend = 2, yend = -2),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.35, color = "gray50") +
+  geom_curve(aes(x = -2, y = -7, xend = -0.5, yend = -2),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.35, color = "gray50") +
+  scale_x_continuous(limits = c(-10, 10)) +
+  scale_y_continuous(limits = c(-10, 10))
+
+p_fa_c1_model <- ggplot() +
+  theme_void() +
+  annotate("text", 0, 0, 
+           label = expression(bold(Y)~"~"~bold(f[A])~"+"~bold(c[1])), 
+           size = 10, fontface = 2, hjust = "center") +
+  annotate("text", x = -4, y = -7, label = "Faktor A", size = 6, 
+           fontface = 3, color = "gray50") +
+  annotate("text", x = 6, y = -7, label = "Covariate 1", size = 6, 
+           fontface = 3, color = "gray50") +
+  geom_curve(aes(x = 4, y = -7, xend = 2, yend = -2),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.35, color = "gray50") +
+  geom_curve(aes(x = -2, y = -7, xend = -0.5, yend = -2),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.35, color = "gray50") +
+  scale_x_continuous(limits = c(-10, 10)) +
+  scale_y_continuous(limits = c(-10, 10))
+
+
+p_c1_fa_2lvl_fb_3lvl_model <- ggplot() +
+  theme_void() +
+  annotate("text", 0, 0, 
+           label = expression(bold(Y)~"~"~bold(c[1])~"+"~bold(f[A])~"+"~bold(f[B])), 
+           size = 10, fontface = 2, hjust = "center") +
+  annotate("text", x = -5, y = -7, label = "Covariate 1", size = 6, 
+           fontface = 3, color = "gray50") +
+  annotate("text", x = 4, y = -7, label = "Faktor A", size = 6, 
+           fontface = 3, color = "gray50") +
+  annotate("text", x = 6.5, y = 7.5, label = "Faktor B", size = 6, 
+           fontface = 3, color = "gray50") +
+  geom_curve(aes(x = 2.5, y = -7, xend = 1, yend = -3),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.35, color = "gray50") +
+  geom_curve(aes(x = -3, y = -7, xend = -1.5, yend = -3),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.35, color = "gray50") +
+  geom_curve(aes(x = 5, y = 7.5, xend = 3.5, yend = 3),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.35, color = "gray50") +
+  annotate("label", x = 1, y = 3.5, label = "2 Level", size = 3, 
+           fontface = 2, fill = "#56B4E9", alpha = 0.5) +
+  annotate("label", x = 3.5, y = -3.5, label = "3 Level", size = 3, 
+           fontface = 2, fill = "#56B4E9", alpha = 0.5) +
+  scale_x_continuous(limits = c(-10, 10)) +
+  scale_y_continuous(limits = c(-10, 10)) 
 
 p_mixed_model <- ggplot() +
   theme_void() +
