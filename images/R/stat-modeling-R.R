@@ -85,6 +85,70 @@ p2 <- ggplot() +
              curvature = -0.2, color = "gray50") +
   theme_void()
 
+p_lhs_rhs_detail <- ggplot() +
+  theme_void() +
+  annotate("text", 0, 0, label = "~", size = 10, fontface = 2, hjust = "center") +
+  annotate("text", 0, -2, label = "X erklärt Y", size = 5,  fontface = 3, color = "gray50") +
+  annotate("text", -1.5, 0, label = "Y", size = 10, fontface = 2, hjust = "center") +
+  annotate("text", 1.5, 0, label = "X", size = 10, fontface = 2, hjust = "center") +
+  ## x seite
+  annotate("label", 5, 4, label = expression(x[1]~"+"~x[2]~"+"~cdots), size = 6, 
+           fontface = 2, hjust = "left") +
+  annotate("label", x = 6.8, y = 5, label = "kontinuierlich", size = 3, 
+           fontface = 2, fill = "#009E73", hjust = "left") + 
+  annotate("label", 5, 0, label = expression(f[A]~"+"~f[B]~"+"~f[A]%*%f[B]), size = 6, 
+           fontface = 2, hjust = "left") +
+  annotate("label", x = 6.5, y = 1, label = "faktoriell / kategorial", size = 3, 
+           fontface = 2, fill = "#009E73", hjust = "left") + 
+  annotate("label", 5, -4, label = expression(x[1]~"+"~f[A]~"+"~cdots), size = 6, 
+           fontface = 2, hjust = "left") +
+  annotate("label", x = 7.3, y = -3, label = "kombiniert", size = 3, 
+           fontface = 2, fill = "#009E73", hjust = "left") + 
+  geom_curve(aes(x = 2, y = 1, xend = 4.75, yend = 4), linewidth = 0.75,
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.3, color = "gray50") +
+  geom_curve(aes(x = 2, y = 0, xend = 4.75, yend = 0), linewidth = 0.75,
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0, color = "gray50") +
+  geom_curve(aes(x = 2, y = -1, xend = 4.75, yend = -4), linewidth = 0.75,
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.3, color = "gray50") +
+  ## y seite
+  annotate("label", -10, c(-5, 0, 2.5, 5), 
+           label = c("Logistic", "Ordinal", "Poisson", "Gaussian"), size = 6, 
+           fontface = 2, hjust = "left") +
+  annotate("label", x = -8.6, y = 5.9, label = "Kommazahlen", size = 3, 
+           fontface = 2, fill = "#CC79A7", hjust = "left") + 
+  annotate("label", x = -8.3, y = 3.4, label = "Zähldaten", size = 3, 
+           fontface = 2, fill = "#CC79A7", hjust = "left") + 
+  annotate("label", x = -9.1, y = 0.9, label = "Benotungen", size = 3, 
+           fontface = 2, fill = "#CC79A7", hjust = "left") + 
+  annotate("label", x = -8.2, y = -4.1, label = "0/1 Daten", size = 3, 
+           fontface = 2, fill = "#CC79A7", hjust = "left") + 
+  annotate("text", x = -8.3, y = -2, label = "...", size = 10, fontface = 2, hjust = "center") +  
+  geom_curve(aes(x = -2, y = 1, xend = -6, yend = 5), linewidth = 0.75,
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.3, color = "gray50") +
+  geom_curve(aes(x = -2, y = 0.5, xend = -6.5, yend = 2.5), linewidth = 0.75,
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.2, color = "gray50") +
+  geom_curve(aes(x = -2, y = 0, xend = -6.75, yend = 0), linewidth = 0.75,
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0, color = "gray50") +
+  geom_curve(aes(x = -2, y = -1, xend = -6.5, yend = -5), linewidth = 0.75,
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.3, color = "gray50") +
+  annotate("label", x = -3, y = 5.5, label = "LHS", size = 6, 
+           fontface = 3, fill = "#E69F00", alpha = 0.5) +
+  annotate("label", x = 3, y = 5.5, label = "RHS", size = 6, 
+           fontface = 3, fill = "#E69F00", alpha = 0.5) +
+  scale_x_continuous(limits = c(-10, 10)) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  labs(title = "Eine schrecklich nette Familie",
+       caption = "LHS = left hand side\nRHS = right hand side")  +
+  theme(plot.caption = element_text(face = "italic"),
+        plot.title = element_text(size = 16, face = "bold"))
+
 p_lhs_rhs <- ggplot() +
   theme_void() +
   annotate("text", 0, 0, label = "~", size = 10, fontface = 2, hjust = "center") +
