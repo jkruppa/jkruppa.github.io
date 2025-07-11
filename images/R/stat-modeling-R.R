@@ -84,3 +84,154 @@ p2 <- ggplot() +
              arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
              curvature = -0.2, color = "gray50") +
   theme_void()
+
+p_lhs_rhs <- ggplot() +
+  theme_void() +
+  annotate("text", 0, 0, label = "~", size = 10, fontface = 2, hjust = "center") +
+  annotate("text", -1.5, 0, label = "Y", size = 10, fontface = 2, hjust = "center") +
+  annotate("text", 1.5, 0, label = "X", size = 10, fontface = 2, hjust = "center") +
+  annotate("text", x = 4, y = -5, label = "Tilde", size = 6, 
+           fontface = 3, color = "gray50") +
+  annotate("label", x = -4, y = 3, label = "LHS", size = 6, 
+           fontface = 3, fill = "#E69F00", alpha = 0.5) +
+  annotate("label", x = 4, y = 3, label = "RHS", size = 6, 
+           fontface = 3, fill = "#E69F00", alpha = 0.5) +
+  geom_curve(aes(x = 3.1, y = -5.4, xend = 0, yend = -1),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.35, color = "gray50") +
+  scale_x_continuous(limits = c(-10, 10)) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  labs(caption = "LHS = left hand side\nRHS = right hand side")  +
+  theme(plot.caption = element_text(face = "italic"))
+
+p_simple_model <- ggplot() +
+  theme_void() +
+  annotate("text", 0, 0, 
+           label = expression(bold(Y)~"~"~bold(beta)[1]%.%bold(X[1])), 
+           size = 10, fontface = 2, hjust = "center") +
+  annotate("text", x = 8, y = -7.5, label = "Koeffizienten", size = 6, 
+           fontface = 3, color = "gray50") +
+  geom_curve(aes(x = 5.5, y = -7.75, xend = 0, yend = -2.5),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.2, color = "gray50") +
+  annotate("label", x = -5, y = 7, label = "Messwert", size = 5, 
+           fontface = 3, fill = "#E69F00", alpha = 0.5) +
+  annotate("label", x = 7, y = 7, label = "Erklärende Variable(n)", size = 5, 
+           fontface = 3, fill = "#E69F00", alpha = 0.5) +
+  geom_curve(aes(x = -5, y =4.5, xend = -2.8, yend = 0.5),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.2, color = "#E69F00") +
+  geom_curve(aes(x = 3.5, y = 7, xend = 1.8, yend = 3.5),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.2, color = "#E69F00") +
+  scale_x_continuous(limits = c(-10, 10)) +
+  scale_y_continuous(limits = c(-10, 10)) +
+  labs(title = "Simples lineares Modell",
+       caption = "Y = Messwert, Endpunkt, Outcome oder Response\nX = Erklärende Variable(n) oder Einflussvariable(n)")  +
+  theme(plot.title = element_text(size = 16, face = "bold"),
+        plot.caption = element_text(face = "italic")) 
+
+p_mult_model <- ggplot() +
+  theme_void() +
+  annotate("text", 0, 0, 
+           label = expression(bold(Y)~"~"~bold(beta)[1]%.%bold(X[1])~"+"~cdots~"+"~bold(beta)[p]%.%bold(X[p])), 
+           size = 10, fontface = 2, hjust = "center") +
+  annotate("text", x = 8, y = -7.5, label = "Koeffizienten", size = 6, 
+           fontface = 3, color = "gray50") +
+  geom_curve(aes(x = 5.5, y = -7.75, xend = -3.75, yend = -2.5),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.2, color = "gray50") +
+  geom_curve(aes(x = 5.5, y = -7.75, xend = 3.4, yend = -2.7),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.2, color = "gray50") +
+  annotate("label", x = -8.5, y = 7, label = "Messwert", size = 5, 
+           fontface = 3, fill = "#E69F00", alpha = 0.5) +
+  annotate("label", x = 7, y = 7, label = "Erklärende Variable(n)", size = 5, 
+           fontface = 3, fill = "#E69F00", alpha = 0.5) +
+  geom_curve(aes(x = -8.5, y =4.5, xend = -6.5, yend = 0.5),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.2, color = "#E69F00") +
+  geom_curve(aes(x = 3.3, y = 7, xend = -1.75, yend = 3.5),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.2, color = "#E69F00") +
+  geom_curve(aes(x = 7.5, y = 4.5, xend = 6.3, yend = 1),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.3, color = "#E69F00") +
+  scale_x_continuous(limits = c(-10, 10)) +
+  scale_y_continuous(limits = c(-10, 10)) +
+  labs(title = "Multiples lineares Modell",
+       caption = "Y = Messwert, Endpunkt, Outcome oder Response\nX = Erklärende Variable(n) oder Einflussvariable(n)")  +
+  theme(plot.title = element_text(size = 16, face = "bold"),
+        plot.caption = element_text(face = "italic")) 
+
+p_2fac_model <- ggplot() +
+  theme_void() +
+  annotate("text", 0, 0, 
+           label = expression(bold(Y)~"~"~bold(f[A])~"+"~bold(f[B])~"+"~bold(f[A]*":"~f[B])), 
+           size = 10, fontface = 2, hjust = "center") +
+  annotate("text", x = -6, y = -7, label = "Faktor A", size = 6, 
+           fontface = 3, color = "gray50") +
+  annotate("text", x = 3.5, y = -7, label = "Faktor B", size = 6, 
+           fontface = 3, color = "gray50") +
+  annotate("text", x = 8, y = 7.5, label = "Interaktionsterm", size = 6, 
+           fontface = 3, color = "gray50") +
+  geom_curve(aes(x = 1.8, y = -7, xend = 0, yend = -3),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.35, color = "gray50") +
+  geom_curve(aes(x = -4.25, y = -7, xend = -2.5, yend = -3),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.35, color = "gray50") +
+  geom_curve(aes(x = 5, y = 7.5, xend = 3.5, yend = 3),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.35, color = "gray50") +
+  scale_x_continuous(limits = c(-10, 10)) +
+  scale_y_continuous(limits = c(-10, 10)) +
+  labs(title = "Zweifaktorielles Modell")  +
+  theme(plot.title = element_text(size = 16, face = "bold"),
+        plot.caption = element_text(face = "italic")) 
+
+p_1fac_model <- ggplot() +
+  theme_void() +
+  annotate("text", 0, 0, 
+           label = expression(bold(Y)~"~"~bold(f[A])), 
+           size = 10, fontface = 2, hjust = "center") +
+  annotate("text", x = 3.5, y = -7, label = "Faktor A", size = 6, 
+           fontface = 3, color = "gray50") +
+  geom_curve(aes(x = 1.8, y = -7, xend = 1, yend = -3),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.35, color = "gray50") +
+  scale_x_continuous(limits = c(-10, 10)) +
+  scale_y_continuous(limits = c(-10, 10)) +
+  labs(title = "Einfaktorielles Modell")  +
+  theme(plot.title = element_text(size = 16, face = "bold"),
+        plot.caption = element_text(face = "italic")) 
+
+p_mixed_model <- ggplot() +
+  theme_void() +
+  annotate("text", 0, 0, 
+           label = expression(bold(Y)~"~"~bold(X[1])~"+"~cdots~"+"~bold(X[p])~"+"~bold((1*"|"*Z))), 
+           size = 10, fontface = 2, hjust = "center") +
+  annotate("label", x = -8.5, y = 7, label = "Messwert", size = 5, 
+           fontface = 3, fill = "#E69F00", alpha = 0.5) +
+  annotate("label", x = -1.3, y = -7, label = "Feste Effekte", size = 5, 
+           fontface = 3, fill = "#E69F00", alpha = 0.5) +
+  annotate("label", x = 8, y = 7, label = "Zufälliger Effekt", size = 5, 
+           fontface = 3, fill = "#E69F00", alpha = 0.5) +
+  geom_curve(aes(x = -8.5, y =4.5, xend = -6.7, yend = 0.5),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.2, color = "#E69F00") +
+  geom_curve(aes(x = 8, y = 4.5, xend = 6.6, yend = 0.5),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.2, color = "#E69F00") +
+  geom_curve(aes(x = -3.5, y = -7, xend = -4, yend = -2.5),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.2, color = "#E69F00") +
+  geom_curve(aes(x = 0.8, y = -7, xend = 1.3, yend = -2.5),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.2, color = "#E69F00") +
+  scale_x_continuous(limits = c(-10, 10)) +
+  scale_y_continuous(limits = c(-10, 10)) +
+  labs(title = "Gemischtes Modell",
+       caption = "Y = Messwert oder Endpunkt\nX = Feste Effekt(e) oder fixed effects\nZ = Zufällige(r) Effekt(e) oder random effects")  +
+  theme(plot.title = element_text(size = 16, face = "bold"),
+        plot.caption = element_text(face = "italic")) 
