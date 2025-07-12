@@ -205,7 +205,7 @@ p_simple_model <- ggplot() +
   scale_x_continuous(limits = c(-10, 10)) +
   scale_y_continuous(limits = c(-10, 10)) +
   labs(title = "Simples lineares Modell",
-       caption = "Y = Messwert, Endpunkt, Outcome oder Response\nX = Erklärende Variable(n) oder Einflussvariable(n)")  +
+       caption = "Y = Messwert, Endpunkt, Outcome oder Response\nX = Erklärende Variable(n) oder Einflussvariable(n) oder Kovariate(n)")  +
   theme(plot.title = element_text(size = 16, face = "bold"),
         plot.caption = element_text(face = "italic")) 
 
@@ -246,7 +246,7 @@ p_mult_model <- ggplot() +
   scale_x_continuous(limits = c(-10, 10)) +
   scale_y_continuous(limits = c(-10, 10)) +
   labs(title = "Multiples lineares Modell",
-       caption = "Y = Messwert, Endpunkt, Outcome oder Response\nX = Erklärende Variable(n) oder Einflussvariable(n)")  +
+       caption = "Y = Messwert, Endpunkt, Outcome oder Response\nX = Erklärende Variable(n) oder Einflussvariable(n) oder Kovariate(n)")  +
   theme(plot.title = element_text(size = 16, face = "bold"),
         plot.caption = element_text(face = "italic")) 
 
@@ -334,7 +334,9 @@ p_1cov_model <- ggplot() +
              curvature = -0.35, color = "gray50") +
   scale_x_continuous(limits = c(-10, 10)) +
   scale_y_continuous(limits = c(-10, 10)) +
-  labs(title = "")  
+  labs(title = "")  +
+  theme(plot.title = element_text(size = 16, face = "bold"),
+        plot.caption = element_text(face = "italic")) 
 
 p_2cov_model <- ggplot() +
   theme_void() +
@@ -352,14 +354,16 @@ p_2cov_model <- ggplot() +
              arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
              curvature = 0.35, color = "gray50") +
   scale_x_continuous(limits = c(-10, 10)) +
-  scale_y_continuous(limits = c(-10, 10))
+  scale_y_continuous(limits = c(-10, 10))+
+  theme(plot.title = element_text(size = 16, face = "bold"),
+        plot.caption = element_text(face = "italic")) 
 
 p_fa_c1_model <- ggplot() +
   theme_void() +
   annotate("text", 0, 0, 
            label = expression(bold(Y)~"~"~bold(f[A])~"+"~bold(c[1])), 
            size = 10, fontface = 2, hjust = "center") +
-  annotate("text", x = -4, y = -7, label = "Faktor A", size = 6, 
+  annotate("text", x = -3.5, y = -7, label = "Faktor A", size = 6, 
            fontface = 3, color = "gray50") +
   annotate("text", x = 6, y = -7, label = "Covariate 1", size = 6, 
            fontface = 3, color = "gray50") +
@@ -369,6 +373,8 @@ p_fa_c1_model <- ggplot() +
   geom_curve(aes(x = -2, y = -7, xend = -0.5, yend = -2),
              arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
              curvature = 0.35, color = "gray50") +
+  annotate("label", x = -0.25, y = 3.5, label = "3 Level", size = 3, 
+           fontface = 2, fill = "#56B4E9", alpha = 0.5) +
   scale_x_continuous(limits = c(-10, 10)) +
   scale_y_continuous(limits = c(-10, 10))
 
