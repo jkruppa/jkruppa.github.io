@@ -89,6 +89,7 @@ p_lhs_rhs_detail <- ggplot() +
   theme_void() +
   annotate("text", 0, 0, label = "~", size = 10, fontface = 2, hjust = "center") +
   annotate("text", 0, -2, label = "X erklärt Y", size = 5,  fontface = 3, color = "gray50") +
+  annotate("text", 0, -3, label = "Y hängt ab von X", size = 5,  fontface = 3, color = "gray50") +
   annotate("text", -1.5, 0, label = "Y", size = 10, fontface = 2, hjust = "center") +
   annotate("text", 1.5, 0, label = "X", size = 10, fontface = 2, hjust = "center") +
   ## x seite
@@ -96,10 +97,14 @@ p_lhs_rhs_detail <- ggplot() +
            fontface = 2, hjust = "left") +
   annotate("label", x = 6.8, y = 5, label = "kontinuierlich", size = 3, 
            fontface = 2, fill = "#009E73", hjust = "left") + 
+  annotate("label", x = 7.3, y = 3, label = "Kovariaten", size = 3, 
+           fontface = 2, fill = "#56B4E9", hjust = "left") + 
   annotate("label", 5, 0, label = expression(f[A]~"+"~f[B]~"+"~f[A]%*%f[B]), size = 6, 
            fontface = 2, hjust = "left") +
   annotate("label", x = 6.5, y = 1, label = "faktoriell / kategorial", size = 3, 
            fontface = 2, fill = "#009E73", hjust = "left") + 
+  annotate("label", x = 8.5, y = -1, label = "Faktoren", size = 3, 
+           fontface = 2, fill = "#56B4E9", hjust = "left") + 
   annotate("label", 5, -4, label = expression(c[1]~"+"~f[A]~"+"~cdots), size = 6, 
            fontface = 2, hjust = "left") +
   annotate("label", x = 7.3, y = -3, label = "kombiniert", size = 3, 
@@ -143,10 +148,12 @@ p_lhs_rhs_detail <- ggplot() +
   annotate("label", x = 3, y = 5.5, label = "RHS", size = 6, 
            fontface = 3, fill = "#E69F00", alpha = 0.5) +
   scale_x_continuous(limits = c(-10, 10)) +
-  scale_y_continuous(limits = c(-6, 6)) +
+  scale_y_continuous(limits = c(-6, 6.5)) +
   labs(title = "Eine schrecklich nette Familie",
-       caption = "LHS = left hand side\nRHS = right hand side")  +
+       caption = "LHS = left hand side\nRHS = right hand side",
+       subtitle = "Wie alles mit allem zusammengängt...")  +
   theme(plot.caption = element_text(face = "italic"),
+        plot.subtitle = element_text(size = 12, face = "italic"),
         plot.title = element_text(size = 16, face = "bold"))
 
 p_lhs_rhs <- ggplot() +
