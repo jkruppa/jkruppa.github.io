@@ -430,9 +430,9 @@ p_c1_fa_2lvl_fb_3lvl_model <- ggplot() +
   geom_curve(aes(x = 5, y = 7.5, xend = 3.5, yend = 3),
              arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
              curvature = 0.35, color = "gray50") +
-  annotate("label", x = 1, y = 3.5, label = "2 Level", size = 3, 
+  annotate("label", x = 1, y = 3.5, label = "3 Level", size = 3, 
            fontface = 2, fill = "#56B4E9", alpha = 0.5) +
-  annotate("label", x = 3.5, y = -3.5, label = "3 Level", size = 3, 
+  annotate("label", x = 3.5, y = -3.5, label = "2 Level", size = 3, 
            fontface = 2, fill = "#56B4E9", alpha = 0.5) +
   scale_x_continuous(limits = c(-10, 10)) +
   scale_y_continuous(limits = c(-10, 10)) 
