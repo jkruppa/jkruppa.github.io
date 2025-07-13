@@ -1,4 +1,4 @@
-p1 <- ggplot() +
+p_glmer <- ggplot() +
   annotate("text", -0.5, 0, label = "g", size = 10, fontface = 2, color = "#CC79A7", hjust = "left") +
   annotate("text", 0.9, 0, label = "er", size = 10, fontface = 2, color = "#0072B2", hjust = "left") +
   annotate("text", 0, 0, label = "lm", size = 10, fontface = 2, hjust = "left") +
@@ -25,7 +25,7 @@ p1 <- ggplot() +
              curvature = -0.2, color = "gray50") +
   theme_void()
 
-p2 <- ggplot() +
+p_regression_wording <- ggplot() +
   annotate("text", -10, 2.5, label = "simple", size = 7, fontface = 2, hjust = "left") +
   annotate("text", -10, -2.5, label = "multiple", size = 7, fontface = 2, hjust = "left") +
   annotate("text", -5, 7.5, label = "Gaussian", size = 7, fontface = 2, hjust = "left") +
@@ -263,17 +263,23 @@ p_mult_model <- ggplot() +
              curvature = 0.6, color = "gray50") +
   annotate("label", x = -8.5, y = 7, label = "Messwert", size = 5, 
            fontface = 3, fill = "#E69F00", alpha = 0.5) +
-  annotate("label", x = 7, y = 7, label = "Erklärende Variable(n)", size = 5, 
+  annotate("label", x = 7, y = 8.9, label = "Erklärende Variable(n)", size = 5, 
            fontface = 3, fill = "#E69F00", alpha = 0.5) +
   geom_curve(aes(x = -9.5, y =4.5, xend = -8.5, yend = 0.5),
              arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
              curvature = 0.2, color = "#E69F00") +
-  geom_curve(aes(x = 3.3, y = 7, xend = -1.5, yend = 3.5),
+  geom_curve(aes(x = 3.5, y = 8.6, xend = -1.5, yend = 3.5),
              arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
              curvature = 0.2, color = "#E69F00") +
-  geom_curve(aes(x = 7, y = 4.5, xend = 6.3, yend = 1),
+  geom_curve(aes(x = 7, y = 5.5, xend = 6.3, yend = 1),
              arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
              curvature = -0.3, color = "#E69F00") +
+  annotate("label", x = -3.3, y = 5, label = "Steigung", size = 3, 
+           fontface = 2, fill = "#009E73", alpha = 0.5) +  
+  annotate("label", x = 3.8, y = 5, label = "Steigung", size = 3, 
+           fontface = 2, fill = "#009E73", alpha = 0.5) + 
+  annotate("label", x = -5.8, y = 5, label = "Intercept", size = 3, 
+           fontface = 2, fill = "#009E73", alpha = 0.5) +  
   scale_x_continuous(limits = c(-10, 10)) +
   scale_y_continuous(limits = c(-10, 10)) +
   labs(title = "Multiples lineares Modell",
