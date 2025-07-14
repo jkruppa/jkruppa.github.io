@@ -43,7 +43,7 @@ p11 <-
     geom_smooth(method = "lm", se = FALSE, color = "#56B4E9") +
     geom_smooth(method = "loess", se = FALSE, color = "#E69F00") +    
     annotate("text", x = 2, y = 1, hjust = "left", color = "#E69F00", size = 4, 
-             label = TeX(r"($y = 1.04 \cdot x - 2.11 \cdot x^2 + 0.03 \cdot x^3$)")) +
+             label = TeX(r"($y = 1.04 \cdot x - 2.11 \cdot x^2$)")) +
     annotate("text", x = 2, y = 0.8, hjust = "left", color = "#E69F00", size = 4, 
              label = TeX(r"($r = 0.89\; (p<0.001)$)")) +
     annotate("text", x = 2, y = 0.6, hjust = "left", color ="#E69F00", size = 4, 

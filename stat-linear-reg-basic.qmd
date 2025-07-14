@@ -2,6 +2,18 @@
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, see)
 source("images/R/stat-modeling-R.R")
 set.seed(20250708)
+theme_modeling <- function() {
+  theme_minimal() +
+    theme(panel.grid.minor = element_blank(),
+          plot.background = element_rect(fill = "white", color = NA),
+          plot.title = element_text(size = 16, face = "bold"),
+          plot.subtitle = element_text(size = 12, face = "italic"),
+          plot.caption = element_text(face = "italic"),
+          axis.title = element_text(size = 12, face = "bold"),
+          axis.text = element_text(size = 12),
+          strip.text = element_text(face = "bold"),
+          strip.background = element_rect(fill = "grey80", color = NA))
+}
 ```
 
 # Simple lineare Regression {#sec-modeling-simple-stat}
@@ -9,6 +21,14 @@ set.seed(20250708)
 *Letzte Änderung am `r format(fs::file_info("stat-linear-reg-basic.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*
 
 > *"Farewell to the Fairground; These rides aren't working anymore." --- White Lies, Farewell to the Fairground*
+
+![](images/caution.png){fig-align="center" width="100%"}
+
+::: {.callout-caution appearance="simple"}
+## Stand des Kapitels: Konstruktion (seit 07.2025)
+
+Dieses Kapitel wird in den nächsten Wochen geschrieben und ist damit meine aktuelle Großbaustelle. Ich plane zum Beginn des WiSe 2025/26 eine fertige Version des Kapitels erstellt zu haben. Während das Kapitel entsteht, funktioniert so manches dann nicht so wie es soll. Bitte daher hier dann abwarten.
+:::
 
 In diesem Kapitel wollen wir uns mit den Grundlagen der simplen linearen Regression beschäftigen. Damit meine ich erstmal die Idee eine Gerade durch eine Punktewolke zu zeichnen. Wir haben auf der $x$-Achse kontinuierliche Werte wie auch auf der $y$-Achse vorliegen. Das ist erstmal die simpelste Anwendung. Wir lernen hier einmal die Grundbegriffe und erweitern diese dann auf komplexere Modelle. Das heißt, wir haben ein Messwert $y$, was eine normalverteilte und kontinuierliche Variable ist, sowie eine Einflussvariable $x_1$, die eine kontinuierliche Variable ist. Wir wollen jetzt herausfinden, welchen Einfluss oder Effekt die Einflussvariable $x_1$ auf das normalverteilte Outcome $y$ hat. Wir schreiben hier $x_1$, da wir damit ausdrücken, dass wir später auch noch mehr Einflussvariablen $x$ in der multiplen linearen Regression nutzen werden.
 
@@ -48,11 +68,29 @@ tibble(x_1 = rnorm(25, 5, 1),
        y = 2.5 * x_1 + rnorm(25, 0, 3)) |> 
   ggplot(aes(x_1, y)) +
   geom_point() +
-  stat_smooth(method = "lm", se = FALSE, fullrange = TRUE, color = "red") +
+  stat_smooth(method = "lm", se = FALSE, fullrange = TRUE, color = "#CC79A7") +
   theme_minimal()
 ```
 
 Aber in diesem Kapitel konzentrieren wir uns erstmal darauf die Begriffe der simplen linearen Regression und deren Durchführung in R zu verstehen. Dann wollen wir noch die Ausgabe einer linearen Regression in R sowie den Unterschied zwischen einem kausalen und einen prädiktiven Modell ergründen.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-scatter-modeling-R-01
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 10
+#| fig-cap: "Verschiedene Ziele und Möglichkeiten des statistischen Modellierens. Grob können die Möglichkeiten in drei große thematische Zusammenhänge eingeteilt werden. **(A)** *Kausales Modell* -- Wie verändert sich $y$, wenn sich $x_1$ ändert? Wie ist der numerische Zusammenhang zwischen $y$ und $x$? **(B)** *Prädikitives Modell* -- Wenn $y$ und $x$ gemessen wurden, wie sehen dann die Werte von $y$ für neue $x$-Werte aus? Können wir mit $x$ die Werte in $y$ vorhersagen? *[Zum Vergrößern anklicken]*"
+
+source("images/R/stat-modeling-R-01.R")
+
+p11 + p12 +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A') 
+
+```
 
 ::: callout-tip
 ## Weitere Tutorien für die simple lineare Regression
@@ -71,21 +109,49 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, magrittr, broom,
-               readxl, conflicted)
+               readxl, ggpmisc, conflicted)
 conflicts_prefer(magrittr::set_names)
+conflicts_prefer(ggplot2::annotate)
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
 
 ## Daten
 
+#### Theoretischer Datensatz {.unnumbered .unlisted}
+
+```{r}
+#| message: false
+snake_tbl <- tibble(
+  svl = c(40, 45, 39, 51, 52, 57, 58, 49),
+  mass = c(6, 8, 5, 7, 9, 11, 12, 10),
+  region = as_factor(c("west","west", "west", "nord","nord","nord","nord","nord")),
+  color = as_factor(c("schwarz", "schwarz", "rot", "rot", "rot", "blau", "blau", "blau"))
+) 
+```
+
+In der @tbl-snakes ist der Datensatz `snake_tbl` nochmal dargestellt. Wir haben die Schlangenlänge `svl` als Outcome $y$ sowie das Gewicht der Schlangen `mass`, die Sammelregion `region` und die Farbe der Schlangen `color`. Dabei ist `mass` eine kontinuierliche Variable, `region` eine kategorielle Variable als Faktor mit zwei Leveln und `color` eine kategorielle Variable als Faktor mit drei Leveln.
+
+```{r}
+#| message: false
+#| echo: false
+#| tbl-cap: Datensatz zu Schlangen ist entlehnt und modifiiert nach Kéry [-@kery2010introduction, p. 77]
+#| label: tbl-snakes
+
+snake_tbl |> 
+  kable(align = "c", "pipe")
+
+```
+
+#### Einkovariater Datensatz {.unnumbered .unlisted}
+
 Wir wollen uns erstmal mit einem einfachen Datenbeispiel beschäftigen. Wir können die lineare Regression auf sehr großen Datensätzen anwenden, wie auch auf sehr kleinen Datensätzen. Prinzipiell ist das Vorgehen gleich. Wir nutzen jetzt aber erstmal einen kleinen Datensatz mit $n=7$ Beobachtungen. In der @tbl-model-0 ist der Datensatz `simplel_tbl` dargestellt. Wir wollen den Zusammenhang zwischen der Sprungweite in \[cm\] und dem Gewicht in \[mg\] für sieben Beobachtungen modellieren.
 
 ```{r}
 #| message: false
 
-simple_tbl <- tibble(jump_length = c(1.2, 1.8, 1.3, 1.7, 2.6, 1.8, 2.7),
-                     weight = c(0.8, 1, 1.2, 1.9, 2, 2.7, 2.8))
+cov1_tbl <- tibble(jump_length = c(1.2, 1.8, 1.3, 1.7, 2.6, 1.8, 2.7),
+                   weight = c(0.8, 1, 1.2, 1.9, 2, 2.7, 2.8))
 ```
 
 ```{r}
@@ -94,13 +160,13 @@ simple_tbl <- tibble(jump_length = c(1.2, 1.8, 1.3, 1.7, 2.6, 1.8, 2.7),
 #| tbl-cap: Datensatz mit einer normalverteilten Variable `jump_length` und der normalverteilten Variable `weight`. 
 #| label: tbl-model-0
 
-simple_tbl <- tibble(jump_length = c(1.2, 1.8, 1.3, 1.7, 2.6, 1.8, 2.7),
+cov1_tbl <- tibble(jump_length = c(1.2, 1.8, 1.3, 1.7, 2.6, 1.8, 2.7),
                      weight = c(0.8, 1, 1.2, 1.9, 2, 2.7, 2.8))
 
-simple_tbl |> kable(align = "c", "pipe")
+cov1_tbl |> kable(align = "c", "pipe")
 ```
 
-In @fig-scatter-lin-01 sehen wir die Visualisierung der Daten `simple_tbl` in einem Scatterplot mit einer geschätzen Gerade.
+In @fig-scatter-lin-01 sehen wir die Visualisierung der Daten `cov1_tbl` in einem Scatterplot mit einer geschätzen Gerade.
 
 ```{r}
 #| echo: false
@@ -111,7 +177,7 @@ In @fig-scatter-lin-01 sehen wir die Visualisierung der Daten `simple_tbl` in ei
 #| fig-width: 7
 #| fig-cap: "Scatterplot der Beobachtungen der Sprungweite in \\[cm\\] und dem Gewicht in \\[mg\\]. Die Gerade verläuft mittig durch die Punkte."
 
-ggplot(simple_tbl, aes(weight, jump_length)) +
+ggplot(cov1_tbl, aes(weight, jump_length)) +
   geom_point() +
   stat_smooth(method = "lm", se = FALSE, fullrange = TRUE) +
   theme_minimal() +
@@ -122,128 +188,230 @@ Wir schauen uns in diesem Kapitel nur eine *simple* lineare Regression mit einem
 
 Bevor wir mit dem Modellieren anfangen können, müssen wir verstehen, wie ein *simples* Modell theoretisch aufgebaut ist. Danach können wir uns das lineare Modell in R anschauen.
 
-## Simple lineare Regression theoretisch
+#### Einfaktorieller Datensatz {.unnumbered .unlisted}
 
-Wir haben nun die ersten sieben Beobachtungen in dem Objekt `simple_tbl` vorliegen. Wie sieht nun theoretisch eine lineare Regression aus? Wir wollen eine Grade durch Punkte legen, wie wie wir es in @fig-scatter-lin-01 sehen. Die blaue Gerade wir durch eine Geradengleichung beschreiben. Du kenst vermutlich noch die Form $y = mx + b$. In der Statistik beschreiben wir eine solche Gerade aber wie folgt.
+```{r}
+#| message: false
 
-$$
-y \sim \beta_0 + \beta_1 x_1 + \epsilon
-$$
+fac1_tbl <- read_xlsx("data/flea_dog_cat_fox.xlsx") |>
+  select(animal, jump_length) |> 
+  mutate(animal = as_factor(animal))
+```
 
-mit
-
--   $\beta_0$ als den y-Achsenabschnitt.
--   $\beta_1$ als der Steigung der Geraden.
--   $\epsilon$ als Residuen oder die Abweichungen von den $y$-Werten auf Geraden zu den einzelnen $y$-Werten der Beobachtungen.
-
-In @tbl-reg-deu-eng siehst du nochmal in einer Tabelle den Vergleich von der Schreibweise der linearen Regression in der Schule und in der Statistik. Darüber hinaus sind die deutschen Begriffe den englischen Begriffen gegenüber gestellt. Warum schreiben wir die Gleichung in der Form? Damit wir später noch weitere $\beta_px_p$-Paare ergänzen könen und so *multiple* Modelle bauen können.
-
-| $\boldsymbol{y = mx +b}$ | $\boldsymbol{y \sim \beta_0 + \beta_1 x_1 + \epsilon}$ | Deutsch | Englisch |
-|:--:|:--:|:--:|:--:|
-| $m$ | $\beta_1$ | Steigung | Slope |
-| $x$ | $x_1$ | Einflussvariable | Risk factor |
-| $b$ | $\beta_0$ | y-Achsenabschnitt | Intercept |
-|  | $\epsilon$ | Residuen | Residual |
-
-: Vergleich und Übersicht der schulischen vs. statistischen Begriffe in den linearen Regression sowie die deutschen und englischen Begriffe. {#tbl-reg-deu-eng}
-
-In @fig-lin-reg-01 sehen wir die Visualisierung der Gleichung in einer Abbildung. Die Gerade läuft durch die Punktewolke und wird durch die statistischen Maßzahlen bzw. Parameter $\beta_0$, $\beta_1$ sowie den $\epsilon$ beschrieben. Wir sehen, dass das $\beta_0$ den *Intercept* darstellt und das $\beta_1$ die Steigung der Geraden. Wenn wir $x$ um 1 Einheit erhöhen $x+1$, dann steigt der $y$ Wert um den Wert von $\beta_1$. Die einzelnen Abweichungen der beobachteten $y$-Wert zu den $y$-Werten auf der Gerade ($\hat{y}$) werden als Residuen oder auch $\epsilon$ bezeichnet.
+Dann schauen wir uns die Daten einmal in der folgenden Tabelle als Auszug einmal an. Wichtig ist hier nochmal, dass du eben einen Faktor `animal` mit drei Leveln also Gruppen vorliegen hast. Wir wollen jetzt die drei Tierarten hinsichtlich ihrer Sprungweite in \[cm\] miteinander vergleichen.
 
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
-#| label: fig-lin-reg-01
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 7
-#| fig-cap: "Visualisierung der linearen Regression. Wir legen eine Gerade durch eine Punktewolke. Die Gerade wird durch die statistischen Maßzahlen bzw. Parameter $\\beta_0$, $\\beta_1$ sowie den $\\epsilon$ beschrieben."
+#| label: tbl-1fac-table
+#| tbl-cap: "Tabelle der Sprungweiten in [cm] als Messwert $y$ von Hunde-, Katzen- und Fuchsflöhen. Der Datensatz ist einfaktoriell, da wir nur einen Faktor vorliegen haben."
 
-simple_fit <- lm(jump_length ~ weight, data = simple_tbl) |> 
-  augment()
+fac1_raw_tbl <- read_xlsx("data/flea_dog_cat_fox.xlsx") |>
+  select(animal, jump_length) 
 
-ggplot(simple_tbl, aes(weight, jump_length)) +
-  theme_minimal() +
-  xlim(0, 3.5) + ylim(0, 3.5) +
-  geom_vline(xintercept = 0) +
-  geom_hline(yintercept = 0) +
-  geom_segment(x = simple_fit$weight, y = simple_fit$jump_length, 
-               xend = simple_fit$weight, yend = simple_fit$.fitted, 
-               color = "#009E73",
-               linewidth = 0.5, linetype = 1) +
-  geom_segment(x = 1.035, y = 1.5, 
-               xend = 2, yend = 1.5, 
-               color = "#D55E00",
-               linewidth = 0.5, linetype = 1) +
-  geom_segment(x = 2, y = 1.5, 
-               xend = 2, yend = 2, 
-               color = "#D55E00",
-               linewidth = 0.5, linetype = 1) +
-  annotate("text", x = 0.3, y = 0.5, label = expression(beta[0]), size = 7,
-           color = "#E69F00") +
-  geom_curve(x = 0.2, y = 0.5, xend = 0, yend = 0.95,
-             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
-             curvature = -0.3, alpha = 0.3,
-           color = "#E69F00") +
-  annotate("text", x = 2.3, y = 1.7, label = expression(beta[1]), size = 7,
-           color = "#E69F00") +
-  geom_curve(x = 2.2, y = 1.7, xend = 2.02, yend = 1.75,
-             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
-             curvature = 0.3, alpha = 0.3,
-           color = "#E69F00") +
-  annotate("text", x = 1, y = 1.35, label = expression(x), size = 7, 
-               color = "#D55E00") +
-  annotate("text", x = 2, y = 1.35, label = expression(x+1), size = 7, 
-               color = "#D55E00") +
-  annotate("text", x = simple_fit$weight + 0.06, 
-          y = simple_fit$.fitted + simple_fit$.resid/2,
-          label = c(expression(epsilon[1]), expression(epsilon[2]), expression(epsilon[3]),
-                    expression(epsilon[4]), expression(epsilon[5]), expression(epsilon[6]),
-                    expression(epsilon[7])),
-          color = "#009E73") +
-  stat_smooth(method = "lm", se = FALSE, fullrange = TRUE, color = "#56B4E9") +
-  geom_point(size = 3) +
-  labs(x = "Gewicht der Hundeflöhe in [mg]", y = "Sprungeweite der Hundeflöhe in [cm]") +
-  theme(panel.grid.minor = element_blank(),
-          plot.background = element_rect(fill = "white", color = NA),
-          plot.title = element_text(size = 16, face = "bold"),
-          plot.subtitle = element_text(size = 12, face = "italic"),
-          plot.caption = element_text(face = "italic"),
-          axis.title = element_text(face = "bold"),
-          axis.text = element_text(size = 12),
-          strip.text = element_text(face = "bold"),
-          strip.background = element_rect(fill = "grey80", color = NA))
+rbind(head(fac1_raw_tbl, n = 3),
+      rep("...", times = ncol(fac1_raw_tbl)),
+      tail(fac1_raw_tbl, n = 3)) |> 
+  kable(align = "c", "pipe")
 ```
 
-Schauen wir uns einmal den Zusammenhang von $y$, den beobachteten Werten, und $\hat{y}$, den geschätzen Werten auf der Gerade in unserem Beispiel an. In @tbl-lin-reg-epsilon sehen wir die Berechnung der einzelnen Residuen für die Gerade aus der @fig-scatter-lin-01. Wir nehmen jedes beobachtete $y$ und ziehen den Wert von $y$ auf der Gerade, bezeichnet als $\hat{y}$, ab. Diesen Schritt machen wir für jedes Wertepaar $(y_i; \hat{y}_i)$. In R werden die $\hat{y}$ auch *fitted values* genannt. Die $\epsilon$ Werte werden dann *residuals* bezeichnet.
-
-| x | y | $\boldsymbol{\hat{y}}$ | Residuen ($\boldsymbol{\epsilon}$) | Wert |
-|:--:|:--:|:--:|:--:|:--:|
-| 0.8 | 1.2 | 1.38 | $\epsilon_1 = y_1 - \hat{y}_1$ | $\epsilon_1 = 1.2 - 1.38 = -0.18$ |
-| 1.0 | 1.8 | 1.48 | $\epsilon_2 = y_2 - \hat{y}_2$ | $\epsilon_2 = 1.8 - 1.48 = +0.32$ |
-| 1.2 | 1.3 | 1.58 | $\epsilon_3 = y_3 - \hat{y}_3$ | $\epsilon_3 = 1.3 - 1.58 = -0.28$ |
-| 1.9 | 1.7 | 1.94 | $\epsilon_4 = y_4 - \hat{y}_4$ | $\epsilon_4 = 1.7 - 1.94 = -0.24$ |
-| 2.0 | 2.6 | 1.99 | $\epsilon_5 = y_5 - \hat{y}_5$ | $\epsilon_5 = 2.6 - 1.99 = +0.61$ |
-| 2.7 | 1.8 | 2.34 | $\epsilon_6 = y_6 - \hat{y}_6$ | $\epsilon_6 = 1.8 - 2.34 = -0.54$ |
-| 2.8 | 2.7 | 2.40 | $\epsilon_7 = y_7 - \hat{y}_7$ | $\epsilon_7 = 2.7 - 2.40 = +0.30$ |
-
-: Zusammenhang zwischen den $y$, den beobachteten Werten, und $\hat{y}$, den geschätzen Werten auf der Gerade. Wir nennen den Abstand $y_i - \hat{y}_i$ auch Residuum oder *Epsilon* $\epsilon$. {#tbl-lin-reg-epsilon}
+Und dann wollen wir uns noch einmal die Daten als einen einfachen Boxplot anschauen. Wir sehen, dass die Daten so gebaut sind, dass wir einen signifikanten Unterschied zwischend den Sprungweiten der Floharten erwarten. Die Boxen der Boxplots überlappen sich nicht und die Boxplots liegen auch nicht auf einer Ebene.
 
 ```{r}
+#| message: false
 #| echo: false
+#| warning: false
+#| label: fig-ggplot-simple-reg-boxplot-1fac
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 4
+#| fig-cap: "Beispielhafter einfaktorieller Boxplot für die Sprungweiten in [cm] gruppiert nach den Floharten."
 
-epsilon <- c(-0.18, 0.32, -0.28, -0.24, 0.61, -0.54, 0.30)
-mean_e <- round(mean(epsilon), 2)
-var_e <- round(var(epsilon), 2)
+ggplot(data = fac1_tbl, 
+       aes(x = animal, y = jump_length, fill = animal)) +
+  theme_minimal() +
+  geom_boxplot() +
+  stat_summary(fun.y = mean, geom = "point", 
+               shape = 23, size = 3, fill = "gray50") +
+  labs(x = "Flohart", y = "Sprungweite in [cm]") +
+  theme(legend.position = "none") + 
+  scale_fill_okabeito() 
+```
+
+## Kausales Modell
+
+### Einkovariates Modell
+
+::: panel-tabset
+## Theoretisch
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2
+#| fig-width: 7
+#| fig-cap: "Schemantisches simples Modell mit einem Messwert $Y$ und einer kontinuierlichen Einflussvariable als Kovariate $c_1$ dargestellt. *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-10
+
+p_1cov_model 
+```
+
+```{r}
+lm(svl ~ mass, data = snake_tbl) |> coef() |> round(2)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-c1
+
+ggplot(snake_tbl, aes(mass, svl)) +
+  theme_modeling() +
+  geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_point() +
+  stat_poly_line(color = "#E69F00", linewidth = 0.5, 
+                 fullrange = TRUE, se = FALSE) +
+  stat_poly_eq(use_label("eq"), size = 8) +
+  scale_x_continuous(breaks = 1:12) +
+  scale_y_continuous(breaks = seq(0, 60, 25)) +  
+  labs(title = "Simple lineare Regression",
+       subtitle = "Intercept ist der y-Achsenabschnitt",
+       x = "Masse [kg]", y = "Schlangenlänge [cm]")
+```
+
+## Theoretisch in R
+
+Im ersten Schritt wollen wir uns einmal das Modell mit einem kontinuierlichen $x$ anschauen. Daher bauen wir uns ein lineares Modell mit der Variable `mass`. Wir erinnern uns, dass `mass` eine kontinuierliche Variable ist, da wir hier nur Zahlen in der Spalte finden. Die Funktion `model.matrix()` gibt uns die Modellmatrix wieder.
+
+```{r}
+model.matrix(svl ~ mass, data = snake_tbl) |> as_tibble()
+```
+
+In der ersten Spalte ist der Intercept angegeben, danach folgt dann die Spalte `mass` als kontinuierliche Variable.
+
+Wir können die Modellmatrix auch mathematisch schreiben und die $y$ Spalte für das Outcome `svl` ergänzen. Eben so ergänzen wir die $\beta$-Werte als mögliche Koeefizienten aus der linearen Regression sowie die Residuen als Abweichung von der gefitteten Gerade.
+
+$$
+ \begin{pmatrix}
+  40 \\
+  45 \\
+  39 \\
+  50 \\
+  52 \\
+  57 \\
+  58 \\
+  59 \\
+ \end{pmatrix}
+ =
+  \begin{pmatrix}
+  1 & 6 \\
+  1 & 8 \\
+  1 & 5 \\
+  1 & 7 \\
+  1 & 9 \\
+  1 & 11\\
+  1 & 12\\
+  1 & 10\\
+ \end{pmatrix}
+ \times
+  \begin{pmatrix}
+  \beta_0 \\
+  \beta_{mass} 
+ \end{pmatrix} +
+  \begin{pmatrix}
+  \epsilon_1 \\
+  \epsilon_2 \\
+  \epsilon_3 \\
+  \epsilon_4 \\
+  \epsilon_5 \\
+  \epsilon_6 \\
+  \epsilon_7 \\
+  \epsilon_8 \\
+ \end{pmatrix}
+$$
+
+Jetzt brauche wir die Koeffizienten aus dem linearen Modell, welches wir wie folgt mit der Funktion `lm()` fitten. Wir nutzen dann die Funktion `coef()` um uns die Koeffizienten aus dem Objekt `fit_1` wiedergeben zu lassen.
+
+```{r}
+fit_1 <- lm(svl ~ mass, data = snake_tbl) 
+fit_1 |> coef() |> round(2)
 
 ```
 
-Die Abweichungen $\epsilon$ oder auch Residuen genannt haben einen Mittelwert von $\bar{\epsilon} = `r mean_e`$ und eine Varianz von $s^2_{\epsilon} = `r var_e`$. Wir schreiben, dass die Residuen normalverteilt sind mit $\epsilon \sim \mathcal{N}(0, s^2_{\epsilon})$. Wir zeichnen die Gerade also so durch die Punktewolke, dass die Abstände zu den Punkten, die Residuen, im Mittel null sind. Die Optimierung erreichen wir in dem wir die Varianz der Residuuen minimieren. Folglich modellieren wir die Varianz.
+Die Funktion `residuals()` gibt uns die Residuen der Geraden aus dem Objekt `fit_1` wieder.
+
+```{r}
+fit_1 |> residuals() |> round(2)
+```
+
+Wir können jetzt die Koeffizienten in die Modellmatrix ergänzen. Wir haben den Intercept mit $\beta_0 = 26.71$ geschätzt. Weiter ergänzen wir die Koeffizienten aus dem linearen Modell für `mass` mit $\beta_{mass}=2.61$. Ebenfalls setzen wir Werte für die Residuen für jede der Beobachtungen in die Gleichung ein. Wir erhalten dann folgende ausgefüllte Gleichung mit den Matrixen.
+
+$$
+ \begin{pmatrix}
+  40 \\
+  45 \\
+  39 \\
+  50 \\
+  52 \\
+  57 \\
+  58 \\
+  59 \\
+ \end{pmatrix}
+ =
+  \begin{pmatrix}
+  26.71 & \phantom{0}6 \cdot 2.61\\
+  26.71 & \phantom{0}8 \cdot 2.61\\
+  26.71 & \phantom{0}5 \cdot 2.61\\
+  26.71 & \phantom{0}7 \cdot 2.61\\
+  26.71 & \phantom{0}9 \cdot 2.61\\
+  26.71 & 11\cdot 2.61\\
+  26.71 & 12\cdot 2.61\\
+  26.71 & 10\cdot 2.61\\
+ \end{pmatrix}
+  +
+  \begin{pmatrix}
+  -2.36\\
+  -2.57\\
+  -0.75 \\
+  +6.04\\
+  +1.82\\
+  +1.61\\
+  \phantom{+}0.00\\
+  -3.79\\
+ \end{pmatrix}
+$$
+
+Wir können jetzt diese gewaltige Sammlung an Matrixen einmal auflösen. Steht denn nun wirklich rechts das Gleiche wie links von der Gleichung? Wir bauen uns die Zahlen von der rechten Seite der Gleichung einmal in R nach und schauen auf das Ergebnis. Wie du siehst ergänzen wir hier noch eine Reihe von $+$ um den Intercept mit der Steigung zu verbinden. Steht ja auch so in der Gleichung des linearen Modells drin, alles wird mit einem $+$ miteinander verbunden.
+
+```{r}
+c(26.71 +  6*2.61 - 2.36,
+  26.71 +  8*2.61 - 2.57,
+  26.71 +  5*2.61 - 0.75,
+  26.71 +  7*2.61 + 6.04,
+  26.71 +  9*2.61 + 1.82,
+  26.71 + 11*2.61 + 1.61,
+  26.71 + 12*2.61 + 0.00,
+  26.71 + 10*2.61 - 3.79) |> round() 
+```
+
+Oh ha! Die Zahlen, die wir rauskriegen, sind die gleichen Werte die unser Outcome $y$ hat. Das heißt, die ganze Sache hat funktioniert.
+
+## Praktisch in R
+:::
 
 :::: callout-note
 ## Simple lineare Regression händisch
 
-Gut, das war jetzt die theoretische Abhandlung ohne eine mathematische Formel. Es geht natürlich auch mit den nackten Zahlen. In der @tbl-example-by-hand-01 siehst du einmal sieben Beobachtungen mit dem Körpergewicht als $y$ sowie der Körpergröße als $x$. Wir wollen jetzt einmal die Regressionsgleichung bestimmen. Wir sehen also unsere Werte für $\beta_0$ und $\beta_1$ aus?
+Gut, das war jetzt die theoretische Abhandlung der linearen Regression ohne eine mathematische Formel. Es geht natürlich auch mit den nackten Zahlen. In der folgenden Tabelle siehst du einmal sieben Beobachtungen mit dem Körpergewicht als $y$ sowie der Körpergröße als $x$. Wir wollen jetzt einmal die Regressionsgleichung bestimmen. Wir sehen also unsere Werte für $\beta_0$ und $\beta_1$ aus?
 
 ```{r}
 #| echo: false
@@ -271,7 +439,7 @@ $$
 weight = \beta_0 + \beta_1 \cdot height
 $$
 
-Da es dann immer etwas schwer ist, sich den Zusammenhang zwischen Körpergewicht und Körpergröße vorzustellen, habe ich nochmal in der @fig-example-by-hand-03 den Scatterplot der Daten erstellt. Die rote Gerade stellt die Regressiongleichung dar. Wir erhalten ein y-Achsenabschnitt mit $\beta_0$ von $-75.39$ sowie eine Steigung mit $\beta_1$ von $0.88$ aus unseren Daten.
+Da es dann immer etwas schwer ist, sich den Zusammenhang zwischen Körpergewicht und Körpergröße vorzustellen, habe ich nochmal in der folgenden Abbildung den Scatterplot der Daten erstellt. Die rote Gerade stellt die Regressiongleichung dar. Wir erhalten ein y-Achsenabschnitt mit $\beta_0$ von $-75.39$ sowie eine Steigung mit $\beta_1$ von $0.88$ aus unseren Daten.
 
 ```{r}
 #| echo: true
@@ -285,7 +453,7 @@ Da es dann immer etwas schwer ist, sich den Zusammenhang zwischen Körpergewicht
 ggplot(by_hand_tbl, aes(height, weight)) +
   theme_minimal() +
   geom_point() +
-  geom_function(fun = \(x) -75.39 + 0.88 * x, color = "red")
+  geom_function(fun = \(x) -75.39 + 0.88 * x, color = "#CC79A7")
   
 ```
 
@@ -303,7 +471,7 @@ Formel für Steigung mit $\beta_1$
     \beta_1 = \cfrac{n(\Sigma XY) - (\Sigma X)(\Sigma Y)}{n(\Sigma X^2) - (\Sigma X)^2} 
     $$
 
-In der @tbl-example-by-hand-02 siehst du nochmal die originalen Datenpunkte und dann die entsprechenden Werte für das Produkt von `weight` und `height` mit $XY$ und dann die jeweiligen Quadrate der beiden mit $X^2$ und $Y^2$. Wir brauchen dann aber nicht diese Werte sondern die Summen der Werte. Das Summieren lagere ich dann nochmal in eine weitere Tabelle aus.
+In der folgenden Tabelle siehst du nochmal die originalen Datenpunkte und dann die entsprechenden Werte für das Produkt von `weight` und `height` mit $XY$ und dann die jeweiligen Quadrate der beiden mit $X^2$ und $Y^2$. Wir brauchen dann aber nicht diese Werte sondern die Summen der Werte. Das Summieren lagere ich dann nochmal in eine weitere Tabelle aus.
 
 ```{r}
 #| echo: false
@@ -420,6 +588,458 @@ Wenn du dich tiefer in die Thematik einlesen willst, dann sind hier weitere Quel
 -   [Matrix Approach to Simple Linear Regression in R](https://lasanthiwatagoda.github.io/STT4830ClassRepo/RCodes/Ch5Script.html)
 ::::
 
+### Einfaktorielles Modell
+
+::: panel-tabset
+## Theoretisch
+
+#### $f_A$ mit 2 Leveln {.unnumbered .unlisted}
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2
+#| fig-width: 7
+#| fig-cap: "Schemantisches simples Modell mit einem Messwert $Y$ und einer kategorialen Einflussvariablen als Faktor $f_A$ mit zwei Leveln dargestellt. *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-15
+
+p_1fac_2lvl_model
+```
+
+```{r}
+lm(svl ~ region, data = snake_tbl) |> coef() |> round(2)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-fa-1
+
+ggplot(snake_tbl, aes(region, svl)) +
+  theme_modeling() +
+  geom_vline(xintercept = 1, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 41.33, linewidth = 0.5, color = "#CC79A7") +
+  geom_point() +
+  stat_summary(fun = "mean", geom = "label", 
+               aes(label = round(..y.., 2)), position = position_nudge(0.12)) +
+  scale_x_discrete(labels = c("west", "nord")) +
+  labs(title = "Treatment coding",
+       subtitle = "Intercept ist der Mittelwert von Gruppe A.1",
+       x = "Messregion", y = "Schlangenlänge [cm]")
+```
+
+#### $f_A$ mit \>2 Leveln {.unnumbered .unlisted}
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2
+#| fig-width: 7
+#| fig-cap: "Schemantisches simples Modell mit einem Messwert $Y$ und einer kategorialen Einflussvariablen als Faktor $f_A$ mit drei Leveln dargestellt. *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-11
+
+p_1fac_3lvl_model
+```
+
+```{r}
+lm(svl ~ color, data = snake_tbl) |> 
+  coef() |> round(2)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-fa-21
+
+ggplot(snake_tbl, aes(color, svl)) +
+  theme_modeling() +
+  geom_vline(xintercept = 1, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 42.50, linewidth = 0.5, color = "#CC79A7") +
+  geom_point() +
+  stat_summary(fun = "mean", geom = "label", 
+               aes(label = round(..y.., 2)), position = position_nudge(0.17)) +
+  scale_x_discrete(labels = c("schwarz", "rot", "blau")) +
+  labs(title = "Treatment coding",
+       subtitle = "Intercept ist der Mittelwert von Gruppe A.1",
+       x = "Hautfarbe", y = "Schlangenlänge [cm]")
+```
+
+## Theoretisch in R
+
+#### $f_A$ mit 2 Leveln {.unnumbered .unlisted}
+
+Im diesem Schritt wollen wir uns einmal das Modell mit einem kategoriellen $x$ mit 2 Leveln anschauen. Wir bauen uns ein Modell mit der Variable ``` region``. Die Funktion ```model.matrix()\` gibt uns die Modelmatrix wieder.
+
+```{r}
+model.matrix(svl ~ region, data = snake_tbl) |> as_tibble()
+```
+
+In der ersten Spalte ist der Intercept angegeben, danach folgt dann die Spalte `regionnord`. In dieser Spalte steht die Dummykodierung für die Variable `region`. Die ersten drei Schlangen kommen nicht aus der Region `nord` und werden deshalb mit einen Wert von 0 versehen. Die nächsten vier Schlangen kommen aus der Region `nord` und erhalten daher eine 1 in der Spalte.
+
+Wir können die Modellmatrix auch mathematisch schreiben und die $y$ Spalte für das Outcome `svl` ergänzen. Eben so ergänzen wir die $\beta$-Werte als mögliche Koeefizienten aus der linearen Regression sowie die Residuen als Abweichung von der gefitteten Gerade.
+
+$$
+ \begin{pmatrix}
+  40 \\
+  45 \\
+  39 \\
+  50 \\
+  52 \\
+  57 \\
+  58 \\
+  59 \\
+ \end{pmatrix}
+ =
+  \begin{pmatrix}
+  1 &  0  \\
+  1 &  0 \\
+  1 &  0\\
+  1 &  1\\
+  1 &  1 \\
+  1 &  1 \\
+  1 &  1 \\
+  1 &  1 \\
+ \end{pmatrix}
+ \times
+  \begin{pmatrix}
+  \beta_0 \\
+  \beta^{region}_{nord} \\
+ \end{pmatrix} +
+  \begin{pmatrix}
+  \epsilon_1 \\
+  \epsilon_2 \\
+  \epsilon_3 \\
+  \epsilon_4 \\
+  \epsilon_5 \\
+  \epsilon_6 \\
+  \epsilon_7 \\
+  \epsilon_8 \\
+ \end{pmatrix}
+$$
+
+Jetzt brauche wir die Koeffizienten aus dem linearen Modell, welches wir wie folgt fitten. Wir nutzen dann die Funktion `coef()` um uns die Koeffizienten wiedergeben zu lassen.
+
+```{r}
+fit_2 <- lm(svl ~ region, data = snake_tbl) 
+fit_2 |> coef() |> round(2)
+```
+
+Die Funktion `residuals()` gibt uns die Residuen der Geraden aus dem Objekt `fit_2` wieder.
+
+```{r}
+fit_2 |> residuals() |> round(2)
+```
+
+Wir können jetzt die Koeffizienten ergänzen mit $\beta_0 = 41.33$ für den Intercept. Weiter ergänzen wir die Koeffizienten für die Region und das Level `nord` mit $\beta^{region}_{nord} = 12.07$. Ebenfalls setzen wir Werte für die Residuen für jede der Beobachtungen in die Gleichung ein.
+
+$$
+ \begin{pmatrix}
+  40 \\
+  45 \\
+  39 \\
+  50 \\
+  52 \\
+  57 \\
+  58 \\
+  59 \\
+ \end{pmatrix}
+ =
+  \begin{pmatrix}
+  41.33 & 0 \cdot 12.07  \\
+  41.33 & 0 \cdot 12.07  \\
+  41.33 & 0 \cdot 12.07  \\
+  41.33 & 1 \cdot 12.07  \\
+  41.33 & 1 \cdot 12.07  \\
+  41.33 & 1 \cdot 12.07  \\
+  41.33 & 1 \cdot 12.07  \\
+  41.33 & 1 \cdot 12.07  \\
+ \end{pmatrix} +
+  \begin{pmatrix}
+  -1.33\\
+  +3.67 \\
+  -2.33 \\
+  -2.40 \\
+  -1.40 \\
+  +3.60 \\
+  +4.60 \\
+  -4.40 \\
+ \end{pmatrix}
+$$
+
+Wir können jetzt diese gewaltige Sammlung an Matrixen einmal auflösen. Steht denn nun wirklich rechts das Gleiche wie links von der Gleichung? Wir bauen uns die Zahlen von der rechten Seite der Gleichung einmal in R nach und schauen auf das Ergebnis.
+
+```{r}
+c(41.33 + 0*12.07 - 1.33,
+  41.33 + 0*12.07 + 3.67,
+  41.33 + 0*12.07 - 2.33,
+  41.33 + 1*12.07 - 2.40,
+  41.33 + 1*12.07 - 1.40,
+  41.33 + 1*12.07 + 3.60,
+  41.33 + 1*12.07 + 4.60,
+  41.33 + 1*12.07 - 4.40) |> round() 
+```
+
+Die Zahlen, die wir rauskriegen, sind die gleichen Werte die unser Outcome $y$ hat.
+
+#### $f_A$ mit \>2 Leveln {.unnumbered .unlisted}
+
+Im diesem Schritt wollen wir uns einmal das Modell mit einem kategoriellen $x$ mit \>2 Leveln anschauen. Wir bauen uns ein Modell mit der Variable `color`. Die Funktion `model.matrix()` gibt uns die Modelmatrix wieder.
+
+```{r}
+model.matrix(svl ~ color, data = snake_tbl) |> as_tibble()
+```
+
+In der ersten Spalte ist der Intercept angegeben, danach folgt dann die Spalten für `color`. Die Spalten `colorrot` und `colorblau` geben jeweils an, ob die Schlange das Level `rot` hat oder `blau` oder keins von beiden. Wenn die Schlange weder rot noch blau ist, dann sind beide Spalten mit einer 0 versehen. Dann ist die Schlange schwarz.
+
+Wir können die Modellmatrix auch mathematisch schreiben und die $y$ Spalte für das Outcome `svl` ergänzen. Eben so ergänzen wir die $\beta$-Werte als mögliche Koeefizienten aus der linearen Regression sowie die Residuen als Abweichung von der gefitteten Gerade.
+
+$$
+ \begin{pmatrix}
+  40 \\
+  45 \\
+  39 \\
+  50 \\
+  52 \\
+  57 \\
+  58 \\
+  59 \\
+ \end{pmatrix}
+ =
+  \begin{pmatrix}
+  1 & 0 & 0 \\
+  1 & 0 & 0\\
+  1 & 1 & 0\\
+  1 & 1 & 0\\
+  1 & 1 & 0\\
+  1 & 0 & 1\\
+  1 & 0 & 1\\
+  1 & 0 & 1\\
+ \end{pmatrix}
+ \times
+  \begin{pmatrix}
+  \beta_0 \\
+  \beta^{color}_{rot} \\
+  \beta^{color}_{blau} \\
+ \end{pmatrix} +
+  \begin{pmatrix}
+  \epsilon_1 \\
+  \epsilon_2 \\
+  \epsilon_3 \\
+  \epsilon_4 \\
+  \epsilon_5 \\
+  \epsilon_6 \\
+  \epsilon_7 \\
+  \epsilon_8 \\
+ \end{pmatrix}
+$$
+
+Jetzt brauche wir die Koeffizienten aus dem linearen Modell, welches wir wie folgt fitten. Wir nutzen dann die Funktion `coef()` um uns die Koeffizienten wiedergeben zu lassen.
+
+```{r}
+fit_3 <- lm(svl ~ color, data = snake_tbl) 
+fit_3 |> coef() |> round(2)
+```
+
+Die Funktion `residuals()` gibt uns die Residuen der Geraden aus dem Objekt `fit_3` wieder.
+
+```{r}
+fit_3 |> residuals() |> round(2)
+```
+
+Wir können jetzt die Koeffizienten ergänzen mit $\beta_0 = 25$ für den Intercept. Weiter ergänzen wir die Koeffizienten für die Farbe und das Level `rot` mit $\beta^{color}_{rot} = 4.83$ und für die Farbe und das Level `blau` mit $\beta^{color}_{blau} = 12.17$. Ebenfalls setzen wir Werte für die Residuen für jede der Beobachtungen in die Gleichung ein.
+
+$$
+ \begin{pmatrix}
+  40 \\
+  45 \\
+  39 \\
+  50 \\
+  52 \\
+  57 \\
+  58 \\
+  59 \\
+ \end{pmatrix}
+ =
+  \begin{pmatrix}
+  42.50 & 0 \cdot 4.83& 0 \cdot 12.17 \\
+  42.50 & 0 \cdot 4.83& 0 \cdot 12.17\\
+  42.50 & 1 \cdot 4.83& 0 \cdot 12.17\\
+  42.50 & 1 \cdot 4.83& 0 \cdot 12.17\\
+  42.50 & 1 \cdot 4.83& 0 \cdot 12.17\\
+  42.50 & 0 \cdot 4.83& 1 \cdot 12.17\\
+  42.50 & 0 \cdot 4.83& 1 \cdot 12.17\\
+  42.50 & 0 \cdot 4.83& 1 \cdot 12.17\\
+ \end{pmatrix} +
+  \begin{pmatrix}
+  -2.50 \\
+  +2.50 \\
+  -8.33 \\
+  +3.67 \\
+  +4.67 \\
+  +2.33 \\
+  +3.33 \\
+  -5.67 \\
+ \end{pmatrix}
+$$
+
+Wir können jetzt diese gewaltige Sammlung an Matrixen einmal auflösen. Steht denn nun wirklich rechts das Gleiche wie links von der Gleichung? Wir bauen uns die Zahlen von der rechten Seite der Gleichung einmal in R nach und schauen auf das Ergebnis.
+
+```{r}
+c(42.50 + 0*4.83 + 0*-12.17 - 2.50,
+  42.50 + 0*4.83 + 0*-12.17 + 2.50,
+  42.50 + 1*4.83 + 0*-12.17 - 8.33,
+  42.50 + 1*4.83 + 0*-12.17 + 3.67,
+  42.50 + 1*4.83 + 0*-12.17 + 4.67,
+  42.50 + 0*4.83 + 1*-12.17 + 2.33,
+  42.50 + 0*4.83 + 1*-12.17 + 3.33,
+  42.50 + 0*4.83 + 1*-12.17 - 5.67) |> round()
+```
+
+Die Zahlen, die wir rauskriegen, sind die gleichen Werte die unser Outcome $y$ hat.
+
+## Praktisch in R
+:::
+
+## Prädiktives Modell
+
+------------------------------------------------------------------------
+
+## Old Stuff
+
+## Simple lineare Regression theoretisch
+
+Wir haben nun die ersten sieben Beobachtungen in dem Objekt `cov1_tbl` vorliegen. Wie sieht nun theoretisch eine lineare Regression aus? Wir wollen eine Grade durch Punkte legen, wie wie wir es in @fig-scatter-lin-01 sehen. Die blaue Gerade wir durch eine Geradengleichung beschreiben. Du kenst vermutlich noch die Form $y = mx + b$. In der Statistik beschreiben wir eine solche Gerade aber wie folgt.
+
+$$
+y \sim \beta_0 + \beta_1 x_1 + \epsilon
+$$
+
+mit
+
+-   $\beta_0$ als den y-Achsenabschnitt.
+-   $\beta_1$ als der Steigung der Geraden.
+-   $\epsilon$ als Residuen oder die Abweichungen von den $y$-Werten auf Geraden zu den einzelnen $y$-Werten der Beobachtungen.
+
+In @tbl-reg-deu-eng siehst du nochmal in einer Tabelle den Vergleich von der Schreibweise der linearen Regression in der Schule und in der Statistik. Darüber hinaus sind die deutschen Begriffe den englischen Begriffen gegenüber gestellt. Warum schreiben wir die Gleichung in der Form? Damit wir später noch weitere $\beta_px_p$-Paare ergänzen könen und so *multiple* Modelle bauen können.
+
+| $\boldsymbol{y = mx +b}$ | $\boldsymbol{y \sim \beta_0 + \beta_1 x_1 + \epsilon}$ | Deutsch | Englisch |
+|:--:|:--:|:--:|:--:|
+| $m$ | $\beta_1$ | Steigung | Slope |
+| $x$ | $x_1$ | Einflussvariable | Risk factor |
+| $b$ | $\beta_0$ | y-Achsenabschnitt | Intercept |
+|  | $\epsilon$ | Residuen | Residual |
+
+: Vergleich und Übersicht der schulischen vs. statistischen Begriffe in den linearen Regression sowie die deutschen und englischen Begriffe. {#tbl-reg-deu-eng}
+
+In @fig-lin-reg-01 sehen wir die Visualisierung der Gleichung in einer Abbildung. Die Gerade läuft durch die Punktewolke und wird durch die statistischen Maßzahlen bzw. Parameter $\beta_0$, $\beta_1$ sowie den $\epsilon$ beschrieben. Wir sehen, dass das $\beta_0$ den *Intercept* darstellt und das $\beta_1$ die Steigung der Geraden. Wenn wir $x$ um 1 Einheit erhöhen $x+1$, dann steigt der $y$ Wert um den Wert von $\beta_1$. Die einzelnen Abweichungen der beobachteten $y$-Wert zu den $y$-Werten auf der Gerade ($\hat{y}$) werden als Residuen oder auch $\epsilon$ bezeichnet.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-lin-reg-01
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "Visualisierung der linearen Regression. Wir legen eine Gerade durch eine Punktewolke. Die Gerade wird durch die statistischen Maßzahlen bzw. Parameter $\\beta_0$, $\\beta_1$ sowie den $\\epsilon$ beschrieben."
+
+simple_fit <- lm(jump_length ~ weight, data = cov1_tbl) |> 
+  augment()
+
+ggplot(cov1_tbl, aes(weight, jump_length)) +
+  theme_minimal() +
+  xlim(0, 3.5) + ylim(0, 3.5) +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  geom_segment(x = simple_fit$weight, y = simple_fit$jump_length, 
+               xend = simple_fit$weight, yend = simple_fit$.fitted, 
+               color = "#009E73",
+               linewidth = 0.5, linetype = 1) +
+  geom_segment(x = 1.035, y = 1.5, 
+               xend = 2, yend = 1.5, 
+               color = "#D55E00",
+               linewidth = 0.5, linetype = 1) +
+  geom_segment(x = 2, y = 1.5, 
+               xend = 2, yend = 2, 
+               color = "#D55E00",
+               linewidth = 0.5, linetype = 1) +
+  annotate("text", x = 0.3, y = 0.5, label = expression(beta[0]), size = 7,
+           color = "#E69F00") +
+  geom_curve(x = 0.2, y = 0.5, xend = 0, yend = 0.95,
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.3, alpha = 0.3,
+           color = "#E69F00") +
+  annotate("text", x = 2.3, y = 1.7, label = expression(beta[1]), size = 7,
+           color = "#E69F00") +
+  geom_curve(x = 2.2, y = 1.7, xend = 2.02, yend = 1.75,
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.3, alpha = 0.3,
+           color = "#E69F00") +
+  annotate("text", x = 1, y = 1.35, label = expression(x), size = 7, 
+               color = "#D55E00") +
+  annotate("text", x = 2, y = 1.35, label = expression(x+1), size = 7, 
+               color = "#D55E00") +
+  annotate("text", x = simple_fit$weight + 0.06, 
+          y = simple_fit$.fitted + simple_fit$.resid/2,
+          label = c(expression(epsilon[1]), expression(epsilon[2]), expression(epsilon[3]),
+                    expression(epsilon[4]), expression(epsilon[5]), expression(epsilon[6]),
+                    expression(epsilon[7])),
+          color = "#009E73") +
+  stat_smooth(method = "lm", se = FALSE, fullrange = TRUE, color = "#56B4E9") +
+  geom_point(size = 3) +
+  labs(x = "Gewicht der Hundeflöhe in [mg]", y = "Sprungeweite der Hundeflöhe in [cm]") +
+  theme(panel.grid.minor = element_blank(),
+          plot.background = element_rect(fill = "white", color = NA),
+          plot.title = element_text(size = 16, face = "bold"),
+          plot.subtitle = element_text(size = 12, face = "italic"),
+          plot.caption = element_text(face = "italic"),
+          axis.title = element_text(face = "bold"),
+          axis.text = element_text(size = 12),
+          strip.text = element_text(face = "bold"),
+          strip.background = element_rect(fill = "grey80", color = NA))
+```
+
+Schauen wir uns einmal den Zusammenhang von $y$, den beobachteten Werten, und $\hat{y}$, den geschätzen Werten auf der Gerade in unserem Beispiel an. In @tbl-lin-reg-epsilon sehen wir die Berechnung der einzelnen Residuen für die Gerade aus der @fig-scatter-lin-01. Wir nehmen jedes beobachtete $y$ und ziehen den Wert von $y$ auf der Gerade, bezeichnet als $\hat{y}$, ab. Diesen Schritt machen wir für jedes Wertepaar $(y_i; \hat{y}_i)$. In R werden die $\hat{y}$ auch *fitted values* genannt. Die $\epsilon$ Werte werden dann *residuals* bezeichnet.
+
+| x | y | $\boldsymbol{\hat{y}}$ | Residuen ($\boldsymbol{\epsilon}$) | Wert |
+|:--:|:--:|:--:|:--:|:--:|
+| 0.8 | 1.2 | 1.38 | $\epsilon_1 = y_1 - \hat{y}_1$ | $\epsilon_1 = 1.2 - 1.38 = -0.18$ |
+| 1.0 | 1.8 | 1.48 | $\epsilon_2 = y_2 - \hat{y}_2$ | $\epsilon_2 = 1.8 - 1.48 = +0.32$ |
+| 1.2 | 1.3 | 1.58 | $\epsilon_3 = y_3 - \hat{y}_3$ | $\epsilon_3 = 1.3 - 1.58 = -0.28$ |
+| 1.9 | 1.7 | 1.94 | $\epsilon_4 = y_4 - \hat{y}_4$ | $\epsilon_4 = 1.7 - 1.94 = -0.24$ |
+| 2.0 | 2.6 | 1.99 | $\epsilon_5 = y_5 - \hat{y}_5$ | $\epsilon_5 = 2.6 - 1.99 = +0.61$ |
+| 2.7 | 1.8 | 2.34 | $\epsilon_6 = y_6 - \hat{y}_6$ | $\epsilon_6 = 1.8 - 2.34 = -0.54$ |
+| 2.8 | 2.7 | 2.40 | $\epsilon_7 = y_7 - \hat{y}_7$ | $\epsilon_7 = 2.7 - 2.40 = +0.30$ |
+
+: Zusammenhang zwischen den $y$, den beobachteten Werten, und $\hat{y}$, den geschätzen Werten auf der Gerade. Wir nennen den Abstand $y_i - \hat{y}_i$ auch Residuum oder *Epsilon* $\epsilon$. {#tbl-lin-reg-epsilon}
+
+```{r}
+#| echo: false
+
+epsilon <- c(-0.18, 0.32, -0.28, -0.24, 0.61, -0.54, 0.30)
+mean_e <- round(mean(epsilon), 2)
+var_e <- round(var(epsilon), 2)
+
+```
+
+Die Abweichungen $\epsilon$ oder auch Residuen genannt haben einen Mittelwert von $\bar{\epsilon} = `r mean_e`$ und eine Varianz von $s^2_{\epsilon} = `r var_e`$. Wir schreiben, dass die Residuen normalverteilt sind mit $\epsilon \sim \mathcal{N}(0, s^2_{\epsilon})$. Wir zeichnen die Gerade also so durch die Punktewolke, dass die Abstände zu den Punkten, die Residuen, im Mittel null sind. Die Optimierung erreichen wir in dem wir die Varianz der Residuuen minimieren. Folglich modellieren wir die Varianz.
+
 ## Simples lineare Regression in R
 
 Im Allgemeinen können wir ein Modell in R wie folgt schreiben. Wir brauchen *ein* y auf der linken Seite und in der simplen linearen Regressione ein $x$ auf der rechten Seite der Gleichung. Wir brauchen also zwei Variablen $y$ und $x$, die natürlich nicht im Datensatz in R so heißen müssen. Im Folgenen dann einmal die Modellschreibweise für $y$ hängt ab von $x$. Das $y$ repräsentiert eine Spalte im Datensatz und das $x$ repräsentiert ebenso eine Spalte im Datensatz.
@@ -434,10 +1054,10 @@ $$
 \Large\overbrace{\mbox{jump\_length}}^{\Large y} \sim \overbrace{\mbox{weight}}^{\Large x}
 $$
 
-Nachdem wir das Modell definiert haben, setzen wir dieses Modell `jump_length ~ weight` in die Funktion `lm()` ein um das lineare Modell zu rechnen. Wie immer müssen wir auch festlegen aus welcher Datei die Spalten genommen werden sollen. Das machen wir mit der Option `data = simple_tbl`. Wir speichern dann die Ausgabe der Funktion `lm()` in dem Objekt `fit_1` damit wir die Ausgabe noch in andere Funktionen pipen können.
+Nachdem wir das Modell definiert haben, setzen wir dieses Modell `jump_length ~ weight` in die Funktion `lm()` ein um das lineare Modell zu rechnen. Wie immer müssen wir auch festlegen aus welcher Datei die Spalten genommen werden sollen. Das machen wir mit der Option `data = cov1_tbl`. Wir speichern dann die Ausgabe der Funktion `lm()` in dem Objekt `fit_1` damit wir die Ausgabe noch in andere Funktionen pipen können.
 
 ```{r}
-fit_1 <- lm(jump_length ~ weight, data = simple_tbl)
+fit_1 <- lm(jump_length ~ weight, data = cov1_tbl)
 ```
 
 Wir können jetzt mir dem Modell mehr oder minder drei Dinge tun. Abhängig von der Fragestellung liefert uns natürlich jedes der drei Möglichkeiten eine andere Antwort. Wir können auch mehrere dieser Fragen gleichzeitig beantworten, was aber meistens zu einer konfusen Analyse führt. Im Folgenden einmal eine Flowchart als grobe Übersicht deiner Möglichkeiten nach einem beispielhaften `lm()`-Modell als simple Regression.
@@ -563,7 +1183,7 @@ Wie wir sehen ist die Anwendung recht einfach. Wir haben die vier `jump_length` 
 #| fig-width: 6
 #| fig-cap: "Scatterplot der *alten* Beobachtungen der Sprungweite in \\[cm\\] und dem Gewicht in \\[mg\\]. Sowie der *neuen* vorhergesagten Beobachtungen auf der Geraden."
 
-pred_tbl <- bind_rows(mutate(simple_tbl, status = "beobachtet"),
+pred_tbl <- bind_rows(mutate(cov1_tbl, status = "beobachtet"),
                       tibble(weight = c(1.7, 1.4, 2.1, 3.0),
                              jump_length = predict(fit_1, newdata = tibble(weight)),
                              status = "vorhergesagt"))
@@ -579,3 +1199,5 @@ ggplot(pred_tbl, aes(weight, jump_length, color = status, shape = status)) +
 ```
 
 Wir werden später in der [Klassifikation](#sec-class-basic), der Vorhersage von $0/1$-Werten, sowie in der multiplen Regression noch andere Prädktionen und deren Maßzahlen kennen lernen. Im Rahmen der simplen Regression soll dies aber erstmal hier genügen.
+
+## Referenzen {.unnumbered}
