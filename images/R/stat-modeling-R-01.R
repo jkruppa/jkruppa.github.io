@@ -40,17 +40,18 @@ p11 <-
   geom_curve(x = 1.6, y = 3, xend = 2.5, yend = 2.3,
              arrow = arrow(length = unit(0.03, "npc")),
              curvature = -0.5, color = "#56B4E9") +
-    geom_smooth(method = "lm", se = FALSE, color = "#56B4E9") +
-    geom_smooth(method = "loess", se = FALSE, color = "#E69F00") +    
-    annotate("text", x = 2, y = 1, hjust = "left", color = "#E69F00", size = 4, 
-             label = TeX(r"($y = 1.04 \cdot x - 2.11 \cdot x^2$)")) +
-    annotate("text", x = 2, y = 0.8, hjust = "left", color = "#E69F00", size = 4, 
-             label = TeX(r"($r = 0.89\; (p<0.001)$)")) +
-    annotate("text", x = 2, y = 0.6, hjust = "left", color ="#E69F00", size = 4, 
-             label = TeX(r"($R^2 = 0.71$)"))   +
-    geom_curve(aes(x = 1.9, y = 1, xend = 1.3, yend = 1.5),
-               arrow = arrow(length = unit(0.03, "npc")),
-               curvature = -0.5, color = "#E69F00") 
+  geom_smooth(method = "lm", se = FALSE, color = "#56B4E9") +
+  geom_smooth(method = "loess", se = FALSE, color = "#E69F00") +    
+  annotate("text", x = 2, y = 1, hjust = "left", color = "#E69F00", size = 4, 
+           label = TeX(r"($y = 1.04 \cdot x - 2.11 \cdot x^2$)")) +
+  annotate("text", x = 2, y = 0.8, hjust = "left", color = "#E69F00", size = 4, 
+           label = TeX(r"($r = 0.89\; (p<0.001)$)")) +
+  annotate("text", x = 2, y = 0.6, hjust = "left", color ="#E69F00", size = 4, 
+           label = TeX(r"($R^2 = 0.71$)"))   +
+  geom_curve(aes(x = 1.9, y = 1, xend = 1.3, yend = 1.5),
+             arrow = arrow(length = unit(0.03, "npc")),
+             curvature = -0.5, color = "#E69F00") +
+  labs(x = "Einflussvariable (x)", y = "Messwert (y)")
 
 p12 <- ggplot(pred_tbl, aes(weight, jump_length, color = status, shape = status)) +
   stat_smooth(method = "lm", se = FALSE, fullrange = TRUE, 
@@ -75,7 +76,8 @@ p12 <- ggplot(pred_tbl, aes(weight, jump_length, color = status, shape = status)
              curvature = -0.5, color = cbbPalette[3]) +
   geom_curve(x = 1.9, y = 0.5, xend = 0.8, yend = 1.1,
              arrow = arrow(length = unit(0.03, "npc")),
-             curvature = -0.5, color = cbbPalette[2])  
+             curvature = -0.5, color = cbbPalette[2])  +
+  labs(x = "Einflussvariable (x)", y = "Messwert (y)")
 
 p13 <- ggplot(filter(pred_tbl, status == "beobachtet"),
               aes(weight, jump_length, color = grp)) +

@@ -30,49 +30,7 @@ theme_modeling <- function() {
 Dieses Kapitel wird in den nächsten Wochen geschrieben und ist damit meine aktuelle Großbaustelle. Ich plane zum Beginn des WiSe 2025/26 eine fertige Version des Kapitels erstellt zu haben. Während das Kapitel entsteht, funktioniert so manches dann nicht so wie es soll. Bitte daher hier dann abwarten.
 :::
 
-In diesem Kapitel wollen wir uns mit den Grundlagen der simplen linearen Regression beschäftigen. Damit meine ich erstmal die Idee eine Gerade durch eine Punktewolke zu zeichnen. Wir haben auf der $x$-Achse kontinuierliche Werte wie auch auf der $y$-Achse vorliegen. Das ist erstmal die simpelste Anwendung. Wir lernen hier einmal die Grundbegriffe und erweitern diese dann auf komplexere Modelle. Das heißt, wir haben ein Messwert $y$, was eine normalverteilte und kontinuierliche Variable ist, sowie eine Einflussvariable $x_1$, die eine kontinuierliche Variable ist. Wir wollen jetzt herausfinden, welchen Einfluss oder Effekt die Einflussvariable $x_1$ auf das normalverteilte Outcome $y$ hat. Wir schreiben hier $x_1$, da wir damit ausdrücken, dass wir später auch noch mehr Einflussvariablen $x$ in der multiplen linearen Regression nutzen werden.
-
-::: {layout="[15,85]" layout-valign="center"}
-![](images/angel_01.png){fig-align="center" width="100%"}
-
-> Wenn du jetzt denkst 'Hä?', dann besuche doch einmal die fantastische Seite [Explained Visually \| Ordinary Least Squares Regression](https://setosa.io/ev/ordinary-least-squares-regression/) um selber zu erfahren, was eine lineare Regression macht. Auf der Seite findest du interaktive Abbildungen, die dir das Konzept der linearen Regression sehr anschaulich nachvollziehen lassen.
-:::
-
-Sehr simpel gesprochen legen wir also eine Gerade durch eine Punktewolke. Du kannst dich aber davon gedanklich lösen, dass die lineare Regression nur eine Methode ist um eine Gerade durch eine Punktewolke zu legen. Die lineare Regression und damit auch das statistische Modellieren kann viel mehr. Wir fassen also zusammen. Ein simples lineares Modell hat ein kontinuierliches $x$ als Einflussvariable. Später können wir dann auch andere $x$ nehmen, wie zum Beispiel einen Faktor $f$ als kategoriale Einflussvariable. Im Folgenden siehst du einmal ein Modell in einer abstrakten Form. Wir haben den Messwert $Y$ auf der linken Seite (eng. *left hand side*, abk. *LHS*) der Tilde und die Einflussvariablen $X$ auf der rechten Seite (eng. *right hand side*, abk. *RHS*). Dabei steht dann das $X$ hier einmal als Platzhalter und Sammelbegriff für verschiedene Arten von möglichen Variablen.
-
-```{r}
-#| message: false
-#| echo: false
-#| warning: false
-#| fig-align: center
-#| fig-height: 2
-#| fig-width: 7
-#| fig-cap: "Statistische Modellschreibweise mit dem Messwert auf der linken Seite und den Einflussvariablen auf der rechten Seite der Tilde. *[Zum Vergrößern anklicken]*"
-#| label: fig-model-reg-basic-01
-
-p_lhs_rhs
-```
-
-Damit beginnen wir hier einmal mit den Konzept der linearen Regression in dem wir wirklich sehr einfach uns eine Punktewolke vorstellen und durch diese Punktewolke die optimale Gerade zeichen wollen. Dann wollen wir wissen wie gut das geklappt hat. Liegen die Punkte weit von der Geraden entfernt oder eher näher dran? In der folgenden Abbildung siehst du einmal eine Punktewolke die sich aus den Werten der $x$-Achse und den Werten auf der $y$-Achse ergibt. Wir wollen jetzt mathematisch verstehen, wie wir die rote Gerade entsteht. Das ist die Idee der simplen linearen Regression.
-
-```{r}
-#| echo: false
-#| message: false
-#| label: fig-scatter-lin-00
-#| fig-align: center
-#| fig-height: 3.5
-#| fig-width: 7
-#| fig-cap: "Scatterplot von fünfundzwanzig Beobachtungen die sich aus den paarweisen Werten für $x_1$ und $y$ ergeben. Das Ziel einer linearen Regression ist es die rote Gerade zu bestimmen."
-
-tibble(x_1 = rnorm(25, 5, 1),
-       y = 2.5 * x_1 + rnorm(25, 0, 3)) |> 
-  ggplot(aes(x_1, y)) +
-  geom_point() +
-  stat_smooth(method = "lm", se = FALSE, fullrange = TRUE, color = "#CC79A7") +
-  theme_minimal()
-```
-
-Aber in diesem Kapitel konzentrieren wir uns erstmal darauf die Begriffe der simplen linearen Regression und deren Durchführung in R zu verstehen. Dann wollen wir noch die Ausgabe einer linearen Regression in R sowie den Unterschied zwischen einem kausalen und einen prädiktiven Modell ergründen.
+## Allgemeiner Hintergrund
 
 ```{r}
 #| echo: false
@@ -91,6 +49,96 @@ p11 + p12 +
   plot_annotation(tag_levels = 'A') 
 
 ```
+
+::: {layout="[15,85]" layout-valign="center"}
+![](images/angel_01.png){fig-align="center" width="100%"}
+
+> Wenn du jetzt denkst 'Hä?', dann besuche doch einmal die fantastische Seite [Explained Visually \| Ordinary Least Squares Regression](https://setosa.io/ev/ordinary-least-squares-regression/) um selber zu erfahren, was eine lineare Regression macht. Auf der Seite findest du interaktive Abbildungen, die dir das Konzept der linearen Regression sehr anschaulich nachvollziehen lassen.
+:::
+
+#### Sprachlicher Hintergrund {.unnumbered .unlisted}
+
+> *"In statistics courses taught by statisticians we don't use "independent variable" because we use independent on to mean stochastic independence. Instead we say predictor or covariate (either). And, similarly, we don't say "dependent variable" either. We say response." --- [User berf auf r/AskStatistics](https://www.reddit.com/r/AskStatistics/comments/qt1hvu/comment/hkigiks/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button)*
+
+Wenn wir uns mit dem statistischen Modellieren beschäftigen wollen, dann brauchen wir auch Worte um über das Thema reden zu können. Statistik wird in vielen Bereichen der Wissenschaft verwendet und in jedem Bereich nennen wir dann auch Dinge anders, die eigentlich gleich sind. Daher werde ich mir es hier herausnehmen und auch die Dinge so benennen, wie ich sie für didaktisch sinnvoll finde. Wir wollen hier was verstehen und lernen, somit brauchen wir auch eine klare Sprache.
+
+::: {layout="[15,85]" layout-valign="top"}
+![](images/personal_opinion.png){fig-align="center" width="100%"}
+
+> *"Jeder nennt in der Statistik sein Y und X wie er möchte. Da ich hier nicht nur von Y und X schreiben möchte, führe ich eben die Worte ein, die ich nutzen möchte. Damit sind die Worte dann auch richtig, da der Kontext definiert ist. Danke." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
+:::
+
+Fangen wir also erstmal allgemeiner an ein Modell und deren schreibweise zu verstehen. Da wir uns natürlich in R bewegen für die parktische Anwendung, nutzen wir auch die Modellschreibweise, die in R üblich ist. In R wird diese Schreibweise auch `formula()` genannt. Im Folgenden siehst du einmal ein Modell in einer abstrakten Form. Wir haben den Messwert $Y$ auf der linken Seite (eng. *left hand side*, abk. *LHS*) der Tilde und die Einflussvariablen $X$ auf der rechten Seite (eng. *right hand side*, abk. *RHS*). Dabei steht dann das $X$ hier einmal als Platzhalter und Sammelbegriff für verschiedene Arten von möglichen Variablen.
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2
+#| fig-width: 7
+#| fig-cap: "Statistische Modellschreibweise mit dem Messwert auf der linken Seite und den Einflussvariablen auf der rechten Seite der Tilde. *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-03
+
+p_lhs_rhs
+```
+
+In R sieht es dann etwas anders aus, da wir die Platzhalter $Y$ für den Messwert und $X$ für die Einflussvariable durch die Namen der Spalten in unserem Datensatz ersetzen. Der Satendatz liegt dann als `tibble()` in R vor. Mehr dann dazu in den folgenden Beispielen in den jeweiligen Kapiteln zum Modellieren. Dann sieht das Modell wie in der folgenden Abbildung aus.
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2
+#| fig-width: 7
+#| fig-cap: "Statistische Modellschreibweise in R mit dem Messwert auf der linken Seite und den Einflussvariablen auf der rechten Seite der Tilde. Die Platzhalter $Y$ und $X$ werden durch die Spaltennamen im Datensatz ersetzt. *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-20
+
+p_lhs_rhs_r
+```
+
+In dem folgenden Kasten erkläre ich nochmal den Gebrauch meiner Begriffe im statistischen Testen. Es ist wichtig, dass wir hier uns klar verstehen. Zum einen ist es angenehmer auch mal ein Wort für ein Symbol zu schreiben. Auf der anderen Seite möchte ich aber auch, dass du dann das Wort richtig einem Konzept im statistischen Modellieren zuordnen kannst. Deshalb einmal hier meine persönliche und didaktische Zusammenstellung meiner Wort im statistischen Modellieren.
+
+{{< include stat-modeling/stat-modeling-callout-words.qmd >}}
+
+## Theoretischer Hintergrund
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2.25
+#| fig-width: 7
+#| fig-cap: "Formelschreibweise der simplen linearen Regression beinhaltend die Koeffizienten $\\beta_0$ für den y-Achsenabschnitt sowie $\\beta_1$ für die Steigung der Geraden für eine Einflussvariable $x_1$. Die Residuen werden durch $\\epsilon$ abgebildet. *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-07
+
+p_simple_model
+```
+
+Wir haben nun die ersten sieben Beobachtungen in dem Objekt `cov1_tbl` vorliegen. Wie sieht nun theoretisch eine lineare Regression aus? Wir wollen eine Grade durch Punkte legen, wie wie wir es in @fig-scatter-lin-01 sehen. Die blaue Gerade wir durch eine Geradengleichung beschreiben. Du kenst vermutlich noch die Form $y = mx + b$. In der Statistik beschreiben wir eine solche Gerade aber wie folgt.
+
+$$
+y \sim \beta_0 + \beta_1 x_1 + \epsilon
+$$
+
+mit
+
+-   $\beta_0$ als den y-Achsenabschnitt.
+-   $\beta_1$ als der Steigung der Geraden.
+-   $\epsilon$ als Residuen oder die Abweichungen von den $y$-Werten auf Geraden zu den einzelnen $y$-Werten der Beobachtungen.
+
+In @tbl-reg-deu-eng siehst du nochmal in einer Tabelle den Vergleich von der Schreibweise der linearen Regression in der Schule und in der Statistik. Darüber hinaus sind die deutschen Begriffe den englischen Begriffen gegenüber gestellt. Warum schreiben wir die Gleichung in der Form? Damit wir später noch weitere $\beta_px_p$-Paare ergänzen könen und so *multiple* Modelle bauen können.
+
+| $\boldsymbol{y = mx +b}$ | $\boldsymbol{y \sim \beta_0 + \beta_1 x_1 + \epsilon}$ | Deutsch | Englisch |
+|:--:|:--:|:--:|:--:|
+| $m$ | $\beta_1$ | Steigung | Slope |
+| $x$ | $x_1$ | Einflussvariable | Risk factor |
+| $b$ | $\beta_0$ | y-Achsenabschnitt | Intercept |
+|  | $\epsilon$ | Residuen | Residual |
+
+: Vergleich und Übersicht der schulischen vs. statistischen Begriffe in den linearen Regression sowie die deutschen und englischen Begriffe. {#tbl-reg-deu-eng}
 
 ::: callout-tip
 ## Weitere Tutorien für die simple lineare Regression
@@ -130,7 +178,7 @@ snake_tbl <- tibble(
 ) 
 ```
 
-In der @tbl-snakes ist der Datensatz `snake_tbl` nochmal dargestellt. Wir haben die Schlangenlänge `svl` als Outcome $y$ sowie das Gewicht der Schlangen `mass`, die Sammelregion `region` und die Farbe der Schlangen `color`. Dabei ist `mass` eine kontinuierliche Variable, `region` eine kategorielle Variable als Faktor mit zwei Leveln und `color` eine kategorielle Variable als Faktor mit drei Leveln.
+In der folgenden Tabelle ist der Datensatz `snake_tbl` nochmal dargestellt. Wir haben die Schlangenlänge `svl` als Messwert $y$ sowie das Gewicht der Schlangen `mass`, die Sammelregion `region` und die Farbe der Schlangen `color`. Dabei ist `mass` eine kontinuierliche Variable, `region` eine kategorielle Variable als Faktor mit zwei Leveln und `color` eine kategorielle Variable als Faktor mit drei Leveln.
 
 ```{r}
 #| message: false
@@ -145,7 +193,7 @@ snake_tbl |>
 
 #### Einkovariater Datensatz {.unnumbered .unlisted}
 
-Wir wollen uns erstmal mit einem einfachen Datenbeispiel beschäftigen. Wir können die lineare Regression auf sehr großen Datensätzen anwenden, wie auch auf sehr kleinen Datensätzen. Prinzipiell ist das Vorgehen gleich. Wir nutzen jetzt aber erstmal einen kleinen Datensatz mit $n=7$ Beobachtungen. In der @tbl-model-0 ist der Datensatz `simplel_tbl` dargestellt. Wir wollen den Zusammenhang zwischen der Sprungweite in \[cm\] und dem Gewicht in \[mg\] für sieben Beobachtungen modellieren.
+Wir wollen uns erstmal mit einem einfachen Datenbeispiel beschäftigen. Wir können die lineare Regression auf sehr großen Datensätzen anwenden, wie auch auf sehr kleinen Datensätzen. Prinzipiell ist das Vorgehen gleich. Wir nutzen jetzt aber erstmal einen kleinen Datensatz mit $n=7$ Beobachtungen. In der folgenden Tabelle ist der Datensatz `cov1_tbl` dargestellt. Wir wollen den Zusammenhang zwischen der Sprungweite in \[cm\] und dem Gewicht in \[mg\] für sieben Beobachtungen modellieren.
 
 ```{r}
 #| message: false
@@ -157,7 +205,7 @@ cov1_tbl <- tibble(jump_length = c(1.2, 1.8, 1.3, 1.7, 2.6, 1.8, 2.7),
 ```{r}
 #| message: false
 #| echo: false
-#| tbl-cap: Datensatz mit einer normalverteilten Variable `jump_length` und der normalverteilten Variable `weight`. 
+#| tbl-cap: "Datensatz mit einer normalverteilten Variable `jump_length` und der normalverteilten Variable `weight`." 
 #| label: tbl-model-0
 
 cov1_tbl <- tibble(jump_length = c(1.2, 1.8, 1.3, 1.7, 2.6, 1.8, 2.7),
@@ -166,7 +214,7 @@ cov1_tbl <- tibble(jump_length = c(1.2, 1.8, 1.3, 1.7, 2.6, 1.8, 2.7),
 cov1_tbl |> kable(align = "c", "pipe")
 ```
 
-In @fig-scatter-lin-01 sehen wir die Visualisierung der Daten `cov1_tbl` in einem Scatterplot mit einer geschätzen Gerade.
+In der folgenden Abbildung sehen wir die Visualisierung der Daten `cov1_tbl` in einem Scatterplot mit einer geschätzen Gerade.
 
 ```{r}
 #| echo: false
@@ -183,10 +231,6 @@ ggplot(cov1_tbl, aes(weight, jump_length)) +
   theme_minimal() +
   xlim(0, 3.5) + ylim(0, 3.5)
 ```
-
-Wir schauen uns in diesem Kapitel nur eine *simple* lineare Regression mit einem $x_1$ an. In unserem Fall ist das $x_1$ gleich dem `weight`. Später schauen wir dann *multiple* lineare Regressionen mit mehreren $x_1,..., x_p$ an.
-
-Bevor wir mit dem Modellieren anfangen können, müssen wir verstehen, wie ein *simples* Modell theoretisch aufgebaut ist. Danach können wir uns das lineare Modell in R anschauen.
 
 #### Einfaktorieller Datensatz {.unnumbered .unlisted}
 
@@ -243,9 +287,6 @@ ggplot(data = fac1_tbl,
 
 ### Einkovariates Modell
 
-::: panel-tabset
-## Theoretisch
-
 ```{r}
 #| message: false
 #| echo: false
@@ -259,34 +300,101 @@ ggplot(data = fac1_tbl,
 p_1cov_model 
 ```
 
-```{r}
-lm(svl ~ mass, data = snake_tbl) |> coef() |> round(2)
-```
+::: panel-tabset
+## Theoretisch
+
+In der folgenden Abbildung sehen wir die Visualisierung des kovariaten Beispieldatensatzes. Die Gerade läuft durch die Punktewolke und wird durch die statistischen Maßzahlen bzw. Parameter $\beta_0$, $\beta_1$ sowie den $\epsilon$ beschrieben. Wir sehen, dass das $\beta_0$ den *Intercept* darstellt und das $\beta_1$ die Steigung der Geraden. Wenn wir $x$ um 1 Einheit erhöhen $x+1$, dann steigt der $y$ Wert um den Wert von $\beta_1$. Die einzelnen Abweichungen der beobachteten $y$-Wert zu den $y$-Werten auf der Gerade ($\hat{y}$) werden als Residuen oder auch $\epsilon$ bezeichnet.
 
 ```{r}
-#| message: false
 #| echo: false
+#| message: false
 #| warning: false
+#| label: fig-lin-reg-01
 #| fig-align: center
 #| fig-height: 4
-#| fig-width: 6
-#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
-#| label: fig-model-in-R-c1
+#| fig-width: 7
+#| fig-cap: "Visualisierung der linearen Regression. Wir legen eine Gerade durch eine Punktewolke. Die Gerade wird durch die statistischen Maßzahlen bzw. Parameter $\\beta_0$, $\\beta_1$ sowie den $\\epsilon$ beschrieben."
 
-ggplot(snake_tbl, aes(mass, svl)) +
-  theme_modeling() +
-  geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
-  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
-  geom_point() +
-  stat_poly_line(color = "#E69F00", linewidth = 0.5, 
-                 fullrange = TRUE, se = FALSE) +
-  stat_poly_eq(use_label("eq"), size = 8) +
-  scale_x_continuous(breaks = 1:12) +
-  scale_y_continuous(breaks = seq(0, 60, 25)) +  
-  labs(title = "Simple lineare Regression",
-       subtitle = "Intercept ist der y-Achsenabschnitt",
-       x = "Masse [kg]", y = "Schlangenlänge [cm]")
+simple_fit <- lm(jump_length ~ weight, data = cov1_tbl) |> 
+  augment()
+
+ggplot(cov1_tbl, aes(weight, jump_length)) +
+  theme_minimal() +
+  xlim(0, 3.5) + ylim(0, 3.5) +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  geom_segment(x = simple_fit$weight, y = simple_fit$jump_length, 
+               xend = simple_fit$weight, yend = simple_fit$.fitted, 
+               color = "#009E73",
+               linewidth = 0.5, linetype = 1) +
+  geom_segment(x = 1.035, y = 1.5, 
+               xend = 2, yend = 1.5, 
+               color = "#D55E00",
+               linewidth = 0.5, linetype = 1) +
+  geom_segment(x = 2, y = 1.5, 
+               xend = 2, yend = 2, 
+               color = "#D55E00",
+               linewidth = 0.5, linetype = 1) +
+  annotate("text", x = 0.3, y = 0.5, label = expression(beta[0]), size = 7,
+           color = "#E69F00") +
+  geom_curve(x = 0.2, y = 0.5, xend = 0, yend = 0.95,
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.3, alpha = 0.3,
+           color = "#E69F00") +
+  annotate("text", x = 2.3, y = 1.7, label = expression(beta[1]), size = 7,
+           color = "#E69F00") +
+  geom_curve(x = 2.2, y = 1.7, xend = 2.02, yend = 1.75,
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.3, alpha = 0.3,
+           color = "#E69F00") +
+  annotate("text", x = 1, y = 1.35, label = expression(x), size = 7, 
+               color = "#D55E00") +
+  annotate("text", x = 2, y = 1.35, label = expression(x+1), size = 7, 
+               color = "#D55E00") +
+  annotate("text", x = simple_fit$weight + 0.06, 
+          y = simple_fit$.fitted + simple_fit$.resid/2,
+          label = c(expression(epsilon[1]), expression(epsilon[2]), expression(epsilon[3]),
+                    expression(epsilon[4]), expression(epsilon[5]), expression(epsilon[6]),
+                    expression(epsilon[7])),
+          color = "#009E73") +
+  stat_smooth(method = "lm", se = FALSE, fullrange = TRUE, color = "#56B4E9") +
+  geom_point(size = 3) +
+  labs(x = "Gewicht der Hundeflöhe in [mg]", y = "Sprungeweite der Hundeflöhe in [cm]") +
+  theme(panel.grid.minor = element_blank(),
+          plot.background = element_rect(fill = "white", color = NA),
+          plot.title = element_text(size = 16, face = "bold"),
+          plot.subtitle = element_text(size = 12, face = "italic"),
+          plot.caption = element_text(face = "italic"),
+          axis.title = element_text(face = "bold"),
+          axis.text = element_text(size = 12),
+          strip.text = element_text(face = "bold"),
+          strip.background = element_rect(fill = "grey80", color = NA))
 ```
+
+Schauen wir uns einmal den Zusammenhang von $y$, den beobachteten Werten, und $\hat{y}$, den geschätzen Werten auf der Gerade in unserem Beispiel an. In @tbl-lin-reg-epsilon sehen wir die Berechnung der einzelnen Residuen für die Gerade aus der @fig-scatter-lin-01. Wir nehmen jedes beobachtete $y$ und ziehen den Wert von $y$ auf der Gerade, bezeichnet als $\hat{y}$, ab. Diesen Schritt machen wir für jedes Wertepaar $(y_i; \hat{y}_i)$. In R werden die $\hat{y}$ auch *fitted values* genannt. Die $\epsilon$ Werte werden dann *residuals* bezeichnet.
+
+| x | y | $\boldsymbol{\hat{y}}$ | Residuen ($\boldsymbol{\epsilon}$) | Wert |
+|:--:|:--:|:--:|:--:|:--:|
+| 0.8 | 1.2 | 1.38 | $\epsilon_1 = y_1 - \hat{y}_1$ | $\epsilon_1 = 1.2 - 1.38 = -0.18$ |
+| 1.0 | 1.8 | 1.48 | $\epsilon_2 = y_2 - \hat{y}_2$ | $\epsilon_2 = 1.8 - 1.48 = +0.32$ |
+| 1.2 | 1.3 | 1.58 | $\epsilon_3 = y_3 - \hat{y}_3$ | $\epsilon_3 = 1.3 - 1.58 = -0.28$ |
+| 1.9 | 1.7 | 1.94 | $\epsilon_4 = y_4 - \hat{y}_4$ | $\epsilon_4 = 1.7 - 1.94 = -0.24$ |
+| 2.0 | 2.6 | 1.99 | $\epsilon_5 = y_5 - \hat{y}_5$ | $\epsilon_5 = 2.6 - 1.99 = +0.61$ |
+| 2.7 | 1.8 | 2.34 | $\epsilon_6 = y_6 - \hat{y}_6$ | $\epsilon_6 = 1.8 - 2.34 = -0.54$ |
+| 2.8 | 2.7 | 2.40 | $\epsilon_7 = y_7 - \hat{y}_7$ | $\epsilon_7 = 2.7 - 2.40 = +0.30$ |
+
+: Zusammenhang zwischen den $y$, den beobachteten Werten, und $\hat{y}$, den geschätzen Werten auf der Gerade. Wir nennen den Abstand $y_i - \hat{y}_i$ auch Residuum oder *Epsilon* $\epsilon$. {#tbl-lin-reg-epsilon}
+
+```{r}
+#| echo: false
+
+epsilon <- c(-0.18, 0.32, -0.28, -0.24, 0.61, -0.54, 0.30)
+mean_e <- round(mean(epsilon), 2)
+var_e <- round(var(epsilon), 2)
+
+```
+
+Die Abweichungen $\epsilon$ oder auch Residuen genannt haben einen Mittelwert von $\bar{\epsilon} = `r mean_e`$ und eine Varianz von $s^2_{\epsilon} = `r var_e`$. Wir schreiben, dass die Residuen normalverteilt sind mit $\epsilon \sim \mathcal{N}(0, s^2_{\epsilon})$. Wir zeichnen die Gerade also so durch die Punktewolke, dass die Abstände zu den Punkten, die Residuen, im Mittel null sind. Die Optimierung erreichen wir in dem wir die Varianz der Residuuen minimieren. Folglich modellieren wir die Varianz.
 
 ## Theoretisch in R
 
@@ -406,6 +514,94 @@ c(26.71 +  6*2.61 - 2.36,
 Oh ha! Die Zahlen, die wir rauskriegen, sind die gleichen Werte die unser Outcome $y$ hat. Das heißt, die ganze Sache hat funktioniert.
 
 ## Praktisch in R
+
+```{r}
+lm(jump_length ~ weight, data = cov1_tbl) |> coef() |> round(2)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-c1
+
+ggplot(cov1_tbl, aes(weight, jump_length)) +
+  theme_modeling() +
+  geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_point() +
+  stat_poly_line(color = "#E69F00", linewidth = 0.5, 
+                 fullrange = TRUE, se = FALSE) +
+  stat_poly_eq(use_label("eq"), size = 7) +
+  labs(title = "Simple lineare Regression",
+       subtitle = "Intercept ist der y-Achsenabschnitt",
+       x = "Gewicht [mg]", y = "Sprungweite [cm]")
+```
+
+Im Folgenden rechnen wir ein kausales Modell, da wir an dem Effekt des $x$ interessiert sind. Wenn also das $x_1$ um eine Einheit ansteigt, um wie viel verändert sich dann das $y$? Der Schätzer $\beta_1$ gibt uns also den Einfluss oder den kausalen Zusammenhang zwischen $y$ und $x_1$ wieder. Im ersten Schritt schauen wir uns die Ausgabe der Funktion `lm()` in der Funktion `summary()` an. Daher pipen wir das Objekt `fit_1` in die Funktion `summary()`.
+
+```{r}
+cov1_fit <- lm(jump_length ~ weight, data = cov1_tbl) 
+cov1_fit |> summary()
+```
+
+```{r}
+aov(jump_length ~ weight, data = cov1_tbl) |> summary()
+```
+
+Wir erhalten folgende Ausgabe dargestellt in @fig-lin-reg-3.
+
+Was sehen wir in der Ausgabe der `summary()` Funktion? Als erstes werden uns die Residuen wiedergegeben. Wenn wir nur wenige Beobachtungen haben, dann werden uns die Residuen direkt wiedergegeben, sonst die Verteilung der Residuen. Mit der Funktion `augment()` aus dem R Paket `{broom}` können wir uns die Residuen wiedergeben lassen. Die Residuen schauen wir uns aber nochmal im @sec-lin-reg-quality genauer an.
+
+```{r}
+cov1_fit |> augment()
+```
+
+Im zweiten Block erhalten wir die Koeffizienten (eng. *coefficients*) der linearen Regression. Das heißt, wir kriegen dort $\beta_0$ als y-Achsenabschnitt sowie die Steigung $\beta_1$ für das Gewicht. Dabei ist wichtig zu wissen, dass immer als erstes der y-Achsenabschnitt `(Intercept)` auftaucht. Dann die Steigungen der einzelnen $x$ in dem Modell. Wir haben nur *ein* kontinuierliches $x$, daher ist die Interpretation der Ausgabe einfach. Wir können die Gradengleichung wie folgt formulieren.
+
+$$
+jump\_length \sim 0.97 + 0.51 \cdot weight
+$$
+
+Was heißt die Gleichung nun? Wenn wir das $x$ um eine Einheit erhöhen dann verändert sich das $y$ um den Wert von $\beta_1$. Wir haben hier eine Steigung von $0.51$ vorliegen. Ohne Einheit keine Interpretation! Wir wissen, dass das Gewicht in \[mg\] gemessen wurde und die Sprungweite in \[cm\]. Damit können wir aussagen, dass wenn ein Floh 1 mg mehr wiegt der Floh 0.51 cm weiter springen würde.
+
+Schauen wir nochmal in die *saubere* Ausgabe der `tidy()` Funktion. Wir sehen nämlich noch einen $p$-Wert für den Intercept und die Steigung von `weight`.
+
+```{r}
+cov1_fit |> tidy()
+```
+
+Wenn wir einen $p$-Wert sehen, dann brauchen wir eine Nullhypothese, die wir dann eventuell mit der Entscheidung am Signifikanzniveau $\alpha$ von 5% ablehnen können. Die Nullhypothese ist die Gleichheitshypothese. Wenn es also keinen Effekt von dem Gewicht auf die Sprungweite gebe, wie groß wäre dann $\beta_1$? Wir hätten dann keine Steigung und die Grade würde parallel zur x-Achse laufen. Das $\beta_1$ wäre dann gleich null.
+
+$$
+\begin{align*} 
+H_0: \beta_i &= 0\\  
+H_A: \beta_i &\neq 0 \\   
+\end{align*}
+$$
+
+Wir haben für jedes $\beta_i$ ein eigenes Hypothesenpaar. Meistens interessiert uns der Intercept nicht. Ob der Intercept nun durch die Null geht oder nicht ist eher von geringem Interessen.
+
+Spannder ist aber wie sich der $p$-Wert berechnet. Der $p$-Wert basiert auf einer t-Statistik, also auf dem t-Test. Wir rechnen für jeden Koeffizienten $\beta_i$ einen t-Test. Das machen wir in dem wir den Koeffizienten `estimate` durch den Fehler des Koeffizienten `std.error` teilen.
+
+$$
+\begin{align*} 
+T_{(Intercept)} &= \cfrac{\mbox{estimate}}{\mbox{std.error}}  = \cfrac{0.969}{0.445} = 2.18\\  
+T_{weight} &= \cfrac{\mbox{estimate}}{\mbox{std.error}}  = \cfrac{0.510}{0.232} = 2.20\\   
+\end{align*}
+$$
+
+Wir sehen in diesem Fall, dass weder der Intercept noch die Steigung von `weight` signifikant ist, da die $p$-Werte mit $0.081$ und $0.079$ leicht über dem Signifikanzniveau von $\alpha$ gleich 5% liegen. Wir haben aber einen starkes Indiz gegen die Nullhypothese, da die Wahrscheinlichkeit die Daten zu beobachten sehr gering ist unter der Annahme das die Nullhypothese gilt.
+
+Zun Abschluß noch die Funktion `glance()` ebenfalls aus dem R Paket `{broom}`, die uns erlaubt noch die Qualitätsmaße der linearen Regression zu erhalten. Wir müssen nämlich noch schauen, ob die Regression auch funktioniert hat. Die Überprüfung geht mit einem $x$ sehr einfach. Wir können uns die Grade ja anschauen. Das geht dann mit einem Model mit mehreren $x$ nicht mehr und wir brauchen andere statistische Maßzahlen.
+
+```{r}
+cov1_fit |> glance() 
+```
 :::
 
 :::: callout-note
@@ -590,9 +786,6 @@ Wenn du dich tiefer in die Thematik einlesen willst, dann sind hier weitere Quel
 
 ### Einfaktorielles Modell
 
-::: panel-tabset
-## Theoretisch
-
 #### $f_A$ mit 2 Leveln {.unnumbered .unlisted}
 
 ```{r}
@@ -606,34 +799,6 @@ Wenn du dich tiefer in die Thematik einlesen willst, dann sind hier weitere Quel
 #| label: fig-model-in-R-15
 
 p_1fac_2lvl_model
-```
-
-```{r}
-lm(svl ~ region, data = snake_tbl) |> coef() |> round(2)
-```
-
-```{r}
-#| message: false
-#| echo: false
-#| warning: false
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
-#| label: fig-model-in-R-fa-1
-
-ggplot(snake_tbl, aes(region, svl)) +
-  theme_modeling() +
-  geom_vline(xintercept = 1, linewidth = 0.5, color = "grey50") +
-  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
-  geom_hline(yintercept = 41.33, linewidth = 0.5, color = "#CC79A7") +
-  geom_point() +
-  stat_summary(fun = "mean", geom = "label", 
-               aes(label = round(..y.., 2)), position = position_nudge(0.12)) +
-  scale_x_discrete(labels = c("west", "nord")) +
-  labs(title = "Treatment coding",
-       subtitle = "Intercept ist der Mittelwert von Gruppe A.1",
-       x = "Messregion", y = "Schlangenlänge [cm]")
 ```
 
 #### $f_A$ mit \>2 Leveln {.unnumbered .unlisted}
@@ -651,34 +816,8 @@ ggplot(snake_tbl, aes(region, svl)) +
 p_1fac_3lvl_model
 ```
 
-```{r}
-lm(svl ~ color, data = snake_tbl) |> 
-  coef() |> round(2)
-```
-
-```{r}
-#| message: false
-#| echo: false
-#| warning: false
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
-#| label: fig-model-in-R-fa-21
-
-ggplot(snake_tbl, aes(color, svl)) +
-  theme_modeling() +
-  geom_vline(xintercept = 1, linewidth = 0.5, color = "grey50") +
-  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
-  geom_hline(yintercept = 42.50, linewidth = 0.5, color = "#CC79A7") +
-  geom_point() +
-  stat_summary(fun = "mean", geom = "label", 
-               aes(label = round(..y.., 2)), position = position_nudge(0.17)) +
-  scale_x_discrete(labels = c("schwarz", "rot", "blau")) +
-  labs(title = "Treatment coding",
-       subtitle = "Intercept ist der Mittelwert von Gruppe A.1",
-       x = "Hautfarbe", y = "Schlangenlänge [cm]")
-```
+::: panel-tabset
+## Theoretisch
 
 ## Theoretisch in R
 
@@ -914,258 +1053,73 @@ c(42.50 + 0*4.83 + 0*-12.17 - 2.50,
 Die Zahlen, die wir rauskriegen, sind die gleichen Werte die unser Outcome $y$ hat.
 
 ## Praktisch in R
+
+```{r}
+lm(svl ~ region, data = snake_tbl) |> coef() |> round(2)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-fa-1
+
+ggplot(snake_tbl, aes(region, svl)) +
+  theme_modeling() +
+  geom_vline(xintercept = 1, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 41.33, linewidth = 0.5, color = "#CC79A7") +
+  geom_point() +
+  stat_summary(fun = "mean", geom = "label", 
+               aes(label = round(..y.., 2)), position = position_nudge(0.12)) +
+  scale_x_discrete(labels = c("west", "nord")) +
+  labs(title = "Treatment coding",
+       subtitle = "Intercept ist der Mittelwert von Gruppe A.1",
+       x = "Messregion", y = "Schlangenlänge [cm]")
+```
+
+```{r}
+lm(svl ~ color, data = snake_tbl) |> 
+  coef() |> round(2)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-fa-21
+
+ggplot(snake_tbl, aes(color, svl)) +
+  theme_modeling() +
+  geom_vline(xintercept = 1, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 42.50, linewidth = 0.5, color = "#CC79A7") +
+  geom_point() +
+  stat_summary(fun = "mean", geom = "label", 
+               aes(label = round(..y.., 2)), position = position_nudge(0.17)) +
+  scale_x_discrete(labels = c("schwarz", "rot", "blau")) +
+  labs(title = "Treatment coding",
+       subtitle = "Intercept ist der Mittelwert von Gruppe A.1",
+       x = "Hautfarbe", y = "Schlangenlänge [cm]")
+```
 :::
 
 ## Prädiktives Modell
-
-------------------------------------------------------------------------
-
-## Old Stuff
-
-## Simple lineare Regression theoretisch
-
-Wir haben nun die ersten sieben Beobachtungen in dem Objekt `cov1_tbl` vorliegen. Wie sieht nun theoretisch eine lineare Regression aus? Wir wollen eine Grade durch Punkte legen, wie wie wir es in @fig-scatter-lin-01 sehen. Die blaue Gerade wir durch eine Geradengleichung beschreiben. Du kenst vermutlich noch die Form $y = mx + b$. In der Statistik beschreiben wir eine solche Gerade aber wie folgt.
-
-$$
-y \sim \beta_0 + \beta_1 x_1 + \epsilon
-$$
-
-mit
-
--   $\beta_0$ als den y-Achsenabschnitt.
--   $\beta_1$ als der Steigung der Geraden.
--   $\epsilon$ als Residuen oder die Abweichungen von den $y$-Werten auf Geraden zu den einzelnen $y$-Werten der Beobachtungen.
-
-In @tbl-reg-deu-eng siehst du nochmal in einer Tabelle den Vergleich von der Schreibweise der linearen Regression in der Schule und in der Statistik. Darüber hinaus sind die deutschen Begriffe den englischen Begriffen gegenüber gestellt. Warum schreiben wir die Gleichung in der Form? Damit wir später noch weitere $\beta_px_p$-Paare ergänzen könen und so *multiple* Modelle bauen können.
-
-| $\boldsymbol{y = mx +b}$ | $\boldsymbol{y \sim \beta_0 + \beta_1 x_1 + \epsilon}$ | Deutsch | Englisch |
-|:--:|:--:|:--:|:--:|
-| $m$ | $\beta_1$ | Steigung | Slope |
-| $x$ | $x_1$ | Einflussvariable | Risk factor |
-| $b$ | $\beta_0$ | y-Achsenabschnitt | Intercept |
-|  | $\epsilon$ | Residuen | Residual |
-
-: Vergleich und Übersicht der schulischen vs. statistischen Begriffe in den linearen Regression sowie die deutschen und englischen Begriffe. {#tbl-reg-deu-eng}
-
-In @fig-lin-reg-01 sehen wir die Visualisierung der Gleichung in einer Abbildung. Die Gerade läuft durch die Punktewolke und wird durch die statistischen Maßzahlen bzw. Parameter $\beta_0$, $\beta_1$ sowie den $\epsilon$ beschrieben. Wir sehen, dass das $\beta_0$ den *Intercept* darstellt und das $\beta_1$ die Steigung der Geraden. Wenn wir $x$ um 1 Einheit erhöhen $x+1$, dann steigt der $y$ Wert um den Wert von $\beta_1$. Die einzelnen Abweichungen der beobachteten $y$-Wert zu den $y$-Werten auf der Gerade ($\hat{y}$) werden als Residuen oder auch $\epsilon$ bezeichnet.
-
-```{r}
-#| echo: false
-#| message: false
-#| warning: false
-#| label: fig-lin-reg-01
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 7
-#| fig-cap: "Visualisierung der linearen Regression. Wir legen eine Gerade durch eine Punktewolke. Die Gerade wird durch die statistischen Maßzahlen bzw. Parameter $\\beta_0$, $\\beta_1$ sowie den $\\epsilon$ beschrieben."
-
-simple_fit <- lm(jump_length ~ weight, data = cov1_tbl) |> 
-  augment()
-
-ggplot(cov1_tbl, aes(weight, jump_length)) +
-  theme_minimal() +
-  xlim(0, 3.5) + ylim(0, 3.5) +
-  geom_vline(xintercept = 0) +
-  geom_hline(yintercept = 0) +
-  geom_segment(x = simple_fit$weight, y = simple_fit$jump_length, 
-               xend = simple_fit$weight, yend = simple_fit$.fitted, 
-               color = "#009E73",
-               linewidth = 0.5, linetype = 1) +
-  geom_segment(x = 1.035, y = 1.5, 
-               xend = 2, yend = 1.5, 
-               color = "#D55E00",
-               linewidth = 0.5, linetype = 1) +
-  geom_segment(x = 2, y = 1.5, 
-               xend = 2, yend = 2, 
-               color = "#D55E00",
-               linewidth = 0.5, linetype = 1) +
-  annotate("text", x = 0.3, y = 0.5, label = expression(beta[0]), size = 7,
-           color = "#E69F00") +
-  geom_curve(x = 0.2, y = 0.5, xend = 0, yend = 0.95,
-             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
-             curvature = -0.3, alpha = 0.3,
-           color = "#E69F00") +
-  annotate("text", x = 2.3, y = 1.7, label = expression(beta[1]), size = 7,
-           color = "#E69F00") +
-  geom_curve(x = 2.2, y = 1.7, xend = 2.02, yend = 1.75,
-             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
-             curvature = 0.3, alpha = 0.3,
-           color = "#E69F00") +
-  annotate("text", x = 1, y = 1.35, label = expression(x), size = 7, 
-               color = "#D55E00") +
-  annotate("text", x = 2, y = 1.35, label = expression(x+1), size = 7, 
-               color = "#D55E00") +
-  annotate("text", x = simple_fit$weight + 0.06, 
-          y = simple_fit$.fitted + simple_fit$.resid/2,
-          label = c(expression(epsilon[1]), expression(epsilon[2]), expression(epsilon[3]),
-                    expression(epsilon[4]), expression(epsilon[5]), expression(epsilon[6]),
-                    expression(epsilon[7])),
-          color = "#009E73") +
-  stat_smooth(method = "lm", se = FALSE, fullrange = TRUE, color = "#56B4E9") +
-  geom_point(size = 3) +
-  labs(x = "Gewicht der Hundeflöhe in [mg]", y = "Sprungeweite der Hundeflöhe in [cm]") +
-  theme(panel.grid.minor = element_blank(),
-          plot.background = element_rect(fill = "white", color = NA),
-          plot.title = element_text(size = 16, face = "bold"),
-          plot.subtitle = element_text(size = 12, face = "italic"),
-          plot.caption = element_text(face = "italic"),
-          axis.title = element_text(face = "bold"),
-          axis.text = element_text(size = 12),
-          strip.text = element_text(face = "bold"),
-          strip.background = element_rect(fill = "grey80", color = NA))
-```
-
-Schauen wir uns einmal den Zusammenhang von $y$, den beobachteten Werten, und $\hat{y}$, den geschätzen Werten auf der Gerade in unserem Beispiel an. In @tbl-lin-reg-epsilon sehen wir die Berechnung der einzelnen Residuen für die Gerade aus der @fig-scatter-lin-01. Wir nehmen jedes beobachtete $y$ und ziehen den Wert von $y$ auf der Gerade, bezeichnet als $\hat{y}$, ab. Diesen Schritt machen wir für jedes Wertepaar $(y_i; \hat{y}_i)$. In R werden die $\hat{y}$ auch *fitted values* genannt. Die $\epsilon$ Werte werden dann *residuals* bezeichnet.
-
-| x | y | $\boldsymbol{\hat{y}}$ | Residuen ($\boldsymbol{\epsilon}$) | Wert |
-|:--:|:--:|:--:|:--:|:--:|
-| 0.8 | 1.2 | 1.38 | $\epsilon_1 = y_1 - \hat{y}_1$ | $\epsilon_1 = 1.2 - 1.38 = -0.18$ |
-| 1.0 | 1.8 | 1.48 | $\epsilon_2 = y_2 - \hat{y}_2$ | $\epsilon_2 = 1.8 - 1.48 = +0.32$ |
-| 1.2 | 1.3 | 1.58 | $\epsilon_3 = y_3 - \hat{y}_3$ | $\epsilon_3 = 1.3 - 1.58 = -0.28$ |
-| 1.9 | 1.7 | 1.94 | $\epsilon_4 = y_4 - \hat{y}_4$ | $\epsilon_4 = 1.7 - 1.94 = -0.24$ |
-| 2.0 | 2.6 | 1.99 | $\epsilon_5 = y_5 - \hat{y}_5$ | $\epsilon_5 = 2.6 - 1.99 = +0.61$ |
-| 2.7 | 1.8 | 2.34 | $\epsilon_6 = y_6 - \hat{y}_6$ | $\epsilon_6 = 1.8 - 2.34 = -0.54$ |
-| 2.8 | 2.7 | 2.40 | $\epsilon_7 = y_7 - \hat{y}_7$ | $\epsilon_7 = 2.7 - 2.40 = +0.30$ |
-
-: Zusammenhang zwischen den $y$, den beobachteten Werten, und $\hat{y}$, den geschätzen Werten auf der Gerade. Wir nennen den Abstand $y_i - \hat{y}_i$ auch Residuum oder *Epsilon* $\epsilon$. {#tbl-lin-reg-epsilon}
-
-```{r}
-#| echo: false
-
-epsilon <- c(-0.18, 0.32, -0.28, -0.24, 0.61, -0.54, 0.30)
-mean_e <- round(mean(epsilon), 2)
-var_e <- round(var(epsilon), 2)
-
-```
-
-Die Abweichungen $\epsilon$ oder auch Residuen genannt haben einen Mittelwert von $\bar{\epsilon} = `r mean_e`$ und eine Varianz von $s^2_{\epsilon} = `r var_e`$. Wir schreiben, dass die Residuen normalverteilt sind mit $\epsilon \sim \mathcal{N}(0, s^2_{\epsilon})$. Wir zeichnen die Gerade also so durch die Punktewolke, dass die Abstände zu den Punkten, die Residuen, im Mittel null sind. Die Optimierung erreichen wir in dem wir die Varianz der Residuuen minimieren. Folglich modellieren wir die Varianz.
-
-## Simples lineare Regression in R
-
-Im Allgemeinen können wir ein Modell in R wie folgt schreiben. Wir brauchen *ein* y auf der linken Seite und in der simplen linearen Regressione ein $x$ auf der rechten Seite der Gleichung. Wir brauchen also zwei Variablen $y$ und $x$, die natürlich nicht im Datensatz in R so heißen müssen. Im Folgenen dann einmal die Modellschreibweise für $y$ hängt ab von $x$. Das $y$ repräsentiert eine Spalte im Datensatz und das $x$ repräsentiert ebenso eine Spalte im Datensatz.
-
-$$
-\Large y \sim x
-$$
-
-Konkret würden wir in unserem Beispiel das Modell wie folgt benennen. Das $y$ wird zu `jump_length` und das $x$ wird zu `weight`. Wir haben dann das Modell in der simpelsten Form definiert. Im Folgenden siehst du dann eimal die Modellschreibweise in R.
-
-$$
-\Large\overbrace{\mbox{jump\_length}}^{\Large y} \sim \overbrace{\mbox{weight}}^{\Large x}
-$$
-
-Nachdem wir das Modell definiert haben, setzen wir dieses Modell `jump_length ~ weight` in die Funktion `lm()` ein um das lineare Modell zu rechnen. Wie immer müssen wir auch festlegen aus welcher Datei die Spalten genommen werden sollen. Das machen wir mit der Option `data = cov1_tbl`. Wir speichern dann die Ausgabe der Funktion `lm()` in dem Objekt `fit_1` damit wir die Ausgabe noch in andere Funktionen pipen können.
-
-```{r}
-fit_1 <- lm(jump_length ~ weight, data = cov1_tbl)
-```
-
-Wir können jetzt mir dem Modell mehr oder minder drei Dinge tun. Abhängig von der Fragestellung liefert uns natürlich jedes der drei Möglichkeiten eine andere Antwort. Wir können auch mehrere dieser Fragen gleichzeitig beantworten, was aber meistens zu einer konfusen Analyse führt. Im Folgenden einmal eine Flowchart als grobe Übersicht deiner Möglichkeiten nach einem beispielhaften `lm()`-Modell als simple Regression.
-
-```{mermaid}
-%%| label: fig-mermaid-simple-reg-01
-%%| fig-width: 6
-%%| fig-cap: "Flowchart der Möglichkeiten nach einer Modellierung mit der Funktion `lm()` als eine simple lineare Regression. Es gibt natürlich noch andere Modellierungen und damit Funktion. Der generelle Ablauf bleibt jedoch gleich. Die orangen Kacheln stellen optionale Funktionen zur Güte der Regression dar."
-flowchart TD
-    A("Lineares Modell
-       zum Beispiel mit lm()"):::factor --> B1
-    A("Lineares Modell
-       zum Beispiel mit lm()"):::factor --> B2  
-    A("Lineares Modell zum Beispiel mit lm()"):::factor --> B3
-    subgraph B1["Inferenzmodell"]
-    B[/"anova()"\]:::factor --> E[\"emmeans()"/]:::factor
-    end
-    subgraph B2["Kausales Modell"]
-    C("summary()"):::factor --> F("augment()"):::eval
-    C("summary()"):::factor --> G("glance()"):::eval
-    end   
-    subgraph B3["Prädiktives Modell"]
-    D("predict()"):::factor --> H("conf_mat()"):::eval
-    end 
-    classDef factor fill:#56B4E9,stroke:#333,stroke-width:0.75px
-    classDef eval fill:#E69F00,stroke:#333,stroke-width:0.75px
-    
-```
-
-Hier nochmal die Möglichkeiten aus der @fig-mermaid-simple-reg-01 mit mehr Details zu der obigen Flowchart. Für mehr Informationen musst du dann die entsprechenden Kapitel besuchen, hier passt dann alles wirklich nicht hin für ein so komplexen Thema wie die Modellierung von Daten.
-
--   Wir rechnen mit dem Fit des Modells einen Gruppenvergleich oder eine Inferenzstatistik (siehe @sec-anova zu der ANOVA oder @sec-posthoc zu multiplen Vergleichen) -- wir wollen also einen Vergleich zwischen Gruppen rechnen. Wir haben damit dann kein kontinuierliches $x$ vorliegen sondern einen Faktor mit verschiedenen Leveln als Gruppen.
--   Wir rechnen ein kausales Modell, uns interessieren die Effekte (siehe @sec-simple-kausal) -- wir sind an den Effekten von verschiedenen Einflussvariablen interessiert. Dabei geht es dann weniger um eine Behandlungsgruppe sondern um viele verschiedene Einflussvariablen, die verstanden werden wollen in ihrem Einfluss auf das Outcome $y$. Wir können uns dann die Ergebnisse durch die Funktionen `augment()` und `glance()` aus dem R Paket `{broom}` näher anschauen.
--   Wir rechnen ein prädiktives Modell, uns interessiert der Wert *neuer* Werte (siehe @sec-simple-pred) -- wir wollen dann also eine Vorhersage rechnen. Wir bauen uns ein komplexes Modell und wollen mit diesem Modell zukünftige Werte vom Outcome $y$ vorhersagen. Wenn wir also neue Einflussvariablen $x$ messen, können wir dann anhand des Modells unbekannte Outcomes $y$ bestimmen. Wir können uns dann mehr Informationen zu der Güte der Vorhersage mit der Funktion `conf_mat()` aus dem R Paket `{tidymodels}` anschauen.
-
-### Inferenzmodell
-
-In diesem Kapitel betrachten wir nicht die Analyse von Gruppenvergleichen oder der Inferenzstatistik. Das machen wir dann in eigenen Kapiteln. Bitte besuche das @sec-anova zu mehr Informationen zu der einfaktoriellen und zweifaktoriellen ANOVA oder @sec-posthoc zu multiplen Vergleichen. Es würde dieses Kapitel sprengen, wenn wir uns dann hier die Sachlage nochmal hier aufrollen würde.
-
-### Kausales Modell {#sec-simple-kausal}
-
-Im Folgenden rechnen wir ein kausales Modell, da wir an dem Effekt des $x$ interessiert sind. Wenn also das $x_1$ um eine Einheit ansteigt, um wie viel verändert sich dann das $y$? Der Schätzer $\beta_1$ gibt uns also den Einfluss oder den kausalen Zusammenhang zwischen $y$ und $x_1$ wieder. Im ersten Schritt schauen wir uns die Ausgabe der Funktion `lm()` in der Funktion `summary()` an. Daher pipen wir das Objekt `fit_1` in die Funktion `summary()`.
-
-```{r}
-#| eval: false
-
-fit_1 |> summary
-```
-
-Wir erhalten folgende Ausgabe dargestellt in @fig-lin-reg-3.
-
-![Die `summary()` Ausgabe des Modells `fit_1`. Hier nicht erschrecken, wir kriegen hier sehr viele Informationen aufeinmal, die wir teilweise nicht alle benötigen. Es hängt dann eben sehr stark von der Fragestelung ab.](images/statistical_modeling_3.png){#fig-lin-reg-3 fig-align="center" width="100%"}
-
-Was sehen wir in der Ausgabe der `summary()` Funktion? Als erstes werden uns die Residuen wiedergegeben. Wenn wir nur wenige Beobachtungen haben, dann werden uns die Residuen direkt wiedergegeben, sonst die Verteilung der Residuen. Mit der Funktion `augment()` aus dem R Paket `{broom}` können wir uns die Residuen wiedergeben lassen. Die Residuen schauen wir uns aber nochmal im @sec-lin-reg-quality genauer an.
-
-```{r}
-fit_1 |> augment()
-```
-
-Im zweiten Block erhalten wir die Koeffizienten (eng. *coefficients*) der linearen Regression. Das heißt, wir kriegen dort $\beta_0$ als y-Achsenabschnitt sowie die Steigung $\beta_1$ für das Gewicht. Dabei ist wichtig zu wissen, dass immer als erstes der y-Achsenabschnitt `(Intercept)` auftaucht. Dann die Steigungen der einzelnen $x$ in dem Modell. Wir haben nur *ein* kontinuierliches $x$, daher ist die Interpretation der Ausgabe einfach. Wir können die Gradengleichung wie folgt formulieren.
-
-$$
-jump\_length \sim 0.97 + 0.51 \cdot weight
-$$
-
-Was heißt die Gleichung nun? Wenn wir das $x$ um eine Einheit erhöhen dann verändert sich das $y$ um den Wert von $\beta_1$. Wir haben hier eine Steigung von $0.51$ vorliegen. Ohne Einheit keine Interpretation! Wir wissen, dass das Gewicht in \[mg\] gemessen wurde und die Sprungweite in \[cm\]. Damit können wir aussagen, dass wenn ein Floh 1 mg mehr wiegt der Floh 0.51 cm weiter springen würde.
-
-Schauen wir nochmal in die *saubere* Ausgabe der `tidy()` Funktion. Wir sehen nämlich noch einen $p$-Wert für den Intercept und die Steigung von `weight`.
-
-```{r}
-fit_1 |> tidy()
-```
-
-Wenn wir einen $p$-Wert sehen, dann brauchen wir eine Nullhypothese, die wir dann eventuell mit der Entscheidung am Signifikanzniveau $\alpha$ von 5% ablehnen können. Die Nullhypothese ist die Gleichheitshypothese. Wenn es also keinen Effekt von dem Gewicht auf die Sprungweite gebe, wie groß wäre dann $\beta_1$? Wir hätten dann keine Steigung und die Grade würde parallel zur x-Achse laufen. Das $\beta_1$ wäre dann gleich null.
-
-$$
-\begin{align*} 
-H_0: \beta_i &= 0\\  
-H_A: \beta_i &\neq 0 \\   
-\end{align*}
-$$
-
-Wir haben für jedes $\beta_i$ ein eigenes Hypothesenpaar. Meistens interessiert uns der Intercept nicht. Ob der Intercept nun durch die Null geht oder nicht ist eher von geringem Interessen.
-
-Spannder ist aber wie sich der $p$-Wert berechnet. Der $p$-Wert basiert auf einer t-Statistik, also auf dem t-Test. Wir rechnen für jeden Koeffizienten $\beta_i$ einen t-Test. Das machen wir in dem wir den Koeffizienten `estimate` durch den Fehler des Koeffizienten `std.error` teilen.
-
-$$
-\begin{align*} 
-T_{(Intercept)} &= \cfrac{\mbox{estimate}}{\mbox{std.error}}  = \cfrac{0.969}{0.445} = 2.18\\  
-T_{weight} &= \cfrac{\mbox{estimate}}{\mbox{std.error}}  = \cfrac{0.510}{0.232} = 2.20\\   
-\end{align*}
-$$
-
-Wir sehen in diesem Fall, dass weder der Intercept noch die Steigung von `weight` signifikant ist, da die $p$-Werte mit $0.081$ und $0.079$ leicht über dem Signifikanzniveau von $\alpha$ gleich 5% liegen. Wir haben aber einen starkes Indiz gegen die Nullhypothese, da die Wahrscheinlichkeit die Daten zu beobachten sehr gering ist unter der Annahme das die Nullhypothese gilt.
-
-Zun Abschluß noch die Funktion `glance()` ebenfalls aus dem R Paket `{broom}`, die uns erlaubt noch die Qualitätsmaße der linearen Regression zu erhalten. Wir müssen nämlich noch schauen, ob die Regression auch funktioniert hat. Die Überprüfung geht mit einem $x$ sehr einfach. Wir können uns die Grade ja anschauen. Das geht dann mit einem Model mit mehreren $x$ nicht mehr und wir brauchen andere statistische Maßzahlen.
-
-```{r}
-fit_1 |> glance() 
-```
-
-### Prädiktives Modell {#sec-simple-pred}
 
 Neben dem kausalen Modell gibt es auch die Möglichkeit ein prädiktives Modell zu rechnen. Im Prinzip ist die Sprache hier etwas ungenau. Wir verwenden das gefittete Modell nur anders. Anstatt das Modell `fit_1` in die Funktion `summary()` zu pipen, pipen wir die das Modell in die Funktion `predict()`. Die Funktion `predict()` kann dann für neue Daten über die Option `newdata =` das $y$ vorhersagen.
 
 In unserem Fall müssen wir uns deshalb ein `tibble` mit einer Spalte bauen. Wir haben ja oben im Modell auch nur ein $x_1$ mit aufgenommen. Später können wir natürlich auch für multiple Modelle die Vorhersage machen. Wichtig ist, dass die Namen gleich sind. Das heißt in dem neuen Datensatz müssen die Spalten *exakt* so heißen wir in dem alten Datensatz in dem das Modell gefittet wurde.
 
 ```{r}
+fit_1 <- lm(jump_length ~ weight, data = cov1_tbl)
 
 simple_new_tbl <- tibble(weight = c(1.7, 1.4, 2.1, 3.0)) 
 
