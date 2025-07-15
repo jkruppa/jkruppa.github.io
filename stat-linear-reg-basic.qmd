@@ -1,5 +1,6 @@
 ```{r echo = FALSE}
-pacman::p_load(tidyverse, readxl, knitr, kableExtra, see)
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, see,
+               broom)
 source("images/R/stat-modeling-R.R")
 set.seed(20250708)
 theme_modeling <- function() {
@@ -14,6 +15,7 @@ theme_modeling <- function() {
           strip.text = element_text(face = "bold"),
           strip.background = element_rect(fill = "grey80", color = NA))
 }
+cov1_tbl <- read_xlsx("data/regression_data.xlsx", sheet = "covariate")
 ```
 
 # Simple lineare Regression {#sec-modeling-simple-stat}
@@ -115,6 +117,112 @@ In dem folgenden Kasten erkläre ich nochmal den Gebrauch meiner Begriffe im sta
 ## Theoretischer Hintergrund
 
 ```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-lin-reg-theo-00
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "Visualisierung der linearen Regression. Wir legen eine Gerade durch eine Punktewolke. Die Gerade wird durch die statistischen Maßzahlen bzw. Parameter $\\beta_0$, $\\beta_1$ sowie den $\\epsilon$ beschrieben."
+
+simple_fit <- lm(jump_length ~ weight, data = cov1_tbl) |> 
+  augment()
+
+ggplot(cov1_tbl, aes(weight, jump_length)) +
+  theme_minimal() +
+  xlim(0, 3.5) + ylim(0, 3.5) +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  stat_smooth(method = "lm", se = FALSE, fullrange = TRUE, color = "#56B4E9") +
+  geom_point(size =  2) +
+  annotate("text", x = 2, y = 1, label = "Gerade durch die Punkte", size = 5, 
+           fontface = 3, color = "gray50", hjust = "left") +
+  annotate("label", x = 0.25, y = 3, label = "Wie lautet die Geradengleichung?\nLiegen die Punkte auf der Geraden?", size = 4, 
+           fontface = 2, color = "black", hjust = "left", fill = "#56B4E9",
+           alpha = 0.5) +
+  geom_curve(aes(x = 1.975, y = 1, xend = 1.5, yend = 1.6),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.2, color = "gray50") +
+  labs(x = "Einflussvariable (x)", y = "Messwert (y)") +
+  theme(panel.grid.minor = element_blank(),
+          plot.background = element_rect(fill = "white", color = NA),
+          plot.title = element_text(size = 16, face = "bold"),
+          plot.subtitle = element_text(size = 12, face = "italic"),
+          plot.caption = element_text(face = "italic"),
+          axis.title = element_text(size = 12, face = "bold"),
+          axis.text = element_text(size = 12),
+          strip.text = element_text(face = "bold"),
+          strip.background = element_rect(fill = "grey80", color = NA))
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-lin-reg-theo-01
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "Visualisierung der linearen Regression. Wir legen eine Gerade durch eine Punktewolke. Die Gerade wird durch die statistischen Maßzahlen bzw. Parameter $\\beta_0$, $\\beta_1$ sowie den $\\epsilon$ beschrieben."
+
+simple_fit <- lm(jump_length ~ weight, data = cov1_tbl) |> 
+  augment()
+
+ggplot(cov1_tbl, aes(weight, jump_length)) +
+  theme_minimal() +
+  xlim(0, 3.5) + ylim(0, 3.5) +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  geom_segment(x = simple_fit$weight, y = simple_fit$jump_length, 
+               xend = simple_fit$weight, yend = simple_fit$.fitted, 
+               color = "#009E73",
+               linewidth = 0.5, linetype = 1) +
+  geom_segment(x = 1.035, y = 1.5, 
+               xend = 2, yend = 1.5, 
+               color = "#D55E00",
+               linewidth = 0.5, linetype = 1) +
+  geom_segment(x = 2, y = 1.5, 
+               xend = 2, yend = 2, 
+               color = "#D55E00",
+               linewidth = 0.5, linetype = 1) +
+  annotate("text", x = 0.3, y = 0.5, label = expression(beta[0]), size = 7,
+           color = "#E69F00") +
+  geom_curve(x = 0.2, y = 0.5, xend = 0, yend = 0.95,
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.3, alpha = 0.3,
+           color = "#E69F00") +
+  annotate("text", x = 2.4, y = 1.7, label = expression(1%.%beta[1]), size = 7,
+           color = "#E69F00") +
+  geom_curve(x = 2.25, y = 1.7, xend = 2.02, yend = 1.75,
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.3, alpha = 0.3,
+           color = "#E69F00") +
+  annotate("text", x = 1, y = 1.35, label = expression(x), size = 7, 
+               color = "#D55E00") +
+  annotate("text", x = 2, y = 1.35, label = expression(x+1), size = 7, 
+               color = "#D55E00") +
+  annotate("text", x = simple_fit$weight + 0.06, 
+          y = simple_fit$.fitted + simple_fit$.resid/2,
+          label = c(expression(epsilon[1]), expression(epsilon[2]), expression(epsilon[3]),
+                    expression(epsilon[4]), expression(epsilon[5]), expression(epsilon[6]),
+                    expression(epsilon[7])),
+          color = "#009E73") +
+  stat_smooth(method = "lm", se = FALSE, fullrange = TRUE, color = "#56B4E9") +
+  geom_point(size =  2) +
+  labs(x = "Einflussvariable (x)", y = "Messwert (y)") +
+  theme(panel.grid.minor = element_blank(),
+          plot.background = element_rect(fill = "white", color = NA),
+          plot.title = element_text(size = 16, face = "bold"),
+          plot.subtitle = element_text(size = 12, face = "italic"),
+          plot.caption = element_text(face = "italic"),
+          axis.title = element_text(size = 12, face = "bold"),
+          axis.text = element_text(size = 12),
+          strip.text = element_text(face = "bold"),
+          strip.background = element_rect(fill = "grey80", color = NA))
+```
+
+```{r}
 #| message: false
 #| echo: false
 #| warning: false
@@ -141,12 +249,12 @@ mit
 
 In @tbl-reg-deu-eng siehst du nochmal in einer Tabelle den Vergleich von der Schreibweise der linearen Regression in der Schule und in der Statistik. Darüber hinaus sind die deutschen Begriffe den englischen Begriffen gegenüber gestellt. Warum schreiben wir die Gleichung in der Form? Damit wir später noch weitere $\beta_px_p$-Paare ergänzen könen und so *multiple* Modelle bauen können.
 
-| $\boldsymbol{y = mx +b}$ | $\boldsymbol{y \sim \beta_0 + \beta_1 x_1 + \epsilon}$ | Deutsch | Englisch |
-|:--:|:--:|:--:|:--:|
-| $m$ | $\beta_1$ | Steigung | Slope |
-| $x$ | $x_1$ | Einflussvariable | Risk factor |
-| $b$ | $\beta_0$ | y-Achsenabschnitt | Intercept |
-|  | $\epsilon$ | Residuen | Residual |
+| Mathe | Statistik  |      Deutsch      |  Englisch   |
+|:-----:|:----------:|:-----------------:|:-----------:|
+|  $m$  | $\beta_1$  |     Steigung      |    Slope    |
+|  $x$  |   $x_1$    | Einflussvariable  | Risk factor |
+|  $b$  | $\beta_0$  | y-Achsenabschnitt |  Intercept  |
+|       | $\epsilon$ |     Residuen      |  Residual   |
 
 : Vergleich und Übersicht der schulischen vs. statistischen Begriffe in den linearen Regression sowie die deutschen und englischen Begriffe. {#tbl-reg-deu-eng}
 
@@ -180,12 +288,7 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 
 ```{r}
 #| message: false
-snake_tbl <- tibble(
-  svl = c(40, 45, 39, 51, 52, 57, 58, 49),
-  mass = c(6, 8, 5, 7, 9, 11, 12, 10),
-  region = as_factor(c("west","west", "west", "nord","nord","nord","nord","nord")),
-  color = as_factor(c("schwarz", "schwarz", "rot", "rot", "rot", "blau", "blau", "blau"))
-) 
+snake_tbl <- read_xlsx("data/regression_data.xlsx", sheet = "theory")
 ```
 
 In der folgenden Tabelle ist der Datensatz `snake_tbl` nochmal dargestellt. Wir haben die Schlangenlänge `svl` als Messwert $y$ sowie das Gewicht der Schlangen `mass`, die Sammelregion `region` und die Farbe der Schlangen `color`. Dabei ist `mass` eine kontinuierliche Variable, `region` eine kategorielle Variable als Faktor mit zwei Leveln und `color` eine kategorielle Variable als Faktor mit drei Leveln.
@@ -193,7 +296,7 @@ In der folgenden Tabelle ist der Datensatz `snake_tbl` nochmal dargestellt. Wir 
 ```{r}
 #| message: false
 #| echo: false
-#| tbl-cap: Datensatz zu Schlangen ist entlehnt und modifiiert nach Kéry [-@kery2010introduction, p. 77]
+#| tbl-cap: "Datensatz zu Schlangen ist entlehnt und modifiiert nach @kery2010introduction."
 #| label: tbl-snakes
 
 snake_tbl |> 
@@ -208,20 +311,20 @@ Wir wollen uns erstmal mit einem einfachen Datenbeispiel beschäftigen. Wir kön
 ```{r}
 #| message: false
 
-cov1_tbl <- tibble(jump_length = c(1.2, 1.8, 1.3, 1.7, 2.6, 1.8, 2.7),
-                   weight = c(0.8, 1, 1.2, 1.9, 2, 2.7, 2.8))
+cov1_tbl <- read_xlsx("data/regression_data.xlsx", sheet = "covariate")
 ```
 
+Dann schauen wir uns die Daten einmal in der folgenden Tabelle als Auszug einmal an. Wichtig ist hier nochmal, dass du eben einen Faktor `animal` mit drei Leveln also Gruppen vorliegen hast. Wir wollen jetzt die drei Tierarten hinsichtlich ihrer Sprungweite in \[cm\] miteinander vergleichen.
+
 ```{r}
-#| message: false
 #| echo: false
-#| tbl-cap: "Datensatz mit einer normalverteilten Variable `jump_length` und der normalverteilten Variable `weight`." 
-#| label: tbl-model-0
+#| message: false
+#| warning: false
+#| label: tbl-1cov-table
+#| tbl-cap: "Tabelle der Sprungweiten in [cm] als Messwert $y$ von Hunde-, Katzen- und Fuchsflöhen. Der Datensatz ist einfaktoriell, da wir nur einen Faktor vorliegen haben."
 
-cov1_tbl <- tibble(jump_length = c(1.2, 1.8, 1.3, 1.7, 2.6, 1.8, 2.7),
-                     weight = c(0.8, 1, 1.2, 1.9, 2, 2.7, 2.8))
-
-cov1_tbl |> kable(align = "c", "pipe")
+read_xlsx("data/regression_data.xlsx", sheet = "covariate") |> 
+  kable(align = "c", "pipe")
 ```
 
 In der folgenden Abbildung sehen wir die Visualisierung der Daten `cov1_tbl` in einem Scatterplot mit einer geschätzen Gerade.
@@ -247,7 +350,7 @@ ggplot(cov1_tbl, aes(weight, jump_length)) +
 ```{r}
 #| message: false
 
-fac1_tbl <- read_xlsx("data/flea_dog_cat_fox.xlsx") |>
+fac1_tbl <- read_xlsx("data/regression_data.xlsx", sheet = "factorial") |>
   select(animal, jump_length) |> 
   mutate(animal = as_factor(animal))
 ```
