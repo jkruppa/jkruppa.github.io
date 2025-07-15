@@ -14,9 +14,9 @@ p1_theo_00 <- ggplot(cov1_tbl, aes(weight, jump_length)) +
            fontface = 3, color = "black", hjust = "left", fill = "#56B4E9",
            alpha = 0.5) +
   geom_curve(aes(x = 1.975, y = 1, xend = 1.5, yend = 1.65),
-             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             arrow = arrow(length = unit(0.02, "npc"), type = "closed"),
              curvature = -0.2, color = "gray50") +
-  geom_text(aes(label = 1:7), position = position_nudge(0.05, -0.1), 
+  geom_text(aes(label = c("ID: 1", 2:7)), position = position_nudge(0.05, -0.15), 
             color = "gray25") +
   labs(x = "Einflussvariable (x)", y = "Messwert (y)") +
   theme(panel.grid.minor = element_blank(),
@@ -49,13 +49,13 @@ p1_theo_01 <- ggplot(cov1_tbl, aes(weight, jump_length)) +
   annotate("text", x = 0.3, y = 0.5, label = expression(beta[0]), size = 7,
            color = "#E69F00") +
   geom_curve(x = 0.2, y = 0.5, xend = 0, yend = 0.95,
-             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             arrow = arrow(length = unit(0.02, "npc"), type = "closed"),
              curvature = -0.3, alpha = 0.3,
              color = "#E69F00") +
   annotate("text", x = 2.4, y = 1.7, label = expression(1%.%beta[1]), size = 7,
            color = "#E69F00") +
   geom_curve(x = 2.25, y = 1.7, xend = 2.02, yend = 1.75,
-             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             arrow = arrow(length = unit(0.02, "npc"), type = "closed"),
              curvature = -0.3, alpha = 0.3,
              color = "#E69F00") +
   annotate("text", x = 1, y = 1.35, label = expression(x), size = 7, 

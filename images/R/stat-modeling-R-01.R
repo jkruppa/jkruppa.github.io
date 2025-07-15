@@ -17,18 +17,53 @@ pred_tbl <- bind_rows(mutate(simple_tbl, status = "beobachtet"),
                                                    newdata = tibble(weight)),
                              status = "vorhergesagt"))
 
+group_tbl <- tibble(f = gl(2, 5, labels = c("A.1", "A.2")),
+       y = c(0.9, 1.5, 1.7, 1.3, 1.2,  
+             2.7, 2.5, 2.8, 2.1, 2.0)) 
+
+group_fit <- lm(y ~f, data = group_tbl)
+
+p14 <- 
+  group_tbl |> 
+ggplot(aes(as.numeric(f), y)) +
+  theme_minimal() +
+  geom_line(aes(y = predict(group_fit)), color = "#CC79A7", linewidth = 1) +
+  geom_point(color = "gray50", alpha = 0.5, size = 4) +
+  stat_summary(fun.data=mean_sdl, mult=1, 
+               geom="pointrange", shape = 23, 
+               fill = c("#56B4E9", "#E69F00"), size = 0.75) +
+  annotate("text", x = 0.75, y = 3, hjust = "left", color = "#CC79A7", size = 4, 
+           label = "Steigung als Differenz\nder Mittelwerte") +
+  geom_curve(x = 1.3, y = 2.95, xend = 1.75, yend = 2.2,
+             arrow = arrow(length = unit(0.02, "npc"), type = "closed"),
+             curvature = -0.4, color = "#CC79A7") +
+  ylim(0.25, 3.25) + 
+  xlim(0.5, 2.5) +
+  theme(legend.position = "none",
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.text = element_text(size = 12),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        title = element_text(size = 14, face = "bold")) +
+  labs(x = "Faktor A", y = "Messwert (y)",
+       title = "Kausales Modell",
+       subtitle = "Was sind die Gruppenmittelwerte von Y für A?") 
+
+
 p11 <- 
   ggplot(filter(pred_tbl, status == "beobachtet"), 
               aes(weight, jump_length, color = status, shape = status)) +
   labs(x = expression(x[1]), y = "y", color = "", shape = "",
-       title = "Kausales Modell") +
+       title = "Kausales Modell",
+       subtitle = "Wenn X sich ändert, wie ändert sich Y?") +
   geom_point(size = 4) +
   theme_minimal() +
   scale_color_okabeito() +
-  xlim(0, 3.5) + ylim(0, 3.5) +
+  xlim(0.25, 3.25) + ylim(0.25, 3.25) +
   theme(legend.position = "none",
        axis.text.x = element_blank(),
         axis.text.y = element_blank(),
+       plot.subtitle = element_text(size = 12, face = "italic"),
         axis.text = element_text(size = 12),
         title = element_text(size = 14, face = "bold")) +
   annotate("text", x = 0.5, y = 3, hjust = "left", color = "#56B4E9", size = 4, 
@@ -49,7 +84,7 @@ p11 <-
   annotate("text", x = 2, y = 0.6, hjust = "left", color ="#E69F00", size = 4, 
            label = TeX(r"($R^2 = 0.71$)"))   +
   geom_curve(aes(x = 1.9, y = 1, xend = 1.3, yend = 1.5),
-             arrow = arrow(length = unit(0.03, "npc")),
+             arrow = arrow(length = unit(0.02, "npc"), type = "closed"),
              curvature = -0.5, color = "#E69F00") +
   labs(x = "Einflussvariable (x)", y = "Messwert (y)")
 
@@ -57,25 +92,27 @@ p12 <- ggplot(pred_tbl, aes(weight, jump_length, color = status, shape = status)
   stat_smooth(method = "lm", se = FALSE, fullrange = TRUE, 
               color = "gray", linetype = 1) +
   labs(x = expression(x[1]), y = "y", color = "", shape = "",
-       title = "Prädiktives Modell") +
+       title = "Prädiktives Modell",
+       subtitle = "Welche Werte von Y sagt das Modell für X vorraus?") +
   geom_point(size = 4) +
   theme_minimal() +
   scale_color_okabeito() +
-  xlim(0, 3.5) + ylim(0, 3.5) +
+  xlim(0.25, 3.25) + ylim(0.25, 3.25) +
   theme(legend.position = "none",
         axis.text.x = element_blank(),
         axis.text.y = element_blank(),
         axis.text = element_text(size = 12),
+        plot.subtitle = element_text(size = 12, face = "italic"),
         title = element_text(size = 14, face = "bold")) +
   annotate("text", x = 0.5, y = 3, hjust = "left", color = cbbPalette[3], 
            size = 4, label = "vorhergesagt", fontface = 2) +
   annotate("text", x = 2, y = 0.5, hjust = "left", color = cbbPalette[2], 
            size = 4, label = "beobachtet", fontface = 2) +
   geom_curve(x = 1.4, y = 3, xend = 2.1, yend = 2.2,
-             arrow = arrow(length = unit(0.03, "npc")),
+             arrow = arrow(length = unit(0.02, "npc"), type = "closed"),
              curvature = -0.5, color = cbbPalette[3]) +
   geom_curve(x = 1.9, y = 0.5, xend = 0.8, yend = 1.1,
-             arrow = arrow(length = unit(0.03, "npc")),
+             arrow = arrow(length = unit(0.02, "npc"), type = "closed"),
              curvature = -0.5, color = cbbPalette[2])  +
   labs(x = "Einflussvariable (x)", y = "Messwert (y)")
 
@@ -87,7 +124,7 @@ p13 <- ggplot(filter(pred_tbl, status == "beobachtet"),
   geom_point(size = 4) +
   theme_minimal() +
   scale_color_okabeito() +
-  xlim(0, 3.5) + ylim(0, 3.5) +
+  xlim(0.25, 3.25) + ylim(0.25, 3.25) +
   theme(legend.position = "none",
         axis.text.x = element_blank(),
         axis.text.y = element_blank(),
