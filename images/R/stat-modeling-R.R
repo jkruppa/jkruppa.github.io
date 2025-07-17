@@ -34,7 +34,7 @@ p_model_exp_simple_reg <- ggplot() +
   annotate("text", 7.7, 0, label = "Fehler", size = 10, fontface = 2, hjust = "center") +
   annotate("label", x = 2.6, y = 3.2, label = "Lineare Regression", size = 3, 
            fontface = 1, fill = "#009E73", hjust = "center") + 
-  annotate("label", x = -2.5, y = -3.2, label = "Messwert (y)", size = 3, 
+  annotate("label", x = -2.5, y = -3.2, label = "Messwert Y", size = 3, 
            fontface = 1, fill = "#56B4E9", hjust = "center") + 
   annotate("label", x = 2.6, y = -3.2, label = expression(Koeffizienten*":"~beta[0]*","~beta[1]), size = 3, 
            fontface = 1, fill = "#56B4E9", hjust = "center") + 
@@ -53,9 +53,9 @@ p_model_abstract <- ggplot() +
   annotate("text", 2.6, 0, label = "Modell", size = 10, fontface = 2, hjust = "center") +
   annotate("text", 5.2, 0, label = "+", size = 10, fontface = 2, hjust = "center") +
   annotate("text", 7.7, 0, label = "Fehler", size = 10, fontface = 2, hjust = "center") +
-  annotate("label", x = 2.6, y = 3.2, label = "Zusammenhang y~x", size = 3, 
+  annotate("label", x = 2.6, y = 3.2, label = "Statistisches Modell f(x)", size = 3, 
            fontface = 2, fill = "#009E73", hjust = "center", alpha = 0.75) + 
-  annotate("label", x = -2.5, y = -3.2, label = "Messwert (Y)", size = 3, 
+  annotate("label", x = -2.5, y = -3.2, label = "Messwert Y", size = 3, 
            fontface = 1, fill = "#56B4E9", hjust = "center") + 
   annotate("label", x = 2.6, y = -3.2, label = "Erklärtes Y", size = 3, 
            fontface = 1, fill = "#56B4E9", hjust = "center") + 

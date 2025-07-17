@@ -80,3 +80,73 @@ p1_theo_01 <- ggplot(cov1_tbl, aes(weight, jump_length)) +
         axis.text = element_text(size = 12),
         strip.text = element_text(face = "bold"),
         strip.background = element_rect(fill = "grey80", color = NA))
+
+zero_fit <- lm(jump_length ~ 0 + I(weight^2), data = cov1_tbl) |> 
+  augment()
+
+simple_fit <- lm(jump_length ~ weight, data = cov1_tbl) |> 
+  augment()
+
+epsilon <- simple_fit$.fitted - simple_fit$jump_length
+
+epsilon_zero <- zero_fit$.fitted - zero_fit$jump_length
+
+
+p_square_01 <- ggplot(cov1_tbl, aes(weight, jump_length)) +
+  theme_minimal() +
+  xlim(0, 4) + ylim(0, 4) +
+  geom_tile(aes(x = weight - epsilon_zero/2, 
+                y = jump_length + epsilon_zero/2, 
+                width = epsilon_zero, height = epsilon_zero), fill = "#D55E00",
+            alpha = 0.2, color = "#D55E00", linewidth = 0.5) +
+  geom_tile(aes(x = weight + epsilon/2, 
+                y = jump_length + epsilon/2, 
+                width = epsilon, height = epsilon), fill = "#56B4E9",
+            alpha = 0.2, color = "#56B4E9", linewidth = 0.5) +
+  stat_smooth(method = "lm", se = FALSE, fullrange = TRUE, color = "#56B4E9") +
+  geom_function(fun = \(x) 0 + 0.3756 * x^2, color = "#D55E00", linewidth = 1) +
+  geom_function(fun = \(x) 0.9686 + 0.5096 * x, color = "#56B4E9", linewidth = 1) +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  geom_point(size =  2) +
+  annotate("text", x = 0.5, y = 3.75, hjust = "left", label = "f(x) = 0.97 + 0.51x",
+           color = "#56B4E9", size = 5) +
+  annotate("text", x = 0.5, y = 3.5, hjust = "left", label = "f(x) = 0 + 0.38x²",
+           color = "#D55E00", size = 5) +
+  labs(x = "Einflussvariable (x)", y = "Messwert (y)",
+       title = "Methode der kleinsten Quadrate",
+       subtitle = "Für zwei Gradengleichungen werden die Abweichungsquadrate bestimmt") +
+  theme(panel.grid.minor = element_blank(),
+        plot.background = element_rect(fill = "white", color = NA),
+        plot.title = element_text(size = 16, face = "bold"),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(face = "italic"),
+        axis.title = element_text(size = 12, face = "bold"),
+        axis.text = element_text(size = 12),
+        strip.text = element_text(face = "bold"),
+        strip.background = element_rect(fill = "grey80", color = NA))
+
+
+p_square_02 <- ggplot(cov1_tbl, aes(weight, jump_length)) +
+  theme_minimal() +
+  xlim(0, 4) + ylim(0, 4) +
+  geom_tile(aes(x = seq(0.5, 3.5, length.out = 7),
+                y = 3, 
+                width = epsilon, height = epsilon), fill = "#56B4E9",
+            alpha = 0.25, color = "#56B4E9", linewidth = 0.5) +
+  geom_tile(aes(x = seq(0.5, 3.5, length.out = 7),
+                y = 1, 
+                width = epsilon_zero, height = epsilon_zero), fill = "#D55E00",
+            alpha = 0.25, color = "#D55E00", linewidth = 0.5) +
+  labs(x = "Einflussvariable (x)", y = "Messwert (y)",
+       title = "Abweichungsquadrate",
+       subtitle = "Welche kombinierte Fläche der Abweichungsquadrate ist kleiner?") +
+  theme(panel.grid = element_blank(),
+        plot.background = element_blank(),
+        plot.title = element_text(size = 16, face = "bold"),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(face = "italic"),
+        axis.title = element_blank(),
+        axis.text = element_blank(),
+        strip.text = element_text(face = "bold"),
+        strip.background = element_blank())
