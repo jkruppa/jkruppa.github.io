@@ -115,7 +115,7 @@ p_square_01 <- ggplot(cov1_tbl, aes(weight, jump_length)) +
            color = "#D55E00", size = 5) +
   labs(x = "Einflussvariable (x)", y = "Messwert (y)",
        title = "Methode der kleinsten Quadrate",
-       subtitle = "Für zwei Gradengleichungen werden die Abweichungsquadrate bestimmt") +
+       subtitle = "Die Abweichungsquadrate für zwei Gradengleichungen") +
   theme(panel.grid.minor = element_blank(),
         plot.background = element_rect(fill = "white", color = NA),
         plot.title = element_text(size = 16, face = "bold"),
@@ -140,7 +140,7 @@ p_square_02 <- ggplot(cov1_tbl, aes(weight, jump_length)) +
             alpha = 0.25, color = "#D55E00", linewidth = 0.5) +
   labs(x = "Einflussvariable (x)", y = "Messwert (y)",
        title = "Abweichungsquadrate",
-       subtitle = "Welche kombinierte Fläche der Abweichungsquadrate ist kleiner?") +
+       subtitle = "Welche Fläche der Abweichungsquadrate ist kleiner?") +
   theme(panel.grid = element_blank(),
         plot.background = element_blank(),
         plot.title = element_text(size = 16, face = "bold"),
