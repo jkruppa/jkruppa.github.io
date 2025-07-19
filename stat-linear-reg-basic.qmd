@@ -283,6 +283,7 @@ pacman::p_load(tidyverse, magrittr, broom,
                readxl, ggpmisc, conflicted)
 conflicts_prefer(magrittr::set_names)
 conflicts_prefer(ggplot2::annotate)
+conflicts_prefer(dplyr::filter)
 ```
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
@@ -414,7 +415,7 @@ Beginnen wir einmal mit dem kausalen Modell. Wir wollen also wissen, wie sich de
 
 ### Einkovariates Modell
 
-Die simple lineare Regression ist ein einkovariates Modell. Wir haben einen kontinuierlichen Messwert sowie eine kontinuierliche Einflussvariable. Wir nennen die kontinuierliche Einflussvariable eine Kovariate. Es ergibt sich dann das folgende abstrakte simple Modell. Auf der linken Seite ist der MEsswert und auf der rechten Seite der Tilde ist unsere eine Kovariate.
+Die simple lineare Regression ist ein einkovariates Modell. Häufig wird das einkovariate Modell dann einfach nur die lineare Regression genannt. Wir haben einen kontinuierlichen Messwert sowie eine kontinuierliche Einflussvariable. Wir nennen die kontinuierliche Einflussvariable eine Kovariate. Es ergibt sich dann das folgende abstrakte simple Modell. Auf der linken Seite ist der MEsswert und auf der rechten Seite der Tilde ist unsere eine Kovariate.
 
 ```{r}
 #| message: false
@@ -474,12 +475,14 @@ ggplot(cov1_tbl, aes(weight, jump_length)) +
 
 Eigentlich wollen wir ja ein kausales Modell rechnen, da wir an dem Effekt der Kovariate Gewicht in \[mg\] der Hundeflöhe interessiert sind. Wenn also die Kovariate $c_1$ um eine Einheit ansteigt, um wie viel verändert sich dann der Messwert $y$?
 
-Der Koeffizient $\beta_1$ als Steigung der Graden gibt uns also den Einfluss oder den kausalen Zusammenhang zwischen dem Messwert $y$ und der Kovariate $c_1$ wieder. Im einem ersten Schritt schauen wir uns die Ausgabe der Funktion `summary()` unseres Modells an. Wir erhalten dann folgende Ausgabe.
+Der Koeffizient $\beta_1$ als Steigung der Graden gibt uns also den Einfluss oder den kausalen Zusammenhang zwischen dem Messwert $y$ und der Kovariate $c_1$ wieder. Im einem ersten Schritt schauen wir uns die Ausgabe der Funktion `summary()` unseres Modells an.
 
 ```{r}
 #| eval: false
 cov1_fit |> summary()
 ```
+
+Wir erhalten dann folgende Ausgabe mit den entsprechenden Kurzerkläruungen von mir. Keine Angst, die gehen wir dann alle in den nächsten Paragraphen einmal durch.
 
 ```{r}
 #| message: false
@@ -488,7 +491,7 @@ cov1_fit |> summary()
 #| fig-align: center
 #| fig-height: 4.5
 #| fig-width: 8
-#| fig-cap: "Scatterplot der Sprungweite in [cm] und dem Gewicht in [mg] von sieben Hundeflöhen. Die lineare Grade und die Gradengleichung wurden ergänzt. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Annotierte Ausgabe der Funktion `summary()` aus einer linearen Modellanpassung mit der Funktion `lm()`. Die Ausgabe der Funktion teilt sich grob in drei informative Bereiche: i) Informationen zu den Residuen, ii) Informationen zu den Koeffizienten und iii) Informationen zu der Modelgüte. *[Zum Vergrößern anklicken]*"
 #| label: fig-model-in-R-c1-summary
 
 p_lm_summary_explained 
@@ -575,15 +578,13 @@ cov1_fit |> augment()
 > *"Warum das kovariate Modell nochmal so zerforschen? Weil es mich interessiert hat, wie die Modelle intern gerechnet werden. Vor allem liest man schnell von einer Modellmatrix im Zusammenhang der Modellierung. Hier also mal alles sehr zerforscht. Braucht man nicht um es anzuwenden, ist aber hilfreich zu wissen. Denke ich." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
 :::
 
-Fangen wir also einmal an das kovariate Modell zu zerforschen. Im ersten Schritt wollen wir uns einmal das Modell mit einem kontinuierlichen $x$ anschauen. Daher bauen wir uns ein lineares Modell mit der Variable `mass`. Wir erinnern uns, dass `mass` eine kontinuierliche Variable ist, da wir hier nur Zahlen in der Spalte finden. Die Funktion `model.matrix()` gibt uns die Modellmatrix wieder.
+Fangen wir also einmal an das kovariate Modell zu zerforschen. In einem ersten Schritt wollen wir uns einmal das lineare Modell mit einer kontinuierlichen Einflussvariable anschauen. Daher bauen wir uns ein lineares Modell mit der Kovariate `mass` aus unseren Schlangendaten und der Körperlänge der Schlangen `svl` als Messwert. Die Schlangendaten habe ich extra so gebaut, dass wir uns hier leicht was anschauen können. Wir erinnern uns, dass die Einslussvariable `mass` eine kontinuierliche Variable ist, da wir hier nur Zahlen in der Spalte finden. Die Funktion `model.matrix()` gibt uns die Modellmatrix wieder.
 
 ```{r}
 model.matrix(svl ~ mass, data = snake_tbl) |> as_tibble()
 ```
 
-In der ersten Spalte ist der Intercept angegeben, danach folgt dann die Spalte `mass` als kontinuierliche Variable.
-
-Wir können die Modellmatrix auch mathematisch schreiben und die $y$ Spalte für das Outcome `svl` ergänzen. Eben so ergänzen wir die $\beta$-Werte als mögliche Koeefizienten aus der linearen Regression sowie die Residuen als Abweichung von der gefitteten Grade.
+In der ersten Spalte ist der Intercept angegeben, danach folgt dann die Spalte `mass` als Kovariate. Wir können jetzt die Modellmatrix auch mathematisch schreiben und die $y$ Spalte für den Messwert `svl` ergänzen. Eben so ergänzen wir die Koeffizienten $\beta_0$ als Intercept und $beta_{mass}$ als Steigung aus der linearen Regression sowie die Residuen als Abweichung von der angepassten Grade.
 
 $$
  \begin{pmatrix}
@@ -624,21 +625,20 @@ $$
  \end{pmatrix}
 $$
 
-Jetzt brauche wir die Koeffizienten aus dem linearen Modell, welches wir wie folgt mit der Funktion `lm()` fitten. Wir nutzen dann die Funktion `coef()` um uns die Koeffizienten aus dem Objekt `fit_1` wiedergeben zu lassen.
+Jetzt brauche wir natürlich die Koeffizienten aus dem linearen Modell, welches wir wie folgt mit der Funktion `lm()` fitten. Wir nutzen dann die Funktion `coef()` um uns die Koeffizienten aus dem Objekt `fit_1` wiedergeben zu lassen.
 
 ```{r}
-fit_1 <- lm(svl ~ mass, data = snake_tbl) 
-fit_1 |> coef() |> round(2)
-
+snake_cov_fit <- lm(svl ~ mass, data = snake_tbl) 
+snake_cov_fit |> coef() |> round(2)
 ```
 
-Die Funktion `residuals()` gibt uns die Residuen der Graden aus dem Objekt `fit_1` wieder.
+Die Funktion `residuals()` gibt uns die Residuen der Graden aus dem Objekt `snake_cov_fit` wieder.
 
 ```{r}
-fit_1 |> residuals() |> round(2)
+snake_cov_fit |> residuals() |> round(2)
 ```
 
-Wir können jetzt die Koeffizienten in die Modellmatrix ergänzen. Wir haben den Intercept mit $\beta_0 = 26.71$ geschätzt. Weiter ergänzen wir die Koeffizienten aus dem linearen Modell für `mass` mit $\beta_{mass}=2.61$. Ebenfalls setzen wir Werte für die Residuen für jede der Beobachtungen in die Gleichung ein. Wir erhalten dann folgende ausgefüllte Gleichung mit den Matrixen.
+Wir können jetzt die Koeffizienten in die Modellmatrix ergänzen. Wir haben den Intercept mit $\beta_0 = 26.71$ geschätzt. Weiter ergänzen wir die Steigung aus dem linearen Modell für `mass` mit $\beta_{mass}=2.61$. Ebenfalls setzen wir Werte für die Residuen für jede der Beobachtungen in die Gleichung ein. Wir erhalten dann folgende ausgefüllte Gleichung.
 
 $$
  \begin{pmatrix}
@@ -675,7 +675,7 @@ $$
  \end{pmatrix}
 $$
 
-Wir können jetzt diese gewaltige Sammlung an Matrixen einmal auflösen. Steht denn nun wirklich rechts das Gleiche wie links von der Gleichung? Wir bauen uns die Zahlen von der rechten Seite der Gleichung einmal in R nach und schauen auf das Ergebnis. Wie du siehst ergänzen wir hier noch eine Reihe von $+$ um den Intercept mit der Steigung zu verbinden. Steht ja auch so in der Gleichung des linearen Modells drin, alles wird mit einem $+$ miteinander verbunden.
+Wir können jetzt diese gewaltige Sammlung an Matrixen einmal auflösen. Steht denn nun wirklich rechts das Gleiche wie links von der Gleichung? Wir bauen uns die Zahlen von der rechten Seite der Gleichung einmal in R nach und schauen auf das Ergebnis. Wie du siehst ergänzen wir hier noch eine Reihe von Additionen um den Intercept mit der Steigung zu verbinden. Steht ja auch so in der Gleichung des linearen Modells drin, alles wird mit einem Plus miteinander verbunden.
 
 ```{r}
 c(26.71 +  6*2.61 - 2.36,
@@ -688,8 +688,10 @@ c(26.71 +  6*2.61 - 2.36,
   26.71 + 10*2.61 - 3.79) |> round() 
 ```
 
-Oh ha! Die Zahlen, die wir rauskriegen, sind die gleichen Werte die unser Outcome $y$ hat. Das heißt, die ganze Sache hat funktioniert.
+Oh ha! Die Zahlen, die wir rauskriegen, sind die gleichen Werte die unser Messwert der Schlangenlänge hat. Das heißt, die ganze Sache hat funktioniert. Wir können die Schlangenlänge durch die Kovariate der Körpermasse mit zwei Koeffizienten aus einem linearen Modell erklären.
 :::::
+
+Dann kommt hier noch ein kleiner Einschub. So wie Gauß kannst du auch die lineare Regression händisch ausrechnen. Das macht sicherlich auch dem einen oder anderen Spaß, aber nicht jedem. Ich zeige dir in dem folgenden Kasten einmal wie sich das einkovariate Modell händisch auflösen lässt. Und ja, ich nutze dann auch hier R um die Funktionen durchzuführen. Am Ende ist es dann aber auch eher ein großer Taschenrechner, den ich mit R nutze. Viel Spaß beim nachmachen.
 
 :::: callout-note
 ## Simple lineare Regression händisch
@@ -871,9 +873,17 @@ Wenn du dich tiefer in die Thematik einlesen willst, dann sind hier weitere Quel
 -   [Matrix Approach to Simple Linear Regression in R](https://lasanthiwatagoda.github.io/STT4830ClassRepo/RCodes/Ch5Script.html)
 ::::
 
+Damit haben wir das einkovariate Modell abgeschlossen. Hier ist dann auch meistens Ende, wenn wir von der klassischen linearen Regression reden. Wir haben unseren kontinuierlichen Messwert und dann noch unsere kontinuierliche Einflussvariable. Dann legen wir eine Grade durch die Punkte und erhalten die Gradengleichung. Damit sind wir dann zufrieden. Eventuell wollen wir dann noch die Modellgüte betrachten oder aber noch die Korrelation berechnen. Das können wir dann noch machen. Hier wollen wir dann nochmal den Fall der kategorialen Einflussvariable anschauen.
+
 ### Einfaktorielles Modell
 
+Hier stoplerst du vielleicht einmal, denn was wir uns hier anschauen ist sehr nah an der einfaktoriellen ANOVA dran. Dort haben wir ja auch einen kontinuierlichen Messwert und einen Faktor. Wir wollen wissen, ob sich die Level des Faktors als Gruppen untereinander in dem mittleren Messwerten unterscheiden oder ob alle Gruppenmittel gleich sind. Ja, da gibt es jetzt gewisse Überschneidungen und vieles ist dann auch gleich. Insbesondere der Fall mit einem Faktor und zwei Leveln ist dann von einem Student t-Test algorithmisch nicht zu unterscheiden. Hier steigen wir also dann einmal in die einfaktoriellen Modelle aus der sich des statistischen Modellierens ein.
+
+Heir unterscheiden wir dann zwei einfaktorielle Modelle. Zuerst schauen wir uns einmal ein einfaktorielles Modell mit einem Faktor und zwei Leveln an. Wir haben eben die Sprungweite der HUnde- und Katzenflöhe vorliegen. Dann betrachten wir noch ein Modell mit mehr als zwei Gruppen. Wir brschränken uns gleich mal auf drei Gruppen indem wir einfach noch die Fuchsflöhe mit in unsere Betrachtung nehmen. Es gehen auch mehr als Gruppen, aber dann wird die Ausgabe nur länger, die Interpretation bleibt gleich.
+
 #### $f_A$ mit 2 Leveln {.unnumbered .unlisted}
+
+Unser einfaktorielles Modell mit einem Faktor und zwei Leveln sieht dann wie folgt aus. Wir haben auf der linken Seite unseren kontinuierlichen Messwert $Y$ vorliegen und auf der rechten Seite dann unseren Faktor $f_A$. Der Faktor hat nur zwei Gruppen und deshalb auch nur zwei Level.
 
 ```{r}
 #| message: false
@@ -890,6 +900,8 @@ p_1fac_2lvl_model
 
 #### $f_A$ mit \>2 Leveln {.unnumbered .unlisted}
 
+Unser einfaktorielles Modell mit einem Faktor und drei Leveln sieht dann fast gleich aus. Wir haben auf der linken Seite unseren kontinuierlichen Messwert $Y$ vorliegen und auf der rechten Seite dann unseren Faktor $f_A$. Der Faktor hat jetzt aber drei Gruppen und deshalb auch nur drei Level.
+
 ```{r}
 #| message: false
 #| echo: false
@@ -903,8 +915,103 @@ p_1fac_2lvl_model
 p_1fac_3lvl_model
 ```
 
+Jetzt können wir uns die Auswertung einmal praktisch in R anschauen. Dafür nutze ich dann einmal den einfaktoriellen Datensatz nur mit den Hunde- und Katzenflöhen für den Fall eines Faktors mit zwei Leveln. Dann erweitere ich noch die Tierart um die Fuchsflöhe um dann drei Level vorliegen zu haben. Dann habe ich noch in dem anderen Tab mir die Sachlage theoretisch in R angeschaut, da es mich nochmal interessiert hat, wie die Berechnung intern laufen.
+
 ::: panel-tabset
-## Theoretisch
+## Praktisch in R
+
+#### $f_A$ mit 2 Leveln {.unnumbered .unlisted}
+
+```{r}
+fac1_2lvl_tbl <- fac1_tbl |> 
+  filter(animal != "fox")
+```
+
+```{r}
+fac1_2lvl_fit <- lm(jump_length ~ animal, data = fac1_2lvl_tbl) 
+```
+
+```{r}
+fac1_2lvl_fit |> 
+  coef()
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-fa-1
+
+ggplot(fac1_2lvl_tbl, aes(animal, jump_length)) +
+  theme_modeling() +
+  geom_vline(xintercept = 1, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 8.13, linewidth = 0.5, color = "#CC79A7") +
+  geom_point() +
+  stat_summary(fun = "mean", geom = "label", 
+               aes(label = round(..y.., 2)), position = position_nudge(0.12)) +
+  scale_x_discrete(labels = c("Hund", "Katze")) +
+  labs(title = "Treatment coding",
+       subtitle = "Intercept ist der Mittelwert von Gruppe A.1",
+       x = "Tierart", y = "Sprungweite in [cm]")
+```
+
+```{r}
+#| eval: true
+fac1_2lvl_fit |> summary()
+```
+
+```{r}
+aov(jump_length ~ animal, data = fac1_2lvl_tbl) |> summary()
+```
+
+#### $f_A$ mit \>2 Leveln {.unnumbered .unlisted}
+
+```{r}
+fac1_3lvl_fit <- lm(jump_length ~ animal, data = fac1_tbl) 
+```
+
+```{r}
+fac1_3lvl_fit |> 
+  coef()
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-fa-21
+
+ggplot(fac1_tbl, aes(animal, jump_length)) +
+  theme_modeling() +
+  geom_vline(xintercept = 1, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 8.13, linewidth = 0.5, color = "#CC79A7") +
+  geom_point() +
+  stat_summary(fun = "mean", geom = "label", 
+               aes(label = round(..y.., 2)), position = position_nudge(0.17)) +
+  scale_x_discrete(labels = c("Hund", "Katze", "Fuchs")) +
+  labs(title = "Treatment coding",
+       subtitle = "Intercept ist der Mittelwert von Gruppe A.1",
+       x = "Tierart", y = "Sprungweite in [cm]")
+```
+
+```{r}
+#| eval: true
+fac1_2lvl_fit |> summary()
+```
+
+```{r}
+aov(jump_length ~ animal, data = fac1_2lvl_tbl) |> summary()
+```
 
 ## Theoretisch in R
 
@@ -1138,65 +1245,6 @@ c(42.50 + 0*4.83 + 0*-12.17 - 2.50,
 ```
 
 Die Zahlen, die wir rauskriegen, sind die gleichen Werte die unser Outcome $y$ hat.
-
-## Praktisch in R
-
-```{r}
-lm(svl ~ region, data = snake_tbl) |> coef() |> round(2)
-```
-
-```{r}
-#| message: false
-#| echo: false
-#| warning: false
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
-#| label: fig-model-in-R-fa-1
-
-ggplot(snake_tbl, aes(region, svl)) +
-  theme_modeling() +
-  geom_vline(xintercept = 1, linewidth = 0.5, color = "grey50") +
-  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
-  geom_hline(yintercept = 41.33, linewidth = 0.5, color = "#CC79A7") +
-  geom_point() +
-  stat_summary(fun = "mean", geom = "label", 
-               aes(label = round(..y.., 2)), position = position_nudge(0.12)) +
-  scale_x_discrete(labels = c("west", "nord")) +
-  labs(title = "Treatment coding",
-       subtitle = "Intercept ist der Mittelwert von Gruppe A.1",
-       x = "Messregion", y = "Schlangenlänge [cm]")
-```
-
-```{r}
-lm(svl ~ color, data = snake_tbl) |> 
-  coef() |> round(2)
-```
-
-```{r}
-#| message: false
-#| echo: false
-#| warning: false
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 6
-#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
-#| label: fig-model-in-R-fa-21
-
-ggplot(snake_tbl, aes(color, svl)) +
-  theme_modeling() +
-  geom_vline(xintercept = 1, linewidth = 0.5, color = "grey50") +
-  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
-  geom_hline(yintercept = 42.50, linewidth = 0.5, color = "#CC79A7") +
-  geom_point() +
-  stat_summary(fun = "mean", geom = "label", 
-               aes(label = round(..y.., 2)), position = position_nudge(0.17)) +
-  scale_x_discrete(labels = c("schwarz", "rot", "blau")) +
-  labs(title = "Treatment coding",
-       subtitle = "Intercept ist der Mittelwert von Gruppe A.1",
-       x = "Hautfarbe", y = "Schlangenlänge [cm]")
-```
 :::
 
 ## Prädiktives Modell
