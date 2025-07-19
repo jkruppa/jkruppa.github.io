@@ -1,6 +1,6 @@
 ```{r echo = FALSE}
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, see,
-               broom)
+               broom, ggimage)
 cov1_tbl <- read_xlsx("data/regression_data.xlsx", sheet = "covariate")
 source("images/R/stat-modeling-R.R")
 source("images/R/stat-linear-reg-basic.R")
@@ -472,6 +472,15 @@ ggplot(cov1_tbl, aes(weight, jump_length)) +
        x = "Gewicht [mg]", y = "Sprungweite [cm]")
 ```
 
+Eigentlich wollen wir ja ein kausales Modell rechnen, da wir an dem Effekt der Kovariate Gewicht in \[mg\] der Hundeflöhe interessiert sind. Wenn also die Kovariate $c_1$ um eine Einheit ansteigt, um wie viel verändert sich dann der Messwert $y$?
+
+Der Koeffizient $\beta_1$ als Steigung der Graden gibt uns also den Einfluss oder den kausalen Zusammenhang zwischen dem Messwert $y$ und der Kovariate $c_1$ wieder. Im einem ersten Schritt schauen wir uns die Ausgabe der Funktion `summary()` unseres Modells an. Wir erhalten dann folgende Ausgabe.
+
+```{r}
+#| eval: false
+cov1_fit |> summary()
+```
+
 ```{r}
 #| message: false
 #| echo: false
@@ -482,79 +491,7 @@ ggplot(cov1_tbl, aes(weight, jump_length)) +
 #| fig-cap: "Scatterplot der Sprungweite in [cm] und dem Gewicht in [mg] von sieben Hundeflöhen. Die lineare Grade und die Gradengleichung wurden ergänzt. *[Zum Vergrößern anklicken]*"
 #| label: fig-model-in-R-c1-summary
 
-pacman::p_load(ggimage)
-
-tibble(x = 0:10, y = 0:10) |> 
-  ggplot(aes(x, y)) +
-  xlim(c(0, 10)) + ylim(c(0, 10)) +
-  theme_void() +
-  geom_image(data = tibble(x = 5, y = 5),
-             aes(image = "images/regression_summary.png"), size = 0.95) +
-  ## Residuen
-  geom_tile(aes(x = 5, y = 6.6, width = 5.9, height = 1.5), fill = "#56B4E9",
-            alpha = 0.005, color = "#56B4E9", linewidth = 0.25) +
-  annotate("label", x = 2, y = 7.4, label = "Informationen zu den Residuen", size = 2.5, 
-           fontface = 2, fill = "#56B4E9", alpha = 1, hjust = "left") +
-  annotate("label", x = 0.5, y = 7.4, label = "Median ≈ 0\n1st ≈ 3rd\nmin ≈ max", size = 3.5, 
-           fontface = 1, fill = "#56B4E9", alpha = 0.5, hjust = "left") +  
-  annotate("label", x = 0.45, y = 8.25, label = "Optimal", size = 2.5, 
-           fontface = 2, fill = "#56B4E9", alpha = 1, hjust = "left") +
-  geom_curve(aes(x = 1, y = 6.6, xend = 2, yend = 6.2),
-             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
-             curvature = 0.3, color = "#56B4E9") +
-  ## Koeffizienten
-  geom_tile(aes(x = 5, y = 4.8, width = 5.9, height = 1.8), fill = "#009E73",
-            alpha = 0.005, color = "#009E73", linewidth = 0.25) +
-  annotate("label", x = 2, y = 5.75, label = "Informationen zu den Koeffizienten", size = 2.5, 
-           fontface = 2, fill = "#009E73", alpha = 1, hjust = "left") +
-  annotate("label", x = 8.5, y = 5, label = expression(H[0]*":"~beta[0]*"="*0), size = 3.5, 
-           fontface = 1, fill =  "#009E73", alpha = 0.5, hjust = "left") +  
-  annotate("label", x = 8.5, y = 4.4, label = expression(H[0]*":"~beta[1]*"="*0), size = 3.5, 
-           fontface = 1, fill =  "#009E73", alpha = 0.5, hjust = "left") +  
-  annotate("label", x = 8.45, y = 5.4, label = "Hypothesen", size = 2.5, 
-           fontface = 2, fill = "#009E73", alpha = 1, hjust = "left") +
-  geom_curve(aes(x = 8.4, y = 5, xend = 6.65, yend = 4.6),
-             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
-             curvature = 0.1, color = "#009E73") +
-  geom_curve(aes(x = 8.4, y = 4.3, xend = 6.65, yend = 4.1),
-             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
-             curvature = -0.1, color = "#009E73") +
-  annotate("text", x = 1.5, y = 4.75, label = "y-Achsenabschnitt", size = 4, 
-           fontface = 3, color = "gray50", hjust = "right") +
-  annotate("text", x = 1.5, y = 4, label = "Steigung", size = 4, 
-           fontface = 3, color = "gray50", hjust = "right") +
-  geom_curve(aes(x = 1.6, y = 4.75, xend = 2.1, yend = 4.6),
-             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
-             curvature = -0.1, color = "gray50") +
-  geom_curve(aes(x = 1.6, y = 4, xend = 2.1, yend = 4.1),
-             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
-             curvature = 0.1, color = "gray50") +
-  ## ANOVA
-  geom_tile(aes(x = 5, y = 1.7, width = 5.9, height = 0.4), fill = "#E69F00",
-            alpha = 0.005, color = "#E69F00", linewidth = 0.25) +
-  annotate("label", x = 2, y = 1.4, label = "Informationen zu der ANOVA", size = 2.5, 
-           fontface = 2, fill = "#E69F00", alpha = 1, hjust = "left") +
-  ## Modelgüte
-  geom_tile(aes(x = 5, y = 2.4, width = 5.9, height = 0.9), fill = "#D55E00",
-            alpha = 0.005, color = "#D55E00", linewidth = 0.25) +
-  annotate("label", x = 2, y = 2.9, label = "Informationen zu der Modelgüte", size = 2.5, 
-           fontface = 2, fill = "#D55E00", alpha = 1, hjust = "left") +
-  annotate("label", x = 5, y = 0.75, label = "Bestimmtheitsmaß > 0.7", size = 3.5, 
-           fontface = 1, fill = "#D55E00", alpha = 0.5, hjust = "left") +
-  annotate("label", x = 4.95, y = 1.1, label = "Optimal", size = 2.5, 
-           fontface = 2, fill = "#D55E00", alpha = 1, hjust = "left") +
-  geom_curve(aes(x = 4.9, y = 0.7, xend = 4.4, yend = 2),
-             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
-             curvature = -0.3, color = "#D55E00") 
-
-```
-
-Eigentlich wollen wir ja ein kausales Modell rechnen, da wir an dem Effekt der Kovariate Gewicht in \[mg\] der Hundeflöhe interessiert sind. Wenn also die Kovariate $c_1$ um eine Einheit ansteigt, um wie viel verändert sich dann der Messwert $y$?
-
-Der Koeffizient $\beta_1$ als Steigung der Graden gibt uns also den Einfluss oder den kausalen Zusammenhang zwischen dem Messwert $y$ und der Kovariate $c_1$ wieder. Im einem ersten Schritt schauen wir uns die Ausgabe der Funktion `summary()` unseres Modells an. Wir erhalten dann folgende Ausgabe.
-
-```{r}
-cov1_fit |> summary()
+p_lm_summary_explained 
 ```
 
 Zuerst sehen wir nochmal welche Funktion wir aufgerufen haben und welches Modell gerechnet wurde. Dann kommen die Informationen zu den Residuen. Wenn alle Beobachtungen auf der Graden liegen würden, dann wären alle Residuen gleich Null. Bei zu wenigen Beobachtungen erhalten wir dann leider keine zusammenfassende Information zu den Residuen. Die Information zum Median und den Quartilen müssen wir uns dann selber einmal bauen.
@@ -565,7 +502,7 @@ cov1_fit |> residuals() |> summary()
 
 Die negativen Abweichungen und die positiven Abweichungen sollten sich auf Null aufaddieren. Der Median sollte ebenfalls dabei Null sein. Das 1st Quartile und das 3rd Quartile sollten ebenfalls im Betrag gleich sein. Deshalb sind auch die Residuen bei einer guten Modellanpassung normalverteilt mit einem Mittelwert von Null. Hier haben wir aber einigermaßen normalverteilte Residuen vorliegen. Die Residuen schauen wir uns aber nochmal im [Kapitel zur Modelgüte](#sec-lin-reg-quality) genauer an.
 
-Der Reststandardfehler `Residual standard error` hat mehrere Vorteile. Er sagt Ihnen direkt, wie genau die Vorhersagen des Modells unter Verwendung der Einheiten der abhängigen Variable sind. Diese Statistik gibt an, wie weit die Datenpunkte im Durchschnitt von der Regressionslinie entfernt sind.
+Der Reststandardfehler (R `Residual standard error`, abk. *RSE*) hat mehrere Vorteile. Er sagt dir direkt, wie genau die Vorhersagen des Modells unter Verwendung der Einheiten des Messwertes sind. Der Reststandardfehler gibt an, wie weit die Datenpunkte im Durchschnitt von der Graden entfernt sind.
 
 ::: callout-warning
 ## Achtung, bitte beachten!
