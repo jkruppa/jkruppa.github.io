@@ -156,7 +156,7 @@ p_lm_summary_explained <- tibble(x = 0:10, y = 0:10) |>
   xlim(c(0, 10)) + ylim(c(0, 10)) +
   theme_void() +
   geom_image(data = tibble(x = 5, y = 5),
-             aes(image = "images/regression_summary.png"), size = 0.95) +
+             aes(image = "images/regression_summary_00.png"), size = 0.95) +
   ## Residuen
   geom_tile(aes(x = 5, y = 6.6, width = 5.9, height = 1.5), fill = "#56B4E9",
             alpha = 0.005, color = "#56B4E9", linewidth = 0.25) +
