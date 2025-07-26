@@ -390,11 +390,13 @@ ggplot(data = fac1_tbl,
 
 #### Theoretischer Datensatz {.unnumbered .unlisted}
 
-Abschließend kommen wir noch zu einem theoretischen Datensatz dem ich @kery2010introduction entlehnt habe. Ich möchte nochmal zeigen, wie R intern mit der Modellmatrix die Berechnungen durchführt. Das hat mich interessiert und deshalb habe ich es einmal für mein Verständnis aufgeschrieben. Wenn es dich auch interessiert, dann kannst du in den entsprechenden Tabs weiter unten einmal nachschauen. Hier also erstmal ein sehr simpler theoretischer Datensatz zu Körperlängen von Schlangen.
+Abschließend kommen wir noch zu einem theoretischen Datensatz dem ich @kery2010introduction entlehnt habe. Ich möchte nochmal zeigen, wie R intern mit der Modellmatrix die Berechnungen durchführt. Das hat mich interessiert und deshalb habe ich es einmal für mein Verständnis aufgeschrieben. Wenn es dich auch interessiert, dann kannst du in den entsprechenden Tabs weiter unten einmal nachschauen. Hier also erstmal ein sehr simpler theoretischer Datensatz zu Körperlängen von Schlangen. Wir müssen hier dann noch die Faktoren einmal umwandeln, damit wir auch später die Modellmatrix sauber vorliegen haben. Deshalb hier die explizite Benennung der Level in der Funktion `factor()`.
 
 ```{r}
 #| message: false
-snake_tbl <- read_xlsx("data/regression_data.xlsx", sheet = "theory")
+snake_tbl <- read_xlsx("data/regression_data.xlsx", sheet = "theory") |> 
+  mutate(region = factor(region, levels = c("west", "nord")),
+         color = factor(color, levels = c("schwarz", "rot", "blau")))
 ```
 
 In der folgenden Tabelle ist der Datensatz `snake_tbl` nochmal dargestellt. Wir haben die Schlangenlänge `svl` als Messwert $y$ sowie das Gewicht der Schlangen `mass` als kontinuierliche Einflussvariable, die Sammelregion `region` und die Farbe der Schlangen `color` und als kategoriale Einflussvariablen mit unterschiedlichen Anzahlen an Gruppen. Die Region `region` ist also ein Faktor mit zwei Leveln und die Schlangenfarbe `color` ein Faktor mit drei Leveln. Ich nutze den Datensatz also einmal als einen Spieldatensatz um die Modellierung theoretisch besser nachvollziehen zu können.
@@ -1091,15 +1093,17 @@ Schön das wir eine etwas wirre Wiedergabe der Koeffizienten in einem faktoriell
 
 #### $f_A$ mit 2 Leveln {.unnumbered .unlisted}
 
-Im diesem Schritt wollen wir uns einmal das Modell mit einem kategoriellen $x$ mit 2 Leveln anschauen. Wir bauen uns ein Modell mit der Variable `region`. Die Funktion `model.matrix()` gibt uns die Modelmatrix wieder.
+In einem ersten Schritt wollen wir uns einmal das Modell mit einem Faktor mit 2 Leveln anschauen. Wir bauen uns hier ein Modell mit dem Datensatz der Körperlängen der Schlangen. Daher können wir dann die Variable `region` verwenden. Wir haben ja nur zwei Regionen in denen wir die Schlangen gesammelt haben. Die Funktion `model.matrix()` gibt uns die Modelmatrix wieder.
 
 ```{r}
 model.matrix(svl ~ region, data = snake_tbl) |> as_tibble()
 ```
 
-In der ersten Spalte ist der Intercept angegeben, danach folgt dann die Spalte `regionnord`. In dieser Spalte steht die Dummykodierung für die Variable `region`. Die ersten drei Schlangen kommen nicht aus der Region `nord` und werden deshalb mit einen Wert von 0 versehen. Die nächsten vier Schlangen kommen aus der Region `nord` und erhalten daher eine 1 in der Spalte.
+In der ersten Spalte ist der Intercept angegeben, danach folgt dann die Spalte `regionwest`. In dieser Spalte steht die Dummykodierung für die Variable `region`. Die ersten drei Schlangen kommen nicht aus der Region `nord` und werden deshalb mit einen Wert von 0 versehen. Die nächsten fünf Schlangen kommen aus der Region `nord` und erhalten daher eine 1 in der Spalte. Die Spalte gibt im Prinzip eine ja/nein Antwort auf die Frage in dem Spaltennamen. Also in unserem Fall ist es die Frage: *"Kommt die Schlange aus der Region `nord?`"*.
 
-Wir können die Modellmatrix auch mathematisch schreiben und die $y$ Spalte für das Outcome `svl` ergänzen. Eben so ergänzen wir die $\beta$-Werte als mögliche Koeefizienten aus der linearen Regression sowie die Residuen als Abweichung von der gefitteten Grade.
+Das sieht hier sehr seltsam aus, ist aber am Ende eine andere Art der Kodierung. Wir sprechen hier auch von der [Dummykodierung](https://de.wikipedia.org/wiki/Dummy-Variable)
+
+Wir können die Modellmatrix auch mathematisch schreiben und die $y$ Spalte für das Outcome `svl` ergänzen. Eben so ergänzen wir die $\beta$-Werte als mögliche Koeffizienten aus der linearen Regression sowie die Residuen als Abweichung von der gefitteten Grade.
 
 $$
  \begin{pmatrix}
@@ -1143,14 +1147,14 @@ $$
 Jetzt brauche wir die Koeffizienten aus dem linearen Modell, welches wir wie folgt fitten. Wir nutzen dann die Funktion `coef()` um uns die Koeffizienten wiedergeben zu lassen.
 
 ```{r}
-fit_2 <- lm(svl ~ region, data = snake_tbl) 
-fit_2 |> coef() |> round(2)
+fit_1fac_2lvl <- lm(svl ~ region, data = snake_tbl) 
+fit_1fac_2lvl |> coef() |> round(2)
 ```
 
-Die Funktion `residuals()` gibt uns die Residuen der Graden aus dem Objekt `fit_2` wieder.
+Die Funktion `residuals()` gibt uns die Residuen der Graden wieder.
 
 ```{r}
-fit_2 |> residuals() |> round(2)
+fit_1fac_2lvl |> residuals() |> round(2)
 ```
 
 Wir können jetzt die Koeffizienten ergänzen mit $\beta_0 = 41.33$ für den Intercept. Weiter ergänzen wir die Koeffizienten für die Region und das Level `nord` mit $\beta^{region}_{nord} = 12.07$. Ebenfalls setzen wir Werte für die Residuen für jede der Beobachtungen in die Gleichung ein.
@@ -1202,7 +1206,7 @@ c(41.33 + 0*12.07 - 1.33,
   41.33 + 1*12.07 - 4.40) |> round() 
 ```
 
-Die Zahlen, die wir rauskriegen, sind die gleichen Werte die unser Outcome $y$ hat.
+Wir kriegen am Ende die gleichen Körperlängen der Schlangen wiedergegeben. Das hat also alles so funktioniert wie es sollte.
 
 #### $f_A$ mit \>2 Leveln {.unnumbered .unlisted}
 

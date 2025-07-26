@@ -6,7 +6,7 @@
 #| echo: false
 
 pacman::p_load(readxl, knitr, kableExtra, tidyverse, magrittr, conflicted, broom,
-               simstudy, openxlsx, ggrepel, ggpmisc,
+               simstudy, openxlsx, ggrepel, ggpmisc, patchwork, scales,
                parameters, performance, gtsummary)
 conflicts_prefer(dplyr::filter)
 ```
@@ -19,16 +19,20 @@ Wir brauchen immer mal wieder etwas komplexere Daten und deshalb habe ich die Da
 
 ## Olympiade der Tiere
 
+Wir beschäftigen uns ja zu Beginn mit den Sprungweiten von verschiedenen Floharten. Hier habe ich dann nochmal einen anderen Datensatz mitgebracht. In meinem kleinen Datensatz zur Olympiade der Tiere habe ich die wissenschaftliche Arbeit von @yang2014duration als Grundlage genommen. Wir haben hier das Körpergewicht und die durchschnittliche Dauer des Urinierens vorliegen. Diese Liste habe ich dann einmal erweitert. Ich habe dann noch die Sprungweiten und Sprunghöhen der Tiere ergänzt, soweit es mit möglich war die entsprechenden Informationen zu finden.
+
 ```{r}
 olymp_tbl <- read_excel("data/animal_olympics.xlsx")
 ```
+
+In der folgenden Tabelle findest du dann einmal einen Auszug aus den Daten. Ich habe hier einige Leerstellen, da ich nicht zu allen Tierarten die entsprechenden Informationen vorliegen habe. Dann müssen wir eben mit Leerstellen leben.
 
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
 #| label: tbl-example-olymp
-#| tbl-cap: "Auszug aus dem Daten zu den kranken Ferkeln."
+#| tbl-cap: "Auszug aus dem Daten zu der Olympiade der Tiere."
 
 olymp_tbl <- read_excel("data/animal_olympics.xlsx")
 
@@ -40,14 +44,16 @@ rbind(head(olymp_tbl),
   kable(align = "c", "pipe")
 ```
 
-Mit den folgenden erhobenen Variablen.
+Die Daten beinhalten dann die folgenden erhobenen Variablen. Teilweise sind die Informationen dann aus @yang2014duration und @cadiergues2000comparison entnommen. In anderen Fällen habe ich das Internet befragt und die erste Information, die valide klang, übernommen.
 
--   **animal**, der Name der Tierart.
+-   **animal**, der Name der Tierart im allgemeinen Sprachgebrauch.
 -   **sex**, das bestimmte Geschlecht der Tierart.
 -   **mass**, das Gewicht der Tierart in \[kg\] entnommen @yang2014duration.
 -   **duration**, die Dauer des Urinierens in \[s\] der Tierart entnommen @yang2014duration.
 -   **jump_height**, die Sprunghöhe der Tierart in \[cm\].
 -   **jump_length**, die Sprungweite der Tierart in \[cm\].
+
+Dann können wir uns auch einmal einen Auszug aus den Daten in der folgenden Abbildung anschauen. Ich habe mit hier für den Zusammenhang zwischen der Dauer des Urinierens und dem Körpergewicht sowie dem Zusammenhang zwischen der Sprunghöhe und dem Sprunggewicht entschieden.
 
 ```{r}
 #| echo: false
@@ -55,11 +61,24 @@ Mit den folgenden erhobenen Variablen.
 #| warning: false
 #| label: fig-exp-olymp-01
 #| fig-align: center
-#| fig-height: 3.75
+#| fig-height: 7.5
 #| fig-width: 7
-#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Scatterplot zu dem Zusammenahng von verschiedenen Variablen aus dem Datensatz zu der Olympiade der Tiere. Eine lineare Regressionsgleichung sowie die entsprechende Grade sind ergänzt. **(A)** Hängt die Dauer des Urinierens von dem Körpergewicht ab? **(B)** Gibt es einen Zusammenhang zwischen der dem Körpergewicht und der maximalen Sprunghöhe? *[Zum Vergrößern anklicken]*"
 
-olymp_tbl |> 
+p1 <- olymp_tbl |> 
+  select(animal, mass, duration) |>
+  filter(mass > 1) |> 
+  ggplot(aes(mass, duration)) +
+  theme_minimal() +
+  geom_point() +
+  geom_text_repel(aes(label = animal))  +
+  stat_poly_line(color = "#56B4E9", linewidth = 1,
+                 fullrange = TRUE, se = FALSE) +
+  stat_poly_eq(use_label("eq"), size = 5, label.x = "right") +
+  labs(x = "Dauer des Urinierens in [s]", y = "Sprunghöhe in [cm]") +
+  theme(panel.grid.minor = element_blank()) 
+
+p2 <- olymp_tbl |> 
   select(animal, mass, jump_height) |>
   filter(mass > 1) |> 
   group_by(animal) |> 
@@ -76,8 +95,13 @@ olymp_tbl |>
   labs(x = "Körpergewicht in [kg]", y = "Sprunghöhe in [cm]") +
   theme(panel.grid.minor = element_blank())
 
-
+p1 + p2 +
+  plot_layout(ncol = 1) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
+
+Wir nutzen den Datensatz in verschiedenen Kapiteln.
 
 ::: callout-tip
 ## Datei von den Kichererbsen in Brandenburg
