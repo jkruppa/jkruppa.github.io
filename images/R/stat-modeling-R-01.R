@@ -29,7 +29,7 @@ ggplot(aes(as.numeric(f), y)) +
   theme_minimal() +
   geom_line(aes(y = predict(group_fit)), color = "#CC79A7", linewidth = 1) +
   geom_point(color = "gray50", alpha = 0.5, size = 4) +
-  stat_summary(fun.data=mean_sdl, mult=1, 
+  stat_summary(fun.data=mean_sdl, , fun.args = list(mult = 1), 
                geom="pointrange", shape = 23, 
                fill = c("#56B4E9", "#E69F00"), size = 0.75) +
   annotate("text", x = 0.75, y = 3, hjust = "left", color = "#CC79A7", size = 4, 
