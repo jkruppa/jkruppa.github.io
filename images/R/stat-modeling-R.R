@@ -485,6 +485,38 @@ p_c1_fa_2lvl_fb_3lvl_model <- ggplot() +
   scale_x_continuous(limits = c(-10, 10)) +
   scale_y_continuous(limits = c(-10, 10)) 
 
+p_c2_fa_2lvl_fb_3lvl_model <- ggplot() +
+  theme_void() +
+  annotate("text", -1.25, 0, 
+           label = expression(bold(Y)~"~"~bold(c[1])~"+"~bold(c[2])~"+"~bold(f[A])~"+"~bold(f[B])), 
+           size = 10, fontface = 2, hjust = "center") +
+  annotate("text", x = -7.5, y = 7.5, label = "Covariate 1", size = 6, 
+           fontface = 3, color = "gray50") +
+  annotate("text", x = -5, y = -7, label = "Covariate 2", size = 6, 
+           fontface = 3, color = "gray50") +
+  annotate("text", x = 4, y = -7, label = "Faktor A", size = 6, 
+           fontface = 3, color = "gray50") +
+  annotate("text", x = 6.5, y = 7.5, label = "Faktor B", size = 6, 
+           fontface = 3, color = "gray50") +
+  geom_curve(aes(x = 2.5, y = -7, xend = 1, yend = -3),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.35, color = "gray50") +
+  geom_curve(aes(x = -3, y = -7, xend = -1.5, yend = -3),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.35, color = "gray50") +
+  geom_curve(aes(x = 5, y = 7.5, xend = 3.5, yend = 3),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.35, color = "gray50") +
+  geom_curve(aes(x = -5.5, y = 7.5, xend = -4, yend = 2),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.35, color = "gray50") +
+  annotate("label", x = 1, y = 3.5, label = "3 Level", size = 3, 
+           fontface = 2, fill = "#56B4E9", alpha = 0.5) +
+  annotate("label", x = 3.5, y = -3.5, label = "2 Level", size = 3, 
+           fontface = 2, fill = "#56B4E9", alpha = 0.5) +
+  scale_x_continuous(limits = c(-10, 10)) +
+  scale_y_continuous(limits = c(-10, 10)) 
+
 p_mixed_model <- ggplot() +
   theme_void() +
   annotate("text", 0, 0, 

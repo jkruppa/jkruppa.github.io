@@ -1,7 +1,21 @@
 ```{r echo = FALSE}
-pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc)
+pacman::p_load(tidyverse, readxl, knitr, kableExtra, patchwork)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+source("images/R/stat-modeling-R.R")
+set.seed(20250708)
+theme_modeling <- function() {
+  theme_minimal() +
+    theme(panel.grid.minor = element_blank(),
+          plot.background = element_rect(fill = "white", color = NA),
+          plot.title = element_text(size = 16, face = "bold"),
+          plot.subtitle = element_text(size = 12, face = "italic"),
+          plot.caption = element_text(face = "italic"),
+          axis.title = element_text(size = 12, face = "bold"),
+          axis.text = element_text(size = 12),
+          strip.text = element_text(face = "bold"),
+          strip.background = element_rect(fill = "grey80", color = NA))
+}
 ```
 
 # Multiple lineare Regression {#sec-mult-reg-basic}
@@ -18,45 +32,79 @@ cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 Dieses Kapitel wird in den nächsten Wochen geschrieben und ist damit meine aktuelle Großbaustelle. Ich plane zum Beginn des WiSe 2025/26 eine fertige Version des Kapitels erstellt zu haben. Während das Kapitel entsteht, funktioniert so manches dann nicht so wie es soll. Bitte daher hier dann abwarten.
 :::
 
+## Allgemeiner Hintergrund
+
 [Energy expenditure and obesity across the economic spectrum](https://www.pnas.org/doi/10.1073/pnas.2420902122)
 
-In dem vorherigen Kapitel haben wir uns mit der simplen linearen Regression beschäftigt. In diesem Kapitel wollen wir uns nun mit den Grundlagen der *multiplen* linearen Regression beschäftigen. Sagen, dass wir ein multiples lineares Modell vorliegen haben, wenn wir mehrere Einflussvariable $x_1$ bis $x_p$ vorliegen haben. Bei dem Outcome $y$, was einer Verteilung folgt, ändert sich erstmal nichts. Wir wollen jetzt herausfinden, welchen Einfluss oder Effekt die Variablen $x_1, ..., x_p$ auf das Outcome $y$ hat. Sehr simple gesprochen legen wir eine Gerade durch eine *mehrdimensionale* Punktewolke. Wir konzentrieren uns hier in diesem Kapitel auf nur normalverteilte Outcomes. Später kannst du dann aber auch andere Verteilungsfamilien modellieren.
+#### Sprachlicher Hintergrund {.unnumbered .unlisted}
 
-::: {layout="[15,85]" layout-valign="center"}
-![](images/angel_01.png){fig-align="center" width="100%"}
+> *"In statistics courses taught by statisticians we don't use "independent variable" because we use independent on to mean stochastic independence. Instead we say predictor or covariate (either). And, similarly, we don't say "dependent variable" either. We say response." --- [User berf auf r/AskStatistics](https://www.reddit.com/r/AskStatistics/comments/qt1hvu/comment/hkigiks/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button)*
 
-> Wenn du jetzt denkst 'Hä? Was soll denn mehrdimensional bedeuten?', dann besuche doch einmal die fantastische Seite [Explained Visually \| Ordinary Least Squares Regression](https://setosa.io/ev/ordinary-least-squares-regression/) um selber zu erfahren, was eine multiple lineare Regression macht. Auf der Seite findest du interaktive Abbildungen, die dir das Konzept der linearen Regression sehr anschaulich nachvollziehen lassen.
+Wenn wir uns mit dem statistischen Modellieren beschäftigen wollen, dann brauchen wir auch Worte um über das Thema reden zu können. Statistik wird in vielen Bereichen der Wissenschaft verwendet und in jedem Bereich nennen wir dann auch Dinge anders, die eigentlich gleich sind. Daher werde ich mir es hier herausnehmen und auch die Dinge so benennen, wie ich sie für didaktisch sinnvoll finde. Wir wollen hier was verstehen und lernen, somit brauchen wir auch eine klare Sprache.
+
+::: {layout="[15,85]" layout-valign="top"}
+![](images/personal_opinion.png){fig-align="center" width="100%"}
+
+> *"Jeder nennt in der Statistik sein Y und X wie er möchte. Da ich hier nicht nur von Y und X schreiben will, führe ich eben die Worte ein, die ich nutzen will. Damit sind die Worte dann auch richtig, da der Kontext definiert ist. Andere mögen es dann anders machen. Ich mache es eben dann so. Danke." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
 :::
 
-Wir erinnern und nochmal, das ein *simples* lineares Modell nur ein $x_1$ hat:
+In dem folgenden Kasten erkläre ich nochmal den Gebrauch meiner Begriffe im statistischen Testen. Es ist wichtig, dass wir hier uns klar verstehen. Zum einen ist es angenehmer auch mal ein Wort für ein Symbol zu schreiben. Auf der anderen Seite möchte ich aber auch, dass du dann das Wort richtig einem Konzept im statistischen Modellieren zuordnen kannst. Deshalb einmal hier meine persönliche und didaktische Zusammenstellung meiner Wort im statistischen Modellieren. Du kannst dann immer zu dem Kasten zurückgehen, wenn wir mal ein Wort nicht mehr ganz klar ist. Die fetten Begriffe sind die üblichen in den folgenden Kapiteln. Die anderen Worte werden immer mal wieder in der Literatur genutzt.
 
-$$
-y \sim x_1
-$$
+{{< include stat-modeling/stat-modeling-callout-words.qmd >}}
 
-Ein *multiples* lineares Modell hat von $x_1$ bis $x_p$ Einflussvariablen:
+## Theoretischer Hintergrund
 
-$$
-y \sim x_1 + x_2 + ... + x_p
-$$
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 1.5
+#| fig-width: 7
+#| fig-cap: "Der Zusammenhang von Daten, dem statistischen Modell und dem Fehler. Das Modell versucht durch ein statistisches Modell $f(x)$ den Zusammenhang zwischen den Einflussvariablen dem Messwert zu erklären. Den Anteil des unerklärten Messwert geht in den Fehlerterm. *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-model-abstract
 
-Wir brauchen viele der Konzepte aus den vorherigen Kapiteln zur Modellgüte sowie Konfidenzintervallen. Vieles fällt hier zusammen. Schau dir ruhig nochmal die vorherigen Kapitel an, wenn dir etwas unklar ist. Häufig wollen wir auch etwas spezifischer sein. Wir schreiben daher einen Faktor mit einem $f$ wie folgt.
+p_model_abstract 
+```
 
-$$
-y \sim f_1
-$$
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2.25
+#| fig-width: 7
+#| fig-cap: "Formelschreibweise der simplen linearen Regression beinhaltend die Koeffizienten $\\beta_0$ für den y-Achsenabschnitt sowie $\\beta_1$ für die Steigung der Graden für eine Einflussvariable $x_1$. Die Residuen werden durch $\\epsilon$ abgebildet. *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-07
 
-Wenn wir dann noch einen Block mit hinzunehmen, dann erweitern wir das Modell um einen Blockfaktor mit einem $b$ wie folgt.
+p_simple_model
+```
 
-$$
-y \sim f_1 + b_1
-$$
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2.25
+#| fig-width: 7
+#| fig-cap: "Formelschreibweise der multiplen linearen Regression beinhaltend die Koeffizienten $\\beta_0$ für den y-Achsenabschnitt sowie $\\beta_1$ bis $\\beta_p$ für die partielle Steigung der Graden für jede Einflussvariable $x_1$ bis $x_p$. Die Residuen werden durch $\\epsilon$ abgebildet. *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-04
 
-Es kann auch sein, dass wir noch einen zufälligen Effekt (eng. *random effect*) mit in das Modell nehmen wollen. Wir bezeichnen einen zufälligen Effekt mit einem $z$ wie folgt.
+p_mult_model 
+```
 
-$$
-y \sim f_1 + z_1
-$$
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2
+#| fig-width: 7
+#| fig-cap: "Statistische Modellschreibweise in R mit dem Messwert auf der linken Seite und den Einflussvariablen auf der rechten Seite der Tilde. Die Platzhalter $Y$ und $X$ werden durch die Spaltennamen im Datensatz ersetzt. *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-20
+
+p_lhs_rhs_r
+```
 
 Oder konkreter können wir sagen, dass `jump_length` von `animal`, `sex` und `weight` abhängt und wir diesen Zusammenhang modellieren wollen.
 
@@ -64,27 +112,11 @@ $$
 jump\_length \sim animal + sex + weight 
 $$
 
-Das hilft uns jetzt nur bedingt, denn wir wollen ja aus einer Modellierung in R die Koeffizienten der Regression wiederbekommen. Dafür müssen wir uns nochmal klar werden, was die Koeffizienten einer Regression sind. Das sind zum einen der y-Achsenabschnitt $\beta_0$ und die Steigung der einzelnen Variablen mit $\beta_1$ bis $\beta_p$. Wir erhalten auch bei einem multiplen Regressionsmodell nur einen Vektor mit den Residuen wieder.
+::: {layout="[15,85]" layout-valign="center"}
+![](images/angel_01.png){fig-align="center" width="100%"}
 
-$$
-y \sim \beta_0 + \beta_1 x_1 + \beta_2 x_2 + ... + \beta_p x_p + \epsilon
-$$
-
-Dennoch sind die Residuen $\epsilon$ normalverteilt. Wir haben im Mittel einen Abstand der $\epsilon$'s zur geraden von 0 und eine Streuung von $s^2_{\epsilon}$.
-
-$$
-\epsilon \sim \mathcal{N}(0, s^2_{\epsilon})
-$$
-
-Wir zeichen im Prinzip eine Gerade durch den $p$-dimensionellen Raum.
-
-In diesem Kapitel wollen wir uns nun folgende Aspekte einmal genauer anschauen. Wir gehen hier nicht so sehr auf den theoretischen Hintergrund ein, wollen aber verstehen wie wir die Statistik nutzen und anwenden können.
-
--   Wir besprechen die Modellmatrix in @sec-modell-matrix. Wir wollen uns Fragen, wie R eigentlich zu den Koeffizienten der Regressionsgleichung kommt.
--   Wir besprechen die Interpretation der Koeffizienten der linearen Regression in @sec-interpret-x.
--   Wir fragen uns, was sind eigentlich Confounder (deu. *Verwechsler*) im @sec-confounder.
--   Wir fragen uns, was ist eigentlich ein Variance Inflation Factor (VIF) für kontinuierliche $x$ in @sec-vif.
--   Wir besprechen, wie wir verschiedene Modelle miteinander vergleichen können in @sec-model-basic-compare.
+> Wenn du jetzt denkst 'Hä? Was soll denn mehrdimensional bedeuten?', dann besuche doch einmal die fantastische Seite [Explained Visually \| Ordinary Least Squares Regression](https://setosa.io/ev/ordinary-least-squares-regression/) um selber zu erfahren, was eine multiple lineare Regression macht. Auf der Seite findest du interaktive Abbildungen, die dir das Konzept der linearen Regression sehr anschaulich nachvollziehen lassen.
+:::
 
 ::: callout-tip
 ## Weitere Tutorien für die multiple lineare Regression
@@ -111,384 +143,143 @@ cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
 
-## Die Modellmatrix in R {#sec-modell-matrix}
+## Daten
 
-Als erstes wollen wir verstehen, wie ein Modell *in* R aussieht. Dann können wir auch besser verstehen, wie die eigentlichen Koeffizienten aus dem Modell entstehen. Wozu brauche ich das? Eine gute Frage. Du brauchst das Verständnis der Modellmatrix, wenn du verstehen willst *wie* R in einer linearen Regression zu den Koeffizienten kommt. Wir bauen uns dafür ein sehr simplen Datensatz. Wir bauen uns einen Datensatz mit Schlangen.
+#### Modellierung von Flöhen {.unnumbered .unlisted}
+
+```{r}
+flea_model_tbl <- read_excel("data/fleas_model_data.xlsx") |> 
+  mutate(feeding = as_factor(feeding),
+         stage = as_factor(stage),
+         bonitur = as.numeric(bonitur),
+         infected = as.numeric(infected))
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-model-table
+#| tbl-cap: "Tabelle der foo."
+
+model_raw_tbl <- read_excel("data/fleas_model_data.xlsx")
+
+rbind(head(model_raw_tbl, n = 3),
+      rep("...", times = ncol(model_raw_tbl)),
+      tail(model_raw_tbl, n = 3)) |> 
+  kable(align = "c", "pipe")
+```
+
+#### Theoretischer Datensatz {.unnumbered .unlisted}
+
+Abschließend kommen wir noch zu einem theoretischen Datensatz dem ich @kery2010introduction entlehnt habe. Ich möchte nochmal zeigen, wie R intern mit der Modellmatrix die Berechnungen durchführt. Das hat mich interessiert und deshalb habe ich es einmal für mein Verständnis aufgeschrieben. Wenn es dich auch interessiert, dann kannst du in den entsprechenden Tabs weiter unten einmal nachschauen. Hier also erstmal ein sehr simpler theoretischer Datensatz zu Körperlängen von Schlangen. Wir müssen hier dann noch die Faktoren einmal umwandeln, damit wir auch später die Modellmatrix sauber vorliegen haben. Deshalb hier die explizite Benennung der Level in der Funktion `factor()`.
 
 ```{r}
 #| message: false
-snake_tbl <- tibble(
-  svl = c(40, 45, 39, 51, 52, 57, 58, 49),
-  mass = c(6, 8, 5, 7, 9, 11, 12, 10),
-  region = as_factor(c("west","west", "west", "nord","nord","nord","nord","nord")),
-  color = as_factor(c("schwarz", "schwarz", "rot", "rot", "rot", "blau", "blau", "blau"))
-) 
+snake_tbl <- read_xlsx("data/regression_data.xlsx", sheet = "theory_mult") |> 
+  mutate(region = factor(region, levels = c("west", "nord")),
+         color = factor(color, levels = c("schwarz", "rot", "blau")))
 ```
 
-In der @tbl-snakes ist der Datensatz `snake_tbl` nochmal dargestellt. Wir haben die Schlangenlänge `svl` als Outcome $y$ sowie das Gewicht der Schlangen `mass`, die Sammelregion `region` und die Farbe der Schlangen `color`. Dabei ist `mass` eine kontinuierliche Variable, `region` eine kategorielle Variable als Faktor mit zwei Leveln und `color` eine kategorielle Variable als Faktor mit drei Leveln.
+In der folgenden Tabelle ist der Datensatz `snake_tbl` nochmal dargestellt. Wir haben die Schlangenlänge `svl` als Messwert $y$ sowie das Gewicht der Schlangen `mass` als kontinuierliche Einflussvariable sowie den Durchmesser der Schlange $diameter$, die Sammelregion `region` und die Farbe der Schlangen `color` und als kategoriale Einflussvariablen mit unterschiedlichen Anzahlen an Gruppen. Die Region `region` ist also ein Faktor mit zwei Leveln und die Schlangenfarbe `color` ein Faktor mit drei Leveln. Ich nutze den Datensatz also einmal als einen Spieldatensatz um die Modellierung theoretisch besser nachvollziehen zu können.
 
 ```{r}
 #| message: false
 #| echo: false
-#| tbl-cap: Datensatz zu Schlangen ist entlehnt und modifiiert nach Kéry [-@kery2010introduction, p. 77]
+#| tbl-cap: "Datensatz zu den Körperlängen als Messwert von acht Schlangen mit verschiedenen Einflussvariablen. Die Einflussvariablen haben verschiedene Eigenschaften und müssen daher unterschiedliche modelliert werden."
 #| label: tbl-snakes
 
 snake_tbl |> 
   kable(align = "c", "pipe")
-
 ```
 
-Wir wollen uns nun einmal anschauen, wie ein Modell in R sich zusammensetzt. Je nachdem welche Spalte $x$ wir verwenden um den Zusammenhang zum $y$ aufzuzeigen.
+## Kausales Modell
 
-### Kontinuierliches $x$
-
-Im ersten Schritt wollen wir uns einmal das Modell mit einem kontinuierlichen $x$ anschauen. Daher bauen wir uns ein lineares Modell mit der Variable `mass`. Wir erinnern uns, dass `mass` eine kontinuierliche Variable ist, da wir hier nur Zahlen in der Spalte finden. Die Funktion `model.matrix()` gibt uns die Modellmatrix wieder.
+### Mehrkovariates Modell
 
 ```{r}
-model.matrix(svl ~ mass, data = snake_tbl) |> as_tibble()
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2
+#| fig-width: 7
+#| fig-cap: "Schemantisches multiples Modell mit einem Messwert $Y$ und zwei kontinuierlichen Einflussvariablen als Kovariate $c_1$ und Kovariate $c_2$ dargestellt. *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-12
+
+p_2cov_model
 ```
 
-In der ersten Spalte ist der Intercept angegeben, danach folgt dann die Spalte `mass` als kontinuierliche Variable.
+::: panel-tabset
+## Praktisch in R
 
-Wir können die Modellmatrix auch mathematisch schreiben und die $y$ Spalte für das Outcome `svl` ergänzen. Eben so ergänzen wir die $\beta$-Werte als mögliche Koeefizienten aus der linearen Regression sowie die Residuen als Abweichung von der gefitteten Gerade.
+## Theoretisch in R
+:::
 
-$$
- \begin{pmatrix}
-  40 \\
-  45 \\
-  39 \\
-  50 \\
-  52 \\
-  57 \\
-  58 \\
-  59 \\
- \end{pmatrix}
- =
-  \begin{pmatrix}
-  1 & 6 \\
-  1 & 8 \\
-  1 & 5 \\
-  1 & 7 \\
-  1 & 9 \\
-  1 & 11\\
-  1 & 12\\
-  1 & 10\\
- \end{pmatrix}
- \times
-  \begin{pmatrix}
-  \beta_0 \\
-  \beta_{mass} 
- \end{pmatrix} +
-  \begin{pmatrix}
-  \epsilon_1 \\
-  \epsilon_2 \\
-  \epsilon_3 \\
-  \epsilon_4 \\
-  \epsilon_5 \\
-  \epsilon_6 \\
-  \epsilon_7 \\
-  \epsilon_8 \\
- \end{pmatrix}
-$$
-
-Jetzt brauche wir die Koeffizienten aus dem linearen Modell, welches wir wie folgt mit der Funktion `lm()` fitten. Wir nutzen dann die Funktion `coef()` um uns die Koeffizienten aus dem Objekt `fit_1` wiedergeben zu lassen.
+### Mehrfaktorielles Modell
 
 ```{r}
-fit_1 <- lm(svl ~ mass, data = snake_tbl) 
-fit_1 |> coef() |> round(2)
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2
+#| fig-width: 7
+#| fig-cap: "Schemantisches simples Modell mit einem Messwert $Y$ und einer kategorialen Einflussvariablen als Faktor $f_A$ mit drei Leveln sowie einer kategorialen Einflussvariablen als Faktor $f_B$ mit zwei Leveln und deren Interaktion $f_A \\times f_B$ dargestellt. *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-13
 
+p_2fac_model  +
+  labs(title = "") 
 ```
 
-Die Funktion `residuals()` gibt uns die Residuen der Geraden aus dem Objekt `fit_1` wieder.
+::: panel-tabset
+## Praktisch in R
+
+## Theoretisch in R
+:::
+
+### Kombinierte Modelle
+
+#### $f_A + c_1$ {.unnumbered .unlisted}
 
 ```{r}
-fit_1 |> residuals() |> round(2)
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2
+#| fig-width: 7
+#| fig-cap: "Schemantisches simples Modell mit einem Messwert $Y$ und einer kategorialen Einflussvariablen als Faktor $f_A$ mit drei Leveln sowie einer kontinuierlichen Einflussvariable als Kovariate $c_1$ dargestellt. *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-14
+
+p_fa_c1_model
 ```
 
-Wir können jetzt die Koeffizienten in die Modellmatrix ergänzen. Wir haben den Intercept mit $\beta_0 = 26.71$ geschätzt. Weiter ergänzen wir die Koeffizienten aus dem linearen Modell für `mass` mit $\beta_{mass}=2.61$. Ebenfalls setzen wir Werte für die Residuen für jede der Beobachtungen in die Gleichung ein. Wir erhalten dann folgende ausgefüllte Gleichung mit den Matrixen.
+::: panel-tabset
+## Praktisch in R
 
-$$
- \begin{pmatrix}
-  40 \\
-  45 \\
-  39 \\
-  50 \\
-  52 \\
-  57 \\
-  58 \\
-  59 \\
- \end{pmatrix}
- =
-  \begin{pmatrix}
-  26.71 & \phantom{0}6 \cdot 2.61\\
-  26.71 & \phantom{0}8 \cdot 2.61\\
-  26.71 & \phantom{0}5 \cdot 2.61\\
-  26.71 & \phantom{0}7 \cdot 2.61\\
-  26.71 & \phantom{0}9 \cdot 2.61\\
-  26.71 & 11\cdot 2.61\\
-  26.71 & 12\cdot 2.61\\
-  26.71 & 10\cdot 2.61\\
- \end{pmatrix}
-  +
-  \begin{pmatrix}
-  -2.36\\
-  -2.57\\
-  -0.75 \\
-  +6.04\\
-  +1.82\\
-  +1.61\\
-  \phantom{+}0.00\\
-  -3.79\\
- \end{pmatrix}
-$$
+## Theoretisch in R
+:::
 
-Wir können jetzt diese gewaltige Sammlung an Matrixen einmal auflösen. Steht denn nun wirklich rechts das Gleiche wie links von der Gleichung? Wir bauen uns die Zahlen von der rechten Seite der Gleichung einmal in R nach und schauen auf das Ergebnis. Wie du siehst ergänzen wir hier noch eine Reihe von $+$ um den Intercept mit der Steigung zu verbinden. Steht ja auch so in der Gleichung des linearen Modells drin, alles wird mit einem $+$ miteinander verbunden.
+#### $c_1 + f_A + f_B$ {.unnumbered .unlisted}
 
 ```{r}
-c(26.71 +  6*2.61 - 2.36,
-  26.71 +  8*2.61 - 2.57,
-  26.71 +  5*2.61 - 0.75,
-  26.71 +  7*2.61 + 6.04,
-  26.71 +  9*2.61 + 1.82,
-  26.71 + 11*2.61 + 1.61,
-  26.71 + 12*2.61 + 0.00,
-  26.71 + 10*2.61 - 3.79) |> round() 
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2
+#| fig-width: 7
+#| fig-cap: "Schemantisches simples Modell mit einem Messwert $Y$ und einer kontinuierlichen Einflussvariable als Kovariate $c_1$ sowie einer kategorialen Einflussvariablen als Faktor $f_A$ mit drei Leveln und einer kategorialen Einflussvariablen als Faktor $f_B$ mit zwei Leveln dargestellt. *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-16
+
+p_c1_fa_2lvl_fb_3lvl_model
 ```
 
-Oh ha! Die Zahlen, die wir rauskriegen, sind die gleichen Werte die unser Outcome $y$ hat. Das heißt, die ganze Sache hat funktioniert.
+::: panel-tabset
+## Praktisch in R
 
-### Kategorielles $x$ mit 2 Leveln
-
-Im diesem Schritt wollen wir uns einmal das Modell mit einem kategoriellen $x$ mit 2 Leveln anschauen. Wir bauen uns ein Modell mit der Variable ``` region``. Die Funktion ```model.matrix()\` gibt uns die Modelmatrix wieder.
-
-```{r}
-model.matrix(svl ~ region, data = snake_tbl) |> as_tibble()
-```
-
-In der ersten Spalte ist der Intercept angegeben, danach folgt dann die Spalte `regionnord`. In dieser Spalte steht die Dummykodierung für die Variable `region`. Die ersten drei Schlangen kommen nicht aus der Region `nord` und werden deshalb mit einen Wert von 0 versehen. Die nächsten vier Schlangen kommen aus der Region `nord` und erhalten daher eine 1 in der Spalte.
-
-Wir können die Modellmatrix auch mathematisch schreiben und die $y$ Spalte für das Outcome `svl` ergänzen. Eben so ergänzen wir die $\beta$-Werte als mögliche Koeefizienten aus der linearen Regression sowie die Residuen als Abweichung von der gefitteten Gerade.
-
-$$
- \begin{pmatrix}
-  40 \\
-  45 \\
-  39 \\
-  50 \\
-  52 \\
-  57 \\
-  58 \\
-  59 \\
- \end{pmatrix}
- =
-  \begin{pmatrix}
-  1 &  0  \\
-  1 &  0 \\
-  1 &  0\\
-  1 &  1\\
-  1 &  1 \\
-  1 &  1 \\
-  1 &  1 \\
-  1 &  1 \\
- \end{pmatrix}
- \times
-  \begin{pmatrix}
-  \beta_0 \\
-  \beta^{region}_{nord} \\
- \end{pmatrix} +
-  \begin{pmatrix}
-  \epsilon_1 \\
-  \epsilon_2 \\
-  \epsilon_3 \\
-  \epsilon_4 \\
-  \epsilon_5 \\
-  \epsilon_6 \\
-  \epsilon_7 \\
-  \epsilon_8 \\
- \end{pmatrix}
-$$
-
-Jetzt brauche wir die Koeffizienten aus dem linearen Modell, welches wir wie folgt fitten. Wir nutzen dann die Funktion `coef()` um uns die Koeffizienten wiedergeben zu lassen.
-
-```{r}
-fit_2 <- lm(svl ~ region, data = snake_tbl) 
-fit_2 |> coef() |> round(2)
-```
-
-Die Funktion `residuals()` gibt uns die Residuen der Geraden aus dem Objekt `fit_2` wieder.
-
-```{r}
-fit_2 |> residuals() |> round(2)
-```
-
-Wir können jetzt die Koeffizienten ergänzen mit $\beta_0 = 41.33$ für den Intercept. Weiter ergänzen wir die Koeffizienten für die Region und das Level `nord` mit $\beta^{region}_{nord} = 12.07$. Ebenfalls setzen wir Werte für die Residuen für jede der Beobachtungen in die Gleichung ein.
-
-$$
- \begin{pmatrix}
-  40 \\
-  45 \\
-  39 \\
-  50 \\
-  52 \\
-  57 \\
-  58 \\
-  59 \\
- \end{pmatrix}
- =
-  \begin{pmatrix}
-  41.33 & 0 \cdot 12.07  \\
-  41.33 & 0 \cdot 12.07  \\
-  41.33 & 0 \cdot 12.07  \\
-  41.33 & 1 \cdot 12.07  \\
-  41.33 & 1 \cdot 12.07  \\
-  41.33 & 1 \cdot 12.07  \\
-  41.33 & 1 \cdot 12.07  \\
-  41.33 & 1 \cdot 12.07  \\
- \end{pmatrix} +
-  \begin{pmatrix}
-  -1.33\\
-  +3.67 \\
-  -2.33 \\
-  -2.40 \\
-  -1.40 \\
-  +3.60 \\
-  +4.60 \\
-  -4.40 \\
- \end{pmatrix}
-$$
-
-Wir können jetzt diese gewaltige Sammlung an Matrixen einmal auflösen. Steht denn nun wirklich rechts das Gleiche wie links von der Gleichung? Wir bauen uns die Zahlen von der rechten Seite der Gleichung einmal in R nach und schauen auf das Ergebnis.
-
-```{r}
-c(41.33 + 0*12.07 - 1.33,
-  41.33 + 0*12.07 + 3.67,
-  41.33 + 0*12.07 - 2.33,
-  41.33 + 1*12.07 - 2.40,
-  41.33 + 1*12.07 - 1.40,
-  41.33 + 1*12.07 + 3.60,
-  41.33 + 1*12.07 + 4.60,
-  41.33 + 1*12.07 - 4.40) |> round() 
-```
-
-Die Zahlen, die wir rauskriegen, sind die gleichen Werte die unser Outcome $y$ hat.
-
-### Kategorielles $x$ mit \>2 Leveln
-
-Im diesem Schritt wollen wir uns einmal das Modell mit einem kategoriellen $x$ mit \>2 Leveln anschauen. Wir bauen uns ein Modell mit der Variable `color`. Die Funktion `model.matrix()` gibt uns die Modelmatrix wieder.
-
-```{r}
-model.matrix(svl ~ color, data = snake_tbl) |> as_tibble()
-```
-
-In der ersten Spalte ist der Intercept angegeben, danach folgt dann die Spalten für `color`. Die Spalten `colorrot` und `colorblau` geben jeweils an, ob die Schlange das Level `rot` hat oder `blau` oder keins von beiden. Wenn die Schlange weder rot noch blau ist, dann sind beide Spalten mit einer 0 versehen. Dann ist die Schlange schwarz.
-
-Wir können die Modellmatrix auch mathematisch schreiben und die $y$ Spalte für das Outcome `svl` ergänzen. Eben so ergänzen wir die $\beta$-Werte als mögliche Koeefizienten aus der linearen Regression sowie die Residuen als Abweichung von der gefitteten Gerade.
-
-$$
- \begin{pmatrix}
-  40 \\
-  45 \\
-  39 \\
-  50 \\
-  52 \\
-  57 \\
-  58 \\
-  59 \\
- \end{pmatrix}
- =
-  \begin{pmatrix}
-  1 & 0 & 0 \\
-  1 & 0 & 0\\
-  1 & 1 & 0\\
-  1 & 1 & 0\\
-  1 & 1 & 0\\
-  1 & 0 & 1\\
-  1 & 0 & 1\\
-  1 & 0 & 1\\
- \end{pmatrix}
- \times
-  \begin{pmatrix}
-  \beta_0 \\
-  \beta^{color}_{rot} \\
-  \beta^{color}_{blau} \\
- \end{pmatrix} +
-  \begin{pmatrix}
-  \epsilon_1 \\
-  \epsilon_2 \\
-  \epsilon_3 \\
-  \epsilon_4 \\
-  \epsilon_5 \\
-  \epsilon_6 \\
-  \epsilon_7 \\
-  \epsilon_8 \\
- \end{pmatrix}
-$$
-
-Jetzt brauche wir die Koeffizienten aus dem linearen Modell, welches wir wie folgt fitten. Wir nutzen dann die Funktion `coef()` um uns die Koeffizienten wiedergeben zu lassen.
-
-```{r}
-fit_3 <- lm(svl ~ color, data = snake_tbl) 
-fit_3 |> coef() |> round(2)
-```
-
-Die Funktion `residuals()` gibt uns die Residuen der Geraden aus dem Objekt `fit_3` wieder.
-
-```{r}
-fit_3 |> residuals() |> round(2)
-```
-
-Wir können jetzt die Koeffizienten ergänzen mit $\beta_0 = 25$ für den Intercept. Weiter ergänzen wir die Koeffizienten für die Farbe und das Level `rot` mit $\beta^{color}_{rot} = 4.83$ und für die Farbe und das Level `blau` mit $\beta^{color}_{blau} = 12.17$. Ebenfalls setzen wir Werte für die Residuen für jede der Beobachtungen in die Gleichung ein.
-
-$$
- \begin{pmatrix}
-  40 \\
-  45 \\
-  39 \\
-  50 \\
-  52 \\
-  57 \\
-  58 \\
-  59 \\
- \end{pmatrix}
- =
-  \begin{pmatrix}
-  42.50 & 0 \cdot 4.83& 0 \cdot 12.17 \\
-  42.50 & 0 \cdot 4.83& 0 \cdot 12.17\\
-  42.50 & 1 \cdot 4.83& 0 \cdot 12.17\\
-  42.50 & 1 \cdot 4.83& 0 \cdot 12.17\\
-  42.50 & 1 \cdot 4.83& 0 \cdot 12.17\\
-  42.50 & 0 \cdot 4.83& 1 \cdot 12.17\\
-  42.50 & 0 \cdot 4.83& 1 \cdot 12.17\\
-  42.50 & 0 \cdot 4.83& 1 \cdot 12.17\\
- \end{pmatrix} +
-  \begin{pmatrix}
-  -2.50 \\
-  +2.50 \\
-  -8.33 \\
-  +3.67 \\
-  +4.67 \\
-  +2.33 \\
-  +3.33 \\
-  -5.67 \\
- \end{pmatrix}
-$$
-
-Wir können jetzt diese gewaltige Sammlung an Matrixen einmal auflösen. Steht denn nun wirklich rechts das Gleiche wie links von der Gleichung? Wir bauen uns die Zahlen von der rechten Seite der Gleichung einmal in R nach und schauen auf das Ergebnis.
-
-```{r}
-c(42.50 + 0*4.83 + 0*-12.17 - 2.50,
-  42.50 + 0*4.83 + 0*-12.17 + 2.50,
-  42.50 + 1*4.83 + 0*-12.17 - 8.33,
-  42.50 + 1*4.83 + 0*-12.17 + 3.67,
-  42.50 + 1*4.83 + 0*-12.17 + 4.67,
-  42.50 + 0*4.83 + 1*-12.17 + 2.33,
-  42.50 + 0*4.83 + 1*-12.17 + 3.33,
-  42.50 + 0*4.83 + 1*-12.17 - 5.67) |> round()
-```
-
-Die Zahlen, die wir rauskriegen, sind die gleichen Werte die unser Outcome $y$ hat.
-
-### Das volle Modell
+## Theoretisch in R
 
 Im letzten Schritt wollen wir uns einmal das volle Modell anschauen. Wir bauen uns ein Modell mit allen Variablen in dem Datensatz `snake_tbl`. Die Funktion `model.matrix()` gibt uns die Modelmatrix wieder.
 
@@ -609,216 +400,34 @@ Die Zahlen, die wir rauskriegen, sind die gleichen Werte die unser Outcome $y$ h
 -   In einem Modell gibt es immer ein Faktorlevel weniger als ein Faktor Level hat. Die Information des *alphanumerisch* ersten Levels steckt dann mit in dem Intercept.
 -   In einem Modell geht eine kontinuierliche Variable als eine Spalte mit ein.
 -   In einem Modell gibt es immer nur eine Spalte für die Residuen und damit nur eine Residue für jede Beobachtung, egal wie viele Variablen ein Modell hat.
+:::
 
-## Interpretation von $x$ {#sec-interpret-x}
-
-Wi interpretiee wir nun das Ergebnis einer linearen Regression? Zum einen nutzen wir häufig das Modell nur um das Modell dann weiter in einem multiplen Vergleich zu nutzen. Hier wollen wir uns jetzt aber wirklich die Koeffizienten aus einer multiplen linearen Regression anschauen udn diese Zahlen einmal interpretieren. Wichtig ist, dass wir ein normalverteiltes $y$ vorliegen haben und uns verschiedene Formen des $x$ anschauen. Wir betrachten ein kontinuierliches $x$, ein kategorielles $x$ mit zwei Leveln und ein kategorielles $x$ mit drei oder mehr Leveln.
-
-### Kontinuierliches $x$ {#sec-interpret-x-cont}
-
-Bauen wir uns also einmal einen Datensatz mit einem kontinuierlichen $x$ und einem normalverteilten $y$. Unser $x$ soll von 1 bis 7 laufen. Wir erschaffen uns das $y$ indem wir das $x$ mit 1.5 multiplizieren, den $y$-Achsenabschnitt von 5 addieren und einen zufälligen Fehler aus einer Normalverteilung mit $\mathcal{N}(0, 1)$ aufaddieren. Wir haben also eine klassische Regressionsgleichung mit $y = 5 + 1.5 \cdot x$.
-
-```{r}
-set.seed(20137937)
-cont_tbl <- tibble(x = seq(from = 1, to = 7, by = 1),
-                   y = 5 + 1.5 * x + rnorm(length(x), 0, 1))
-cont_tbl
-```
-
-Wenn wir keinen Fehler addieren würden, dann hätten wir auch eine Linie von Punkten wie an einer Perlschnur aufgereiht. Dann wäre das $R^2 = 1$ und wir hätten keine Varianz in den Daten. Das ist aber in einem biologischen Setting nicht realistisch, dass unser $y$ vollständig von $x$ erklärt wird.
-
-Schauen wir uns nochmal die Modellmatrix an. Hier erwartet uns aber keine Überraschung. Wir schätzen den Intercept und dann kommt der Wert für jedes $x$ in der zweiten Spalte.
-
-```{r}
-model.matrix(y ~ x, data = cont_tbl)
-```
-
-Im Folgenden schätzen wir jetzt das lineare Modell um die Koeffizienten der Geraden zu erhalten. Wir nutzen die Funktion `model_parameter()` aus dem R Paket `{parameters}` für die Ausgabe der Koeffizienten.
-
-```{r}
-lm(y ~ x, data = cont_tbl) |> 
-  model_parameters() |> 
-  select(Parameter, Coefficient)
-```
-
-Wir erhalten einen Intercept von $4.32$ und eine Steigung von $x$ mit $1.71$. Wichtig nochmal, wir haben uns hier zufällige Zahlen erstellen lassen. Wenn du oben den Fehler rausnimmst, dann erhälst du auch die exakten Zahlen für den Intercept und die Steigung von $x$ wieder. Wir sehen also, wenn wir ein kontinuierliches $x$ haben, dann können wir das $x$ in dem Sinne einr Steigung interpretieren. Steigt das $x$ um 1 Einheit an, so erhöht sich das $y$ um den Wert der Steigung von $x$.
-
-In @fig-stat-modeling-basic-00 sehen wir den Zusammenhang nochmal graphisch dargestellt. Wir sehen, dass wir die voreingestellten Parameter von $\beta_0 = 5$ und $\beta_1 = 1.5$ fast treffen.
-
-```{r}
-#| message: false
-#| warning: false
-#| echo: false
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: Graphische Darstellung der Interpretation von einem kontinuierlichen $x$. 
-#| label: fig-stat-modeling-basic-00
-
-ggplot(cont_tbl, aes(x = x, y = y)) +
-  theme_minimal() +
-  geom_point() +
-  geom_smooth(method = "lm", se = FALSE, fullrange = TRUE) +
-  scale_x_continuous(expand = c(0, 0), limits = c(0, 8), breaks = 0:8) + 
-  scale_y_continuous(expand = c(0, 0), limits = c(0, 17), breaks = 0:17) +
-  annotate("text", x = 4, y = 9, label = "y ==  4.32 + 1.71 %.% x", parse = TRUE,
-           hjust = 0)
-
-```
-
-### Kategorielles $x$ mit 2 Leveln {#sec-interpret-x-cat2}
-
-Etwas anders wird der Fall wenn wir ein kategorielles $x$ mit 2 Leveln vorliegen haben. Wir bauen faktisch zwei Punktetürme an zwei $x$ Positionen auf. Dennoch können wir durch diese Punkte eine Gerade zeichnen. Bauen wir uns erst die Daten mit der Funktion `rnorm()`. Wir haben zwei Gruppen vorliegen, die Gruppe A hat sieben Beobachtungen und einen Mittelwert von 10. Die Gruppe B hat ebenfalls sieben Beobchatungen und einen Mittelwert von 15. Der Effekt zwischen den beiden Gruppen A und B ist die Mittelwertsdifferenz $\Delta_{A-B}$ ist somit 5. Wir erhlalten dann folgenden Datensatz wobei die Werte der Gruppe A um die 10 streuen und die Werte der Gruppe B um die 15 streuen.
-
-```{r}
-set.seed(20339537)
-cat_two_tbl <- tibble(A = rnorm(n = 7, mean = 10, sd = 1),
-                      B = rnorm(n = 7, mean = 15, sd = 1)) |> 
-  gather(key = x, value = y) |> 
-  mutate(x = as_factor(x))
-cat_two_tbl
-```
-
-Wir wollen uns wieder die Modellmatrix einmal anschauen. Wir sehen hier schon einen Unterschied. Zum einen sehen wir, dass der Intercept für alle Beobachtungen geschätzt wird und in der zweiten Spalte nur `xB` steht. Somit werden in der zweiten Spalte nur die Beobachtungen in der Gruppe B berücksichtigt.
-
-```{r}
-model.matrix(y ~ x, data = cat_two_tbl)
-```
-
-Wir rechnen einmal das lineare Modell und lassen uns überraschen was als Ergebnis herauskommt. Wir nutzen die Funktion `model_parameter()` aus dem R Paket `{parameters}` für die Ausgabe der Koeffizienten.
-
-```{r}
-lm(y ~ x, data = cat_two_tbl) |> 
-  model_parameters() |> 
-  select(Parameter, Coefficient)
-```
-
-Nun erhalten wir als den Intercept 10.07 und die Steigung `xB` mit 5.27 zurück. Wir sehen, der Intercept ist der Mittelwert der Gruppe A und die das `xB` ist die Änderung von dem Mittelwert A zu dem Mittelwert B. Wir erhalten die Mittelwertsdifferenz $\Delta_{A-B}$ von 5.27 zurück. In @tbl-cat-2 siehst du den Zusammenhang von den Faktorleveln A und B, den jeweiligen Mittelwerte der Level sowie die Differenz zum Mittel von dem ersten Level A.
-
-```{r}
-#| message: false
-#| warning: false
-#| echo: false
-#| tbl-cap: Zusammenhang von den Mittelwerten der Level des Faktores $x$ und deren Differenz zu Level A.
-#| label: tbl-cat-2
-
-cat_two_tbl |> 
-  group_by(x) |> 
-  summarise(mean = mean(y)) |> 
-  mutate(diff = c(0, diff(mean)),
-         sum = cumsum(diff)) |> 
-  mutate(across(where(is.numeric), round, 2)) |> 
-  select(x, mean, sum) |> 
-  set_names(c("Factor x", "Mean of level", "Difference to level A")) |> 
-  kable(align = "c", "pipe")
-```
-
-In @fig-stat-modeling-basic-01 kannst du nochmal den visuellen Zusammenhang zwischen den einzelnen Beobachtungen und der sich ergebenen Geraden sehen. Die Gerade geht durch die beiden Mittelwerte der Gruppe A und B. Daher ist die Steigung der Mittlwertsunterschied zwischen der Gruppe A und der Gruppe B. Steigt das $x$ um 1 Einheit an, also springt von Gruppe A zu Gruppe B, so erhöht sich das $y$ um den Mittelwertsunterschied $\Delta_{A-B}$.
+#### $c_1 + c_2 + f_A + f_B$ {.unnumbered .unlisted}
 
 ```{r}
 #| message: false
 #| echo: false
 #| warning: false
 #| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: Graphische Darstellung der Interpretation von einem kategoriellen $x$ mit 2 Leveln.
-#| label: fig-stat-modeling-basic-01
+#| fig-height: 2
+#| fig-width: 7
+#| fig-cap: "Schemantisches simples Modell mit einem Messwert $Y$ und einer kontinuierlichen Einflussvariable als Kovariate $c_1$ sowie einer kategorialen Einflussvariablen als Faktor $f_A$ mit drei Leveln und einer kategorialen Einflussvariablen als Faktor $f_B$ mit zwei Leveln dargestellt. *[Zum Vergrößern anklicken]*"
+#| label: fig-model-in-R-21
 
-ggplot(cat_two_tbl, aes(x, y, fill = x)) +
-  theme_minimal() +
-  geom_hline(yintercept = c(10.01, 10.01 + 5.27), 
-             color = cbbPalette[c(2:3)], size = 1) +
-  geom_dotplot(binaxis = "y", stackdir = "center") +
-  scale_fill_okabeito() +
-  theme(legend.position = "none") +
-  scale_y_continuous(breaks = c(9, 10.01, 11, 12, 13, 14, 15.27, 16, 17)) +
-  geom_segment(aes(x = 1, y = 10.01, xend = 2, yend = 10.01+5.27)) +
-  annotate("text", x = 1.5, y = 15.7, label = "bar(y)[B] == 10.01 + 5.27", parse = TRUE,
-           hjust = 0)
-
+p_c2_fa_2lvl_fb_3lvl_model 
 ```
 
-### Kategorielles $x$ mit \>2 Leveln {#sec-interpret-x-cat3}
+::: panel-tabset
+## Praktisch in R
 
-Nachdem wir das Problem der Interpretation von einem kategoriellen $x$ mit zwei Leveln verstanden haben, werden wir uns jetzt den Fall für ein kategoriellen $x$ mit drei oder mehr Leveln anschauen. Wir nutzen hier nur drei Level, da es für vier oder fünf Level gleich abläuft. Du kannst das Datenbeispiel gerne auch noch um eine vierte Gruppe erweitern und schauen was sich da ändert.
+## Theoretisch in R
+:::
 
-Unser Datensatz besteht aus drei Gruppen A, B und C mit den Mittelwerten von 10, 15 und 3. Hierbei ist wichtig, dass wir in der Gruppe C nur einen Mittelwert von 3 haben. Also wir haben *keinen* linearen Anstieg über die drei Gruppen.
+## Prädiktives Modell
 
-```{r}
-set.seed(20339537)
-cat_three_tbl <- tibble(A = rnorm(n = 7, mean = 10, sd = 1),
-                        B = rnorm(n = 7, mean = 15, sd = 1),
-                        C = rnorm(n = 7, mean = 3, sd = 1)) |> 
-  gather(key = x, value = y) |> 
-  mutate(x = as_factor(x))
-cat_three_tbl
-```
+## Weiteres von Interesse
 
-Schauen wir uns einmal die Modellmatrix an. Wir sehen wieder, dass der Intercept über alle Gruppen geschätzt wird und wir Koeffizienten für die Gruppen B und C erhalten. Mit der Modellmatrix wird dann auch das lineare Modell geschätzt.
-
-```{r}
-model.matrix(y ~ x, data = cat_three_tbl)
-```
-
-Wir rechnen wieder das Modell mit der Funktion `lm()`. Wir nutzen die Funktion `model_parameter()` aus dem R Paket `{parameters}` für die Ausgabe der Koeffizienten zu erhalten.
-
-```{r}
-lm(y ~ x, data = cat_three_tbl) |> 
-  model_parameters() |> 
-  select(Parameter, Coefficient)
-```
-
-Wir sehen wieder, dass der Intercept der Mittelwert der Gruppe A ist. Wir hatten einen Mittelwert von 10 für die Gruppe A eingestellt und wir erhalten diesen Wert wieder. Die anderen Koeffizienten sind die Änderung zum Mittelwert von der Gruppe A. In @tbl-cat-3 ist der Zusammenhang nochmal für alle Level des Faktors $x$ dargestellt. Wir haben für die Gruppe B einen Mittelwert von 15 und für die Gruppe C einen Mittelwert von 3 eingestellt. Wir erhalten diese Mittelwerte wieder, wenn wir die Differenzen zu dem Intercept bilden.
-
-```{r}
-#| message: false
-#| echo: false
-#| tbl-cap: Zusammenhang von den Mittelwerten der Level des Faktores $x$ und deren Differenz zu Level A.
-#| label: tbl-cat-3
-
-cat_three_tbl |> 
-  group_by(x) |> 
-  summarise(mean = mean(y)) |> 
-  mutate(diff = c(0, diff(mean)),
-         sum = cumsum(diff)) |> 
-  mutate(across(where(is.numeric), round, 2)) |> 
-  select(x, mean, sum) |> 
-  set_names(c("Factor x", "Mean of level", "Difference to level A")) |> 
-  kable(align = "c", "pipe")
-```
-
-Wir sehen den Zusammenhang nochmal in der @fig-stat-modeling-basic-02 visualisiert. Wir sehen die Änderung on der Gruppe A zu der Gruppe B sowie die Änderung von der Gruppe A zu der Gruppe C. Die Abbildung ist etwas *verwirrend* da wir *nicht* das $x$ um 2 Einheiten erhöhen um auf den Mittelwert von C zu kommen. Wir rechnen sozusagen ausgehend von A die Änderung zu B und C aus. Dabei nehmen wir jedesmal an, dass die Gruppe B und die Gruppe C nur eine Einheit von $x$ von A entfernt ist.
-
-```{r}
-#| message: false
-#| echo: false
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
-#| fig-cap: Graphische Darstellung der Interpretation von einem kategoriellen $x$ mit 3 Leveln.
-#| label: fig-stat-modeling-basic-02
-
-ggplot(cat_three_tbl, aes(x, y, color = x)) +
-  theme_minimal() +
-  geom_jitter(width = 0.1) +
-  geom_hline(yintercept = c(10.1, 10.1 + 5.27, 10.1 - 7.41), 
-             color = cbbPalette[c(2:4)], size = 1) +
-  scale_color_okabeito() +
-  theme(legend.position = "none") +
-  scale_y_continuous(breaks = c(0, 10.1 - 7.41, 5, 10.1, 10.1 + 5.27), 
-                     limits = c(0, NA)) +
-  geom_segment(aes(x = 1, y = 10.1, xend = 2, yend = 10.1+5.27), color = "black") +
-  geom_segment(aes(x = 1, y = 10.1, xend = 3, yend = 10.1-7.41), color = "black") +
-  annotate("text", x = 2.1, y = 14, label = "bar(y)[B] == 10.1 + 5.27", parse = TRUE,
-           hjust = 0) +
-  annotate("text", x = 2.5, y = 2, label = "bar(y)[C] == 10.1 - 7.41", parse = TRUE,
-           hjust = 0)
-
-
-```
-
-## Adjustierung für Confounder {#sec-confounder}
+### Adjustierung für Confounder {#sec-confounder}
 
 Im folgenden Abschnitt wollen wir einmal auf Confounder eingehen. Was sind Confounder? Zum einen gibt es kein gutes deutsches Wort für Confounder. Du könntest Confounder in etwa mit *Verzerrer* oder *Störfakor* übersetzen. Zum Anderen können Confounder nur zuammen mit anderen Vriabln in einer multiplen Regression auftreten. Das heißt, wir brauchen mindestens zwei Variablen in einer Regression. Ein Confounder verursacht einen Effekt, den wir eigentlich nicht so erwartet hätten. Wir wollen eigentlich einen Effekt schätzen, aber der Effekt ist viel größer oder kleiner, da der Effekt eigentlich von einder anderen Variable verursacht oder aber verdeckt wird. Wir können einen Confounder in beide Richtungen haben. Wichtig ist hierbei, das wir eigentlich *nicht* an dem Effekt des Confounders interessiert sind. Wir wollen uns zum Beispiel den Effekt einer Düngung auf das Trockengewicht anschauen, aber der Effekt den wir beobachten wird durch die unterschiedlichen Pflanzorte verursacht.
 
@@ -932,7 +541,7 @@ lm(jump_length ~ weight + animal + sex, data = model_tbl) |>
 
 Nun können wir sehen, dass von unserem ursprünglichen Effekt von dem Gewicht auf die Sprungweite nichts mehr übrigbleibt. Wir haben gar keinen Effekt von dem Gewicht auf die Sprungweite vorliegen. Was wir gesehen haben, war der Effekt des Gewichtes der unterschiedlichen Geschlechter. Wenn wir unser Modell für die Confounder `animal` und `sex` adjustieren, haben wir einen unverzerrten Schätzer für `weight`. Wichtig ist nochmal, dafür müssen wir natürlich auch alle variablen erhoben haben. Hätten wir das Geschlecht der Flöhe nicht bestimt, hätten wir hier eventuell einen falschen Schluß getroffen.
 
-## Variance inflation factor (VIF) {#sec-vif}
+### Variance inflation factor (VIF) {#sec-vif}
 
 Wenn wir sehr viele Daten erheben, dann kann es sein, dass die Variablen stark miteinander korrelieren. Wir können aber stark mieinander korrelierte Variablen nicht zusammen in ein Modell nehmen. Die Effekte der beiden Variablen würden sich gegenseitig aufheben. Wir hätten eigentlich zwei getrennt signifikante Variablen. Nehmen wir aber beide Variablen mit ins Modell, sind beide Variablen nicht mehr signifikant.
 
@@ -971,7 +580,7 @@ check_model(model, check = "vif")
 
 In @fig-stat-modeling-vif sehen wir nochmal die Visualisierung. Wie immer, manchmal helfen solche Abbildungen, manchmal verwirren die Abbildungen mehr. Wir konzentrieren uns hier auf die Werte des VIF's und ignorieren die Streuung.
 
-## Vergleich von Modellen {#sec-model-basic-compare}
+### Vergleich von Modellen {#sec-model-basic-compare}
 
 Im Folgenden wollen wir einmal verschiedene Modelle miteinander Vergleichen und uns statistisch wiedergeben lassen, was das beste Modell ist. Und hier holen wir auch einmal kurz Luft, denn wir entschieden *nur* was das statistisch beste Modell ist. Es kann sein, dass ein Modell biologisch mehr Sinn macht und nicht auf Platz 1 der statistischen Maßzahlen steht. Das ist vollkommen in Ordnung. Du musst abweägen, was für sich das beste Modell ist. Im Zweifel komme ruhig nochmal in meine statistische Beratung oder schreibe mir eine Mail.
 
