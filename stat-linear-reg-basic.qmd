@@ -472,7 +472,7 @@ ggplot(cov1_tbl, aes(weight, jump_length)) +
   stat_poly_eq(use_label("eq"), size = 5) +
   labs(title = "Einkovariates Modell",
        subtitle = "Zusammenhang zwischen Sprungweite und Gewicht von Flöhen",
-       x = "Gewicht [mg]", y = "Sprungweite [cm]")
+       x = "Gewicht in [mg]", y = "Sprungweite in [cm]")
 ```
 
 Eigentlich wollen wir ja ein kausales Modell rechnen, da wir an dem Effekt der Kovariate Gewicht in \[mg\] der Hundeflöhe interessiert sind. Wenn also die Kovariate $c_1$ um eine Einheit ansteigt, um wie viel verändert sich dann der Messwert $y$?
@@ -1329,35 +1329,53 @@ Damit sind wir mit dem einkovariaten und einfaktoriellen Modell durch. Wir haben
 
 ## Prädiktives Modell
 
+Neben dem klassischen kausalen Modell können wir auch ein prädiktives Modell rechnen. In einem prädiktiven Modell wollen wir wissen, welche Werte unser Messwert für neue Werte der Einflussvariable annehmen würde. Auch in einem prädiktiven Modell rechnen wir erstmal ganz normal eine lineare Regression. Dann nutzen wir das Modell der Regression um neue Werte für unseren Messwert anhand neuer oder alter Werte der Einflussvariable vorherzusagen. Daher können wir auch beides miteinander verbinden. Du schaust erst was das kausale Modell ergibt und lässt dir dann neue Messwerte vorhersagen. Dabei musst du immer beachten, dass die vorhergesagten Messwerte auf der angepassten Graden liegen. Dahe nennen wir die vorhergesagten Messwerte auch angepasste Messwerte (eng. *fitted*). Wir werden später in der [Klassifikation](#sec-class-basic), der Vorhersage von $0/1$-Werten, sowie in der multiplen Regression noch andere Prädktionen und deren Maßzahlen kennen lernen. Fangen wir also einmal an mit dem einkovariaten Modell.
+
 ### Einkovariates Modell
+
+Für unsere Vorhersage brauchen wir auch hier ein Modell. Wir nutzen hier das einkovariate Modell wie auch schon weiter oben in dem kausalen Modell zu einkovariaten Analyse. Wir nehmen als Messwert die Sprungweite der Flöhe und als Einflussvariable dann das Gewicht der Flöhe. Soweit sieht allse aus wie auch in einem kausalen Modell.
 
 ```{r}
 cov1_fit <- lm(jump_length ~ weight, data = cov1_tbl)
 ```
 
+Jetzt können wir die Funktion `predict()` nutzen um uns neue Sprungweiten für neue Flohgewichte vorhersagen zu lassen. Oder aber wir lassen uns die Werte auf der Graden für die Sprungweiten wiedergeben. Jedes Gewicht hat ja einen Wert für die Sprungweite auf der Graden. Wir nennen diese Messwerte auf der Graden dann angepasste (eng. *fitted*) Werte.
+
+::: panel-tabset
+## Neue x-Werte
+
+Wir bauen uns hier einmal einen Datensatz nur mit dem Gewicht von vier neuen Flöhen. Wir wollen jetzt vorhersagen wie weit unsere vier neuen Flöhe gegeben ihres Gewichts springen würden.
+
 ```{r}
 cov1_new_tbl <- tibble(weight = c(1.7, 1.4, 2.1, 3.0))
 ```
 
-::: panel-tabset
-## Neue x-Werte
+Jetzt verbinden wir mit der Funktion `predict()` das einkovariate Modell und den Datensatz mit den neuen Körpergewichten der Flöhe. Dann erhalten wir die vorhergesagten Sprungweiten der vier Flöhe wieder.
 
 ```{r}
 predict(cov1_fit, newdata = cov1_new_tbl) |> round(2)
 ```
 
+Das klingt jetzt erstmal etwas kryptisch, aber ich habe dir in der Abbildung weiter unten einmal die vier vorhergesagten Sprungweiten für die neuen Körpergewichte der Flöhe einmal dargestellt. Die vier neuen Sprungweiten liegen natürlich auf der Graden.
+
 ## Alte x-Werte
+
+Du kannst dir natürlich auch für die schon beobachteten Werte des Gewichts der Flöhe die angepassten Werte auf der Graden für die Sprungweite wiedergeben lassen. Dafür nutze ich die Funktion `augment()` aus dem R Paket `{broom}`.
 
 ```{r}
 cov1_fit |> augment() |> 
   select(jump_length, weight, .fitted, .resid)
 ```
+
+Ich habe dann noch die Residuen mit rausgezogen. Die ursprünglichen Messwerte der Sprungweite sind dann die angepassten Werte plus die Werte der Residuen. Muss ja auch sein, den die Residuen sind ja die Abstände von unserer Graden zu den einzelnen Messwerten der Beobachtungen.
 :::
+
+Dann habe ich hier nochmal die Abbildung der beobachteten Sprungweiten sowie der angepassten Grade durch die Punkte in einem Scatterplot dargestellt. Die vier neuen Flöhe haben vorhergesagte Sprungweiten auf der Graden erhalten. Die beobachteten Flöhe streuen natürlich um die Grade. Hier musst du natürlich aufpassen, dass du nicht Flohgewichte weit weg von den eigentlichen beobachteten Flöhen vorhersagst, aber das ist eigentlich selbsterklärend.
 
 ```{r}
 #| echo: false
 #| message: false
-#| label: fig-scatter-lin-pred
+#| label: fig-scatter-lin-pred-cov1
 #| fig-align: center
 #| fig-height: 3.5
 #| fig-width: 7
@@ -1365,57 +1383,93 @@ cov1_fit |> augment() |>
 
 pred_tbl <- bind_rows(mutate(cov1_tbl, status = "beobachtet"),
                       tibble(weight = c(1.7, 1.4, 2.1, 3.0),
-                             jump_length = predict(fit_1, newdata = tibble(weight)),
+                             jump_length = predict(cov1_fit, newdata = tibble(weight)),
                              status = "vorhergesagt"))
 
 ggplot(pred_tbl, aes(weight, jump_length, color = status, shape = status)) +
   stat_smooth(method = "lm", se = FALSE, fullrange = TRUE, 
               color = "#56B4E9", linewidth = 0.75) +
   labs(color = "", shape = "") +
-  geom_point(size = 3) +
+  geom_point(size = 2.5) +
   theme_minimal() +
   scale_color_okabeito(order = c(1,5)) +
-  xlim(0, 3.5) + ylim(0, 3.5)
+  xlim(0, 3.5) + ylim(0, 3.5) +
+  theme(legend.position = "top") + 
+  labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]")
 ```
 
 ### Einfaktorielles Modell
 
-Neben dem kausalen Modell gibt es auch die Möglichkeit ein prädiktives Modell zu rechnen. Im Prinzip ist die Sprache hier etwas ungenau. Wir verwenden das gefittete Modell nur anders. Anstatt das Modell `fit_1` in die Funktion `summary()` zu pipen, pipen wir die das Modell in die Funktion `predict()`. Die Funktion `predict()` kann dann für neue Daten über die Option `newdata =` das $y$ vorhersagen.
-
-In unserem Fall müssen wir uns deshalb ein `tibble` mit einer Spalte bauen. Wir haben ja oben im Modell auch nur ein $x_1$ mit aufgenommen. Später können wir natürlich auch für multiple Modelle die Vorhersage machen. Wichtig ist, dass die Namen gleich sind. Das heißt in dem neuen Datensatz müssen die Spalten *exakt* so heißen wir in dem alten Datensatz in dem das Modell gefittet wurde.
-
 ```{r}
-fit_1 <- lm(jump_length ~ weight, data = cov1_tbl)
-
-simple_new_tbl <- tibble(weight = c(1.7, 1.4, 2.1, 3.0)) 
-
-predict(fit_1, newdata = simple_new_tbl) |> round(2)
+fac1_fit <- lm(jump_length ~ animal, data = fac1_tbl)
 ```
 
-Wie wir sehen ist die Anwendung recht einfach. Wir haben die vier `jump_length` Werte vorhergesagt bekommen, die sich mit dem Fit des Modells mit den neuen `weight` Werten ergeben. In @fig-scatter-lin-pred sehen wir die Visualisierung der vier vorhergesagten Werte. Die Werte müssen auf der Graden liegen.
+::: panel-tabset
+## Neue x-Werte
 
-Wir werden später in der [Klassifikation](#sec-class-basic), der Vorhersage von $0/1$-Werten, sowie in der multiplen Regression noch andere Prädktionen und deren Maßzahlen kennen lernen. Im Rahmen der simplen Regression soll dies aber erstmal hier genügen.
+```{r}
+fac1_new_tbl <- tibble(animal = c("cat", "cat", "fox"))
+```
+
+```{r}
+predict(fac1_fit, newdata = fac1_new_tbl) |> round(2)
+```
+
+## Alte x-Werte
+
+```{r}
+fac1_fit |> augment() |> 
+  select(jump_length, animal, .fitted, .resid) 
+```
+:::
+
+```{r}
+#| echo: false
+#| message: false
+#| label: fig-scatter-lin-pred-fac1
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "Dotplot der *alten* Beobachtungen der Sprungweite in \\[cm\\] und der Tierart. Die *neuen* vorhergesagten Werte für die Sprungweiten liegen immer auf den Mittelwerten der jeweiligen Gruppen."
+
+pred_tbl <- bind_rows(mutate(fac1_tbl, status = "beobachtet"),
+                      tibble(animal = c("cat", "cat", "fox"),
+                             jump_length = predict(fac1_fit, newdata = tibble(animal)),
+                             status = "vorhergesagt"))
+
+ggplot(pred_tbl, aes(animal, jump_length, color = status, shape = status)) +
+  labs(color = "", shape = "") +
+  geom_jitter(size = 2.5, width = 0.1) +
+  theme_minimal() +
+  scale_color_okabeito(order = c(1,5)) +
+  theme(legend.position = "top") + 
+  labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]")
+```
+
+Das war dann auch schon unser Kapitel zu der simplen linearen Regression. Wir können natürlich auch noch mehr Einflussvariablen in ein Modell nehmen. Dann rechnen wir aber ein multiples lineares Modell. Dazu dann in dem folgenden Kapitel mehr zu den Grundlagen der multiplen linearen Regression. Je nach betrachteten Messwert müssen wir dann aber auch noch unsere Regression anpassen. Dazu findest du dann in dem großen [Teil zum statistischen Modellieren](https://jkruppa.github.io/stat-modeling-preface.html) mehr Informationen.
 
 ## Glossar
+
+Manchmal fragst du dich sicher, was soll den das Wort hier wieder heißen. Häufig hilft ja da auch die Suchfunktion, aber ich habe hier mal alle Fachbegriffe in einer Tabelle zusammengefasst. Dadurch sollte es dir einfacher sein mal den einen oder anderen Fachbegriff aus dem statistischen Modellieren nachzuschlagen.
 
 ::: callout-important
 ## Glossar zum statistischen Modellieren
 
 | Symbol | Deutsch |
 |:--:|----|
-| $RHS \sim LHS$ | Modellschreibweise mit der rechten Seite (eng. *right hand site*) und der linken Seite (eng. *left hand side*) |
-| $RHS$ | Rechte Seite der Tilde in der Modellschreibweise (eng. *right hand site*) |
-| $LHS$ | Linke Seite der Tilde in der Modellschreibweise (eng. *left hand site*) |
-| $Y \sim X$ | Modelschreibweise mit Platzhaltervariable X und Y |
-| $Y / y$ | Messwert |
-| $X / x$ | Einflussvariable |
-| $\epsilon$ | Residuen oder Fehler aus einer Regressionsanalyse |
+| $RHS \sim LHS$ | Modellschreibweise mit der rechten Seite (eng. *right hand site*) und der linken Seite (eng. *left hand side*). |
+| $RHS$ | Rechte Seite der Tilde in der Modellschreibweise (eng. *right hand site*). |
+| $LHS$ | Linke Seite der Tilde in der Modellschreibweise (eng. *left hand site*). |
+| $Y \sim X$ | Modelschreibweise mit Platzhaltervariable X und Y für beliebige Einflussvariablen X sowie einem Messwert Y. |
+| $Y / y$ | Der Messwert über den du zum Beispiel den Mittelwert bilden möchtest. Der Messwert steht auf der y-Achse in unseren Abbildungen. |
+| $X / x$ | Die Einflussvariable die zum Beispiel deinen Messwert gruppiert. Die Einflussvariablen stehen auf der x-Achse in unseren Abbildungen. |
+| $\epsilon$ | Residuen oder Fehler aus einer Regressionsanalyse. |
 | Fehler | Abweichung der vorhergesagten y-Werte durch das Modell auf der Graden zu den beobachteten y-Werten in den Daten. |
-| $\beta_0$ | Intercept oder y-Achsenabschnitt |
-| $\beta_1$ | Steigung der ersten Einflussvariable |
-| Intercept | y-Achsenabschnitt |
-| $\hat{y}$ | Vorhergesagte y-Werte durch das Modell auf der Graden |
-| Kovariate | Kontinuierliche Einflussvariable |
+| $\beta_0$ | Intercept oder y-Achsenabschnitt. |
+| $\beta_1$ | Steigung der ersten Einflussvariable. |
+| Intercept | Der y-Achsenabschnitt wo die Grade die y-Achse schneidet. |
+| $\hat{y}$ | Vorhergesagte y-Werte durch das Modell auf der Graden. |
+| Kovariate | Kontinuierliche Einflussvariable. |
 | $c_1$ | Kovariate |
 | Faktor | Kategoriale Einflussvariable |
 | Level | Gruppen eines Faktors |
@@ -1428,7 +1482,7 @@ Wir werden später in der [Klassifikation](#sec-class-basic), der Vorhersage von
 | schätzen | Berechnung der Koeffizienten in einem statistischen Modell |
 | Koeffizienten | Steigung und Intercept in einem statistischen Modell. Allgemeiner die Parameter die ein statistsiches Modell wiedergibt und die Grade beschreibt. |
 | Residuen | Unerklärter Rest durch die Modellierung. Konkret der Abstand zwischen den y-Messwerten und den y-Werten auf der Geraden. |
-|  |  |
+| fitted | Die angepassten y-Werte auf der Graden. |
 |  |  |
 
 : Gossar der häufig verwendeten Symbole und Fachbegriffe im statistischen Modellieren. {#tbl-glossar-regression tbl-colwidths="25, 75"}
