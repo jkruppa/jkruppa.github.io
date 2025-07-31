@@ -82,3 +82,93 @@ p_lm_summary_cov2_explained <- tibble(x = 0:10, y = 0:10) |>
   geom_curve(aes(x = 2.9, y = 9, xend = 2.4, yend = 8.5),
              arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
              curvature = 0.3, color = "gray50")
+
+p_lm_summary_fac2_explained <- tibble(x = 0:10, y = 0:10) |> 
+  ggplot(aes(x, y)) +
+  xlim(c(0, 10)) + ylim(c(0, 10)) +
+  theme_void() +
+  geom_image(data = tibble(x = 5, y = 5),
+             aes(image = "images/regression_summary_mult_02.png"), size = 0.95) +
+  ## Residuen
+  geom_tile(aes(x = 5, y = 7, width = 5.9, height = 1), fill = "#56B4E9",
+            alpha = 0.005, color = "#56B4E9", linewidth = 0.25) +
+  annotate("label", x = 2, y = 7.55, label = "Informationen zu den Residuen", size = 2.5, 
+           fontface = 2, fill = "#56B4E9", alpha = 1, hjust = "left") +
+  annotate("label", x = 0.5, y = 7.4, label = "Median ≈ 0\n1st ≈ 3rd\nmin ≈ max", size = 3.5, 
+           fontface = 1, fill = "#56B4E9", alpha = 0.5, hjust = "left") +  
+  annotate("label", x = 0.45, y = 8.25, label = "Optimal", size = 2.5, 
+           fontface = 2, fill = "#56B4E9", alpha = 1, hjust = "left") +
+  geom_curve(aes(x = 1, y = 6.6, xend = 2, yend = 6.8),
+             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
+             curvature = 0.4, color = "#56B4E9") +
+  ## Koeffizienten
+  geom_tile(aes(x = 5, y = 4.9, width = 5.9, height = 2.9), fill = "#009E73",
+            alpha = 0.005, color = "#009E73", linewidth = 0.25) +
+  annotate("label", x = 2, y = 6.35, label = "Informationen zu den Koeffizienten", size = 2.5, 
+           fontface = 2, fill = "#009E73", alpha = 1, hjust = "left") +
+  annotate("label", x = 8.5, y = 5+1, label = expression(H[0]*":"~beta[0]*"="*0), size = 3.5, 
+           fontface = 1, fill =  "#009E73", alpha = 0.5, hjust = "left") +  
+  annotate("label", x = 8.5, y = 4.4+1, label = expression(H[0]*":"~beta[blood]*"="*0), size = 3.5, 
+           fontface = 1, fill =  "#009E73", alpha = 0.5, hjust = "left") +  
+  annotate("label", x = 8.5, y = 3.8+1, label = expression(H[0]*":"~beta[ketchup]*"="*0), 
+           size = 3.5, fontface = 1, fill =  "#009E73", alpha = 0.5, hjust = "left") + 
+  annotate("label", x = 8.5, y = 3.2+1, label = expression(H[0]*":"~beta[juvenile]*"="*0), 
+           size = 3.5, fontface = 1, fill =  "#009E73", alpha = 0.5, hjust = "left") + 
+  annotate("label", x = 8.5, y = 2.6+1, label = expression(H[0]*":"~beta[blood~x~juvenile]*"="*0), 
+           size = 3.5, fontface = 1, fill =  "#009E73", alpha = 0.5, hjust = "left") + 
+  annotate("label", x = 8.5, y = 2+1, label = expression(H[0]*":"~beta[ketchup~x~juvenile]*"="*0), 
+           size = 3.5, fontface = 1, fill =  "#009E73", alpha = 0.5, hjust = "left") + 
+  annotate("label", x = 8.45, y = 5.4+1, label = "Hypothesen", size = 2.5, 
+           fontface = 2, fill = "#009E73", alpha = 1, hjust = "left") +
+  geom_curve(aes(x = 8.4, y = 6, xend = 7.3, yend = 5.5),
+             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
+             curvature = 0.2, color = "#009E73") +
+  geom_curve(aes(x = 8.4, y = 5.4, xend = 7.3, yend = 5.05),
+             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
+             curvature = -0.1, color = "#009E73") +
+  geom_curve(aes(x = 8.4, y = 4.8, xend = 7.3, yend = 4.7),
+             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
+             curvature = -0.1, color = "#009E73") +
+  geom_curve(aes(x = 8.4, y = 4.2, xend = 7.3, yend = 4.3),
+             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
+             curvature = -0.1, color = "#009E73") +
+  geom_curve(aes(x = 8.4, y = 3.6, xend = 7.3, yend = 4),
+             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
+             curvature = -0.2, color = "#009E73") +
+  geom_curve(aes(x = 8.4, y = 3, xend = 7.3, yend = 3.5),
+             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
+             curvature = -0.3, color = "#009E73") +
+  annotate("text", x = 1.5, y = 5, label = expression(bar(y)[sugar~"&"~adult]), size = 4, 
+           fontface = 3, color = "gray50", hjust = "right") +
+  geom_curve(aes(x = 1.6, y = 5, xend = 4.6, yend = 5.4),
+             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
+             curvature = -0.1, color = "gray50") +
+  ## ANOVA
+  geom_tile(aes(x = 5, y = 1.55, width = 5.9, height = 0.4), fill = "#E69F00",
+            alpha = 0.005, color = "#E69F00", linewidth = 0.25) +
+  annotate("label", x = 2, y = 1.25, label = "Informationen zu der ANOVA", size = 2.5, 
+           fontface = 2, fill = "#E69F00", alpha = 1, hjust = "left") +
+  ## Modelgüte
+  geom_tile(aes(x = 5, y = 2.15, width = 5.9, height = 0.75), fill = "#D55E00",
+            alpha = 0.005, color = "#D55E00", linewidth = 0.25) +
+  annotate("label", x = 2, y = 2.6, label = "Informationen zu der Modelgüte", size = 2.5, 
+           fontface = 2, fill = "#D55E00", alpha = 1, hjust = "left") +
+  annotate("label", x = 5, y = 0.6, label = "Bestimmtheitsmaß > 0.7", size = 3.5, 
+           fontface = 1, fill = "#D55E00", alpha = 0.5, hjust = "left") +
+  annotate("label", x = 4.95, y = 0.95, label = "Optimal", size = 2.5, 
+           fontface = 2, fill = "#D55E00", alpha = 1, hjust = "left") +
+  geom_curve(aes(x = 4.95, y = 0.6, xend = 4.1, yend = 1.8),
+             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
+             curvature = -0.3, color = "#D55E00") +
+  annotate("label", x = 0.6, y = 2.2, label = "RSE ≈ 0", size = 3.5, 
+           fontface = 1, fill = "#D55E00", alpha = 0.5, hjust = "left") +
+  annotate("label", x = 0.55, y = 2.55, label = "Optimal", size = 2.5, 
+           fontface = 2, fill = "#D55E00", alpha = 1, hjust = "left") +
+  geom_curve(aes(x = 1.5, y = 2.2, xend = 2.1, yend = 2.3),
+             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
+             curvature = 0.1, color = "#D55E00") +
+  annotate("text", x = 3, y = 9, label = "Modellaufruf - Zweifaktoriell mit Interaktion", size = 4, 
+           fontface = 3, color = "gray50", hjust = "left")  +
+  geom_curve(aes(x = 2.9, y = 9, xend = 2.4, yend = 8.8),
+             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
+             curvature = 0.3, color = "gray50")
