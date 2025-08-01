@@ -243,6 +243,33 @@ p_lhs_rhs_r <- ggplot() +
   theme(plot.caption = element_text(face = "italic"),
         plot.title = element_text(size = 16, face = "bold"))
 
+p_lhs_rhs_mult_r <- ggplot() +
+  theme_void() +
+  annotate("text", 0, 0, label = "~", size = 10, fontface = 2, hjust = "center") +
+  annotate("text", -4.5, 0, label = "jump_length", size = 10, fontface = 2, hjust = "center") +
+  annotate("text", 5.5, 0, label = "animal + weight", size = 10, fontface = 2, hjust = "center") +
+  annotate("text", x = 5, y = -4.5, label = "Spaltennamen", size = 6, 
+           fontface = 3, color = "gray50", hjust = "left") +
+  annotate("label", x = -9.5, y = 3.5, label = "LHS", size = 6, 
+           fontface = 3, fill = "#E69F00", alpha = 0.5) +
+  annotate("label", x = 9.9, y = 3.5, label = "RHS", size = 6, 
+           fontface = 3, fill = "#E69F00", alpha = 0.5) +
+  geom_curve(aes(x = 4.8, y = -4.75, xend = 3, yend = -2.75),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.15, color = "gray50") +
+  geom_curve(aes(x = 4.8, y = -4.75, xend = -4, yend = -2.75),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.1, color = "gray50") +
+  geom_curve(aes(x = 10, y = -4.75, xend = 10.3, yend = -0.2),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.6, color = "gray50") +
+  scale_x_continuous(limits = c(-10, 10.5)) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  labs(title = "Modellschreibweise in R",
+       caption = "LHS = left hand side\nRHS = right hand side")  +
+  theme(plot.caption = element_text(face = "italic"),
+        plot.title = element_text(size = 16, face = "bold"))
+
 p_simple_model <- ggplot() +
   theme_void() +
   annotate("text", 0, 0, 
