@@ -1,7 +1,9 @@
 ```{r echo = FALSE}
+#| message: false
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, patchwork, ggimage,
                plotly, conflicted)
 conflicts_prefer(plotly::layout)
+conflicts_prefer(dplyr::filter)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 source("images/R/stat-modeling-R.R")
@@ -1078,26 +1080,34 @@ Nun können wir sehen, dass von unserem ursprünglichen Effekt von dem Gewicht a
 
 ### Variance inflation factor (VIF) {#sec-vif}
 
-Wenn wir sehr viele Daten erheben, dann kann es sein, dass die Variablen stark miteinander korrelieren. Wir können aber stark mieinander korrelierte Variablen nicht zusammen in ein Modell nehmen. Die Effekte der beiden Variablen würden sich gegenseitig aufheben. Wir hätten eigentlich zwei getrennt signifikante Variablen. Nehmen wir aber beide Variablen mit ins Modell, sind beide Variablen nicht mehr signifikant.
+$$
+VIF = \cfrac{1}{1- R^2}
+$$
 
-::: {layout="[25,75]" layout-valign="top"}
-![](images/angel_01.png){fig-align="center" width="100%"}
+Die Interpretation der VIF-Werte (Variance Inflation Factor) hilft dir, den Grad der Multikollinearität in deinem Modell zu bewerten:
 
-> *Wir kürzen hier stark ab. Wenn du mehr über Variablen in einem Modell wissen willst, gibt es dann in den Kapitel zur Variablen Selektion mehr Informationen. Wenn du nur Outcomes und Blöcke vorliegen hast, dann ist das VIF für dich uninteressant.*
-:::
+-   VIF = 1: Es gibt keine Multikollinearität.
+-   VIF zwischen 1 und 5: Es liegt moderate Multikollinearität vor, die in der Regel unproblematisch ist.
+-   VIF \> 5: Es gibt eine hohe Multikollinearität, die die Koeffizienten unzuverlässig machen kann. Hier sollten Maßnahmen ergriffen werden.
+-   VIF \> 10: Dies deutet auf eine sehr hohe Multikollinearität hin, die dringend korrigiert werden muss.
 
-Um Variablen zu finden, die sich sehr ähnlich verhalten, können wir den Variance inflation factor (VIF) nutzen. Wir können den VIF jedoch *nicht* für kategoriale Daten verwenden. Statistisch gesehen würde es keinen Sinn machen. Die Anwendung ist recht einfach. Wir fitten als erstes unser Modell und dann können wir die Funktion `vif()` aus dem R Paket `{car}` verwenden.
-
-```{r}
-gummi_tbl <- read_excel("data/gummibears.xlsx")
-model <- lm(height ~ semester + age + count_color + count_bears, data = gummi_tbl)
-```
-
-Wir sehen im Folgenden das Eregbnis der Funktion `vif()`. Wenn der berechnete Wert für den VIF größer als 5 ist, dann liegt mit der Variable *ein Problem* vor. Wir vermuten dann, dass eine andere variable sehr stark mit dieser Variable korreliert. Wir sehen an den Werten keine Aufälligkeiten.
+::: panel-tabset
+## `{car}`
 
 ```{r}
-vif(model)
+juvenile_flea_tbl <- filter(flea_model_tbl, stage == "juvenile")
 ```
+
+```{r}
+juvenile_fit <- lm(jump_length ~ K + Mg + CRP + Hb + BSG + M, 
+                   data = juvenile_flea_tbl)
+```
+
+```{r}
+vif(juvenile_fit)
+```
+
+## `{performance}`
 
 Wir können uns mit der Funcktion `check_model()` aus dem R Paket `{performance}` auch die Unsicherheit mit angeben lassen. In unserem Beispiel hieft dies gerade nicht sehr viel weiter. Wir bleiben bei den geschätzen Werten und ignorieren das Intervall.
 
@@ -1105,15 +1115,56 @@ Wir können uns mit der Funcktion `check_model()` aus dem R Paket `{performance}
 #| message: false
 #| echo: false
 #| fig-align: center
-#| fig-height: 5
-#| fig-width: 5
+#| fig-height: 4
+#| fig-width: 7
 #| fig-cap: Graphische Darstellung des VIF mit der Funktion `check_model()`.
 #| label: fig-stat-modeling-vif
 
-check_model(model, check = "vif")
+check_model(juvenile_fit, check = "vif")
 ```
 
-In @fig-stat-modeling-vif sehen wir nochmal die Visualisierung. Wie immer, manchmal helfen solche Abbildungen, manchmal verwirren die Abbildungen mehr. Wir konzentrieren uns hier auf die Werte des VIF's und ignorieren die Streuung.
+## Händisch in R
+
+```{r}
+vif_fct <- function(x) 1/(1-x)
+```
+
+```{r}
+lm(K ~ Mg + CRP + Hb + BSG + M, data = juvenile_flea_tbl) |> 
+  r2() |>
+  pluck("R2") |> vif_fct() |> set_names("K")
+```
+
+```{r}
+lm(Mg ~ K + CRP + Hb + BSG + M, data = juvenile_flea_tbl) |> 
+  r2() |>
+  pluck("R2") |> vif_fct() |> set_names("Mg")
+```
+
+```{r}
+lm(CRP ~ K + Mg + Hb + BSG + M, data = juvenile_flea_tbl) |> 
+  r2() |>
+  pluck("R2") |> vif_fct() |> set_names("CRP")
+```
+
+```{r}
+lm(Hb ~ K + Mg + CRP + BSG + M, data = juvenile_flea_tbl) |> 
+  r2() |>
+  pluck("R2") |> vif_fct() |> set_names("Hb")
+```
+
+```{r}
+lm(BSG ~ K + Mg + CRP + Hb + M, data = juvenile_flea_tbl) |> 
+  r2() |>
+  pluck("R2") |> vif_fct() |> set_names("BSG")
+```
+
+```{r}
+lm(M ~ K + Mg + CRP + Hb + BSG, data = juvenile_flea_tbl) |> 
+  r2() |>
+  pluck("R2") |> vif_fct() |> set_names("M")
+```
+:::
 
 ### Vergleich von Modellen {#sec-model-basic-compare}
 
