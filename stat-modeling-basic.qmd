@@ -304,7 +304,11 @@ Beginnen wir mit einem mehrkovariaten Modell. Im Gegensatz zu einem einkovaraten
 p_2cov_model
 ```
 
+Die Grundidee ist in der folgenen Abbildung einmal dargestellt. Du kennst dich ja schon mit der simplen linearen Regression aus. In dem mehrkovariaten Fall haben wir nun im zweikovariaten Fall einen Scatterplit in drei Dimensionen vorliegen. Je mehr Kovariaten desto hoöher wird die Dimension. Ich kann aber nicht einen vier dimensionalen Scatterplot darstellen, daher hier die Einschränkung auf zwei Kovariaten. Wie du siehst zeichnen wir jetzt nicht eine Grade im eigentlichen Sinne sondern eine Ebene durch die Punkte hindurch. Dennoch wird der quadratische Abstand zu den Punkten eben über diese Ebene minimiert. Wir erhalten somit auch nur für jede einzelne Beobachtung einen Wert für die Residuen wieder.
+
 ![Ein 3D Scatterplot von zwei Kovariaten und einem Messwert Y in drei Dimensionen. Statt eine Grade wird ein Ebene (eng. *regression plane*) durch die Punkte im dreidimensionalen Raum gelegt. Die Residuen sind die Abweichungen der Beobachtungen zu den Werten auf der Ebene. Modifiziert nach https://stackoverflow.com/users/8770170/frans-rodenburg](images/mult-reg-scatter3d-00.png){#fig-scatter3d-00 fig-align="center" width="100%"}
+
+Die Darstellung einer multiplen linearen Regression ist vollkommen unüblich. Wir zeigen eigentlich nicht die Daten als Visualisierung sondern müssen uns dann mit statistischen Maßzahlen helfen, wenn wir wissen wollen, ob unsere Regression gelungen ist. Deshalb auch im Folgenden einmal die praktische Anwendung in R und wie wir die zweikovariate Regression interpretieren.
 
 ::: panel-tabset
 ## Praktisch in R
@@ -340,6 +344,17 @@ Einmal die annotierte Ausgabe der Zusammenfassung
 p_lm_summary_cov2_explained
 ```
 
+```{r}
+lm(jump_length ~ 1, data = flea_model_tbl)
+```
+
+```{r}
+anova(lm(jump_length ~ 1, data = flea_model_tbl),
+      lm(jump_length ~ weight + count_leg, data = flea_model_tbl))
+```
+
+Die folgende Abbildung dient hier nur der Anschaung. Wir publizieren eigentlich nicht eine Visualisierung in drei Dimensionen. Wie du hier schon siehst, ist die Darstellung durch die unterschiedlich Minima- und Maximawerte des Gewichts und der Anzahl an Beinhaaren sehr verdreht. Häufig sieht dann die Abbildung in drei Dimensionen nur gut aus, wenn alle drei Achsen die gleichen Spannweiten an Werten haben.
+
 ![Ein 3D Scatterplot von den zwei Kovariaten Gewicht der Flöhe in \[mg\] sowie der mittleren Anzahl an Beinhaaren und der Sprungweite in drei Dimensionen. Statt eine Grade wird ein Ebene (eng. *regression plane*) durch die Punkte im dreidimensionalen Raum gelegt. Die Residuen sind die Abweichungen der Beobachtungen zu den Werten auf der Ebene.](images/mult-reg-scatter3d-01.png){#fig-scatter3d-00 fig-align="center" width="100%"}
 
 ## Theoretisch
@@ -359,6 +374,111 @@ lm(y ~ c_1 + c_2, cov2_tbl) |>
 ```
 
 ## Theoretisch in R
+
+```{r}
+model.matrix(svl ~ mass + diameter, data = snake_tbl) |> as_tibble() 
+```
+
+$$
+ \begin{pmatrix}
+  40 \\
+  45 \\
+  39 \\
+  50 \\
+  52 \\
+  57 \\
+  58 \\
+  49 \\
+ \end{pmatrix}
+ =
+  \begin{pmatrix}
+  1 & 6 & 9 \\
+  1 & 8 & 3 \\
+  1 & 5 & 6 \\
+  1 & 7 & 7 \\
+  1 & 9 & 5 \\
+  1 & 11& 4 \\
+  1 & 12& 10 \\
+  1 & 10& 11 \\
+ \end{pmatrix}
+ \times
+  \begin{pmatrix}
+  \beta_0 \\
+  \beta_{mass} \\
+  \beta_{diameter} \\
+ \end{pmatrix} +
+  \begin{pmatrix}
+  \epsilon_1 \\
+  \epsilon_2 \\
+  \epsilon_3 \\
+  \epsilon_4 \\
+  \epsilon_5 \\
+  \epsilon_6 \\
+  \epsilon_7 \\
+  \epsilon_8 \\
+ \end{pmatrix}
+$$
+
+```{r}
+cov2_fit <- lm(svl ~ mass + diameter, data = snake_tbl)
+```
+
+```{r}
+cov2_fit |> coef() |> round(2)
+```
+
+```{r}
+cov2_fit |> residuals() |> round(2)
+```
+
+$$
+ \begin{pmatrix}
+  40 \\
+  45 \\
+  39 \\
+  51 \\
+  52 \\
+  57 \\
+  58 \\
+  49 \\
+ \end{pmatrix}
+ =
+  \begin{pmatrix}
+  28.27 & 6 \cdot 2.67 & 9 \cdot -0.30 \\
+  28.27 & 8 \cdot 2.67 & 3 \cdot -0.30 \\
+  28.27 & 5 \cdot 2.67 & 6 \cdot -0.30 \\
+  28.27 & 7 \cdot 2.67 & 7 \cdot -0.30 \\
+  28.27 & 9 \cdot 2.67 & 5 \cdot -0.30 \\
+  28.27 & 11 \cdot 2.67 & 4 \cdot -0.30 \\
+  28.27 & 12 \cdot 2.67 & 10 \cdot -0.30 \\
+  28.27 & 10 \cdot 2.67 & 11 \cdot -0.30 \\
+ \end{pmatrix} +
+  \begin{pmatrix}
+  -1.56 \\
+  -3.71 \\
+  -0.80 \\
+  +6.17 \\
+  +1.22 \\
+  +0.58 \\
+  +0.73 \\
+  -2.63 \\
+ \end{pmatrix}
+$$
+
+```{r}
+c(28.27 +  6*2.67 + 9*(-0.30) - 1.56,
+  28.27 +  8*2.67 + 3*(-0.30) - 3.71,
+  28.27 +  5*2.67 + 6*(-0.30) - 0.80,
+  28.27 +  7*2.67 + 7*(-0.30) + 6.17,
+  28.27 +  9*2.67 + 5*(-0.30) + 1.22,
+  28.27 + 11*2.67 + 4*(-0.30) + 0.58,
+  28.27 + 12*2.67 + 10*(-0.30) + 0.73,
+  28.27 + 10*2.67 + 11*(-0.30) - 2.63) |> round()
+```
+
+```{r}
+snake_tbl |> pull(svl)
+```
 :::
 
 ### Mehrfaktorielles Modell
@@ -752,11 +872,11 @@ $$
   40 \\
   45 \\
   39 \\
-  50 \\
+  51 \\
   52 \\
   57 \\
   58 \\
-  59 \\
+  49 \\
  \end{pmatrix}
  =
   \begin{pmatrix}
@@ -813,7 +933,7 @@ $$
   52 \\
   57 \\
   58 \\
-  59 \\
+  49 \\
  \end{pmatrix}
  =
   \begin{pmatrix}
