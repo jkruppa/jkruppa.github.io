@@ -433,7 +433,7 @@ p_1cov_model <- ggplot() +
   annotate("text", 0, 0, 
            label = expression(bold(Y)~"~"~bold(c[1])), 
            size = 10, fontface = 2, hjust = "center") +
-  annotate("text", x = 4, y = -7, label = "Covariate 1", size = 6, 
+  annotate("text", x = 4, y = -7, label = "Kovariate 1", size = 6, 
            fontface = 3, color = "gray50") +
   geom_curve(aes(x = 1.8, y = -7, xend = 1, yend = -3),
              arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
@@ -449,9 +449,9 @@ p_2cov_model <- ggplot() +
   annotate("text", 0, 0, 
            label = expression(bold(Y)~"~"~bold(c[1])~"+"~bold(c[2])), 
            size = 10, fontface = 2, hjust = "center") +
-  annotate("text", x = -4, y = -7, label = "Covariate 1", size = 6, 
+  annotate("text", x = -4, y = -7, label = "Kovariate 1", size = 6, 
            fontface = 3, color = "gray50") +
-  annotate("text", x = 6, y = -7, label = "Covariate 2", size = 6, 
+  annotate("text", x = 6, y = -7, label = "Kovariate 2", size = 6, 
            fontface = 3, color = "gray50") +
   geom_curve(aes(x = 4, y = -7, xend = 2, yend = -2),
              arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
@@ -471,7 +471,7 @@ p_fa_c1_model <- ggplot() +
            size = 10, fontface = 2, hjust = "center") +
   annotate("text", x = -3.5, y = -7, label = "Faktor A", size = 6, 
            fontface = 3, color = "gray50") +
-  annotate("text", x = 6, y = -7, label = "Covariate 1", size = 6, 
+  annotate("text", x = 6, y = -7, label = "Kovariate 1", size = 6, 
            fontface = 3, color = "gray50") +
   geom_curve(aes(x = 4, y = -7, xend = 2, yend = -2),
              arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
@@ -490,7 +490,7 @@ p_c1_fa_2lvl_fb_3lvl_model <- ggplot() +
   annotate("text", 0, 0, 
            label = expression(bold(Y)~"~"~bold(c[1])~"+"~bold(f[A])~"+"~bold(f[B])), 
            size = 10, fontface = 2, hjust = "center") +
-  annotate("text", x = -5, y = -7, label = "Covariate 1", size = 6, 
+  annotate("text", x = -5, y = -7, label = "Kovariate 1", size = 6, 
            fontface = 3, color = "gray50") +
   annotate("text", x = 4, y = -7, label = "Faktor A", size = 6, 
            fontface = 3, color = "gray50") +
@@ -517,9 +517,9 @@ p_c2_fa_2lvl_fb_3lvl_model <- ggplot() +
   annotate("text", -1.25, 0, 
            label = expression(bold(Y)~"~"~bold(c[1])~"+"~bold(c[2])~"+"~bold(f[A])~"+"~bold(f[B])), 
            size = 10, fontface = 2, hjust = "center") +
-  annotate("text", x = -7.5, y = 7.5, label = "Covariate 1", size = 6, 
+  annotate("text", x = -7.5, y = 7.5, label = "Kovariate 1", size = 6, 
            fontface = 3, color = "gray50") +
-  annotate("text", x = -5, y = -7, label = "Covariate 2", size = 6, 
+  annotate("text", x = -5, y = -7, label = "Kovariate 2", size = 6, 
            fontface = 3, color = "gray50") +
   annotate("text", x = 4, y = -7, label = "Faktor A", size = 6, 
            fontface = 3, color = "gray50") +
