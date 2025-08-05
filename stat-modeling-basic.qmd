@@ -219,6 +219,8 @@ Wir immer geht natürlich mehr als ich hier Vorstellen kann. Du findest im Folge
 
 -   Wir funktioniert nun so eine lineare Regression und was sind den jetzt eigentlich die Koeffizienten $\beta_0$ und $\beta_1$ eigentlich? Hier gibt es die fantastische Seite [Explained Visually \| Ordinary Least Squares Regression](https://setosa.io/ev/ordinary-least-squares-regression/), die dir nochmal erlaubt selbe mit Punkten in einem Scatterplot zu spielen und zu sehen wie sich dann die Regressionsgleichung ändert.
 -   Das Buch [Tidy Modeling with R](https://www.tmwr.org/) gibt nochmal einen tieferen Einblick in das Modellieren in R. Wir immer, es ist ein Vorschlag aber kein Muss.
+-   Das R Paket [`{jtools}`](https://jtools.jacob-long.com/articles/summ) gibt nochmal Möglichkeiten sich schnönere `summary()` Ausgaben erstellen zu lassen.
+-   Das R Paket [`{modelsummary}`](https://modelsummary.com/) ist perfekt dafür geeignet nochmal verschiedene Modelle miteinander zu vergleichen.
 :::
 
 ## Genutzte R Pakete
@@ -227,10 +229,11 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, broom, correlation,
-               see, performance, car, parameters,
-               conflicted)
+pacman::p_load(tidyverse, magrittr, broom, correlation, jtools,
+               see, performance, car, parameters, modelsummary,
+               ggpmisc, conflicted)
 conflicts_prefer(magrittr::set_names)
+conflicts_prefer(ggplot2::annotate)
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                 "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
@@ -1179,13 +1182,91 @@ In den folgenden Abschnitten schauen wir uns noch andere Dinge von Interesse ein
 
 ### Einheit der Kovariaten
 
-![Ein seltener Jedifloh, der so machtsensitiv ist, dass seine Fähigkeiten in der Sprungweite extrem erhöht sind.](images/flea_yedi.png){fig-align="center" width="60%"}
+![Ein seltener Jedifloh, der so machtsensitiv ist, dass seine Fähigkeiten in der Sprungweite extrem erhöht sind.](images/flea_yedi.png){#fig-yedi-flea fig-align="center" width="60%"}
 
-Manche Flöhe haben hohe Werte der [Midi-Chlorianer](https://www.jedipedia.net/wiki/Midi-Chlorianer) oder einfach M-Werte. Damit sind diese Flöhe insbesondere sensitiv für die Macht und somit auch in etwa Jediflöhe.
+Kommen wir nun nochmal zu einem Problem der Einheit. Wir können einen sehr kleinen Effekt vorliegen haben, der dann signifikant ist. Schnell denken wir dann, dass dieser Effekt sehr klein ust und damit nicht relevant. Wir sprechen aber bei einer Regression immer von der Steigung als Effekt. Wenn sich also die Einheit der Einflussvariable um Eins erhöht, dann steigt der Messwert um den Wert des Koeffizienten der Steigung. Wenn wir also sehr große Werte messen, dann ist die Änderung in einer Einheit sehr klein. Schauen wir uns mal das Beispiel der Jediflöhe an.
+
+Manche Flöhe haben hohe Werte der [Midi-Chlorianer](https://www.jedipedia.net/wiki/Midi-Chlorianer) oder einfach M-Werte. Damit sind diese Flöhe insbesondere sensitiv für die Macht und somit Jediflöhe. Jediflöhe könnten damit auch höhere Sprungweiten vorliegen haben, da die Jediflöhe ja einen teil ihrer MAcht dazu nutzen könnten weiter zu springen. Daher wollen wir mal in einer einfachen simplen Regression mit nur den M-Werten schauen, ob die M-Werte einen Einfluss auf die Sprungweiten haben. Ich lasse mir jetzt nur die Tabelle der Koeffizienten wiedergeben.
 
 ```{r}
 lm(jump_length ~ M, data = flea_model_tbl) |> 
-  summary()
+  summary() |> coef() |> round(3)
+```
+
+Wie wir jetzt sehen ist der Effekt mit 0.002cm extrem gering aber dennoch signifkant. Der p-Wert ist kleiner als das Signifikanzniveau $\alpha$ gleich 5%. Ist also der Wert der Midi-Chlorianer nicht relevant? Hier kommt es auf die Einheit und damit die Spannweite der M-Wert an. Die M-Werte laufen von 80.19 bis 25149.36 Anzahl Midi-Chlorianer im Blut. Damit ist eine kleine Änderung in den M-Werten auch nur mit einer kleinen Änderung in den Sprungweiten verbunden. Also Achtung bei Kovariaten mit großer Spannweite und kleinen Einheiten.
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "Scatterplot der Sprungweite in [cm] und Anzahl Midi-Chlorianer im Blut. Die lineare Grade und die Gradengleichung wurden ergänzt. *[Zum Vergrößern anklicken]*"
+#| label: fig-model-m-values
+
+ggplot(flea_model_tbl, aes(M, jump_length)) +
+  theme_modeling() +
+  geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_point() +
+  stat_poly_line(color = "#56B4E9", linewidth = 1,
+                 fullrange = TRUE, se = FALSE) +
+  stat_poly_eq(use_label("eq"), size = 5) +
+  labs(title = "Einkovariates Modell",
+       subtitle = "Zusammenhang zwischen Sprungweite und Anzahl Midi-Chlorianer im Blut",
+       x = "Anzahl Midi-Chlorianer im Blut", y = "Sprungweite in [cm]") +
+  ylim(NA, 200)
+```
+
+### Adjustierung für Confounder {#sec-confounder}
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 4.5
+#| fig-width: 10
+#| fig-cap: "Scatterplot der Sprungweite in [cm] und Anzahl Midi-Chlorianer im Blut. Die lineare Grade und die Gradengleichung wurden ergänzt. *[Zum Vergrößern anklicken]*"
+#| label: fig-model-m-values
+
+p1_confounder <- ggplot(flea_model_tbl, aes(M, jump_length, color = feeding)) +
+  theme_modeling() +
+  geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_point() +
+  stat_poly_line(linewidth = 1,
+                 fullrange = TRUE, se = FALSE) +
+  stat_poly_eq(use_label("eq"), size = 4, vstep = 0.1) +
+  labs(#title = "Einkovariates Modell",
+       #subtitle = "Zusammenhang zwischen Sprungweite und Anzahl Midi-Chlorianer im Blut",
+       x = "Anzahl Midi-Chlorianer im Blut", y = "Sprungweite in [cm]",
+       color = "Ernährung") +
+  ylim(NA, 200) +
+  scale_color_okabeito(labels = c("Zuckerwasser", "Blut", "Ketchup")) +
+  theme(legend.position = "top")
+
+p2_confounder <- ggplot(flea_model_tbl, aes(M, jump_length, color = as_factor(infected))) +
+  theme_modeling() +
+  geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_point() +
+  stat_poly_line(linewidth = 1,
+                 fullrange = TRUE, se = FALSE) +
+  stat_poly_eq(use_label("eq"), size = 4, vstep = 0.1) +
+  labs(#title = "Einkovariates Modell",
+       #subtitle = "Zusammenhang zwischen Sprungweite und Anzahl Midi-Chlorianer im Blut",
+       x = "Anzahl Midi-Chlorianer im Blut", y = "Sprungweite in [cm]",
+       color = "Flohschnupfen") +
+  ylim(NA, 200) +
+  scale_color_okabeito(labels = c("nein", "ja")) +
+  theme(legend.position = "top")
+
+p1_confounder + p2_confounder +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
 
 ### Korrelation der Kovariaten
@@ -1195,6 +1276,12 @@ flea_model_tbl |>
   select(count_leg, count_leg_left, count_leg_right) |> 
   correlation() |> 
   summary(redundant = TRUE)
+```
+
+```{r}
+flea_model_tbl |> 
+  select(count_leg, count_leg_left, count_leg_right) |>
+  datasummary_correlation()
 ```
 
 ```{r}
@@ -1336,132 +1423,18 @@ lm(M ~ K + Mg + CRP + Hb + BSG, data = juvenile_flea_tbl) |>
 ```
 :::
 
-### Adjustierung für Confounder {#sec-confounder}
-
-Im folgenden Abschnitt wollen wir einmal auf Confounder eingehen. Was sind Confounder? Zum einen gibt es kein gutes deutsches Wort für Confounder. Du könntest Confounder in etwa mit *Verzerrer* oder *Störfakor* übersetzen. Zum Anderen können Confounder nur zuammen mit anderen Vriabln in einer multiplen Regression auftreten. Das heißt, wir brauchen mindestens zwei Variablen in einer Regression. Ein Confounder verursacht einen Effekt, den wir eigentlich nicht so erwartet hätten. Wir wollen eigentlich einen Effekt schätzen, aber der Effekt ist viel größer oder kleiner, da der Effekt eigentlich von einder anderen Variable verursacht oder aber verdeckt wird. Wir können einen Confounder in beide Richtungen haben. Wichtig ist hierbei, das wir eigentlich *nicht* an dem Effekt des Confounders interessiert sind. Wir wollen uns zum Beispiel den Effekt einer Düngung auf das Trockengewicht anschauen, aber der Effekt den wir beobachten wird durch die unterschiedlichen Pflanzorte verursacht.
-
-Schauen wir uns das ganze mal für das Beispiel des Zusammenhangs von dem Flohgewicht mit der Sprungweite an. Dafür benötigen wir den Datensatz `flea_dog_cat_length_weight.csv`.
-
-```{r}
-#| message: false
-
-model_tbl <- read_csv2("data/flea_dog_cat_length_weight.csv") |>
-  select(animal, sex, weight, jump_length) |> 
-  mutate(animal = as_factor(animal),
-         sex = as_factor(sex))
-```
-
-In der @tbl-model-confounder ist der Datensatz `model_tbl` nochmal dargestellt.
-
-```{r}
-#| message: false
-#| echo: false
-#| tbl-cap: Datensatz für die Confounder Adjustierung. Die Variable `jump_length` ist das $y$ und die Variable `weight` das $x$ von Interesse.
-#| label: tbl-model-confounder
-
-model_raw_tbl <- model_tbl |> 
-  mutate(animal = as.character(animal),
-         sex = as.character(sex))
-rbind(head(model_raw_tbl),
-      rep("...", times = ncol(model_raw_tbl)),
-      tail(model_raw_tbl)) |> 
-  kable(align = "c", "pipe")
-
-```
-
-Wir können uns jetzt drei verschiedene Modelle anschauen.
-
-1)  Das Modell `jump_length ~ weight`. Wir modellieren die Abhängigkeit von der Sprungweite von dem Gewicht der Flöhe *über alle* anderen Variablen hinweg.
-2)  Das Modell `jump_length ~ weight + animal`. Wir modellieren die Abhängigkeit von der Sprungweite von dem Gewicht der Flöhe und berücksichtigen die Tierart des Flohes. Ignorieren aber das Geschlecht des Flohes.
-3)  Das Modell `jump_length ~ weight + animal + sex`. Wir modellieren die Abhängigkeit von der Sprungweite von dem Gewicht der Flöhe und berücksichtigen *alle* Variablen, die wir gemessen haben.
-
-Hierbei ist wichtig, dass es natürlich auch Confounder geben kann, die wir gar nicht in den Daten erhoben haben. Also, dass sich Gruppen finden lassen, die wir gar nicht als Variable mit in den Daten erfasst haben. Hier könnte eine Hauptkomponentenanalyse helfen.
-
-```{r}
-#| message: false
-#| echo: false
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 5
-#| label: fig-stat-modeling-mult-01
-#| fig-cap: "Darstellung des *counfounder* Effekts anhand des Zusammenhangs der Sprungweite in [cm] und dem Gewicht von Flöhen [mg]."
-#| fig-subcap: 
-#|   - "jump_length ~ weight"
-#|   - "jump_length ~ weight + animal"
-#|   - "jump_length ~ weight + animal + sex"
-#| layout-nrow: 1
-
-
-ggplot(model_tbl, aes(x = weight, y = jump_length)) +
-  geom_smooth(method = "lm", se = FALSE) +
-  theme_minimal() +
-  geom_point() 
-
-ggplot(model_tbl, aes(x = weight, y = jump_length, color = animal)) +
-  geom_smooth(method = "lm", se = FALSE) +
-  scale_color_okabeito() +
-  theme_minimal() +
-  geom_point() +
-  labs(color  = "Tierart")
-
-ggplot(model_tbl, aes(x = weight, y = jump_length, color = animal, shape = sex)) +
-  geom_smooth(method = "lm", se = FALSE) +
-  scale_color_okabeito() +
-  theme_minimal() +
-  geom_point() +
-  labs(color  = "Tierart", shape = "Geschlecht")
-
-```
-
-In @fig-stat-modeling-mult-01-1 sehen wir die blaue Linie als die Ausgabe von dem Modell `jump_length ~ weight`. Wir sehen, dass mit dem Anstieg des Gewichtes der Flöhe auch die Sprungweite sich erhöht. Wir würden annehmen, dass wir hier einen signifikanten Unterschied vorliegen haben. Schauen wir uns die Koeffizienten des Modells aus dem `lm()` einmal an.
-
-```{r}
-#| message: false
-#| warning: false
-
-lm(jump_length ~ weight, data = model_tbl) |> 
-  model_parameters()
-```
-
-Wir sehen, dass wir einen Effekt des Gewichts auf die Sprungweite von $1.34$ vorliegen haben. Auch ist der Effekt und damit die Steigung signifikant.
-
-Erweitern wir nun das Modell um die Tierart und erhalten die @fig-stat-modeling-mult-01-2. Zum einen sehen wir, dass der globale Effekt nicht so ganz stimmen kann. Die Tierarten haben alle einen unterschiedlichen starken Effekt von dem Gewicht auf die Sprungweite. Auch hier fitten wir einmal das lineare Modell und schauen uns die Koeffizienten an.
-
-```{r}
-#| message: false
-#| warning: false
-
-lm(jump_length ~ weight + animal, data = model_tbl) |> 
-  model_parameters()
-```
-
-Der Effekt des Gewichtes ist hier in etwa gleich geblieben. Wir sehen aber auch, dass die Sprungweite anscheinend bei Hunden und Füchsen höher ist. Daher haben wir hier einen Effekt on der Tierart. Wir adjustieren für den Confoundereffekt durch die Tierart und erhalten einen besseren Effektschätzer für das Gewicht.
-
-In der letzten @fig-stat-modeling-mult-01-3 wollen wir nochmal das Geschlecht der Flöhe mit in das Modell nehmen. Wir sehen, dass in diesem Fall, das Gewicht gar keinen Einfluss mehr auf die Sprungweite hat. Den Effekt des Gewichtes war nur der Effekt des unterschiedlichen Gewichtes der weiblichen und männlichen Flöhe. Schauen wir auch hier nochmal in des Modell.
-
-```{r}
-#| message: false
-#| warning: false
-
-lm(jump_length ~ weight + animal + sex, data = model_tbl) |> 
-  model_parameters() |> 
-  mutate(Coefficient = round(Coefficient, 2))
-```
-
-Nun können wir sehen, dass von unserem ursprünglichen Effekt von dem Gewicht auf die Sprungweite nichts mehr übrigbleibt. Wir haben gar keinen Effekt von dem Gewicht auf die Sprungweite vorliegen. Was wir gesehen haben, war der Effekt des Gewichtes der unterschiedlichen Geschlechter. Wenn wir unser Modell für die Confounder `animal` und `sex` adjustieren, haben wir einen unverzerrten Schätzer für `weight`. Wichtig ist nochmal, dafür müssen wir natürlich auch alle variablen erhoben haben. Hätten wir das Geschlecht der Flöhe nicht bestimt, hätten wir hier eventuell einen falschen Schluß getroffen.
-
 ### Vergleich von Modellen {#sec-model-basic-compare}
 
-Im Folgenden wollen wir einmal verschiedene Modelle miteinander Vergleichen und uns statistisch wiedergeben lassen, was das beste Modell ist. Und hier holen wir auch einmal kurz Luft, denn wir entschieden *nur* was das statistisch beste Modell ist. Es kann sein, dass ein Modell biologisch mehr Sinn macht und nicht auf Platz 1 der statistischen Maßzahlen steht. Das ist vollkommen in Ordnung. Du musst abweägen, was für sich das beste Modell ist. Im Zweifel komme ruhig nochmal in meine statistische Beratung oder schreibe mir eine Mail.
+Im Folgenden wollen wir einmal verschiedene Modelle miteinander Vergleichen und uns statistisch wiedergeben lassen, was das beste Modell ist. Und hier holen wir auch einmal kurz Luft, denn wir entschieden nur was das statistisch beste Modell ist. Es kann sein, dass ein Modell biologisch mehr Sinn macht und nicht auf Platz 1 der statistischen Maßzahlen steht. Das ist vollkommen in Ordnung. Du musst abweägen, was für sich das beste Modell ist. Im Zweifel komme ruhig nochmal in meine statistische Beratung oder schreibe mir eine Mail.
 
-Wir bauchen uns jetzt fünf Modelle von `fit_1` bis `fit_5`. Jedes dieser Modelle hat andere $x$ aber häufig das gleiche Outcome `y`. In dem Beispiel am Ende des Kapitels nutzen wir auch verschiedene $y$ dafür aber dann gleiche $x$ in dem Modell. Im Weiteren sortieren wir die Modelle von einfach nach komplex. Ich versuche immmer das einfachste Modell `fit_1` zu nennen bzw. eher die niedrige Nummer zu geben. Im Idealfall benennst du die Modellobjekte nach den Modellen, die in en Objekten gespeichert sind. Oft sind die Modelle aber sehr groß und die Objekte der Fits haben dann sehr lange Namen.
+Wir bauchen uns jetzt fünf Modelle von `fit_1` bis `fit_5`. Jedes dieser Modelle hat andere Einflussvariablen aber den gleichen Messwert. Im Weiteren sortieren wir die Modelle von einfach nach komplex. Ich versuche immmer das einfachste Modell `fit_1` zu nennen und daher die niedrige Nummer zu geben. Im Idealfall benennst du die Modellobjekte nach den Modellen, die in en Objekten gespeichert sind. Oft sind die Modelle aber sehr groß und die Objekte der Fits haben dann sehr lange Namen.
 
 ```{r}
-fit_1 <- lm(jump_length ~ animal, data = model_tbl)
-fit_2 <- lm(jump_length ~ animal + sex, data = model_tbl)
-fit_3 <- lm(jump_length ~ animal + sex + weight, data = model_tbl)
-fit_4 <- lm(jump_length ~ animal + sex + sex:weight, data = model_tbl)
-fit_5 <- lm(log(jump_length) ~ animal + sex, data = model_tbl)
+fit_1 <- lm(jump_length ~ feeding, data = flea_model_tbl)
+fit_2 <- lm(jump_length ~ feeding + stage + feeding:stage, data = flea_model_tbl)
+fit_3 <- lm(jump_length ~ feeding + weight + count_leg, data = flea_model_tbl)
+fit_4 <- lm(jump_length ~ feeding + stage + M + CRP + Mg, data = flea_model_tbl)
+fit_5 <- lm(log(jump_length) ~ feeding + stage, data = flea_model_tbl)
 ```
 
 Als Ergänzung zum Bestimmtheitsmaß $R^2$ wollen wir uns noch das *Akaike information criterion* (abk. $AIC$) anschauen. Du kannst auch das $R^2$ bzw. das $R^2_{adj}$ für die Modellauswahl nehmen. Das $AIC$ ist neuer und auch für komplexere Modelle geeignet. Es gilt hierbei, je kleiner das $AIC$ ist, desto besser ist das $AIC$. Wir wollen also Modelle haben, die ein kleines $AIC$ haben. Wir gehen jetzt nicht auf die Berechnung der $AIC$'s für jedes Modell ein. Wir erhalten nur ein $AIC$ für jedes Modell. Die einzelnen Werte des $AIC$'s sagen *nichts* aus. Ein $AIC$ ist ein mathematisches Konstrukt. Wir können aber verwandte Modelle mit dem $AIC$ untereinander vergleichen. Daher berechnen wir ein $\Delta$ über die $AIC$. Dafür nehmen wir das Modell mit dem niedrigsten $AIC$ und berechnen die jeweiligen Differenzen zu den anderen $i$ Modellen. In unserem Beispiel ist $i$ dann gleich fünf, da wir fünf Modelle haben.
@@ -1524,33 +1497,5 @@ Zum Ende stellt sich die Frage nach dem statistischen Test. Können wir auch sta
 ```{r}
 test_vuong(fit_1, fit_2, fit_3, fit_4, fit_5)
 ```
-
-Nutzen wir die Modellselektion auch einmal an einem konkreten Beispiel. War die Transformation sinnvoll? Wir haben also ein Outcome $y$ vorliegen und wollen wissen, ob wir nicht lieber das Modell mit einem $y$ mit einer $log$-Transformation rechnen sollten. Wir nutzen dazu den Datensatz mit den Hunde- und Katzenflöhen und die Schlüpfdauer als Outcome. Also wie lange brauchen die Flöhe bis die Flöhe aus den Eiern geschlüpft sind.
-
-```{r}
-#| message: false
-
-model_tbl <- read_csv2("data/flea_dog_cat_length_weight.csv") |>
-  mutate(log_hatch_time = round(log(hatch_time), 2))
-```
-
-Wir bauen uns jetzt zwei Modelle. Zum einen das Modell `fit_raw` mit der `hatch_time` und den Variablen `ainmal` und `sex`. Das zweite Modell enthält die `log(hatch_time)` also das Outcome $y$ als $log$-Transformation. Wiederum sind die $x$ variablen die gleichen wie im untransformierten Modell. Wir fitten beide Modelle und speichern die Objekte entsprechend ab.
-
-```{r}
-fit_raw <- lm(hatch_time ~ animal + sex, data = model_tbl)
-fit_log <- lm(log_hatch_time ~ animal + sex, data = model_tbl)
-```
-
-Die Funktion `compare_performance()` erlaubt uns wieder die beiden Modelle `fit_raw` und `fit_log` miteinander zu vergleichen. Wir erhalten die folgende Ausgabe der Funktion.
-
-```{r}
-#| message: false
-#| warning: false
-comp_res <- compare_performance(fit_raw, fit_log, rank = TRUE)
-
-comp_res
-```
-
-In diesem Beispiel wäre das $log$-transformierte Modell das bessere statistische Modell. Wir müssen jetzt überlegen, ob wir den Preis dafür bezahlen wollen. Wenn wir nämlich alles mit der $log$-Transformation rechnen, dann erhalten wir auch alle Koeffizienten auf der $log$-Skala (eng. *log scale*). Hier kannst du nur von Fall zu Fall entscheiden.
 
 ## Referenzen {.unnumbered}
