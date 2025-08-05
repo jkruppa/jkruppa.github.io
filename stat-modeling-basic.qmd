@@ -227,7 +227,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, magrittr, broom,
+pacman::p_load(tidyverse, magrittr, broom, correlation,
                see, performance, car, parameters,
                conflicted)
 conflicts_prefer(magrittr::set_names)
@@ -511,6 +511,8 @@ lm(y ~ c_1 + c_2, cov2_tbl) |>
 
 ### Mehrfaktorielles Modell
 
+Betrachten wir nun ein mehrfaktorielles Modell. Hier sei aber gleich gesagt, dass wir eigentlich in einem mherfaktoriellen Modell an den Vergleichen der Level in den Faktoren interessiert sind. Wir wollen also eigentlich einen paarweisen Vergleich über die Gruppen rechnen. Damit sind wir dann auf dem ANOVA Pfad mit der [ANOVA](#sec-anova) und den [Post-hoc Tests](#sec-posthoc). Wir schauen uns hier also erstmal die Koeffizienten des Modells an, sehr häufig nutzen wir diese Koeffizienten dann aber nicht. Das hat den Grund, dass der Referenzwert ja der Interecept im Modell ist und wir wenig an dem Vergleich zu dem Intercept interessiert sind. Dazu dann aber gleich mehr. Hier dann erstmal das zweifaktorielle Modell mit dem Interaktionsterm. Zu der Interaktion kannst du im [Kapitel zur ANOVA](#sec-anova) mehr erfahren.
+
 ```{r}
 #| message: false
 #| echo: false
@@ -518,29 +520,39 @@ lm(y ~ c_1 + c_2, cov2_tbl) |>
 #| fig-align: center
 #| fig-height: 2
 #| fig-width: 7
-#| fig-cap: "Schemantisches simples Modell mit einem Messwert $Y$ und einer kategorialen Einflussvariablen als Faktor $f_A$ mit drei Leveln sowie einer kategorialen Einflussvariablen als Faktor $f_B$ mit zwei Leveln und deren Interaktion $f_A \\times f_B$ dargestellt. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Schemantisches multiples Modell mit einem Messwert $Y$ und einer kategorialen Einflussvariablen als Faktor $f_A$ mit drei Leveln sowie einer kategorialen Einflussvariablen als Faktor $f_B$ mit zwei Leveln und deren Interaktion $f_A \\times f_B$ dargestellt. *[Zum Vergrößern anklicken]*"
 #| label: fig-model-in-R-13
 
 p_2fac_model  +
   labs(title = "") 
 ```
 
+Im Folgenden wollen wir also einmal ein multiples Modell rechnen und die Koeffizienten für die einzelnen Faktoren ermitteln. Dabei hat es dann eine Auswirkung wie viele Level ein Faktor hat und wie wir das Modell bauen. Wir machen hier gleich das volle Modell mit Interaktion. Ohne die Interaktion lassen sich dann die Koeffizienten etwas leichter zu interpretieren. Am Ende ist es dann doch die ANOVA, die wir eigentlich wollen. Hier also bitte nicht verwirren lassen, es kommt immer auf die wissenschaftliche Fragestellung an.
+
 ::: panel-tabset
 ## Praktisch in R
+
+Beginnen wir wieder mit dem zweifaktoriellen Modell. Wir nehmen hier beide Faktoren mit ins Modell und wollen auch den Interaktionsterm mit modellieren. Wenn wir den Interaktionsterm weglassen, dann können wir die Koeffizienten des Modells etwas leichter interpretieren. Wenn also unsere Interaktion nicht signifikant ist, dann kannst du die Interaktion auch aus dem Modell entfernen und so es etwas einfacher machen.
 
 ```{r}
 fac2_fit <- lm(jump_length ~ feeding + stage + stage:feeding, data = flea_model_tbl) 
 ```
+
+Jetzt erhalten wir die Koeffizienten des Modells mit einem Intercept und der Steigung zu den einzelnen Gruppenmittelwerten. Oder anders ausgedrückt, die Differenz der Gruppenmittelwerte zum Intercept. Dazu dann noch die Koeffizienten der Interaktion. Hier sehen wir noch nicht, ob die Koeffizienten der Interaktion signifikant sind.
 
 ```{r}
 fac2_fit |> 
   coef() |> round(2)
 ```
 
+Jetzt müssen wir uns einmal die Zusammenfassung des Modells wiedergeben lassen, damit wir abschätzen können, ob unsere Koeffizienten signifikant sind. Auch erhalten wir die statistischen Maßzahlen für die Modelgüte wiedergegeben. Unser Interaktion ist für beide Koeffizienten nicht signifikant, daher könnten wir die Interaktion auch aus dem Modell nehmen.
+
 ```{r}
 #| eval: true
 fac2_fit |> summary()
 ```
+
+Dann habe ich dir in der folgenden Abbildung nochmal die Ausgabe der Zusammenfassung annotiert. Der spannendeste Teil ist eigentlich, was der Intercept repräsentiert. Der Intercept ist nämlich das lokale Gruppenmittel der Behandlung Zuckerwasser für die adulten Flöhe. Dann haben wir die einzlenen statistischen Tests, ob sich die Koeffizienten von Null unterscheiden. Somit eigentlich die Frage, ob die lokalen Mittelwerte der Gruppen sich vom Intercept unterscheiden.
 
 ```{r}
 #| message: false
@@ -555,9 +567,7 @@ fac2_fit |> summary()
 p_lm_summary_fac2_explained
 ```
 
-text
-
-text
+Das Ganze mag etwas kryptisch sein, aber das Ziel ist es eigentlich die Mittelwerte der Faktorkombinationen abzubilden. In der folgenden Tabelle habe ich dir einmal gezeigt, wie wir von den Koeffizienten auf die Mittelwerte der Sprungweiten in den einzelnen Gruppen der Faktorkombinationen kommen. Jetzt siehst du auch, dass die Koeffizienten nur einen sehr kleinen Teil der Unterschiede in den Sprungweiten beschreiben. Daher nutzen wir dann lieber Post-hoc Tests um alle paarweisen Mittelwertsvergleiche rechnen zu können.
 
 ```{r}
 #| echo: false
@@ -579,7 +589,7 @@ tibble("$f_{feeding}$" = rep(c("sugar", "blood", "ketchup"), each = 2),
   kable(align = "c", "pipe")
 ```
 
-text
+Dann wird dir alles wahrscheinlich klarer, wenn wir uns nochmal die Abbildung zu dem zweifaktoriellen Versuch anschauen. Wir haben hier unsere y-Achse mit dem Intercept direkt durch den lokalen Gruppenmittelwert der adulten Flöhe, die Zuckerwasser trinken. Dann kannst du die jeweiligen Abweichungen aus der obigen Tabelle der Mittelwerte in der Abbildung nachvollziehen.
 
 ```{r}
 #| message: false
@@ -588,25 +598,30 @@ text
 #| fig-align: center
 #| fig-height: 4.5
 #| fig-width: 6
-#| fig-cap: "Scatterplot der Sprungweiten der Hunde-,  Katzen- und Fuchsflöhe.  *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Darstellung der Gruppenmittelwerte der Sprungweiten für alle Faktorkombinationen aus dem zweifaktoriellen Modell zur Ernährung und Entwicklungsstand von Flöhen. Der Intercept liegt auf dem lokalen Mittelwert der adulten Flöhe, die Zuckerwasser trinken. Die Koeffizienten des zweifaktoriellen Modells beschreiben die Abweichungen zu dem Intercept. *[Zum Vergrößern anklicken]*"
 #| label: fig-model-basis-fac2
 
 ggplot(flea_model_tbl, aes(feeding, jump_length, color = stage)) +
   theme_modeling() +
-  geom_vline(xintercept = 1, linewidth = 0.5, color = "grey50") +
+  geom_vline(xintercept = 0.95, linewidth = 0.5, color = "grey50") +
   geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
   geom_hline(yintercept = 78.98, linewidth = 0.5, color = "#CC79A7") +
-  geom_point(position = position_dodge(0.2)) +
+  geom_point(position = position_dodge(0.2), alpha = 0.5, size = 1) +
   stat_summary(fun = "mean", geom = "label", 
                aes(label = round(..y.., 2)), 
                position = position_nudge(c(-0.3, 0.3, -0.3, 0.3, -0.3, 0.3)),
                show.legend = FALSE) +
+  stat_summary(fun = "mean", geom = "point", shape = 13, size = 5,
+               aes(label = round(..y.., 2)), 
+               show.legend = FALSE, position = position_dodge(0.2)) +
   scale_x_discrete(labels = c("Zuckerwasser", "Blut", "Ketchup")) +
   labs(title = "Zweifaktorielles Modell mit Interaktion",
        subtitle = "Intercept ist der Mittelwert der Sprungweiten der\nBehandlung Zuckerwasser bei den adulten Flöhen",
        x = "Fütterungsart", y = "Sprungweite in [cm]", color = "Entwicklungsstand") +
   scale_color_okabeito() +
-  theme(legend.position = "top")
+  theme(legend.position = "top",
+        panel.grid.major.x = element_blank()) +
+  ylim(0, 170)
 ```
 
 ## Theoretisch in R
@@ -739,7 +754,13 @@ lm(y ~ f_a + f_b + f_a:f_b, fac2_tbl) |>
 
 ### Kombinierte Modelle
 
-Wenn wir eine Kovariate mit einem Faktor kombinieren, dann kippen wir den Intercept der Graden um die Steigung der Kovariate. Die Level der Faktoren liegen dann auf den Mittelwerten der Kovariaten für das entsprechende Level des Fakotrs. Wenn wir dann noch eine Interaktion hinzunehmen, dann erlauben wir jedem Level des Faktors eine eigene Steigung der Kovariaten.
+Kommen wir jetzt zu dem wirklich spannenden Teil. Wir kombinieren Kovariaten zusammen mit Faktoren in einem Modell. Zum einen haben wir hier jetzt eine klassische [ANCOVA](#sec-ancova) vorliegen, wenn wir an den Faktoren als Haupteffekt interessiert sind. Wenn es eher um die Kovariaten geht, dann ist eben eine klassische Regression. Hier kommt es dann auf die wissenschaftliche Fragestellung an. Wollen wir wissen wie sich die Kovariate in den Faktoren ändert oder wollen wir die Faktoren für eine Kovariate adjustieren? Das kannst nur du beantworten.
+
+Was passiert wenn wir eine Kovariate und einen Faktor kombinieren?
+
+:   Wenn wir eine Kovariate mit einem Faktor kombinieren, dann kippen wir den Intercept der Graden um die Steigung der Kovariate. Die Level der Faktoren liegen dann auf den Mittelwerten der Kovariaten für das entsprechende Level des Faktors. Wenn wir dann noch eine Interaktion hinzunehmen, dann erlauben wir jedem Level des Faktors eine eigene Steigung der Kovariaten.
+
+Das erstmal die sehr allgemeine Beschreibung. mehr dazu dann gleich in der Durchführung in R. Ich hoffe, dass dann das ein oder andere nochmal klarer wird. Wir wollen uns insgesamt drei Typen von multiplen Regressionen anschauen. Einmal das kombinierte Modell mit einem Faktor und einer Kovariate. Dann das gleiche Modell nur mit einm Faktor mehr. Am Ende dann noch das zweikovariate und zweifaktorielle Modell. Weiter unten diskutiere ich dann noch die Modellauswahl, wenn du dich fragst, wie viel der Einflussvariablen sollen denn jetzt in ein Modell.
 
 #### $f_A + c_1$ {.unnumbered .unlisted}
 
@@ -819,8 +840,6 @@ ggplot(flea_model_tbl, aes(K, jump_length, color = feeding)) +
   geom_vline(xintercept = 33.69, linewidth = 0.5, color = "#E69F00") +
   geom_vline(xintercept = 29.46, linewidth = 0.5, color = "#56B4E9") +
   geom_vline(xintercept = 25.05, linewidth = 0.5, color = "#009E73") +
-  geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
-  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
   geom_hline(yintercept = 58.48, linewidth = 0.5, color = "#CC79A7", linetype = 11) +
   geom_point(position = position_dodge(0.2)) +
   geom_function(fun = \(x) 58.48 + 0.342 * x, color = "#CC79A7") +
@@ -832,7 +851,7 @@ ggplot(flea_model_tbl, aes(K, jump_length, color = feeding)) +
            label = c(70.0, 107.8, 101.7), fill = c("#009E73", "#56B4E9", "#E69F00"),
            alpha = 0.5, size = 3) +
   labs(title = "Modell mit Kovariate und Faktor",
-       subtitle = "Intercept ist der Mittelwert der Sprungweiten der Behandlung Zuckerwasser.\nDer Intercept ist um die Steigung der Kovariate gekippt",
+       subtitle = "Intercept ist der Mittelwert der Sprungweiten der Behandlung Zuckerwasser\ngekippt um die Steigung der Kovariate",
        x = "Gewicht in [mg]", y = "Sprungweite in [cm]", color = "Entwicklungsstand") +
   scale_color_okabeito() +
   theme(legend.position = "top") +
@@ -840,8 +859,9 @@ ggplot(flea_model_tbl, aes(K, jump_length, color = feeding)) +
                color = "#CC79A7") +
   annotate("text", hjust = "left", x = 41, y = 58.48 + (40 * 0.3420)/2,
            label = expression(beta[K]*"="~40%.%0.34)) +
-  scale_x_continuous(breaks = c(10, 20, 25.05, 29.46, 33.69, 40, 50),
-                     guide = guide_axis(n.dodge = 2))
+  scale_x_continuous(breaks = c(0, 10, 20, 25.05, 29.46, 33.69, 40, 50),
+                     guide = guide_axis(n.dodge = 2),
+                     limits = c(0, NA))
 ```
 
 #### Mit Interaktion {.unnumbered .unlisted}
@@ -896,8 +916,6 @@ ggplot(flea_model_tbl, aes(K, jump_length, color = feeding)) +
   geom_vline(xintercept = 33.69, linewidth = 0.5, color = "#E69F00") +
   geom_vline(xintercept = 29.46, linewidth = 0.5, color = "#56B4E9") +
   geom_vline(xintercept = 25.05, linewidth = 0.5, color = "#009E73") +
-  geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
-  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
   geom_hline(yintercept = 44.1255, linewidth = 0.5, color = "#CC79A7", linetype = 11) +
   geom_point(position = position_dodge(0.2)) +
   geom_function(fun = \(x) 44.1255 + 0.7681 * x, color = "#CC79A7") +
@@ -909,7 +927,7 @@ ggplot(flea_model_tbl, aes(K, jump_length, color = feeding)) +
            label = c(70.01, 107.87, 101.69), fill = c("#009E73", "#56B4E9", "#E69F00"),
            alpha = 0.5, size = 3) +
   labs(title = "Modell mit Kovariate und Faktor sowie Interaktion",
-       subtitle = "Intercept ist der Mittelwert der Sprungweiten der Behandlung Zuckerwasser.\nDer Intercept ist um die Steigung der Kovariate gekippt",
+       subtitle = "Intercept ist der Mittelwert der Sprungweiten der Behandlung Zuckerwasser\ngekippt um die Steigung der Kovariate",
        x = "Fütterungsart", y = "Sprungweite in [cm]", color = "Entwicklungsstand") +
   scale_color_okabeito() +
   theme(legend.position = "top") +
@@ -917,8 +935,9 @@ ggplot(flea_model_tbl, aes(K, jump_length, color = feeding)) +
                color = "#CC79A7") +
   annotate("text", hjust = "left", x = 41, y = 44.1255 + (40 * 0.7681)/2,
            label = expression(beta[K]*"="~40%.%0.77)) +
-  scale_x_continuous(breaks = c(10, 20, 25.05, 29.46, 33.69, 40, 50),
-                     guide = guide_axis(n.dodge = 2))
+  scale_x_continuous(breaks = c(0, 10, 20, 25.05, 29.46, 33.69, 40, 50),
+                     guide = guide_axis(n.dodge = 2),
+                     limits = c(0, NA))
 ```
 
 ## Theoretisch in R
@@ -1152,7 +1171,11 @@ lm(y ~ c_1 + c_2 + f_a + f_b, cov2_fac2_tbl) |>
 
 ## Prädiktives Modell
 
+Neben dem klassischen kausalen Modell können wir auch ein prädiktives Modell rechnen. In einem prädiktiven Modell wollen wir wissen, welche Werte unser Messwert für neue Werte der Einflussvariable annehmen würde. Auch in einem prädiktiven Modell rechnen wir erstmal ganz normal eine multiple lineare Regression. Dann nutzen wir das Modell der Regression um neue Werte für unseren Messwert anhand neuer oder alter Werte der Einflussvariable vorherzusagen. Daher können wir auch beides miteinander verbinden. Du schaust erst was das kausale Modell ergibt und lässt dir dann neue Messwerte vorhersagen. Dabei musst du immer beachten, dass die vorhergesagten Messwerte auf der angepassten Ebene der Regression liegen. Daher nennen wir die vorhergesagten Messwerte auch angepasste Messwerte (eng. *fitted*). Wir werden später in der [Klassifikation](#sec-class-basic), der Vorhersage von $0/1$-Werten, noch andere Prädktionen und deren Maßzahlen kennen lernen. Die vorgehensweise ist aber so identisch mit der im [Kapitel zur simplen linearen Regression](#sec-modeling-simple-stat), so dass ich hier nicht nochmal alles wiederhole. Einfach nochmal dort schauen und die Modelle von oben verwenden. Weitere allgemeine Beispiel finden sich auch in den Kapitel zu den [Marginal effect models](#sec-marginal) und dem [Modellieren in R](#sec-modeling-R).
+
 ## Weiteres von Interesse
+
+In den folgenden Abschnitten schauen wir uns noch andere Dinge von Interesse einmal an. Zum einen haben wir ein Problem, wenn unsere Einflussvariablen untereinander zu stark korreliert sind. Das zeige ich dann einmal an den Beinhaaren bei den Flöhen. Auch ist es problematisch, wenn wir eine Einheit gewählt hat, die sehr große Werte beinhaltet. Das kann ich dir gleich einmal an den Yediflöhen aufzeigen. Dann schauen wir nochmal in die Unabhängigkeitsannahme der Einflussvariablen. Neben der Korrelation sollten die Einflussvariablen auch wirklich unabhängig voneinander sein und sich nicht als Modell selbst erklären. Dann am Ende wollen wir natürlich auch noch wissen, was das beste Modell für unsere Daten wäre. Welche Einflussvariablen kann ich den reinnehmen und was ist dann das beste Modell? Darauf gehe ich dann hier auch nochmal ein.
 
 ### Einheit der Kovariaten
 
@@ -1168,6 +1191,13 @@ lm(jump_length ~ M, data = flea_model_tbl) |>
 ### Korrelation der Kovariaten
 
 ```{r}
+flea_model_tbl |> 
+  select(count_leg, count_leg_left, count_leg_right) |> 
+  correlation() |> 
+  summary(redundant = TRUE)
+```
+
+```{r}
 cov2_fit <- lm(jump_length ~ count_leg + count_leg_left + count_leg_right, data = flea_model_tbl) 
 ```
 
@@ -1177,7 +1207,7 @@ cov2_fit |>
 ```
 
 ```{r}
- 1.37 -1.15 -0.12 
+-15.07 + 7.79 + 7.37
 ```
 
 ```{r}
@@ -1192,10 +1222,9 @@ cov2_fit |>
 
 ggplot(flea_model_tbl, aes(x = count_leg, y = jump_length)) +
   geom_point() +
-  geom_point(aes(x = count_leg_left), color = "red") +
-  geom_point(aes(x = count_leg_right), color = "blue") 
-  
-
+  geom_point(aes(x = count_leg_left), color = "#CC79A7") +
+  geom_point(aes(x = count_leg_right), color = "#0072B2") +
+  theme_modeling() 
 ```
 
 ```{r}
