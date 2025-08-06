@@ -1239,9 +1239,7 @@ p1_confounder <- ggplot(flea_model_tbl, aes(M, jump_length, color = feeding)) +
   stat_poly_line(linewidth = 1,
                  fullrange = TRUE, se = FALSE) +
   stat_poly_eq(use_label("eq"), size = 4, vstep = 0.1) +
-  labs(#title = "Einkovariates Modell",
-       #subtitle = "Zusammenhang zwischen Sprungweite und Anzahl Midi-Chlorianer im Blut",
-       x = "Anzahl Midi-Chlorianer im Blut", y = "Sprungweite in [cm]",
+  labs(x = "Anzahl Midi-Chlorianer im Blut", y = "Sprungweite in [cm]",
        color = "Ernährung") +
   ylim(NA, 200) +
   scale_color_okabeito(labels = c("Zuckerwasser", "Blut", "Ketchup")) +
@@ -1255,9 +1253,7 @@ p2_confounder <- ggplot(flea_model_tbl, aes(M, jump_length, color = as_factor(in
   stat_poly_line(linewidth = 1,
                  fullrange = TRUE, se = FALSE) +
   stat_poly_eq(use_label("eq"), size = 4, vstep = 0.1) +
-  labs(#title = "Einkovariates Modell",
-       #subtitle = "Zusammenhang zwischen Sprungweite und Anzahl Midi-Chlorianer im Blut",
-       x = "Anzahl Midi-Chlorianer im Blut", y = "Sprungweite in [cm]",
+  labs(x = "Anzahl Midi-Chlorianer im Blut", y = "Sprungweite in [cm]",
        color = "Flohschnupfen") +
   ylim(NA, 200) +
   scale_color_okabeito(labels = c("nein", "ja")) +
@@ -1298,6 +1294,53 @@ modelsummary(lst("I" = fit_1, "II" = fit_2, "III" = fit_3),
 
 ### Korrelation der Kovariaten
 
+Die Einlfussvariablen haben neben der Einheit noch andere Probleme. Teilweise sind diese Probleme nicht ganz so offensichtlich, wie gleich in meinem Beispiel gewählt. Probleme treten auf, wenn die Einflussvariablen untereinander zu stark miteinander korreliert sind. Mehr zur Korrelation erfährst du im [Kapitel zur Korrelation](#sec-lin-reg-corr). Hier wiederhole ich jetzt nicht die Grundlagen. Wenn also Einflussvariablen sehr stark miteinander korrelaiert sind, dann erklären die Variablen mehr oder minder das Gleiche. In der folgenden Abbildung siehst du den Zusammenhang zwischen der Sprungweite und der Anzahl an Haaren auf den Flohbeinen. Wie es so ist, können wir hier natürlich verschiedene Beine oder die mittlere Anzahl betrachten. Vermeintlich glücklicherweise haben aber alle den gleichen Koeffizienten.
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 4.5
+#| fig-width: 11
+#| fig-cap: "Zusammenhang zwischen der Sprungweite und der Anzahl an Haaren an den Flohbeinen. Eine Regressiongrade wurde für das simple lineare Modell ergänzt. **(A)** Mittlere Anzahl an Haaren über beide Beine. **(B)** Anzahl Haare auf dem linken Bein. **(C)** Anzahl Haare auf dem rechten Bein. *[Zum Vergrößern anklicken]*"
+#| label: fig-mult-count-leg
+
+p1_corr_leg <- ggplot(flea_model_tbl, aes(x = count_leg, y = jump_length)) +
+  theme_modeling() +
+  geom_point() +
+  stat_poly_line(linewidth = 1,
+                 fullrange = TRUE, se = FALSE, color = "#009E73") +
+  stat_poly_eq(use_label("eq"), size = 4, vstep = 0.1) +
+  labs(x = "Mittlerer Beinhaare",
+       y = "Sprungweite in [cm]")
+
+p2_corr_leg <- ggplot(flea_model_tbl, aes(x = count_leg_left, y = jump_length)) +
+  theme_modeling() +
+  geom_point() +
+  stat_poly_line(linewidth = 1,
+                 fullrange = TRUE, se = FALSE, color = "#CC79A7") +
+  stat_poly_eq(use_label("eq"), size = 4, vstep = 0.1) +
+  labs(x = "Beinhaare linkes Bein",
+       y = "Sprungweite in [cm]")
+
+p3_corr_leg <- ggplot(flea_model_tbl, aes(x = count_leg_right, y = jump_length)) +
+  theme_modeling() +
+  geom_point() +
+  stat_poly_line(linewidth = 1,
+                 fullrange = TRUE, se = FALSE, color = "#0072B2") +
+  stat_poly_eq(use_label("eq"), size = 4, vstep = 0.1) +
+  labs(x = "Beinhaare rechtes Bein",
+       y = "Sprungweite in [cm]")
+
+p1_corr_leg + p2_corr_leg + p3_corr_leg +
+  plot_layout(ncol = 3) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+```
+
+Dann können wir uns auch einmal die Korrelation zwischen den drein Kovariaten anschauen. Wie zu erwarten ist die Korrelation maximal mit Eins. Die Sterne zeigen die Signifikanz an. Das Beispiel ist hier konstruiert, aber in biologischen Systemen oder Laborwerten können wir schnell sehr hohe Korrelationen erreichen. Das Gewicht und der BMI ist sehr hoch korreliert. Blutwerte wie Hämoglobin, Eisengehalt und Sauerstoffsättigung können das Gleiche anzeigen.
+
 ```{r}
 flea_model_tbl |> 
   select(count_leg, count_leg_left, count_leg_right) |> 
@@ -1305,59 +1348,50 @@ flea_model_tbl |>
   summary(redundant = TRUE)
 ```
 
-```{r}
-flea_model_tbl |> 
-  select(count_leg, count_leg_left, count_leg_right) |>
-  datasummary_correlation()
-```
+Naheliegend wäre es jetzt ein Modell zu bauen in dem alle drei Kovariaten enthalten sind. Dann müssen wir uns nicht entscheiden welche wir nehmen und erhalten für jede Kovariate eine Information. Wenn du nochmal auf die Abbildung schaust, wir erwarten hier eigentlich eine signifikante Steigung.
 
 ```{r}
 cov2_fit <- lm(jump_length ~ count_leg + count_leg_left + count_leg_right, data = flea_model_tbl) 
 ```
 
+Wenn wir nun die Koeffizienten betrachten, dann werden wir schon stutzig. Wir erhalten eine negative Steigung für die mittlere Anzahl und dann für die beiden Beine dann eine positive Steigung, die auch grob nur halb so groß ist. Das ist schon mal nicht so gut.
+
 ```{r}
 cov2_fit |> 
   coef() |> round(2)
 ```
 
-```{r}
--15.07 + 7.79 + 7.37
-```
+Betrachten wir also einmal das Modell in der Zusammenfassung um zu sehen, wie die Koeffizienten und die Residuen aussehen. Die Modelgüte ist akzeptabel. Was aber auffällt ist, dass keine der Kovariaten signifikant ist. Das ist sehr seltsam, wenn wir die Abbildung betrachten. Wir sehen hier die direkte Folge von hoch korrelierter Kovariaten. Wenn diese hoch korreliert sind, dann werden alle nicht signfikant.
 
 ```{r}
-#| message: false
+#| eval: true
+cov2_fit |> summary()
+```
+
+Dann vergleichen wir einmal alle drei Modelle mit den tollen Funktionen aus dem [R Paket `{modelsummary}`](https://modelsummary.com/vignettes/get_started.html) und dann dem [R Paket `{tinytable}`](https://vincentarelbundock.github.io/tinytable/). Wir bauen also erstmal das simple Modell mit nur der mittleren Beinanzahl und dann ergänzen wir schrittweise die Anzahl der Haare der linken und rechten Beine.
+
+```{r}
+fit_1 <- lm(jump_length ~ count_leg, data = flea_model_tbl) 
+fit_2 <- lm(jump_length ~ count_leg + count_leg_left, data = flea_model_tbl) 
+fit_3 <- lm(jump_length ~ count_leg + count_leg_left + count_leg_right, data = flea_model_tbl) 
+```
+
+Jetzt können wir alle drei Modell nebeneinander direkt miteinander vergleichen. Wir sehen hier sehr schön, wie der p-Wert der mitttleren Beinanzahl immer weiter anstiegt je mehr korrelierte Kovariaten in das Modell kommen. Spannenderweise bleibt die Modellgüte immer gleich. Wir sehen also das Problem nicht, wenn wir uns zum Beispiel das Bestimmtheitsmaß nur anschauen. Du musst also immer vorab auf die Korrelation schauen.
+
+```{r}
 #| echo: false
+#| message: false
 #| warning: false
-#| fig-align: center
-#| fig-height: 3.5
-#| fig-width: 7
-#| fig-cap: "Scatterplot der Sprungweite in [cm] und dem Gewicht in [mg] von sieben Hundeflöhen. Die lineare Grade und die Gradengleichung wurden ergänzt. *[Zum Vergrößern anklicken]*"
-#| label: fig-mult-count-leg
+#| label: tbl-modelsummary-table-corrr
+#| tbl-cap: "Interecept entfernt."
 
-ggplot(flea_model_tbl, aes(x = count_leg, y = jump_length)) +
-  geom_point() +
-  geom_point(aes(x = count_leg_left), color = "#CC79A7") +
-  geom_point(aes(x = count_leg_right), color = "#0072B2") +
-  theme_modeling() 
-```
-
-```{r}
-#| eval: true
-cov2_fit |> summary()
-```
-
-```{r}
-cov2_fit <- lm(jump_length ~ count_leg, data = flea_model_tbl) 
-```
-
-```{r}
-cov2_fit |> 
-  coef() |> round(2)
-```
-
-```{r}
-#| eval: true
-cov2_fit |> summary()
+modelsummary(lst("I" = fit_1, "II" = fit_2, "III" = fit_3), 
+             statistic = c("p = {p.value}"),
+             coef_map = c("count_leg" = "Mittlere Beinhaare",
+                          "count_leg_left" = "Linke Beinhaare",
+                          "count_leg_right" = "Rechte Beinhaare"),
+             gof_omit = "IC|F|RMSE|Log", stars = TRUE) |> 
+  group_tt(j = list("Model" = 2:4))
 ```
 
 ### Variance inflation factor (VIF) {#sec-vif}
@@ -1534,7 +1568,6 @@ test_vuong(fit_1, fit_2, fit_3, fit_4, fit_5)
 
 modelsummary(lst("I" = fit_1, "II" = fit_2, "III" = fit_3,
                  "IV" = fit_4, "V" = fit_5), 
-             fmt = fmt_statistic(estimate = 4), 
              coef_map = c("intercept" = "(Intercept)",
                           "feedingblood" = "Ernährung (Blut)",
                           "feedingketchup" = "Ernährung (Ketchup)",
