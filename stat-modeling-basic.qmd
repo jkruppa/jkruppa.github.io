@@ -1195,6 +1195,8 @@ lm(jump_length ~ M, data = flea_model_tbl) |>
 
 Wie wir jetzt sehen ist der Effekt mit 0.002cm extrem gering aber dennoch signifkant. Der p-Wert ist kleiner als das Signifikanzniveau $\alpha$ gleich 5%. Ist also der Wert der Midi-Chlorianer nicht relevant? Hier kommt es auf die Einheit und damit die Spannweite der M-Wert an. Die M-Werte laufen von 80.19 bis 25149.36 Anzahl Midi-Chlorianer im Blut. Damit ist eine kleine Änderung in den M-Werten auch nur mit einer kleinen Änderung in den Sprungweiten verbunden. Also Achtung bei Kovariaten mit großer Spannweite und kleinen Einheiten.
 
+Eine Lösung ist es dann die Einheiten zu vergrößern. In unserem Beispiel können wir die M-Werte auf einer Skale *in Tausend* angeben, dann haben wir gleich viel kleinere Werte und die Spannweite ist nicht so groß. Daher ist es immer eine Überlegung wert zu prüfen, ob du Gramm nicht in Kilo darstellen willst oder aber Zentimeter in Meter. Ich habe dir den Zusammenhang in der folgenden Abbildung nochmal veranschaulicht. Die Punkte auf der Abbildung sehen gleich aus, der Koeffizient der Steigung ist es aber nicht mehr. Damit lassen sich die Ergebnisse auch besser interpretieren.
+
 ```{r}
 #| message: false
 #| echo: false
@@ -1202,7 +1204,7 @@ Wie wir jetzt sehen ist der Effekt mit 0.002cm extrem gering aber dennoch signif
 #| fig-align: center
 #| fig-height: 4.5
 #| fig-width: 10
-#| fig-cap: "Scatterplot der Sprungweite in [cm] und Anzahl Midi-Chlorianer im Blut. Die lineare Grade und die Gradengleichung wurden ergänzt. **(A)** Orginalskala. **(B)** In Tausend. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Scatterplot der Sprungweite in [cm] und Anzahl Midi-Chlorianer im Blut. Die lineare Grade und die Gradengleichung wurden ergänzt. Die Punkteverteilung bleibt gleich, aber die Koeffizienten ändern sich durch die angepasste Einheit der M-Werte. **(A)** Die M-Werte auf der Orginalskala. **(B)** Die M-Werte in Tausend. *[Zum Vergrößern anklicken]*"
 #| label: fig-model-m-values
 
 p1_einheit <- ggplot(flea_model_tbl, aes(M, jump_length)) +
@@ -1417,38 +1419,61 @@ modelsummary(lst("IV" = fit_4, "V" = fit_5, "VI" = fit_6),
 
 ### Variance inflation factor (VIF) {#sec-vif}
 
-Eigentlich nur für Kovariaten geht es auch mit Faktoren. **Hier nochmal nach GVIF schauen.**
+Wenn wir uns die Korrelation der Einflussvariablen ansschauen, dann schauen wir ja mehr oder minder immer auf paarweise Vergleiche. Wenn wir aber wissen wollen, ob eine Einflussvariable von den anderen Einflussvariablen teilweise oder ganz erklärt wird, dann nutzen wir den *Variance inflation factor* (abk. *VIF*). Hierzu gibt es dann kein deutsches Wort. Wir wird der *Variance inflation factor* definiert? Im Prinzip haben wir es hier mit einem Verwandten des Bestimmtheitsmaß $R^2$ zu tun. Hier erstmal die Formel für die Berechnung des *Variance inflation factors*.
 
 $$
 VIF = \cfrac{1}{1- R^2}
 $$
 
-Die Interpretation der VIF-Werte (Variance Inflation Factor) hilft dir, den Grad der Multikollinearität in deinem Modell zu bewerten:
+mit
 
--   VIF = 1: Es gibt keine Multikollinearität.
--   VIF zwischen 1 und 5: Es liegt moderate Multikollinearität vor, die in der Regel unproblematisch ist.
--   VIF \> 5: Es gibt eine hohe Multikollinearität, die die Koeffizienten unzuverlässig machen kann. Hier sollten Maßnahmen ergriffen werden.
--   VIF \> 10: Dies deutet auf eine sehr hohe Multikollinearität hin, die dringend korrigiert werden muss.
+-   $VIF$, dem *Variance inflation factor* für die untersuchte Einflussvariable.
+-   $R^2$, dem Bestimmtheitsmaß für die Einflussvariable, wenn die Einflussvariable als Messwert $Y$ im Modell verwendet wird.
+
+Bevor wir dann gleich nochmal zu der Berechnung kommen, hier erstmal die Interpretation der VIF-Werte. Die VIF-Werte helfen dir, den Grad der Multikollinearität in deinem Modell zu bewerten. Den die Multikollinearität beschreibt nichts anderes, als das deine Einflussvariablen sich untereinander selber erklären.
+
+-   **VIF = 1:** Es gibt keine Multikollinearität. Alles ist okay und du kannst dein Modell so verwenden wie gedacht.
+-   **VIF zwischen 1 und 5:** Es liegt moderate Multikollinearität vor, die in der Regel unproblematisch ist. Dami ignorieren wir solche VIF-Werte und machen ganz normal weiter.
+-   **IF \> 5:** Es gibt eine hohe Multikollinearität, die die Koeffizienten unzuverlässig machen kann. Hier sollten Maßnahmen ergriffen werden. Das heißt wir überlegen, ob wir nicht Einflussvariablen aus unserem Modell entfernen um die VIF-Werte zu senken.
+-   **VIF \> 10:** Dies deutet auf eine sehr hohe Multikollinearität hin, die dringend korrigiert werden muss. Auch hier müssen wir dann schauen, welche Einflussvariablen wir entfernen wollen.
+
+Wichtig hier nochmal zu wissen, dass du nicht unbedingt die Variable mit dem hohen VIF-Wert rausschmeißen musst. Manachmal hilft es auch andere Variablen zu entfernen und dann gehen die VIF-Werte global runter. Hier kommt es darauf an, welche Einflussvariablen du wirklich im Modell haben willst und welche eher nicht. Das hängt stark von deiner wissenschaftlichen Fragestellung ab.
+
+Wir bauen uns jetzt einmal ein Modell und wollen dann schauen, in wie weit die Vairablen untereinander unabhängig sind. Dafür nehme ich jetzt einmal einen kleineren Datensatz und zwar nur die jugendlichen Flöhe. Das hat den Grunf, dass wir in den Daten mehr Abhänigkeiten haben. Ich habe die Daten so gebaut, dass es eben auch hohe VIF-Werte gibt.
 
 ```{r}
 juvenile_flea_tbl <- filter(flea_model_tbl, stage == "juvenile")
 ```
+
+Dann bauen wir unser Modell. Wir nehmen hier mal nur Kovariate mit ins Modell. Faktisch geht der VIF auch mit faktoriellen Einflussvariablen, dann berechnen wir die sogenannten GVIF-Werte. Hier zeige ich dir die Kovariaten, da es üblicher ist sich die Kovariaten eher anzuschauen.
 
 ```{r}
 juvenile_fit <- lm(jump_length ~ K + Mg + CRP + Hb + BSG + M, 
                    data = juvenile_flea_tbl)
 ```
 
+Nachdem wir das Modell angepasst haben können wir auf verschiedene Arten den *Variance inflation factor* berechnen. Wenn dich nicht so richtig interessiert woher der *Variance inflation factor* kommt, dann ist das R Paket `{car}` und das R Paket `{performance}` die richtige Wahl. Ich zeige dir dann im letzten Tab nochmal die händische Durchführung in R. Da wird nochmal klarer wie der VIF-Wert aus dem Bestimmtheitsmaß berechnet wird.
+
 ::: panel-tabset
 ## `{car}`
+
+Wenn wir einfach nur die VIF-Werte brauchen, dann können wir die Funktion `vif()` aus dem R Paket `{car}` nutzen. Wir erhalten hier die VIF-Werte ohne Interpretation wiedergegeben. Wir müssen dann selber schauen, welche Werte groß sind.
 
 ```{r}
 vif(juvenile_fit)
 ```
 
+Hier hilft dann nochmal selber eine Überprüfung, damit wir nichts übersehen. Insbesondere wenn du viele Einflussvariablen vorliegen hast, dann ist die folgende Abfrage schon hilfreich. Hier kannst du dann gleich ablesen, welche Variablen einen zu hohen VIF-Wert haben.
+
+```{r}
+vif(juvenile_fit) > 5
+```
+
+Wir würden jetzt einmal schauen, ob wir nicht Magnesium oder den CRP-Wert aus dem Modell nehmen würden. Du kannst das auch mit dem Hb-Wert oder M-Werten machen. Dann gucken wir wie sich die VIF-Werte ändern und arbeiten uns so vor. Die Variable an der wir am meisten interessiert sind, versuchen wir so lange wie möglich im Modell zu belassen.
+
 ## `{performance}`
 
-Wir können uns mit der Funcktion `check_model()` aus dem R Paket `{performance}` auch die Unsicherheit mit angeben lassen. In unserem Beispiel hieft dies gerade nicht sehr viel weiter. Wir bleiben bei den geschätzen Werten und ignorieren das Intervall.
+Wenn wir den *Variance inflation factor* berechnen wollen, dann nutzen wir die Funktion `check_model()`. Wir können uns mit der Funcktion `check_model()` aus dem R Paket `{performance}` auch die Unsicherheit mit angeben lassen. In unserem Beispiel hieft dies gerade nicht sehr viel weiter. Wir bleiben bei den geschätzen Werten und ignorieren das Intervall. Das schöne ist eben, dass wir hier auch gleich eine Abbildung mit der Interpretation erhalten. Das macht die Anwendung dann angenehm einfach.
 
 ```{r}
 #| message: false
@@ -1456,7 +1481,7 @@ Wir können uns mit der Funcktion `check_model()` aus dem R Paket `{performance}
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 7
-#| fig-cap: Graphische Darstellung des VIF mit der Funktion `check_model()`.
+#| fig-cap: "Graphische Darstellung des *Variance inflation factors* mit der Funktion `check_model()` mit einer Hilfe zur Interpretation der VIF-Werte."
 #| label: fig-stat-modeling-vif
 
 check_model(juvenile_fit, check = "vif")
@@ -1464,9 +1489,13 @@ check_model(juvenile_fit, check = "vif")
 
 ## Händisch in R
 
+Und wie machen wir die VIF Berechnung nun händisch? Wir brauchen erstmal die *Variance inflation factor* Formel in R. Die Funktion baue ich dir einmal nach. Diese können wir dann nutzen um aus einem Bestimmtheitsmaß $R^2$ den entsprechenden *Variance inflation factor* für die Einflussvariable zu berechnen.
+
 ```{r}
 vif_fct <- function(x) 1/(1-x)
 ```
+
+Der Witz ist jetzt, dass wir die Einflussvariable für den *Variance inflation factor* nun als Messwert in das Modell setzen und die anderen Einflussvariablen so belassen. Der ursprüngliche Messwert kommt dann in der Berechnung des *Variance inflation factor* nicht mehr vor. Wie du in den folgenden Berechnungen siehst, ist immer die Einflussvariable für den VIF-Wert auf der linken Seite der Tilde und fehlt auf der rechnten Seite dann entsprechend. Die berechneten VIF-Werte entsprechen dann den Werten aus der Funktion `vif()` im R Paket `{car}` aus dem ersten Tab.
 
 ```{r}
 lm(K ~ Mg + CRP + Hb + BSG + M, data = juvenile_flea_tbl) |> 
@@ -1507,9 +1536,9 @@ lm(M ~ K + Mg + CRP + Hb + BSG, data = juvenile_flea_tbl) |>
 
 ### Vergleich von Modellen {#sec-model-basic-compare}
 
-Im Folgenden wollen wir einmal verschiedene Modelle miteinander Vergleichen und uns statistisch wiedergeben lassen, was das beste Modell ist. Und hier holen wir auch einmal kurz Luft, denn wir entschieden nur was das statistisch beste Modell ist. Es kann sein, dass ein Modell biologisch mehr Sinn macht und nicht auf Platz 1 der statistischen Maßzahlen steht. Das ist vollkommen in Ordnung. Du musst abweägen, was für sich das beste Modell ist. Im Zweifel komme ruhig nochmal in meine statistische Beratung oder schreibe mir eine Mail.
+Im Folgenden wollen wir einmal verschiedene Modelle miteinander Vergleichen und uns statistisch wiedergeben lassen, was das beste Modell ist. Und hier holen wir auch einmal kurz Luft, denn wir entschieden nur was das statistisch beste Modell ist. Es kann sein, dass ein Modell biologisch mehr Sinn macht und nicht auf Platz 1 der statistischen Maßzahlen steht. Das ist vollkommen in Ordnung. Du musst abwägen, was für sich das beste Modell ist.
 
-Wir bauchen uns jetzt fünf Modelle von `fit_1` bis `fit_5`. Jedes dieser Modelle hat andere Einflussvariablen aber den gleichen Messwert. Im Weiteren sortieren wir die Modelle von einfach nach komplex. Ich versuche immmer das einfachste Modell `fit_1` zu nennen und daher die niedrige Nummer zu geben. Im Idealfall benennst du die Modellobjekte nach den Modellen, die in en Objekten gespeichert sind. Oft sind die Modelle aber sehr groß und die Objekte der Fits haben dann sehr lange Namen.
+Wir bauen uns jetzt fünf Modelle von `fit_7` bis `fit_11`. Jedes dieser Modelle hat andere Einflussvariablen aber den gleichen Messwert. Im Weiteren sortieren wir die Modelle von einfach nach komplex. Ich versuche immmer das einfachste Modell mit der niedrigsten Nummer zu benennen. Im Idealfall benennst du die Modellobjekte nach den Modellen, die in en Objekten gespeichert sind. Oft sind die Modelle aber sehr groß und die Objekte der Fits haben dann sehr lange Namen.
 
 ```{r}
 fit_7 <- lm(jump_length ~ feeding, data = flea_model_tbl)
@@ -1532,13 +1561,13 @@ $$
 
 Nehmen wir ein $AIC_1 = AIC_{min} = 100$ und $AIC_2$ ist $100,7$ an. Dann ist $\Delta_2=0,7<2$, so dass es keinen wesentlichen Unterschied zwischen den Modellen gibt. Wir können uns entscheiden, welches der beiden Modelle wir nehmen. Hier ist dann wichtig, was auch die Biologie sagt oder eben andere Kriterien, wie Kosten und Nutzen. Wenn wir ein $AIC_1 = AIC_{min} = 100000$ und $AIC_2$ ist $100700$ vorliegen haben, dann ist $\Delta_2 = 700 \gg 10$, also gibt es keinen Grund für das $2$-te Modell. Das $2$-te Modell ist substantiell schlechter als das erste Modell. Mehr dazu kannst du unter [Multimodel Inference: Understanding AIC and BIC in Model Selection](https://faculty.washington.edu/skalski/classes/QERM597/papers_xtra/Burnham%20and%20Anderson.pdf) nachlesen.
 
-Wir können das $\Delta_i$ auch in eine Wahrscheinlichkeit umrechnen. Wir können $p_i$ berechnen und damit die relative (im Vergleich zu $AIC_{min}$) Wahrscheinlichkeit, dass das $i$-te Modell den AIC minimiert.
+Wir können das $\Delta_i$ auch in eine Wahrscheinlichkeit umrechnen. Wir können $p_i$ berechnen und damit die relative im Vergleich zu $AIC_{min}$ Wahrscheinlichkeit, dass das $i$-te Modell den AIC minimiert.
 
 $$
 p_i = \exp\left(\cfrac{-\Delta_i}{2}\right)
 $$
 
-Zum Beispiel entspricht $\Delta_i = 1.5$ einem $p_i$ von $0.47$ (ziemlich hoch) und ein $\Delta_i = 15$ entspricht einem $p_i =0.0005$ (ziemlich niedrig). Im ersten Fall besteht eine Wahrscheinlichkeit von 47%, dass das $i$-te Modell tatsächlich eine bessere Beschreibung ist als das Modell, das $AIC_{min}$ ergibt, und im zweiten Fall beträgt diese Wahrscheinlichkeit nur 0,05%. Wir können so einmal nachrechnen, ob sich eine Entscheidung für ein anderes Modell lohnen würde. Neben dem $AIC$ gibt es auch das Bayesian information criterion ($BIC$). Auch beim $BIC$ gilt, je kleiner das BIC ist, desto besser ist das BIC.
+Zum Beispiel entspricht $\Delta_i = 1.5$ einem $p_i$ von $0.47$ (ziemlich hoch) und ein $\Delta_i = 15$ entspricht einem $p_i =0.0005$ (ziemlich niedrig). Im ersten Fall besteht eine Wahrscheinlichkeit von 47%, dass das $i$-te Modell tatsächlich eine bessere Beschreibung ist als das Modell, das $AIC_{min}$ ergibt, und im zweiten Fall beträgt diese Wahrscheinlichkeit nur 0.05%. Wir können so einmal nachrechnen, ob sich eine Entscheidung für ein anderes Modell lohnen würde. Neben dem $AIC$ gibt es auch das Bayesian information criterion ($BIC$). Auch beim $BIC$ gilt, je kleiner das BIC ist, desto besser ist das BIC.
 
 Du siehst schon, es gibt eine Reihe von Möglichkeiten sich mit der Güte oder Qualität eines Modells zu beschäftigen. Wir nutzen die Funktion `model_performance()` um uns die Informationen über die Güte eines Modells wiedergeben zu lassen. Im folgenden Codeblock habe ich mich nur auf das $AIC$ und das $BIC$ konzentriert.
 
@@ -1558,9 +1587,7 @@ comp_res <- compare_performance(fit_7, fit_8, fit_9, fit_10, fit_11, rank = TRUE
 comp_res
 ```
 
-Anhand der Ausgabe der Funktion `compare_performance()` sehen wir, dass unser Modell `fit_2` das beste Modell ist. Zwar ist die Streuung der Residuen nicht die Kleinste aller Modelle (`Sigma` = 1.933) aber wir haben ein hohes $R^2_{adj}$ und auch ein kleines $AIC$. Wir würden damit sagen, dass das Modell `fit_2` mit den Variablen `animal` und `sex` für $x$ das Outcome `jump_length` am besten statistisch beschreibt.
-
-In @fig-stat-modeling-compare sehen wir die Ausgabe der Funktion `compare_performance()` nochmal visualisiert. Wir können dann die einzelnen Modelle nochmal besser vergleichen. Auch siehst du hier, ob ein Modell in einem Bereich sehr schlecht ist oder aber nur in einem Bereich sehr gut.
+Anhand der Ausgabe der Funktion `compare_performance()` sehen wir, dass unser Modell `fit_10` das beste Modell ist. In der folgenden Abbildung sehen wir die Ausgabe der Funktion `compare_performance()` nochmal visualisiert. Wir können dann die einzelnen Modelle nochmal besser vergleichen. Auch siehst du hier, ob ein Modell in einem Bereich sehr schlecht ist oder aber nur in einem Bereich sehr gut.
 
 ```{r}
 #| message: false
@@ -1568,24 +1595,26 @@ In @fig-stat-modeling-compare sehen wir die Ausgabe der Funktion `compare_perfor
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 5
-#| fig-cap: Graphische Darstellung der Funktion `compare_performance()` Wir sehen hier die einzelnen Gütekriterien in einer Übersicht dargestellt.
+#| fig-cap: "Graphische Darstellung der Funktion `compare_performance()` Wir sehen hier die einzelnen Gütekriterien in einer Übersicht dargestellt."
 #| label: fig-stat-modeling-compare
 
 plot(comp_res)
 ```
 
-Zum Ende stellt sich die Frage nach dem statistischen Test. Können wir auch statistisch Testen, ob das Modell `fit_1` signifikant unterschiedlich ist? Ja wir können die Funktion `test_vuong()` nutzen um ein Model zu den anderen Modellen zu vergleichen. Wenn du mehrere Modell miteinander vergleichen möchtest, dann muss du die Funktion mehrfach ausführen.
+Zum Ende stellt sich die Frage nach dem statistischen Test. Können wir auch statistisch Testen, ob das Modell `fit_10` signifikant unterschiedlich ist? Ja wir können die Funktion `test_vuong()` nutzen um das erste Modell in der Funktion zu den anderen Modellen zu vergleichen. Wenn du mehrere Modelle miteinander vergleichen möchtest, dann muss du die Funktion mehrfach ausführen.
 
 ```{r}
-test_vuong(fit_7, fit_8, fit_9, fit_10, fit_11)
+test_vuong(fit_10, fit_7, fit_8, fit_9, fit_11)
 ```
+
+Zum Abschluss dann auch hier nochmal die Zusammenstellung aller fünf Modell in einer Tabelle durch das R Paket `{modelsummary}`. Wir haben dann alles in einer Tabelle und können die Einflussvariablen alle miteinander verlgleichen. Wir sehen dann auch wie sich die Koeffizienten ändern, wenn wir eine Einflussvariable mit ins Modell nehmen oder weglassen. Wir sehen auch hier hier, dass das Modell X das beste Modell ist. Für eine bessere Übersicht habe ich einmal den Intercept entfernt.
 
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
 #| label: tbl-modelsummary-table-comp
-#| tbl-cap: "Interecept entfernt."
+#| tbl-cap: "Vergleich der Modelle der Sprungweite und verschiedener Einflussvariablen. Der Interecept wurde aus der Betrachtung entfernt. Die unterschiedlichen Koeffizienten der Einflussvariablen können untereinander verglichen werden. Ebenso wird die Modelgüte für jedes Modell im Vergleich gezeigt."
 
 modelsummary(lst("VII" = fit_7, "VIII" = fit_8, "IX" = fit_9,
                  "X" = fit_10, "XI" = fit_11), 
