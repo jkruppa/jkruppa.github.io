@@ -1485,7 +1485,13 @@ p1_einheit + p2_einheit +
   theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
 
-### Confounder- und Mediatoranalyse {#sec-confounder}
+### Confounderanalyse {#sec-confounder}
+
+::: callout-warning
+## Achtung, bitte beachten!
+
+Ich gebe hier nur einen kurzen Einblick in die Confounderanalyse, da mir dann aufgefallen ist, dass das Thema dann doch größer wird. Daher bitte dann nochmal ins [Kapitel zur Mediatoranalyse](#sec-modeling-mediator) schauen, wenn du nach dem Lesen meinst, dass du mehr brauchst. Hier also eine kurze Übersicht über die Idee der Confounderanalyse.
+:::
 
 In diesem Abschnitt erkläre ich nur einen konzeptionellen Ausschnitt aus der Confounderanalyse. Wir konzentrieren uns hier auf ein Beispiel mit den M-Werten der Flöhe und den Zusammenhang mit den Sprungweiten. Mehr zu Confoundern, Collidern und Mediatoeren gibt es in dem [Kapitel zur Mediatoranalyse](#sec-modeling-mediator) nochmal aufgearbeitet. Ich habe hier beim Schreiben des Kapitels gemerkt, dass das Thema zu groß ist um mal eben in einem Abschnitt abgearbeitet zu werden. Für unsere Betrachtung möglicher Confounder in der Analyse der M-Werte nehme ich hier nicht die M-Werte auf der Originalenskala sondern auf in Tausend, damit mir die Koeffizienten nicht so klein werden.
 
@@ -1494,52 +1500,57 @@ flea_model_tbl <- flea_model_tbl |>
   mutate(M = M/1000)
 ```
 
-Was ist also die Idee einer Confounderanalyse?
+Betrachten wir nochmal die simple lineare Regression der Anzahl Midi-Chlorianer im Blut in Tausend auf die Sprungweite in \[cm\]. Wir sehen, dass wir einen signifikanten Koeffizienten mit einem positiven Koeffizienten vorliegen haben. Jetzt ist die Frage, ist das jetzt ein wahrer Zusammenhang oder haben wir eventuell Störgrößen (eng. *confounder*) in den Daten vorliegen?
 
 ```{r}
 #| message: false
 #| echo: false
 #| warning: false
 #| fig-align: center
-#| fig-height: 3
-#| fig-width: 6
-#| fig-cap: "Scatterplot der Sprungweite in [cm] und Anzahl Midi-Chlorianer im Blut. Die lineare Grade und die Gradengleichung wurden ergänzt. **(A)** Mittlere Anzahl an Haaren über beide Beine. **(B)** Anzahl Haare auf dem linken Bein. *[Zum Vergrößern anklicken]*"
+#| fig-height: 3.5
+#| fig-width: 6.5
+#| fig-cap: "Scatterplot der Sprungweite in [cm] und Anzahl Midi-Chlorianer im Blut. Die lineare Grade und die Gradengleichung wurden ergänzt. *[Zum Vergrößern anklicken]*"
+#| label: fig-model-m-values-confounder
+
+ggplot(flea_model_tbl, aes(M, jump_length)) +
+  theme_modeling() +
+  geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_point() +
+  stat_poly_line(color = "#56B4E9", linewidth = 1,
+                 fullrange = TRUE, se = FALSE) +
+  stat_poly_eq(use_label("eq"), size = 5) +
+  labs(x = "Anzahl Midi-Chlorianer im Blut [in Tausend]", y = "Sprungweite in [cm]") +
+  ylim(NA, 200)
+```
+
+Was ist also die Idee einer Confounderanalyse? In der folgenden schematischen Darstellung habe ich dir mal einen Fall eines Disturbers (deu. *Störenfrieds*) als Störgröße darsgetellt. Wir wollen den Effekt von X auf Y modellieren. Wir haben aber noch eine andere Einflussvariable als Störer vorliegen. Dieser Störer hat einen Effekt auf X sowie auf Y. Die Interpretation des Zusammenhangs von X auf Y ist so nicht möglich, da der Zusammenhang verzerrt ist. Wir müssen also erstmal den Störer finden. Was in der Theorie irgendwie einleuchtend klingt, ist in der Praxis extrem mühselig.
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 2
+#| fig-width: 2
+#| fig-cap: "Schematische Darstellung eines Disturbers (deu. *Störenfrieds*) als Störgröße. Der kausale Effekt von X auf Y wird durch den Effekt von D gestört. Eine direkte Interpretation des Zusammenhangs von X auf Y ist nicht möglich. *[Zum Vergrößern anklicken]*"
 #| label: fig-model-m-dag
 
-arrow_col <- "grey70"
 set.seed(123)
-p1_dag <- dagify(
+dagify(
   Y ~ X + C,
   X ~ C
 ) %>%
   ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
   geom_dag_edges_fan(aes(label = c("Effekt", "Effekt", "", "")),
-                     edge_colour = arrow_col, label_size = 5, edge_width = 1,
+                     edge_colour = "gray70", label_size = 5, edge_width = 1,
                      label_colour = "black") +
   geom_dag_text(colour = "black", size = 5.5, parse = TRUE,
-                label = c(expression(bold(C[con])), expression(bold(X)), expression(bold(Y)))) +
+                label = c(expression(bold(D)), expression(bold(X)), expression(bold(Y)))) +
   theme_dag() 
-
-set.seed(123)
-p2_dag <- 
-  dagify(
-  Y ~ X + C,
-  X ~ C
-) %>%
-  ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
-  geom_dag_edges_fan(aes(label = c("a", 0.5, 0.15, NA)),
-                     edge_colour = arrow_col, label_size = 5, edge_width = 1,
-                     label_colour = "black") +
-  geom_dag_text(colour = "black", size = 5.5, parse = TRUE,
-                label = c(expression(bold(C[con])), expression(bold(X)), expression(bold(Y)))) +
-  theme_dag() 
-
-p1_dag + p2_dag +
-  plot_layout(ncol = 2) +
-  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
-  theme(plot.tag = element_text(size = 16, face = "bold"))
-
 ```
+
+Betrachten wir also einmal als Beispiel für eine etwas naheliegende Analyse nochmal die Anzahl Midi-Chlorianer im Blut und die Sprungweite. Wir können jetzt einmal schauen, ob es noch andere Einflussvariablen gibt, die die Sprungweite beeinflussen. Damit natürlich dann auch indirekt die Anzahl der Midi-Chlorianer im Blut. Wir schauen uns einmal an, wie es mit der Ernärung und dem Flohschnupfen so aussieht. In der folgenden Abbildung siehts du dann mal den Effekt der Midi-Chlorianer im Blut auf die Sprungweite, wenn wir uns noch die Ernährung mit anschauen. Wir erhalten auf einmal in den Ernärhungsgruppen kaum noch einen Effekt oder gar einen klar negativen Effekt auf die Sprungweiten. Bei der Infektion ist die Lage nicht so eindeutig. Was aber auffällt ist, dass Flöhe mit hoher Anzahl an Midi-Chlorianer im Blut alle Flohschnupfen haben. Ist hier etwa der Flohschnupfen ein Confounder, der auf die Sprungweite und die Midi-Chlorianer im Blut eine Auswirkung hat?
 
 ```{r}
 #| message: false
@@ -1548,7 +1559,7 @@ p1_dag + p2_dag +
 #| fig-align: center
 #| fig-height: 4.5
 #| fig-width: 10
-#| fig-cap: "Scatterplot der Sprungweite in [cm] und Anzahl Midi-Chlorianer im Blut. Die lineare Grade und die Gradengleichung wurden ergänzt. **(A)** Mittlere Anzahl an Haaren über beide Beine. **(B)** Anzahl Haare auf dem linken Bein. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Scatterplot der Sprungweite in [cm] und Anzahl Midi-Chlorianer im Blut. Die lineare Grade und die Gradengleichung wurden ergänzt. **(A)** Mit der Berücksichtigung der Ernährung der Flöhe. **(B)** Mit der Berücksichtigung der Infektion mit Flohschnupfen. *[Zum Vergrößern anklicken]*"
 #| label: fig-model-m-confounding
 
 p1_confounder <- ggplot(flea_model_tbl, aes(M, jump_length, color = feeding)) +
@@ -1585,20 +1596,22 @@ p1_confounder + p2_confounder +
   theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
 
+Wir können uns hier einmal die drei Modell zusammenbauen um diese dann einmal von den Koeffizienten und den p-Werten miteinander vergleichen zu können. Dann können wir einmal die Modelle untereinander vergleichen. Wir nehmen einmal das Modell nur mit den M-Werten und dann einmal das Modell mit den M-Werten und jeweils der Ernährung und dem Infektionstatus.
+
 ```{r}
 fit_1 <- lm(jump_length ~ M, data = flea_model_tbl)
 fit_2 <- lm(jump_length ~ M + feeding, data = flea_model_tbl)
 fit_3 <- lm(jump_length ~ M + infected, data = flea_model_tbl)
 ```
 
-Wir nutzen hier die tollen Funktionen aus dem [R Paket `{modelsummary}`](https://modelsummary.com/vignettes/get_started.html) und dann dem [R Paket `{tinytable}`](https://vincentarelbundock.github.io/tinytable/)
+Wir nutzen hier die tollen Funktionen aus dem [R Paket `{modelsummary}`](https://modelsummary.com/vignettes/get_started.html) und dann dem [R Paket `{tinytable}`](https://vincentarelbundock.github.io/tinytable/) um uns einmal die Modelle im Vergleich anzuschauen. Wir sehen sofort, dass der Effekt der Midi-Chlorianer nicht mehr signifikant wird, wenn wir noch die Ernährung oder aber die Infektion mit ins Modell nehmen. Zwar ist der Flohschnupfen nicht signifikant, aber haben wir hier auch eine verringerte Sprungweite bei den gesunden Flöhen zu den kranken Flöhen. Wir können hier von einem Confoundereffekt ausgehen.
 
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
 #| label: tbl-modelsummary-table-confound
-#| tbl-cap: "Interecept entfernt."
+#| tbl-cap: "Vergleich der Modelle der Sprungweite und der Midi-Chlorianer sowie potenziellen Störgrößen. Der Interecept wurde aus der Betrachtung entfernt. Der Effekt der Midi-Chlorianer wird nich signifikant, wenn die Ernährung oder der Infektionsstatus mit betrachtet wird."
 
 modelsummary(lst("I" = fit_1, "II" = fit_2, "III" = fit_3), 
              statistic = c("p = {p.value}"),
@@ -1611,6 +1624,8 @@ modelsummary(lst("I" = fit_1, "II" = fit_2, "III" = fit_3),
   style_tt(i = c(5:6), background = "#E0E0E0") |> 
   group_tt(j = list("Model" = 2:4))
 ```
+
+Die Confounderanalyse verlangt sehr viel vor und zurück bei der Modellierung und damit auch Modellbildung. Wir müssen uns verschiedene Modelle anschauen und entscheiden, welche Einflussvariable vermutlich einen Einfluss auf unseren Messwert hat oder nicht. Was in der Theorie dann irgendwie immer plausibel scheint, scheitert in der Praxis meistens an zu wenigen Daten. Wenn der potenzielle Confounder nicht als Einflussvariable in den Daten vorhanden ist, dann kann das beste Modell nichts finden. Der Confounder ist ja nicht erhoben worden.
 
 ### Korrelation der Kovariaten
 
