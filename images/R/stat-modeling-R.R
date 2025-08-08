@@ -573,3 +573,42 @@ p_mixed_model <- ggplot() +
        caption = "Y = Messwert oder Endpunkt\nX = Feste Effekt(e) oder fixed effects\nZ = Zufällige(r) Effekt(e) oder random effects")  +
   theme(plot.title = element_text(size = 16, face = "bold"),
         plot.caption = element_text(face = "italic")) 
+
+p_problem_x <- ggplot() +
+  theme_void() +
+  scale_x_continuous(limits = c(-10, 10)) +
+  scale_y_continuous(limits = c(-10, 10)) +
+  annotate("text", 0, 0, 
+           label = expression(bold(Y)~"~"~~bold(X[1])~"+"~bold(X[2])~"+"~bold(X[3])), 
+           size = 10, fontface = 2, hjust = "center") +
+  geom_tile(aes(x = 1.15, y = 0, width = 7.4, height = 7.4), fill = "#56B4E9",
+            alpha = 0.1, color = "#56B4E9", linewidth = 0.5) +
+  geom_curve(aes(x = 5.2, y = 0, xend = 7, yend = -5),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.3, color = "#56B4E9") +
+  annotate("text", x = 5, y = -7, label = "Unabhängigkeit", size = 5, 
+           fontface = 3, color = "#56B4E9", hjust = "left") +
+  geom_tile(aes(x = c(-1.5, 1.2, 3.9), y = 0, width = 1.5, height = 6), fill = "#E69F00",
+            alpha = 0.1, color = "#E69F00", linewidth = 0.5) +
+  annotate("text", x = -10, y = -8, label = "Einheit, fehlende Werte,\nAusreißer, Varianzhomogenität", size = 4.5, 
+           fontface = 3, color = "#E69F00", hjust = "left") +
+  geom_curve(aes(x = -1.5, y = -4.5, xend = -3, yend = -7),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.3, color = "#E69F00") +
+  geom_curve(aes(x = 1.2, y = -4.5, xend = -3, yend = -7),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.35, color = "#E69F00") +
+  geom_curve(aes(x = 3.8, y = -4.5, xend = -3, yend = -7),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.35, color = "#E69F00") +
+  annotate("text", x = -1.3, y = 9, label = "Confounder / Collider / Mediator", size = 5, 
+           fontface = 3, color = "#CC79A7", hjust = "center") +
+  geom_curve(aes(x = 1.2, y = 4.5, xend = -1.5, yend = 4.5),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.5, color = "#CC79A7") +
+  geom_curve(aes(x = 1.2, y = 4.5, xend = -4, yend = 3),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.5, color = "#CC79A7")  +
+  labs(title = "Dinge von Interesse für die Einflussvariablen")  +
+  theme(plot.title = element_text(size = 16, face = "bold"),
+        plot.caption = element_text(face = "italic")) 
