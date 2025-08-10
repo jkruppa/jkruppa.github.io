@@ -588,7 +588,8 @@ tibble("$f_{feeding}$" = rep(c("sugar", "blood", "ketchup"), each = 2),
        "$\\boldsymbol{\\beta_{ketchup}}$" = c(NA, NA, NA, NA, 13.17, 13.17),
        "$\\boldsymbol{\\beta_{juvenile}}$" = c(NA, -17.94, NA, -17.94, NA, -17.94),
        "$\\boldsymbol{\\beta_{blood \\times juvenile}}$" = c(NA, NA, NA, 34.26, NA, NA),
-       "$\\boldsymbol{\\beta_{ketchup \\times juvenile}}$" = c(NA, NA, NA, NA, NA, 37.03)) |> 
+       "$\\boldsymbol{\\beta_{ketchup \\times juvenile}}$" = c(NA, NA, NA, NA, NA, 37.03),
+       "$\\boldsymbol{\\epsilon}$" = 0) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -822,6 +823,15 @@ flea_model_tbl |>
             mean(K))
 ```
 
+```{r}
+#| message: false
+#| warning: false
+cov1_fac1_fit |> 
+  augment() |> 
+  group_by(feeding) |> 
+  summarise(mean_resid = round(mean(.resid), 2))
+```
+
 Damit können wir jetzt besser verstehen, was die Koeffizienten der Einflussvariablen uns sagen wollen. In der folgenden Tabelle habe ich dir einmal für die Faktorlevel die Mittelwerte der Kovariaten sowie des Messswerts der Sprungweite dargestellt. Wie setzt sich jetzt der Mittelwert der Sprungweiten aus den Koeffizienten zusammen? Der Intercept liegt auf dem lokalen Mittel der Zuckerflöhe. Jedenfalls fast. Denn wir müssen noch die Steigung des Kaliumsgehalt mit dem mittleren Kaliumgehalt in den Zuckerflöhen multiplizieren. Dieser Betrag fehlt noch zum lokalen Mittel der Zuckerflöhe. Faktisch kippen wir die Grade durch den Intercept um die Steigung der Kovariaten.
 
 ```{r}
@@ -840,7 +850,8 @@ tibble("$f_{feeding}$" = c("sugar", "blood", "ketchup"),
        "$\\boldsymbol{\\beta_{ketchup}}$" = c(NA, NA, 34.64),
        "$\\boldsymbol{\\bar{c}_{K}\\cdot\\beta_{K}}$" = c("$11.45 = 33.69 \\cdot 0.34$",
                                              "$10.02 = 29.47 \\cdot 0.34$",
-                                             "$8.52 = 25.06 \\cdot 0.34$")) |> 
+                                             "$8.52 = 25.06 \\cdot 0.34$"),
+       "$\\boldsymbol{\\epsilon}$" = 0) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -924,7 +935,7 @@ tibble("$f_{feeding}$" = c("sugar", "blood", "ketchup"),
                                                           NA),
        "$\\boldsymbol{\\bar{c}_{K}\\cdot\\beta_{ketchup\\times K}}$" = c(NA, NA,
                                                           "$-43.35 = 25.06 \\cdot -1.73$"),
-       ) |> 
+       "$\\boldsymbol{\\epsilon}$" = 0) |> 
   kable(align = "c", "pipe")
 ```
 
@@ -1121,19 +1132,32 @@ In der folgenden schematischen Darstellung siehst du dann einmal unser multiples
 p_c1_fa_2lvl_fb_3lvl_model
 ```
 
-Jetzt können wir das Modell einmal in R rechnen. Dazu nehmen wir dann in das Modell einmal den Kaliumgehalt im Blut der Flöhe sowie die Fütterungsart und das Alter der Flöhe in den beiden Gruppen juvenile und adult. Ich nehme hier mal keine Interaktion mit ins Modell, das wird dann sehr groß. Die Interpretation ist dann aber ähnlich wie in dem Modell mit einer Kovariate und einem Faktor weiter oben.
+Jetzt können wir das Modell einmal in R rechnen. Dazu nehmen wir dann in das Modell einmal den Kaliumgehalt im Blut der Flöhe sowie die Fütterungsart und das Alter der Flöhe in den beiden Gruppen juvenile und adult. Ich nehme hier mal keine Interaktion mit ins Modell, das wird dann sehr groß. Wir können ja hier verschiedene Interaktionen berechnen, die dann sehr stark von der Fragestellung abhängn. Die Interpretation ist dann aber ähnlich wie in dem Modell mit einer Kovariate und einem Faktor weiter oben.
 
 ::: panel-tabset
 ## Praktisch in R
+
+Im Folgenden siehst du einmal das multiple Modell mit drei Einflussvariablen. Wir schauen uns die Kovariate Kalium an sowie die beiden Faktoren Enrährung und Entwicklungsstand. Dabei hat die Ernährung dann drei Gruppen und der Entwicklungsstand betrachtet die juvenilen und adulten Flöhe. Ich habe hier dann mal keine Interaktion mit ins Modell genommen.
 
 ```{r}
 cov1_fac2_fit <- lm(jump_length ~ K + feeding + stage, data = flea_model_tbl) 
 ```
 
+Dann können wir uns schon die Koeffizienten des Modells anschauen. Die Level der Faktoren, die jetzt fehlen kummulieren dann in dem Intercept. Das heißt jetzt für uns, dass der Intercept die adulten Zuckerflöhe repräsentiert. Die Änderung zu dem Intercept erklären jetzt die Koeffizienten. Darüber hinaus haben wir dann noch die Steigung der Kovariate, die eben dann den Effekt des Kaliumgehalt im Blut auf die Sprungleistung entspricht.
+
 ```{r}
 cov1_fac2_fit |> 
   coef() |> round(2)
 ```
+
+Wir erhlaten dann in der Zusammenfassung nochmal mehr Informationen. Ich habe auch hier auf die Annotierung verzichtet, da sich hier viel wiederholt und ich die Koeffizienten dann gleich nochmal gesondert erkläre. Wir sehen hier aber, dass unser Modell nicht so gut funktioniert hat, da wir eine Abweichung von der Normalverteilung in den Residuen vorliegen haben. Der Median sollte eigentlich Null sein. Die restlichen Gütezahlen sind dann auch nur okay.
+
+```{r}
+#| eval: true
+cov1_fac2_fit |> summary()
+```
+
+Für die Interpretation der Koeffizienten helfen dann auch immer die lokalen Mittlwerte der SPrungweiten und der Kaliumgehalte für die Faktorkombinationen. Ich habe die die Mittelwerte dann einmal in der folgenden Tabelle dargestellt.
 
 ```{r}
 #| message: false
@@ -1144,9 +1168,41 @@ flea_model_tbl |>
             mean(K))
 ```
 
+Das eigentlich spannende sind jetzt die Koeffizienten. Hier müssen wir nochmal aufpassen, dass sich in dem Intercept die adulten Zuckerflöhe verstecken. Die Änderung zu dieser Faktorkombination stellen dann die Koeffizienten dar. Um dann auf die entgültigen lokalen Mittelwerte der Sprungweiten in den Faktorkombinationen zu kommen, müssen wir die lokalen Mittelwerte des Kaliumgehalts mit der Steigung der Kovariate multiplizieren.
+
 ```{r}
-#| eval: true
-cov1_fac2_fit |> summary()
+#| message: false
+#| warning: false
+cov1_fac2_fit |> 
+  augment() |> 
+  group_by(feeding, stage) |> 
+  summarise(mean_resid = round(mean(.resid), 2))
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-model-table-cov1-fac2
+#| tbl-cap: "Zusammensetzung der Mittelwerte der Sprungweiten $\\bar{Y}$ für jede Faktorkombination aus der Ernährungsart und dem Entwicklungsstand sowie dem Kaliumgehalt in Blut aus den Koeffizienten des multiplen Modells."
+options(knitr.kable.NA = '')
+
+tibble("$f_{feeding}$" = rep(c("sugar", "blood", "ketchup"), each = 2),
+       "$f_{stage}$" = rep(c("adult", "juvenile"), 3),
+       "$\\bar{c}_{K}$" = c(37.0, 30.4, 17.3, 41.7, 20.6, 29.5), 
+       "$\\bar{Y}$" = c(79.0, 61.0, 99.7, 116.0, 92.1, 111.0), 
+       "$\\boldsymbol{\\beta_{0}}$" = 59.71,
+       "$\\boldsymbol{\\bar{c}_{K}\\cdot\\beta_{K}}$" = c("$9.25 = 37.0 \\cdot 0.25$",
+                                                          "$7.6 = 30.4 \\cdot 0.25$",
+                                                          "$4.3 = 17.3 \\cdot 0.25$",
+                                                          "$10.4 = 41.7 \\cdot 0.25$",
+                                                          "$5.2 = 20.6 \\cdot 0.25$",
+                                                          "$7.4 = 29.5 \\cdot 0.25$"),
+       "$\\boldsymbol{\\beta_{blood}}$" = c(NA, NA, 38.93, 38.93, NA, NA),
+       "$\\boldsymbol{\\beta_{ketchup}}$" = c(NA, NA, NA, NA, 33.89, 33.89),
+       "$\\boldsymbol{\\beta_{juvenile}}$" = c(NA, 3.58, NA, 3.58, NA, 3.58),
+       "$\\boldsymbol{\\epsilon}$" = c(9.9, -9.9, -3.3, 3.3, -6.6, 6.6)) |> 
+  kable(align = "c", "pipe")
 ```
 
 ```{r}
