@@ -29,14 +29,6 @@ theme_modeling <- function() {
 
 > *"All models are approximations. Essentially, all models are wrong, but some are useful. However, the approximate nature of the model must always be borne in mind." --- George E. P. Box*
 
-![](images/caution.png){fig-align="center" width="100%"}
-
-::: {.callout-caution appearance="simple"}
-## Stand des Kapitels: Konstruktion (seit 07.2025)
-
-Dieses Kapitel wird in den nächsten Wochen geschrieben und ist damit meine aktuelle Großbaustelle. Ich plane zum Beginn des WiSe 2025/26 eine fertige Version des Kapitels erstellt zu haben. Während das Kapitel entsteht, funktioniert so manches dann nicht so wie es soll. Bitte daher hier dann abwarten.
-:::
-
 In diesem Kapitel geht es um die multiple lineare Regression. Der große Unterschied zu der simplen linearen Regression ist, dass wir in der multiplen Regression mehr als eine Einflussvariable vorliegen haben. Damit wird unser Modell um einiges komplexer. Hier gibt es jetzt gewisse Überschneidungen mit den [Marginal effect models](#sec-marginal), die im Prinzip die Erweiterung der multiplen Regression sind. Wir können mit den *Marginal effect models* eben dann doch etwas anders lineare und nicht linare Regressionen interpretieren. Damit kannst du in dem Kapitel dann mehr über eine alternative Art der Interpretation von multiplen Modellen lernen. Ebenso gehe nicht hier so stark auf das [Modellieren in R](#sec-modeling-R) ein. Hier kannst du dann in dem entsprechenden Kapitel auch nochmal mehr lesen. Hier zeige ich dann die Basisanwendungen. Am Ende habe ich mich auch entschieden hier nur einen normalverteilten Messwert zu betrachten. Sonst wird es einfach viel zu komplex, wenn wir hier noch andere Verteilungen berücksichtigen. Dazu dann mehr in den entsprechenden [Kapiteln zur statistischen Modellierung](https://jkruppa.github.io/stat-modeling-preface.html).
 
 ::: {layout="[15,85]" layout-valign="top"}
@@ -390,9 +382,17 @@ Die folgende Abbildung dient hier nur der Anschauung. Wir publizieren eigentlich
 
 ## Theoretisch in R
 
+*Die folgenden Abschnitte wiederholen sich für jedes Modell, da am Ende alles sehr gleich ist. Ich empfehle einmal es selber nachzuvollziehen. Ich habe beim Schreiben am meisten gelernt.*
+
+Intern rechnet R eine Modellmatrix. Was ist eine Modellmatrix? Eine Modellmatrix beinhaltet die Informationen welche Koeffizienten für welche Beobachtungen genutzt werden sollen um am Ende auf den Messwert für jede Beobachtung zu kommen. Faktisch also eine Zuordnung der Koeffizienten und Residuen zu den einzelnen Beobachtungen. Daher hat auch eine Modellmatrix immer so viele Zeilen wie Beobachtungen.
+
+Damit wir hier nicht verrückter werden als wir schon sind, nutze ich den Schlangendatensatz. Wir haben also die Körperlänge vorliegen und wollen dann anhand von zwei Kovariaten den Zusammenhang darstellen. Daher ergibt sich folgende Modellmatrix.
+
 ```{r}
 model.matrix(svl ~ mass + diameter, data = snake_tbl) |> as_tibble() 
 ```
+
+Wir können die Modellmatrix auch einmal im Ganzen aufschreiben, dann macht es auch mehr Sinn. Hier musst du dann wissen, dass wir in der Matrixmultiplikation, die erste Spalte mit dem ersten Koeffizienten malnehmen. Die zweite Spalte dann mit dem zweiten Koeffizienten malnehmen und so weiter.
 
 $$
  \begin{pmatrix}
@@ -434,17 +434,25 @@ $$
  \end{pmatrix}
 $$
 
+Dann rechnen wir einmal das zweikovariate Modell und schauen welche Koeffizienten wir erhalten.
+
 ```{r}
 cov2_fit <- lm(svl ~ mass + diameter, data = snake_tbl)
 ```
+
+Wir runden jetzt einmal, damit wir nicht so viel in die Modellmatrix schreiben müssen.
 
 ```{r}
 cov2_fit |> coef() |> round(2)
 ```
 
+Dann brauchen wir noch die Residuen.
+
 ```{r}
 cov2_fit |> residuals() |> round(2)
 ```
+
+Am Ende baue ich dann einmal das volle Modell mit der Modellmatrix auf. Auf der linken Seite siehst du die Körperlängen. Dann kommt der Intercept gefolgt von den Koeffizienten multipliziert mit den Kovariaten. Am Ende addieren wir dann noch die Residuen.
 
 $$
  \begin{pmatrix}
@@ -480,6 +488,8 @@ $$
  \end{pmatrix}
 $$
 
+Jetzt kannst du dich fragen, kommt das denn auch hin? Dafür alles nochmal in R getippt und geschaut welche Zahlen am Ende für die Körperlänge rauskommen.
+
 ```{r}
 c(28.27 +  6*2.67 + 9*(-0.30) - 1.56,
   28.27 +  8*2.67 + 3*(-0.30) - 3.71,
@@ -491,9 +501,13 @@ c(28.27 +  6*2.67 + 9*(-0.30) - 1.56,
   28.27 + 10*2.67 + 11*(-0.30) - 2.63) |> round()
 ```
 
+Und dann hier nochmal der Vergleich zu den ursprünglichen Werten der Körperlänge der Schlangen. Das passt ja hervorragend.
+
 ```{r}
 snake_tbl |> pull(svl)
 ```
+
+Musst du das hier im Detail verstehen? Kommt drauf an. Hier wird eben dargestellt wie sich in R intern die Koeffizienten ergeben. Das macht dann eben auch was aus für die Interpretation. Je nachdem wie sich dein Modell zusammensetzt ist dann auch die Modellmatrix komplizierter.
 
 ## Simulation
 
@@ -645,11 +659,17 @@ ggplot(flea_model_tbl, aes(feeding, jump_length, color = stage)) +
 
 ## Theoretisch in R
 
-Aus Gründen der Einfachheit lassen wir einmal die Interaktion weg.
+*Die folgenden Abschnitte wiederholen sich für jedes Modell, da am Ende alles sehr gleich ist. Ich empfehle einmal es selber nachzuvollziehen. Ich habe beim Schreiben am meisten gelernt.*
+
+Intern rechnet R eine Modellmatrix. Was ist eine Modellmatrix? Eine Modellmatrix beinhaltet die Informationen welche Koeffizienten für welche Beobachtungen genutzt werden sollen um am Ende auf den Messwert für jede Beobachtung zu kommen. Faktisch also eine Zuordnung der Koeffizienten und Residuen zu den einzelnen Beobachtungen. Daher hat auch eine Modellmatrix immer so viele Zeilen wie Beobachtungen.
+
+Damit wir hier nicht verrückter werden als wir schon sind, nutze ich den Schlangendatensatz. Wir haben also die Körperlänge vorliegen und wollen dann anhand von zwei Faktoren den Zusammenhang darstellen. Ich lassen hier aus Gründen der Einfachheit die Interaktion weg. Der Datensatz ist auch zu klein für eine saubere Darstellung einer Interaktion. Daher ergibt sich folgende Modellmatrix.
 
 ```{r}
 model.matrix(svl ~ color + region, data = snake_tbl) |> as_tibble() 
 ```
+
+Wir können die Modellmatrix auch einmal im Ganzen aufschreiben, dann macht es auch mehr Sinn. Hier musst du dann wissen, dass wir in der Matrixmultiplikation, die erste Spalte mit dem ersten Koeffizienten malnehmen. Die zweite Spalte dann mit dem zweiten Koeffizienten malnehmen und so weiter. Hier siehst du dann auch, dass nicht jede Beobachtung für jeden Koeffizienten berücksichtigt wird. Die Faktoren werden anhand ihrer Level aufgespalten und das erste Level wandert immer in den Intercept. Wir sprechen auch von einer [Dummykodierung](https://de.wikipedia.org/wiki/Dummy-Variable).
 
 $$
  \begin{pmatrix}
@@ -692,17 +712,25 @@ $$
  \end{pmatrix}
 $$
 
+Dann rechnen wir einmal das zweifaktorielle Modell und schauen welche Koeffizienten wir erhalten.
+
 ```{r}
 fac2_fit <- lm(svl ~ color + region, data = snake_tbl)
 ```
+
+Wir runden jetzt einmal, damit wir nicht so viel in die Modellmatrix schreiben müssen.
 
 ```{r}
 fac2_fit |> coef() |> round(2)
 ```
 
+Dann brauchen wir noch die Residuen.
+
 ```{r}
 fac2_fit |> residuals() |> round(2)
 ```
+
+Am Ende baue ich dann einmal das volle Modell mit der Modellmatrix auf. Auf der linken Seite siehst du die Körperlängen. Dann kommt der Intercept gefolgt von den Koeffizienten multipliziert mit den Dummykodierungen. Am Ende addieren wir dann noch die Residuen.
 
 $$
  \begin{pmatrix}
@@ -738,6 +766,8 @@ $$
  \end{pmatrix}
 $$
 
+Jetzt kannst du dich fragen, kommt das denn auch hin? Dafür alles nochmal in R getippt und geschaut welche Zahlen am Ende für die Körperlänge rauskommen.
+
 ```{r}
 c(42.50 +  0*(-3.50) + 0*(-0.33) + 0*12.50 - 2.50,
   42.50 +  0*(-3.50) + 0*(-0.33) + 0*12.50 + 2.50,
@@ -749,9 +779,13 @@ c(42.50 +  0*(-3.50) + 0*(-0.33) + 0*12.50 - 2.50,
   42.50 +  0*(-3.50) + 1*(-0.33) + 1*12.50 - 5.67) |> round()
 ```
 
+Und dann hier nochmal der Vergleich zu den ursprünglichen Werten der Körperlänge der Schlangen. Das passt ja hervorragend.
+
 ```{r}
 snake_tbl |> pull(svl)
 ```
+
+Musst du das hier im Detail verstehen? Kommt drauf an. Hier wird eben dargestellt wie sich in R intern die Koeffizienten ergeben. Das macht dann eben auch was aus für die Interpretation. Hier lernen wir dann nochmal, was eigentlich die Dummykodierung bedeutet. Je nachdem wie sich dein Modell zusammensetzt ist dann auch die Modellmatrix komplizierter.
 
 ## Simulation
 
@@ -992,11 +1026,17 @@ ggplot(flea_model_tbl, aes(K, jump_length, color = feeding)) +
 
 ## Theoretisch in R
 
-Aus Gründen der Einfachheit lassen wir einmal die Interaktion weg.
+*Die folgenden Abschnitte wiederholen sich für jedes Modell, da am Ende alles sehr gleich ist. Ich empfehle einmal es selber nachzuvollziehen. Ich habe beim Schreiben am meisten gelernt.*
+
+Intern rechnet R eine Modellmatrix. Was ist eine Modellmatrix? Eine Modellmatrix beinhaltet die Informationen welche Koeffizienten für welche Beobachtungen genutzt werden sollen um am Ende auf den Messwert für jede Beobachtung zu kommen. Faktisch also eine Zuordnung der Koeffizienten und Residuen zu den einzelnen Beobachtungen. Daher hat auch eine Modellmatrix immer so viele Zeilen wie Beobachtungen.
+
+Damit wir hier nicht verrückter werden als wir schon sind, nutze ich den Schlangendatensatz. Wir haben also die Körperlänge vorliegen und wollen dann anhand von einer Kovariate und einem Faktor den Zusammenhang darstellen. Ich lassen hier aus Gründen der Einfachheit die Interaktion weg. Der Datensatz ist auch zu klein für eine saubere Darstellung einer Interaktion. Daher ergibt sich folgende Modellmatrix.
 
 ```{r}
 model.matrix(svl ~ mass + color, data = snake_tbl) |> as_tibble() 
 ```
+
+Wir können die Modellmatrix auch einmal im Ganzen aufschreiben, dann macht es auch mehr Sinn. Hier musst du dann wissen, dass wir in der Matrixmultiplikation, die erste Spalte mit dem ersten Koeffizienten malnehmen. Die zweite Spalte dann mit dem zweiten Koeffizienten malnehmen und so weiter. Hier siehst du dann auch, dass nicht jede Beobachtung für jeden Koeffizienten berücksichtigt wird. Der Faktor wird anhand seiner Level aufgespalten und das erste Level wandert immer in den Intercept. Wir sprechen auch von einer [Dummykodierung](https://de.wikipedia.org/wiki/Dummy-Variable).
 
 $$
  \begin{pmatrix}
@@ -1039,17 +1079,25 @@ $$
  \end{pmatrix}
 $$
 
+Dann rechnen wir einmal das kombinierte Modell und schauen welche Koeffizienten wir erhalten.
+
 ```{r}
 cov1_fac1_fit <- lm(svl ~ mass + color, data = snake_tbl)
 ```
+
+Wir runden jetzt einmal, damit wir nicht so viel in die Modellmatrix schreiben müssen.
 
 ```{r}
 cov1_fac1_fit |> coef() |> round(2)
 ```
 
+Dann brauchen wir noch die Residuen.
+
 ```{r}
 cov1_fac1_fit |> residuals() |> round(2)
 ```
+
+Am Ende baue ich dann einmal das volle Modell mit der Modellmatrix auf. Auf der linken Seite siehst du die Körperlängen. Dann kommt der Intercept gefolgt von den Koeffizienten multipliziert mit der Masse und den Dummykodierungen. Am Ende addieren wir dann noch die Residuen.
 
 $$
  \begin{pmatrix}
@@ -1085,6 +1133,8 @@ $$
  \end{pmatrix}
 $$
 
+Jetzt kannst du dich fragen, kommt das denn auch hin? Dafür alles nochmal in R getippt und geschaut welche Zahlen am Ende für die Körperlänge rauskommen.
+
 ```{r}
 c(19.17 + 6*(3.33) + 0*(4.83) + 0*(-1.17) + 0.83,
   19.17 + 8*(3.33) + 0*(4.83) + 0*(-1.17) - 0.83,
@@ -1096,9 +1146,13 @@ c(19.17 + 6*(3.33) + 0*(4.83) + 0*(-1.17) + 0.83,
   19.17 + 10*(3.33) + 0*(4.83) + 1*(-1.17) - 2.33) |> round()
 ```
 
+Und dann hier nochmal der Vergleich zu den ursprünglichen Werten der Körperlänge der Schlangen. Das passt ja hervorragend.
+
 ```{r}
 snake_tbl |> pull(svl)
 ```
+
+Musst du das hier im Detail verstehen? Kommt drauf an. Hier wird eben dargestellt wie sich in R intern die Koeffizienten ergeben. Das macht dann eben auch was aus für die Interpretation. Hier lernen wir dann nochmal, was eigentlich die Dummykodierung bedeutet. Je nachdem wie sich dein Modell zusammensetzt ist dann auch die Modellmatrix komplizierter.
 
 ## Simulation
 
@@ -1272,9 +1326,17 @@ ggplot(flea_model_tbl, aes(K, jump_length, color = feeding, shape = stage)) +
 
 ## Theoretisch in R
 
+*Die folgenden Abschnitte wiederholen sich für jedes Modell, da am Ende alles sehr gleich ist. Ich empfehle einmal es selber nachzuvollziehen. Ich habe beim Schreiben am meisten gelernt.*
+
+Intern rechnet R eine Modellmatrix. Was ist eine Modellmatrix? Eine Modellmatrix beinhaltet die Informationen welche Koeffizienten für welche Beobachtungen genutzt werden sollen um am Ende auf den Messwert für jede Beobachtung zu kommen. Faktisch also eine Zuordnung der Koeffizienten und Residuen zu den einzelnen Beobachtungen. Daher hat auch eine Modellmatrix immer so viele Zeilen wie Beobachtungen.
+
+Damit wir hier nicht verrückter werden als wir schon sind, nutze ich den Schlangendatensatz. Wir haben also die Körperlänge vorliegen und wollen dann anhand von einer Kovariate und zwei Faktoren den Zusammenhang darstellen. Ich lassen hier aus Gründen der Einfachheit die Interaktion weg. Der Datensatz ist auch zu klein für eine saubere Darstellung einer Interaktion. Daher ergibt sich folgende Modellmatrix.
+
 ```{r}
 model.matrix(svl ~ mass + region + color, data = snake_tbl) |> as_tibble() 
 ```
+
+Wir können die Modellmatrix auch einmal im Ganzen aufschreiben, dann macht es auch mehr Sinn. Hier musst du dann wissen, dass wir in der Matrixmultiplikation, die erste Spalte mit dem ersten Koeffizienten malnehmen. Die zweite Spalte dann mit dem zweiten Koeffizienten malnehmen und so weiter. Hier siehst du dann auch, dass nicht jede Beobachtung für jeden Koeffizienten berücksichtigt wird. Die Faktoren werden anhand ihrer Level aufgespalten und das erste Level wandert immer in den Intercept. Wir sprechen auch von einer [Dummykodierung](https://de.wikipedia.org/wiki/Dummy-Variable).
 
 $$
  \begin{pmatrix}
@@ -1318,14 +1380,25 @@ $$
  \end{pmatrix}
 $$
 
+Dann rechnen wir einmal das kombinierte Modell und schauen welche Koeffizienten wir erhalten.
+
 ```{r}
-cov1_fac2_fit <- lm(svl ~ mass + region + color, data = snake_tbl) 
+cov1_fac2_fit <- lm(svl ~ mass + region + color, data = snake_tbl)
+```
+
+Wir runden jetzt einmal, damit wir nicht so viel in die Modellmatrix schreiben müssen.
+
+```{r}
 cov1_fac2_fit |> coef() |> round(2)
 ```
+
+Dann brauchen wir noch die Residuen.
 
 ```{r}
 cov1_fac2_fit |> residuals() |> round(2)
 ```
+
+Am Ende baue ich dann einmal das volle Modell mit der Modellmatrix auf. Auf der linken Seite siehst du die Körperlängen. Dann kommt der Intercept gefolgt von den Koeffizienten multipliziert mit der Kovariaten und den Dummykodierungen. Am Ende addieren wir dann noch die Residuen.
 
 $$
  \begin{pmatrix}
@@ -1361,6 +1434,8 @@ $$
  \end{pmatrix}
 $$
 
+Jetzt kannst du dich fragen, kommt das denn auch hin? Dafür alles nochmal in R getippt und geschaut welche Zahlen am Ende für die Körperlänge rauskommen.
+
 ```{r}
 c(25 +  6*2.5 + 0*5 + 0*1.5 + 0*-2.83 + 0.00,
   25 +  8*2.5 + 0*5 + 0*1.5 + 0*-2.83 + 0.00,
@@ -1372,9 +1447,13 @@ c(25 +  6*2.5 + 0*5 + 0*1.5 + 0*-2.83 + 0.00,
   25 + 10*2.5 + 1*5 + 0*1.5 + 1*-2.83 - 3.17) 
 ```
 
+Und dann hier nochmal der Vergleich zu den ursprünglichen Werten der Körperlänge der Schlangen. Das passt ja hervorragend.
+
 ```{r}
 snake_tbl |> pull(svl)
 ```
+
+Musst du das hier im Detail verstehen? Kommt drauf an. Hier wird eben dargestellt wie sich in R intern die Koeffizienten ergeben. Das macht dann eben auch was aus für die Interpretation. Hier lernen wir dann nochmal, was eigentlich die Dummykodierung bedeutet. Je nachdem wie sich dein Modell zusammensetzt ist dann auch die Modellmatrix komplizierter.
 
 ## Simulation
 
@@ -1518,9 +1597,17 @@ Bitte schaue dann für die Entscheidung welches Modell besser ist dann weiter un
 
 ## Theoretisch in R
 
+*Die folgenden Abschnitte wiederholen sich für jedes Modell, da am Ende alles sehr gleich ist. Ich empfehle einmal es selber nachzuvollziehen. Ich habe beim Schreiben am meisten gelernt.*
+
+Intern rechnet R eine Modellmatrix. Was ist eine Modellmatrix? Eine Modellmatrix beinhaltet die Informationen welche Koeffizienten für welche Beobachtungen genutzt werden sollen um am Ende auf den Messwert für jede Beobachtung zu kommen. Faktisch also eine Zuordnung der Koeffizienten und Residuen zu den einzelnen Beobachtungen. Daher hat auch eine Modellmatrix immer so viele Zeilen wie Beobachtungen.
+
+Damit wir hier nicht verrückter werden als wir schon sind, nutze ich den Schlangendatensatz. Wir haben also die Körperlänge vorliegen und wollen dann anhand von zwei Kovariaten und zwei Faktoren den Zusammenhang darstellen. Ich lassen hier aus Gründen der Einfachheit die Interaktion weg. Der Datensatz ist auch zu klein für eine saubere Darstellung einer Interaktion. Daher ergibt sich folgende Modellmatrix.
+
 ```{r}
 model.matrix(svl ~ mass + diameter + region + color, data = snake_tbl) |> as_tibble() 
 ```
+
+Wir können die Modellmatrix auch einmal im Ganzen aufschreiben, dann macht es auch mehr Sinn. Hier musst du dann wissen, dass wir in der Matrixmultiplikation, die erste Spalte mit dem ersten Koeffizienten malnehmen. Die zweite Spalte dann mit dem zweiten Koeffizienten malnehmen und so weiter. Hier siehst du dann auch, dass nicht jede Beobachtung für jeden Koeffizienten berücksichtigt wird. Die Faktoren werden anhand ihrer Level aufgespalten und das erste Level wandert immer in den Intercept. Wir sprechen auch von einer [Dummykodierung](https://de.wikipedia.org/wiki/Dummy-Variable).
 
 $$
  \begin{pmatrix}
@@ -1565,14 +1652,25 @@ $$
  \end{pmatrix}
 $$
 
+Dann rechnen wir einmal das kombinierte Modell und schauen welche Koeffizienten wir erhalten.
+
 ```{r}
-cov2_fac2_fit <- lm(svl ~ mass + diameter + region + color, data = snake_tbl) 
+cov2_fac2_fit <- lm(svl ~ mass + diameter + region + color, data = snake_tbl)
+```
+
+Wir runden jetzt einmal, damit wir nicht so viel in die Modellmatrix schreiben müssen.
+
+```{r}
 cov2_fac2_fit |> coef() |> round(2)
 ```
+
+Dann brauchen wir noch die Residuen.
 
 ```{r}
 cov2_fac2_fit |> residuals() |> round(2)
 ```
+
+Am Ende baue ich dann einmal das volle Modell mit der Modellmatrix auf. Auf der linken Seite siehst du die Körperlängen. Dann kommt der Intercept gefolgt von den Koeffizienten multipliziert mit den Kovariaten und den Dummykodierungen. Am Ende addieren wir dann noch die Residuen.
 
 $$
  \begin{pmatrix}
@@ -1608,6 +1706,8 @@ $$
  \end{pmatrix}
 $$
 
+Jetzt kannst du dich fragen, kommt das denn auch hin? Dafür alles nochmal in R getippt und geschaut welche Zahlen am Ende für die Körperlänge rauskommen.
+
 ```{r}
 c(31.18 +  6*1.94 +  9*-0.37 + 0*6.68 + 0*0.38 + 0*-1.40 + 0.56,
   31.18 +  8*1.94 +  3*-0.37 + 0*6.68 + 0*0.38 + 0*-1.40 - 0.56,
@@ -1619,9 +1719,13 @@ c(31.18 +  6*1.94 +  9*-0.37 + 0*6.68 + 0*0.38 + 0*-1.40 + 0.56,
   31.18 + 10*1.94 +  11*-0.37 + 1*6.68 + 0*0.38 + 1*-1.40 - 2.73) |> round()
 ```
 
+Und dann hier nochmal der Vergleich zu den ursprünglichen Werten der Körperlänge der Schlangen. Das passt ja hervorragend.
+
 ```{r}
 snake_tbl |> pull(svl)
 ```
+
+Musst du das hier im Detail verstehen? Kommt drauf an. Hier wird eben dargestellt wie sich in R intern die Koeffizienten ergeben. Das macht dann eben auch was aus für die Interpretation. Hier lernen wir dann nochmal, was eigentlich die Dummykodierung bedeutet. Je nachdem wie sich dein Modell zusammensetzt ist dann auch die Modellmatrix komplizierter.
 
 ## Simulation
 
