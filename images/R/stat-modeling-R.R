@@ -376,6 +376,35 @@ p_2fac_model <- ggplot() +
   geom_curve(aes(x = 5, y = 7.5, xend = 3.5, yend = 3),
              arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
              curvature = 0.35, color = "gray50") +
+  annotate("label", x = -0.1, y = 3.8, label = "2 Level", size = 3, 
+           fontface = 2, fill = "#56B4E9", alpha = 0.5) +
+  annotate("label", x = -2.5, y = 3.8, label = "3 Level", size = 3, 
+           fontface = 2, fill = "#56B4E9", alpha = 0.5) +
+  scale_x_continuous(limits = c(-10, 10)) +
+  scale_y_continuous(limits = c(-10, 10)) +
+  labs(title = "Zweifaktorielles Modell")  +
+  theme(plot.title = element_text(size = 16, face = "bold"),
+        plot.caption = element_text(face = "italic")) 
+
+p_2fac_nointer_model <- ggplot() +
+  theme_void() +
+  annotate("text", 0, 0, 
+           label = expression(bold(Y)~"~"~bold(f[A])~"+"~bold(f[B])), 
+           size = 10, fontface = 2, hjust = "center") +
+  annotate("text", x = -3.5, y = -7, label = "Faktor A", size = 6, 
+           fontface = 3, color = "gray50") +
+  annotate("text", x = 5, y = -7, label = "Faktor B", size = 6, 
+           fontface = 3, color = "gray50") +
+  geom_curve(aes(x = 3.5, y = -7, xend = 2, yend = -3),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = -0.3, color = "gray50") +
+  geom_curve(aes(x = -2, y = -7, xend = 0, yend = -3),
+             arrow = arrow(length = unit(0.03, "npc"), type = "closed"),
+             curvature = 0.3, color = "gray50") +
+  annotate("label", x = 2.1, y = 3.8, label = "2 Level", size = 3, 
+           fontface = 2, fill = "#56B4E9", alpha = 0.5) +
+  annotate("label", x = -0.1, y = 3.8, label = "3 Level", size = 3, 
+           fontface = 2, fill = "#56B4E9", alpha = 0.5) +
   scale_x_continuous(limits = c(-10, 10)) +
   scale_y_continuous(limits = c(-10, 10)) +
   labs(title = "Zweifaktorielles Modell")  +
