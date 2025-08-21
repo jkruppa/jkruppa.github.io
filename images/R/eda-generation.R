@@ -458,8 +458,8 @@ p_barplot_intro <- tibble(x = c(0,  1, 2, 3), y = 12) |>
   scale_x_continuous(breaks = c(1, 2.25), label = c("A.1", "A.2")) +
   scale_y_continuous(breaks = c(0, 6, 9)) +
   labs(x = "Faktor A", y = "Messwert (Y)",
-       title = "Säulendiagramm von zwei Gruppen",
-       subtitle = "Wie groß ist der Effekt zwischen den beiden Gruppen?") +
+       title = "Säulendiagramm",
+       subtitle = "") +
   theme(panel.grid.minor = element_blank(),
         panel.grid.major.x = element_blank(), 
         plot.title = element_text(size = 16, face = "bold"),
@@ -467,3 +467,39 @@ p_barplot_intro <- tibble(x = c(0,  1, 2, 3), y = 12) |>
         plot.caption = element_text(face = "italic"),
         axis.title = element_text(size = 12, face = "bold"),
         axis.text = element_text(size = 12))
+
+
+group_tbl <- tibble(f = c(rep(1, 6), rep(2, 6)),
+                    y = c(4, 5, 5.5, 6.5, 7, 8,  
+                          7, 8, 8.5, 9.5, 10, 11)) 
+
+group_fit <- lm(y ~f, data = group_tbl)
+
+
+p_effect_intro <- group_tbl |> 
+  ggplot(aes(f, y)) +
+  theme_minimal() +
+  geom_line(aes(y = predict(group_fit)), color = "#CC79A7", linewidth = 1) +
+  geom_point(color = "gray50", alpha = 0.5, size = 3) +
+  stat_summary(fun.data=mean_sdl, , fun.args = list(mult = 1), 
+               geom="pointrange", shape = 23, 
+               fill = c("#E69F00", "#56B4E9"), size = 0.75) +
+  annotate("label", x = c(1, 2), y = 13, label = c(expression(n[1]~"="~6), 
+                                                   expression(n[2]~"="~6))) +
+  annotate("label", x = 1.5, y = 7.5, label = expression(atop(bold(Delta[abs]~"="~+"3.0"),
+                                                              bold(Delta[rel]~"="%*%"1.5"))),
+           color = "#CC79A7", size = 5) +
+  scale_y_continuous(limits = c(0, 12), breaks = c(6, 9)) +
+  scale_x_continuous(limits = c(0.8, 2.2),breaks = c(1, 2), label = c("A.1", "A.2")) +
+  geom_vline(xintercept = 0.8,  linewidth = 1) +
+  geom_hline(yintercept = 0,  linewidth = 1) +
+  theme(panel.grid.minor = element_blank(),
+        legend.position = "none",
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 12, face = "bold"),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        title = element_text(size = 14, face = "bold")) +
+  labs(x = "Faktor A", y = "Messwert (y)",
+       title = "Mittelwertsdifferenz",
+       subtitle = "Absoluter und relativer Effekt zweier Gruppen") 
+
