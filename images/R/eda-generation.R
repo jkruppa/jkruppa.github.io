@@ -417,3 +417,53 @@ p_theo_observed <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
   labs(x = "", y = "",
        title = "Theoretische Verteilung vs. beobachtete Werte",
        subtitle = "Bei einer kleinen Stichprobe weicht der beobachtete vom theoretischen Mittelwert ab") 
+
+p1_mean <- mean_sim_tbl |> 
+  filter(n != 1000) |> 
+  ggplot(aes(as_factor(n), mean)) +
+  theme_modeling() +
+  geom_violin(fill = "#E69F00") +
+  geom_hline(yintercept = 0, color = "gray25") +
+  ylim(c(-2.5, 2.5)) +
+  labs(x = "Simulierte Anzahl an Beobachtungen (Fallzahl)",
+       y = "Beobachteter Mittelwert")
+
+p2_mean <- mean_sim_tbl |> 
+  filter(n == 1000) |> 
+  ggplot(aes(as_factor(n), mean)) +
+  theme_modeling() +
+  geom_violin(fill = "#56B4E9") +
+  geom_hline(yintercept = 0, color = "gray25") +
+  ylim(c(-2.5, 2.5)) +
+  theme(axis.title = element_blank(),
+        axis.text.y = element_blank())
+
+p_barplot_intro <- tibble(x = c(0,  1, 2, 3), y = 12) |> 
+  ggplot(aes(x, y)) +
+  theme_minimal() +
+  geom_rect(aes(xmin = 0.8, xmax = 1.2, ymin = 0, ymax = 6), fill = "#E69F00",
+            color = "black",  linewidth = 0.75) +
+  geom_segment(x = 1, y = 6, xend = 1, yend = 9.27, color = "black",
+               linewidth = 0.75, linetype = 1) +
+  geom_segment(x = 0.9, y = 9.27, xend = 1.1, yend = 9.27, color = "black",
+               linewidth = 0.75, linetype = 1) +
+  geom_rect(aes(xmin = 0.8+1.25, xmax = 1.2+1.25, ymin = 0, ymax = 9), fill = "#56B4E9",
+            color = "black",  linewidth = 0.75) +
+  geom_segment(x = 1+1.25, y = 9, xend = 1+1.25, yend = 12.2, color = "black",
+               linewidth = 0.75, linetype = 1) +
+  geom_segment(x = 0.9+1.25, y = 12.2, xend = 1.1+1.25, yend = 12.2, color = "black",
+               linewidth = 0.75, linetype = 1) +
+  geom_vline(xintercept = 0,  linewidth = 1) +
+  geom_hline(yintercept = 0,  linewidth = 1) +
+  scale_x_continuous(breaks = c(1, 2.25), label = c("A.1", "A.2")) +
+  scale_y_continuous(breaks = c(0, 6, 9)) +
+  labs(x = "Faktor A", y = "Messwert (Y)",
+       title = "Säulendiagramm von zwei Gruppen",
+       subtitle = "Wie groß ist der Effekt zwischen den beiden Gruppen?") +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank(), 
+        plot.title = element_text(size = 16, face = "bold"),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        plot.caption = element_text(face = "italic"),
+        axis.title = element_text(size = 12, face = "bold"),
+        axis.text = element_text(size = 12))
