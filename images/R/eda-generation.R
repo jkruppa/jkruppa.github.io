@@ -36,7 +36,7 @@ p_rr_or <- tibble(x = c(0,  1, 2, 3), y = 1) |>
         plot.subtitle = element_text(size = 12, face = "italic"),
         title = element_text(size = 14, face = "bold")) +
   labs(x = "Faktor A", y = "Messwert (y)",
-       title = "Anteilsdifferenz",
+       title = "Anteilsverhältnis",
        subtitle = "Vergleich Verhältnis (Ratio) und Chance (Odd) innerhalb einer Gruppe") 
 
 p_rr <- tibble(x = c(0,  1, 2, 3), y = 1) |> 
@@ -86,7 +86,7 @@ p_rr <- tibble(x = c(0,  1, 2, 3), y = 1) |>
         plot.subtitle = element_text(size = 12, face = "italic"),
         title = element_text(size = 14, face = "bold")) +
   labs(x = "Faktor A", y = "Messwert (y)",
-       title = "Anteilsdifferenz",
+       title = "Anteilsverhältnis",
        subtitle = "Risikoverhältnis (Risk Ratio, abk. RR) zwischen zwei Gruppen") 
 
 p_or <- tibble(x = c(0,  1, 2, 3), y = 1) |> 
@@ -143,7 +143,7 @@ p_or <- tibble(x = c(0,  1, 2, 3), y = 1) |>
         plot.subtitle = element_text(size = 12, face = "italic"),
         title = element_text(size = 14, face = "bold")) +
   labs(x = "Faktor A", y = "Messwert (y)",
-       title = "Anteilsdifferenz",
+       title = "Anteilsverhältnis",
        subtitle = "Chancenverhältnis (Odds Ratio, abk. OR) zwischen zwei Gruppen") 
 
 
@@ -361,7 +361,8 @@ p_venn_gen <- ggplot() +
   theme(plot.title = element_text(size = 16, face = "bold"),
         plot.subtitle = element_text(size = 12, face = "italic")) 
 
-p_theo_observed <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
+p_theo_observed <- 
+  ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
   theme_minimal() +
   stat_function(fun = dnorm, linewidth = 1, args = list(mean = 0, sd = 2), 
                 xlim = c(-8.25, 8.25), color = "#E89F00") +
@@ -374,6 +375,8 @@ p_theo_observed <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
                linewidth = 0.75, linetype = 1) +
   annotate("point", x = mean(c(1.3, 2.1, 3.7, 4.2, 5.7)), y = (-0.1 + -0.175)/2, 
            shape = 23, fill = "#CC79A7", size = 2.5) +
+  annotate("label", x = -6, y = (-0.1 + -0.175)/2+0.05, label = "Simulation 1",
+           fill = "#009E73", size = 2, alpha = 0.5) +
   geom_segment(data = tibble(x = c(-5.3, -4.6, -2.1, -2.5, 1.1), 
                              xend = c(-5.3, -4.6, -2.1, -2.5, 1.1),
                              y = rep(-0.3, 5), yend = rep(-0.375, 5)), 
@@ -381,6 +384,8 @@ p_theo_observed <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
                linewidth = 0.75, linetype = 1) +
   annotate("point", x = mean(c(-5.3, -4.6, -2.1, -2.5, 1.1)), y = (-0.3 + -0.375)/2, 
            shape = 23, fill = "#CC79A7", size = 2.5) +
+  annotate("label", x = -6, y = (-0.3 + -0.375)/2+0.05, label = "Simulation 2",
+             fill = "#009E73", size = 2, alpha = 0.5) +
   geom_segment(data = tibble(x = c(-0.3, -1.6, -0.1, 2.5, 3.1), 
                              xend = c(-0.3, -1.6, -0.1, 2.5, 3.1),
                              y = rep(-0.5, 5), yend = rep(-0.575, 5)), 
@@ -388,6 +393,8 @@ p_theo_observed <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
                linewidth = 0.75, linetype = 1) +
   annotate("point", x = mean(c(-0.3, -1.6, -0.1, 2.5, 3.1)), y = (-0.5 + -0.575)/2, 
            shape = 23, fill = "#CC79A7", size = 2.5) +
+    annotate("label", x = -6, y = (-0.5 + -0.575)/2+0.05, label = "Simulation 3",
+             fill = "#009E73", size = 2, alpha = 0.5) +
   geom_segment(data = tibble(x = c(2.3, 3.7, -1.0, 2.9, -2.81), 
                              xend = c(2.3, 3.7, -1.0, 2.9, -2.81),
                              y = rep(-0.7, 5), yend = rep(-0.775, 5)), 
@@ -395,6 +402,8 @@ p_theo_observed <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
                linewidth = 0.75, linetype = 1) +
   annotate("point", x = mean(c(2.3, 3.7, -1.0, 2.9, -2.81)), y = (-0.7 + -0.775)/2, 
            shape = 23, fill = "#CC79A7", size = 2.5) +
+    annotate("label", x = -6, y = (-0.7 + -0.775)/2+0.05, label = "Simulation 4",
+             fill = "#009E73", size = 2, alpha = 0.5) +
   geom_segment(data = tibble(x = c(0.9, 2.8, 0.2, 2.9, 2.0), 
                              xend = c(0.9, 2.8, 0.2, 2.9, 2.0),
                              y = rep(-0.9, 5), yend = rep(-0.975, 5)), 
@@ -402,13 +411,14 @@ p_theo_observed <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
                linewidth = 0.75, linetype = 1) +
   annotate("point", x = mean(c(0.9, 2.8, 0.2, 2.9, 2.0)), y = (-0.9 + -0.975)/2, 
            shape = 23, fill = "#CC79A7", size = 2.5) +
+    annotate("label", x = -6, y = (-0.9 + -0.975)/2+0.05, label = "Simulation 5",
+             fill = "#009E73", size = 2, alpha = 0.5) +
   geom_vline(xintercept = c(0)) + 
   geom_hline(yintercept = c(0)) + 
   scale_y_continuous(breaks = c((-0.1 + -0.175)/2, (-0.3 + -0.375)/2,
                                 (-0.5 + -0.575)/2, (-0.7 + -0.775)/2, (-0.9 + -0.975)/2)) +
   scale_x_continuous(breaks = c(-4, -2, 0, 2, 4), limits = c(-6, 6)) +
   theme(panel.grid.minor = element_blank(),
-        #panel.grid.major.y = element_blank(), 
         axis.text.x = element_text(size = 12),
         axis.text.y = element_blank(),
         axis.title = element_text(size = 12, face = "bold"),
