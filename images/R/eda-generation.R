@@ -86,8 +86,8 @@ p_rr <- tibble(x = c(0,  1, 2, 3), y = 1) |>
         plot.subtitle = element_text(size = 12, face = "italic"),
         title = element_text(size = 14, face = "bold")) +
   labs(x = "Faktor A", y = "Messwert (y)",
-       title = "Anteilsverhältnis",
-       subtitle = "Risikoverhältnis (Risk Ratio, abk. RR) zwischen zwei Gruppen") 
+       title = "Risikoverhältnis",
+       subtitle = "Risk Ratio (abk. RR) zwischen zwei Gruppen") 
 
 p_or <- tibble(x = c(0,  1, 2, 3), y = 1) |> 
   ggplot(aes(x, y)) +
@@ -143,8 +143,8 @@ p_or <- tibble(x = c(0,  1, 2, 3), y = 1) |>
         plot.subtitle = element_text(size = 12, face = "italic"),
         title = element_text(size = 14, face = "bold")) +
   labs(x = "Faktor A", y = "Messwert (y)",
-       title = "Anteilsverhältnis",
-       subtitle = "Chancenverhältnis (Odds Ratio, abk. OR) zwischen zwei Gruppen") 
+       title = "Chancenverhältnis",
+       subtitle = "Odds Ratio (abk. OR) zwischen zwei Gruppen") 
 
 
 p1_square_cov <- tibble(x = c(0.5, 1.5, 2, 2.5, 3),
