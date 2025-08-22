@@ -513,3 +513,58 @@ p_effect_intro <- group_tbl |>
        title = "Mittelwertsdifferenz",
        subtitle = "Absoluter und relativer Effekt zweier Gruppen") 
 
+p_fac2_excel <- tibble(x = 0:10, y = 0:10) |> 
+  ggplot(aes(x, y)) +
+  xlim(c(0, 10)) + ylim(c(0, 10)) +
+  theme_void() +
+  geom_image(data = tibble(x = 5, y = 4.8),
+             aes(image = "images/gen-data-fac2-excel.png"), size = 1.1) +
+  geom_tile(aes(x = 5.525, y = 4.6, width = 4.125, height = 8.65), fill = "#009E73",
+            alpha = 0.005, color = "#009E73", linewidth = 0.25) +
+  geom_tile(aes(x = 8, y = 4.6, width = 0.73, height = 8.65), fill = "#56B4E9",
+            alpha = 0.005, color = "#56B4E9", linewidth = 0.25) +
+  geom_tile(aes(x = 2.65, y = 4.6, width = 1.6, height = 8.65), fill = "#E69F00",
+            alpha = 0.005, color = "#E69F00", linewidth = 0.25) +
+  annotate("label", x = 8.75, y = 8,  size = 4, fontface = 2, color = "#56B4E9", hjust = "left",
+           label = "Additiver Effekt:\nC+D+E+F+G") +
+  geom_curve(aes(x = 9.5, y = 8.6, xend = 8, yend = 8.9),
+             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
+             curvature = 0.4, color = "#56B4E9") +
+  annotate("label", x = 6.5, y = 10,  size = 4, fontface = 2, color = "gray50", hjust = "left",
+           label = "=NORMINV(ZUFALLSZAHL();0;2)") +
+  geom_curve(aes(x = 6.45, y = 10, xend = 6.85, yend = 8.7),
+             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
+             curvature = 0.9, color = "gray50") +
+  annotate("label", x = 3.4, y = 0.2, label = "Informationen zu den Effekten", size = 2.5, 
+           fontface = 2, fill = "#009E73", alpha = 1, hjust = "left") +
+  annotate("label", x = 1.8, y = 9.05, label = "3 Level", size = 2.5, 
+           fontface = 2, fill = "#E69F00", alpha = 1, hjust = "left") +
+  annotate("label", x = 2.6, y = 9.05, label = "2 Level", size = 2.5, 
+           fontface = 2, fill = "#E69F00", alpha = 1, hjust = "left") 
+
+p_fac1_excel <- tibble(x = 0:10, y = 0:10) |> 
+  ggplot(aes(x, y)) +
+  xlim(c(0, 10)) + ylim(c(0, 10)) +
+  theme_void() +
+  geom_image(data = tibble(x = 5, y = 4.9),
+             aes(image = "images/gen-data-fac1-excel.png"), size = 0.75) +
+  geom_tile(aes(x = 5.15, y = 4.7, width = 2.7, height = 9.1), fill = "#009E73",
+            alpha = 0.005, color = "#009E73", linewidth = 0.25) +
+  geom_tile(aes(x = 6.915, y = 4.7, width = 0.73, height = 9.1), fill = "#56B4E9",
+            alpha = 0.005, color = "#56B4E9", linewidth = 0.25) +
+  geom_tile(aes(x = 3.39, y = 4.7, width = 0.76, height = 9.1), fill = "#E69F00",
+            alpha = 0.005, color = "#E69F00", linewidth = 0.25) +
+  annotate("label", x = 8, y = 8,  size = 4, fontface = 2, color = "#56B4E9", hjust = "left",
+           label = "Additiver Effekt:\nB+C+D") +
+  geom_curve(aes(x = 8.4, y = 8.6, xend = 7.215, yend = 9),
+             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
+             curvature = 0.3, color = "#56B4E9") +
+  annotate("label", x = 6.5, y = 10,  size = 4, fontface = 2, color = "gray50", hjust = "left",
+           label = "=NORMINV(ZUFALLSZAHL();0;2)") +
+  geom_curve(aes(x = 6.45, y = 10, xend = 5.9, yend = 9.2),
+             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
+             curvature = 0.6, color = "gray50") +
+  annotate("label", x = 3.7, y = 0.1, label = "Informationen zu den Effekten", size = 2.5, 
+           fontface = 2, fill = "#009E73", alpha = 1, hjust = "left") +
+  annotate("label", x = 2.9, y = 9.35, label = "3 Level", size = 2.5, 
+           fontface = 2, fill = "#E69F00", alpha = 1, hjust = "left") 
