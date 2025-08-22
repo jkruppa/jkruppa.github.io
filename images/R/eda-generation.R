@@ -37,7 +37,7 @@ p_rr_or <- tibble(x = c(0,  1, 2, 3), y = 1) |>
         title = element_text(size = 14, face = "bold")) +
   labs(x = "Faktor A", y = "Messwert (y)",
        title = "Anteilsverhältnis",
-       subtitle = "Vergleich Verhältnis (Ratio) und Chance (Odd) innerhalb einer Gruppe") 
+       subtitle = "Vergleich Verhältnis (Ratio) und Chance (Odd)") 
 
 p_rr <- tibble(x = c(0,  1, 2, 3), y = 1) |> 
   ggplot(aes(x, y)) +
@@ -132,7 +132,7 @@ p_or <- tibble(x = c(0,  1, 2, 3), y = 1) |>
             color = "black",  linewidth = 0.75) +
   geom_rect(aes(xmin = 3.65-0.1, xmax = 3.65+0.1, ymin = 0.82-0.55, ymax = 0.98-0.55), fill = "#CC79A7",
             color = "black",  linewidth = 0.75) +
-  annotate("text", x = 3.45, y = c(0.36, 0.71), label = "x", hjust = "center", size = 10, fontface = 2) +
+  annotate("text", x = 3.45, y = c(0.36, 0.71), label = "x", hjust = "center", size = 7, fontface = 2) +
   scale_y_continuous(limits = c(0, 1), breaks = c(0, 0.25, 0.5, 0.75, 1), labels = scales::percent) +
   scale_x_continuous(limits = c(0.5, 3.75), breaks = c(1, 1.5), label = c("A.1", "A.2")) +
   theme(panel.grid.minor = element_blank(),
