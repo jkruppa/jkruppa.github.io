@@ -1,4 +1,4 @@
-p_rr_or <- tibble(x = c(0,  1, 2, 3), y = 1) |> 
+p_rr_intro <- tibble(x = c(0,  1, 2, 3), y = 1) |> 
   ggplot(aes(x, y)) +
   theme_minimal() +
   geom_rect(aes(xmin = 0.8, xmax = 1.2, ymin = 0, ymax = 0.6), fill = "#E69F00",
@@ -8,23 +8,46 @@ p_rr_or <- tibble(x = c(0,  1, 2, 3), y = 1) |>
   geom_vline(xintercept = 0.5,  linewidth = 1) +
   geom_hline(yintercept = 0,  linewidth = 1) +
   ## Ratio
-  annotate("text", x = 2.5, y = 0.8, label = "Ratio =", hjust = "right", size = 6, fontface = 2) +
-  geom_segment(x = 2.55, y = 0.8, xend = 3.5, yend = 0.8, color = "black",
+  annotate("text", x = 2.5, y = 0.8-0.275, label = "Ratio =", hjust = "right", size = 6, fontface = 2) +
+  geom_segment(x = 2.55, y = 0.8-0.275, xend = 3.5, yend = 0.8-0.275, color = "black",
                linewidth = 0.75, linetype = 1) +
-  geom_rect(aes(xmin = 3.05-0.1, xmax = 3.05+0.1, ymin = 0.82, ymax = 0.98), fill = "#56B4E9",
+  geom_rect(aes(xmin = 3.05-0.1, xmax = 3.05+0.1, ymin = 0.82-0.275, ymax = 0.98-0.275), fill = "#56B4E9",
             color = "black",  linewidth = 0.75) +
-  geom_rect(aes(xmin = 3.05-0.1-0.25, xmax = 3.05+0.1-0.25, ymin = 0.62, ymax = 0.78), fill = "#56B4E9",
+  geom_rect(aes(xmin = 3.05-0.1-0.25, xmax = 3.05+0.1-0.25, ymin = 0.62-0.275, ymax = 0.78-0.275), fill = "#56B4E9",
             color = "black",  linewidth = 0.75) +
-  geom_rect(aes(xmin = 3.05-0.1+0.25, xmax = 3.05+0.1+0.25, ymin = 0.62, ymax = 0.78), fill = "#E69F00",
+  geom_rect(aes(xmin = 3.05-0.1+0.25, xmax = 3.05+0.1+0.25, ymin = 0.62-0.275, ymax = 0.78-0.275), fill = "#E69F00",
             color = "black",  linewidth = 0.75) +
-  annotate("text", x = 3.05, y = 0.7, label = "+", hjust = "center", size = 10, fontface = 2) +
+  annotate("text", x = 3.05, y = 0.7-0.275, label = "+", hjust = "center", size = 10, fontface = 2) +
+  scale_y_continuous(limits = c(0, 1), breaks = c(0, 0.25, 0.5, 0.75, 1), labels = scales::percent) +
+  scale_x_continuous(limits = c(0.5, 3.75), breaks = c(1), label = c("A.1")) +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank(), 
+        legend.position = "none",
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 12, face = "bold"),
+        plot.subtitle = element_text(size = 12, face = "italic"),
+        title = element_text(size = 14, face = "bold")) +
+  labs(x = "Faktor A", y = "Messwert (y)",
+       title = "Verhältnis (Ratio)",
+       subtitle = "Anteil von blauen zu allen Beobachtungen") 
+
+p_or_intro <- 
+  tibble(x = c(0,  1, 2, 3), y = 1) |> 
+  ggplot(aes(x, y)) +
+  theme_minimal() +
+  geom_rect(aes(xmin = 0.8, xmax = 1.2, ymin = 0, ymax = 0.6), fill = "#E69F00",
+            color = "black",  linewidth = 0.75) +
+  geom_rect(aes(xmin = 0.8, xmax = 1.2, ymin = 0.6, ymax = 1), fill = "#56B4E9",
+            color = "black",  linewidth = 0.75) +
+  geom_vline(xintercept = 0.5,  linewidth = 1) +
+  geom_hline(yintercept = 0,  linewidth = 1) +
   ## Odds
-  annotate("text", x = 2.5, y = 0.8-0.55, label = "Odd =", hjust = "right", size = 6, fontface = 2) +
-  geom_segment(x = 2.55, y = 0.8-0.55, xend = 3.5, yend = 0.8-0.55, color = "black",
+  annotate("text", x = 2.5, y = 0.8-0.275, label = "Odd =", hjust = "right", size = 6, fontface = 2) +
+  geom_segment(x = 2.55, y = 0.8-0.275, xend = 3.5, yend = 0.8-0.275, color = "black",
                linewidth = 0.75, linetype = 1) +
-  geom_rect(aes(xmin = 3.05-0.1, xmax = 3.05+0.1, ymin = 0.82-0.55, ymax = 0.98-0.55), fill = "#56B4E9",
+  geom_rect(aes(xmin = 3.05-0.1, xmax = 3.05+0.1, ymin = 0.82-0.275, ymax = 0.98-0.275), fill = "#56B4E9",
             color = "black",  linewidth = 0.75) +
-  geom_rect(aes(xmin = 3.05-0.1, xmax = 3.05+0.1, ymin = 0.62-0.55, ymax = 0.78-0.55), fill = "#E69F00",
+  geom_rect(aes(xmin = 3.05-0.1, xmax = 3.05+0.1, ymin = 0.62-0.275, ymax = 0.78-0.275), fill = "#E69F00",
             color = "black",  linewidth = 0.75) +
   scale_y_continuous(limits = c(0, 1), breaks = c(0, 0.25, 0.5, 0.75, 1), labels = scales::percent) +
   scale_x_continuous(limits = c(0.5, 3.75), breaks = c(1), label = c("A.1")) +
@@ -36,8 +59,8 @@ p_rr_or <- tibble(x = c(0,  1, 2, 3), y = 1) |>
         plot.subtitle = element_text(size = 12, face = "italic"),
         title = element_text(size = 14, face = "bold")) +
   labs(x = "Faktor A", y = "Messwert (y)",
-       title = "Anteilsverhältnis",
-       subtitle = "Vergleich Verhältnis (Ratio) und Chance (Odd)") 
+       title = "Chance (Odd)",
+       subtitle = "Anteil von blauen zu orangen Beobachtungen") 
 
 p_rr <- tibble(x = c(0,  1, 2, 3), y = 1) |> 
   ggplot(aes(x, y)) +
