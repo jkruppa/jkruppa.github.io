@@ -179,6 +179,7 @@ p1_square_cov <- tibble(x = c(0.5, 1.5, 2, 2.5, 3),
   geom_point(color = "gray50", alpha = 0.5, size = 3) +
   scale_y_continuous(limits = c(0, 9), breaks = c(0, 2, 4, 6, 8)) +
   scale_x_continuous(limits = c(0, 3.5), breaks = c(0, 1, 2, 3)) +
+  stat_poly_eq(use_label("eq"), coef.digits = 1) +
   theme(panel.grid.minor = element_blank(),
         legend.position = "none",
         axis.text = element_text(size = 12),
@@ -198,6 +199,7 @@ p2_square_cov <- tibble(x = c(0.5, 1.5, 2, 2.5, 3),
   geom_point(color = "gray50", alpha = 0.5, size = 3) +
   scale_y_continuous(limits = c(0, 9), breaks = c(0, 2, 4, 6, 8)) +
   scale_x_continuous(limits = c(0, 3.5), breaks = c(0, 1, 2, 3)) +
+  stat_poly_eq(use_label("eq"), coef.digits = 2) +
   theme(panel.grid.minor = element_blank(),
         legend.position = "none",
         axis.text = element_text(size = 12),
@@ -208,7 +210,8 @@ p2_square_cov <- tibble(x = c(0.5, 1.5, 2, 2.5, 3),
        title = "Effekt und keine Streuung",
        subtitle = "") 
 
-p3_square_cov <- tibble(x = c(0.5, 1.5, 2, 2.5, 3),
+p3_square_cov <- 
+  tibble(x = c(0.5, 1.5, 2, 2.5, 3),
                         y = 3 + 0 * x + rnorm(length(x), 0, 0.4)) |> 
   ggplot(aes(x, y)) +
   theme_minimal() +
@@ -217,6 +220,7 @@ p3_square_cov <- tibble(x = c(0.5, 1.5, 2, 2.5, 3),
   geom_point(color = "gray50", alpha = 0.5, size = 3) +
   scale_y_continuous(limits = c(0, 9), breaks = c(0, 2, 4, 6, 8)) +
   scale_x_continuous(limits = c(0, 3.5), breaks = c(0, 1, 2, 3)) +
+  stat_poly_eq(use_label("eq"), coef.digits = 2) +
   theme(panel.grid.minor = element_blank(),
         legend.position = "none",
         axis.text = element_text(size = 12),
@@ -237,6 +241,7 @@ p4_square_cov <- tibble(x = c(0.5, 1.5, 2, 2.5, 3),
   geom_point(color = "gray50", alpha = 0.5, size = 3) +
   scale_y_continuous(limits = c(0, 9), breaks = c(0, 2, 4, 6, 8)) +
   scale_x_continuous(limits = c(0, 3.5), breaks = c(0, 1, 2, 3)) +
+  stat_poly_eq(use_label("eq"), coef.digits = 2) +
   theme(panel.grid.minor = element_blank(),
         legend.position = "none",
         axis.text = element_text(size = 12),
