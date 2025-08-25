@@ -306,7 +306,7 @@ Wir konzentrieren uns hier nur auf einen kleinen Teil der möglichen Simulatione
 
 Neben den vorgestellten Verteilungen schauen wir uns dann noch die Simulation von **pseudo Zeitreihen** an. Wir haben hier dann verschiedene Messwerte über einen zeitlichen Verlauf vorliegen. Teilweise dann in einer etwas wirren Form, da wir eventuell keinen linearen Zusammenhang mehr vorliegen haben. Daher müssen wir dann hier etwas mehr schauen, dass wir die Daten gut simuliert kriegen.
 
-Dann mache ich hier noch die Einschränkung, dass ich prinzipiell alles unter der Annahme der Varianzhomogenität generiere. Daher addiere ich über alle Faktorkombinationen oder Gruppen immer den gleichen Fehler auf. Im Prinzip kannst du natürlich auch für einzelne Faktorkombinationen dann einen anderen Fehler addieren und dir dafür einen Vektor mit unterschiedlichen Fehlertermen bauen, aber darauf gehe ich nur einmal kurz bei dem einfakoriellen Design ein.
+Dann mache ich hier noch die Einschränkung, dass ich prinzipiell alles unter der Annahme der Varianzhomogenität generiere. Daher addiere ich über alle Faktorkombinationen oder Gruppen immer den gleichen Fehler auf. Im Prinzip kannst du natürlich auch für einzelne Faktorkombinationen dann einen anderen Fehler addieren und dir dafür einen Vektor mit unterschiedlichen Fehlertermen bauen, aber darauf gehe ich nur einmal kurz bei dem einfakoriellen Design ein. Und dann noch die Ergänzung, dass wir uns immer nur balancierte Designs erstellen. Das heißt wir haben keine fehlenden Werte in unseren Daten und die Gruppen in unseren Faktoren haben auch immer die gleiche Fallzahl.
 
 #### Selbst gebaute Verteilungen {.unnumbered .unlisted}
 
@@ -417,6 +417,8 @@ Ein faktorielles Design heißt nichts anderes als das du einen Faktor mit Leveln
 
 #### Einfaktoriell $f_A$ mit 2 Leveln {.unnumbered .unlisted}
 
+Beginnen wir also einmal mit dem einfaktoriellen Design mit nur zwei Gruppen. In der folgenden schematischen Darstellung ist einmal das Modell dargestellt. Wir haben einen Messwert und einen Faktor, der aus zwei Gruppen besteht. Das Modell ist sehr simple und soll uns nur helfen einmal die Simulation von Daten in R zu verstehen.
+
 ```{r}
 #| message: false
 #| echo: false
@@ -430,16 +432,22 @@ Ein faktorielles Design heißt nichts anderes als das du einen Faktor mit Leveln
 p_1fac_2lvl_model
 ```
 
-::: panel-tabset
+Wir haben jetzt unzählige Möglichkeiten die Daten zu generieren. Ich zeige hier einmal die zwei einfacheren Methoden. Einmal können wir die Daten getrennt in einem `tibble()` erstellen. Hierbei ist es wichtig, dass wir ein balanciertes Design vorliegen haben. Dann bauen wir uns das Long-Format über `gather()`. Wir schauen uns immer Gruppen mit gleicher Fallzahl an. Dann können wir auch die Spalten getrennt zusammenbauen und am Ende alles einmal aufaddieren. Wir haben hier einen Effekt von einer Mittelwertsdifferenz von $+3$ vorliegen bei keiner Streuung.
+
+:::: panel-tabset
 ## Getrennt
 
+Wenn wir wenig Gruppen haben, dann ist die getrennte Erstellung in einem `tibble()` sehr übersichtlich. Wir stellen ja den Effekt jeweils in den einzelnen Gruppen separat ein.
+
 ```{r}
-fac1_tbl <- tibble("1" = rnorm(5, 3, 0.001),
-                   "2" = rnorm(5, 6, 0.001)) |> 
+fac1_tbl <- tibble("1" = rnorm(n = 5, mean = 3, sd = 0.001),
+                   "2" = rnorm(n = 5, mean = 6, sd = 0.001)) |> 
   gather(key = "f_a", value = "y")
 ```
 
 ## Additiv
+
+Im additiven Zusammenbauen nutzen wir viele Funktionen um uns die Spalten mit den Faktoren, Effekten und Fehler aufzubauen. Am Ende addieren wir die Spalten zum Messwert auf.
 
 ```{r}
 fac1_tbl <- tibble(f_a = gl(2, 5, labels = c("1", "2")),
@@ -447,11 +455,27 @@ fac1_tbl <- tibble(f_a = gl(2, 5, labels = c("1", "2")),
                    error = rnorm(length(f_a), 0, 0.001),
                    y = eff_a + error)
 ```
+
+::: {layout="[15,85]" layout-valign="top"}
+![](images/angel_01_small.png){fig-align="center" width="100%"}
+
+> *Das additive Zusammenbauen funktioniert hier nur in dieser Form so gut, da wir einen normalverteilten Messwert haben. In anderen Verteilungen können wir nicht einfach den Fehler addieren. Das hängt hier mit der Symmetrie der Normalverteilung um den Mittelwert zusammen.*
 :::
+::::
+
+Dann rechnen wir einfach einmal einen schnellen t-Test und schauen, ob wir die Differenz wiedererhalten. Wir sehen, dass wir die gleichen Mittelwerte wiedergeben bekommen und natürlich auch einen signifkanten Unterschied. Die Streuung ist ja super klein.
+
+```{r}
+t.test(y ~ f_a, data = fac1_tbl)
+```
+
+Wir können uns den Zusammenhang auch als eine simple lineare Regression darstellen lassen. Da ich die Streuung sehr gering eingestellt habe, können wir auch die Koeffizienten exakt so wiedererhalten. In der folgenden linearen Regression siehst du einmal wie die Mittelwertsdifferenz wieder der eingestellten Differenz entspricht.
 
 ```{r}
 lm(y ~ f_a, fac1_tbl) |> coef() |> round(2)
 ```
+
+In der folgenden Abbildung ist der Zusammenhang nochmal graphisch dargestellt. Wir haben den Mittelwert der ersten Gruppe als Intercept im Modell und die Steigung der Graden als Mittelwertsdifferenz. Wir sehen hier also nochmal den Zusammenhang zwischen der Datengenerierung und der linearen Regression.
 
 ```{r}
 #| message: false
@@ -460,7 +484,7 @@ lm(y ~ f_a, fac1_tbl) |> coef() |> round(2)
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 6
-#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Darstellung der einfaktoriellen Simulation mit zwei Gruppen. Der Intercept stellt den Mittelwert der ersten Gruppe dar. Die Mittelwertsdifferenz ist die Steigung der Graden. *[Zum Vergrößern anklicken]*"
 #| label: fig-model-in-R-fa-1
 
 ggplot(fac1_tbl, aes(f_a, y)) +
@@ -468,6 +492,7 @@ ggplot(fac1_tbl, aes(f_a, y)) +
   geom_vline(xintercept = 1, linewidth = 0.5, color = "grey50") +
   geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
   geom_hline(yintercept = 3, linewidth = 0.5, color = "#CC79A7") +
+  geom_abline(intercept = 0, slope = 3, color = "#E69F00") +
   geom_point() +
   stat_summary(fun = "mean", geom = "label", 
                aes(label = round(..y..)), position = position_nudge(0.1)) +
@@ -477,13 +502,17 @@ ggplot(fac1_tbl, aes(f_a, y)) +
        x = "Faktor A", y = "Messwert (Y)")
 ```
 
+Manchmal wollen wir uns auch Daten erstellen, die nicht die gleiche Varianz in allen Gruppen haben. In diesem Fall hilft am meisten die getrennte Erstellung. Wir nehmen dann einfah in jeder Gruppe eine andere Varianz und lassen dann die Daten erstellen. In dem folgenden Kasten siehst du nochmal ein Beispiel für die Generierung von Daten mit Varianzheterogenität. Ob wir das brauchen hängt dann davon ab, was du mit den simulierten Daten ausprobieren möchtest.
+
 ::: callout-note
 ## Varianzheterogeniät zwischen den Gruppen
 
+In der getrennten Erstellung von Daten können wir dann für jede Gruppe eine eigene Varianz festlegen. Hier habe ich in der einen Gruppe eine Standardabweichung von $5$ und in der anderen Gruppe eine Standardabweichung von $1$ angenommen.
+
 ```{r}
 #| eval: false
-fac1_tbl <- tibble("1" = rnorm(5, 3, 5),
-                   "2" = rnorm(5, 6, 1)) |> 
+fac1_tbl <- tibble("1" = rnorm(n = 5, mean = 3, sd = 5),
+                   "2" = rnorm(n = 5, mean = 6, sd = 1)) |> 
   gather(key = "f_a", value = "y")
 ```
 :::
@@ -891,13 +920,47 @@ lm(y ~ c_1 + c_2, cov2_tbl) |>
 
 ## Possionverteilt
 
+::: callout-note
+## Normalverteilung und Runden
+
 Du kannst auch eine Normalverteilung nehmen und dann einfach runden.
 
 ```{r}
 rnorm(n = 5, mean = 10, sd = 1) |> round()
 ```
 
+Die Abweichungen sind tolerable wie @kruppa2016simulation gezeigt hat.
+:::
+
 ### Faktorielles Design
+
+::: panel-tabset
+## Getrennt
+
+Wenn wir wenig Gruppen haben, dann ist die getrennte Erstellung in einem `tibble()` sehr übersichtlich. Wir stellen ja den Effekt jeweils in den einzelnen Gruppen separat ein.
+
+```{r}
+fac1_tbl <- tibble("1" = rpois(n = 5, lambda = 3),
+                   "2" = rpois(n = 5, lambda = 6)) |> 
+  gather(key = "f_a", value = "y")
+```
+
+## Additiv
+
+Im additiven Zusammenbauen nutzen wir viele Funktionen um uns die Spalten mit den Faktoren, Effekten und Fehler aufzubauen. Am Ende addieren wir die Spalten zum Messwert auf.
+
+```{r}
+fac1_tbl <- tibble(f_a = gl(2, 5, labels = c("1", "2")),
+                   eff_a = rep(c(3, 6), each = 5),
+                   y = rpois(n = length(eff_a), lambda = eff_a))
+```
+:::
+
+```{r}
+fac1_tbl |> 
+  group_by(f_a) |> 
+  summarise(mean(y))
+```
 
 ### Kovariates Design
 
