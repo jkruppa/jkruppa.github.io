@@ -252,10 +252,10 @@ p4_square_cov <- tibble(x = c(0.5, 1.5, 2, 2.5, 3),
        title = "Effekt und Streuung",
        subtitle = "")
 
-
-p4_square_fac <- tibble(f = c(rep(1, 6), rep(2, 6)),
-                        y = c(4, 5, 5.5, 6.5, 7, 8,  
-                              7, 8, 8.5, 9.5, 10, 11)) |> 
+p4_square_fac <- 
+  tibble(f = c(rep(1, 6), rep(2, 6)),
+                        y = c(4, 5, 5.5, 6.5, 7, 9,  
+                              6, 8, 8.5, 9.5, 10, 11)) |> 
   ggplot(aes(f, y)) +
   theme_minimal() +
   geom_smooth(method = "lm", formula = y ~ x, color = "#CC79A7", linewidth = 1,
@@ -266,8 +266,8 @@ p4_square_fac <- tibble(f = c(rep(1, 6), rep(2, 6)),
                fill = c("#56B4E9", "#E69F00"), size = 0.75) +
   annotate("label", x = c(1, 2), y = 12, label = c(expression(n[1]~"="~6), 
                                                    expression(n[2]~"="~6))) +
-  annotate("label", x = 1.5, y = 7.5, label = expression(atop(bold(Delta[abs]~"="~+"3.0"),
-                                                              bold(Delta[rel]~"="%*%"1.5"))),
+  annotate("label", x = 1.5, y = 7.5, label = expression(atop(bold(Delta[abs]~"="~+"2.7"),
+                                                              bold(Delta[rel]~"="%*%"1.4"))),
            color = "#CC79A7", size = 5) +
   scale_y_continuous(limits = c(3, 12.5), breaks = c(6, 9)) +
   scale_x_continuous(limits = c(0.5, 2.5),breaks = c(1, 2), label = c("A.1", "A.2")) +
@@ -339,8 +339,8 @@ p2_square_fac <- tibble(f = c(rep(1, 6), rep(2, 6)),
        subtitle = "")
 
 p3_square_fac <- tibble(f = c(rep(1, 6), rep(2, 6)),
-                        y = c(5, 6, 7, 8, 9, 10,  
-                              5, 6, 7, 8, 9, 10)) |> 
+                        y = c(5, 6, 7, 8, 9, 11,  
+                              3, 6, 7, 8, 9, 10)) |> 
   ggplot(aes(f, y)) +
   theme_minimal() +
   geom_smooth(method = "lm", formula = y ~ x, color = "#CC79A7", linewidth = 1,
@@ -351,8 +351,8 @@ p3_square_fac <- tibble(f = c(rep(1, 6), rep(2, 6)),
                fill = c("#56B4E9", "#E69F00"), size = 0.75) +
   annotate("label", x = c(1, 2), y = 12, label = c(expression(n[1]~"="~6), 
                                                    expression(n[2]~"="~6))) +
-  annotate("label", x = 1.5, y = 7.5, label = expression(atop(bold(Delta[abs]~"="~+"0.0"),
-                                                              bold(Delta[rel]~"="%*%"1.0"))),
+  annotate("label", x = 1.5, y = 7.5, label = expression(atop(bold(Delta[abs]~"="~-"0.5"),
+                                                              bold(Delta[rel]~"="%*%"0.93"))),
            color = "#CC79A7", size = 5) +
   scale_y_continuous(limits = c(3, 12.5), breaks = c(6, 9)) +
   scale_x_continuous(limits = c(0.5, 2.5),breaks = c(1, 2), label = c("A.1", "A.2")) +
