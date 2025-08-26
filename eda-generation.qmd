@@ -400,7 +400,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, simstudy, simdata, modelr, 
-               ggpmisc, janitor, conflicted)
+               ggpmisc, janitor, emmeans, conflicted)
 set.seed(20250820)
 conflicts_prefer(ggplot2::annotate)
 ```
@@ -507,7 +507,7 @@ Manchmal wollen wir uns auch Daten erstellen, die nicht die gleiche Varianz in a
 ::: callout-note
 ## Varianzheterogeniät zwischen den Gruppen
 
-In der getrennten Erstellung von Daten können wir dann für jede Gruppe eine eigene Varianz festlegen. Hier habe ich in der einen Gruppe eine Standardabweichung von $5$ und in der anderen Gruppe eine Standardabweichung von $1$ angenommen.
+In der getrennten Erstellung von Daten können wir dann für jede Gruppe eine eigene Varianz festlegen. Hier habe ich in der einen Gruppe eine Standardabweichung von $5$ und in der anderen Gruppe eine Standardabweichung von $1$ angenommen. Ich brauche diese Art der Erstellung für den Welch t-Test oder aber in `{emmeans}` und dem multiplen Testen.
 
 ```{r}
 #| eval: false
@@ -518,6 +518,8 @@ fac1_tbl <- tibble("1" = rnorm(n = 5, mean = 3, sd = 5),
 :::
 
 #### Einfaktoriell $f_A$ mit \>2 Leveln {.unnumbered .unlisted}
+
+Kommen wir jetzt zu den etwas spannenderen Teil. Wir haben jetzt ein faktorielles Design mit einem Faktor und drei Leveln vorliegen. Ich habe dir einmal das Modell in der folgenden Abbildung einmal schematisch dargestellt. Wir würden hier also Daten bauen, die wir dann mit einer einfaktoriellen ANOVA oder aber dann mit einem Post-hoc Test wie `{emmeans}` auswerten würden. Der Messwert hier folgt daher einer Normalverteilung.
 
 ```{r}
 #| message: false
@@ -532,10 +534,14 @@ fac1_tbl <- tibble("1" = rnorm(n = 5, mean = 3, sd = 5),
 p_1fac_3lvl_model
 ```
 
+Wir können die Daten einmal getrennt bauen und hätten dann auch einfach die Möglichkeit die Varianzen auch unterschiedlich zu machen. Beachte immer, dass ich hier extrem geringe Varianzen mit $0.001$ eingestellt ahbe um dann bei der geringen Fallzahl auch auf die voreingestellten Effekte zu kommen. Du kannst dir das Modell auch additiv bauen, dann wird es aber etwas komplexer und der Fehler ist dann homogen, wenn du nicht den Fehlervektor nochmal aufbrechen willst. Dann zeige ich dir die Generation der Daten auch nochmal in Excel.
+
 :::: panel-tabset
 ## `tibble()`
 
 #### Getrennt {.unnumbered .unlisted}
+
+Wenn wir wenig Gruppen haben, dann ist die getrennte Erstellung in einem `tibble()` sehr übersichtlich. Wir stellen ja den Effekt jeweils in den einzelnen Gruppen separat ein. Wir bauen hier alles um die Mittelwerte auf.
 
 ```{r}
 fac1_tbl <- tibble("1" = rnorm(5, 2, 0.001),
@@ -546,12 +552,53 @@ fac1_tbl <- tibble("1" = rnorm(5, 2, 0.001),
 
 #### Additiv {.unnumbered .unlisted}
 
+Im additiven Zusammenbauen nutzen wir viele Funktionen um uns die Spalten mit den Faktoren, Effekten und Fehler aufzubauen. Am Ende addieren wir die Spalten zum Messwert auf. Hier sind natürlich heterogene Varianzen schwerer darzustellen, da wir den Fehler für jedes Level einzeln generieren müssten. Auch hier wähle ich die Mittelwerte zuerst.
+
 ```{r}
 fac1_tbl <- tibble(f_a = gl(3, 5, labels = c("1", "2", "3")),
                    eff_a = rep(c(2, 6, 4), each = 5),
                    error = rnorm(length(f_a), 0, 0.001),
                    y = eff_a + error)
 ```
+
+#### Effekt {.unnumbered .unlisted}
+
+Jetzt können wir aber das Ganze auch von der Effektseite aufziehen. Wir legen also fest, wie stark sich die Mitterlwerte unterscheiden sollen anstatt die Mittelwerte selber. Daher eben der Effekt als Ausgangspunkt für unsere Datengenerierung. Als erstes bauen wir uns aber einmal den Datensatz nur für den Faktor. Die Spalte `rep` gibt an wie viele Wiederholungen wir pro Level haben.
+
+```{r}
+fac1_tbl <- expand_grid(f_a = 1:3, rep = 1:5) |> 
+  mutate(f_a = as_factor(f_a))
+```
+
+Dann nutzen wir den Faktor um eine Dummykodierung zuerstellen. Mit der Dummykodierung können wir dann den Leveln des Faktors die Effekte zuordnen.
+
+```{r}
+fac1_mat <- fac1_tbl |> 
+  model_matrix(~ f_a) |> 
+  as.matrix()
+```
+
+Jetzt brauchen wir die Effekte. Wir haben hier den Mittelwert der ersten Gruppe in den Intercept und dann die Effekte danach. Daher hat das zweite Level einen um 4 höheren Mittelwert. Das dritte Level ist dann nur um 2 größer als der Intercept.
+
+```{r}
+eff_vec <- c(intercept = 2, 
+             f_a2 = 4, f_a3 = 2)
+```
+
+Dann kombinieren wir die Modellmatrix mit den Information wo der Effekt angewendet werden soll mit dem Vektor der Effekte. Wir erhalten dann unsere Messwerte in dem Vektor `y`. Hier sind natürlich pro Faktor die Werte immer gleich. Wir haben ja noch keine Streuung hinzugefügt.
+
+```{r}
+y_vec <- fac1_mat %*% eff_vec
+```
+
+Am Ende erhalten wir dann die echten generierten Messwerte indem wir zu unserem Messwert noch einen Fehler addieren. Ich nehme hier einen sehr kleinen Fehler, damit wir die Effekt auch gleich wiedersehen. Sonst müsste ich eine sehr hohe Fallzahl simulieren.
+
+```{r}
+fac1_tbl <- fac1_tbl |> 
+  mutate(y = y_vec + rnorm(length(y_vec), 0, 0.001))
+```
+
+Welche der drei Varianten du dann nutzt hängt davon ab, wozu du die generierten Datem brauchst. Jede Variante zeigt eben nochmal anders wie Daten entstehen.
 
 ## Excel
 
@@ -561,18 +608,7 @@ fac1_tbl <- tibble(f_a = gl(3, 5, labels = c("1", "2", "3")),
 Die Erstellung von Daten in Excel ist nicht für die *wissenschaftliche* Bewertung von Algorithmen sinnvoll und angebracht. Wir nutzen hier Excel um recht einfach uns zufällig Daten zu erstellen. Wir nutzen dann die künstlichen Exceldaten um unsere Analyse für unsere echten experimentelle Daten zu üben. Auch ist die vereinfachte Erstellung von künstlichen Daten in Excel hilfreich um die zugrundeliegende Konzepte nochmal zu verstehen.
 :::
 
-```{r}
-#| message: false
-#| echo: false
-#| warning: false
-#| fig-align: center
-#| fig-height: 4.5
-#| fig-width: 8
-#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
-#| label: fig-gen-data-fac1-excel
-
-p_fac1_excel
-```
+In der folgenden Datei findest du dann einmal die Generierung der einfaktoriellen Daten in Excel. Hier müssen wir dann das additive Zusammenbauen nutzen. Deshalb ist die Datei etwas größer. Am Ende brauchen wir die Spalte `Faktor A` und die Spalte `Messwert`.
 
 ```{r}
 excel_fac1_tbl <- read_excel("data/data_generation_excel.xlsx",
@@ -581,23 +617,43 @@ excel_fac1_tbl <- read_excel("data/data_generation_excel.xlsx",
   mutate(faktor_a = as_factor(faktor_a))
 ```
 
+In der folgenden Abbildung habe ich dir eimal normalverteilte Messwerte in Excel aus einem einfaktoriellen Design generiert. Zuerst legen wir den allgemeinen Intercept fest, dann noch die Effekte der einzelnen Gruppen. Am Ende brauchen wir noch den Fehler oder die Streuung mit der Funktion `NORMINV()`. Hier habe ich eine Standardabweichung von $2$ voreingestellt.
+
 ```{r}
-lm(messwert ~ faktor_a, data = excel_fac1_tbl) |> 
-  coef() |> round()
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 4.5
+#| fig-width: 8
+#| fig-cap: "Annotierte Generierung von einfaktoriellen Daten mit drei Gruppen in Excel. Der Fehler wird durch die Funktion `NORMINV()` in Excel abgebildet. Der normalverteilte Messwert addiert sich aus den Spalten `B:D` auf. *[Zum Vergrößern anklicken]*"
+#| label: fig-gen-data-fac1-excel
+
+p_fac1_excel
 ```
 ::::
 
-[R Library Contrast Coding Systems for categorical variables](https://stats.oarc.ucla.edu/r/library/r-library-contrast-coding-systems-for-categorical-variables/)
+Dann schauen wir einmal, ob wir dann die Mittelwerte und die entsprechenden Differenzen auch in `{emmeans}` wiederfinden. Die Funktion `pwpm()` gibt uns auf der Diagonalen die Mittelwerte wieder und dann die Differenzen in der unteren Hälfte der Matrix. Damit haben wir dann auch alle Informationen auf einmal zusammen. Die Mittelwerte sind die voreingestellten und die Effekte sind ebenfalls richtig.
+
+```{r}
+lm(y ~ f_a, fac1_tbl) |> 
+  emmeans(~ f_a) |> 
+  pwpm() 
+```
+
+Wir können uns dann das Modell auch nochmal in dem linearen Kontext anschauen. Hier haben wir dann aber zwei Möglichkeiten die Referenz des Intercepts zu setzen. In der klassischen Kodierung setzen wir den Intercept auf den Mittelwert des ersten LEvels oder eben der ersten Gruppe. Wir nennen diese Kodierung dann *Treatment coding*. Dafür müssen wir nichts machen, dass ist die Standardeinstellung. Wir können aber auch das *Effect coding* wählen, dann liegt der Intercept auf dem globalen Mittelwert. Was ja eher der Interpretation der ANOVA entspricht. Es gibt natürlich noch weitere Kodierungen, wie du im Tutorial [R Library Contrast Coding Systems for categorical variables](https://stats.oarc.ucla.edu/r/library/r-library-contrast-coding-systems-for-categorical-variables/) nachlesen kannst.
 
 ::: panel-tabset
 ## Treatment coding (default)
 
-*Treatment coding* mit `contr.treatment` (default)
+Der Standard in der linearen Modellierung von Faktoren ist das *Treatment coding* mit `contr.treatment` in der Funktion `lm()`. Wir müssen da auch eigentlich nichts ändern, aber ich habe es hier einmal angeben damit du siehst, wo du die Kodierung ändern musst. Jeder Faktor muss einzeln geändert werden.
 
 ```{r}
 lm(y ~ f_a, fac1_tbl, contrasts = list(f_a = "contr.treatment")) |> 
   coef() |> round(2)
 ```
+
+Wir erhalten dann aber die zu erwartenden Koeffizienten wieder. Der Mittelwert der ersten Gruppe ist der Intercept. Die Koeffizienten sind die Änderungen der anderen Level zum Intercept. Ich habe dir den Zusammenhang nochmal in der folgenden Abbildung dargestellt. Wir sehen hier sehr schön, dass eben das erste Level $A.1$ den Intercept ausmacht. Die Änderungen als Mittelwertsdifferenzen zum Intercept sind die Koeffizienten in dem linearen Modell.
 
 ```{r}
 #| message: false
@@ -606,7 +662,7 @@ lm(y ~ f_a, fac1_tbl, contrasts = list(f_a = "contr.treatment")) |>
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 6
-#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Darstellung des *Treatment coding* in einem linearen Modell. Der Intercept ist der Mittelwert des ersten Levels des Faktors. Die Koeffizienten des Modells beschreiben die Mittelwertsdifferenz zum Intercept in den anderen Leveln. *[Zum Vergrößern anklicken]*"
 #| label: fig-model-in-R-fa-21
 
 ggplot(fac1_tbl, aes(f_a, y)) +
@@ -625,12 +681,14 @@ ggplot(fac1_tbl, aes(f_a, y)) +
 
 ## Effect coding
 
-*Effect coding* mit `contr.sum`
+Das *Effect coding* können wir mit der Option `contr.sum` in der Funktion `lm()` nutzen. Wir müssen dies für jeden einzelnen Faktor einstellen. Ein Mischmasch würde ich stark vermeiden wollen. Wir haben dann als Intercept das globale Mittel des Messwerts über alle Gruppen. Die Koeffizienten sind dann die Mittelwertsdifferenzen zum globalen Mittel. Das letzte Level fehlt und lässt sich aus den vorherigen Leveln berechnen, da die Summe der Koeffizienten Null sein muss. In unserem Fall wäre die Mittelwertsdifferenz dann auch $0$, da sich die beiden vorherigen Level schon auf Null aufaddieren.
 
 ```{r}
 lm(y ~ f_a, fac1_tbl, contrasts = list(f_a = "contr.sum")) |> 
   coef() |> round(2)
 ```
+
+Der Zusammenhang wird dann in der folgenden Darstellung nochmal klarer. Wir haben hier den globalen Mittelwert von $4$ über alle Gruppen. Die Koeffizienten sind jetzt die Abweichung der lokalen Mittelwerte zu dem globalen Mittel. Eigentlich wie wir es auch aus einer einfaktoriellen ANOVA erwarten würden.
 
 ```{r}
 #| message: false
@@ -639,7 +697,7 @@ lm(y ~ f_a, fac1_tbl, contrasts = list(f_a = "contr.sum")) |>
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 6
-#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Darstellung des *Effect coding* in einem linearen Modell. Der Intercept ist der globale Mittelwert über alle Gruppen. Die Koeffizienten des Modells beschreiben die Mittelwertsdifferenz zum globalen Mittelwert in den anderen Leveln. Das letzte Level fehlt und lässt sich aus den vorherigen Leveln berechnen, da die Summe der Koeffizienten Null sein muss. *[Zum Vergrößern anklicken]*"
 #| label: fig-model-in-R-fa-22
 
 ggplot(fac1_tbl, aes(f_a, y)) +
@@ -674,12 +732,23 @@ p_2fac_nointer_model +
 ```
 
 ```{r}
-fac2_nointer_tbl <- tibble(f_a = rep(gl(3, 5), 2),
-                           f_b = gl(2, 15),
-                           y = 2 + 
-                             2 * as.numeric(f_a) + 
-                             3 * as.numeric(f_b) + 
-                             rnorm(15, 0, 0.001))
+fac2_nointer_tbl <- expand_grid(f_a = 1:3,
+                                f_b = 1:2,
+                                rep = 1:5) |> 
+  mutate(y = 2 +
+             2 * f_a +
+             3 * f_b +
+             rnorm(15, 0, 0.001)) |> 
+  mutate(f_a = as_factor(f_a),
+         f_b = as_factor(f_b))
+```
+
+Dann schauen wir einmal, ob wir dann die Mittelwerte und die entsprechenden Differenzen auch in `{emmeans}` wiederfinden. Die Funktion `pwpm()` gibt uns auf der Diagonalen die Mittelwerte wieder und dann die Differenzen in der unteren Hälfte der Matrix. Damit haben wir dann auch alle Informationen auf einmal zusammen. Das wird dann doch recht groß und dann teilweise etwas unübersichtlich.
+
+```{r}
+lm(y ~ f_a + f_b, fac2_nointer_tbl) |> 
+  emmeans(~ f_a * f_b)  |> 
+  pwpm() 
 ```
 
 ```{r}
@@ -712,6 +781,7 @@ ggplot(fac2_nointer_tbl, aes(f_a, y, color = f_b)) +
        subtitle = "Intercept ist der Mittelwert von Gruppe A.1",
        x = "Faktor A", y = "Messwert (Y)", color = "Faktor B") +
   scale_color_okabeito(label = c("B.1", "B.2")) +
+  scale_y_continuous(breaks = c(0, 5, 7, 10, 12, 14)) +
   theme(legend.position = "top")
 ```
 
@@ -801,6 +871,16 @@ lm(messwert ~ faktor_a * faktor_b, data = excel_fac2_tbl) |>
 ::::
 
 ```{r}
+lm(y ~ f_a + f_b + f_a:f_b, fac2_inter_tbl) |> 
+  emmeans(~ f_a * f_b) 
+```
+
+```{r}
+lm(y ~ f_a + f_b + f_a:f_b, fac2_inter_tbl) |> 
+    coef() |> round(2)
+```
+
+```{r}
 #| message: false
 #| echo: false
 #| warning: false
@@ -824,6 +904,7 @@ ggplot(fac2_inter_tbl, aes(f_a, y, color = f_b, group = f_b)) +
        subtitle = "Intercept ist der Mittelwert von Gruppe A.1",
        x = "Faktor A", y = "Messwert (Y)", color = "Faktor B") +
   scale_color_okabeito(label = c("B.1", "B.2")) +
+  scale_y_continuous(breaks = c(0, 5, 7, 10, 12)) +
   theme(legend.position = "top")
 ```
 
