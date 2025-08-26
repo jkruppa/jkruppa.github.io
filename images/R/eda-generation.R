@@ -553,7 +553,7 @@ p_fac2_excel <- tibble(x = 0:10, y = 0:10) |>
             alpha = 0.005, color = "#56B4E9", linewidth = 0.25) +
   geom_tile(aes(x = 2.65, y = 4.6, width = 1.6, height = 8.65), fill = "#E69F00",
             alpha = 0.005, color = "#E69F00", linewidth = 0.25) +
-  annotate("label", x = 8.75, y = 8,  size = 4, fontface = 2, color = "#56B4E9", hjust = "left",
+  annotate("label", x = 8.6, y = 8,  size = 4, fontface = 2, color = "#56B4E9", hjust = "left",
            label = "Additiver Effekt:\nC+D+E+F+G") +
   geom_curve(aes(x = 9.5, y = 8.6, xend = 8, yend = 8.9),
              arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
