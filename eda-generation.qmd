@@ -400,7 +400,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, simstudy, simdata, modelr, 
-               ggpmisc, janitor, emmeans, conflicted)
+               ggpmisc, janitor, emmeans, correlation,
+               mvtnorm, conflicted)
 set.seed(20250820)
 conflicts_prefer(ggplot2::annotate)
 ```
@@ -411,7 +412,7 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 
 Beginnen wir mit der wichtigsten Art der Simulation von Messwerten. Wir fangen mit der Normalverteilung an. Das heißt, dass unser Messwert $y$ normalverteilt ist und wir unsere Messwerte aus mehreren Normalverteilungen zusammenbauen. Jede der Faktoren oder Kovariaten ist normalverteilt und hat damit immer einen Mittelwert und eine Varianz als Streuung. Das macht es dann auch für uns einfacher einmal die Grundlagen zu verstehen. Am Ende kannst du dir auch mittlere Noten oder eine mittlere Anzahl generieren und dann eben etwas stärker Runden. Dazu mehr dann in den folgenden Verteilungen.
 
-### Faktorielles Design
+### Faktorielles Design {.unnumbered .unlisted}
 
 Ein faktorielles Design heißt nichts anderes als das du einen Faktor mit Leveln vorliegen hast. Häufig ist dieser Faktor dann deine Behandlung und deine Level sind dann die Stufen der Behandlung. Wenn du nur zwei Behandlungen vorliegen hast, dann rechnest du dann später einen Zweigruppenvergleich wie eben den t-Test. Wenn du mehr als zwei Gruppen vorliegen hast, wirst du dann eine einfaktorielle ANOVA nutzen und den entsprechenden Post-hoc Test. Weil zwei Gruppen eben so schön einfach sind, fangen wir hier damit einmal an. An den zwei Gruppen kannst du dann immer schön die Grundlagen nachvollziehen.
 
@@ -950,9 +951,13 @@ ggplot(fac2_inter_tbl, aes(f_a, y, color = f_b, group = f_b)) +
 
 Wir haben uns jetzt einmal durch das faktorielle Design durchgearbeitet. Das war jetzt auch bei einem normalverteilten Messwert relativ einfach. Wenn wir dann noch eine andere Verteilung im Messwert vorliegen haben, dann wird die Sache noch etwas komplizierter. In den folgenden Abschnitten gehe ich dann nicht für jede Verteilung auf alle Kombinationen ein, sondern nutze immer die wichtigsten faktoriellen Designs, wie eben die zweifaktoriellen mit und ohne Interaktion. Die einfaktoriellen Designs mit mehr als zwei Leveln dienen eher der Veranschaulichung und werden in der Praxis kaum genutzt.
 
-### Kovariates Design
+### Kovariates Design {.unnumbered .unlisted}
+
+Etwas seltener kommt der Fall vor, dass wir uns nur eine Kovariate anschauen wollen. In diesem Fall haben wir ja eine numerische, kontinuierliche Einflussvariable sowie einen normalverteilten Messwert vorliegen. Wir sind jetzt an der Steigung der Graden durch die Punktewolke interessiert. Daher stellen wir uns hier als Effekt eine Steigung ein und schauen, ob wir diese Steigung wiederfinden. Da wir natürlich auch einen Intercept für die Gradengleichung brauchen, müssen wir diesen auch definieren. Der Intercept ist aber meistens nicht von so großer praktischer Bedeutung.
 
 #### Einkovariat $c_1$ {.unnumbered .unlisted}
+
+In der folgenden schematischen Darstellung ahbe ich dir einmal einkovariates Modell mitgebracht. Wir haben auf der linken Seite einen kontinuierlichen, normalverteilten Messwert und auf der rechten Seite der Tilde eine kontinuierliche Einflussvariable als Kovariate vorliegen. Wir wollen jetzt die Daten in diesem Kontext generieren.
 
 ```{r}
 #| message: false
@@ -967,38 +972,49 @@ Wir haben uns jetzt einmal durch das faktorielle Design durchgearbeitet. Das war
 p_1cov_model 
 ```
 
+Wenn wir eine normalverteilte Kovariate haben, dann können wir erstmal die Kovariate erschaffen. Dafür nutzen wir dann die Funktion `rnorm()`. Dann müssen wir noch unseren Messwert mit der Gradengleichung festlegen. Ich zeige hier einmal die Variante mit dem linearen Zusammenhang und habe dann auch noch einen quadratischen mit der Helferfunktion `I()` ergänzt. Wie du dann möchtest, kannst du auch noch andere nicht lineare Zusammenhänge ergänzen.
+
 ```{r}
+#| message: false
+#| warning: false
 cov1_tbl <- tibble(c_1 = rnorm(10, 0, 1),
-                   y = 2 + 
-                       2 * c_1 + 
-                           rnorm(10, 0, 0.001))
+                   y_lin = 2 + 2 * c_1 + rnorm(10, 0, 0.001),
+                   y_square = 2 + 1.1 * c_1 + I(1.5*c_1^2) + rnorm(10, 0, 0.001)) |> 
+  gather(key = "power", value = "y", y_lin:y_square)
 ```
+
+In der folgenden Abbildung zeige ich dir einmal die Ergebnisse der Simulation. Da ich auch hier die Streuung faktisch ausgestellt habe, liegen die Punkte perfekt auf der Gradengleichung wie ich das will. Die lineare Gleichung hat noch einen Keoffizienten für den quadratischen Anteil, der ist hier ab faktisch Null. Wir können hier also sehr gut Zusammenhänge darstellen und dann schauen, ob wir die Koeffizienten dann in der linearen oder nicht-linearen Regression wiederfinden.
 
 ```{r}
 #| message: false
 #| echo: false
 #| warning: false
 #| fig-align: center
-#| fig-height: 4
+#| fig-height: 4.5
 #| fig-width: 6
-#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Darstellung einer linearen und einer quadratischen Simulation mit einer normalverteilten Kovariaten sowie einem normalverteilten Messwert. Der quadratische Term existeriert im linearen Modell nicht und der Koeffizient für $x^2$ ist daher fast Null. *[Zum Vergrößern anklicken]*"
 #| label: fig-eda-gen-c1
 
-ggplot(cov1_tbl, aes(c_1, y)) +
+ggplot(cov1_tbl, aes(c_1, y, color = power)) +
   theme_modeling() +
   geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
   geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
   geom_point() +
-  stat_poly_line(color = "#E69F00", linewidth = 0.5) +
-  stat_poly_eq(use_label("eq"), size = 8) +
+  stat_poly_line(linewidth = 0.5, formula = y ~ poly(x, 2), show.legend = FALSE) +
+  stat_poly_eq(use_label("eq"), size = 4, formula = y ~ poly(x, 2, raw = TRUE),
+               vstep = 0.07) +
   scale_x_continuous(breaks = -3:2) +
   scale_y_continuous(breaks = c(-4, -2, 0, 2, 4, 6)) +  
   labs(title = "Einkovariate Simulation",
        subtitle = "Intercept ist der y-Achsenabschnitt",
-       x = "Covariate 1", y = "Messwert (Y)")
+       x = "Covariate 1", y = "Messwert (Y)", color = "") +
+  scale_color_okabeito(labels = c("linear", "quadratisch")) +
+  theme(legend.position = "top")
 ```
 
 #### Zweikovariat unabhängig $c_1 + c_2$ {.unnumbered .unlisted}
+
+Wenn wir mehrere Kovariaten simulieren wollen, dann erweitern wir das Modell einfach um eine weitere Kovariate. Im simpelsten Fall sind die beiden Kovariaten voneinander unabhängig, daher kommen aus zwei verschiedenen Normalverteilungen und haben damit nichts miteinander zu tun. Daher sind die Werte der Kovariaten untereinander nicht korreliert oder sonst wie voneinander abhängig.
 
 ```{r}
 #| message: false
@@ -1013,32 +1029,82 @@ ggplot(cov1_tbl, aes(c_1, y)) +
 p_2cov_model
 ```
 
+Hier bauen wir uns zwei voneinander unabhängige Kovariaten. Die beiden Kovariaten entstammen aus unterschiedlichen Normalverteilungen und sind somit untereinander nicht korreliert. Dann legen wir einmal den Intercept fest und ergänzen noch die Steigungen als Effekte für die Kovariaten. Am Ende ergänze ich dann noch einen winzigen Fehler damit das Modell auch gerechnet werden kann.
+
 ```{r}
 cov2_tbl <- tibble(c_1 = rnorm(10, 0, 1),
-                   c_2 = rnorm(10, 0, 1),
+                   c_2 = rnorm(10, 2, 1),
                    y = 2 + 
                        1 * c_1 + 
                        2 * c_2 + 
                            rnorm(10, 0, 0.001))
 ```
 
+Dann nutze ich die Funktion `correlation()` aus dem R Paket `{correlation}` um mir einmal die Korrelation zwischend den beiden Kovariaten wiedergeben zu lassen. Wir sehen hier, die beiden Kovariaten sind nicht miteinander korreliert. Der Korrelationskoeffizient liegt eher bei Null und ist nicht signifikant.
+
+```{r}
+cov2_tbl |> 
+  correlation(select = c("c_1", "c_2"))
+```
+
+Dann schauen wir nochmal auf die Koeffizientend es Modells, ob wir auch unsere Effekte wiederfinden. Das sieht soweit gut aus. Wir haben die eingestellten Steigungen in den Koeffizienten wiedergefunden.
+
 ```{r}
 lm(y ~ c_1 + c_2, cov2_tbl) |> 
   coef() |> round(2)
 ```
 
+Ich erstelle hier keine Abbildung in einem 3D Scatterplot, da mir das zu viel Aufwand ist und wir sehr wenig auf den 3D Scatterplots sinnvoll interpretieren können. Wir schauen uns auch selten zweikovariate Modelle in einer Abbildung an, sondern bewerten eben die Koeffizienten und andere statistsiche Maßzahlen für die Güte der Modellierung. Hier soll es dann reichen. Mehr dazu dann in den [Kapiteln zu den Grundlagen des statistsichen Modellierens](https://jkruppa.github.io/stat-linear-reg-preface.html).
+
 #### Zweikovariat abhängig $c_1 + c_2$ {.unnumbered .unlisted}
 
-#### Komplexere Modelle {.unnumbered .unlisted}
+Jetzt kommen wir zu einem etwas nischigen Thema, nämlich der Tatsache, dass wir korrelierte Kovariaten vorliegen haben. Das ist natürlich in der Statistik ein Problem, wie wir es auch im [Kapitel zu der multiplen Regression](#sec-mult-reg-basic) nachlesen können. Solche Daten zu generieren ist dann aber eher selten von Interesse in einem praktischen Kontext. Wenn wir natürlich Algorithmen entwicklen wollen, dann ist das schon ein wichtiges Theme, wenn die Kovariaten nicht unabhängig voneinander sind.
 
 ::: panel-tabset
 ## `tibble()`
 
+[How would you explain the difference between correlation and covariance?](https://stats.stackexchange.com/questions/18082/how-would-you-explain-the-difference-between-correlation-and-covariance)
+
+```{r}
+cov_mat <- matrix(c(3, 2.5, 2.5, 3), ncol=2,
+                  dimnames = list(c("c_1", "c_2"), 
+                                  c("c_1", "c_2")))
+```
+
+```{r}
+cov_mat |> cov2cor() 
+```
+
+```{r}
+#| message: false
+#| warning: false
+cov2_dependent_tbl <- rmvnorm(n= 500, mean = c(1, 2), sigma = cov_mat) |> 
+  as_tibble() |> 
+  set_names(c("c_1", "c_2")) |> 
+  mutate(y = 2 + 1.5 * c_1 + 3 * c_2 + rnorm(length(c_1), 0, 1))
+```
+
+```{r}
+correlation(cov2_dependent_tbl, select = c("c_1", "c_2"))
+```
+
+```{r}
+lm(y ~ c_1 + c_2, data = cov2_dependent_tbl)
+```
+
 ## `{simstudy}`
 
-## Excel
+[Correlated Data](https://kgoldfeld.github.io/simstudy/articles/correlated.html)
 
-`NORM.INV(ZUFALLSZAHL(); 0; 5)`
+```{r}
+C <- matrix(c(1, 0.7, 0.2, 0.7, 1, 0.8, 0.2, 0.8, 1), nrow = 3)
+```
+
+```{r}
+dt <- genCorData(1000, mu = c(4, 12, 3), sigma = c(1, 2, 3), corMatrix = C,
+                 cnames = c("x0", "x1", "x2"))
+dt
+```
 :::
 
 ## Possionverteilt
@@ -1057,7 +1123,7 @@ Die Abweichungen sind tolerable wie @kruppa2016simulation gezeigt hat.
 
 Im Folgenden müssen wir die Fallzahl erhöhen, da die Poissonverteilung keine eigenen Parameter für die Varianz hat. Die Streuung ist nämlich eien Funktion des Mittelwerts. Je größer der Mittelwert, desto größer die Varianz.
 
-### Faktorielles Design
+### Faktorielles Design {.unnumbered .unlisted}
 
 ::: panel-tabset
 ## Getrennt
@@ -1091,15 +1157,15 @@ fac1_tbl |>
 rnbinom(10, mu = 4, size = 2)
 ```
 
-### Kovariates Design
+### Kovariates Design {.unnumbered .unlisted}
 
 ## Ordinalverteilt
 
 [Ordinal Categorical Data](https://kgoldfeld.github.io/simstudy/articles/ordinal.html)
 
-### Faktorielles Design
+### Faktorielles Design {.unnumbered .unlisted}
 
-### Kovariates Design
+### Kovariates Design {.unnumbered .unlisted}
 
 ## Binomialverteilt
 
@@ -1107,16 +1173,16 @@ rnbinom(10, mu = 4, size = 2)
 rbinom(10, 1, 0.25) |> mean()
 ```
 
-### Faktorielles Design
+### Faktorielles Design {.unnumbered .unlisted}
 
-### Kovariates Design
+### Kovariates Design {.unnumbered .unlisted}
 
-## Zeitreihen
+## Komplexere Modelle
+
+### Multiple Modelle
+
+### Zeitreihen
 
 [Spline Data](https://kgoldfeld.github.io/simstudy/articles/spline.html)
-
-### Faktorielles Design
-
-### Kovariates Design
 
 ## Referenzen {.unnumbered}
