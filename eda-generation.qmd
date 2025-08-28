@@ -401,7 +401,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 pacman::p_load(tidyverse, simstudy, simdata, modelr, 
                ggpmisc, janitor, emmeans, correlation,
-               mvtnorm, conflicted)
+               data.table, conflicted)
 set.seed(20250820)
 conflicts_prefer(ggplot2::annotate)
 ```
@@ -1058,35 +1058,55 @@ Ich erstelle hier keine Abbildung in einem 3D Scatterplot, da mir das zu viel Au
 
 #### Multikovariat abhängig $c_1 + c_2 + c_3$ {.unnumbered .unlisted}
 
-Jetzt kommen wir zu einem etwas nischigen Thema, nämlich der Tatsache, dass wir korrelierte Kovariaten vorliegen haben. Das ist natürlich in der Statistik ein Problem, wie wir es auch im [Kapitel zu der multiplen Regression](#sec-mult-reg-basic) nachlesen können. Solche Daten zu generieren ist dann aber eher selten von Interesse in einem praktischen Kontext. Wenn wir natürlich Algorithmen entwicklen wollen, dann ist das schon ein wichtiges Theme, wenn die Kovariaten nicht unabhängig voneinander sind.
+Jetzt kommen wir zu einem etwas nischigen Thema, nämlich der Tatsache, dass wir korrelierte Kovariaten vorliegen haben. Deshalb nehmen wir auch gleich drei Korvariaten. Das ist natürlich in der Statistik ein Problem, wie wir es auch im [Kapitel zu der multiplen Regression](#sec-mult-reg-basic) nachlesen können. Mit Statistik meine ich, dass wir dann eben ein paar Probleme bei der Modellierung haben. Da gehe ich hier aber nicht tiefer drauf ein. Solche Daten zu generieren ist dann daher eher selten von Interesse in einem praktischen Kontext. Entweder liegen die Kovariaten korre,iert vor oder eben nicht. Wenn wir natürlich Algorithmen entwicklen wollen, dann ist das schon ein wichtiges Theme, wenn die Kovariaten nicht unabhängig voneinander sind.
 
-Wir nutzen jetzt im Folgenden einmal das R Paket `{simstudy}` da die Genierung von korrelierten Daten mit einem Paket einfacher ist als alles per Hand zu machen.
+Wir nutzen jetzt im Folgenden einmal das R Paket `{simstudy}` da die Genierung von korrelierten Daten mit einem Paket einfacher ist als alles per Hand zu machen. Es geht auch alles per Hand in einem `tibble` mit `{mvtnorm}` aber das machen wir hier jetzt nicht, da es viel zu kompliziert ist. Ich kann es nur empfehlen, wenn du dich mit dem Simulieren von Daten beschäftigen willst. Dann müsstest du dich auch nochmal mit dem Tutorium [How would you explain the difference between correlation and covariance?](https://stats.stackexchange.com/questions/18082/how-would-you-explain-the-difference-between-correlation-and-covariance) beschäftigen, da wir in `{mvtnorm}` mit Kovarianzen beschäftigen.
 
-[How would you explain the difference between correlation and covariance?](https://stats.stackexchange.com/questions/18082/how-would-you-explain-the-difference-between-correlation-and-covariance)
-
-[Correlated Data](https://kgoldfeld.github.io/simstudy/articles/correlated.html)
+Damit wären wir auch gleich beim großen Vorteil von `{simstudy}`. Wir können nämlich direkt eine Korrelationsmatrix einpflegen und müssen nicht über die Kovarianz als schwierigeres Konzept gehen. Die Kovarianz festlegen ist nämlich nicht ganz so einfach. Die Korrelation vorher festzulegen aber schon. Was wir dann auch in der Vingette [Correlated Data](https://kgoldfeld.github.io/simstudy/articles/correlated.html) nachlesen können. Im folgenden habe ich dir einmal eine Korrlationsmatrix für die drei Kovariaten $c_1$ bis $c_3$ mitgebracht. Die Korrelationsmatrix muss symmetrisch sein. Je höher die absolute Korrelation desto stärker ist der Zusammenhang.
 
 ```{r}
-cor_mat <- matrix(c(1, 0.7, 0.2, 0.7, 1, 0.8, 0.2, 0.8, 1), nrow = 3)
+cor_mat <- matrix(c(1, 0.7, 0.2, 
+                    0.7, 1, 0.8, 
+                    0.2, 0.8, 1), nrow = 3,
+                  dimnames = list(c("c_1", "c_2", "c_3"), c("c_1", "c_2", "c_3")))
 cor_mat
 ```
 
+Dann können wir die Funktion `genCorData()` nutzen um uns korreltierte Kovariaten zu erstellen. Ich habe hier einmal eintausend Beobachtungen gewählt. Dann müssen wir noch den Mittelwert in allen Kovariaten festlegen sowie die Streuung. Wir nehmen dann die Korrelatiuonsmatrix mit in die Funktion und benennen noch die Kovariaten entsprechend. Wir erstellen uns dann den Messwert separat mit den gewollten Effekten.
+
 ```{r}
-cov2_dependent_tbl <- genCorData(1000, mu = c(4, 12, 3), sigma = c(1, 2, 3), 
-                                 corMatrix = cor_mat,
-                                 cnames = c("c_1", "c_2", "c_3")) |> 
+cov2_dependent_dt <- genCorData(1000, mu = c(4, 12, 3), sigma = c(1, 2, 3), 
+                                corMatrix = cor_mat,
+                                cnames = c("c_1", "c_2", "c_3")) |> 
   mutate(y = 2 + 1.5 * c_1 + 2 * c_2 + 2.5 * c_3 + rnorm(1000, 0, 0.001))
-cov2_dependent_tbl
 ```
 
-```{r}
-lm(y ~ c_1 + c_2 + c_3, data = cov2_dependent_tbl)
-```
+Im Folgenden siehst du dann einmal die Datentabelle der eintausend Beobachtungen. Wir haben die ID Spalte und dann die drei Kovariaten gefolgt von dem Messwert.
 
 ```{r}
-correlation(cov2_dependent_tbl, select = c("c_1", "c_2", "c_3")) |> 
+cov2_dependent_dt
+```
+
+In den rohen Daten ist die Korrelation faktisch nicht zu sehen. Dafür müssen wir uns dann einmal die Korrelation berechnen lassen. Wie wir dann im Folgenden einmal sehen, passt es sehr gut. Wir erhalten die Korrelationen wieder, die wir auch eingestellt haben.
+
+```{r}
+correlation(cov2_dependent_dt, select = c("c_1", "c_2", "c_3")) |> 
   summary(redundant = TRUE)
 ```
+
+Am Ende nochmal schauen, ob wir auch die Effekte wiederbekommen, die wir eingestellt haben. Auch hier sieht es sehr gut aus. Hier muss ich natürlich erwähnen, dass die Effekte groß sind die Fallzahl riesig und auch die Streuung in den Daten gering. Daher klappt hier auch alles so schön.
+
+```{r}
+lm(y ~ c_1 + c_2 + c_3, data = cov2_dependent_dt)
+```
+
+Dann haben wir auch unsere Effekte in dem Modell wiedergefunden. Es gibt verschiedene Korrelationsstrukturen, die wir auch in `{simstudy}` berücksichtigen können. Eine weitere Möglichkeit sind natürlich auch Zeitreihen in denen wir eine Abhängigkeit vorliegen haben. Aber auch hier reicht es meist, wenn der Trend einigermaßen stimmt. Dazu dann aber mehr in dem Abschnitt zu Zeitreihen.
+
+::: {layout="[15,85]" layout-valign="top"}
+![](images/personal_opinion.png){fig-align="center" width="100%"}
+
+> *"Brauchen wir eine Generierung von korrelierten Kovariaten? Ich würde mal sagen in der allgmeinen Anwendung und Auswertung reicht es, wenn wir die Daten einfach unkorreliert generieren und dann darauf die Algorithmen laufen lassen. Aber ich selber brauche es manchmal für Beispieldaten. Daher gibt es diesen Abschnitt wirklich." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
+:::
 
 ## Possionverteilt
 
@@ -1105,6 +1125,94 @@ Die Abweichungen sind tolerable wie @kruppa2016simulation gezeigt hat.
 Im Folgenden müssen wir die Fallzahl erhöhen, da die Poissonverteilung keine eigenen Parameter für die Varianz hat. Die Streuung ist nämlich eien Funktion des Mittelwerts. Je größer der Mittelwert, desto größer die Varianz.
 
 ### Faktorielles Design {.unnumbered .unlisted}
+
+Wir nutzen hier das R Paket `{data.table}` zusammen mit dem R Paket `{simstudy}`
+
+```{r}
+fac2_dt <- expand_grid(f_a = 1:3,
+                       f_b = 1:2,
+                       rep = 1:1000) |> 
+  as.data.table()
+```
+
+```{r}
+fac2_dt
+```
+
+```{r}
+y_norm_def <- defDataAdd(varname = "y", formula = "10 + 5*f_a + 5*f_b",
+                         dist = "normal", variance = 2)
+```
+
+```{r}
+addColumns(y_norm_def, fac2_dt) |>
+  mutate(f_a = factor(f_a, labels = str_c("A.", 1:3)),
+         f_b = factor(f_b, labels = str_c("B.", 1:2))) |> 
+  ggplot(aes(f_a, color = f_b, y, group = f_b)) +
+    stat_summary(fun = "mean", geom = "line", show.legend = FALSE) 
+```
+
+```{r}
+y_pois_def <- defDataAdd(varname = "y", formula = "10 + 5*f_a + 5*f_b",
+                         dist = "poisson")
+```
+
+```{r}
+addColumns(y_pois_def, fac2_dt) |>
+  mutate(f_a = factor(f_a, labels = str_c("A.", 1:3)),
+         f_b = factor(f_b, labels = str_c("B.", 1:2))) |> 
+  ggplot(aes(f_a, color = f_b, y, group = f_b)) +
+    stat_summary(fun = "mean", geom = "line", show.legend = FALSE) 
+```
+
+```{r}
+fac1_dt <- expand_grid(f_a = 1:3,
+                       rep = 1:1000) |> 
+  as.data.table()
+
+y_binom_def <- defDataAdd(varname = "y", formula = "0.5",
+                          dist = "binomial", variance = 3, link = "identity")
+
+addColumns(y_binom_def, fac1_dt) |> 
+  tabyl(f_a, y)
+```
+
+```{r}
+fac1_dt <- expand_grid(f_a = 1:3,
+                       rep = 1:1000) |> 
+  as.data.table()
+
+y_binary_def <- defDataAdd(varname = "y", formula = "log(0.5)",
+                          dist = "binary", link = "logit")
+
+addColumns(y_binary_def, fac1_dt) |> 
+  tabyl(f_a, y)
+```
+
+[logit() and logistic() functions in R](https://ro-che.info/articles/2018-08-11-logit-logistic-r)
+
+$$
+\text{logit}(p) = \cfrac{p}{1-p}
+$$
+
+```{r}
+qlogis(0.6) # logit
+```
+
+$$
+\text{logistic}(x) = \cfrac{1}{1 + exp(-x)}
+$$
+
+```{r}
+plogis(0.4054651) # logistic
+```
+
+```{r}
+ggplot(tibble(x = seq(-6, 6, by = 0.5),
+              y = plogis(x)),
+       aes(x, y)) +
+  geom_point()
+```
 
 ::: panel-tabset
 ## Getrennt
