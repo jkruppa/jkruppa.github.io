@@ -408,7 +408,7 @@ conflicts_prefer(ggplot2::annotate)
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
 
-## Normalverteilt
+## Normalverteilter Messwert
 
 Beginnen wir mit der wichtigsten Art der Simulation von Messwerten. Wir fangen mit der Normalverteilung an. Das heißt, dass unser Messwert $y$ normalverteilt ist und wir unsere Messwerte aus mehreren Normalverteilungen zusammenbauen. Jede der Faktoren oder Kovariaten ist normalverteilt und hat damit immer einen Mittelwert und eine Varianz als Streuung. Das macht es dann auch für uns einfacher einmal die Grundlagen zu verstehen. Am Ende kannst du dir auch mittlere Noten oder eine mittlere Anzahl generieren und dann eben etwas stärker Runden. Dazu mehr dann in den folgenden Verteilungen.
 
@@ -1108,7 +1108,7 @@ Dann haben wir auch unsere Effekte in dem Modell wiedergefunden. Es gibt verschi
 > *"Brauchen wir eine Generierung von korrelierten Kovariaten? Ich würde mal sagen in der allgmeinen Anwendung und Auswertung reicht es, wenn wir die Daten einfach unkorreliert generieren und dann darauf die Algorithmen laufen lassen. Aber ich selber brauche es manchmal für Beispieldaten. Daher gibt es diesen Abschnitt wirklich." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
 :::
 
-## Possionverteilt
+## Possionverteilter Messwert
 
 ::: callout-note
 ## Normalverteilung und Runden
@@ -1126,6 +1126,51 @@ Im Folgenden müssen wir die Fallzahl erhöhen, da die Poissonverteilung keine e
 
 ### Faktorielles Design {.unnumbered .unlisted}
 
+Wenn wir uns mit dem faktoriellen Design beschäftigen dann generieren wir zuerst das Faktorenraster und ergänzen dann den Messwert aus der Poissonverteilung.
+
+#### Einfaktoriell $f_A$ mit \>2 Leveln {.unnumbered .unlisted}
+
+```{r}
+fac1_dt <- expand_grid(f_a = 1:3,
+                       rep = 1:1000) |> 
+  as.data.table()
+```
+
+```{r}
+fac1_dt
+```
+
+```{r}
+y_pois_def <- defDataAdd(varname = "y", formula = "0 + 4*f_a",
+                         dist = "poisson")
+```
+
+```{r}
+fac1_pois_dt <- addColumns(y_pois_def, fac1_dt) |>
+  mutate(f_a = factor(f_a, labels = str_c("A.", 1:3))) 
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| label: fig-eda-gen-fac1-pois
+
+fac1_pois_dt |> 
+  ggplot(aes(x = f_a, y = y, fill = f_a)) +
+  theme_modeling() +
+  geom_boxplot(width = 0.2) +
+  scale_fill_okabeito() +
+  theme(legend.position = "none") +
+  labs(x = "Faktor A", y = "Messwert (Y)")
+```
+
+#### Zweifaktoriell ohne Interaktion $f_A + f_B$ {.unnumbered .unlisted}
+
 Wir nutzen hier das R Paket `{data.table}` zusammen mit dem R Paket `{simstudy}`
 
 ```{r}
@@ -1140,30 +1185,89 @@ fac2_dt
 ```
 
 ```{r}
-y_norm_def <- defDataAdd(varname = "y", formula = "10 + 5*f_a + 5*f_b",
-                         dist = "normal", variance = 2)
-```
-
-```{r}
-addColumns(y_norm_def, fac2_dt) |>
-  mutate(f_a = factor(f_a, labels = str_c("A.", 1:3)),
-         f_b = factor(f_b, labels = str_c("B.", 1:2))) |> 
-  ggplot(aes(f_a, color = f_b, y, group = f_b)) +
-    stat_summary(fun = "mean", geom = "line", show.legend = FALSE) 
-```
-
-```{r}
-y_pois_def <- defDataAdd(varname = "y", formula = "10 + 5*f_a + 5*f_b",
+y_pois_def <- defDataAdd(varname = "y", formula = "-2 + 2*f_a + 6*f_b",
                          dist = "poisson")
 ```
 
 ```{r}
-addColumns(y_pois_def, fac2_dt) |>
+fac2_pois_dt <- addColumns(y_pois_def, fac2_dt) |>
   mutate(f_a = factor(f_a, labels = str_c("A.", 1:3)),
-         f_b = factor(f_b, labels = str_c("B.", 1:2))) |> 
-  ggplot(aes(f_a, color = f_b, y, group = f_b)) +
-    stat_summary(fun = "mean", geom = "line", show.legend = FALSE) 
+         f_b = factor(f_b, labels = str_c("B.", 1:2)))
 ```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| label: fig-eda-gen-fac2-nointer-pois
+
+fac2_pois_dt |> 
+  ggplot(aes(x = f_a, y = y, fill = f_b)) +
+  theme_modeling() +
+  geom_boxplot(width = 0.2) +
+  scale_fill_okabeito() +
+  theme(legend.position = "top") +
+  labs(x = "Faktor A", y = "Messwert (Y)", fill = "Faktor B")
+```
+
+#### Zweifaktoriell mit Interaktion $f_A + f_B + f_A \times f_B$ {.unnumbered .unlisted}
+
+Bitte wie die Normalverteilung und am Ende runden.
+
+```{r}
+fac2_tbl <- expand_grid(f_a = 1:3, f_b = 1:2, rep = 1:1000) |> 
+  mutate(f_a = as_factor(f_a),
+         f_b = as_factor(f_b))
+```
+
+```{r}
+fac2_model_dt <- fac2_tbl |> 
+  model_matrix(~ f_a * f_b) |> 
+  clean_names() |> 
+  as.data.table()
+```
+
+```{r}
+fac2_model_dt
+```
+
+```{r}
+y_pois_def <- defDataAdd(varname = "y", 
+                         formula = "5 * intercept + 2 * f_a2 + 2 * f_a3 + 
+                         3 * f_b2 + 0 * f_a2_f_b2 + -6 * f_a3_f_b2",
+                         dist = "poisson")
+```
+
+```{r}
+fac2_pois_dt <- addColumns(y_pois_def, fac2_model_dt) |>
+  add_column(fac2_tbl) |> 
+  select(f_a, f_b, y)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 6
+#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| label: fig-eda-gen-fac2-inter-pois
+
+fac2_pois_dt |> 
+  ggplot(aes(x = f_a, y = y, fill = f_b)) +
+  theme_modeling() +
+  geom_boxplot(width = 0.2) +
+  scale_fill_okabeito() +
+  theme(legend.position = "top") +
+  labs(x = "Faktor A", y = "Messwert (Y)", fill = "Faktor B")
+```
+
+## Playground {.unnumbered .unlisted}
 
 ```{r}
 fac1_dt <- expand_grid(f_a = 1:3,
@@ -1179,14 +1283,14 @@ addColumns(y_binom_def, fac1_dt) |>
 
 ```{r}
 fac1_dt <- expand_grid(f_a = 1:3,
-                       rep = 1:1000) |> 
+                       rep = 1:10000) |> 
   as.data.table()
 
-y_binary_def <- defDataAdd(varname = "y", formula = "log(0.5)",
-                          dist = "binary", link = "logit")
+y_binary_def <- defDataAdd(varname = "y", formula = "0.2 + 0.2*f_a",
+                          dist = "binary", link = "identity")
 
 addColumns(y_binary_def, fac1_dt) |> 
-  tabyl(f_a, y)
+  tabyl(f_a, y) |> adorn_percentages("row") |> adorn_pct_formatting(digits = 0)
 ```
 
 [logit() and logistic() functions in R](https://ro-che.info/articles/2018-08-11-logit-logistic-r)
@@ -1248,7 +1352,7 @@ rnbinom(10, mu = 4, size = 2)
 
 ### Kovariates Design {.unnumbered .unlisted}
 
-## Ordinalverteilt
+## Ordinalverteilter Messwert
 
 [Ordinal Categorical Data](https://kgoldfeld.github.io/simstudy/articles/ordinal.html)
 
@@ -1256,7 +1360,7 @@ rnbinom(10, mu = 4, size = 2)
 
 ### Kovariates Design {.unnumbered .unlisted}
 
-## Binomialverteilt
+## Binomialverteilter Messwert
 
 ```{r}
 rbinom(10, 1, 0.25) |> mean()
