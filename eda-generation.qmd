@@ -410,40 +410,57 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 
 ## R Paket `{simstudy}`
 
-[R Paket `{simstudy}`](https://cran.r-project.org/web/packages/simstudy/vignettes/simstudy.html)
+Der Fokus in diesem Kapitel liegt auf dem [R Paket `{simstudy}`](https://cran.r-project.org/web/packages/simstudy/vignettes/simstudy.html) und deren Funktionen. Wir werden in dem Abschnitt zu der Normalverteilung nochmal auf die Standardfunktionen in R eingehen und die Daten etwas mehr händisch genierieren. Wennn die Verteilungen aber komplizierter werden, dann wird es auch mit dem Standard schwerer. So ist die Poissonverteilung, die Ordinalverteilung und auch die Binomialverteilung in einem mehrfaktoriellen Design schon nicht mehr schön selber zu bauen. Insbesondere wenn die Einflussvariablen noch untereinander miteinander in Beziehung stehen.
 
-[ouR data generation -- meditations on data generating processes, R, and statistics](https://www.rdatagen.net/)
+In der folgenden Tabelle siehst du einmal die drei Variablen für das Alter, das Geschlecht und die Sprungweite von Katzenflöhen. Wir sagen, dass der Effekt des Alters immer fix $10$ ist. Das Geschlecht des Flohs hängt hier absurderweise vom Alter ab. Die Sprungweite ist dann eine Funktion des Alters und des Geschlechts. Dabei haben nicht alle Verteilungen eine Varianz wie die Normalverteilung. Deshalb haben wir hier auch Null in der Varianz bei den anderen Verteilungen stehen.
 
-| varname | formula                          | variance | dist    | link     |
-|:--------|:---------------------------------|:---------|:--------|:---------|
-| age     | 10                               | 2        | normal  | identity |
-| female  | -2 + age \* 0.1                  | 0        | binary  | logit    |
-| visits  | 1.5 - 0.2 \* age + 0.5 \* female | 0        | poisson | log      |
+| varname     | formula                          | variance | dist    | link     |
+|:------------|:---------------------------------|:---------|:--------|:---------|
+| age         | 10                               | 2        | normal  | identity |
+| female      | -2 + age \* 0.1                  | 0        | binary  | logit    |
+| jump_length | 1.5 - 0.2 \* age + 0.5 \* female | 0        | poisson | log      |
 
-: test {#tbl-glossar-regression tbl-colwidths="15, 40, 15, 15, 15"}
+: Beispielhafte Tabelle einer Datendefinition der Effekte der Variablen in `{simstudy}`. Jede Zeile beschreibt eine Variable in dem Datensatz und deren mathematischen Zusammenhang oder den Effekt untereinander. Dazu kommt noch die Varianz und die entsprechende Verteilung der Variable. {#tbl-glossar-regression tbl-colwidths="15, 40, 15, 15, 15"}
 
-```{r}
-def <- defData(varname = "age", dist = "normal", formula = 10,
-    variance = 2)
-def <- defData(def, varname = "female", dist = "binary",
-    formula = "-2 + age * 0.1", link = "logit")
-def <- defData(def, varname = "visits", dist = "poisson",
-    formula = "1.5 - 0.2 * age + 0.5 * female", link = "log")
-```
-
-`defDataAdd()`
+Dann können wir die obige Tabelle auch einmal in `{simstudy}` nachbauen. Wir müssen dazu die Funktion `defData()` nutzen und dann immer erweitern. Dabei ist natürlich die Ordnung wichtig, da wir erst Variablen erschaffen müssen bevor wir mit den Variablen weiterrechnen können. Das verlangt etwas Übung und auch ein gewissen Gefühl für die Datenerstellung. Mir ist es am Anfang auch etwas schwerer gefallen, aber diese Art der Genierung hat echte Vorteile, wenn die Daten komplexer werden.
 
 ```{r}
-
+def <- 
+  defData(varname = "age", dist = "normal", 
+          formula = 10, variance = 2) |> 
+  defData(varname = "female", dist = "binary",
+          formula = "-2 + age * 0.1", link = "logit") |> 
+  defData(varname = "jump_length", dist = "poisson",
+          formula = "1.5 - 0.2 * age + 0.5 * female", link = "log")
 ```
 
-`addColumn`
+Dann können wir schon die Funktion `genData()` nutzen um uns dann entsprechend viele Beobachtungen mit der entsprechenden Datendefinition zu erschaffen. Hier habe ich einmal fünf Beobachtungen gewäht, später nutze ich dann eher eintausend Beobachtungen.
 
 ```{r}
-
+dt <- genData(n = 5, def)
+dt
 ```
 
-## Normalverteiltes $Y$
+Manchmal ist es so, dass wir einem bestehenden Datensatz mit Vairablen eine Definition hinzufügen wollen. Das ist insbesondere bei Faktorenrastern der Fall. Dort bauen wir uns ja erst alle Faktorkombinationen und wollen dann nochmal den Messwert berechnen. Dafür können wir dann die Funktion `defDataAdd()` nutzen, die auch Variablennamen akzeptiert, die nicht noch nicht definiert wurden. Hier bauen wir uns eine binäre Sprungweite zusammen.
+
+```{r}
+def <- defDataAdd(varname = "jump_length_bin", formula = "-2 + 0.5*age + 0.5*female",
+                  dist = "binary", link = "logit")
+```
+
+Da wir bis jetzt nur die Defintion haben, müssen wir noch die Daten mit der Datendefinition zusammenbringen. Die Funktion `addColumn()` verbindet einen bestehenden Datensatz mit einer neuen Definition und erschafft dann die neue Variable. Wir werden dieses Vorgehen dann häufiger bei den faktoriellen Daten nutzen.
+
+```{r}
+addColumns(def, dt)
+```
+
+Wenn dich die Datengenerierugn und das Drumrum interessiert, dann kannst du auch auf dem Blog [ouR data generation -- meditations on data generating processes, R, and statistics](https://www.rdatagen.net/), welches die Themen rund um das R Paket `{simstudy}` aufgreift einmal weiterlesen. Leider muss man sich mühsam durch die Chronik klicken, da es keine Sortierung nach Schlagworten oder ein Inhaltsverzeichnis gibt. Dafür ist da die eine oder andere spannende Idee darunter. Wenn ich was gefunden habe, habe ich es weiter unten in den Abschnitten verlinkt.
+
+## Messwert
+
+Im Folgenden wollen wir uns für die gängigen Verterilungsfamilien einmal die Generierung von Daten anschauen. Dabei bleibe ich länger bei der Normalverteilung und zeige dort einmal verschiedene Wege um auf künstliche Daten zu kommen. Dabei liegt auch hier der Fokus mehr auf dem faktoriellen Design, da wir es hier meistens mit etwas komplizierteren Generierungen zu tun bekommen. Nach der Normalverteilung gehe ich dann auf die Poissonverteilung und klassische Verteilung für Zähldaten ein. Dann kommt noch die ordinale und binomiale Verteilung dran. Dann haben wir die häufigsten Verteilungen besprochen. Mehr findet sich dann auch in der Vingette zu dem [R Paket `{simstudy}`](https://cran.r-project.org/web/packages/simstudy/vignettes/simstudy.html).
+
+### Normalverteilt
 
 Beginnen wir mit der wichtigsten Art der Simulation von Messwerten. Wir fangen mit der Normalverteilung an. Das heißt, dass unser Messwert $y$ normalverteilt ist und wir unsere Messwerte aus mehreren Normalverteilungen zusammenbauen. Jede der Faktoren oder Kovariaten ist normalverteilt und hat damit immer einen Mittelwert und eine Varianz als Streuung. Das macht es dann auch für uns einfacher einmal die Grundlagen zu verstehen. Am Ende kannst du dir auch mittlere Noten oder eine mittlere Anzahl generieren und dann eben etwas stärker Runden. Dazu mehr dann in den folgenden Verteilungen.
 
@@ -1267,7 +1284,7 @@ mix_null_alt_dt |>
 
 Auch hier ist die Frage, wozu brauchen wir das? Vermutlich nicht im praktischen Alltag, aber in der Testung von Algorithmen mag eine mehrgipflige Verteilung schon von Interesse sein. Wir haben ja hier mehrere Normalverteilungen, die sich aufaddieren. Jede dieser Normalverteilungen könnte eine unentdeckte Subpopulation sein, die eben dann eine andere Verteilung des Frischegewichts hat. Ich vermute aber, dass die Anwendungsfälle eher selten sind.
 
-## Possionverteiltes $Y$
+### Possionverteilt
 
 Nachdem wir vieles einmal mit einer Normalverteilung durchprobiert haben, kommen wir jetzt einmal zu einer anderen Verteilung. Wir fangen mit der Poissonverteilung an, da die Poissonverteilung der Normalverteilung gar nicht so unähnlich ist. Wir nutzen die Poissonverteilung wenn wir Zähldaten abbilden wollen. Daher ist die Poissonverteilung immer ganzzahlig oder diskret. Wenn wir was zählen, dann haben wir auch immer positive Werte einschließlich der Nullzählungen vorliegen. Mit dem Wissen können wir dann anfangen unsere Zähldaten in einer Poissonverteilung zu generieren. Wir generieren jetzt unsere Daten mit dem R Paket `{simstudy}`, da wir hier es dann sehr viel einfacher haben als händisch in R.
 
@@ -1556,7 +1573,7 @@ p1_zeroinf + p2_zeroinf +
 
 ### Kovariates Design {.unnumbered .unlisted}
 
-## Ordinalverteiltes $Y$
+### Ordinalverteilt
 
 [Ordinal Categorical Data](https://kgoldfeld.github.io/simstudy/articles/ordinal.html)
 
@@ -1564,7 +1581,7 @@ p1_zeroinf + p2_zeroinf +
 
 ### Kovariates Design {.unnumbered .unlisted}
 
-## Binomialverteiltes $Y$
+### Binomialverteilt
 
 [Generating binary data by specifying the relative risk, with simulations](https://www.rdatagen.net/post/2024-07-02-generating-binary-data-by-specifying-relative-risk/)
 
@@ -1621,9 +1638,11 @@ ggplot(tibble(x = seq(-6, 6, by = 0.5),
 
 ### Kovariates Design {.unnumbered .unlisted}
 
-## Komplexere Modelle
+## Komplexe Modelle
 
 ### Multiple Modelle
+
+### Überlebenszeiten
 
 ### Zeitreihen
 
