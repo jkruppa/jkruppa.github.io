@@ -1108,6 +1108,118 @@ Dann haben wir auch unsere Effekte in dem Modell wiedergefunden. Es gibt verschi
 > *"Brauchen wir eine Generierung von korrelierten Kovariaten? Ich würde mal sagen in der allgmeinen Anwendung und Auswertung reicht es, wenn wir die Daten einfach unkorreliert generieren und dann darauf die Algorithmen laufen lassen. Aber ich selber brauche es manchmal für Beispieldaten. Daher gibt es diesen Abschnitt wirklich." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
 :::
 
+#### Mischung von Normalverteilungen {.unnumbered .unlisted}
+
+Wenn wir eine etwas komplexere Verteilung des Messwerts vorliegen haben wollen, dann lohnt sich auch einmal eine gemischte Normalverteilung zu bauen. Wir haben dann nicht eine Normalverteilung vorliegen sondern eine sehr bergige. Die bergige Normalverteilung besteht dann aber aus verschiedenen anderen Normalverteilungen, die wir dann übereinanderlegen. So können wir dann auch zweigipfelige oder wie in diesem Fall dreigipfelige Verteilungen bauen. Wir nutzen hier das R Paket `{simstudy}` und generieren uns erstmal drei Normalverteilungen.
+
+```{r}
+mix_def <- defData(varname = "y_1", formula = 1, variance = 1)
+mix_def <- defData(mix_def, varname = "y_2", formula = 5, variance = 4)
+mix_def <- defData(mix_def, varname = "y_3", formula = 9, variance = 1)
+```
+
+Die drei Normalverteilungen $y_1$ bis $y_3$ mischen wir jetzt. Dafür nutzen wir die folgende Schreibweise in `{simstudy}`. Wir wollen 30% von $y_1$ also schreiben wir `y_1 | 0.3`. Dann noch 40% von $y_2$ mit `y_2 | 0.4` sowie 30% von $y_3$ mit `y_3 | 0.3`. Wir nennen dann die Spalte `y_null` mit der gemischten Verteilung damit wir gleich den Vergleich zwischen den Verteilungen machen können.
+
+```{r}
+mix_def <- defData(mix_def, varname = "y_null", 
+                   formula = "y_1 | 0.3 + y_2 | 0.4 + y_3 | 0.3", 
+                   dist = "mixture")
+```
+
+Ich generiere mir dann eintausend Beobachtungen, damit wir am Ende auch was sehen.
+
+```{r}
+mix_null_dt <- genData(1000, mix_def)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 9
+#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| label: fig-eda-gen-mixed-normal
+
+p1_mixed_normal <- mix_null_dt |> 
+  ggplot(aes(x = y_null)) +
+  theme_modeling() +
+  geom_density(fill = "#F5C710", alpha = 0.5) +
+  xlim(-5, 13) +
+  labs(x = "Kovariaten gemeinsam", y = "Density", fill = "")
+
+p2_mixed_normal <- mix_null_dt |> 
+  pivot_longer(y_1:y_3) |> 
+  ggplot(aes(x = value, fill = name)) +
+  theme_modeling() +
+  geom_density(alpha = 0.5) +
+  scale_fill_okabeito() +
+  theme(legend.position = "top") +
+  xlim(-5, 13) +
+  labs(x = "Individuelle Kovariaten", y = "Messwert (Y)", fill = "")
+
+p2_mixed_normal + p1_mixed_normal +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+```
+
+```{r}
+mixed_alt_def <- defDataAdd(varname = "y_alt", formula = "y_null + 2", variance = 1,
+                            dist = "normal")
+```
+
+```{r}
+mix_null_alt_dt <- addColumns(mixed_alt_def, mix_null_dt)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 9
+#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| label: fig-eda-gen-mixed-null-alt
+
+p1_mixed_null_normal <- mix_null_alt_dt |> 
+  ggplot(aes(x = y_null)) +
+  theme_modeling() +
+  geom_density(fill = "#F5C710", alpha = 0.5) +
+  xlim(-5, 13) +
+  labs(x = "Messwert (Y)", y = "Density", fill = "",
+       title = "Nullverteilung") +
+  geom_vline(xintercept = 5, color = "gray50") +
+  scale_x_continuous(breaks = 5)
+
+p2_mixed_alt_normal <- mix_null_alt_dt |> 
+  ggplot(aes(x = y_alt)) +
+  theme_modeling() +
+  geom_density(fill = "#009E73", alpha = 0.5) +
+  xlim(-5, 17) +
+  labs(x = "Messwert (Y)", y = "Density", fill = "",
+       title = "Alternativeverteilung") +
+  geom_vline(xintercept = c(7), color = "gray50") +
+  geom_vline(xintercept = c(5), color = "gray50", linetype = 11) +
+  scale_x_continuous(breaks = c(5, 7), labels = c(5, "5+2"))
+
+
+p1_mixed_null_normal + p2_mixed_alt_normal +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold")) 
+```
+
+```{r}
+mix_null_alt_dt |> 
+  select(y_null:y_alt) |> 
+  pivot_longer(y_null:y_alt) |> 
+  group_by(name) |> 
+  slice_sample(n = 3)
+```
+
 ## Possionverteiltes $Y$
 
 ::: callout-note
@@ -1231,7 +1343,8 @@ fac2_dt |> as_tibble()
 ```
 
 ```{r}
-y_pois_def <- defDataAdd(varname = "y", formula = "-2 + 2*f_a + 6*f_b",
+y_pois_def <- defDataAdd(varname = "y", 
+                         formula = "-2 + 2*f_a + 6*f_b",
                          dist = "poisson")
 ```
 
@@ -1333,51 +1446,6 @@ p2_zeroinf <- zeroinf_dt |>
   ylim(0, 310)
 
 p1_zeroinf + p2_zeroinf +
-  plot_layout(ncol = 2) +
-  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
-  theme(plot.tag = element_text(size = 16, face = "bold"))
-```
-
-#### Mischung aus 3 Normalverteilungen {.unnumbered .unlisted}
-
-```{r}
-mix_def <- defData(varname = "c_1", formula = 1, variance = 1)
-mix_def <- defData(mix_def, varname = "c_2", formula = 5, variance = 4)
-mix_def <- defData(mix_def, varname = "c_3", formula = 9, variance = 1)
-mix_def <- defData(mix_def, varname = "c_mixed", 
-                   formula = "c_1 | .3 + c_2 | .4 + c_3 | .3", 
-                   dist = "mixture")
-mix_dt <- genData(1000, mix_def)
-mix_dt
-```
-
-```{r}
-#| message: false
-#| echo: false
-#| warning: false
-#| fig-align: center
-#| fig-height: 4
-#| fig-width: 9
-#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
-#| label: fig-eda-gen-mixed-normal
-
-p1_mixed_normal <- mix_dt |> 
-  ggplot(aes(x = c_mixed)) +
-  theme_modeling() +
-  geom_density(fill = "#F5C710") +
-  xlim(-5, 13) +
-  labs(x = "Kovariaten gemeinsam", y = "Density", fill = "")
-
-p2_mixed_normal <- mix_dt |> 
-  pivot_longer(c_1:c_3) |> 
-  ggplot(aes(x = value, fill = name)) +
-  theme_modeling() +
-  geom_density() +
-  scale_fill_okabeito() +
-  theme(legend.position = "top") +
-  labs(x = "Individuelle Kovariaten", y = "Messwert (Y)", fill = "")
-
-p2_mixed_normal + p1_mixed_normal +
   plot_layout(ncol = 2) +
   plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
   theme(plot.tag = element_text(size = 16, face = "bold"))
