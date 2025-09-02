@@ -1578,13 +1578,13 @@ fac2_dt <- genMultiFac(each = 5, nFactors = 2, levels = c(3, 2),
                        colNames = c("f_a", "f_b")) 
 ```
 
-Dann einmal die Daten anschauen. Ich zeige die hier als `tibble` damit nicht so viel ausgegeben wird.
+Dann einmal die Daten anschauen. Ich zeige die hier als `tibble` damit nicht so viel ausgegeben wird. In der Standardimplementierung des `data.table` kriegen wir immer einen sehr langen Ausdruck.
 
 ```{r}
 fac2_dt |> as_tibble()
 ```
 
-Jetzt brauchen wir noch die Definition für unseren poissonverteilten Messwert in `{simstudy}`. Das ist das Gleiche wie schon bevor.
+Jetzt brauchen wir noch die Definition für unseren poissonverteilten Messwert in `{simstudy}`. Das ist das Gleiche wie schon bevor. Hier muss ich definieren, wie die Effekte der beiden Faktoren sind. Auch hier gilt, das Ganze ist dann ohne Interaktion gebaut. Theoretisch könnest du noch einen globalen Interaktionseffekt mit `3 * f_a * _f_b` hinzufügen, aber dann wäre der Effekt der Interaktion multiplikativ eben $+3$ über die Level der Faktoren.
 
 ```{r}
 y_pois_def <- defDataAdd(varname = "y", 
@@ -1601,12 +1601,12 @@ addColumns(y_pois_def, fac2_dt) |>
   as_tibble()
 ```
 
-Wir haben auch noch die Möglichkeit die Faktoren mit der Funktion `genFactor()` zu modifizieren, aber dann können wir wieder nicht mit den Leveln rechnen. Dann lohnt sich die Sache eigentlich nicht. Für mich hat die `expand_grid()` Variante mehr Charme. Die Variante ist einfahc und schnell.
+Wir haben auch noch die Möglichkeit die Faktoren mit der Funktion `genFactor()` zu modifizieren, aber dann können wir wieder nicht mit den Leveln rechnen. Dann lohnt sich die Sache eigentlich nicht. Für mich hat die `expand_grid()` Variante mehr Charme. Die Variante ist einfach und schnell.
 :::
 
-#### Zero-inflated {.unnumbered .unlisted}
+#### Zero-inflated Poisson {.unnumbered .unlisted}
 
-[Adding a "mixture" distribution to the simstudy package](https://www.rdatagen.net/post/adding-mixture-distributions-to-simstudy/)
+Wenn wir mit der Poissonverteilung arbeiten, dann haben wir manchmal den Fall vorliegen, dass wir eine zero-inflated Poissonverteilung (deu. *Null-inflationiert*, nicht gebräuchlich) vorliegen haben. Wir haben also noch mehr Nullen in dem Messwert als wir in einer normalen Poissonverteilung erwarten würden. Wir können eine solche Poissonverteilung dann ebenfalls mit `{simstudy}` bauen. Wir nutzen dazu das Tutorium [Adding a "mixture" distribution to the `{simstudy}` package](https://www.rdatagen.net/post/adding-mixture-distributions-to-simstudy/), welches und gut hilft einmal aus zwei Verteilungen eine Verteilung mit sehr vielen Nullen zu bauen.
 
 ```{r}
 zeroinf_def <- defData(varname = "y_0", formula = 0, dist = "nonrandom")
@@ -1624,7 +1624,7 @@ zeroinf_dt <- genData(1000, zeroinf_def)
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 9
-#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "foo. **(A)**. **(B)**. *[Zum Vergrößern anklicken]*"
 #| label: fig-eda-gen-poisson-zeroinf
 
 p1_zeroinf <- zeroinf_dt |> 
@@ -1647,6 +1647,70 @@ p1_zeroinf + p2_zeroinf +
   plot_layout(ncol = 2) +
   plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
   theme(plot.tag = element_text(size = 16, face = "bold"))
+```
+
+```{r}
+fac1_dt <- expand_grid(f_a = 1:3,
+                       rep = 1:1000) |> 
+  as.data.table()
+```
+
+```{r}
+zeroinf_def <- defDataAdd(varname = "y_0", formula = 0, dist = "nonrandom")
+zeroinf_def <- defDataAdd(zeroinf_def, varname = "y", 
+                          formula = "0 + 4*f_a", dist = "poisson")
+zeroinf_def <- defDataAdd(zeroinf_def, varname = "y_zeroinf", 
+                          formula = "y_0 | .25 + y | .75", dist = "mixture")
+```
+
+Jetzt bringen wir unser Datenraster mit unserer Datendefinition zusammen. Wir erhalten dann einen neuen Datensatz mit unserem poissonverteilten Messwert. Am Ende möchte ich dann noch die Spalte `f_a` als Faktor mutieren und die Level umbenennen. Dann sind wir auch schon fertig.
+
+```{r}
+fac1_zeroinf_dt <- addColumns(zeroinf_def, fac1_dt) |>
+  mutate(f_a = factor(f_a, labels = str_c("A.", 1:3))) 
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 9
+#| fig-cap: "Violinplot **(A)**. **(B)**. *[Zum Vergrößern anklicken]*"
+#| label: fig-eda-gen-fac1-pois-zeroinflated
+
+p1_zeroinf_fac1 <- fac1_zeroinf_dt |> 
+  ggplot(aes(x = f_a, y = y, fill = f_a)) +
+  theme_modeling() +
+  geom_violin(width = 0.4) +
+  stat_summary(fun = "mean", geom = "label", 
+               aes(label = round(..y.., 0)), 
+               show.legend = FALSE, fill = "white") +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "#CC79A7") +
+  scale_fill_okabeito() +
+  theme(legend.position = "none") +
+  labs(x = "Faktor A", y = "Messwert (Y)",
+       title = "Poissonverteilung")
+
+p2_zeroinf_fac1 <- fac1_zeroinf_dt |> 
+  ggplot(aes(x = f_a, y = y_zeroinf, fill = f_a)) +
+  theme_modeling() +
+  geom_violin(width = 0.5) +
+  stat_summary(fun = "mean", geom = "label", 
+               aes(label = round(..y.., 0)), 
+               show.legend = FALSE, fill = "white") +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "#CC79A7") +
+  scale_fill_okabeito() +
+  theme(legend.position = "none") +
+  labs(x = "Faktor A", y = "Messwert (Y)",
+       title = "Zero-inflated Poissonverteilung")
+
+p1_zeroinf_fac1 + p2_zeroinf_fac1 +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
 ```
 
 ### Kovariates Design {.unnumbered .unlisted}
