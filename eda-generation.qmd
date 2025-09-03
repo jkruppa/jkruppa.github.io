@@ -1124,7 +1124,7 @@ cor_mat <- matrix(c(1, 0.7, 0.2,
 cor_mat
 ```
 
-Dann können wir die Funktion `genCorData()` nutzen um uns korreltierte Kovariaten zu erstellen. Ich habe hier einmal eintausend Beobachtungen gewählt. Dann müssen wir noch den Mittelwert in allen Kovariaten festlegen sowie die Streuung. Wir nehmen dann die Korrelatiuonsmatrix mit in die Funktion und benennen noch die Kovariaten entsprechend. Wir erstellen uns dann den Messwert separat mit den gewollten Effekten.
+Dann können wir die Funktion `genCorData()` nutzen um uns korreltierte Kovariaten zu erstellen. Ich habe hier einmal eintausend Beobachtungen gewählt. Dann müssen wir noch den Mittelwert in allen Kovariaten festlegen sowie die Streuung. Wir nehmen dann die Korrelationsmatrix mit in die Funktion und benennen noch die Kovariaten entsprechend. Wir erstellen uns dann den Messwert separat mit den gewollten Effekten.
 
 ```{r}
 cov2_dependent_dt <- genCorData(1000, mu = c(4, 12, 3), sigma = c(1, 2, 3), 
@@ -1730,7 +1730,7 @@ p2_zeroinf_fac1 <- fac1_zeroinf_dt |>
                show.legend = FALSE, fill = "white") +
   stat_summary(fun = "median", geom = "label", 
                aes(label = round(..y.., 0)), 
-               position = position_nudge(0.1), 
+               position = position_nudge(0.2), 
                show.legend = FALSE, fill = "gray70") +
   geom_hline(yintercept = 0, linewidth = 0.5, color = "#CC79A7") +
   scale_fill_okabeito() +
@@ -1747,9 +1747,11 @@ p1_zeroinf_fac1 + p2_zeroinf_fac1 +
 
 ### Kovariates Design {.unnumbered .unlisted}
 
+#### Einkovariat $c_1$ {.unnumbered .unlisted}
+
 ```{r}
-cov1_pois_def <- defData(varname = "c_1", dist = "normal", formula = "10",
-                         variance = 2) |> 
+cov1_pois_def <- defData(varname = "c_1", dist = "normal", formula = "7",
+                         variance = 3) |> 
   defData(varname = "y", dist = "poisson", formula = "10 + 2 * c_1")
 ```
 
@@ -1771,16 +1773,45 @@ ggplot(cov1_pois_tbl, aes(c_1, y)) +
   theme_modeling() +
   geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
   geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
-  geom_point() +
-  stat_poly_line(linewidth = 0.5, formula = y ~ x, show.legend = FALSE) +
+  geom_point(alpha = 0.5) +
+  stat_poly_line(linewidth = 0.5, formula = y ~ x, show.legend = FALSE, 
+                 se = FALSE, fullrange = TRUE, color = "#CC79A7") +
   stat_poly_eq(use_label("eq"), size = 4, formula = y ~ x) +
-#  scale_x_continuous(breaks = -3:2) +
- # scale_y_continuous(breaks = c(-4, -2, 0, 2, 4, 6)) +  
   labs(title = "Einkovariate Simulation",
        subtitle = "Intercept ist der y-Achsenabschnitt",
-       x = "Covariate 1", y = "Messwert (Y)", color = "") +
-#  scale_color_okabeito(labels = c("linear", "quadratisch")) +
-  theme(legend.position = "top")
+       x = "Covariate 1", y = "Messwert (Y)", color = "") 
+```
+
+#### Zweikovariat unabhängig $c_1 + c_2$ {.unnumbered .unlisted}
+
+```{r}
+cov2_pois_def <- defData(varname = "c_1", dist = "normal", formula = "10",
+                         variance = 2) |> 
+  defData(varname = "c_2", dist = "normal", formula = "5",
+                         variance = 1) |> 
+  defData(varname = "y", dist = "poisson", formula = "8 + 2 * c_1 + 1 * c_2")
+```
+
+```{r}
+cov2_pois_tbl <- genData(1000, cov2_pois_def)
+```
+
+```{r}
+lm(y ~ c_1 + c_2, data = cov2_pois_tbl) |> 
+  coef() |> round()
+```
+
+#### Multikovariat abhängig $c_1 + c_2 + c_3$ {.unnumbered .unlisted}
+
+Eine multivariate Poissonverteilung ist nicht einfach zu bauen. Jedenfalls um so viel schwerer, dass eine gerundete multivariate Normalverteilung mit Korrelationsstruktur viel einfacher zu erstellen ist.
+
+[Correlated data: additional distributions](https://kgoldfeld.github.io/simstudy/articles/correlated.html#correlated-data-additional-distributions)
+
+```{r}
+l <- c(8, 10, 12) # lambda for each new variable
+
+dx <- genCorGen(1000, nvars = 3, params1 = l, dist = "poisson", rho = .3, corstr = "cs", wide = TRUE)
+dx
 ```
 
 ### Ordinalverteilt
