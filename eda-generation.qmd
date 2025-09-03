@@ -1747,7 +1747,11 @@ p1_zeroinf_fac1 + p2_zeroinf_fac1 +
 
 ### Kovariates Design {.unnumbered .unlisted}
 
+Im Folgenden nutze ich das einkovariate und zweikovariate Design nochmal um etwas mit dem R Paket `{simstudy}` zu üben und die Funktionen zu zeigen. Am Ende nutzen wir eher selten ein kovariates Design in den Agrarwissenschaften, wenn es um ein poissonverteilten Messwert geht, aber zur Vollständigkeit gehört auch dieser Abschnitt mit dazu. Wir können hier verschiedene Modelle rechnen, ich nutze hier gleich die Gaussian Regression um auf meine Effekte zu kommen. Dann habe ich auch gleich die voreingestellten Mittelwerte wiedergegeben. Ein poissonverteilten Messwert analysieren wir ja eigentlich mit einer Poissonregression, aber dort erhalten wir dann als Effekte eben nicht die Steigung so direkt wieder sondern eben dann das Risk Ratio. Mehr dazu dann wie immer im entsprechenden [Kapitel zu der Poissonregression](#sec-poisson), wenn dich mehr zum Thema interessiert.
+
 #### Einkovariat $c_1$ {.unnumbered .unlisted}
+
+Das Ziel der einkovariaten Datengenierung ist einfach. Wir haben eine normalverteilte Kovariate vorliegen und wollen einen Effekt für die Kovariate im poissonverteilten Messwert generieren. Bei einer Kovariate ist dann der Effekt auch gleichbedeutend mit der Steigung einer Graden durch die Punktewolke im Scatterplot. Ich nutze hier jetzt einmal sehr viel mehr Beobachtungen um dann auch auf die voreingestellten Effekte im Modell rauszukommen. Als erstes baue ich mir eine normalverteilte Kovariate mit einem Mittelwert von $7$ und einer Streuung von $3$ zusammen. Dann kann ich mir meinen Messwert in der folgenden Definition zusammenbauen. Hier habe ich dann einen Intercept von $10$ und einen Effekt von $2$ als Steigung vorliegen.
 
 ```{r}
 cov1_pois_def <- defData(varname = "c_1", dist = "normal", formula = "7",
@@ -1755,18 +1759,23 @@ cov1_pois_def <- defData(varname = "c_1", dist = "normal", formula = "7",
   defData(varname = "y", dist = "poisson", formula = "10 + 2 * c_1")
 ```
 
+Dann kann ich mir auch schon die eintausend Beobachtungen einmal generieren. Da ich hier keien Faktoren vorliegen habe, brauche ich auch kein Datenraster für die Erstellung der Daten.
+
 ```{r}
 cov1_pois_tbl <- genData(1000, cov1_pois_def)
 ```
 
+Dann können wir uns auch schon das Ergebnis der Datengenerierung in der folgenden Abbildung einmal anschauen. Hier wird dann auch sehr schön deutlich, dass wir durch den poissonverteilten Messwert Banden in dem Scatterplot sehen. Wir haben ja hier nur ganzzahlige Werte für die Messwert vorliegen. Bei einer so hohen Fallzahl an Beobachtungen erhalten wir dann auch unseren voreingestellten Messwert wieder.
+
 ```{r}
 #| message: false
 #| echo: false
+#| eval: false
 #| warning: false
 #| fig-align: center
 #| fig-height: 4.5
 #| fig-width: 6
-#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Darstellung einer linearen Simulation mit einer normalverteilten Kovariaten sowie einem poissonverteilten Messwert. *[Zum Vergrößern anklicken]*"
 #| label: fig-eda-gen-c1-pois
 
 ggplot(cov1_pois_tbl, aes(c_1, y)) +
@@ -1780,6 +1789,24 @@ ggplot(cov1_pois_tbl, aes(c_1, y)) +
   labs(title = "Einkovariate Simulation",
        subtitle = "Intercept ist der y-Achsenabschnitt",
        x = "Covariate 1", y = "Messwert (Y)", color = "") 
+```
+
+Wir können dann auch nochmal ein GLM rechnen und sehen, dass wir bei einer so hohen Fallzahl dann auch in einem GLM die passenden Effekte herausbekommen. Ich nutze hier die Funktion `parameters()` aus dem gleichnamigen R Paket damit ich die Schätzer noch wieder zurücktransformieren kann. Auch hier findest du dann mehr in dem [Kapitel zu der Poissonregression](#sec-poisson). Am Ende ist es dann nur wichtig, dass wir unsere voreingestellten Effekte wieder aus den Daten extrahieren konnten.
+
+```{r}
+#| message: false
+#| warning: false
+glm(y ~ c_1, data = cov1_pois_tbl, family = poisson) |>
+  parameters::model_parameters(exponentiate = TRUE)
+```
+
+```{r}
+cov1_pois_tbl |> 
+  summarise(mean(y), mean(c_1))
+```
+
+```{r}
+7.001361 * 1.09 + 13.16 
 ```
 
 #### Zweikovariat unabhängig $c_1 + c_2$ {.unnumbered .unlisted}
@@ -1798,7 +1825,14 @@ cov2_pois_tbl <- genData(1000, cov2_pois_def)
 
 ```{r}
 lm(y ~ c_1 + c_2, data = cov2_pois_tbl) |> 
-  coef() |> round()
+  coef() |> round(2)
+```
+
+```{r}
+#| message: false
+#| warning: false
+glm(y ~ c_1 + c_2, data = cov2_pois_tbl) |> 
+  parameters::parameters(exponeniate = TRUE)
 ```
 
 #### Multikovariat abhängig $c_1 + c_2 + c_3$ {.unnumbered .unlisted}
@@ -1808,10 +1842,22 @@ Eine multivariate Poissonverteilung ist nicht einfach zu bauen. Jedenfalls um so
 [Correlated data: additional distributions](https://kgoldfeld.github.io/simstudy/articles/correlated.html#correlated-data-additional-distributions)
 
 ```{r}
-l <- c(8, 10, 12) # lambda for each new variable
+cov2_dependent_dt <- genCorGen(1000, nvars = 3, params1 = c(8, 10, 12), dist = "poisson", 
+                               rho = .3, corstr = "cs", wide = TRUE,
+                               cnames = c("c_1", "c_2", "c_3")) 
+```
 
-dx <- genCorGen(1000, nvars = 3, params1 = l, dist = "poisson", rho = .3, corstr = "cs", wide = TRUE)
-dx
+Im Folgenden siehst du dann einmal die Datentabelle der eintausend Beobachtungen. Wir haben die ID Spalte und dann die drei Kovariaten gefolgt von dem Messwert.
+
+```{r}
+cov2_dependent_dt
+```
+
+In den rohen Daten ist die Korrelation faktisch nicht zu sehen. Dafür müssen wir uns dann einmal die Korrelation berechnen lassen. Wie wir dann im Folgenden einmal sehen, passt es sehr gut. Wir erhalten die Korrelationen wieder, die wir auch eingestellt haben.
+
+```{r}
+correlation(cov2_dependent_dt, select = c("c_1", "c_2", "c_3")) |> 
+  summary(redundant = TRUE)
 ```
 
 ### Ordinalverteilt
