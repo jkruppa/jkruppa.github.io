@@ -1608,14 +1608,27 @@ Wir haben auch noch die Möglichkeit die Faktoren mit der Funktion `genFactor()`
 
 Wenn wir mit der Poissonverteilung arbeiten, dann haben wir manchmal den Fall vorliegen, dass wir eine zero-inflated Poissonverteilung (deu. *Null-inflationiert*, nicht gebräuchlich) vorliegen haben. Wir haben also noch mehr Nullen in dem Messwert als wir in einer normalen Poissonverteilung erwarten würden. Wir können eine solche Poissonverteilung dann ebenfalls mit `{simstudy}` bauen. Wir nutzen dazu das Tutorium [Adding a "mixture" distribution to the `{simstudy}` package](https://www.rdatagen.net/post/adding-mixture-distributions-to-simstudy/), welches und gut hilft einmal aus zwei Verteilungen eine Verteilung mit sehr vielen Nullen zu bauen.
 
+Was heißt jetzt zwei Verteilungen? Wir bauen uns erstmal eine Poissonverteilung, die faktisch nur aus Nullen besteht. Die Poissonverteilung hat den Mittelwert von $\lambda$ gleich $0$. Wir nennen diese Verteilung dann `y_0`. Dann bauen wir uns noch eine klassische Poissonverteilung mit einem $\lambda$ von $2$ zusammen. Das können wir erstmal machen. Weiter unten zeige ich dir dann auch noch wie du dir einen Effekt mit einem einfaktoriellen Design als Beispiel baust.
+
 ```{r}
-zeroinf_def <- defData(varname = "y_0", formula = 0, dist = "nonrandom")
-zeroinf_def <- defData(zeroinf_def, varname = "y", formula = 2, dist = "poisson")
+zeroinf_def <- defData(varname = "y_0", formula = 0, dist = "nonrandom") |> 
+  defData(varname = "y", formula = 2, dist = "poisson")
+```
+
+Jetzt kommt der Teil wo wir die beiden Verteilungen miteinander mischen. Wir nehmen $20%$ der Werte der `y_0` Verteilung und wir nehmen $80%$ der Werte der `y` Verteilung. Das machen wir etwas umständlich über den Strich `|`. Wir sagen hier welche Anteile der beiden Verteilungen wir dann wollen. Am Ende benennen wir noch den Messwert neu.
+
+```{r}
 zeroinf_def <- defData(zeroinf_def, varname = "y_zeroinf", formula = "y_0 | .2 + y | .8", 
                        dist = "mixture")
+```
 
+Dann können wir schon eintausend Beobachtungen erstellen.
+
+```{r}
 zeroinf_dt <- genData(1000, zeroinf_def)
 ```
+
+In der folgenden Abbidlung siesht du dann einmal die Histogramme der normalen Poissonverteilung sowie der zero-inflated Poissonverteilung. Wir haben hier als Unterschied eben den klaren Exzess an Nullen in der inflationierten Poissonverteilung. Das sieht man nicht unbedingt so gut, aber wir haben eben doch einiges mehr an Nullen als es nach der klassischen Verteilung sein sollte.
 
 ```{r}
 #| message: false
@@ -1624,22 +1637,31 @@ zeroinf_dt <- genData(1000, zeroinf_def)
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 9
-#| fig-cap: "foo. **(A)**. **(B)**. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Histogramme von Zähldaten, die einer Poissonverteilung folgen. **(A)** Klassische Poissonverteilung. **(B)** Zero-inflated Poissonverteilung mit mehr Nullen. *[Zum Vergrößern anklicken]*"
 #| label: fig-eda-gen-poisson-zeroinf
 
 p1_zeroinf <- zeroinf_dt |> 
   ggplot(aes(x = y)) +
   theme_modeling() +
   geom_histogram(fill = "#F5C710") +
-  labs(x = "Poisson", y = "Anzahl", fill = "") +
+  labs(x = "Messwert (Y)", y = "Anzahl",
+       title = "Poissonverteilung") +
   scale_x_continuous(breaks = 0:7) +
   ylim(0, 310)
 
-p2_zeroinf <- zeroinf_dt |> 
+p2_zeroinf <- 
+  zeroinf_dt |> 
   ggplot(aes(x = y_zeroinf)) +
   theme_modeling() +
   geom_histogram(fill = "#56B4E9", size = 3) +
-  labs(x = "Zero inflated Poisson", y = "Anzahl", fill = "")  +
+  labs(x = "Messwert (Y)", y = "Anzahl",
+       title = "Zero-inflated Poissonverteilung") +  
+  annotate("label", x = 1.5, y = 300, label = "Zero-inflated", 
+           fill = "gray75", alpha = 0.5, size = 5,
+           hjust = "left") +
+  geom_curve(aes(x = 1.4, y = 300, xend = 0.2, yend = 275),
+             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
+             curvature = 0.2, color = "gray50") +
   scale_x_continuous(breaks = 0:7) +
   ylim(0, 310)
 
@@ -1649,11 +1671,15 @@ p1_zeroinf + p2_zeroinf +
   theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
 
+Wenn wir das ganze jetzt mit einem Behandlungsfaktor generieren wollen, dann müssen wir uns erstmal das Datenraster bauen. Wir nutzen dann das Raster um uns die Daten zu generieren und zu wissen wie viele Level mit Wiederholungen wir vorliegen haben.
+
 ```{r}
 fac1_dt <- expand_grid(f_a = 1:3,
                        rep = 1:1000) |> 
   as.data.table()
 ```
+
+Zu unser Poissonverteilung mit den Mittelwert von Null kommt dann noch die klassische Poissonverteiung mit dem Effekt des Faktors. Hier hat jedes Faktorlevel einen Effekt von $+4$ und wir nehmen einen Intercept von Null an. Dann mische ich noch die Verteilungen im Verhältnis von 1:3, daher 25% kommen aus der Poissonverteilung `y_0` und 75% aus der Poissonverteilung mit Effekt. Damit haben wir dann die Datendefinition zusammen.
 
 ```{r}
 zeroinf_def <- defDataAdd(varname = "y_0", formula = 0, dist = "nonrandom")
@@ -1663,12 +1689,14 @@ zeroinf_def <- defDataAdd(zeroinf_def, varname = "y_zeroinf",
                           formula = "y_0 | .25 + y | .75", dist = "mixture")
 ```
 
-Jetzt bringen wir unser Datenraster mit unserer Datendefinition zusammen. Wir erhalten dann einen neuen Datensatz mit unserem poissonverteilten Messwert. Am Ende möchte ich dann noch die Spalte `f_a` als Faktor mutieren und die Level umbenennen. Dann sind wir auch schon fertig.
+Jetzt bringen wir unser Datenraster mit unserer Datendefinition zusammen. Wir erhalten dann einen neuen Datensatz mit unserem poissonverteilten Messwert. Das ist etwas anders als eben, aber hier müssen wir ja auch zwei Dinge zusammenbringen. Eben haben wir nur die Daten aus einer Datendefinition generiert. Am Ende möchte ich dann noch die Spalte `f_a` als Faktor mutieren und die Level umbenennen. Dann sind wir auch schon fertig.
 
 ```{r}
 fac1_zeroinf_dt <- addColumns(zeroinf_def, fac1_dt) |>
   mutate(f_a = factor(f_a, labels = str_c("A.", 1:3))) 
 ```
+
+Dann schauen wir uns einmal die beiden Verteilungen im Vergleich in der folgenden Abbildung einmal an. Ich habe hier einmal den Violinplot gewählt, da kannst du dann besser den Fuß in der zero-inflated Poissonverteilung erkennen. Wir sehen dann aber auch, dass der Mittelwert nach unten gezogen wird. Auch der Median, als grau dargestellt, wird nach unten gezogen und entspricht dann nicht den vorgegeben Werten. Durch die Zeroinflation haben wir dann einen nicht mehr ganz sauberen Bezug zwischen den voreingestellten und den sich ergebenden Effekten.
 
 ```{r}
 #| message: false
@@ -1677,7 +1705,7 @@ fac1_zeroinf_dt <- addColumns(zeroinf_def, fac1_dt) |>
 #| fig-align: center
 #| fig-height: 4
 #| fig-width: 9
-#| fig-cap: "Violinplot **(A)**. **(B)**. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Violinplot von einfaktoriellen Experimenten von Zähldaten, die einer Poissonverteilung folgen. Weiß sind die Mittelwerte und grau die Mediane dargestellt. **(A)** Klassische Poissonverteilung. **(B)** Zero-inflated Poissonverteilung mit mehr Nullen zu erkennen an den Füßen der Violinplots. *[Zum Vergrößern anklicken]*"
 #| label: fig-eda-gen-fac1-pois-zeroinflated
 
 p1_zeroinf_fac1 <- fac1_zeroinf_dt |> 
@@ -1700,6 +1728,10 @@ p2_zeroinf_fac1 <- fac1_zeroinf_dt |>
   stat_summary(fun = "mean", geom = "label", 
                aes(label = round(..y.., 0)), 
                show.legend = FALSE, fill = "white") +
+  stat_summary(fun = "median", geom = "label", 
+               aes(label = round(..y.., 0)), 
+               position = position_nudge(0.1), 
+               show.legend = FALSE, fill = "gray70") +
   geom_hline(yintercept = 0, linewidth = 0.5, color = "#CC79A7") +
   scale_fill_okabeito() +
   theme(legend.position = "none") +
@@ -1714,6 +1746,42 @@ p1_zeroinf_fac1 + p2_zeroinf_fac1 +
 ```
 
 ### Kovariates Design {.unnumbered .unlisted}
+
+```{r}
+cov1_pois_def <- defData(varname = "c_1", dist = "normal", formula = "10",
+                         variance = 2) |> 
+  defData(varname = "y", dist = "poisson", formula = "10 + 2 * c_1")
+```
+
+```{r}
+cov1_pois_tbl <- genData(1000, cov1_pois_def)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 4.5
+#| fig-width: 6
+#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| label: fig-eda-gen-c1-pois
+
+ggplot(cov1_pois_tbl, aes(c_1, y)) +
+  theme_modeling() +
+  geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_point() +
+  stat_poly_line(linewidth = 0.5, formula = y ~ x, show.legend = FALSE) +
+  stat_poly_eq(use_label("eq"), size = 4, formula = y ~ x) +
+#  scale_x_continuous(breaks = -3:2) +
+ # scale_y_continuous(breaks = c(-4, -2, 0, 2, 4, 6)) +  
+  labs(title = "Einkovariate Simulation",
+       subtitle = "Intercept ist der y-Achsenabschnitt",
+       x = "Covariate 1", y = "Messwert (Y)", color = "") +
+#  scale_color_okabeito(labels = c("linear", "quadratisch")) +
+  theme(legend.position = "top")
+```
 
 ### Ordinalverteilt
 
