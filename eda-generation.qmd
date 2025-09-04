@@ -1765,7 +1765,7 @@ Dann kann ich mir auch schon die eintausend Beobachtungen einmal generieren. Da 
 cov1_pois_tbl <- genData(1000, cov1_pois_def)
 ```
 
-Dann können wir uns auch schon das Ergebnis der Datengenerierung in der folgenden Abbildung einmal anschauen. Hier wird dann auch sehr schön deutlich, dass wir durch den poissonverteilten Messwert Banden in dem Scatterplot sehen. Wir haben ja hier nur ganzzahlige Werte für die Messwert vorliegen. Bei einer so hohen Fallzahl an Beobachtungen erhalten wir dann auch unseren voreingestellten Messwert wieder.
+Dann können wir uns auch schon das Ergebnis der Datengenerierung in der folgenden Abbildung einmal anschauen. Hier wird dann auch sehr schön deutlich, dass wir durch den poissonverteilten Messwert Banden in dem Scatterplot sehen. Wir haben ja hier nur ganzzahlige Werte für die Messwert vorliegen. Bei einer so hohen Fallzahl an Beobachtungen erhalten wir dann auch unseren voreingestellten Effekte wieder. Hier müssen wir dann ein wenig aufpassen, wie wir denn die Daten analysieren wollen. Eine Poissonregression mit einem Risikoverhältnis als Effekt ist nicht das Gleiche wie eine Gaussianregression.
 
 ```{r}
 #| message: false
@@ -1773,9 +1773,9 @@ Dann können wir uns auch schon das Ergebnis der Datengenerierung in der folgend
 #| eval: true
 #| warning: false
 #| fig-align: center
-#| fig-height: 4.5
+#| fig-height: 4
 #| fig-width: 6
-#| fig-cap: "Darstellung einer linearen Simulation mit einer normalverteilten Kovariaten sowie einem poissonverteilten Messwert. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Darstellung einer linearen Simulation mit einer normalverteilten Kovariaten sowie einem poissonverteilten Messwert. Einmal ist die Regressiongleichung für den linearen Gaussian Zusammenhang sowie für die Poissonregression dargestellt. *[Zum Vergrößern anklicken]*"
 #| label: fig-eda-gen-c1-pois
 
 fit <- glm(y ~ c_1, data = cov1_pois_tbl, family = poisson) 
@@ -1787,31 +1787,55 @@ ggplot(cov1_pois_tbl, aes(c_1, y)) +
   geom_point2(alpha = 0.5) +
   stat_poly_line(linewidth = 0.5, formula = y ~ x, show.legend = FALSE, 
                  se = FALSE, fullrange = TRUE, color = "#CC79A7") +
-  stat_poly_eq(use_label("eq"), size = 4, formula = y ~ x) +
+  stat_poly_eq(use_label("eq"), size = 4, formula = y ~ x, color = "#CC79A7") +
   geom_line(aes(y = predict(fit, type = "response")),
             color = "#009E73") +
   annotate("label", hjust = "left", x = 2, y = 25, label = "Poisson", size = 5,
            color = "#009E73") +
   geom_curve(aes(x = 1.9, y = 25, xend = 1, yend = 15), 
              arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
-             curvature = 0.3, color = "gray50") +
-  annotate("label", hjust = "right", x = 9.5, y = 20, label = "Linear", size = 5,
+             curvature = 0.3, color = "#009E73") +
+  annotate("label", hjust = "right", x = 9.5, y = 20, label = "Gaussian", size = 5,
            color = "#CC79A7") +
   geom_curve(aes(x = 9.6, y = 20, xend = 11, yend = 31), 
              arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
-             curvature = 0.3, color = "gray50") +
-  labs(title = "Einkovariate Simulation",
-       subtitle = "Intercept ist der y-Achsenabschnitt",
-       x = "Covariate 1", y = "Messwert (Y)", color = "") 
+             curvature = 0.3, color = "#CC79A7") +
+  labs(x = "Covariate 1", y = "Messwert (Y)", color = "") 
 ```
 
-Wir können dann auch nochmal ein GLM rechnen und sehen, dass wir bei einer so hohen Fallzahl dann auch in einem GLM die passenden Effekte herausbekommen. Ich nutze hier die Funktion `parameters()` aus dem gleichnamigen R Paket damit ich die Schätzer noch wieder zurücktransformieren kann. Auch hier findest du dann mehr in dem [Kapitel zu der Poissonregression](#sec-poisson). Am Ende ist es dann nur wichtig, dass wir unsere voreingestellten Effekte wieder aus den Daten extrahieren konnten.
+Wir können dann auch nochmal ein GLM rechnen und sehen, dass wir bei einer so hohen Fallzahl dann auch in einem GLM die passenden Effekte ungefähr herausbekommen. Ich nutze hier die Funktion `parameters()` aus dem gleichnamigen R Paket damit ich die Schätzer noch wieder zurücktransformieren kann. Auch hier findest du dann mehr in dem [Kapitel zu der Poissonregression](#sec-poisson). Ich fitte hier erstmal die passende Poissonregression.
+
+```{r}
+pois_c1_fit <- glm(y ~ c_1, data = cov1_pois_tbl, family = poisson)
+```
+
+Danns schauen wir uns einmal die Koeffizienten der Poissonregression an. Wir sind hier hauptsächlich am Inzidenzratenverhältnis (eng *Incidence Rate Ratio*, abk. *IRR*) interessiert.
 
 ```{r}
 #| message: false
 #| warning: false
-glm(y ~ c_1, data = cov1_pois_tbl, family = poisson) |>
+pois_c1_fit |>
   parameters::model_parameters(exponentiate = TRUE)
+```
+
+Was sehen wir hier als Effekte? Wir rechnen hier das Inzidenzratenverhältnis aus. Das Inzidenzratenverhältnis beschreibt die multiplikative Änderung der erwarteten Rate, wenn sich die Kovariate um eine Einheit ändert. Das heißt hier in unserem Fall, dass wenn wir die Kovariate $c_1$ um eine Einheit erhöhen, dass unser Messwert um den Faktor $1.09$ ansteigt. Leider siehst du auch, dass wir es hier nicht mit einer linearen Modellierung zu tun haben. Daher kann ich dir das Inzidenzratenverhältnis einmal zwischen zwei Punkten mit $c_1 = 6$ und $c_1 = 7$ berechnen.
+
+```{r}
+pois_c1_fit |> 
+  predict(newdata = tibble(c_1 = c(6, 7)), type = "response")
+```
+
+Jetzt können wir auch die
+
+```{r}
+23.86757 / 21.72900
+```
+
+```{r}
+library(marginaleffects)
+
+avg_comparisons(pois_c1_fit, comparison = "ratio",
+                variables = list("c_1" = c(6, 7)))
 ```
 
 #### Zweikovariat unabhängig $c_1 + c_2$ {.unnumbered .unlisted}
