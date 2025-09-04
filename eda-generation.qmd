@@ -1759,7 +1759,7 @@ cov1_pois_def <- defData(varname = "c_1", dist = "normal", formula = "6",
   defData(varname = "y", dist = "poisson", formula = "10 + 2 * c_1")
 ```
 
-Dann kann ich mir auch schon die eintausend Beobachtungen einmal generieren. Da ich hier keien Faktoren vorliegen habe, brauche ich auch kein Datenraster für die Erstellung der Daten.
+Dann kann ich mir auch schon die eintausend Beobachtungen einmal generieren. Da ich hier keinn Faktoren vorliegen habe, brauche ich auch kein Datenraster für die Erstellung der Daten. Wir modellieren hier nicht in der gleichen Weise mit Effektschätzern unsere Daten wie wir dann in einer Poissonregression zurückkriegen würden. Das ist aber ein Preis, den wir aus Gründen der Einfachheit bezahlen wollen.
 
 ```{r}
 cov1_pois_tbl <- genData(1000, cov1_pois_def)
@@ -1818,50 +1818,119 @@ pois_c1_fit |>
   parameters::model_parameters(exponentiate = TRUE)
 ```
 
-Was sehen wir hier als Effekte? Wir rechnen hier das Inzidenzratenverhältnis aus. Das Inzidenzratenverhältnis beschreibt die multiplikative Änderung der erwarteten Rate, wenn sich die Kovariate um eine Einheit ändert. Das heißt hier in unserem Fall, dass wenn wir die Kovariate $c_1$ um eine Einheit erhöhen, dass unser Messwert um den Faktor $1.09$ ansteigt. Leider siehst du auch, dass wir es hier nicht mit einer linearen Modellierung zu tun haben. Daher kann ich dir das Inzidenzratenverhältnis einmal zwischen zwei Punkten mit $c_1 = 6$ und $c_1 = 7$ berechnen.
+Was sehen wir hier als Effekte? Wir rechnen hier das Inzidenzratenverhältnis aus. Das Inzidenzratenverhältnis beschreibt die multiplikative Änderung der erwarteten Rate, wenn sich die Kovariate um eine Einheit ändert. Das heißt hier in unserem Fall, dass wenn wir die Kovariate $c_1$ um eine Einheit erhöhen, dass unser Messwert um den Faktor $1.09$ ansteigt. Leider siehst du auch, dass wir es hier nicht mit einer linearen Modellierung zu tun haben. Daher kann ich dir das Inzidenzratenverhältnis einmal zwischen zwei Punkten mit $c_1 = 6$ und $c_1 = 7$ berechnen. Das Problem ist hier wirklich, dass wir es mit einem Faktor zu tun haben. Mehr dazu nochmal weiter unten im Kasten zu den Effekten in der Poissonregression.
 
 ```{r}
 pois_c1_fit |> 
   predict(newdata = tibble(c_1 = c(6, 7)), type = "response")
 ```
 
-Jetzt können wir auch den Faktor zwischen den beiden Messwerten berechnen. Wie ändert sich also der Messwert von $c_1 = 6$ zu $c_1 = 7$? Dafür teilen wir dann die beiden Messwerte durcheinander und erhalten dann faktisch unser Inzidenzratenverhältnis aus dem obigen Modell.
+Jetzt können wir auch den Faktor zwischen den beiden Messwerten berechnen. Wie ändert sich also Multiplikativ der Messwert von $c_1 = 6$ zu $c_1 = 7$? Dafür teilen wir dann die beiden Messwerte durcheinander und erhalten dann faktisch unser Inzidenzratenverhältnis aus dem obigen Modell.
 
 ```{r}
 23.86757 / 21.72900
 ```
 
-Jetzt können wir uns das Leben auch etwas einfacher machen und einmal die [Marginal effect models](#sec-marginal) mit dem R Paket `{marginaleffects}` nutzen um uns den Faktor zwischen den beiden Kovariatenwerten berechnen zu lassen.
+Jetzt können wir uns das Leben auch etwas einfacher machen und einmal die [Marginal effect models](#sec-marginal) mit dem R Paket `{marginaleffects}` nutzen um uns den Faktor zwischen den beiden Kovariatenwerten berechnen zu lassen. Das ist manchmal etwas schneller und auch einfacher durchzuführen. Darüber hinaus können wir eben dann nicht nur zwei Werte eingeben, sondern haben auch noch andere Möglichkeiten.
 
 ```{r}
 avg_comparisons(pois_c1_fit, comparison = "ratio",
                 variables = list("c_1" = c(6, 7)))
 ```
 
-Mehr zu den Möglichkeiten dann auch in der Vingette [Change in numeric predictors](https://marginaleffects.com/chapters/comparisons.html#change-in-numeric-predictors) auf der Hilfeseite dem R Paket `{marginaleffects}`. Bei denen heißt dann die numerische Einflussvaraiable dann *numeric predictor*.
+Mehr zu den Möglichkeiten dann auch in der Vingette [Change in numeric predictors](https://marginaleffects.com/chapters/comparisons.html#change-in-numeric-predictors) auf der Hilfeseite dem R Paket `{marginaleffects}`. Bei denen heißt dann die numerische Einflussvaraiable dann *numeric predictor*. Je nachdem wo man dann weiterliest ändern sich dann leider auch immer wieder die Begrifflichkeiten.
+
+::: callout-note
+## Ein Wort zum Effekt in der Poissonregression
+
+In der Poissonregression kriegen wir als Effektschätzer das Risk Ratio wiedergegeben. Das ist also nicht ein absoluter Wert, wie die Steigung, sondern ein Faktor um den sich die Messwerte unterschieden. Wenn wir die Einheit der Kovariate von 0 auf 1 erhöhen, dann würden wir vom Messwert von 10 auf 12 springen. Das würde einen Faktor von $12/10 = 1.2$ ausmachen. Wenn wir jetzt aber unsere Kovariate von 1 auf 2 erhöhen, dann haben wir einen Messwert von 12 auf 14. Jetzt haben wir aber einen Faktor von $14/12 = 1.17$ vorliegen. Der Faktor sinkt mit dem Anstieg der Kovariate. Da der absolute Anstieg immer weniger Anteil am Messwert ausmacht. Ich zeige dir den Zusammenhang einmal in der folgenden Abbildung. Mit jedem Sprung wird der Faktor kleiner. Am Ende ist dann das Risk Ratio aus einer Poissonregression mehr oder minder das Mittel über alle Sprünge. Wirklich linear ist dann der Zusammenhang nur auf der Linkskala. Hier hilft dann die Lektüre von @dormann2013parametrische oder aber das [Kapitel zu der Poissonregression](#sec-poisson) weiter.
+
+```{r}
+#| message: false
+#| echo: false
+#| eval: true
+#| warning: false
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 6
+#| fig-cap: "Darstellung des abnehmenden Risk Ratio über den Anstieg der Kovariate. Mit dem Anstieg der Kovariate nimmt der absolute Anstieg von $+2$ immer weniger Anteil an dem Messwert. Der Faktor des Anstiegs wird von $\\times1.2$ zu $\\times1.07$ immer kleiner. Das Risk Ratio (abk. *RR*) aus einer Poissonregression ist mehr oder minder der mittlere Faktor. *[Zum Vergrößern anklicken]*"
+#| label: fig-eda-gen-c1-pois-eff
+
+pois_eff_tbl <- tibble(x = 0:10,
+                       x_start = 0:10 + 0.1,
+                       xend = c(1:11),
+                       y = 10 + 2 * x,
+                       y_start = y - 0.5,
+                       yend = 12 + 2 * x - 0.5,
+                       ratio_raw = c(NA, y[-1] / y[-11]),
+                       ratio = round(ratio_raw, 2))
+
+pois_fit <- glm(y~x, pois_eff_tbl, family = poisson)
+
+glm_rr <- pois_fit |> 
+  coef() |> exp() |> pluck(2) |> round(2)
+
+mean_rr <- mean(pois_eff_tbl$ratio_raw, na.rm = TRUE) |> round(2)
+
+arrow_tbl <- pois_eff_tbl[-11,]
+
+ggplot(pois_eff_tbl, aes(x, y)) +
+  theme_modeling() +
+  geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "grey50") +
+  geom_line(aes(y = predict(pois_fit, type = "response")), color = "grey70",
+            linewidth = 1) +
+  geom_curve(data = arrow_tbl, aes(x = x_start, y = y_start, xend = xend, yend = yend), 
+             arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
+             curvature = 0.9, color = "#CC79A7") +
+  geom_point() +
+  geom_label(aes(label = ratio), position = position_nudge(-0.2, -5.5),
+             fill = "#CC79A7", alpha= 0.5) +
+  annotate("text", hjust = "left", x = 2, y = 22, size = 5,
+          label = expression(bar(RR)[GLM]~"=")) +
+  annotate("text", hjust = "left", x = 3.7, y = 22, size = 5,
+           label = glm_rr) +
+  annotate("text", hjust = "left", x = 5, y = 10, size = 5,
+          label = expression(bar(RR)~"="), color = "#CC79A7") +
+  annotate("text", hjust = "left", x = 6.1, y = 10, size = 5,
+           label = mean_rr, color = "#CC79A7") +
+  labs(x = "Covariate 1", y = "Messwert (Y)") +
+  scale_x_continuous(breaks = 0:10) +
+  scale_y_continuous(breaks = pois_eff_tbl$y)
+```
+:::
 
 #### Zweikovariat unabhängig $c_1 + c_2$ {.unnumbered .unlisted}
+
+Wir können natürlich auch mehrere Kovariaten vorliegen haben. Ich zeige hier dann einmal zwei Kovariaten, die einmal einer Normalverteilung und einmal einer Poissonverteilung entstammen. Wir müssen ja nicht nur normalverteilte Kovariaten vorliegen haben. Dann baue ich mir noch meinen poissonverteilten Messwert zusammen.
 
 ```{r}
 cov2_pois_def <- defData(varname = "c_1", dist = "normal", formula = "10",
                          variance = 2) |> 
-  defData(varname = "c_2", dist = "normal", formula = "5",
-                         variance = 1) |> 
+  defData(varname = "c_2", dist = "poisson", formula = "5") |> 
   defData(varname = "y", dist = "poisson", formula = "8 + 2 * c_1 + 1 * c_2")
 ```
 
+Dann generiere ich mir auch schon meine zehntausend Beobachtungen. Ich werde das Ergebnis der Generierung nicht visualiseren, daher können wir hier auch einmal mit mehr Beobachtungen arbeiten und haben dann auch etwas genauere Schätzer der Effekte in den Modellen.
+
 ```{r}
-cov2_pois_tbl <- genData(1000, cov2_pois_def)
+cov2_pois_tbl <- genData(10000, cov2_pois_def)
 ```
+
+Hier einmal das lineare Modell, dort sehen wir dann ob wir auch unsere eingestellten Effekte direkt wiedererhalten. Das ist natürlich jetzt nur so semi hilfreich, da wir ja auch schauen müssen wie denn die Werte in einem GLM aussehen würden.
 
 ```{r}
 lm(y ~ c_1 + c_2, data = cov2_pois_tbl) |> 
   coef() |> round(2)
 ```
 
+Dafür passen wir einmal eine Poissonregression an und nutzen gleich einmal das Modell um uns die Inzidenzratenverhältnisse (eng *Incidence Rate Ratio*, abk. *IRR*) für die beiden Kovariaten berechnen zu lassen.
+
 ```{r}
 pois_c2_fit <- glm(y ~ c_1 + c_2, data = cov2_pois_tbl, family = poisson)
 ```
+
+Wir können hier uns entweder die Koeffizienten einmal direkt über die Funktion `model_parameters()` wiedergeben lassen oder aber dann gleich einmal in der Funktionalität des R Pakets `{marginaleffects}`. Wir sehen hier, dass wir jeweils einen positiven Effekt haben. Mit steigenden Kovariaten erhöhen sich auch die Messwerte.
 
 ```{r}
 #| message: false
@@ -1869,6 +1938,8 @@ pois_c2_fit <- glm(y ~ c_1 + c_2, data = cov2_pois_tbl, family = poisson)
 pois_c2_fit |> 
   parameters::model_parameters(exponentiate = TRUE)
 ```
+
+Dam Ende dann nochmal die multiplikative Änderung als Inzidenzratenverhältnis für die beiden Kovariaten an zwei definierten Werten für die jeweiligen Kovariaten. Wir sehen dann auch hier
 
 ```{r}
 avg_comparisons(pois_c2_fit, comparison = "ratio",
