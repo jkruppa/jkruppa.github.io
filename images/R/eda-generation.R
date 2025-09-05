@@ -596,3 +596,68 @@ p_fac1_excel <- tibble(x = 0:10, y = 0:10) |>
            fontface = 2, fill = "#009E73", alpha = 1, hjust = "left") +
   annotate("label", x = 2.9, y = 9.35, label = "3 Level", size = 2.5, 
            fontface = 2, fill = "#E69F00", alpha = 1, hjust = "left") 
+
+
+p1_ord_theo <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
+  theme_modeling() +
+  geom_vline(xintercept = 0) +
+  stat_function(fun = dnorm, xlim = c(-3.25, -0.8),
+                geom = "area", alpha = 0.5, aes(fill = "1")) +
+  stat_function(fun = dnorm, xlim = c(-0.8, 0.2),
+                geom = "area", alpha = 0.5, aes(fill = "2")) +
+  stat_function(fun = dnorm, xlim = c(0.2, 0.7),
+                geom = "area", alpha = 0.5, aes(fill = "3")) +
+  stat_function(fun = dnorm, xlim = c(0.7, 3.25),
+                geom = "area", alpha = 0.5, aes(fill = "4")) +
+  geom_segment(x = c(-0.8), xend = c(-0.8),
+               y = c(0), yend = c(0.29), color = "#CC79A7",
+               linewidth = 1, linetype = 1) +  
+  geom_segment(x = c(0.2), xend = c(0.2),
+               y = c(0), yend = c(0.39), color = "#CC79A7",
+               linewidth = 1, linetype = 1) + 
+  geom_segment(x = c(0.7), xend = c(0.7),
+               y = c(0), yend = c(0.31), color = "#CC79A7",
+               linewidth = 1, linetype = 1) + 
+  stat_function(fun = dnorm, linewidth = 1) + 
+  scale_x_continuous(breaks = c(-0.8, 0.2, 0.7), 
+                     labels = c(-0.8, 0.2, 0.7)) +
+  labs(fill = "Antwort", x = "", y = "",
+       title = "Verteilung der latenten Variable",
+       subtitle = "Antwortverteilung für Level A.1") +
+  theme(legend.position = "top",
+        axis.text.y = element_blank(),
+        panel.grid.major.y = element_blank()) +
+  scale_fill_okabeito(labels = c("trifft gar nicht zu", "trifft nicht zu",
+                                 "trifft zu", "trifft voll zu"))
+
+p2_ord_theo <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
+  theme_modeling() +
+  geom_vline(xintercept = 0) +
+  stat_function(fun = dnorm, xlim = c(-3.25, -0.1),
+                geom = "area", alpha = 0.5, aes(fill = "1")) +
+  stat_function(fun = dnorm, xlim = c(-0.1, 0.9),
+                geom = "area", alpha = 0.5, aes(fill = "2")) +
+  stat_function(fun = dnorm, xlim = c(0.9, 1.4),
+                geom = "area", alpha = 0.5, aes(fill = "3")) +
+  stat_function(fun = dnorm, xlim = c(1.4, 3.25),
+                geom = "area", alpha = 0.5, aes(fill = "4")) +
+  geom_segment(x = c(-0.8), xend = c(-0.8),
+               y = c(0), yend = c(0.29), color = "#CC79A7",
+               linewidth = 1, linetype = 1) +  
+  geom_segment(x = c(0.2), xend = c(0.2),
+               y = c(0), yend = c(0.39), color = "#CC79A7",
+               linewidth = 1, linetype = 1) + 
+  geom_segment(x = c(0.7), xend = c(0.7),
+               y = c(0), yend = c(0.31), color = "#CC79A7",
+               linewidth = 1, linetype = 1) + 
+  annotate("label", hjust = "left", x = 2, y = 0.35, label = "z + 0.7", size = 5) +
+  stat_function(fun = dnorm, linewidth = 1) + 
+  scale_x_continuous(breaks = c(-0.1, 0.9, 1.4), 
+                     labels = c(-0.1, 0.9, 1.4)) +
+  labs(fill = "Antwort", x = "Latente Variable (z)", y = "",
+       subtitle = "Antwortverteilung für Level A.2") +
+  theme(legend.position = "none",
+        axis.text.y = element_blank(),
+        panel.grid.major.y = element_blank()) +
+  scale_fill_okabeito(labels = c("trifft gar nicht zu", "trifft nicht zu",
+                                 "trifft zu", "trifft voll zu"))
