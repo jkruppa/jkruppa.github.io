@@ -2081,16 +2081,19 @@ Proportionales Wahrscheinlichkeitsmodell
 
 Wir können jetzt in `{simstudy}` beide Varianten durchführen. Wir können also einmal davon ausgehen, dass wir den gleichen Effekt in die gleiche Richtung für alle Antwortwahrscheinlichkeiten vorliegen haben. Wir rechnen dann mit der *Proportional odds* Annahme. Wir können aber auch den Fall vorliegen haben, dass wir die Antwortwahrscheinlichkeiten individuell verschieben. Dann haben wir die Annahme der *Non-proportional odds* getroffen. Ich zeige dir dann in beiden Tabs einmal die Durchführung in `{simstudy}` und wie wir dann die zufälligen ordinalen Werte erhalten.
 
-::: panel-tabset
+:::: panel-tabset
 ## *Proportional odds*
 
-```{r}
-null_prob <- c(0.31, 0.29, 0.20, 0.20)
-```
+Als erstes brauchen wir wieder einmal unser Klassenwahrscheinlichkeiten oder eben wie wahrscheinlich tritt eine der Antwortkategorien auf. Um die Sache etwas zu vereinfachen habe ich hier nur vier Antwortmöglichkeiten gewählt und die entsprechenden Wahrscheinlichkeiten festgelegt.
 
 ```{r}
-qlogis(cumsum(null_prob))[1:3]
+null_prob <- c("trifft gar nicht zu" = 0.31, 
+               "trifft nicht zu" = 0.29, 
+               "trifft zu" = 0.2, 
+               "trifft voll zu" = 0.2)
 ```
+
+Jetzt brauchen wir noch unsere latente Variable $z$ um unseren Wahrscheinlichkeiten in feste Werte zu übersetzen. In der folgenden Abbildung siehst du dann einmal den Logit der Wahrscheinlichkeiten. Der Logit beschreibt die Wahrscheinlichkeiten als logarithmierte Chancen. Das klingt jetzt etwas wild, aber wir transformieren im Prinzip die Flächen so, dass wir dann die Wahrscheinlichkeiten auch durch die x-Werte beschreiben können.
 
 ```{r}
 #| message: false
@@ -2106,15 +2109,41 @@ qlogis(cumsum(null_prob))[1:3]
 p1_ord_theo_anno
 ```
 
+Was ist die Logitfunktion einmal mathematisch? In der folgenden Formel siehst du einmal den Zusammenhang. Der Logit einer Wahrscheinlichkeit $Pr$ ist dsd logarithmierte Chancenverhältnis. Damit können wir Wahrscheinlichkeiten in feste Werte überstetzen, die wir dann durch Addition oder Subtraktion verschieben können.
+
+$$
+\text{logit}(Pr) = log\left(\cfrac{Pr}{1-Pr}\right)
+$$
+
+In dem Fall der ordinalen Messwerte ist es nochmal einen kleinen Schritt komplizierter, da wir immer die kummulierten Wahrscheinlichkeiten für die latente Variable brauchen. In den folgenden Tabs siehst du dann einmal den Weg um die drei Grenzwerte aus der obigen Abbildung zu berechnen. Wir haben vier Antwortmöglichkieten mit vier Wahrscheinlichkeiten, also brauchen wir dann drei Grenzwerte als latente Variable.
+
+::: panel-tabset
+## *trifft gar nicht zu*
+
 $$
 log \left(\cfrac{Pr(A.1 \leq  1)}{Pr(A.1 > 1)} | A.1 \right) = log \left(\cfrac{Pr(0.31)}{Pr(1-0.31)}\right) = -0.80
 $$
 
+## *trifft nicht zu*
+
 $$
 log \left(\cfrac{Pr(A.1 \leq  2)}{Pr(A.1 > 2)} | A.1 \right) = log \left(\cfrac{Pr(0.31 + 0.29)}{Pr(1-0.31-0.29)}\right) = 0.4
-$$ $$
+$$
+
+## *trifft zu*
+
+$$
 log \left(\cfrac{Pr(A.1 \leq  3)}{Pr(A.1 > 3)} | A.1 \right) = log \left(\cfrac{Pr(0.31 + 0.29 + 0.20)}{Pr(1-0.31-0.29-0.20)} \right) = 1.38 \approx 1.4
 $$
+:::
+
+Natürlich gibt es auch hier eine Implementierung in R. Leider sind die Namen der Funktionen nicht so eingängig wie es sein könnte. Der Blogeintrag [logit() and logistic() functions in R](https://ro-che.info/articles/2018-08-11-logit-logistic-r) geht da nochnmal genauer drauf ein. Hier können wir dann einmal die Wahrscheinlichkeiten aufsummieren und dann die `qlogis()` Funktion als Logitfunktion nutzen.
+
+```{r}
+qlogis(cumsum(null_prob))[1:3] |> round(2)
+```
+
+Jetzt können wir usn auch schon unsere Daten in `{simstudy}` erstellen.
 
 ```{r}
 ord_fac1_def <- defData(varname = "f_a", formula = "1;1", dist = "trtAssign") |> 
@@ -2136,34 +2165,15 @@ ord_fac1_dt |>
   sample_n(5)
 ```
 
-[simstudy update: ordinal data generation that violates proportionality](https://www.rdatagen.net/post/2022-01-25-simstudy-update-ordinal-data-without-the-proportionality-assumption/)
-
-$$
-log \left(\cfrac{Pr(Resp \leq  i)}{Pr(Resp > i)} | f_A \right) = \alpha_i - \beta*I(f_A=A.2)  \ , \ i \in \{1, 2, 3\}
-$$
-
-```{r}
-#| message: false
-#| warning: false
-clmFit <- clm(r ~ f_a, data = ord_fac1_dt)
-```
-
-```{r}
-coef(clmFit)
-```
-
-```{r}
-logOdds_A.1 <- qlogis(cumsum(ord_fac1_dt[f_a == "A.1", prop.table(table(r))]))[1:3]
-```
-
-```{r}
-logOdds_A.1
-```
-
 ## *Non-proportional odds*
 
+[simstudy update: ordinal data generation that violates proportionality](https://www.rdatagen.net/post/2022-01-25-simstudy-update-ordinal-data-without-the-proportionality-assumption/)
+
 ```{r}
-null_prob <- c(0.31, 0.29, 0.20, 0.20)
+null_prob <- c("trifft gar nicht zu" = 0.31, 
+               "trifft nicht zu" = 0.29, 
+               "trifft zu" = 0.2, 
+               "trifft voll zu" = 0.2)
 ```
 
 ```{r}
@@ -2180,16 +2190,56 @@ shift_z <- c(-0.4, 0.0, -1.7, 0)
 ```
 
 ```{r}
-ord_fac1_dt <- genOrdCat(ord_fac1_pre_dt, baseprobs = null_prob, adjVar = "z",
+ord_fac1_nonprop_dt <- genOrdCat(ord_fac1_pre_dt, baseprobs = null_prob, adjVar = "z",
                          catVar = "r", npVar = "f_a", npAdj = shift_z)
 ```
 
 ```{r}
-ord_fac1_dt |> 
+ord_fac1_nonprop_dt |> 
   group_by(f_a) |> 
   sample_n(5)
 ```
-:::
+::::
+
+Dann stellt sich noch die Frage, ob wir denn auch die voreingestellten Parameter wieder aus einer ordinalen Regression herausbekommen.
+
+$$
+log \left(\cfrac{Pr(Resp \leq  i)}{Pr(Resp > i)} | f_A \right) = \alpha_i - \beta*I(f_A=A.2)  \ , \ i \in \{1, 2, 3\}
+$$
+
+```{r}
+#| message: false
+#| warning: false
+clmFit <- clm(r ~ f_a, data = ord_fac1_dt)
+```
+
+```{r}
+clmFit |> summary()
+```
+
+$\text{logit}()$
+
+$$
+\text{logit}(Pr) = log\left(\cfrac{Pr}{1-Pr}\right)
+$$
+
+```{r}
+logOdds_A.1 <- qlogis(cumsum(ord_fac1_dt[f_a == "A.1", prop.table(table(r))]))[1:3]
+```
+
+```{r}
+logOdds_A.1 |> round(2)
+```
+
+$\text{logistic}()$ oder $\text{invlogit}()$
+
+$$
+\text{invlogit}(Pr) = \cfrac{1}{1 + exp(-Pr)}
+$$
+
+```{r}
+c(0, plogis(logOdds_A.1), 1) |> diff() |> round(2)
+```
 
 #### Einfaktoriell $f_A$ mit 3 Leveln {.unnumbered .unlisted}
 
@@ -2255,7 +2305,7 @@ addColumns(y_binary_def, fac1_dt) |>
 [logit() and logistic() functions in R](https://ro-che.info/articles/2018-08-11-logit-logistic-r)
 
 $$
-\text{logit}(p) = \cfrac{p}{1-p}
+\text{logit}(Pr) = log\left(\cfrac{Pr}{1-Pr}\right)
 $$
 
 ```{r}
@@ -2275,8 +2325,13 @@ ggplot(tibble(x = seq(0, 1, by = 0.01),
 ```
 
 $$
-\text{logistic}(x) = \cfrac{1}{1 + exp(-x)}
+\text{logistic}(Pr) = \cfrac{1}{1 + exp(-Pr)}
 $$
+
+```{r}
+invlogit <- \(x) 1/(1 + exp(-x))
+invlogit(0.4054651)
+```
 
 ```{r}
 plogis(0.4054651) # logistic
