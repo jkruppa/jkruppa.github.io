@@ -402,7 +402,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 #| message: false
 pacman::p_load(tidyverse, simstudy, simdata, modelr, 
                ggpmisc, janitor, emmeans, correlation,
-               data.table, marginaleffects, conflicted)
+               data.table, ordinal, marginaleffects, conflicted)
 set.seed(20250820)
 conflicts_prefer(ggplot2::annotate)
 ```
@@ -1981,17 +1981,15 @@ Wir können jetzt mit den korrelierten Kovariaten uns nochmal neue Messwerte ers
 
 ### Ordinalverteilt
 
-Was sind ordinalverteilte Messwerte? Wir können diese Art von Messwerten einmal als Antwortmöglichkeiten bei einem Fragebogen oder aber bei der Bonitur beobachten. Bei Fragebögen haben wir dann meistens drei bis fünf Antwortkategorien, die dann eben auch geordnet sind. Alle Kategorien haben dabei den gleichen Abstand. Bei der Bonitur haben wir häufig eine fünf- bis neunstufige Likertskala vorliegen, wobei die Neun immer die stärkste Ausprägung beschreibt. Wenn du nur zwei Antwortmöglichkeiten vorliegen hast, dann bist du im binären Fall, das machen wir dann weiter unten nochmal. Das R Paket `{simstudy}` hat mit der Vingette [Ordinal Categorical Data](https://kgoldfeld.github.io/simstudy/articles/ordinal.html) eine Hilfeseite, die dir einmal beschreibt, wie wir ordinale Messwerte erstellen. Am Ende kannst du dir vorstellen, dass wir als Messwert wiederum einen Faktor vorliegen haben und eigentlich keinen numerischen Messwert. Wir wollen hier aber einmal verstehen, wie sich so ordinale Messwerte zusammensetzen. Das ist auch immer sehr hilfreich bei der Auswertung im [Kapitel zur Multinomialen / Ordinalen Regression](#sec-multinom-ordinal).
+Was sind ordinalverteilte Messwerte? Wir können diese Art von Messwerten einmal als Antwortmöglichkeiten bei einem Fragebogen oder aber bei der Bonitur beobachten. Bei Fragebögen haben wir dann meistens drei bis fünf Antwortkategorien, die dann eben auch geordnet sind. Alle Kategorien haben dabei den gleichen Abstand. Bei der Bonitur haben wir häufig eine fünf- bis neunstufige Likertskala vorliegen, wobei die Neun immer die stärkste Ausprägung beschreibt. Wenn du nur zwei Antwortmöglichkeiten vorliegen hast, dann bist du im binären Fall, das machen wir dann weiter unten nochmal. Das R Paket `{simstudy}` hat mit der Vingette [Ordinal Categorical Data](https://kgoldfeld.github.io/simstudy/articles/ordinal.html) eine Hilfeseite, die dir einmal beschreibt, wie wir ordinale Messwerte erstellen. Neben dem R Paket gibt es auch noch andere Möglichkeiten. Wir haben in dem Blogeintrag [A refined brute force method to inform simulation of ordinal response data](https://www.rdatagen.net/post/can-empirical-mean-and-variance-data-inform-simulation-of-ordinal-response-variables/) auch nochmal eine andere Sicht der Dinge. Hier simulieren wir aus mittlren Noten udn einer Standardabweichung dann die entsprechenden Daten.
+
+Am Ende kannst du dir vorstellen, dass wir als Messwert wiederum einen Faktor vorliegen haben und eigentlich keinen numerischen Messwert. Wir wollen hier aber einmal verstehen, wie sich so ordinale Messwerte zusammensetzen. In den Agrarwissenschaften wird gerne eine 9er Likert Skala verwendet. Wir haben also ein Merkmal wie Blattfäule oder Befall und benoten nun mit einem 9er Notensystem. Das Problem ist nun, dass wir bei neun Noten natürlich auch jeder Ausprägung eine Wahrscheinlichkeit zuordnen müssen. Da werden dann die einzlenen Wahrscheinlichketen sehr klein. Darüber hinaus ist dann vermutlich eine Verschiebung der Noten zwischen den Gruppen auch sehr klein. Alles nicht so einfach. Am Ende ist das Verständnis der Datengenierung auch immer sehr hilfreich bei der Auswertung im [Kapitel zur Multinomialen / Ordinalen Regression](#sec-multinom-ordinal).
 
 ::: callout-warning
 ## Achtung, bitte beachten!
 
 Um jetzt irgendwas zu sehen, brauchen wir wirklich viele Fallzahlen. Wenn du später nur fünf Beobachtungen pro Gruppe hast, dann wird es sehr schwer die vorengestellten Gruppenwahrscheinlichkeiten wiederzufinden. Deshalb kann es sein, dass es beser ist, dir die Daten einfach per Hand selber in Excel zu bauen.
 :::
-
-[A refined brute force method to inform simulation of ordinal response data](https://www.rdatagen.net/post/can-empirical-mean-and-variance-data-inform-simulation-of-ordinal-response-variables/)
-
-Das Problem der vielen Ausprägungen von einer 9er Likert Skala und den Wahrscheinlichkeiten pro Ausprägung.
 
 ### Faktorielles Design {.unnumbered .unlisted}
 
@@ -2095,12 +2093,27 @@ qlogis(cumsum(null_prob))[1:3]
 ```
 
 ```{r}
+#| message: false
+#| echo: false
+#| eval: true
+#| warning: false
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 7
+#| fig-cap: "Zusammenhang zwischen der latenten Variable $z$ als logit und der Antwortwahrscheinlichkeiten. Die Flächen als Wahrscheinlichkeiten werden durch den Logit auf der x-Achse dargestellt. *[Zum Vergrößern anklicken]*"
+#| label: fig-eda-gen-ordinal-theo-sample-anno
+
+p1_ord_theo_anno
+```
+
+```{r}
 ord_fac1_def <- defData(varname = "f_a", formula = "1;1", dist = "trtAssign") |> 
   defData(varname = "z", formula = "-0.7*f_a", dist = "nonrandom")
 ```
 
 ```{r}
-ord_fac1_pre_dt <- genData(25000, ord_fac1_def)
+ord_fac1_pre_dt <- genData(25000, ord_fac1_def) |> 
+  mutate(f_a = factor(f_a, labels = c("A.1", "A.2")))
 ```
 
 ```{r}
@@ -2115,16 +2128,26 @@ ord_fac1_dt |>
 
 [simstudy update: ordinal data generation that violates proportionality](https://www.rdatagen.net/post/2022-01-25-simstudy-update-ordinal-data-without-the-proportionality-assumption/)
 
+$$
+log \left(\cfrac{Pr(Resp \leq  i)}{Pr(Resp > i)} | f_A \right) = \alpha_i - \beta*I(f_A=A.2)  \ , \ i \in \{1, 2, 3\}
+$$
+
 ```{r}
 #| message: false
 #| warning: false
-library(ordinal)
 clmFit <- clm(r ~ f_a, data = ord_fac1_dt)
-summary(clmFit)
 ```
 
 ```{r}
-(logOdds.unexp <- qlogis(cumsum(ord_fac1_dt[f_a == 0, prop.table(table(r))]))[1:3])
+coef(clmFit)
+```
+
+```{r}
+logOdds_A.1 <- qlogis(cumsum(ord_fac1_dt[f_a == "A.1", prop.table(table(r))]))[1:3]
+```
+
+```{r}
+logOdds_A.1
 ```
 
 ## *Non-proportional odds*
@@ -2232,6 +2255,13 @@ qlogis(0.6) # logit
 ```{r}
 logit <- \(x) log(x / (1 - x))
 logit(0.6)
+```
+
+```{r}
+ggplot(tibble(x = seq(0, 1, by = 0.01),
+              y = logit(x)),
+       aes(x, y)) +
+  geom_point()
 ```
 
 $$

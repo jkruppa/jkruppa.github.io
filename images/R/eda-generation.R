@@ -661,3 +661,38 @@ p2_ord_theo <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
         panel.grid.major.y = element_blank()) +
   scale_fill_okabeito(labels = c("trifft gar nicht zu", "trifft nicht zu",
                                  "trifft zu", "trifft voll zu"))
+
+p1_ord_theo_anno <- ggplot(data.frame(x = c(-3.25, 3.25)), aes(x)) +
+  theme_modeling() +
+  geom_vline(xintercept = 0) +
+  stat_function(fun = dnorm, xlim = c(-3.25, -0.8),
+                geom = "area", alpha = 0.5, aes(fill = "1")) +
+  stat_function(fun = dnorm, xlim = c(-0.8, 0.4),
+                geom = "area", alpha = 0.5, aes(fill = "2")) +
+  stat_function(fun = dnorm, xlim = c(0.4, 1.4),
+                geom = "area", alpha = 0.5, aes(fill = "3")) +
+  stat_function(fun = dnorm, xlim = c(1.4, 3.25),
+                geom = "area", alpha = 0.5, aes(fill = "4")) +
+  geom_segment(x = c(-0.8), xend = c(-0.8),
+               y = c(0), yend = c(0.29), color = "#CC79A7",
+               linewidth = 1, linetype = 1) +  
+  geom_segment(x = c(0.4), xend = c(0.4),
+               y = c(0), yend = c(0.37), color = "#CC79A7",
+               linewidth = 1, linetype = 1) + 
+  geom_segment(x = c(1.4), xend = c(1.4),
+               y = c(0), yend = c(0.15), color = "#CC79A7",
+               linewidth = 1, linetype = 1) + 
+  stat_function(fun = dnorm, linewidth = 1) + 
+  scale_x_continuous(breaks = c(-0.8, 0.4, 1.4), 
+                     labels = c(-0.8, 0.4, 1.4)) +
+  annotate("label", x = c(-1.2, -0.1, 0.9, 1.7), y = rep(0.075, 4),
+           label = str_c("Pr=", c(0.31, 0.29, 0.20, 0.20)), size = 3,
+           fill = c("#E69F00", "#56B4E9", "#009E73", "#F0E442")) +
+  labs(fill = "Antwort", x = expression(bold(Latente~Variable~(z)~"="~log*bgroup("(",frac(Pr,1-Pr),")"))), y = "",
+       title = "Verteilung der latenten Variable",
+       subtitle = "Antwortverteilung für Level A.1") +
+  theme(legend.position = "top",
+        axis.text.y = element_blank(),
+        panel.grid.major.y = element_blank()) +
+  scale_fill_okabeito(labels = c("trifft gar nicht zu", "trifft nicht zu",
+                                 "trifft zu", "trifft voll zu"))
