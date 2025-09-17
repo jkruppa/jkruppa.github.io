@@ -2233,38 +2233,45 @@ Am Ende summiert sich alles auf Eins auf und wir haben eben eine Änderung in de
 
 ## *Non-proportional odds*
 
-[simstudy update: ordinal data generation that violates proportionality](https://www.rdatagen.net/post/2022-01-25-simstudy-update-ordinal-data-without-the-proportionality-assumption/)
+Jetzt können wir alles nochmal so bauen, dass wir keinen konstanten Shift von $+0.7$ auf der Logitskala haben, sondern eben einen Shift für jede Antwortkategorie. Mehr dazu dann auch im Blogeintrag [simstudy update: ordinal data generation that violates proportionality](https://www.rdatagen.net/post/2022-01-25-simstudy-update-ordinal-data-without-the-proportionality-assumption/). Wir brauchen dann wieder unser einfaktorielles Design mit der latenten Variable. Wir geben hier dann keinen Shift an, da wir ja gleich individuelle Shifts in der Antwortkategorien haben wollen.
 
 ```{r}
 ord_fac1_def <- defData(varname = "f_a", formula = "1;1", dist = "trtAssign") |> 
-  defData(varname = "z", formula = "-0.7*f_a", dist = "nonrandom")
+  defData(varname = "z", formula = "0", dist = "nonrandom")
 ```
 
+Dann einmal die Daten mit der latenten Variable genieren. Aktuell brauchen wir die latente Variable $z$ nur als einen Platzhalter.
+
 ```{r}
-ord_fac1_pre_dt <- genData(25000, ord_fac1_def)
+ord_fac1_pre_dt <- genData(25000, ord_fac1_def) 
 ```
+
+Dann legen wir die individuellen Shifts für die Antwortkategorien fest. Hier ist nochmal wichtig, dass der letzte Wert eine Null ist. Wir verschieben ja nur drei Grenzwerte für die vier Antwortkategorien. Die Funktionen brauchen aber einen entsprechend langen Vektor.
 
 ```{r}
 shift_z <- c(-0.4, 0.0, -1.7, 0)
 ```
 
+Dann können wir uns auch schon die Daten zusammenbauen und nutzen die Option `npAdj` um unsere individuellen Verschiebungen in den $z$-Werten anzugeben.
+
 ```{r}
 ord_fac1_nonprop_dt <- genOrdCat(ord_fac1_pre_dt, baseprobs = null_prob, adjVar = "z",
-                         catVar = "antwort", npVar = "f_a", npAdj = shift_z)
+                                 catVar = "antwort", npVar = "f_a", npAdj = shift_z) |> 
+  mutate(antwort = factor(antwort, labels = c("trifft gar nicht zu", "trifft nicht zu",
+                                              "trifft zu", "trifft voll zu")),
+         f_a = factor(f_a, labels = c("A.1", "A.2")))
 ```
 
-```{r}
-ord_fac1_nonprop_dt |> 
-  group_by(f_a) |> 
-  sample_n(5)
-```
+Wir können dann wie schon in dem ersten Tab einmal unsere kleinere Stichprobe aus den Daten hier ziehen. Am Ende ist die Frage, ob wir sowas überhaupt brauchen, wenn wir uns Spieldaten für die Analyse erstellen wollen. Es ist sehr schwer auf dem Logit die Verschiebungen nachzuvollziehen. Daher würde ich es bei den *Proportional odds* belassen. Es ist aber eine nette Fingerübung für das Verständnis. Die Verschiebung um einen festen Wert in den Antwortkategorien ist auch eine starke Annahme.
 :::
 
-Dann stellt sich noch die Frage, ob wir denn auch die voreingestellten Parameter wieder aus einer ordinalen Regression herausbekommen.
+Dann stellt sich noch die Frage, ob wir denn auch die voreingestellten Parameter wieder aus einer ordinalen Regression herausbekommen. Dafür nutzen wir die folgende Formel. Dabei ist wichtig, dass wir eben hier auch das Minus sehen, was wir oben bei der Erstellung der Daten beachten mussten. Der Effekt ist ja die Verschiebung um $+0.7$ durch die latente Variable. Wir sehen dann aber hier den Schätzer $\beta$ für den Effekt mit einem Minuszeichen versehen. So ist eben der Algorithmus und die Modellierung. Wir wollen hier in der Formel den Effekt für das zweite Level $A.2$ bestimmen. Wir haben vier Antwortkategorien, also erhalten wir dann drei Grenzwerte $i$ aus dem ordinalen Modell zurück.
 
 $$
-log \left(\cfrac{Pr(Resp \leq  i)}{Pr(Resp > i)} | f_A \right) = \alpha_i - \beta*I(f_A=A.2)  \ , \ i \in \{1, 2, 3\}
+log \left(\cfrac{Pr(Antwort \leq  i)}{Pr(Antwort > i)} | f_A \right) = \alpha_i - \beta*I(f_A=A.2)  \ , \ i \in \{1, 2, 3\}
 $$
+
+Wir nutzen jetzt gleich die Funktion `clm()` aus dem R Paket `{ordinal}` für die Analyse der Daten. In diesem Zusammenhang möchte ich nochmal auf die Arbeit von @gambarota2024ordinal mit dem Titel [Ordinal regression models made easy: A tutorial on parameter interpretation, data simulation and power analysis](https://onlinelibrary.wiley.com/doi/full/10.1002/ijop.13243) verweisen. Hier geht es ja erstmal nur kurz darum zu schauen, ob wir die voreingestellten Werte auch wiederfinden. Die ordinale Regression hat ja noch ihr eigenes Kapitel. Wir bauen uns also das Modell wie folgt.
 
 ```{r}
 #| message: false
@@ -2272,32 +2279,15 @@ $$
 clmFit <- clm(antwort ~ f_a, data = ord_fac1_dt)
 ```
 
-```{r}
-clmFit |> summary()
-```
-
-$\text{logit}()$
-
-$$
-\text{logit}(Pr) = log\left(\cfrac{Pr}{1-Pr}\right)
-$$
+Dann können wir uns auch schon die Zusammenfassung des Modells angeben lassen. Ich nutze hier nur die `coef()` Funktion, da ich nicht an p-Werten oder anderem interessiert bin. Dafür würde dann die `summary()` gebraucht. Da wir ja auf den vollen Daten rechnen, kommt hier auch was passendes raus. Aber auch hier haben wir dann eine leichte Abweichung, was eben dann auch bei generierten Daten vorkommen kann.
 
 ```{r}
-logOdds_A.1 <- qlogis(cumsum(ord_fac1_dt[f_a == "A.1", prop.table(table(antwort))]))[1:3]
+clm_coef <- clmFit |> coef() |> round(2)
+clm_coef 
 ```
 
 ```{r}
-logOdds_A.1 |> round(2)
-```
-
-$\text{logistic}()$ oder $\text{invlogit}()$
-
-$$
-\text{invlogit}(Pr) = \cfrac{1}{1 + exp(-Pr)}
-$$
-
-```{r}
-c(0, plogis(logOdds_A.1), 1) |> diff() |> round(2)
+logodds_to_prob(clm_coef[1:3])
 ```
 
 #### Einfaktoriell $f_A$ mit 3 Leveln {.unnumbered .unlisted}
