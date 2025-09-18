@@ -2294,20 +2294,22 @@ logodds_to_prob(clm_coef[1:3])
 
 Passt doch alles super. Wir erhalten die voreingestellten Wahrscheinlichkeiten unseres Nullmodells wieder. Dann noch die Verschiebung durch den z-Wert auch korrekt wiedergegeben. Damit haben wir dann die Grundlagen gut verstanden. Wir können jetzt nochmal etwas komplexere Modelle angehen.
 
-#### Einfaktoriell $f_A$ mit 3 Leveln {.unnumbered .unlisted}
+#### Einfaktoriell $f_A$ mit \>2 Leveln {.unnumbered .unlisted}
 
-```{r}
-null_prob <- c(0.31, 0.29, 0.20, 0.20)
-```
+Wenn du jetzt mehr Levle oder Gruppen in deinen Faktor simulieren willst, dann kannst du einfach in der Option `formula` mehr Gruppen durch das Semikolon `;` getrennt erschaffen. Wenn du immer eine `1` schreibst, dann haben alle die gleiche Gruppengröße. Je mehr Faktoren du hast, desto kleiner sollte natürlich der Effekt der latenten Variable sein.
 
 ```{r}
 ord_fac1_def <- defData(varname = "f_a", formula = "1;1;1", dist = "trtAssign") |> 
   defData(varname = "z", formula = "-0.7*f_a", dist = "nonrandom")
 ```
 
+Dann brauchen wir wieder die Daten einmal aus denen wir dann gleich die Stichprobe ziehen.
+
 ```{r}
 ord_fac1_pre_dt <- genData(25000, ord_fac1_def)
 ```
+
+Im Folgenden musst du nur einmal darauf achten, dass du dann auch mehr Level hast und dann eben auch mehr Labels vergeben musst. Hier habe ich ja dann drei Level also muss ich auch drei Level vergeben. Ich übernehme hier einmal die Antwortwahrscheinlichkeiten `null_prob` aus der obigen Erstellung der Daten.
 
 ```{r}
 ord_fac1_dt <- genOrdCat(ord_fac1_pre_dt, adjVar = "z", null_prob, catVar = "antwort") |> 
@@ -2316,26 +2318,15 @@ ord_fac1_dt <- genOrdCat(ord_fac1_pre_dt, adjVar = "z", null_prob, catVar = "ant
          f_a = factor(f_a, labels = c("A.1", "A.2", "A.3")))
 ```
 
+Dann können wir uns wieder die Stichprobe ziehen. Damit hier die Ausgabe nicht so groß ist, habe ich dann nur drei Beobachtungen pro Gruppe gezogen. Das macht natürlich nur begrenz Sinn. Wie du auch schon siehst, kommen dann kaum Antwortmöglichkeiten vor.
+
 ```{r}
 ord_fac1_dt |> 
   group_by(f_a) |> 
-  sample_n(4)
+  sample_n(3)
 ```
 
-```{r}
-#| message: false
-#| warning: false
-clmFit <- clm(antwort ~ f_a, data = ord_fac1_dt)
-```
-
-```{r}
-clm_coef <- clmFit |> coef() |> round(2)
-clm_coef 
-```
-
-#### Multifaktoriell abhängig $f_A + f_B + f_C$ {.unnumbered .unlisted}
-
-[Correlated multivariate ordinal data](https://kgoldfeld.github.io/simstudy/articles/ordinal.html#correlated-multivariate-ordinal-data)
+Somit haben wir dann auch die Möglichkeit mehr Gruppen zu simulieren. Hier musst du dann immer schauen, dass der Effekt nicht zu groß wird. Sonst schiebst du den letzten Faktor zu weit nach rechts in der Verteilung und es bleibt keine Fläche mehr als Wahrscheinlichkeit übrig. Das ist immer so eien Sache bei den ordinalen Messwerten. Wir sind eben beschränkt in beide Seiten.
 
 ### Kovariates Design {.unnumbered .unlisted}
 
@@ -2350,8 +2341,8 @@ fac1_dt <- expand_grid(f_a = 1:3,
                        rep = 1:1000) |> 
   as.data.table()
 
-y_binom_def <- defDataAdd(varname = "y", formula = "0.5",
-                          dist = "binomial", variance = 4, link = "identity")
+y_binom_def <- defDataAdd(varname = "y", formula = "0 + 0.2 * f_a",
+                          dist = "binomial", variance = 8, link = "identity")
 
 addColumns(y_binom_def, fac1_dt) |> 
   tabyl(f_a, y)
@@ -2429,5 +2420,9 @@ ggplot(tibble(x = seq(-6, 6, by = 0.5),
 ### Zeitreihen
 
 [Spline Data](https://kgoldfeld.github.io/simstudy/articles/spline.html)
+
+#### Multifaktoriell abhängig $f_A + f_B + f_C$ {.unnumbered .unlisted}
+
+[Correlated multivariate ordinal data](https://kgoldfeld.github.io/simstudy/articles/ordinal.html#correlated-multivariate-ordinal-data)
 
 ## Referenzen {.unnumbered}
