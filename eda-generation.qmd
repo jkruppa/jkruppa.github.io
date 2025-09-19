@@ -2437,7 +2437,7 @@ binom_fac1_dt |>
 ### Kovariates Design {.unnumbered .unlisted}
 
 ::: panel-tabset
-## `idenity`
+## `link = "idenity"`
 
 ```{r}
 cov1_binary_def <- defData(varname = "c_1", dist = "normal", formula = "0",
@@ -2461,8 +2461,8 @@ cov1_binary_dt <- genData(1000, cov1_binary_def)
 #| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
 #| label: fig-eda-gen-binomial-01
 
-ggplot(cov1_binary_dt,
-       aes(c_1, y)) +
+ggplot(cov1_binary_dt, aes(c_1, y)) +
+  theme_modeling() +
   geom_point() +
   stat_poly_line(linewidth = 0.5, formula = y ~ x, show.legend = FALSE) +
   stat_poly_eq(use_label("eq"), size = 4, formula = y ~ x,
@@ -2485,23 +2485,53 @@ log_fit <- glm(y ~ c_1, cov1_binary_dt, family = binomial)
 #| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
 #| label: fig-eda-gen-binomial-02
 ggplot(cov1_binary_dt, aes(c_1, y)) +
+  theme_modeling() +
   geom_point() +
   geom_line(aes(y = predict(log_fit, type = "response")))
 ```
 
-## `logit`
+## `link = "logit"`
 
 [Simulate data from a logistic regression model: How the intercept parameter affects the probability of the event](https://blogs.sas.com/content/iml/2023/01/16/simulate-logistic-intercept.html)
 
 ```{r}
 cov1_binary_def <- defData(varname = "c_1", dist = "normal", formula = "0",
-                           variance = 1) |> 
-  defData(varname = "y", formula = "0.5 + 2*c_1",
+                           variance = 3) |> 
+  defData(varname = "y", formula = "0 + 1.5*c_1",
           dist = "binary", link = "logit")
 ```
 
 ```{r}
-cov1_binary_dt <- genData(1000, cov1_binary_def)
+cov1_binary_dt <- genData(100000, cov1_binary_def)
+```
+
+```{r}
+cov1_binary_logit_dt <- 
+  cov1_binary_dt |> 
+  mutate(c_1_bin = cut(c_1, breaks = 10)) |> 
+  group_by(c_1_bin) |> 
+  summarise(mean_y = round(mean(y), 2) + 0.001) |> 
+  mutate(mean_y = ifelse(mean_y > 1, 0.999, mean_y), 
+         lower = as.numeric(sub("\\((.+),.*", "\\1", c_1_bin)),
+         upper = as.numeric( sub("[^,]*,([^]]*)\\]", "\\1", c_1_bin)),
+         mid = (lower + upper)/2,
+         logistic = plogis(mean_y))
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| eval: true
+#| warning: false
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 7
+#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| label: fig-eda-gen-binomial-theo
+ggplot(cov1_binary_logit_dt, aes(mid, logistic)) +
+  theme_modeling() +
+  geom_point() +
+  geom_path() 
 ```
 
 ```{r}
@@ -2514,8 +2544,9 @@ cov1_binary_dt <- genData(1000, cov1_binary_def)
 #| fig-width: 7
 #| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
 #| label: fig-eda-gen-binomial-03
-ggplot(cov1_binary_dt,
-       aes(c_1, y)) +
+
+ggplot(cov1_binary_dt, aes(c_1, y)) +
+  theme_modeling() +
   geom_point() +
   stat_poly_line(linewidth = 0.5, formula = y ~ x, show.legend = FALSE) +
   stat_poly_eq(use_label("eq"), size = 4, formula = y ~ x) 
@@ -2536,7 +2567,9 @@ log_fit <- glm(y ~ c_1, cov1_binary_dt, family = binomial)
 #| fig-width: 7
 #| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
 #| label: fig-eda-gen-binomial-04
+
 ggplot(cov1_binary_dt, aes(c_1, y)) +
+  theme_modeling() +
   geom_point() +
   geom_line(aes(y = predict(log_fit, type = "response")))
 ```
@@ -2565,7 +2598,7 @@ ggplot(tibble(x = seq(0, 1, by = 0.01),
 ```
 
 $$
-\text{logistic}(Pr) = \cfrac{1}{1 + exp(-Pr)}
+\text{logistic}(z) = \cfrac{1}{1 + e^{-z}}
 $$
 
 ```{r}
