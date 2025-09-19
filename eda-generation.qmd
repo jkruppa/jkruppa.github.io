@@ -2373,19 +2373,136 @@ Machen wir es kurz, wir betrachten hier nicht ein kovariates Design mit einem or
 
 ### Binomialverteilt
 
-[Generating binary data by specifying the relative risk, with simulations](https://www.rdatagen.net/post/2024-07-02-generating-binary-data-by-specifying-relative-risk/)
+Kommen wir am Ende noch zu einem binären Messwert oder auch $0/1$-Daten. Binäre Messwerte sind Messwerte, die nur zwei Gruppen beinhalten. Daher ist die Pflanze gesund ($y = 0$) oder krank ($y = 1$). Wir haben also keine kontinuierlichen Messwerte vorliegen sondern eben nur zwei Kategorien. Wir nennen es dann auch gerne zwei Klassen und damit wäre auch schonmal erklärt, warum wir binäre Daten in der Klassifikation im [Kapitel zum maschinellen Lernen](https://jkruppa.github.io/classification-preface.html) nutzen. Gerne werden daher auch $0/1$-Daten generell als Daten für die Prädiktion benutzt. Das ist aber nicht generell der Fall. In den Humanwissenschaften haben wir es fast nur mit $0/1$-Messwerten für die gesunden und kranken Patienten zu tun und daher nutzen wir dort auch gerne die logistische Regression für die Analyse der Daten. In den Agrarwissenschaften ist der binäre Messwert eher selten, da wir wirklich eine Menge an Beobachtungen brauchen um sinnvoll mit einem binären Messwert rechnen zu können. Da wir bei solch einem Messwert auch gerne an Anteile denken können, fragen wir uns dann schnell, wie viel Prozent der Beobachtungen sind krank? Wenn wir da nicht in die höheren zweistelligen Fallzahlen kommen, dann ist ja eine Beobachtung gleich sehr viele Prozentpunkte "wert". Das macht dann meistens wenig Sinn tiefer zu analysieren.
+
+Die Erstellung von binären Messwerten ist recht mühselig. Zum einen liegt es daran, dass wir ja immer die Anteile an den Einsen vorgeben. Daher sind wir auch in dem Zahlenraum $[0;1]$ beschränkt. Die Effekt müssen dann entsprechend klein sein, wenn du viele Level im Faktor hast. Der Vorteil ist aber, dass ich keien Lust habe hundert oder mehr Beobachtungen pro Gruppe mit Null und Eins in Excel zu versehen. Das geht dann hier sehr viel schneller. Da die logistsiche Regression als Analysemethode so eine große Bedeutung in den Humanwissenschaften hat, ist `{simstudy}` sehr um diesen Messwert mit Beispielen gesegnet, wie ich im folgenden Kasten nochmal erwähne.
+
+::: callout-tip
+## Weitere Tutorien für die Genierung von binären Daten
+
+-   [Generating binary data by specifying the relative risk, with simulations](https://www.rdatagen.net/post/2024-07-02-generating-binary-data-by-specifying-relative-risk/)
+-   [Targeted logistic model coefficients](https://kgoldfeld.github.io/simstudy/articles/logisticCoefs.html)
+:::
+
+#### Einfaktoriell $f_A$ mit \>2 Leveln {.unnumbered .unlisted}
+
+Wir wollen uns hier zwei Wege anschauen uns binäre Messwerte zu erschaffen.
 
 ```{r}
 fac1_dt <- expand_grid(f_a = 1:3,
                        rep = 1:10000) |> 
   as.data.table()
+```
 
+::: panel-tabset
+## Binäreverteilung
+
+```{r}
 y_binary_def <- defDataAdd(varname = "y", formula = "0.2 + 0.2*f_a",
                           dist = "binary", link = "identity")
-
-addColumns(y_binary_def, fac1_dt) |> 
-  tabyl(f_a, y) |> adorn_percentages("row") |> adorn_pct_formatting(digits = 0)
 ```
+
+```{r}
+binary_fac1_dt <- addColumns(y_binary_def, fac1_dt)
+```
+
+```{r}
+binary_fac1_dt |> 
+  tabyl(f_a, y) |> 
+  adorn_percentages("row") |> 
+  round(2)
+```
+
+## Binomialverteilung
+
+```{r}
+y_binom_def <- defDataAdd(varname = "infected", formula = "0 + 0.2 * f_a",
+                          dist = "binomial", variance = 1, link = "identity")
+```
+
+```{r}
+binom_fac1_dt <- addColumns(y_binom_def, fac1_dt)
+```
+
+Dann können wir uns die Daten auch einmal als Tabelle anschauen.
+
+```{r}
+binom_fac1_dt |> 
+  tabyl(f_a, infected) |> 
+  adorn_percentages("row") |> 
+  round(2)
+```
+:::
+
+### Kovariates Design {.unnumbered .unlisted}
+
+::: panel-tabset
+## `idenity`
+
+```{r}
+cov1_binary_def <- defData(varname = "c_1", dist = "normal", formula = "0",
+                           variance = 1) |> 
+  defData(varname = "y", formula = "0.5 + 0.15*c_1",
+          dist = "binary", link = "identity")
+```
+
+```{r}
+cov1_binary_dt <- genData(1000, cov1_binary_def)
+```
+
+```{r}
+ggplot(cov1_binary_dt,
+       aes(c_1, y)) +
+  geom_point() +
+  stat_poly_line(linewidth = 0.5, formula = y ~ x, show.legend = FALSE) +
+  stat_poly_eq(use_label("eq"), size = 4, formula = y ~ x) 
+  
+```
+
+```{r}
+log_fit <- glm(y ~ c_1, cov1_binary_dt, family = binomial)
+```
+
+```{r}
+ggplot(cov1_binary_dt, aes(c_1, y)) +
+  geom_point() +
+  geom_line(aes(y = predict(log_fit, type = "response")))
+```
+
+## `logit`
+
+[Simulate data from a logistic regression model: How the intercept parameter affects the probability of the event](https://blogs.sas.com/content/iml/2023/01/16/simulate-logistic-intercept.html)
+
+```{r}
+cov1_binary_def <- defData(varname = "c_1", dist = "normal", formula = "0",
+                           variance = 1) |> 
+  defData(varname = "y", formula = "0.5 + 2*c_1",
+          dist = "binary", link = "logit")
+```
+
+```{r}
+cov1_binary_dt <- genData(1000, cov1_binary_def)
+```
+
+```{r}
+ggplot(cov1_binary_dt,
+       aes(c_1, y)) +
+  geom_point() +
+  stat_poly_line(linewidth = 0.5, formula = y ~ x, show.legend = FALSE) +
+  stat_poly_eq(use_label("eq"), size = 4, formula = y ~ x) 
+  
+```
+
+```{r}
+log_fit <- glm(y ~ c_1, cov1_binary_dt, family = binomial)
+```
+
+```{r}
+ggplot(cov1_binary_dt, aes(c_1, y)) +
+  geom_point() +
+  geom_line(aes(y = predict(log_fit, type = "response")))
+```
+:::
 
 [logit() and logistic() functions in R](https://ro-che.info/articles/2018-08-11-logit-logistic-r)
 
@@ -2429,13 +2546,13 @@ ggplot(tibble(x = seq(-6, 6, by = 0.5),
   geom_point()
 ```
 
-### Faktorielles Design {.unnumbered .unlisted}
+::: callout-note
+## Oder doch die Normalverteilung?
 
-### Kovariates Design {.unnumbered .unlisted}
+Wir können natürlich auch die Dtane erstmal mit einer Normalverteilung erschaffen und uns dann einen wie auch immer gearteten Grenzwert ausdenken bei dem wir dann entscheiden, dass alle Werte unter dem Grenzwert dann Null sind und alle über dem Grenzwert zu Eins werden.
+:::
 
 ## Komplexe Modelle
-
-### Multiple Modelle
 
 ### Überlebenszeiten
 
@@ -2443,7 +2560,7 @@ ggplot(tibble(x = seq(-6, 6, by = 0.5),
 
 [Spline Data](https://kgoldfeld.github.io/simstudy/articles/spline.html)
 
-#### Multifaktoriell abhängig $f_A + f_B + f_C$ {.unnumbered .unlisted}
+[Longitudinal Data](https://kgoldfeld.github.io/simstudy/articles/longitudinal.html)
 
 [Correlated multivariate ordinal data](https://kgoldfeld.github.io/simstudy/articles/ordinal.html#correlated-multivariate-ordinal-data)
 
