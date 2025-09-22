@@ -2454,6 +2454,8 @@ binom_fac1_dt |>
 Hier sehen wir dann aber leichte Rundungsabweichungen durch die etwas geringe Anzahl an Beobachtungen. Wenn wir noch mehr Beobachtungen einstellen, dann wird auch die geringe Abweichung verschwinden.
 :::
 
+Das war es jetzt auch schon für das faktorielle Design. Wenn du ein zweifaktorielles Design brauchst, dann wird es eben schon sehr viel schwieriger mit den kleinen Effekten damit du in dem Interval $[0;1]$ bleibst. Da mache ich dann immer eine Simulation mit der Normalverteilung und versuche mir dann einen Grenzwert so zu bauen, dass ich zwei Gruppen erhalte. Mehr dazu dann am Ende des Abschnitts nochmal in dem Kasten zu der Generierung von binären Messwerten mit der Normalverteilung.
+
 ### Kovariates Design {.unnumbered .unlisted}
 
 ::: panel-tabset
@@ -2524,6 +2526,8 @@ cov1_binary_def <- defData(varname = "c_1", dist = "normal", formula = "0",
 ```{r}
 cov1_binary_dt <- genData(100000, cov1_binary_def)
 ```
+
+Der folgende Geanknegang ist eher etwas wild, aber er hilft vielleicht sich die Sachlage nochmal zu veranschaulichen. Rein statistisch gesehen überfhren wir hier einen statistischen Engel, aber so richtig. Mir hat es nochmal etwas geholfen eine Idee dafür zu entwicklen, was diese logistische Transfomation sein soll und wie diese stattfindet.
 
 ```{r}
 cov1_binary_logit_dt <- 
@@ -2603,6 +2607,9 @@ ggplot(cov1_binary_dt, aes(c_1, y)) +
 
 [Logistic Regression Explained from Scratch (Visually, Mathematically and Programmatically)](https://towardsdatascience.com/logistic-regression-explained-from-scratch-visually-mathematically-and-programmatically-eb83520fdf9a/)
 
+::: panel-tabset
+## *logit* mit `qlogis()`
+
 $$
 \text{logit}(Pr) = log\left(\cfrac{Pr}{1-Pr}\right)
 $$
@@ -2617,11 +2624,24 @@ logit(0.6)
 ```
 
 ```{r}
+#| message: false
+#| echo: true
+#| eval: true
+#| warning: false
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 7
+#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| label: fig-eda-gen-binomial-logit-theo
+
 ggplot(tibble(x = seq(0, 1, by = 0.01),
               y = logit(x)),
        aes(x, y)) +
+  theme_modeling() +
   geom_point()
 ```
+
+## *logistic* oder *invlogit* mit `plogis()`
 
 $$
 \text{logistic}(z) = \cfrac{1}{1 + e^{-z}}
@@ -2637,28 +2657,65 @@ plogis(0.4054651) # logistic
 ```
 
 ```{r}
+#| message: false
+#| echo: true
+#| eval: true
+#| warning: false
+#| fig-align: center
+#| fig-height: 3
+#| fig-width: 7
+#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| label: fig-eda-gen-binomial-logistic-theo
+
 ggplot(tibble(x = seq(-6, 6, by = 0.5),
               y = plogis(x)),
        aes(x, y)) +
+  theme_modeling() +
   geom_point()
 ```
+:::
+
+Was bleibt dann noch am Ende übrig?
 
 ::: callout-note
 ## Oder doch die Normalverteilung?
 
-Wir können natürlich auch die Dtane erstmal mit einer Normalverteilung erschaffen und uns dann einen wie auch immer gearteten Grenzwert ausdenken bei dem wir dann entscheiden, dass alle Werte unter dem Grenzwert dann Null sind und alle über dem Grenzwert zu Eins werden.
+Wir können natürlich auch die Dtane erstmal mit einer Normalverteilung erschaffen und uns dann einen wie auch immer gearteten Grenzwert ausdenken bei dem wir dann entscheiden, dass alle Werte unter dem Grenzwert dann Null sind und alle über dem Grenzwert zu Eins werden. Teilweise ist es vermutlich die bessere Idee, wenn du sehr viele Einflussvariablen vorliegen hast. Hier nutze ich dann die Funktion `ifelse()` um mir einen Grenzwert von 2 zu setzen.
+
+```{r}
+binom_norm_tbl <- tibble(c_1 = rnorm(100, 0, 3),
+                         y = 0 + 1.2 * c_1 + rnorm(100, 0, 1),
+                         y_bin = ifelse(y >= 2, 1, 0))
+```
+
+Dann können wir uns auch einmal anschauen, wie sich unser binärer Messwert dann verteilt.
+
+```{r}
+binom_norm_tbl |> 
+  tabyl(y_bin) 
+```
+
+Besonders wenn du dann viele Einflussvariablen hast, macht es Sinn einmal mit Grenzwerten zu spielen, so dass du am Ende auch balancierte binäre Messwerte hast. Am Ende macht es ja keinen Sinn nur Messwerte zu produzieren die alle Eins oder alle Null sind.
 :::
 
 ## Komplexe Modelle
 
-### Überlebenszeiten
+Am Ende gibt es natürlich noch komplexere statitische Modell, die wir dann mit künstlichen Daten versehen können. Das R Paket `{simstudy}` hat ja hier eine große Auswahl an Möglichkeiten. Wie immer gilt aber, warum willst du dir die Daten generieren? Die genierung hat ja an sich keinen Selbstzweck. Es macht Sinn sich künstliche Daten zu generieren, wenn wir die Algorithmen besser verstehen wollen. Wenn du dann aber so tief in der Thematik der Algorithmen und Methoden bist, dann übersteigt meist dein Interesse hier meine Fähigkeiten allgemeiner über das Thema zu schreiben. Deshalb hier nochmal eine lockere Linksammlung für die komplexeren Modelle.
 
-### Zeitreihen
+### Überlebenszeiten {.unnumbered .unlisted}
 
-[Spline Data](https://kgoldfeld.github.io/simstudy/articles/spline.html)
+Wenn es um Überlebenszeotdaten geht dann hilft die Vingette [Survival Data](https://kgoldfeld.github.io/simstudy/articles/survival.html) vom R Paket `{simstudy}` weiter. Dort wird nochmal auf die speziellen Anforderungen einer Überlebenszeitanalyse (eng. *time to event*) eingegangen. Wir haben in einer Überlebenszeitanalyse eben auch einen Messwert vorliegen, der aus zwei Komponenten besteht. Wir brauchen einmal die Information, ob ein Ereignis eingetreten ist oder nicht. Damit haben wir einen binären Messwert. Darüber hinaus wollen wir noch wissen, wie lange es bis zum Ereignis gedauert hat. Das ist eher ein poissonverteilter Messwert. Es sind eben die Anzahl an Tagen oder allgemeiner die vergangene Zeit bis zum Ereignis. Das zusammen macht die Sachlage nicht einfacher. Aktuell nutze ich keine Überlebenszeitanalysen in meinen Vorlesungen und daher bleibt dieses Abschnitt auch erstmal offen.
 
-[Longitudinal Data](https://kgoldfeld.github.io/simstudy/articles/longitudinal.html)
+### Zeitreihen {.unnumbered .unlisted}
 
-[Correlated multivariate ordinal data](https://kgoldfeld.github.io/simstudy/articles/ordinal.html#correlated-multivariate-ordinal-data)
+Wenn wir noch weiter über Zeitreihen sprechen, dann können wir verschiedene Dinge meinen. Wir haben eine Kovariate als Zeit vorliegen oder aber wir messen an bestimmten Zeitpunkten. Ein Zeitpunkt ist vermutlich eher ein Faktor. Messen wir viele Zeitpunkte, dann könnte der Zeitpunkt auch wieder eine Kovariate sein. Auf jeden Fall haben die Zeitpunkte untereinander etwas miteinander zu tun. Oder anders gesprochen, die Zeitpunkte sind untereinander korreliert. Je weiter die Zeitpunkte auseinanderliegen, desto geringer ist die Korrelation. Die folgenden Vingetten des R Paketes `{simstudy}` beschäftigen sich mit diesen Fragen.
+
+-   Die Vingette zu den [Longitudinal Data](https://kgoldfeld.github.io/simstudy/articles/longitudinal.html) ist im Prinzip ein guter Einstieg, wenn du längere Zeitreihen vorliegen hast. Was lang ist, hängt wiederum von Betrachter ab. Aber es geht eher um mehrere Wochen bis Monate.
+-   Die Vingette [Correlated Data](https://kgoldfeld.github.io/simstudy/articles/correlated.html) beschreibt eher die korrelierten Zeitpunkte als Faktoren. Hier musst du aber mal schauen, ob nicht die Vingette zu [Correlation Matrices](https://kgoldfeld.github.io/simstudy/articles/corelationmat.html) besser geeignet ist.
+-   Wenn es komplizieter wird, dann können wir auch ordinale Messwerte mit der Vingette [Correlated multivariate ordinal data](https://kgoldfeld.github.io/simstudy/articles/ordinal.html#correlated-multivariate-ordinal-data) erstellen. Hier wird es dann aber sehr komplex, wenn es dann noch um Effekte geht.
+
+Am Ende sind alle Beispiele der Vingetten eher linear vom Verlauf über die Zeit. Wenn es wilder sein soll, also wir eher eine Kurve beobachten wollen, dann brauchen wir die folgende Vingette.
+
+-   Die Vingette [Spline Data](https://kgoldfeld.github.io/simstudy/articles/spline.html) stellt im Prinzip nicht lineare Zusammenhänge dar. Wenn du also Daten brauchst, die Kurvenverläufe darstellen dann wird dir hier weitergeholfen. Es wird dann aber schnell sehr komplex, so dass du hier dann einiges an Zeit brauchen wirst um die Daten gut zu simulieren.
 
 ## Referenzen {.unnumbered}
