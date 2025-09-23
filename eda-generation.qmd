@@ -2463,6 +2463,8 @@ Kommen wir nun zu dem kovariaten Design, wo wir dann nochmal etwas genauer auf d
 ::: panel-tabset
 ## `link = "idenity"`
 
+Am einfachsten machen wir es uns, wenn wir direkt auf den Wahrscheinlichkeiten die Daten generieren. Daher nehmen wir hier einmal eine normalverteilte Kovariate an und wollen dann mit der Kovariate den binären Messwert generieren. Dabei haben wir einen Mittelwert von Null für die Kovariate angenommen. Der Effekt kann jetzt direkt als Wahrscheinlichkeit interpretiert werden. Daher haben wir als Intercept 50% Wahrscheinlichkeit eine Eins in dem Messwert zu beobachten. Je Einheit Kovariate steigt die Wahrscheinlichkeit dann um $+0.15$ an.
+
 ```{r}
 cov1_binary_def <- defData(varname = "c_1", dist = "normal", formula = "0",
                            variance = 1) |> 
@@ -2470,9 +2472,13 @@ cov1_binary_def <- defData(varname = "c_1", dist = "normal", formula = "0",
           dist = "binary", link = "identity")
 ```
 
+Dann bauen wir uns einmal die Daten damit wir gleich einmal in der Abbildung schauen können, wie sich die Messwerte dann verteilen.
+
 ```{r}
 cov1_binary_dt <- genData(1000, cov1_binary_def)
 ```
+
+In der folgenden Abbildung können wir uns einmal die Daten und die entsprechenden Effekte anschauen. Die Grade entspricht einer linearen Regression durch die Punktewolke. Wir sehen hier sehr schön, dass wir die voreingestellten Werte aus unserer Simulation wiederfinden. Dafür haben wir hier aber den Nachteil, dass die Grade über die Null und Eins hinausschießen kann. Jetzt können wir natürlich auch sagen, dass wir ja eigentlich eine logistische Regression rechnen würden. Das machen wir auch gleich mal.
 
 ```{r}
 #| message: false
@@ -2482,21 +2488,25 @@ cov1_binary_dt <- genData(1000, cov1_binary_def)
 #| fig-align: center
 #| fig-height: 3
 #| fig-width: 7
-#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Scatterplot der Kovariate und den binären Messwert. Die Regressionsgleichung ist ergänzt und entspricht den voreingestellten Werten. Die Modellierung erfolgt hier über eine lineare Regression. *[Zum Vergrößern anklicken]*"
 #| label: fig-eda-gen-binomial-01
 
 ggplot(cov1_binary_dt, aes(c_1, y)) +
   theme_modeling() +
   geom_point() +
-  stat_poly_line(linewidth = 0.5, formula = y ~ x, show.legend = FALSE) +
+  stat_poly_line(linewidth = 0.5, formula = y ~ x, show.legend = FALSE, se = FALSE) +
   stat_poly_eq(use_label("eq"), size = 4, formula = y ~ x,
                label.y = 0.8) 
   
 ```
 
+Wir können uns auch einmal die Modellanpassung mit einer logistischen Regression anschauen. Dafür müsse wir dann erstmal die logistische Regression mit der Funktion `glm()` rechnen.
+
 ```{r}
 log_fit <- glm(y ~ c_1, cov1_binary_dt, family = binomial)
 ```
+
+Jetzt können wir die Ergebnisse der Regression direkt einmal in die Punktewolke abbilden. Der große Vorteil ist, dass wir die Grade jetzt dank der logistsichen Transformation innerhalb der Modellierung der logistischen Regression jetzt zwischen Null und Eins bleibt. Dafür haben wir jetzt aber nicht direkt die *logistischen* Effekte modelliert. Deshalb bietet sich im anderen Tab noch die Generierung mit logistischen Effekten an.
 
 ```{r}
 #| message: false
@@ -2506,7 +2516,7 @@ log_fit <- glm(y ~ c_1, cov1_binary_dt, family = binomial)
 #| fig-align: center
 #| fig-height: 3
 #| fig-width: 7
-#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Scatterplot der Kovariate und den binären Messwert. Die Modellierung erfolgt hier über eine logistische Regression. *[Zum Vergrößern anklicken]*"
 #| label: fig-eda-gen-binomial-02
 ggplot(cov1_binary_dt, aes(c_1, y)) +
   theme_modeling() +
@@ -2516,7 +2526,7 @@ ggplot(cov1_binary_dt, aes(c_1, y)) +
 
 ## `link = "logit"`
 
-[Simulate data from a logistic regression model: How the intercept parameter affects the probability of the event](https://blogs.sas.com/content/iml/2023/01/16/simulate-logistic-intercept.html)
+Es ist natürlich etwas blöd, wenn wir die Daten auf der Basis einer linearen Regression abbilden und dann über die logistische Regression auswerten wollen. Da wäre es ja besser, wenn wir direkt auf der logistischen Transformation unseren Messwert generieren. Hier gibt es auch die Vingette [Simulate data from a logistic regression model: How the intercept parameter affects the probability of the event](https://blogs.sas.com/content/iml/2023/01/16/simulate-logistic-intercept.html), die etwas genauer auf das Problem eingeht. Am Ende wählen wir hier die Option `link = "logit"` um unsere Messwerte mit dem Effekt auf dem Logit zu generieren. Das macht die Interpretation um einiges schwerer bis unmöglich. Wir müssen hier dann also rumprobieren, bis alles passt.
 
 ```{r}
 cov1_binary_def <- defData(varname = "c_1", dist = "normal", formula = "0",
@@ -2525,15 +2535,16 @@ cov1_binary_def <- defData(varname = "c_1", dist = "normal", formula = "0",
           dist = "binary", link = "logit")
 ```
 
+Dann können wir auch einmal die Daten generieren und uns anschauen, wie sich die Messwerte ergeben. Ich generiere hier einmal richtig viele Beobachtungen, damit wir auch gleich was sehen und nicht zu viel Rauschen in den Daten haben.
+
 ```{r}
 cov1_binary_dt <- genData(100000, cov1_binary_def)
 ```
 
-Der folgende Gedankengang ist eher etwas wild, aber er hilft vielleicht sich die Sachlage nochmal zu veranschaulichen. Rein statistisch gesehen überfahren wir hier einen statistischen Engel, aber so richtig. Mir hat es aber nochmal geholfen eine Idee dafür zu entwicklen, was diese logistische Transfomation sein soll und wie diese stattfindet.
+Der folgende Gedankengang ist eher etwas wild, aber er hilft vielleicht sich die Sachlage nochmal zu veranschaulichen. Rein statistisch gesehen überfahren wir hier einen statistischen Engel, aber so richtig. Mir hat es aber nochmal geholfen eine Idee dafür zu entwicklen, was diese logistische Transfomation sein soll und wie diese stattfindet. Wir können jetzt einmal die Kovariate $c_1$ in zehn gleichmäßige Stücke oder Intervalle teilen. Für jedes dieser Intervalle berechnen wir dann den Anteil an Einsen und addieren einen kleinen Fehler drauf. Am Ende können wir dann die logistische Transformation rechnen.
 
 ```{r}
-cov1_binary_logit_dt <- 
-  cov1_binary_dt |> 
+cov1_binary_logit_dt <- cov1_binary_dt |> 
   mutate(c_1_bin = cut(c_1, breaks = 10)) |> 
   group_by(c_1_bin) |> 
   summarise(mean_y = round(mean(y), 2) + 0.001) |> 
@@ -2544,6 +2555,8 @@ cov1_binary_logit_dt <-
          logistic = plogis(mean_y))
 ```
 
+In der folgenden Abbildung siehst du einmal das Ergebnis. Wir haben hier die logistsiche Transformation von den Wahrscheinlichkeiten eine Eins zu beobachten einmal für das Beispiel einer Kovariate dargestellt. So ergibt sich dann auch die charakteristische S-Kuvre der logistischen Regression.
+
 ```{r}
 #| message: false
 #| echo: false
@@ -2552,12 +2565,14 @@ cov1_binary_logit_dt <-
 #| fig-align: center
 #| fig-height: 3
 #| fig-width: 7
-#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Logistische Transformation für die Wahrscheinlichkeit eine Eins zu beobachten pro Intervall der Kovariate. Es ergibt sich eine klassiche S-Kurve. *[Zum Vergrößern anklicken]*"
 #| label: fig-eda-gen-binomial-theo
 ggplot(cov1_binary_logit_dt, aes(mid, logistic)) +
   theme_modeling() +
   geom_point() +
-  geom_path() 
+  geom_path() +
+  labs(y = "Logistische Transformation", x = "Mittelwert der Kovariate pro Intervall") +
+  ylim(0.5, 0.75)
 ```
 
 ```{r}
