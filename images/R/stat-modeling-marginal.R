@@ -273,7 +273,7 @@ p1_intro_01 <- ggplot() +
   geom_richtext(aes(x = 1, y = 4.25, label = "f(x) = 2x - 1<br>f'(x) = 2")) +
   scale_x_continuous(breaks = -2:5, limits = c(-1, 3)) +
   scale_y_continuous(breaks = -3:9) +
-  labs(x = "x", y = "y") 
+  labs(x = expression(bold(Kovariate~"("*c[1]*")")), y = "Messwert (y)")
 
 p2_intro_01 <- ggplot() +
   theme_marginal() +
@@ -286,7 +286,7 @@ p2_intro_01 <- ggplot() +
                 nudge_y = 0.55) +
   scale_x_continuous(breaks = -2:5, limits = c(-1, 3)) +
   scale_y_continuous(breaks = -3:9) +
-  labs(x = "x", y = "y") 
+  labs(x = expression(bold(Kovariate~"("*c[1]*")")), y = "Messwert (y)")
 
 ## -----------------------------------------------------------------------------
 
@@ -309,7 +309,8 @@ p1_intro_02 <- ggplot() +
                 xlim = c(0, 12)) +
   geom_richtext(aes(x = 10, y = 12, label = "f(x) = -0.5x² + 5x<br>f'(x) = -x + 5")) +
   scale_x_continuous(breaks = seq(0, 12, 2), limits = c(-1.5, 12.5)) +
-  coord_cartesian(ylim = c(-10, 15))
+  coord_cartesian(ylim = c(-10, 15)) +
+  labs(x = expression(bold(Kovariate~"("*c[1]*")")), y = "Messwert (y)")
 
 p2_intro_02 <- ggplot() +
   theme_marginal() +
@@ -325,7 +326,8 @@ p2_intro_02 <- ggplot() +
              size = 3) +
   geom_richtext(data = slope_annotations, aes(x = x, y = y, label = nice_label),
                 nudge_y = 2) +
-  coord_cartesian(ylim = c(-10, 15))
+  coord_cartesian(ylim = c(-10, 15)) +
+  labs(x = expression(bold(Kovariate~"("*c[1]*")")), y = "Messwert (y)")
 ## -----------------------------------------------------------------------------
 
 p1_intro_00 <- ggplot(modell_line_tbl, aes(x, y)) +
@@ -333,14 +335,16 @@ p1_intro_00 <- ggplot(modell_line_tbl, aes(x, y)) +
   geom_point2() +
   theme(axis.text = element_blank()) +
   geom_function(fun = \(x) 1.5 + 0.75 * x, color = "#E69F00", linewidth = 1) +
-  labs(caption = "Funktionsgleichung: y = 2x - 1\ny' = 2")
+  labs(caption = "Funktionsgleichung: y = 2x - 1\ny' = 2") +
+  labs(x = expression(bold(Kovariate~"("*c[1]*")")), y = "Messwert (y)")
 
 p2_intro_00 <- ggplot(modell_square_tbl, aes(x, y)) +
   theme_marginal() +
   geom_point2() +
   theme(axis.text = element_blank()) +
   geom_function(fun = \(x) 1.5 + 0.75 * -x^2, color = "#56B4E9", linewidth = 1) +
-  labs(caption = "Funktionsgleichung: y = -0.5x² + 5x\ny' = -x + 5")
+  labs(caption = "Funktionsgleichung: y = -0.5x² + 5x\ny' = -x + 5") +
+  labs(x = expression(bold(Kovariate~"("*c[1]*")")), y = "Messwert (y)")
 
 ## -----------------------------------------------------------------------------
 a_line <- \(x) x^3 + -8*x^2 + 10*x + 10
