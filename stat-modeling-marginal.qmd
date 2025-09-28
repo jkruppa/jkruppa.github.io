@@ -20,6 +20,7 @@ theme_marginal <- function() {
           plot.caption = element_text(face = "italic"),
           axis.title = element_text(face = "bold"),
           axis.text = element_text(size = 12),
+          legend.title = element_text(face = "bold"),
           strip.text = element_text(face = "bold"),
           strip.background = element_rect(fill = "grey80", color = NA))
 }
@@ -732,7 +733,7 @@ ggplot(modell_line_tbl, aes(x, y)) +
 
 ## Datenraster
 
-Was ist ein Datenraster (eng. *data grid*) eigentlich? Wir brauchen die Idee des Datenrasters um überhaupt die Vorhersagen und die kontrafaktischen Vergleiche zu verstehen. Im Prinzip beinhaltet das Datenraster die Information zu welchen Beobachtungen wir eine Vorhersage machen wollen. Wenn wir nochmal kutz zu dem Enyzmebeispiel kommen, zu welchen pH-Werten möchtest du dann eine Steigung oder aber eine Vorhersage der Enzymetätigkeit haben? Beginnen wir mit einem einfachen Beispiel um zu verstehen was die einzelnen Datenraster aussagen wollen.
+Was ist ein Datenraster (eng. *data grid*) eigentlich? Wir brauchen die Idee des Datenrasters um überhaupt die Vorhersagen, die Steigung und die kontrafaktischen Vergleiche zu verstehen. Im Prinzip beinhaltet das Datenraster die Information zu welchen Beobachtungen wir eine Vorhersage machen oder die Steigung berechnen wollen. Wenn wir nochmal kutz zu dem Enyzmebeispiel kommen, zu welchen pH-Werten möchtest du dann eine Steigung oder aber eine Vorhersage der Enzymetätigkeit haben? Beginnen wir mit einem einfachen Beispiel um zu verstehen was die einzelnen Datenraster aussagen wollen.
 
 In Folgenden siehst du einmal einen kleinen Datensatz mit einer numerischen Variable, einer dichotomen Variable sowie einer Variable mit drei Kategorien. So ähnlich haben wir ja auch Datensätze in echt vorliegen.
 
@@ -885,7 +886,7 @@ cf_grid |> tt()
 
 > *"Let us introduce another concept that is likely to get very popular in the near future within the world of regressions. Derivatives." --- [`{modelbased}`](https://easystats.github.io/modelbased/articles/derivatives.html#effect-derivatives)*
 
-### Marginale Effekte
+### Einkovariates Modell $(c_1)$
 
 Hier sprechen wir von der Ableitung (eng. *derivative*)
 
@@ -1155,6 +1156,187 @@ p1_intro_00_1 +
 ```
 :::
 
+### Kombiniertes Modell $(c_1 + f_A)$
+
+![foo. Modifiziert nach @heiss2022](images/marginal/flow-game-trans.png){#fig-utest-intro-05 fig-align="center" width="100%"}
+
+Hier ist die Anordugn wichtig. Erst kommt die gruppierende Variable, dann der Rest.
+
+```{r}
+model_grp_sq <- lm(jump_length ~ stage * weight + I(weight^2),
+                   data = flea_model_tbl)
+tidy(model_grp_sq)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 9.5
+#| fig-cap: "foo. **(A)** Kombinierte Darstellung in einem Scatterplot **(B)** Aufgeteilte Darstellung für beide Entwicklungsstadien. *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-data-7
+
+ggplot(flea_model_tbl, aes(x = weight, y = jump_length,
+                           color = stage)) +
+  theme_marginal() +
+  geom_point() +
+  labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]",
+       color = "Eintwicklungsstand") +
+  geom_line(aes(y = predict(model_grp_sq)), linewidth = 1.25) +
+  ylim(NA, 175) +
+  scale_color_okabeito() +
+  theme(legend.position = "top")
+```
+
+::: panel-tabset
+## Schritt-für-Schritt
+
+```{r}
+mfx_grp_sq <- model_grp_sq |> 
+  slopes(variables = "weight")
+head(mfx_grp_sq)
+```
+
+```{r}
+mfx_grp_sq |> 
+  group_by(stage) |> 
+  summarize(stage_ame = mean(estimate))
+```
+
+## `slopes()`
+
+```{r}
+model_grp_sq |> 
+  slopes(variables = "weight",
+         by = "stage")
+```
+:::
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 9.5
+#| fig-cap: "foo. **(A)** Kombinierte Darstellung in einem Scatterplot **(B)** Aufgeteilte Darstellung für beide Entwicklungsstadien. *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-data-8
+
+weight_sum <- flea_model_tbl |> 
+  group_by(stage) |> 
+  summarise(mean(weight))
+
+pred <- predict(model_grp_sq, newdata = tibble(weight = 14.05, stage = "adult"))
+pred <- predict(model_grp_sq, newdata = tibble(weight = 5.85, stage = "juvenile"))
+
+
+ggplot(flea_model_tbl, aes(x = weight, y = jump_length,
+                           color = stage)) +
+  theme_marginal() +
+  geom_point() +
+  labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]",
+       color = "Entwicklungsstand") +
+  geom_abline(intercept = find_intercept(14.05, 85.48217, -0.192), slope = -0.192,
+              linewidth = 0.5, color = cb_pal[8], linetype = "21") +
+  geom_abline(intercept = find_intercept(5.85, 95.5206, 7.826), slope = 7.826,
+              linewidth = 0.5, color = cb_pal[7], linetype = "21") +
+  geom_line(aes(y = predict(model_grp_sq)), linewidth = 1.25,
+            fullrange = TRUE) +
+  annotate("point", x = 14.05, y = 85.48217, size = 4, shape = 18, 
+           color = cb_pal[9]) +
+  annotate("point", x = 5.85, y = 95.5206, size = 4, shape = 18, 
+           color = cb_pal[9]) +
+  geom_richtext(aes(x = 14.05, y = 100, label = "Steigung adult: -0.192"),
+                site = 20, color = "black") +
+  geom_richtext(aes(x = 5.85, y = 110, label = "Steigung juvenile: 7.826"),
+                site = 20, color = "black") +
+  scale_color_okabeito() +
+  ylim(NA, 175) +
+  theme(legend.position = "top")
+```
+
+### Repräsentative Werte
+
+![foo. Modifiziert nach @heiss2022](images/marginal/flow-mer-trans.png){#fig-utest-intro-07 fig-align="center" width="100%"}
+
+```{r}
+model_grp_sq <- lm(jump_length ~ feeding * weight + I(weight^2),
+                   data = flea_model_tbl)
+tidy(model_grp_sq)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 9.5
+#| fig-cap: "foo. **(A)** Kombinierte Darstellung in einem Scatterplot **(B)** Aufgeteilte Darstellung für beide Entwicklungsstadien. *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-data-9
+
+ggplot(flea_model_tbl, aes(x = weight, y = jump_length,
+                           color = feeding)) +
+  theme_marginal() +
+  geom_point() +
+  labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]",
+       title = "Quadratischer Zusammenhang") +
+  geom_line(aes(y = predict(model_grp_sq)), linewidth = 1.25) +
+  scale_color_okabeito()
+```
+
+```{r}
+datagrid(model = model_grp_sq,
+         weight = c(5, 10, 15),
+         feeding = unique)
+```
+
+::: panel-tabset
+## Ohne Gruppenvergleich
+
+```{r}
+model_grp_sq |> 
+  slopes(variables = "weight",
+         newdata = datagrid(weight = c(5, 10, 15),
+                            feeding = unique))
+```
+
+## Mit Gruppenvergleich
+
+```{r}
+comp_tbl <- as.data.frame(t(combn(levels(flea_model_tbl$feeding), 2))) |> 
+    unite("z", sep = " - ")
+```
+
+```{r}
+model_grp_sq |> 
+  slopes(variables = "weight",
+         newdata = datagrid(weight = c(5),
+                            feeding = unique))
+```
+
+```{r}
+#| eval: false
+model_grp_sq |> 
+  slopes(variables = "weight",
+         newdata = datagrid(weight = c(5),
+                            feeding = unique),
+         hypothesis = "pairwise")  |> 
+  mutate(term = pluck(comp_tbl, "z"))
+```
+:::
+
+```{r}
+model_grp_sq |> 
+  emtrends(~ weight + feeding, 
+           var = "weight",
+           at = list(weight = c(5, 10, 15),
+                     feeding = c("sugar_water", "ketchup", "blood")),
+           regrid = "response") 
+```
+
 ::: callout-note
 ## Philosophien zur Mittelwertbildung
 
@@ -1279,181 +1461,6 @@ model_sq |>
   avg_slopes(newdata = "mean")
 ```
 :::
-
-### Gruppierte marginale Effekte
-
-![foo. Modifiziert nach @heiss2022](images/marginal/flow-game-trans.png){#fig-utest-intro-05 fig-align="center" width="100%"}
-
-Hier ist die Anordugn wichtig. Erst kommt die gruppierende Variable, dann der Rest.
-
-```{r}
-model_grp_sq <- lm(jump_length ~ stage * weight + I(weight^2),
-                   data = flea_model_tbl)
-tidy(model_grp_sq)
-```
-
-```{r}
-#| message: false
-#| echo: false
-#| warning: false
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 9.5
-#| fig-cap: "foo. **(A)** Kombinierte Darstellung in einem Scatterplot **(B)** Aufgeteilte Darstellung für beide Entwicklungsstadien. *[Zum Vergrößern anklicken]*"
-#| label: fig-marginal-data-7
-
-ggplot(flea_model_tbl, aes(x = weight, y = jump_length,
-                           color = stage)) +
-  theme_marginal() +
-  geom_point() +
-  labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]",
-       title = "Quadratischer Zusammenhang") +
-  geom_line(aes(y = predict(model_grp_sq)), linewidth = 1.25) +
-  scale_color_okabeito()
-```
-
-::: panel-tabset
-## Schritt-für-Schritt
-
-```{r}
-mfx_grp_sq <- model_grp_sq |> 
-  slopes(variables = "weight")
-head(mfx_grp_sq)
-```
-
-```{r}
-mfx_grp_sq |> 
-  group_by(stage) |> 
-  summarize(stage_ame = mean(estimate))
-```
-
-## `slopes()`
-
-```{r}
-model_grp_sq |> 
-  slopes(variables = "weight",
-         by = "stage")
-```
-:::
-
-```{r}
-#| message: false
-#| echo: false
-#| warning: false
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 9.5
-#| fig-cap: "foo. **(A)** Kombinierte Darstellung in einem Scatterplot **(B)** Aufgeteilte Darstellung für beide Entwicklungsstadien. *[Zum Vergrößern anklicken]*"
-#| label: fig-marginal-data-8
-
-weight_sum <- flea_model_tbl |> 
-  group_by(stage) |> 
-  summarise(mean(weight))
-
-pred <- predict(model_grp_sq, newdata = tibble(weight = 14.05, stage = "adult"))
-
-ggplot(flea_model_tbl, aes(x = weight, y = jump_length,
-                           color = stage)) +
-  theme_marginal() +
-  geom_point() +
-  labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]",
-       title = "Quadratischer Zusammenhang") +
-  geom_abline(intercept = find_intercept(14.05, 75.6691, 0.438), slope = 0.438,
-              linewidth = 0.5, color = cb_pal[8], linetype = "21") +
-  geom_abline(intercept = find_intercept(5.85, 58.59134, 0.807), slope = 0.807,
-              linewidth = 0.5, color = cb_pal[7], linetype = "21") +
-  geom_line(aes(y = predict(model_grp_sq)), linewidth = 1.25,
-            fullrange = TRUE) +
-  annotate("point", x = 14.05, y = 75.6691, size = 4, shape = 18, 
-           color = cb_pal[9]) +
-  annotate("point", x = 5.85, y = 58.59134, size = 4, shape = 18, 
-           color = cb_pal[9]) +
-  geom_richtext(aes(x = 14.05, y = 81, label = "Steigung adult: 0.44"),
-                site = 20, color = "black") +
-  geom_richtext(aes(x = 5.85, y = 64.5, label = "Steigung juvenile: 0.81"),
-                site = 20, color = "black") +
-  scale_color_okabeito()
-```
-
-### Repräsentative Werte
-
-![foo. Modifiziert nach @heiss2022](images/marginal/flow-mer-trans.png){#fig-utest-intro-07 fig-align="center" width="100%"}
-
-```{r}
-model_grp_sq <- lm(jump_length ~ feeding * weight + I(weight^2),
-                   data = flea_model_tbl)
-tidy(model_grp_sq)
-```
-
-```{r}
-#| message: false
-#| echo: false
-#| warning: false
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 9.5
-#| fig-cap: "foo. **(A)** Kombinierte Darstellung in einem Scatterplot **(B)** Aufgeteilte Darstellung für beide Entwicklungsstadien. *[Zum Vergrößern anklicken]*"
-#| label: fig-marginal-data-9
-
-ggplot(flea_model_tbl, aes(x = weight, y = jump_length,
-                           color = feeding)) +
-  theme_marginal() +
-  geom_point() +
-  labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]",
-       title = "Quadratischer Zusammenhang") +
-  geom_line(aes(y = predict(model_grp_sq)), linewidth = 1.25) +
-  scale_color_okabeito()
-```
-
-```{r}
-datagrid(model = model_grp_sq,
-         weight = c(5, 10, 15),
-         feeding = unique)
-```
-
-::: panel-tabset
-## Ohne Gruppenvergleich
-
-```{r}
-model_grp_sq |> 
-  slopes(variables = "weight",
-         newdata = datagrid(weight = c(5, 10, 15),
-                            feeding = unique))
-```
-
-## Mit Gruppenvergleich
-
-```{r}
-comp_tbl <- as.data.frame(t(combn(levels(flea_model_tbl$feeding), 2))) |> 
-    unite("z", sep = " - ")
-```
-
-```{r}
-model_grp_sq |> 
-  slopes(variables = "weight",
-         newdata = datagrid(weight = c(5),
-                            feeding = unique))
-```
-
-```{r}
-#| eval: false
-model_grp_sq |> 
-  slopes(variables = "weight",
-         newdata = datagrid(weight = c(5),
-                            feeding = unique),
-         hypothesis = "pairwise")  |> 
-  mutate(term = pluck(comp_tbl, "z"))
-```
-:::
-
-```{r}
-model_grp_sq |> 
-  emtrends(~ weight + feeding, 
-           var = "weight",
-           at = list(weight = c(5, 10, 15),
-                     feeding = c("sugar_water", "ketchup", "blood")),
-           regrid = "response") 
-```
 
 ## Vorhersagen (eng. *predictions*)
 
