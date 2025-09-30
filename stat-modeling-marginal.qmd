@@ -987,20 +987,29 @@ Dann können wir die Koeffizienten aus dem Modell einmal in die Formel einsetzen
 
 $$
 \begin{aligned}
-\operatorname{E}[\text{Sprungweite} \mid \text{Schlupfzeit}] &= 125 + (-53.8 \times \text{Schlupfzeit}) + (18.9 \times \text{Schlupfzeit}^2) + (-1.6 \times \text{Schlupfzeit}^3) \\[6pt]
-\frac{\partial \operatorname{E}[\text{Sprungweite} \mid \text{Schlupfzeit}]}{\partial\ \text{Schlupfzeit}} &= -53.8 + (2\times 18.9 \times \text{Schlupfzeit}) + (3 \times -1.6 \times \text{Schlupfzeit}^2)
+\operatorname{E}[\text{Sprungweite} \mid \text{Schlupfzeit}] = 125 &+ (-53.8 \times \text{Schlupfzeit})\\ 
+&+ (18.9 \times \text{Schlupfzeit}^2)\\ 
+&+ (-1.6 \times \text{Schlupfzeit}^3)
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+\frac{\partial \operatorname{E}[\text{Sprungweite} \mid \text{Schlupfzeit}]}{\partial\ \text{Schlupfzeit}} = -53.8 &+ (2\times 18.9 \times \text{Schlupfzeit})\\ &+ (3 \times -1.6 \times \text{Schlupfzeit}^2)
 \end{aligned}
 $$
 
 Wenn wir jetzt für jede Schlupfzeit dann immer die Steigung berechnen müssten, dann wäre das sehr aufwendig. Wir müssten ja erstmal das Modell rechnen, dann die mathematische Formel aufstellen. Danach könnten wir dann ja die erste Ableitung bilden. Je komplexer das Modell, desto aufwendiger wird es. Da kommen jetzt die *Marginal effect models* ins Spiel, die uns für sehr viele verschiedene Modelle die Steigungen wiedergeben können.
 :::
 
-Betrachten wir nochmal die erste Ableitung der quadratischen Funktion für die Sprungweiten aus den Schlupfzeiten. Ich habe hier einmal die Funktion aufgeschrieben und dann einmal drei Werte für die Schlupfzeiten gewählt. Wir erhalten dann die Steigungen an den drei Schlupfzeiten durch die Funktion wiedergegeben.
+Betrachten wir nochmal die erste Ableitung der quadratischen Funktion für die Sprungweiten aus den Schlupfzeiten. Ich habe hier einmal die Funktion aufgeschrieben und dann einmal drei Werte für die Schlupfzeiten gewählt. Wir erhalten dann die Steigungen an den drei Schlupfzeiten durch die Funktion wiedergegeben. Für das erste ist es etwas ungewohnt, aber wir schauen uns die Steigung gleich einmal an.
 
 ```{r}
 jump_hatched_slope <- function(x) -53.8 + (2 * 18.9 * x) + (3 * -1.6 * x^2)
 jump_hatched_slope(c(1.25, 3.5, 5.75))
 ```
+
+In der folgenden Abbildung habe ich dir dan einmal für die drei Schlupfzeiten die Steigung mit der Tangente an den jeweiligen Punkten visualisiert. Wie du siehst haben die drei Punkte jeweils eine andere Steigung. Damit ist die Aussage auf die Sprungweite auch jeweils eine Andere, wenn wir uns verschiedene Schlupfzeiten anschauen. So haben wir zu geringen Schlupfzeiten eher einen Abfall der Sprungweiten und zu höhren Schlupzeiten eine Steigerung der Sprungweiten vorliegen.
 
 ```{r}
 #| message: false
@@ -1009,7 +1018,7 @@ jump_hatched_slope(c(1.25, 3.5, 5.75))
 #| fig-align: center
 #| fig-height: 4.5
 #| fig-width: 7
-#| fig-cap: "foo. . *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Scatterplot der Sprungweite und der Schlupfzeiten. Die angepasste Grade läuft durch die Punkte. An drei Schlupfzeiten ist die Steigung der Tangente angegeben. Die Steigung unterscheidet sich durch die S-Kurve an allen drei Punkten. *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-data-3
 
 tangents <- model_sq |> 
@@ -1023,7 +1032,6 @@ tangents <- model_sq |>
 ggplot(flea_model_tbl, aes(x = hatched, y = jump_length)) +
   theme_marginal() +
   geom_point2() +
-  ylim(NA, 175) +
   stat_smooth(method = "lm", formula = y ~ x + I(x^2) + I(x^3), linewidth = 1.25, 
               se = FALSE, color = cb_pal[3], fullrange = TRUE) +
   geom_abline(data = tangents, aes(slope = slope, intercept = intercept), 
@@ -1038,27 +1046,19 @@ ggplot(flea_model_tbl, aes(x = hatched, y = jump_length)) +
 
 ```
 
-::: panel-tabset
-## `{marginaleffects}`
+Jetzt ist es natürlich nicht immer möglich für jedes Modell die Gradengleichung zu erhalten. Auch wenn wir da mit [WolframAlpha](https://www.wolframalpha.com/) gute Möglichkeiten haben, Gleichungen abzuleiten oder aber zu bestimmen. Dennoch ist es für manche Modelle gar nicht so einfach möglich eien geschlossene ableitbare Gleichung zu erstellen. Oder es ist so komplex, dass es nicht erstrebenswert ist. Daher haben wir ja das R Paket `{marginaleffects}` welches uns für ein beliebiges Datenraster einmal die Steigung bestimmen lässt. Hier also einmal die Steigung für die drei Schlupzeiten.
 
 ```{r}
 #| message: false
 #| warning: false
 model_sq |> 
-  slopes(newdata = datagrid(hatched = c(1.25, 3.5, 5.75)))
+  slopes(newdata = datagrid(hatched = c(1.25, 3.5, 5.75)),
+         hypothesis = 0)
 ```
 
-## `{emmeans}`
+Das Ganze geht super einfach und wir erhalten auch noch die jeweiligen Fehler sowie einen statistischen Test wiedergegeben, ob sich die Steigung von Null unterscheidet. Wir können hier auch die Option `hypothesis =` ändern und auf einen anderen Grenzwert testen. Das ist sehr praktisch dazu dann noch die 95% Konfidenzintervalle.
 
-```{r}
-#| message: false
-#| warning: false
-model_sq |> 
-  emtrends(~ hatched, var = "hatched",
-           at = list(hatched = c(1.25, 3.5, 5.75))) |> 
-  test()
-```
-:::
+Abschließend mag es ganz interessant sein, wie sich die Steigung über die ganze Kovariate verhält. Also in unserem Fall wie ändert sich die Steigung über die Schlupfzeit? Dafür haben wir dann die Funktion `plot_slopes()`, die uns dann mit einem Fehlerterm einmal angibt, wie sich die Steigung ändert. Das ist natürlich sehr angenehm, wenn wir ein komplexes Modell haben, was wir uns nicht so einfach darstellen können.
 
 ```{r}
 #| message: false
@@ -1067,31 +1067,35 @@ model_sq |>
 #| fig-align: center
 #| fig-height: 3.5
 #| fig-width: 7
-#| fig-cap: "foo. . *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Steigung der Tangente über die Schlupfzeiten zusammen mit dem 95% Konfidenzintervall. Kurze und lange Schlupfzeiten führen zu einer negativen Steigung im bezug zu der Sprungweite. *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-data-4
 
 plot_slopes(model_sq, 
             variables = "hatched", 
             condition = "hatched") +
-  labs(x = "Schlupfzeit in [week]", y = "Sprungweite in [cm]",
-       title = "Steigung der Tangente über die Schlupfzeiten") +
+  labs(x = "Schlupfzeit in [week]", y = "Sprungweite in [cm]") +
   theme_marginal()
 ```
 
 #### Modellierung von Enzymen {.unnumbered .unlisted}
 
-Nachdem wir das einmal konzeptionellm haben einmal komplexer.
+Nachdem wir uns einmal konzeptionell mit der Steigung und damit der Ableitung beschäftigt haben, kommen wir einmal zu einem etwas komplexeren beispiel mit unseren Enzym. Wir haben ja hier eine klare S-Kurve in der Enzymeaktivität vorliegen. Da wir ja das theoretische Modell kennen, können wir auch hier einfach die Ableitung bilden. In der Praxis kennen wir aber das theoretsiche Modell nicht sondern müssen eben die Grade mit einem Algorithmus anpassen. In den folgenden Tabs zeige ich dir dann einmal die Anpassung mit verschiedenen Algorithmen. Dazu habe ich dann auch immer mit dem R Paket `{marginaleffects}` an drei augewählten Werten des pH-Wertes die Steigung berechnet. Die Koeffizienten aller drei Modelle lassen sich nicht direkt einfach interpretieren. Die Steigung jedoch schon.
 
 ::: panel-tabset
 ## `gam()`
 
 ```{r}
 #| message: false
-#| echo: false
 #| warning: false
-
 gam_fit <- gam(activity ~ s(ph), data = enzyme_tbl)
+```
+
+```{r}
 slopes(gam_fit, newdata = datagrid(ph = c(-1, 2, 6)))
+```
+
+```{r}
+avg_slopes(gam_fit)
 ```
 
 ```{r}
@@ -1116,11 +1120,16 @@ p1_intro_00_1 +
 
 ```{r}
 #| message: false
-#| echo: false
 #| warning: false
-
 poly_fit <- lm(activity ~ poly(ph, 3), data = enzyme_tbl)
+```
+
+```{r}
 slopes(poly_fit, newdata = datagrid(ph = c(-1, 2, 6)))
+```
+
+```{r}
+avg_slopes(poly_fit)
 ```
 
 ```{r}
@@ -1145,10 +1154,23 @@ p1_intro_00_1 +
 
 ```{r}
 #| message: false
-#| echo: false
 #| warning: false
 loess_fit <- loess(activity ~ ph, data = enzyme_tbl)
+```
+
+```{r}
+#| message: false
+#| warning: false
 slopes(loess_fit, newdata = datagrid(ph = c(-1, 2, 6)))
+```
+
+Da wir hier ein Problem mit der Varianzmatrix haben, müssen wir uns den Durchschnitt einmal händisch berechnen. Das geht aber auch sehr fix.
+
+```{r}
+#| message: false
+#| warning: false
+slopes(loess_fit) |> 
+  summarise(avg_slope = mean(estimate))
 ```
 
 ```{r}
