@@ -1249,6 +1249,8 @@ model_grp_sq <- lm(jump_length ~ stage * weight + I(weight^2),
 tidy(model_grp_sq)
 ```
 
+Wie immer ist komplexeres Modell schwierig an den Koeffizienten zu interpretieren. Deshalb schauen wir uns einmal in der folgenden Abbildung die Graden an. Wie wir sehen, ist der Zusammenhang zwischen dem Gewicht und der Sprungweite bei den juvenilen Flöhen eher linear, bei den adulten Flöhen dann eher quadratisch. Damit würden wir dann pro Gruppe auch eine andere Steigung über die Kovariate des Gewichts erwarten.
+
 ```{r}
 #| message: false
 #| echo: false
@@ -1256,7 +1258,7 @@ tidy(model_grp_sq)
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 9.5
-#| fig-cap: "foo. **(A)** Kombinierte Darstellung in einem Scatterplot **(B)** Aufgeteilte Darstellung für beide Entwicklungsstadien. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Scatterplot des Einflusses des Flohgewichts auf die Sprungweite aufgeteilt nach dem Entwicklungsstand in adult und juvenile Flöhe. Hier wurde ein quadratischer Zusammenhang modelliert, sodass die Steigung entlang der Grade über die Kovariate unterschiedlich ist. *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-data-7
 
 ggplot(flea_model_tbl, aes(x = weight, y = jump_length,
@@ -1271,8 +1273,24 @@ ggplot(flea_model_tbl, aes(x = weight, y = jump_length,
   theme(legend.position = "top")
 ```
 
+In den beiden folgenden Tabs zeige ich dir einmal wie du die Steigung in den beiden Gruppen für da Gewicht mit dem R Paket `{marginaleffects}` und `slopes()` berechnest. Dann habe ich das auch nochmal Schritt für Schritt gemacht, damit du nochmal nachvollziehen kannst, wie sich die Steigungen in den Gruppen ergeben.
+
 ::: panel-tabset
+## `slopes()`
+
+Wir können uns die Steigung für die Kovariate `weight` einmal berechnen lassen. Wir wollen die Steigung aber über den Faktor `stage` mitteln. Wir mitteln hier immer, da wir eben nicht für jeden Wert des Gewichts und der Gruppe einen Wert erhalten.
+
+```{r}
+model_grp_sq |> 
+  slopes(variables = "weight",
+         by = "stage")
+```
+
+Wir wir sehen, ist die mittlere Steigung bei den juvenilen Flöhe sehr hoch, bei den adulten Flöhen eher niedrig. Hier müssen wir dann gleich nochmal in die Abbildung rein, da wir ja bei den adulten Flöhen eher einen quadratischen Zusammenhang vorliegen haben. Somit könnten sich auch Steigungen rauskürzen, wenn es erst runter und dann wieder rauf geht.
+
 ## Schritt-für-Schritt
+
+Wir können die Steigungen auch erst für die Variable `weight` berechnen und dann erhalten wir alle Werte wiedergeben.
 
 ```{r}
 mfx_grp_sq <- model_grp_sq |> 
@@ -1280,20 +1298,18 @@ mfx_grp_sq <- model_grp_sq |>
 head(mfx_grp_sq)
 ```
 
+Danach können wir dann die Steigungen nach dem Entwicklungsstand gruppieren und mitteln.
+
 ```{r}
 mfx_grp_sq |> 
   group_by(stage) |> 
   summarize(stage_ame = mean(estimate))
 ```
 
-## `slopes()`
-
-```{r}
-model_grp_sq |> 
-  slopes(variables = "weight",
-         by = "stage")
-```
+Wir erhalten dann die gleichen Werte wie auch mit der Funktion `slopes()` aus dem vorherigen Tab nur eben ohne weitere statistische Maßzahlen.
 :::
+
+Dann ergänzen wir einmal die Steigungen in der folgenden Abbildung. Wir sehen hier sehr schön die Steigung bei den juvenilen Flöhen. Nehmen die juvenilen Flöhe zu, dann nimmt auch die Sprungweite sehr schnell an Wert zu. Anders sieht es bei den adulten Flöhen aus. Hier haben wir dann einen Abfall der Leistung mit einer Steigerung am Ende des Spektrums des Gewichts. Daher bietet sich hier insbesondere an, sich für repräsentative Werte einmal die Setigung wiedergeben zu lassen.
 
 ```{r}
 #| message: false
@@ -1302,7 +1318,7 @@ model_grp_sq |>
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 9.5
-#| fig-cap: "foo. **(A)** Kombinierte Darstellung in einem Scatterplot **(B)** Aufgeteilte Darstellung für beide Entwicklungsstadien. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Scatterplot des Einflusses des Flohgewichts auf die Sprungweite aufgeteilt nach dem Entwicklungsstand in adult und juvenile Flöhe. Hier wurde ein quadratischer Zusammenhang modelliert, sodass die Steigung entlang der Grade über die Kovariate unterschiedlich ist. Die Tangenten mit den jeweiligen Steigungen an dem mittleren GEwicht wurden ergänzt. *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-data-8
 
 weight_sum <- flea_model_tbl |> 
@@ -1311,7 +1327,6 @@ weight_sum <- flea_model_tbl |>
 
 pred <- predict(model_grp_sq, newdata = tibble(weight = 14.05, stage = "adult"))
 pred <- predict(model_grp_sq, newdata = tibble(weight = 5.85, stage = "juvenile"))
-
 
 ggplot(flea_model_tbl, aes(x = weight, y = jump_length,
                            color = stage)) +
@@ -1339,38 +1354,9 @@ ggplot(flea_model_tbl, aes(x = weight, y = jump_length,
 ```
 
 ```{r}
-model_grp_sq <- lm(jump_length ~ feeding * weight + I(weight^2),
-                   data = flea_model_tbl)
-tidy(model_grp_sq)
-```
-
-```{r}
-#| message: false
-#| echo: false
-#| warning: false
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 9.5
-#| fig-cap: "foo. **(A)** Kombinierte Darstellung in einem Scatterplot **(B)** Aufgeteilte Darstellung für beide Entwicklungsstadien. *[Zum Vergrößern anklicken]*"
-#| label: fig-marginal-data-9
-
-ggplot(flea_model_tbl, aes(x = weight, y = jump_length,
-                           color = feeding)) +
-  theme_marginal() +
-  geom_point() +
-  labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]",
-       title = "Quadratischer Zusammenhang",
-       color = "Fütterungsart") +
-  geom_line(aes(y = predict(model_grp_sq)), linewidth = 1.25) +
-  scale_color_okabeito() +
-  ylim(NA, 175) +
-  theme(legend.position = "top")
-```
-
-```{r}
 datagrid(model = model_grp_sq,
-         weight = c(5, 10, 15),
-         feeding = unique)
+         weight = c(5, 10, 15, 20, 25),
+         stage = unique)
 ```
 
 ::: panel-tabset
@@ -1379,32 +1365,25 @@ datagrid(model = model_grp_sq,
 ```{r}
 model_grp_sq |> 
   slopes(variables = "weight",
-         newdata = datagrid(weight = c(5, 10, 15),
-                            feeding = unique))
+         newdata = datagrid(weight = c(5, 10, 15, 20, 25),
+                            stage = unique))
 ```
 
 ## Mit Gruppenvergleich
 
 ```{r}
-comp_tbl <- as.data.frame(t(combn(levels(flea_model_tbl$feeding), 2))) |> 
-    unite("z", sep = " - ")
+model_grp_sq |> 
+  slopes(variables = "weight",
+         newdata = datagrid(weight = c(5),
+                            stage = unique))
 ```
 
 ```{r}
 model_grp_sq |> 
   slopes(variables = "weight",
          newdata = datagrid(weight = c(5),
-                            feeding = unique))
-```
-
-```{r}
-#| eval: false
-model_grp_sq |> 
-  slopes(variables = "weight",
-         newdata = datagrid(weight = c(5),
-                            feeding = unique),
-         hypothesis = "pairwise")  |> 
-  mutate(term = pluck(comp_tbl, "z"))
+                            stage = unique),
+         hypothesis = difference ~ pairwise) 
 ```
 :::
 
