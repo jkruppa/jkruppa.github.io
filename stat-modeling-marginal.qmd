@@ -1440,20 +1440,21 @@ Nachdem wir uns hier etwas durchgearbeitet haben, bin ich noch auf einen Teil ge
 ::: callout-note
 ## Philosophien zur Mittelwertbildung
 
-Die folgende Darstellung wurde stark von @heiss2022 inspiriert. Ich habe
+Die folgende Darstellung wurde stark von @heiss2022 inspiriert. Ich habe hier dann aber mal mein Beispiel genommen und entsprechend angepasst. Die Idee ist eigentlich simple. Entweder rechnen wir die Steigungen an jeden Punkt des Kovariate und mitteln dann die Steigung. Dann berechnen wir die *Average marginal effects (AME)*. Das ist mehr oder minder was das R Paket `{marginaleffects}` tut. Oder aber wir rechnen erst die mittleren Werte der Kovariaten aus und berechnen für diese Werte dann die Steigung. Damit haben wir dann die *Marginal effects at the mean (MEM)*. Das ist dann die Lösung im R Paket `{emmeans}`. Das erste soll für beobachtete Daten besser sein, das letztere dann für experimentelle Daten. Versuchen wir mal den Unterschied zu verstehen.
 
-#### Average marginal effects (AME) {.unnumbered .unlisted}
-
-```{r}
-jump_hatched_slope <- function(x) -53.8 + (2 * 18.9 * x) + (3 * -1.6 * x^2)
-jump_hatched_slope(c(1.25, 3.5, 5.75))
-```
+Dann berechnen wir nochmal das quadratische Modell mit unseren drei Koeffizienten für die Schlupfzeiten. Wir nutzen jetzt gleich mal das Modell um uns die beiden unterschiedlichen Arten der gemittelten Steigung berechnen zu lassen.
 
 ```{r}
 model_sq <- lm(jump_length ~ hatched + I(hatched^2) + I(hatched^3),
                data = flea_model_tbl)
 tidy(model_sq)
 ```
+
+Wir interpretieren hier die Koeffizienten nicht weiter, da wir das Modell nur brauchen um die Steigungen entlang der Graden berechnen zu können.
+
+#### Average marginal effects (AME) {.unnumbered .unlisted}
+
+Beginnen wir einmal mit den *Average marginal effects (AME)* wobei wir dann die Steigung an allen Punkten der Kovariaten berechnen. Wie du in der folgenden Abbildung siehst, sind die Steigungen sehr unterschiedlich, da wir ja eine S-Kurve vorliegen haben. So geht die Steigung erst nach unten um dann abzuflachen und wieder anzusteigen. Am Ende haben wir dann wieder fast keine Steigung vorliegen.
 
 ```{r}
 #| message: false
@@ -1462,7 +1463,7 @@ tidy(model_sq)
 #| fig-align: center
 #| fig-height: 3.5
 #| fig-width: 7
-#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Scatterplot der Sprungweite und der Schlupfzeiten mit einer angepassten Graden. Für aufgewählte Werte der Schlupfzeit wurde die Steigung der Tangenten an der Graden berechnet. Die gemittelte Steigung über alle Steigungen wurde berechnet. *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-data-5
 
 tangents <- model_sq |> 
@@ -1484,32 +1485,32 @@ ggplot(flea_model_tbl, aes(x = hatched, y = jump_length)) +
              size = 4, shape = 18, color = cb_pal[9]) +
   geom_richtext(aes(x = 3, y = 150, label = "Gemittelte Steigung: 5.71"),
                 site = 20) +
-  labs(x = "Schlupfzeit in [week]", y = "Sprungweite in [cm]",
-       title = "Average marginal effects (AME)") 
+  labs(x = "Schlupfzeit in [week]", y = "Sprungweite in [cm]") 
 ```
+
+Wir haben jetzt zwei Wege auf denen wir uns die gemittelte Steigung berechnen können. Entweder berechnen wir alle Steigungen und mitteln dann einmal über die Steigung. Oder wir nutzen dann die entsprechende Funktion. Im Folgenden habe ich einmal die Steigungen an allen Punkten der Kovariaten berechnet und zeige dir einmal über `head()` die ersten sechs Werte.
 
 ```{r}
 mfx_sq <- slopes(model_sq)
 head(mfx_sq)
 ```
 
+Dann können wir einmal die Steigung mitteln. Wir nutzen dazu dann die Funktion `summarise()` und erhalten folgenden Wert.
+
 ```{r}
 mfx_sq |> 
-  group_by(term) |> 
   summarize(avg_slope = mean(estimate))
 ```
+
+Das Ganze können wir dann auch schneller über die Funktion `avg_slopes()` berechnen, da wir hier die gemittelten Steigungen direkt erhalten. Das ist dann eben ein Schritt weniger und geht etwas schneller. Dafür sind dann die `avg_*` Funktionen in `{marginaleffects}` gedacht.
 
 ```{r}
 avg_slopes(model_sq)
 ```
 
-#### Marginal effects at the mean (MEM) {.unnumbered .unlisted}
+Wir müssen dann mit dem Wert leben, da es hier kein richtig oder falsch gibt. Wenn wir die Steigungen berechnen und dann mitteln erhalten wir eben eine mittlere Steigung von $+5.71$ wieder.
 
-```{r}
-model_sq <- lm(jump_length ~ hatched + I(hatched^2) + I(hatched^3),
-               data = flea_model_tbl)
-tidy(model_sq)
-```
+#### Marginal effects at the mean (MEM) {.unnumbered .unlisted}
 
 ```{r}
 #| message: false
@@ -1518,7 +1519,7 @@ tidy(model_sq)
 #| fig-align: center
 #| fig-height: 3.5
 #| fig-width: 7
-#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Scatterplot der Sprungweite und der Schlupfzeiten mit einer angepassten Graden. Für die mittlere Schlupfzeit von $2.77$ wurde die Steigung der Tangenten an der Graden berechnet. *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-data-6
 
 ggplot(flea_model_tbl, aes(x = hatched, y = jump_length)) +
@@ -1530,10 +1531,10 @@ ggplot(flea_model_tbl, aes(x = hatched, y = jump_length)) +
               linewidth = 0.5, color = cb_pal[8], linetype = "21") +
   annotate("point", x = 2.772599, y = 86.52944, size = 4, shape = 18, 
            color = cb_pal[9]) +
-   geom_richtext(aes(x = 2.772599, y = 120, label = "Steigung am Mittelwert: 13.7"),
+  geom_richtext(aes(x = 2.772599, y = 120, label = "Steigung am Mittelwert: 13.7"),
                   site = 20) +
-  labs(x = "Schlupfzeit in [week]", y = "Sprungweite in [cm]",
-       title = "Marginal effects at the mean (MEM)") 
+  scale_x_continuous(breaks = c(2, 2.772599, 4, 6), labels = c(2, 2.77, 4, 6)) +
+  labs(x = "Schlupfzeit in [week]", y = "Sprungweite in [cm]") 
 ```
 
 ```{r}
