@@ -1363,7 +1363,7 @@ datagrid(model = model_grp_sq,
 
 Das Datenraster können wir dann einmal nutzen um uns dann an den jeweiligen Gewichten die Steigung für die beiden Entwicklungsstände wiedergeben zu lassen. Jetzt können wir noch entscheiden, ob wir dann einen statistischen Test rechnen wollen um die Steigungen zwischen den beiden Stadien zu vergleichen.
 
-::: panel-tabset
+:::: panel-tabset
 ## Ohne Gruppenvergleich
 
 Ohne Gruppenvergleich ist die Anwendung sehr simple. Wir nehmen das Modell und rechnen dann in der Funktion `slopes()` die Variable `weight` und rechnen für die Flohgewichte die Steigung an den Werten des Gewichts im Datenraster. Hier habe ich dann mal fünf Werte für das Gewicht gewählt. Dann wähle ich noch aus, dass ich nach dem Entwicklungsstand sortieren will.
@@ -1380,7 +1380,7 @@ Wir hier sehr schön sehen, ist die Steigung der adulten Flöhe unterschiedlich.
 
 ## Mit Gruppenvergleich
 
-Hier kommt der etwas nervigere Teil.
+Hier kommt der etwas nervigere Teil. Wir wollen jetzt auch die Steigungen innerhalb der beiden Entwicklungsstadien miteinander vergleichen. Je mehr Flohgewichte du jetzt mit in den Vergleich nimmst, desto schwieriger wird gleich das Lesen der Ausgabe. Deshalb würde ich dir empfehlen, die Vergleiche immer für *ein* Gewicht zu rechnen und dann die Vergleiche zu wiederholen. Dabei gehe ich davon aus, dass dich die Vergleich zwischen den Gewichten nicht interessieren. Das ist zwar etwas mühseliger, aber dann stabiler. Sonst weiß man immer nicht was genau der Koeffizient `b` jetzt sein soll. Hier also einmal der Vergleich der Steigungen in den beiden Entwicklungsstadien für zwei Gewichte. Dadurch haben wir jetzt vier Koeffizienten, die innerhalb von `{marginaleffects}` mit `b1` bis `b4` abkürzen. Ich habe das hier mal umständlicher rangeschrieben, damit du besser die Vergleiche verstehst.
 
 ```{r}
 model_grp_sq |> 
@@ -1392,16 +1392,20 @@ model_grp_sq |>
   select(coefficient, weight, stage, estimate, p.value, conf.low, conf.high)
 ```
 
+Dann haben wir hier einmal alle Vergleiche für die jeweiligen Koeffizienten. Dabei steht dann `b1` für die adulten Flöhe mit einem Gewicht von 5mg, `b2` für die juvenilen Flöhe mit einem Gewicht von 5mg, `b3` für die adulten sowie `b4` für die juvenilen Flöhe mit jeweils einem Gewicht von 10mg. Dann können wir uns die folgenden Differenzen berechnen.
+
 $$
 \begin{aligned}
-(b2) - (b1) &= 7.46 - (-4.04) &= 11.50\\
-(b3) - (b1) &= -1.92 - (-4.04) &= 2.12\\
-(b4) - (b1) &= 9.59 - (-4.04) &= 13.63\\
-(b3) - (b2) &= -1.92 - 7.46 &= -9.38\\
-(b4) - (b2) &= 9.59 - 7.46 &= 2.13\\
-(b4) - (b3) &= 9.59 - (-1.92) &= 11.50\\
+(b2) - (b1) &= 7.46 - (-4.04) = 11.50\\
+(b3) - (b1) &= -1.92 - (-4.04) = 2.12\\
+(b4) - (b1) &= 9.59 - (-4.04) = 13.63\\
+(b3) - (b2) &= -1.92 - 7.46 = -9.38\\
+(b4) - (b2) &= 9.59 - 7.46 = 2.13\\
+(b4) - (b3) &= 9.59 - (-1.92) = 11.50\\
 \end{aligned}
 $$
+
+In dieser Form kriegen wir dann auch die Vergleiche aus der Funktion `slopes()` wiedergeben. Nur das wir natürlich hier dann noch die Fehler sowie dann auch die p-Werte erhalten. Das anstrengende ist dann hier zu wissen, was hinter den Koeffizientenabkürzungen steht. Ich verstehe mittlerweile auch warum es so gemacht wird. Für mehrere Faktoren wird es dann wirklich sehr schwer allgemein über alle Modelle richtig die Koeffizienten zu bezeichnen. Auch können wir so recht einfach zwischen Differenzen `diffence` und Anteilen `ratio` wechseln. Aber so richtig befriedigend ist es nicht. Ich kann aber soweit damit leben.
 
 ```{r}
 model_grp_sq |> 
@@ -1410,10 +1414,33 @@ model_grp_sq |>
                             stage = unique),
          hypothesis = difference ~ pairwise)
 ```
+
+Sehen wir dann auch, wo die größten Unterschiede in den Steigungen sind. Signifikant sind dann am Ende keiner der Steigungen zwischen den beiden Gruppen. Wir sind zwar nah dran, aber es liegen alle p-Werte über den Signifikanzniveau von $\alpha$ gleich 5%. Dabei sind alle p-Werte hier unadjustiert für multiple Vergleiche. Wenn du das wollen würdest, dann musst du den Code wie folgt anpassen und noch die Funktion `hypotheses()` nutzen.
+
+```{r}
+model_grp_sq |> 
+  slopes(variables = "weight",
+         newdata = datagrid(weight = c(5, 10),
+                            stage = unique)) |> 
+  hypotheses(hypothesis = difference ~ pairwise,
+             multcomp = "bonferroni")
+```
+
+Damit kommen wir hier auch zum Schluss. Wenn dich hier noch mehr interessiert, kannst du in den anderen Kapitel zum statistischen Modellieren noch Anwendungen finden. Auch ist in dem Kapitel zur nicht linearen Regression dann noch was enthalten. Am Ende ist der Gruppenvergleich von Steigungen dann aber doch irgendwie eine Nische.
+
+::: {layout="[15,85]" layout-valign="top"}
+![](images/personal_opinion.png){fig-align="center" width="100%"}
+
+> *"Nachdem ich mich hier schon eine Zeit durch die Vergleiche von Steigungen innerhalb von Gruppen gequält habe, muss ich sagen, dass es nicht ideal ist. Hier kommst du um ein gites Divide-and-conquer nicht herum. Einfach die Kovariate zerstückeln und für jeden Wert einzeln die Vergleiche rechen. Sonst wird es mit den Koeffizienten super unübersichtlich." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
 :::
+::::
+
+Nachdem wir uns hier etwas durchgearbeitet haben, bin ich noch auf einen Teil gestoßen, der eigentlich gut beschreibt, wie sich die beiden R Pakete `{marginaleffects}` und `{emmeans}` unterscheiden. Es geht im Prinzip darum, wie die Mittelwerte der Steigungen gebildet werden. Es gibt nämlich zwei Wege. Entweder berechnen wir erst alle Koeffizienten oder statistischen Parameter und mitteln dann darüber oder aber wir mitteln erst unsere Daten und berechnen dann auf den gemittelten Daten die Koeffizienten. Am Ende kommt sehr häufig das Gleiche heraus. Wie immer aber in der Statistik, ist es nicht in allen Fällen so. Zu merken ist hierbei, dass `{marginaleffects}` die Koeffizienten mittelt und `{emmeans}` auf den gemittelten Daten die Koeffizienten berechnet. Möge es von Interesse sein, ich fand es nett mal aufzuarbeiten.
 
 ::: callout-note
 ## Philosophien zur Mittelwertbildung
+
+Die folgende Darstellung wurde stark von @heiss2022 inspiriert. Ich habe
 
 #### Average marginal effects (AME) {.unnumbered .unlisted}
 
@@ -1421,8 +1448,6 @@ model_grp_sq |>
 jump_hatched_slope <- function(x) -53.8 + (2 * 18.9 * x) + (3 * -1.6 * x^2)
 jump_hatched_slope(c(1.25, 3.5, 5.75))
 ```
-
-![foo. Modifiziert nach @heiss2022](images/marginal/flow-ame-trans.png){#fig-utest-intro-03 fig-align="center" width="100%"}
 
 ```{r}
 model_sq <- lm(jump_length ~ hatched + I(hatched^2) + I(hatched^3),
@@ -1459,7 +1484,6 @@ ggplot(flea_model_tbl, aes(x = hatched, y = jump_length)) +
              size = 4, shape = 18, color = cb_pal[9]) +
   geom_richtext(aes(x = 3, y = 150, label = "Gemittelte Steigung: 5.71"),
                 site = 20) +
-  ylim(NA, 175) +
   labs(x = "Schlupfzeit in [week]", y = "Sprungweite in [cm]",
        title = "Average marginal effects (AME)") 
 ```
@@ -1480,8 +1504,6 @@ avg_slopes(model_sq)
 ```
 
 #### Marginal effects at the mean (MEM) {.unnumbered .unlisted}
-
-![foo. Modifiziert nach @heiss2022](images/marginal/flow-mem-trans.png){#fig-utest-intro-06 fig-align="center" width="100%"}
 
 ```{r}
 model_sq <- lm(jump_length ~ hatched + I(hatched^2) + I(hatched^3),
@@ -1510,7 +1532,6 @@ ggplot(flea_model_tbl, aes(x = hatched, y = jump_length)) +
            color = cb_pal[9]) +
    geom_richtext(aes(x = 2.772599, y = 120, label = "Steigung am Mittelwert: 13.7"),
                   site = 20) +
-  ylim(NA, 175) +
   labs(x = "Schlupfzeit in [week]", y = "Sprungweite in [cm]",
        title = "Marginal effects at the mean (MEM)") 
 ```
