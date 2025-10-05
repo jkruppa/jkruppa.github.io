@@ -1563,6 +1563,114 @@ model_sq |>
 ```
 :::
 
+Kommen wir nochmal zu einer praktischen Anwendung.
+
+::: callout-tip
+## Anwendungsbeispiel: Zeitlicher Verlauf von Entenausflügen
+
+![foo.](images/marginal/ducks.png){#fig-flea-yedi fig-align="center" width="80%"}
+
+```{r}
+path <- file.path("data/outside_ducks.xlsx")
+duck_raw_tbl <- path |> 
+  excel_sheets() |> 
+  rlang::set_names() |> 
+  map_dfr(read_excel, path = path)
+```
+
+```{r}
+duck_tbl <- duck_raw_tbl |> 
+  mutate(time = as.POSIXct(time, format = "%H:%M:%S"),
+         time_block = floor_date(time, unit = "30 minutes"),
+         time_hour = hour(time) + minute(time)/60,
+         timeblock_fct = as.factor(time_block)) |> 
+  select(breed, time_block, timeblock_fct, outside) |>
+  group_by(timeblock_fct, breed) |> 
+  mutate(timeblock_num = as.numeric(timeblock_fct) - 1,
+         breed = as_factor(breed)) |> 
+  filter(timeblock_num %in% 0:24)
+```
+
+```{r}
+model_full_sq <- gam(outside ~ breed + s(timeblock_num, by = breed),
+                     data = duck_tbl)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "Scatterplot der Sprungweite und der Schlupfzeiten mit einer angepassten Graden. Für die mittlere Schlupfzeit von $2.77$ wurde die Steigung der Tangenten an der Graden berechnet. *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-app-ducks-01
+
+duck_tbl |> 
+  ggplot(aes(x = timeblock_num, y = outside,
+             color = breed)) +
+  theme_marginal() +
+  geom_vline(xintercept = c(0, 12, 20)) +
+  geom_line(aes(y = predict(model_full_sq))) +
+  theme(legend.position = "top") +
+  labs(x = "Uhrzeit", y = "Anzahl Enten draußen",
+       color = "Rasse", 
+       title = "Rausgehverhalten von verschiedenen Entenrassen") +
+  scale_x_continuous(breaks = c(0, 4, 8, 12, 16, 20, 24)) +
+  scale_y_continuous(breaks = c(0, 10, 20, 30)) +
+  scale_color_okabeito()
+```
+
+```{r}
+model_full_sq |> 
+  slopes(variables = "timeblock_num",
+         by = "breed")
+```
+
+```{r}
+model_full_sq |> 
+  slopes(variables = "timeblock_num",
+         newdata = datagrid(timeblock_num = c(1, 12, 20),
+                            breed = unique))
+```
+
+```{r}
+model_full_sq |> 
+  slopes(variables = "timeblock_num",
+         newdata = datagrid(timeblock_num = c(10, 20),
+                            breed = unique))
+```
+
+```{r}
+model_full_sq |> 
+  slopes(variables = "timeblock_num",
+         newdata = datagrid(timeblock_num = c(10),
+                            breed = unique),
+         hypothesis = difference~pairwise)
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 3.5
+#| fig-width: 7
+#| fig-cap: "Scatterplot der Sprungweite und der Schlupfzeiten mit einer angepassten Graden. Für die mittlere Schlupfzeit von $2.77$ wurde die Steigung der Tangenten an der Graden berechnet. *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-app-ducks-02
+
+plot_slopes(model_full_sq, 
+            variables = "timeblock_num",  
+            condition = c("timeblock_num", "breed")) +
+  theme_marginal() +
+  scale_color_okabeito() +
+  scale_fill_okabeito() +
+  theme(legend.position = "top") +
+  labs(x = "Uhrzeit", y = "Steigung dy/dx",
+       color = "Rasse", fill = "Rasse") 
+```
+:::
+
 ## Vorhersagen (eng. *predictions*)
 
 ```{r}
