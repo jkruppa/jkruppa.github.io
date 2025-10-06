@@ -1586,6 +1586,8 @@ In unserem Anwendungsbeispiel fragen wir uns, ob die vier Entenrassen *Abbacot r
 
 ![Comic der vier Entenrassen in unserem Reingehen oder Draußenbleiben Experiment mit dreißig Enten je Rasse. Die Frage ist hier, ob sich das Verhalten der vier Entenrassen über die Zeit unterscheidet.](images/marginal/ducks.png){#fig-flea-yedi fig-align="center" width="80%"}
 
+Wir müssen jetzt einmal unsere Daten einlesen und dafür sorgen, dasss auch alle vier Tabellenblätter berücksichtigt werden. Jede Entenrasse hat eben ihr eigenes Tabellenblatt und daher müssen wir eben die Daten etwas komplizierter Einlesen.
+
 ```{r}
 path <- file.path("data/outside_ducks.xlsx")
 duck_raw_tbl <- path |> 
@@ -1593,6 +1595,8 @@ duck_raw_tbl <- path |>
   rlang::set_names() |> 
   map_dfr(read_excel, path = path)
 ```
+
+Dann können wir Daten schon transformieren. Einen großen Teil verwenden wir darauf die Zeit in das entsprechende Format umzuwandeln. Wir wollen die Zeit in Blöcken von einer halben Stunde haben und nicht sekundengenau. Dann müssen wir noch die Zeit von einem Faktor in eine numerische Einflussvariable umwandeln. Am Ende sortieren und filtern wir dann noch etwas die Daten.
 
 ```{r}
 duck_tbl <- duck_raw_tbl |> 
@@ -1607,10 +1611,14 @@ duck_tbl <- duck_raw_tbl |>
   filter(timeblock_num %in% 0:24)
 ```
 
+Dann rechnen wir unser *Generalized additive model* (abk. *GAM*) mit der Funktion `gam()` und setzten unsere nicht lineare Einflussvariable mit einem `s()` fest. Dann müssen wir noch sagen, dass die Zeit und Enten draußen eben dann noch von der Rasse `breed` abhängen. Dann erhalten wir auch für jede Rasse eine eigene Grade.
+
 ```{r}
 model_full_sq <- gam(outside ~ breed + s(timeblock_num, by = breed),
                      data = duck_tbl)
 ```
+
+In der folgenden Abbildung siehst du dann einmal den zeitlichen Verlauf der Enten. Wir sehen auf der y-Achse immer die Enten, die sich außerhalb vom Stall befinden. Je nach Rasse bewegen sich die Enten über die Zeit mehr oder minder stark in die Ställe oder eben wieder raus. Wir wollen dann gleich an drei Uhrzeiten einmal die Steigung bestimmen.
 
 ```{r}
 #| message: false
@@ -1619,7 +1627,7 @@ model_full_sq <- gam(outside ~ breed + s(timeblock_num, by = breed),
 #| fig-align: center
 #| fig-height: 3.5
 #| fig-width: 7
-#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Zeitlicher Verlauf der Enten außerhalb der Ställe und deren Rückkehr in die Ställe für die vier Entenrassen. Die Daten wurden für Zeitblöcke je 30 Minuten gemittelt. Die Grade stellt das angepasste *Generalized additive model* dar. An drei Uhrzeiten (0:00, 12:00 und 20:00) wird die Steigung der Graden bestimmt. *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-app-ducks-01
 
 duck_tbl |> 
@@ -1637,33 +1645,41 @@ duck_tbl |>
   scale_color_okabeito()
 ```
 
+Zuerst interessiert mich aber die Steigung über alle Zeitpunkte für jede Rasse. Wir rechnen also die mittlere Steigung der vier Entenrassen aus. Was sagt uns jetzt die mittlere Steigung aus? Wir sehen, dass alle Steigungen negativ sind. Daher haben alle Enten einen Drang nach drinnen zu gehen. Die Anzahl an Enten draußen vermindert sich also über den gemessenen Tag.
+
 ```{r}
 model_full_sq |> 
   slopes(variables = "timeblock_num",
          by = "breed")
 ```
 
-```{r}
-model_full_sq |> 
-  slopes(variables = "timeblock_num",
-         newdata = datagrid(timeblock_num = c(1, 12, 20),
-                            breed = unique))
-```
+Und wie siehst es nun an drei ausgewählten Uhrzeiten aus? Hier haben wir dann natürlich nochmal alles aufgeteilt nach den vier Rassen und es wird schnell unübersichtlich. Vermutlich ist es besser hier einzelne Uhrzeiten nacheinander durchzugehen.
 
 ```{r}
 model_full_sq |> 
   slopes(variables = "timeblock_num",
-         newdata = datagrid(timeblock_num = c(10, 20),
+         newdata = datagrid(timeblock_num = c(0, 12, 20),
                             breed = unique))
 ```
 
+Daher jetzt hier einmal der Vergleich der Steigungen für die Mittagszeit um 12:00 Uhr. Hier ist es dann wieder wichtig zu verstehen, was die Koeffizienten `b` in den paarweisen Vergleichen heißen sollen. Daher müssen wir den Vergleich einmal aufbrechen. Erstmal berechnen wir die Steigungen und dann im Anschuss den paarweisen Vergleich.
+
 ```{r}
-model_full_sq |> 
+clock_12_slopes_tbl <- model_full_sq |> 
   slopes(variables = "timeblock_num",
-         newdata = datagrid(timeblock_num = c(10),
-                            breed = unique),
-         hypothesis = difference~pairwise)
+         newdata = datagrid(timeblock_num = c(12),
+                            breed = unique))
+clock_12_slopes_tbl
 ```
+
+Jetzt wissen wir das `b1` für die Abacotenten steht, `b2` für die Indianenten, `b3` für die Silverenten sowie `b4` für die Saxonyenten. Daher können wir dann auch die folgenden Vergleiche verstehen. Sonst wäre das schwer möglich. Leider gibt es keine charmante Version die `b` Koeffizienten durch den entsprechenden Namen zu ersetzen.
+
+```{r}
+clock_12_slopes_tbl |> 
+  hypotheses(hypothesis = difference~pairwise)
+```
+
+Am Ende können wir uns den Verlauf *der Steigungen* über die Zeit anschauen. Hier sehen wir sehr schön die Traktion über den Tag. Gegen Ende des Tages wollen dann alle Enten eher in den Stall. Sonst haben wir eher einen zyklischen Verlauf.
 
 ```{r}
 #| message: false
@@ -1672,7 +1688,7 @@ model_full_sq |>
 #| fig-align: center
 #| fig-height: 3.5
 #| fig-width: 7
-#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Verlauf der Steigungen über die Zeit aufgeteilt nach den vier Entenrassen. *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-app-ducks-02
 
 plot_slopes(model_full_sq, 
@@ -1686,7 +1702,11 @@ plot_slopes(model_full_sq,
        color = "Rasse", fill = "Rasse") +
   scale_x_continuous(breaks = c(0, 4, 8, 12, 16, 20, 24))
 ```
+
+In diesem Beispiel siehst du ganz schön, wie wir dann die Steigung verwenden können um eine Aussage über die zeit zu treffen. Wenn du viele Faktoren wie die Rasse in dem Modell hast, biette es sich an, die Vergleiche dann aufzusplitten damit du besser interpretieren kannst, was du da an Koeffizienten eigentlich vergleichst.
 :::
+
+Damit sind wir dann am Ende mit den Steigungen und kommen jetzt zu einem anderem Gebiet. Anstatt zu sagen, wie sich die Werte im Messwert an einer bestimmten Stelle der Einflussvariable verändern, können wir auch vorhersagen, wie der Wert des Messwertes für beliebige Einflussfaktoren nach dem Modell aussehen würde. Wir machen also eine klassische Vorhersage mit unserem statistischen Modell.
 
 ## Vorhersagen (eng. *predictions*)
 
