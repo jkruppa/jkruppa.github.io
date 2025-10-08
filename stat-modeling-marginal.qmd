@@ -457,19 +457,25 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 
 ## Daten
 
+Wir brauchen auch hier nochmal Daten an denen wir uns die Prinzipien der *Marginal effect models* verstehen können. Ich nutze hier einmal einen simplen Datensatz zu der Enzymaktivität unter verschiedenen pH-Werten. Der Datensatz ist einfach und hat im Prinzip nur die Kovariate pH-Wert, die zwar auch als Faktor gesehen werden kann, aber wir machen es uns hier einfach. Anhand des Beispiels können wir gut die Grundlagen der *Marginal effect models* nachvollziehen. Als zweiten Datensatz habe ich nochmal die Modellierung von Flöhen mitgebracht. In dem Datensatz zu der Modellierung von Flöhen finden wir viele Kovariaten sowie Faktoren und verschiedene Messwerte, die von Interesse sind. Wir können uns also in dem Datensatz einiges anschauen.
+
 #### Modellierung von Enzymen {.unnumbered .unlisted}
+
+Der Datensatz zu der Enzymaktivität ist ziemlich simple. Wir haben zu verschiedenen pH-Werten die Enzymaktivität gemessen. An jedem pH-Wert haben wir dann bis zu fünfmal wiederholt gemessen. Darüber hinaus haben wir noch drei pH-Wertgruppen gebildet und die Messungen in Prokaryoten sowie Eukaryonten durchgeführt. Die pH-Werte wurden abschließend nochmal standardisiert, so dass die Werte nicht nur im Intervall ${0,14}$ liegen. Mit dem Datensatz lassen sich nun die Steigung und die Vorhersage von der Enzymaktivität sehr gut in *Marginal effect models* veranschaulichen.
 
 ```{r}
 enzyme_tbl <- read_excel("data/enzyme_kinetic.xlsx") |> 
   mutate(grp = factor(grp, levels = c("niedrig", "mittel", "hoch")))  
 ```
 
+In der folgenden Tabelle siehst du dann einmal die Daten mit den Messwiederholungen. Später werden wir dann die Enzymaktivität an den pH-Werten mitteln und die pH-Werte als eine Kovariate behandeln. Wenn wir einen Faktor betrachten wollen, dann nehmen wir die gruppierten pH-Werte. Wir werden für die Modellierung die Prokaryoten und Eukaryoten zusammen auswerten.
+
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
 #| label: tbl-margin-table-01
-#| tbl-cap: "Daten für die einfaktorielle MANOVA mit der Sprungweite in [cm] und dem Gewicht der Flöhe in [mg] für drei Floharten."
+#| tbl-cap: "Daten für die Enzymaktivität in Prokaryoten und Eukaryoten unter standardisierten pH-Werten mit bis zu fünf Messwiederholungen sowie einer Einteilung der pH-Werte in drei Gruppen."
 
 enzyme_raw_tbl <- read_excel("data/enzyme_kinetic.xlsx") 
 
@@ -479,12 +485,14 @@ rbind(head(enzyme_raw_tbl, n = 3),
   kable(align = "c", "pipe")
 ```
 
+Dann sehen wir hier nochmal wie oft die Enzymaktivität dann jeweils wiederholt für einen standardisierten pH-Wert gemessen wurde. Wir haben hier keinen Unterschied zwischen den Prokaryoten und Eukaryoten gemacht. Für die Modellierung werden die Prokaryoten und Eukaryoten zusammen betrachtet. Das macht uns dann die Auswertung etwas einfacher.
+
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
 #| label: tbl-margin-table-02
-#| tbl-cap: "Daten für die einfaktorielle MANOVA mit der Sprungweite in [cm] und dem Gewicht der Flöhe in [mg] für drei Floharten."
+#| tbl-cap: "Anzahl der Messweiderholungen der pH-Werte über die gesamten Daten. Für die Modellierung werden die Prokaryoten und Eukaryoten zusammen betrachtet."
 
 enzyme_raw_tbl |> 
   tabyl(ph) |> 
@@ -492,15 +500,27 @@ enzyme_raw_tbl |>
   kable(align = "c", "pipe")
 ```
 
+Da wir hier theoretische Daten vorliegen haben, kennen wir auch die Funktion der Datengenerierung im Hintergrund. Wir haben folgende mathematische Funktion als Grundlage vorliegen. Daraus ergibt sich dann auch die entsprechende erste Ableitung für die Steigung der Tangente entlang der Funktion der Enzymaktivität.
+
+::: panel-tabset
+## Funktion der Enzymaktivität $f(x)$
+
+Mit der folgenden Funktion der Enzymaktivität wurden die Daten generiert. Damit ist dann auch die wahre Funktion bekannt.
+
 $$
-y = x^3 - 8x^2 + 10x + 10
+f(x) = x^3 - 8x^2 + 10x + 10
 $$
 
-Funktion der Steigung als erste Ableitung nach
+## Erste Ableitung der Enzymaktivität $f'(x)$
+
+Mit der wahren Funktion der Enzymaktivität können wir dann auch einfach die erste Ableitung bilden und sind nicht auf eine Modellierung angewiesen.
 
 $$
-y' = 3x^2 - 16x + 10
+f'(x) = 3x^2 - 16x + 10
 $$
+:::
+
+Dann können wir usn auch schon einmal die Abbildungen unseres Datensatzes zu den Enzymaktivität anschauen.
 
 ```{r}
 #| message: false
@@ -509,7 +529,7 @@ $$
 #| fig-align: center
 #| fig-height: 4.5
 #| fig-width: 7
-#| fig-cap: "Scatterplot der *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Scatterplot der Enzymaktivität in Abhängigkeit vom standardisierten pH-Wert kombiniert über die Prokaryoten und Eukaryoten. Die Grade stellt den wahre Zusammenhang aus der Funktionsgleichung dar. *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-model-enzyme-01
 
 p1_model_enzyme_01
@@ -522,7 +542,7 @@ p1_model_enzyme_01
 #| fig-align: center
 #| fig-height: 4.5
 #| fig-width: 8
-#| fig-cap: "**(A)** Linearer Zusammenhang. **(B)** gg *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Darstellung der Enzymaktivität gruppiert nach den Gruppen des pH-Wertes. **(A)** Gruppierter pH-Wert über die Prokaryoten und Eukaryoten. **(B)** Gruppierter pH-Wert getrennt für die Prokaryoten und Eukaryoten. *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-model-enzyme-02
 
 p1_model_enzyme_02 + p2_model_enzyme_02 +
