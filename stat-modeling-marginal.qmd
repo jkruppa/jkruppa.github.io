@@ -1736,7 +1736,7 @@ Damit sind wir dann am Ende mit den Steigungen und kommen jetzt zu einem anderem
 
 Vorhersagen sind der Ausgang aus der Nichtinterpretierbarkeit von Koeffizienten in komplexen Modellen. Das ist einfach geschrieben, wird aber hoffentlich dann hier noch klarer. Wir können über Vorhersagen uns die modellierten Messwerte wiedergeben lassen und damit dann leichter die Modelle interpretieren. Damit wir das aber können, müssen wir verstehen was ein Datenraster ist und wie wir das Datenraster einsetzen. Dafür bitte dann nochmal weiter oben nachlesen, wie wir Datenraster in `{marginaleffects}` definieren und nutzen können.
 
-### Kovariates oder kombiniertes Modell
+### Kovariates Modell
 
 Beginnen wir hier einmal wieder mit den kovariaten Modellen. Am Ende ist es egal wie viele Kovariaten du in deinem Modell hast. Auch ist es egal, ob du dann noch einen Faktor mit ins Modell nimmst und damit ein kombiniertes Modell baust. Da wir hier in der Folge eben nicht nicht Koeffizienten interpretieren sondern *nur* die vorhergesagten Werte, ist es fast egal wie komplex dein Modell ist. Wir brauchen hier eben dann immer als Haupteffekt eine Kovariate und ergänzen diese um weitere Einflussvariablen. Manchmal haben wir auch ein ganzes Set an interessanten Variablen. Beginnen wir aber einmal einfach und schauen uns die Modellierung der Enzyme mit einer Kovariate an.
 
@@ -1853,12 +1853,13 @@ p2_intro_00_2 +
 
 #### Modellierung von Flöhen {.unnumbered .unlisted}
 
-Jetzt wollen wir uns einmal ein etwas kompliziertes Beispiel mit den Flohdaten anschauen. Unsere Flohdaten haben insgesamt `r nrow(flea_model_tbl)` Beobachtungen. Das brauchen wir gleich einmal damit auch immer sehen, wie die Daten zusammengefasst werden. Erstmal bauen wir uns wieder unser *Generalized additive model* für die Daten. Wir müssen nur einmal über das `s()` angeben, welche Einflussvariablen nicht linear sein sollen. In unserem Fall sind es die Schlupfzeiten und die Körpergewichte der Flöhe. Dann nehmen wir den Entwicklungsstand als Faktor noch mit ins Modell.
+Jetzt wollen wir uns einmal ein etwas kompliziertes Beispiel mit den Flohdaten anschauen. Unsere Flohdaten haben insgesamt `r nrow(flea_model_tbl)` Beobachtungen. Das brauchen wir gleich einmal damit auch immer sehen, wie die Daten zusammengefasst werden. Erstmal bauen wir uns wieder unser *Generalized additive model* für die Daten. Wir müssen nur einmal über das `s()` angeben, welche Einflussvariablen nicht linear sein sollen. In unserem Fall sind es die Schlupfzeiten, die Körpergewichte der Flöhe sowie die Anzahl an Haaren am rechten Bein. Alles zusammen bauen wir einmal in ein multiples Kovariatesmodell.
 
 ```{r}
 #| message: false
 #| warning: false
-cov2_fac1_fit <- gam(jump_length ~ s(hatched) + s(weight) + stage, data = flea_model_tbl)
+cov3_fit <- gam(jump_length ~ s(hatched) + s(weight) + s(count_leg), 
+                data = flea_model_tbl)
 ```
 
 Wir können uns jetzt über alle $5 + 38 + 5$ Beobachtungen in den Daten einmal die Vorhersage wiedergeben lassen. Dabei sind die mittleren $38$ Beobachtungen einmal in der Ausgabe weggelassen. Wir erhalten so für jede Beobachtung die entsprechende Sprungweite wiedergeben.
@@ -1866,65 +1867,85 @@ Wir können uns jetzt über alle $5 + 38 + 5$ Beobachtungen in den Daten einmal 
 ```{r}
 #| message: false
 #| warning: false
-predictions(cov2_fac1_fit)
+predictions(cov3_fit)
 ```
+
+Mit den Vorhersagen können wir so nicht wirklich was anfangen. Wir haben jetzt für jeden Floh die vorhergesagte Sprungweite, aber eigentlich interessieren uns ja die Einflüsse der Kovariaten. Daher müssen wir uns mal ein interessantes Datenraster bauen, was unseren Ansprüchen genügt. Wir haben in `{marginaleffects}` ein paar Wrapper, die uns helfen die Kovariaten in ihren Werten besser zusammenzufassen.
+
+-   mit `fivenum` erhalten wir die [Five-number summary](https://en.wikipedia.org/wiki/Five-number_summary) mit dem Minimum, dem $1^{st}$ Quartile, dem Median, dem $3^{rd}$ Quartile sowie dem Maximum.
+-   mit `mean` erhalten wir den Mittelwert.
+-   mit `median` erhalten wir den Median.
+-   mit `range` erhalten wir die Minimum und Maximumwerte.
+
+Dann können wir uns noch eigene Funktion schreiben, die aber *immer* einen Vektor an Zahlen wiedergeben müssen. Daher arbeite ich hier explizit mit `c()` damit ich sicher bin, dass wir auch einen Zahlenvektor wiederbekommen. Deshalb ist die Funktion nicht schön, aber wirksam. Wir berechnen hier den Mittelwert plusminus einer Standardabweichung. Das Runden ist nicht notwendig, macht aber alles etwas schöner.
+
+```{r}
+mean_sd <- \(x){
+  c(mean(x) - sd(x), mean(x), mean(x) + sd(x)) |> 
+    round(2)
+}
+```
+
+Jetzt können wir uns einmal das Datenraster anschauen, was wir dann nutzen wollen um für die Werte der Einflussvariablen im Datenraster die Vorhersagen der Sprungweiten zu bestimmen.
+
+```{r}
+cov3_datagrid <- datagrid(model = cov3_fit, 
+                          weight = fivenum, 
+                          hatched = mean_sd, 
+                          count_leg = median)
+cov3_datagrid
+```
+
+Das Datenraster können wir dann in die Option `newdata` direkt in die Funktion `predictions()` einbauen. Dann erhalten wir die Sprungweiten der Flöhe für die jeweiligen Werte der Einflussvariablen in dem Datenraster. Damit haben wir jedenfalls in einem Kovariatenmodell eine bessere Vorstellung von dem Einfluss der Kovariaten auf den Messwert.
+
+```{r}
+#| message: false
+#| warning: false
+predictions(cov3_fit, 
+            newdata = datagrid(weight = fivenum, 
+                               hatched = mean_sd, 
+                               count_leg = median))
+```
+
+Meistens wollen wir dann nicht nur Testen, ob die vorhergesagten Werte Null sind. Diese Nullhypothese macht bei Vorhersagen meistens nicht so einen Sinn. Deshalb können wir auch über die Funktion `hypotheses()` eine andere Nullhypothese definieren. Leider haben wir hier wieder die Koeffizientenschreibweise mit `b*`, die leider super schwer zu lesen ist. Deshalb einmal in den folgenden Tabs die normale Ausgabe von der Funktion `hypotheses()` und dann eben die Kombination mit dem Datenraster.
 
 ::: panel-tabset
-## `by = "weight"`
+## Mit `hypotheses()`
 
-```{r}
-flea_model_tbl |> 
-  pull(weight) |> 
-  unique() |> 
-  sort()
-```
+Wir wollen jetzt einmal statistisch Testen, ob sich die vorhergesagten Sprungweiten von $75cm$ unterscheiden. Es ist immer sehr schwer sich zu merken, was denn jetzt die Koeffizienten für das Datenraster in der Ausgabe der Funktion `hypotheses()` sind. Wir erhalten hier ja nur die Kurzschreibweise der Koeffizienten mit `b*` wiedergeben. Das ist sehr schwer zu lesen. In dem nächsten Tab kombiniere ich dann einmal die Ausgabe hier mit dem Datenraster um dann besser zu verstehen, was die Koeffizienten `b*` aussagen sollen.
 
 ```{r}
 #| message: false
 #| warning: false
-predictions(cov2_fac1_fit, by = "weight")
+cov3_hypotheses <- predictions(cov3_fit, 
+                               newdata = datagrid(weight = fivenum, 
+                                                  hatched = mean_sd, 
+                                                  count_leg = median)) |> 
+  hypotheses(hypothesis = 75)
+cov3_hypotheses
 ```
 
-## `variables`
+## Mit `hypotheses()` und `datagrid()`
 
--   mit `sd` und `2sd`
--   mit `threenum`
--   mit `fivenum` erhalten wir die [Five-number summary](https://en.wikipedia.org/wiki/Five-number_summary) mit dem Minimum, dem $1^{st}$ Quartile, dem Median, dem $3^{rd}$ Quartile sowie dem Maximum.
+Wir nehmen hier einmal unser Objekt `cov3_datagrid` was das Datenraster beinhaltet und kombinieren es mit dem Objekt `cov3_hypotheses` aus dem vorherigen Tab, welches unsere statistischen Tests beinhaltet. Dann müssen wir noch etwas selektieren und mutieren, damit alles wieder schön aussieht.
 
 ```{r}
-#| message: false
-#| warning: false
-avg_predictions(cov2_fac1_fit, 
-                variables = lst(stage = unique, hatched = "fivenum"))
+bind_cols(cov3_datagrid, cov3_hypotheses) |> 
+  select(weight, hatched, count_leg, estimate, p.value) |> 
+  mutate(estimate = round(estimate, 2),
+         p.value = scales::pvalue(p.value))
 ```
 
-```{r}
-#| message: false
-#| warning: false
-predictions(cov2_fac1_fit, 
-            newdata = datagrid(stage = unique, hatched = fivenum))
-```
-
-## `by = c("stage", "weight")`
-
-```{r}
-flea_model_tbl |> 
-  arrange(stage, weight) |> 
-  select(stage, weight)
-```
-
-```{r}
-#| message: false
-#| warning: false
-predictions(cov2_fac1_fit, by = c("stage", "weight"))
-```
+Jetzt können wir viel besser sehen welche Kombination der Werte der Kovariaten welchen Wert in der Sprungweite hat und ob dieser Wert in der Sprungweite sich signifikant von $75cm$ unterscheidet. Das geht zwar nicht immer, aber wenn ich das Datenraster mit der Ausgabe der Funktion `hypotheses()` kombinieren kann, dann mache ich das gerne.
 :::
+
+### Kombiniertes Modell
 
 ::: panel-tabset
 ## Interessantes Raster
 
 ```{r}
-predictions(cov2_fac1_fit,
+predictions(cov3_fit,
   variables = lst(weight = "threenum"),
   newdata = datagrid(stage = unique)
 )
@@ -1933,6 +1954,8 @@ predictions(cov2_fac1_fit,
 ## Repräsentatives Raster
 
 ## Kontrafaktisches Raster
+
+Hier kommen die `variables` ins Spiel.
 :::
 
 ### Faktorielles Modell
