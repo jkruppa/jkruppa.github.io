@@ -1939,47 +1939,83 @@ bind_cols(cov3_datagrid, cov3_hypotheses) |>
 Jetzt können wir viel besser sehen welche Kombination der Werte der Kovariaten welchen Wert in der Sprungweite hat und ob dieser Wert in der Sprungweite sich signifikant von $75cm$ unterscheidet. Das geht zwar nicht immer, aber wenn ich das Datenraster mit der Ausgabe der Funktion `hypotheses()` kombinieren kann, dann mache ich das gerne.
 :::
 
+Soweit so gut zum reinen Kovariatenmodell. Wenn wir nur Kovariaten in unserem Modell haben, dann biette sich die Nutzung des Datenrasters sehr gut an um eben dann unsere Kovariaten irgendwie zu Gruppieren und so eine Aussage treffen zu können. Wir haben auch noch die Möglichkeit die Funktion `avg_predictions()` zu nutzen, aber das ist eine Funktion, die über alle Vorhersagen eben den Mittelwert bildet. Manchmal interessant, aber nicht wirklich, wenn wir mehrere Kovariaten haben und dann eine mittlere Sprungweite über alle Vorhersagen erhalten.
+
 ### Kombiniertes Modell
 
 Jetzt wird es komplizierter, da wir noch einen Faktor mit in unser Modell nehmen. Daher wollen wir unsere Vorhersagen nach einem gruppierenden Faktor auswerten. Das macht die Sache schon komplizierter. Der Fokus liegt aber je nach Perspektive eben auf den Kovariaten oder dem Faktor. Wir diskutieren hier jetzt aber gleich mal den Sachverhalt.
 
-::: panel-tabset
-## Interessantes Raster
+::: callout-warning
+## Achtung, bitte beachten!
 
-```{r}
-predictions(cov3_fit,
-  variables = lst(weight = "threenum"),
-  newdata = datagrid(stage = unique)
-)
-```
-
-## Repräsentatives Raster
-
-## Kontrafaktisches Raster
-
-Hier kommen die `variables` ins Spiel.
+Die Funktion `avg_predictions(..., by = factor)` und die Nutzung von `predictions(..., by = factor)` sind faktisch das Gleiche. Wir erhalten dann das gleiche Ergebnis und deshalb bleibe ich immer bei der Funktion `predictions()`. So haben wir eine Funktion weniger, die wir uns merken müssen. Die Funktion `avg_predictions()` nutzen wir nur, wenn wir wirklich mal die mittleren Vorhersagen haben wollen.
 :::
 
+Dann schauen wir uns einmal das kombinierte Modell für unsere Flohdaten an. Wir wollen jetzt einmal modellieren welchen Einfluss die Schlupfzeit sowie das Gewicht der Flöhe auf die Sprungweite hat. Darüber hinaus nehmen wir dann noch den Entwicklungsstand mit in das Modell.
+
+#### Modellierung von Flöhen {.unnumbered .unlisted}
+
+Jetzt wollen wir uns einmal ein etwas kompliziertes Beispiel mit den Flohdaten anschauen. Unsere Flohdaten haben insgesamt `r nrow(flea_model_tbl)` Beobachtungen. Das brauchen wir gleich einmal damit auch immer sehen, wie die Daten zusammengefasst werden. Erstmal bauen wir uns wieder unser *Generalized additive model* für die Daten. Wir müssen nur einmal über das `s()` angeben, welche Einflussvariablen nicht linear sein sollen. In unserem Fall sind es die Schlupfzeiten, die Körpergewichte der Flöhe sowie als Faktor den Entwicklungsstand der Flöhe.
+
+```{r}
+#| message: false
+#| warning: false
+cov2_fac1_fit <- gam(jump_length ~ s(hatched) + s(weight) + stage, 
+                     data = flea_model_tbl)
+```
+
+Wenn wir jetzt daran interessiert wären, wie sich die Sprungweite über das Gewicht und die Schlupfzeit verändert, dann können wir die Option `by` nutzen. Dadurch teilen wir dann die Vorhersagen für die beiden Entwicklungsstände einmal auf.
+
+```{r}
+predictions(cov2_fac1_fit,
+            by = "stage")
+```
+
+Am Ende ist die Option `by` nichts anderes als ein `group_by()` kombiniert mit einer Zusammenfassung und dem Mittelwert über alle Vorhersagen. Daher auch die Ähnlichkeit zu der Funktion `avg_predictions()`, die ja auch nichts anderes macht, als den Mittelwert der Vorhersagen zu bilden.
+
+```{r}
+predictions(cov2_fac1_fit) |> 
+  group_by(stage) |> 
+  summarize(mean(estimate))
+```
+
+Das Ganze ist natürlich etwas unbefriedigend, da wir nur zwei Werte für unsere Vorhersagen erhalten und das Gewicht sowie die Schlupfzeiten vollkommen außer acht lassen. Hier hilft dann wieder das Datenraster, in dem wir uns dann die interessanten Werte der Kovariaten aussuchen können. Wir wollen dann alles für die Entwicklungstände einzelen haben und setzen daher einmal die Funktion `unique`. Dann müssen wir nicht die Namen der Level jetzt hier in das Datenraster schreiben.
+
+```{r}
+cov2_fac1_datagrid <- datagrid(model = cov2_fac1_fit,
+                               stage = unique,
+                               weight = fivenum, 
+                               hatched = mean)
+cov2_fac1_datagrid
+```
+
+Dann können wir auch schon die Vorhersage mit dem Datenraster kombinieren. Damit haben wir dann wirklich die Information der Kovariaten über die Vorhersage der Sprungweiten getrennt für die beiden Entwicklungsständer vorliegen. Das ist es ja was wir mit den Entwicklungsständen auch haben wollen nämlich eine Gruppierung unser Sprungweiten.
+
+```{r}
+#| message: false
+#| warning: false
+predictions(cov2_fac1_fit, 
+            newdata = cov2_fac1_datagrid)
+```
+
+Was das statistische Testen angeht haben wir hier den gleichen Fall vorliegen wie auch schon in den kovariaten Modellen. Wir können auch hier dann die Funktion `hypotheses()` nutzen. Was etwas schwerer wird. Wir testen jetzt ja auch hier immer jede Zeile gegen einen Wert in der Nullhypothese. Was wir ja eventuell auch Testen wollen, ist der Unterschied zwischen den Gruppen global. Das würde ich aber dann wirklich über die anderen Kovariaten rechnen und nur die Option `by` setzen.
+
+```{r}
+predictions(cov2_fac1_fit,
+            by = "stage",
+            hypothesis = ~ pairwise)
+```
+
+Wir sehen hier, dass der paarweise Vergleich zwischen den beiden Entwicklungsständen im Bezug auf die mittlere vorhergesagte Sprungweite nicht signifikant ist. Wenn wir das noch für verschiedene Gewichte oder Schlupfweiten haben wollen würden, dann würde ich das alles schrittweise mit neuen Datenrastern testen. Aber hier breche ich mal ab, da es dann wirklich auf die wissenschaftliche Fragestellung ankommt.
+
 ### Faktorielles Modell
+
+Kommen wir nun zum reinen faktoriellen Design. Ich habe lange gebraucht um zu erkennen, dass die Vorhersage in einem faktoriellen Design eben dem klassischen Gruppenvergleich entspricht. Wir sagen ja für jede Faktorkombination die Mittelwerte des Messwerts voraus. Dann können wir ja auch diese vorhergesagten Mittelwerte miteinander vergleichen und rechnen dann eben einen paarweisen Gruppenvergleich. Wenn man es sich so überlegt ist es eben sehr naheliegend. Das Problem war für mich, dass es eben in `{marginaleffects}` noch die Funktion `comparisons()` gibt, die eben nicht Gruppenvergleiche rechnet. Wenn man sich das aber einmal auseinandergenommen hat, dann macht es auch mehr Sinn hier dann die Funktion `predictions()` zu verwenden. Davon mal ab, dass das R Paket `{emmeans}` für die Fragestellung des Gruppenvergleichs für mich einfach besser funktioniert. Aber das weiß man ja nie vorher.
 
 ::: callout-warning
 ## Achtung, bitte beachten!
 
-Ich persönlich finde die Implementierung des multiplen Testens in `{emmeans}` um Längen besser gelöst. Den Rest von `{marginaleffects}` dann eher nicht so. Daher würde ich dir hier davon abraten, deine Gruppenvergleiche mit `predictions()` zu rechnen. Es ist gut zu verstehen was die Funktion macht, aber `{emmeans}` hat den klaren Vorteil, dass wir das *Compact letter display* berechnen können. Darüber hinaus finde ich die zweifaktorielle Analyse durch die beiden Zeichen Stern `*` und Strich `|` besser gelöst. In `{marginaleffects}` haben wir dann die Problematik mit den Hypothesen und Gruppennamen innerhalb der Ausgabe der Funktion `hypotheses()`. Hier nochmal die Alternativen in `{emmeans}`, die ich hier aber dann nicht ausführen lasse. Bitte schaue dann nochmal in das [Kapitel zu den Post-hoc Tests](#sec-posthoc) vorbei.
-
-```{r}
-#| eval: false
-enzyme_1fac_fit |> 
-  emmeans(~ grp, vcov = sandwich::vcovHAC) |> 
-  contrast(method = "pairwise", adjust = "bonferroni")
-```
-
-```{r}
-#| eval: false
-enzyme_2fac_fit |> 
-  emmeans(~ grp | type, vcov = sandwich::vcovHAC) |> 
-  contrast(method = "pairwise", adjust = "bonferroni")
-```
+Ich persönlich finde die Implementierung des multiplen Testens in `{emmeans}` um Längen besser gelöst. Den Rest von `{marginaleffects}` dann eher nicht so. Daher würde ich dir hier davon abraten, deine Gruppenvergleiche mit `predictions()` zu rechnen. Es ist gut zu verstehen was die Funktion macht, aber `{emmeans}` hat den klaren Vorteil, dass wir das *Compact letter display* berechnen können. Darüber hinaus finde ich die zweifaktorielle Analyse durch die beiden Zeichen Stern `*` und Strich `|` besser gelöst. In `{marginaleffects}` haben wir dann die Problematik mit den Hypothesen und Gruppennamen innerhalb der Ausgabe der Funktion `hypotheses()`. Weiter unten zeige ich dir nochmal einen kurzen Vergleich der beiden Pakete. Bitte schaue dann nochmal in das [Kapitel zu den Post-hoc Tests](#sec-posthoc) vorbei.
 :::
 
 ::: {layout="[15,85]" layout-valign="top"}
@@ -2002,13 +2038,13 @@ enzyme_1fac_fit <-  lm(activity ~ grp, data = enzyme_tbl)
 ```{r}
 #| message: false
 #| warning: false
-predictions(enzyme_1fac_fit, by = c("grp"), vcov = "HAC")
+predictions(enzyme_1fac_fit, by = "grp", vcov = "HAC")
 ```
 
 ```{r}
 #| message: false
 #| warning: false
-predictions(enzyme_1fac_fit, by = c("grp"), vcov = "HAC",
+predictions(enzyme_1fac_fit, by = "grp", vcov = "HAC",
             hypothesis = ~pairwise)  |> 
   hypotheses(multcomp = "bonferroni")
 ```
@@ -2016,7 +2052,7 @@ predictions(enzyme_1fac_fit, by = c("grp"), vcov = "HAC",
 ```{r}
 #| message: false
 #| warning: false
-predictions(enzyme_1fac_fit, by = c("grp"), vcov = "HAC",
+predictions(enzyme_1fac_fit, by = "grp", vcov = "HAC",
             hypothesis = ~pairwise) 
 ```
 
@@ -2030,7 +2066,7 @@ predictions(enzyme_1fac_fit, by = c("grp"), vcov = "HAC",
 #| fig-cap: "**(A)** Linearer Zusammenhang. **(B)** ggg *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-model-predict-02
 
-plot_predictions(enzyme_1fac_fit, by = c("grp")) +
+plot_predictions(enzyme_1fac_fit, by = "grp") +
   theme_minimal()
 ```
 
