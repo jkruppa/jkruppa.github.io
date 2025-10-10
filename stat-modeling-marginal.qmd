@@ -2012,28 +2012,49 @@ Wir sehen hier, dass der paarweise Vergleich zwischen den beiden Entwicklungsst�
 
 Kommen wir nun zum reinen faktoriellen Design. Ich habe lange gebraucht um zu erkennen, dass die Vorhersage in einem faktoriellen Design eben dem klassischen Gruppenvergleich entspricht. Wir sagen ja für jede Faktorkombination die Mittelwerte des Messwerts voraus. Dann können wir ja auch diese vorhergesagten Mittelwerte miteinander vergleichen und rechnen dann eben einen paarweisen Gruppenvergleich. Wenn man es sich so überlegt ist es eben sehr naheliegend. Das Problem war für mich, dass es eben in `{marginaleffects}` noch die Funktion `comparisons()` gibt, die eben nicht Gruppenvergleiche rechnet. Wenn man sich das aber einmal auseinandergenommen hat, dann macht es auch mehr Sinn hier dann die Funktion `predictions()` zu verwenden. Davon mal ab, dass das R Paket `{emmeans}` für die Fragestellung des Gruppenvergleichs für mich einfach besser funktioniert. Aber das weiß man ja nie vorher.
 
-::: callout-warning
+:::: callout-warning
 ## Achtung, bitte beachten!
 
 Ich persönlich finde die Implementierung des multiplen Testens in `{emmeans}` um Längen besser gelöst. Den Rest von `{marginaleffects}` dann eher nicht so. Daher würde ich dir hier davon abraten, deine Gruppenvergleiche mit `predictions()` zu rechnen. Es ist gut zu verstehen was die Funktion macht, aber `{emmeans}` hat den klaren Vorteil, dass wir das *Compact letter display* berechnen können. Darüber hinaus finde ich die zweifaktorielle Analyse durch die beiden Zeichen Stern `*` und Strich `|` besser gelöst. In `{marginaleffects}` haben wir dann die Problematik mit den Hypothesen und Gruppennamen innerhalb der Ausgabe der Funktion `hypotheses()`. Weiter unten zeige ich dir nochmal einen kurzen Vergleich der beiden Pakete. Bitte schaue dann nochmal in das [Kapitel zu den Post-hoc Tests](#sec-posthoc) vorbei.
-:::
 
 ::: {layout="[15,85]" layout-valign="top"}
 ![](images/personal_opinion.png){fig-align="center" width="100%"}
 
-> *"Manchmal schaue ich mir sehr lange Funktionen oder Pakete wie hier `{marginaleffects}` an und muss dann feststellen, dass für eine spezielle Orichideenanwendung dann doch ein anderes Paket besser ist. Ist nicht schlimm, dann musst du dir nicht die Arbeit machen. Für das faktorielle Experiment würde ich dann immer `{emmeans}` nehmen." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
+> *"Manchmal schaue ich mir sehr lange Funktionen oder Pakete wie hier `{marginaleffects}` an und muss dann feststellen, dass für eine spezielle Orichideenanwendung dann doch ein anderes Paket besser ist. Insbesondere wenn wir ein balanciertes Gruppendesign vorliegen haben und die gängige Nullhypothese testen wollen. Ist nicht schlimm, dann musst du dir nicht die Arbeit machen. Für das faktorielle Experiment würde ich dann immer `{emmeans}` nehmen." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
 :::
+::::
 
-Die Funktion `hypotheses()` ist mächtig.
+Dann wiederholen wir nochmal ganz kurz die Abbildung von der Einleitung damit wir die Abbildung auch nochmal hier vorliegen haben. Wir haben unseren gruppierten pH-Wert als Einflussvariable auf der x-Achse liegen und unsere standardisierte Enzymaktivität auf der y-Achse als Messwert vorliegen. Dann sagen wir die Gruppenmittelwerte mit unserem linearen Modell und der Funktion `predictions()` voraus. Dann können wir noch einen zweiten Faktor wie die Gruppe der Prokaryoten oder Eukaryoten vorliegen haben. Dann erweiterten sich unsere Faktorkombinationen natürlich entsprechend und wir sagen mehr Mittelwerte voraus. Für jede Faktorkombination dann jeweils einen Mittelwert. Der gedankliche Sprung ist hier, dass wir es mit Vorhersagen zu tun haben. Wir sagen eben die Mittelwerte in den Gruppen aus dem linearen Modell vorher.
 
-*Marginal mean* nochmal erklären
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 9.5
+#| fig-cap: "Modellierung des Zusammenhangs zwischen der standardisierten Enzymeaktivität und den gruppierten pH-Werten nach niedrigen, mittleren und hohen pH-Werten. Der pH-Wert ist kategorial. **(A)** Einfaktorielle Vorhersage der Gruppenmittelwerte der Enzymeaktivität. **(B)** Zweifaktorielle Vorhersage der Gruppenmittelwerte der Enzymeaktivität aufgetrennt nach der Gruppe der Eukaryoten und Prokaryoten. *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-model-factorial
 
-::: panel-tabset
+p3_intro_00_3 + p4_intro_00_4 +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
+```
+
+Was ist der große Vorteil von `{marginaleffects}` ist nun, dass wir die Funktion `hypotheses()` vorliegen haben und damit ziemlich viel machen können. Dazu mehr dann noch weiter unten im Abschnitt zu den Hypothesen- und Äquivalenztests. Die Frage ist eher, ob wir das alles wirklich brauchen, was die Funktion `hypotheses()` kann, aber das ist eine andere Frage. In den beiden folgenden Tabs zeige ich dir dann einmal wie wir die Vorhersagen und damit die Gruppenvergleiche in `{marginaleffects}` rechnen. Zuerst für den einfaktoriellen Fall und dann einmal für den zweifaktoriellen Fall.
+
+:::: panel-tabset
 ## Vorhersage 1-faktoriell
+
+Für unseren einfaktoriellen Gruppenvergleich brauchen wir erstmal ein statistisches Modell. Ich nehme hier einmal das lineare Modell mit der Annahme der Normalverteilung an die Residuen, da ich durch die Standardisierung der Enzymaktivität eine approximative Normalverteilung im Messwert erreicht habe.
 
 ```{r}
 enzyme_1fac_fit <-  lm(activity ~ grp, data = enzyme_tbl)
 ```
+
+Dann können wir uns schon die Gruppenmittelwerte für die drei pH-Wertgruppen berechnen lassen. Ich gehe hier gleich von Varianzheterogenität in den Gruppen aus und passen entsprechend den Varianzschätzer mit `vcov = "HAC"` an. Somit haben alle Gruppen ihre individuelle Varianz oder `Std. Error` in der folgenden Ausgabe.
 
 ```{r}
 #| message: false
@@ -2041,58 +2062,91 @@ enzyme_1fac_fit <-  lm(activity ~ grp, data = enzyme_tbl)
 predictions(enzyme_1fac_fit, by = "grp", vcov = "HAC")
 ```
 
+Die Mittelwerte passen mit der obigen Abbildung überein. Dann können wir schon den paarweisen Vergleich rechnen. Zuerst einmal ohne die Adjustierung für multiple Vergleiche. Dann erhalten wir direkt die paarweisen Vergleiche für die Differenzen der Mittelwerte.
+
 ```{r}
 #| message: false
 #| warning: false
 predictions(enzyme_1fac_fit, by = "grp", vcov = "HAC",
-            hypothesis = ~pairwise)  |> 
+            hypothesis = difference ~ pairwise) 
+```
+
+Wenn wir jetzt adjustieren wollen, dann müssen wir nochmal die Funktion `hypotheses()` nachschalten. Leider erhalten wir nur die Koeffizientenschreibweise mit `b*`, wenn wir die Option `hypothesis` nicht in die Funktion `predictions()` schreiben. Daher bitte dann so bauen, jedenfalls bis die Funktion `predictions()` auch die Option `multcomp` akzeptiert oder aber die Gruppennamen benutzt.
+
+```{r}
+#| message: false
+#| warning: false
+predictions(enzyme_1fac_fit, by = "grp", vcov = "HAC",
+            hypothesis = difference ~ pairwise)  |> 
   hypotheses(multcomp = "bonferroni")
 ```
 
-```{r}
-#| message: false
-#| warning: false
-predictions(enzyme_1fac_fit, by = "grp", vcov = "HAC",
-            hypothesis = ~pairwise) 
-```
+Wir haben dann mit der Funktion `plot_predictions()` auch eine schnelle Möglichkeit einmal uns die verschiedenen Mittelwerte der standardisierte Enzymaktivität nach den standardisierten pH-Wertgruppen einmal anzuschauen. Es ist am Ende ein einfacher Plot, der nochmal zeigt, ob wir dann auch alles richtig gemacht haben und die p-Werte aus den vergleichen dann auch zu den Daten passen.
 
 ```{r}
 #| message: false
-#| echo: false
+#| echo: true
 #| warning: false
 #| fig-align: center
 #| fig-height: 3.5
 #| fig-width: 7
-#| fig-cap: "**(A)** Linearer Zusammenhang. **(B)** ggg *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Darstellung der Mittelwerte mit dem Standardfehler für die standardisierte Enzymaktivität nach den standardisierten pH-Wertgruppen. *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-model-predict-02
 
 plot_predictions(enzyme_1fac_fit, by = "grp") +
-  theme_minimal()
+  theme_minimal() +
+  labs(x = "Gruppierter pH-Wert", y = "Standardisierte Enzymaktivität")
 ```
 
 ## Vorhersage 2-faktoriell
+
+Für unseren zweifaktoriellen Gruppenvergleich brauchen wir auch ein statistisches Modell. Ich nehme hier einmal das lineare Modell mit der Annahme der Normalverteilung an die Residuen, da ich durch die Standardisierung der Enzymaktivität eine approximative Normalverteilung im Messwert erreicht habe. Dann ergänze ich noch die Interaktion zwischen den pH-Wertgruppen und den Gruppen der Prokaryoten oder Eukaryoten.
 
 ```{r}
 enzyme_2fac_fit <- lm(activity ~ grp * type, data = enzyme_tbl)
 ```
 
+Dann können wir uns schon die Gruppenmittelwerte für die drei pH-Wertgruppen und den Gruppen der Prokaryoten oder Eukaryoten berechnen lassen. Ich gehe hier gleich von Varianzheterogenität in den Gruppen aus und passen entsprechend den Varianzschätzer mit `vcov = "HAC"` an. Somit haben alle Gruppen ihre individuelle Varianz oder `Std. Error` in der folgenden Ausgabe. Das besondere hier ist dann die Schreibweise mit dem `by`, die uns erlaubt die Vorhersage über die Faktorkombinationen aufzuteilen.
+
+```{r}
+#| message: false
+#| warning: false
+
+predictions(enzyme_2fac_fit, by = c("grp", "type"), vcov = "HAC") 
+```
+
+Die Mittelwerte passen mit der obigen Abbildung überein. Dann können wir schon den paarweisen Vergleich rechnen. Zuerst einmal ohne die Adjustierung für multiple Vergleiche. Dann erhalten wir direkt die paarweisen Vergleiche für die Differenzen der Mittelwerte. Hier müssen wir dann noch mit dem Strich `|` einmal die Vergleiche für den zweiten Faktor aufteilen. Am Ende noch angeben dass wir von einem balancierten Design ausgehen.
+
 ```{r}
 #| message: false
 #| warning: false
 
 predictions(enzyme_2fac_fit, by = c("grp", "type"), vcov = "HAC",
-            hypothesis = ~pairwise | type, 
+            hypothesis = difference ~ pairwise | type, 
             newdata = "balanced") 
 ```
 
+Wenn wir jetzt adjustieren wollen, dann müssen wir nochmal die Funktion `hypotheses()` nachschalten. Leider erhalten wir nur die Koeffizientenschreibweise mit `b*` für einen Teil der Faktoren. Je nachdem wir du das dir baust, kriegst du dann eben einen Faktor nicht mit den Namen in die Ausgabe. In unserem Fall fehlt jetzt der Name des zweiten Faktors. Hier müssen wir jetzt wissen, dass erst die Eukaryoten kommen und dann die Prokayoten. Das ist die Sortierung der Level im Faktor `type` gewesen. Ich finde das super nervig, sich zu merken, wie die Ordnung der Level in den Faktoren ist.
+
 ```{r}
 #| message: false
 #| warning: false
 
 predictions(enzyme_2fac_fit, by = c("grp", "type"), vcov = "HAC",
+            hypothesis = difference ~ pairwise | type,
             newdata = "balanced") |> 
-  hypotheses(~pairwise | type, multcomp = "bonferroni")
+  hypotheses(multcomp = "bonferroni")
 ```
+
+Am Ende ist es dann vermutlich eine Geschmacksfrage und die Anwendung die zählt. Wenn du sehr viele faktorielle Experimente auswertest, dann würde ich dir den Weg hier nicht empfehlen. Da ist dann `{emmeans}` besser für gebaut und auch optimaler zu Bedienen. Hier ist es eher der Versuch etwas nachzubauen, was woanders besser geht.
+
+::: {layout="[15,85]" layout-valign="top"}
+![](images/personal_opinion.png){fig-align="center" width="100%"}
+
+> *"Ich habe hier sehr lange gefrickelt um irgendwie beide Faktoren mit dem Namen der Level in die Ausgabe zu kriegen, bin aber dran gescheitert. Wenn du eine Lösung findest, dann freue ich mich sehr, wenn du mich anschreibst. Danke!" --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
+:::
+
+Wir haben dann mit der Funktion `plot_predictions()` auch eine schnelle Möglichkeit einmal uns die verschiedenen Mittelwerte der standardisierte Enzymaktivität nach den standardisierten pH-Wertgruppen und der Prokaryoten oder Eukaryoten einmal anzuschauen. Es ist am Ende ein einfacher Plot, der nochmal zeigt, ob wir dann auch alles richtig gemacht haben und die p-Werte aus den vergleichen dann auch zu den Daten passen.
 
 ```{r}
 #| message: false
@@ -2100,64 +2154,74 @@ predictions(enzyme_2fac_fit, by = c("grp", "type"), vcov = "HAC",
 #| fig-align: center
 #| fig-height: 3.5
 #| fig-width: 7
-#| fig-cap: "**(A)** Linearer Zusammenhang. **(B)** ggg *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Darstellung der Mittelwerte mit dem Standardfehler für die standardisierte Enzymaktivität nach den standardisierten pH-Wertgruppen und der Prokaryoten oder Eukaryoten. *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-model-predict-03
 
 plot_predictions(enzyme_2fac_fit, by = c("grp", "type")) +
-  theme_minimal()
+  theme_minimal() +
+  scale_color_okabeito() +
+  labs(x = "Gruppierter pH-Wert", y = "Standardisierte Enzymaktivität",
+       color = "Gruppe")
 ```
-:::
+::::
+
+Wir haben auf der Webseite zu den `{marginaleffects}` auch noch den Punkt zu der [Alternativen Software -- `{emmeans}`](https://marginaleffects.com/bonus/alternative_software.html#emmeans). Wie ich jetzt festgestellt habe, wurde nochmal der Vergleich dort geändert und bezieht sich jetzt auf die Funktion `comparisons()` und nicht mehr auf `predictions()`. Am Ende ist es aber wirklich ein an sich sinnloses Gequäle sich `{emmeans}` in `{marginaleffects}` nachzubauen. In dem folgenden Kasten ist dann nochmal der Vergleich enthalten, damit wir das hier auch nochmal haben.
 
 :::: callout-note
 ## Vergleich `{marginaleffects}` und `{emmeans}`
+
+Schauen wir uns für den Vergleich der Flöhe einmal das lineare Modell mit zwei Faktoren für die Ernährungsform und den Entwicklungsstand einmal an. Wir haben wieder die Interaktion mit in dem Modell und gehen von normalverteilten Sprungweiten aus. Dementsprechend ist es eine einfache lineare Modellierung.
 
 ```{r}
 feeding_fit <-  lm(jump_length ~ feeding * stage, data = flea_model_tbl)
 ```
 
+Jetzt können wir auf zwei Arten die Gruppenvergleiche rechnen. Ich zeige also hier nochmal in beiden Tabs die Anwendung in `{marginaleffects}` mit der Funktion `predictions()` sowie die von mir präferierte Version in `{emmeans}`. Ich mache mir hier nicht mehr die Mühe nochmal alles mit der Funktion `comparisons()` nachzubauen. Mehr zu den multiplen Gruppenvergleichen findest du dann im [Kapitel zu den Post-hoc Tests](#sec-posthoc).
+
 ::: panel-tabset
 ## `{marginaleffects}`
+
+Einmal die Mittelwerte aller Faktorkombinationen unter der Annahme der Varianzheterogenität mit der Funktion `predictions()` aus dem obigen linearen Modell.
 
 ```{r}
 predictions(feeding_fit, by = c("stage", "feeding"), vcov = "HAC")
 ```
 
-```{r}
-predictions(feeding_fit, by = c("stage", "feeding"), vcov = "HAC",
-            hypothesis = ~pairwise | stage)
-```
+Wenn wir jetzt einmal die paarweisen Vergleiche rechnen wollen, dann können wir die Option `hypothesis` nutzen. Wir können aber auf diese Weise nicht für multiple Vergleiche adjustieren.
 
 ```{r}
-predictions(feeding_fit, by = c("stage", "feeding"), vcov = "HAC") |> 
+predictions(feeding_fit, by = c("stage", "feeding"), vcov = "HAC",
+            hypothesis = difference ~ pairwise | stage)
+```
+
+Um die Adjustierung durchzuführen müssen wir dann noch die Funktion `hypotheses()` nachschalten wobei wir dann die Namen der Level es zweiten Faktors verlieren. Das ist super nervig, da ich natürlich nicht immer die Sortierung im Kopf habe. Eine unnötige Fehlerquelle. In unserem Fall wäre es aber erst der Entwicklungsstand adult und dann juvenile.
+
+```{r}
+predictions(feeding_fit, by = c("stage", "feeding"), vcov = "HAC",
+            hypothesis = difference ~ pairwise | stage) |> 
   hypotheses(multcomp = "bonferroni")
 ```
 
-```{r}
-#| message: false
-#| echo: false
-#| warning: false
-#| fig-align: center
-#| fig-height: 3.5
-#| fig-width: 7
-#| fig-cap: "**(A)** Linearer Zusammenhang. **(B)** ggg *[Zum Vergrößern anklicken]*"
-#| label: fig-marginal-model-predict-04
-
-plot_predictions(feeding_fit, by = c("stage", "feeding")) +
-  theme_minimal()
-```
+In dem folgenden Tab findest du dann einmal die Anwendung in `{emmeans}` für die multiplen Vergleiche.
 
 ## `{emmeans}`
+
+Wenn wir die Mittelwerte aufgeteilt nach den beiden Entwicklungsständen und den Ernährungsarten haben wollen, können wir die Funktion `emmeans()` nutzen und müssen noch angeben, dass wir für die Varianzheterogenität adjustieren wollen. Mehr zu den multiplen Gruppenvergleichen in `{emmeans}` findest du dann im [Kapitel zu den Post-hoc Tests](#sec-posthoc). Das hier dient nur der Veranschaulichung und dem Vergleich der Algorithmen.
 
 ```{r}
 feeding_fit |> 
   emmeans(~ feeding | stage, vcov = sandwich::vcovHAC)
 ```
 
+Die paarweisen Vergleiche können wir dann über die Funktion `contrast()` rechnen. In der Funktion geben wir dann auch an, ob wir für die multiplen Vergleiche adjustieren wollen. Die Namen der Level der Faktoren werden immer weitergegeben und erlauben eine direkte Interpretation.
+
 ```{r}
 feeding_fit |> 
   emmeans(~ feeding | stage, vcov = sandwich::vcovHAC) |> 
   contrast(method = "pairwise", adjust = "bonferroni")
 ```
+
+Die Stärke von `{emmeans}` liegt dann am Ende natürlich darin, dass wir in dem agrarwissenschaftlichen Kontext noch das *Compact letter display* mit der Funktion `cld()` berechnen können. Das geht dann eben in `{marginaleffects}` nicht so einfach. Ich habe mir hier dann auch nicht die Mühe gemacht.
 :::
 ::::
 
