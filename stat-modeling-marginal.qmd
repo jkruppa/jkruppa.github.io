@@ -555,6 +555,8 @@ p1_model_enzyme_02 + p2_model_enzyme_02 +
 
 #### Modellierung von Flöhen {.unnumbered .unlisted}
 
+Kommen wir un zu unserem zweiten kpmlexeren Datensatz. Wir schauen usn hier die Sprungweiten von Katzenflöhen unter verschiedenen Fütterungebedingungen an. Dabei haben die Katzeflöhe einmal Zuckerwasser, Ketchup sowie Blut als Nahrung erhalten. Als zweiten Faktor betrachten wir dann noch juvenile udn adulte Flöhe. Neben diesen beiden Faktoren, haben wir dann noch die Kovariate des Egwichts der Flöhe erhoben. Als weitere Messwerte kommen dann die Schlupfzeiten, die Bonitur der Flöhe, die Anzahl der Haare an einem Flohbein sowie der Infektionsstatus mit Flohschnupfen in Betracht. Teilweise können wir dann die kontinuierlichen Messwerte auch als Kovariaten in unseren Modellen verwenden. Da sind wir ja nicht festgelegt. Wir laden dann die Daten einmal in R und müssen noch etwas die Faktoren anpassen.
+
 ```{r}
 flea_model_tbl <- read_excel("data/fleas_model_data.xlsx") |> 
   mutate(feeding = as_factor(feeding),
@@ -564,19 +566,21 @@ flea_model_tbl <- read_excel("data/fleas_model_data.xlsx") |>
   select(feeding, stage, jump_length, weight, hatched, count_leg,  bonitur, infected) 
 ```
 
-Ein Satz zur Einheit
+Wir haben jetzt hier das Problem, dass die Schlupfzeit in Stunden gemessen wurde, was extrem ungünstig ist, da die Einheiten so große Werte einnimmt. Daher haben wir dann später das Problem, dass eine Stunde Änderung einen sehr kleinen Effekt auf die Sprungweiten hat. Daher habe ich hier einmal die Schlupfzeit auf Wochen umgerechnet, dass macht dann die Effekte auf die Sprungweite größer und besser zu interpretieren.
 
 ```{r}
 flea_model_tbl <- flea_model_tbl |> 
   mutate(hatched = hatched/24/7)
 ```
 
+Dann können wir uns auch schon mal einen Auszug aus der Datentabelle zu den Sprungweiten der Katzenflöhe anschauen.
+
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
 #| label: tbl-fac1cov-table
-#| tbl-cap: "Daten für die einfaktorielle MANOVA mit der Sprungweite in [cm] und dem Gewicht der Flöhe in [mg] für drei Floharten."
+#| tbl-cap: "Daten für die Modellierung verschiedener Messwerte für Katzenflöhe unter drei Ernährungsformen sowie zwei Entwicklungsstadien. Zusaätzlich wurde noch das Flohgewicht erhoben. Teilweise können die Messwerte auch als Einflussvariablen im Modell genutzt werden."
 
 flea_model_raw_tbl <- read_excel("data/fleas_model_data.xlsx") |> 
   mutate(bonitur = as.numeric(bonitur),
@@ -590,6 +594,8 @@ rbind(head(flea_model_raw_tbl, n = 3),
   kable(align = "c", "pipe")
 ```
 
+Dann können wir uns einmal ausgewählte Boxplots und Dotplots für die Flohdaten anschauen. Wir sehen hier sehr schön, dass sich die Sprungweiten über die Ernährungsformen und den Entwicklungsständen anscheinend unterschieden. Auch haben wir Effekte in der Anzahl an Beinhaaren. Die Boniturnoten sehen eher etwas gleichmäßiger aus. Die eigentlichen Effekte oder statistischen Tests wollen wir dann auszugsweise in den folgenden Abschnitten einmal rechnen.
+
 ```{r}
 #| message: false
 #| echo: false
@@ -597,7 +603,7 @@ rbind(head(flea_model_raw_tbl, n = 3),
 #| fig-align: center
 #| fig-height: 5
 #| fig-width: 10.5
-#| fig-cap: "foo. **(A)** Kombinierte Darstellung in einem Scatterplot **(B)** Aufgeteilte Darstellung für beide Entwicklungsstadien. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Darstellung der Messwerte der Sprungweite, der Anzahl an Beinhaaren sowie der Boniturnoten der Katzenflöhe aufgeteilt nach den drei Ernährungsformen sowie dem Entwicklungsstand. **(A)** Boxplot der Sprungweiten nach Ernährungsform und Entwicklungssstand. **(B)** Boxplot der Anzahl an Beinhaaaren nach Ernährungsform und Entwicklungssstand.  **(C)** Dotplot der Boniturnoten nach Ernährungsform und Entwicklungssstand. *[Zum Vergrößern anklicken]*"
 #| label: fig-marginal-data-1
 
 p1_model_flea + p2_model_flea + p3_model_flea +
@@ -606,12 +612,14 @@ p1_model_flea + p2_model_flea + p3_model_flea +
   theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
 
+Da wir natürlich binäre Messwerte wie den Infektionsstatus mit Flohschnupfen schlecht als eine Abbildung über zwei Faktoren darstellen können, habe ich hier nochmal die klassische Tabelle gewählt. Wir sehen hier einmal wie sich die Anteile an gesunden und kranken Flöhen über die beiden Faktoren verteilen. In beiden Faktoren meint man einen Unterschied zwischen den Infektionen zu erkennen.
+
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
 #| label: tbl-infected-model-fleas
-#| tbl-cap: "Deskriptive Statistik des Infektionsstatus (0 = nein / 1 = ja) mit Flohschnupfen aufgeteilt nach den Faktoren und anderen Variablen."
+#| tbl-cap: "Deskriptive Statistik des Infektionsstatus der Katzenflöhe mit Flohschnupfen aufgeteilt nach der Ernährungsform und dem Entwicklungsstand."
 
 flea_model_tbl |>
   select(infected, feeding, stage) |> 
@@ -622,10 +630,11 @@ flea_model_tbl |>
       all_categorical() ~ "{n} / {N} ({p}%)"
     ),
     digits = all_continuous() ~ 2,
-    #label = count_color ~ "Anzahl Farben",
     missing_text = "(Missing)"
   )
 ```
+
+In den folgenden Abschnitten werden wir dann immer wieder Teile der Flohdaten nutzen um die *Marginal effect models* besser zu verstehen und anzuwenden. Ich werde nicht den ganzen Datensatz auswerten sondern immer weider schauen, welcher Teilaspekte mehr von Interesse sind.
 
 ## Visualisierung von Modellen
 
