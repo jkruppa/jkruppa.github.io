@@ -2365,6 +2365,8 @@ Da wir es hier mit einer abhängigen Berechnung der Änderung in dem Messwert zu
 
 ### Kontinuierlicher Messwert
 
+Beginnen wir einmal mit einem kontinuierlichen Messwert wie die Sprungweite und lassen uns dann verschiedene kontrafaktische Vergleiche berechnen.
+
 ```{r}
 jump_tbl <- flea_model_tbl |> 
   select(feeding, stage, weight, jump_length)
@@ -2380,6 +2382,8 @@ summary(jump_fit) |> coef()
 ```
 
 [Change in focal variables](https://marginaleffects.com/chapters/comparisons.html#sec-comparisons_focal)
+
+Grundsätzlich haben wir die Wahl bei den Vergleichen eine Menge Effekte auszuwählen. Wir können zwischen mehreren dutzend Arten wählen, wobei natürlich die Differenz `difference`, das Verhältnis `ratio` oder aber dem Lift `lift`. Du musst da einmal in der Hilfe nachschauen was alles geht und welche Effekte dir dann in deinem speziellen Fall zu Verfügung stehen.
 
 ::: panel-tabset
 ## Änderung Faktor (2 Level)
@@ -2408,8 +2412,8 @@ comparisons(jump_fit, comparison = "difference",
 
 ```{r}
 comparisons(jump_fit, 
-            variables = list("weight" = "minmax"), 
-            newdata = datagrid(feeding = unique, stage = "adult"))
+            variables = list("weight" = 2), 
+            newdata = datagrid(feeding = unique, stage = unique))
 ```
 :::
 
@@ -2420,20 +2424,41 @@ infected_tbl <- flea_model_tbl |>
   select(feeding, stage, weight, infected)
 ```
 
+Wir entfernen hier einmal die Interaktion um das Modell etwas einfacher zu machen.
+
 ```{r}
-infected_fit <- glm(infected ~ stage * (feeding + weight), 
+infected_fit <- glm(infected ~ feeding + stage + weight, 
                     data = infected_tbl, family = binomial)
 ```
 
+::: panel-tabset
+## Log-Odds
+
 ```{r}
-summary(infected_fit) |> coef()
+#| warning: false
+#| message: false
+model_parameters(infected_fit, exponentiate = FALSE)
 ```
+
+## Odds Ratio
+
+```{r}
+#| warning: false
+#| message: false
+model_parameters(infected_fit, exponentiate = TRUE)
+```
+:::
+
+::: panel-tabset
+## Änderung Faktor (2 Level)
 
 ```{r}
 comparisons(infected_fit, comparison = "ratio", hypothesis = 1,
             variables = "stage", 
             newdata = datagrid(weight = mean, feeding = "sugar_water"))
 ```
+
+## Änderung Faktor (\>2 Level)
 
 ```{r}
 comparisons(infected_fit, comparison = "ratio", hypothesis = 1,
@@ -2446,6 +2471,25 @@ comparisons(infected_fit, comparison = "ratio", hypothesis = 1,
             variables = "feeding", 
             newdata = datagrid(weight = mean, stage = "adult"))
 ```
+
+## Änderung Kovariate
+
+Mit `transform = "exp"` erhalten wir den Faktor der Änderung
+
+```{r}
+comparisons(infected_fit, transform = "exp",
+            variables = list("weight" = 2), 
+            newdata = datagrid(feeding = unique, stage = unique))
+```
+
+Ohne die Transformation erhalten wir dann die Änderung in der Wahrscheinlichkeit infiziert zu sein.
+
+```{r}
+comparisons(infected_fit, 
+            variables = list("weight" = 2), 
+            newdata = datagrid(feeding = unique, stage = unique))
+```
+:::
 
 ## Hypothesen- und Äquivalenztests
 
