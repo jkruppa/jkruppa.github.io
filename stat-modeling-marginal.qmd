@@ -2453,38 +2453,50 @@ Jetzt haben wir uns einmal ein Beispiel angeschaut wo wir die Änderung in einem
 
 ### Binärer Messwert
 
+Wenn wir über einen binären Messwert oder dichotomen Messwert sprechen, dann sind wir in der [logistischen Regression](#sec-logistic) angekommen. Damit modellieren wir dann nicht mehr einen normalverteilten Messwert sondern eben einen Messwert, der nur noch aus Nullen und Einsen besteht. In dem Fall müssen wir dann auch unsere Ergebnisse der Modellierung anders interpretieren. Aber auch helfen die kontrafaktischen Vergleiche um mehr aus dem Modell rauszuholen. Wie immer bauen wir uns erstmal einen kleineren Datensatz mit dem Infektionsstatus als unseren binären Messwert.
+
 ```{r}
 infected_tbl <- flea_model_tbl |> 
   select(feeding, stage, weight, infected)
 ```
 
-Bei der logistischen Regression nutzen wir einmal ein etwas simpleres Modell.
+Bei der logistischen Regression nutzen wir einmal ein etwas simpleres Modell. Wir haben aber immer noch die Interaktion mit in dem Modell, damit wir auch die Kovariate entsprechend in den Faktorkombinationen modellieren können.
 
 ```{r}
 infected_fit <- glm(infected ~ stage * (feeding + weight), 
                     data = infected_tbl, family = binomial)
 ```
 
+Wenn wir uns jetzt die Ergebnisse anschauen, dann können wir entweder die Koeffizienten auf dem Log-Link anschauen, was dann die Log-Odds sind, oder aber die leichter zu interpretierenden Odds Ratios als Chancenverhältnisse. Ich habe hier den beiden folgenden Tabs einmal beide Ausgaben der Funktion `model_parameters()` dargestellt.
+
 ::: panel-tabset
-## Log-Odds
-
-```{r}
-#| warning: false
-#| message: false
-model_parameters(infected_fit, exponentiate = FALSE)
-```
-
 ## Odds Ratio
+
+Wenn wir die Ausgabe der logistischen Regression transformieren, dann haben wir die Odds Ratios vorliegen. Wir können die Odds Ratios in dem Sinne interpretieren, dass wir mit einem Odds Ratio von Eins keinen Unterschied vorliegen haben.
 
 ```{r}
 #| warning: false
 #| message: false
 model_parameters(infected_fit, exponentiate = TRUE)
 ```
+
+## Log-Odds
+
+Wenn wir die Ausgabe der logistischen Regression nicht transformieren, dann haben wir die Log-Odds vorliegen. Wir können die Log-Odds nicht einfach interpretieren. Dafür müssen wir dann die Odds Ratios nutzen.
+
+```{r}
+#| warning: false
+#| message: false
+model_parameters(infected_fit, exponentiate = FALSE)
+```
 :::
+
+Auch wenn wir die Odds Ratios bestimmt haben ist das Modell meistens sehr komplex und schwer zu interpretieren. Die kontrafaktischen Vergleiche helfen uns auch hier die entsprechenden Vergleiche und Subgruppen besser zu definieren, so dass wir hier dann auch unsere Effekte besser deuten können. In den folgenden Tabs zeige ich dir dann einmal die häufigsten Einflussvariablen und wie wir diese Einflussvariablen dann für die Effekte interpretieren. Mehr dazu auch in der Vignette [Change in focal variables](https://marginaleffects.com/chapters/comparisons.html#sec-comparisons_focal) in `{marginaleffects}`. In der Vignette liegt der Fokus sehr viel mehr auf der logistischen Regression und damit kannst du dort auch noch mehr Beispiele finden.
 
 ::: panel-tabset
 ## Änderung Faktor (2 Level)
+
+Hier wollen wir dann einmal die Änderung in den Entwicklungsständen für den Infektionsstatus bestimmen. Wir nehmen das mittlere Flohgewicht und setzen den Vergleich auf ein Verhältnis. Dann müssen wir noch die Nullhypothese auf Eins setzen, da wir es ja hier mit einem Verhältnis zu tun haben. Kein Unterschied in einem Verhältnis bedeutet, dass wir eine Eins wiedergegeben bekommen. Wir betrachten dann nur die Flöhe in der Kontrolle mit Zuckerwasser.
 
 ```{r}
 comparisons(infected_fit, comparison = "ratio", hypothesis = 1,
@@ -2492,7 +2504,11 @@ comparisons(infected_fit, comparison = "ratio", hypothesis = 1,
             newdata = datagrid(weight = mean, feeding = "sugar_water"))
 ```
 
+Die juvenilen Flöhe haben eine 4.98-fache höhere Infektionsrate als die adulten Flöhe bei einem mittleren Gewicht sowie der Gabe von Zuckerwasser. Wegen dem hohen Fehler ist der Vergleich nicht signifikant.
+
 ## Änderung Faktor (\>2 Level)
+
+Dann können wir uns die Sachlage auch nochmal für einen Faktor mit mehr als zwei Leveln anschauen. Wir betrachten dann einmal die Ernährungsformen. Wenn wir nur die Variable setzen, dann rechnen wir immer einen Vergleich zu der Referenz. In unserem Fall ist es das Zuckerwasser, da es das erste Level im Faktor `feeding` ist.
 
 ```{r}
 comparisons(infected_fit, comparison = "ratio", hypothesis = 1,
@@ -2500,15 +2516,19 @@ comparisons(infected_fit, comparison = "ratio", hypothesis = 1,
             newdata = datagrid(weight = mean, stage = "juvenile"))
 ```
 
+Hier sehen wir nur sehr kleine Effekte. Faktisch sind die Infektionsraten in den beiden Gruppen gleich groß. Dann können wir auch nochmal einen paarweisen Vergleich für die adulten Flöhe bei einem mittleren Gewicht rechnen.
+
 ```{r}
 comparisons(infected_fit, comparison = "ratio", hypothesis = 1,
-            variables = "feeding", 
+            variables = lst("feeding" = "pairwise"), 
             newdata = datagrid(weight = mean, stage = "adult"))
 ```
 
+Hier müssen wir dann wieder auf die Einheiten oder die wissenschaftliche Schreibweise der Effekte achten. Wir sehen hier ja, dass wir bei dem Vergleich der Blut und Zuckerernährung schon eine 5.16-fache Erhöhung der Infektionen bei der Bluternährung vorliegen haben. In der Ketchupernährung haben wir fast keine Infektionen vorliegen, wenn wir uns diese Subgruppe anschauen.
+
 ## Änderung Kovariate
 
-Mit `transform = "exp"` erhalten wir den Faktor der Änderung
+Dann betrachten wir noch die Änderung in der Kovariaten. Wir wollen wissen, wie sich das Verhältnis der Infektionen von dem minimalen zu dem maximalen Gewicht verändert. Mit `transform = "exp"` erhalten wir hier den Faktor der Änderung. Wir betrachten dann hier alle Faktorkombinationen.
 
 ```{r}
 comparisons(infected_fit, transform = "exp",
@@ -2516,20 +2536,30 @@ comparisons(infected_fit, transform = "exp",
             newdata = datagrid(feeding = unique, stage = unique))
 ```
 
-Ohne die Transformation erhalten wir dann die Änderung in der Wahrscheinlichkeit infiziert zu sein.
+Ohne die Transformation erhalten wir dann die Änderung in der Wahrscheinlichkeit infiziert zu sein. Durch die wissenschaftliche Schreibweise ist es dann sehr schwer zu sehen, was die Zahlen genau aussagen. Hier musst du dann nochmal runden oder aber dir die Zahlen einmal extra rausziehen.
 
 ```{r}
 comparisons(infected_fit, 
             variables = list("weight" = "minmax"), 
             newdata = datagrid(feeding = unique, stage = unique)) 
 ```
+
+Am Ende ist hier die Stärke der kontrafaktischen Vergleiche, dass wir uns für verschiedene Subgruppen die Änderungen in einer Kovariaten anschauen können. Ohne die kontrafaktischen Vergleiche ist die Interpretation einer Kovariate in einer logistischen Regression immer sehr mühsam.
+:::
+
+Das soll es dann auch erstmal für die kontrafaktischen Vergleiche als Übersicht gewesen sein. Wir können die kontrafaktischen Vergleiche natürlich auch für andere Messwerte einsetzen und dann entsprechend die Differenzen oder Verhältnisse von Anzahlen oder Noten berechnen. Es kommt hier aber natürlich sehr auf die wissenschaftliche Fragestellung an. Die kontrafaktischen Vergleiche haben ja ihre Stärke darin, dass du die Subgruppen von Interesse festlegen musst. Ohne diese Festlegung im Datenraster können wir hier natürlich viel machen, aber das ist natürlich nicht der Sinn der kontrafaktischen Vergleiche und dieses Kapitels.
+
+::: {layout="[15,85]" layout-valign="top"}
+![](images/personal_opinion.png){fig-align="center" width="100%"}
+
+> *"Die kontrafaktischen Vergleiche sind auch für mich neu im Jahre 2025 und deshlab habe ich natürlich die kontrafaktischen Vergleiche noch nicht viel genutzt. Sobald ich dann aber mehr Beispiele aus der echten Anwendung habe, werde ich die Beispiele mal hier ergänzen. Solange bleiben die kontrafaktischen Vergleiche eben dann auch eine gute Idee, die noch ihrer Anwendung durch mich harrt." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
 :::
 
 ## Hypothesen- und Äquivalenztests
 
-### Hypothesentest
+Die Implementierung von Hypothesen- und Äquivalenztests in den Vignetten [Hypothesis and equivalence tests](https://marginaleffects.com/chapters/hypothesis.html) und [Hypothesis Tests](https://marginaleffects.com/bonus/hypothesis.html) ist herausragend für das Paket `{marginaleffects}`. Ich kann wirklich eine Menge einfach in einem Modell testen, was ich so nicht in den anderen Paketen kann. Hier gibt es natürlich die Einschränkung im faktoriellen Design und den multiplen Vergleichen, die dann etwas sperriger zu nutzen sind. Es geht auch, aber es ist nicht so einfach möglich wie in `{emmeans}`. Aber das Paket `{emmeans}` ist ja auch direkt für den reinen faktoriellen Vergleich gebaut worden. Wenn Faktoren und Kovariaten im Modell kombiniert werden, dann nutze ich lieber `{marginaleffects}`. Kurze Vorrede, in diesem Abschnitt soll es nochmal um die Möglichkeiten gehen Hypothesen in den Modellen von `{marginaleffects}` zu testen. Teilweise zeige ich die Anwendung schon weiter oben, aber hier dann nochmal mit dem Schwerpunkt auf Stärken und Schwächen.
 
-[Hypothesis and equivalence tests](https://marginaleffects.com/chapters/hypothesis.html)
+### Hypothesentest
 
 $$
 Z=\frac{h(\hat{\theta})-H_0}{\sqrt{\hat{V}[h(\hat{\theta})]}}
