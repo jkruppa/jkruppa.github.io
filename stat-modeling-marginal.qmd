@@ -2343,11 +2343,17 @@ $$
 \end{align*}
 $$
 
-Alles wäre relativ einfach, wenn wir nur zwei Gruppen hätten. Dann müssen wir nur die vorhergesagten Messwerte $\hat{Y}_X$ für beide Gruppen oder Änderungen in der Einflussvariable berechnen und schon hätten wir ein Ergebnis. Häufig haben wir aber nicht nur eine Einflussvariable in unserem Modell. Nehmen wir einmal folgendes Modell in dem wir die Sprungweiten $Y$ in Abhängigkeit von dem Eintwicklungsstand `stage`, der Ernährungsform `feeding` und dem Flohgewicht `weight` modellieren wollen.
+Alles wäre relativ einfach, wenn wir nur zwei Gruppen hätten. Dann müssen wir nur die vorhergesagten Messwerte $\hat{Y}_X$ für beide Gruppen oder Änderungen in der Einflussvariable berechnen und schon hätten wir ein Ergebnis. Häufig haben wir aber nicht nur eine Einflussvariable in unserem Modell. Nehmen wir einmal folgendes Modell in dem wir die Sprungweiten $Y$ in Abhängigkeit von dem Eintwicklungsstand `stage`, der Ernährungsform `feeding` und dem Flohgewicht `weight` modellieren wollen. Wir modellieren hier auch das *volle* Modell mit allen Interaktionen sonst können wir uns nicht alle Effekte in den Subgruppen anschauen.
 
 $$
-Y = stage + feeding + weight
+jump\_length = stage * feeding * weight
 $$
+
+::: callout-warning
+## Achtung, bitte beachten!
+
+Ich bin hier auch erst reingefallen. Wenn du später bei der Nutzung der Funktion `comparisons()` für Faktorkombinationen oder andere Einflussvariablen *immer den gleichen Wert* als als Schätzer erhälst, dann liegt es daran, dass du nicht das entsprechende volle Modell angepasst hast. Spiel dann nochmal mit dem Modell herum und schaue, ob dann sich die Werte ändern.
+:::
 
 Jetzt können wir uns folgende Frage stellen: "Wie ändert sich die Sprungweite von juvenilen zu adulten Flöhen, *mit einem Gewicht von 12mg und einer Ketchupernährung*?". Das sehe dann wie folgt für die Differenz der beiden vorhergesagten Sprungweiten aus. Ich habe in den Index immer nochmal reingeschrieben woher die vorhergesagten Messwerte $\hat{Y}_X$ stammen
 
@@ -2365,17 +2371,21 @@ Da wir es hier mit einer abhängigen Berechnung der Änderung in dem Messwert zu
 
 ### Kontinuierlicher Messwert
 
-Beginnen wir einmal mit einem kontinuierlichen Messwert wie die Sprungweite und lassen uns dann verschiedene kontrafaktische Vergleiche berechnen.
+Beginnen wir einmal mit einem kontinuierlichen Messwert wie die Sprungweite und lassen uns dann verschiedene kontrafaktische Vergleiche berechnen. Dafür nehmen wir dann erstmal nur die Einflussvariablen mit in unseren Datensatz, die uns dann auch interessieren. Das macht dann die Bearbeitung später einfacher.
 
 ```{r}
 jump_tbl <- flea_model_tbl |> 
   select(feeding, stage, weight, jump_length)
 ```
 
+Wir brauchen eigentlich immer das volle Modell. Wenn du weniger Interaktionen möchtest, dann kann es gleich sein, dass du für bestimmte Faktorkombinationen immer den gleichen Effekt erhälst. Wir interpretieren ja nicht die Ausgabe des Modells direkt sondern im Kontext der kontrafaktische Vergleiche. Also einmal das volle Modell geschätzt.
+
 ```{r}
-jump_fit <- lm(jump_length ~ stage + feeding + stage:feeding + weight, 
+jump_fit <- lm(jump_length ~ stage * feeding * weight, 
                data = jump_tbl)
 ```
+
+Dann können wir uns auch einmal alle Koeffizienten des Modell anschauen. Ich nutze hier die Funktion `model_parameters()`, da wir dann hier auch gleich alles zusammen haben. Das Modell ist riesig und schwer zu interpretieren. Dafür nutzen wir gleich einmal die kontrafaktische Vergleiche als ein Analysetool.
 
 ```{r}
 #| warning: false
@@ -2383,12 +2393,12 @@ jump_fit <- lm(jump_length ~ stage + feeding + stage:feeding + weight,
 model_parameters(jump_fit)
 ```
 
-[Change in focal variables](https://marginaleffects.com/chapters/comparisons.html#sec-comparisons_focal)
+Grundsätzlich haben wir die Wahl bei den Vergleichen eine Menge Effekte auszuwählen. Wir können zwischen mehreren dutzend Arten wählen, wobei natürlich die Differenz `difference`, das Verhältnis `ratio` oder aber dem Lift `lift`. Du musst da einmal in der Hilfe zu der Funktion `comparisons()` nachschauen was alles geht und welche Effekte dir dann in deinem speziellen Fall zu Verfügung stehen. Wir sind jetzt auch an verschiedenen Haupteinflussvariablen oder Fokusvariable (eng *focal variable*) interessiert. Mehr dazu auch in der Vignette [Change in focal variables](https://marginaleffects.com/chapters/comparisons.html#sec-comparisons_focal) in `{marginaleffects}`. Hier schauen wir uns einmal die häufigsten Haupteinflussvariablen an. Die Idee ist nämlich, dass wir meistens an einer Variable hauptsächlich interessiert sind. Der Rest der Einflussvariablen ist dann erklärendes Beiwerk.
 
-Grundsätzlich haben wir die Wahl bei den Vergleichen eine Menge Effekte auszuwählen. Wir können zwischen mehreren dutzend Arten wählen, wobei natürlich die Differenz `difference`, das Verhältnis `ratio` oder aber dem Lift `lift`. Du musst da einmal in der Hilfe nachschauen was alles geht und welche Effekte dir dann in deinem speziellen Fall zu Verfügung stehen.
-
-::: panel-tabset
+:::: panel-tabset
 ## Änderung Faktor (2 Level)
+
+Wir können in der Änderung der Level in einem Faktor interessiert sein. Dabei hat der Faktor nur zwei Level. Wir könnten hier meinen, dass es sich um sowas simples wie einen t-Test handelt. Aber das ist nicht der Fall. Alle Effekte wurden auf dem vollen Modell bestimmt, so dass hier viel mehr erklärt wird als nur durch einen simplen t-Test. Wir wollen hier die Entwicklungsstände auf dem mittleren Gewicht für die Ernährungsform Ketchup vergleichen.
 
 ```{r}
 comparisons(jump_fit, comparison = "difference",
@@ -2396,28 +2406,50 @@ comparisons(jump_fit, comparison = "difference",
             newdata = datagrid(weight = mean, feeding = "ketchup"))
 ```
 
+Damit erhalten wir die Information, dass sich juvenile und adulte Flöhe in der Sprungweite um 19.2cm in der Ernährungsform Ketchup bei einem mittleren Gewicht von 9.95mg unterschieden. Die juvenilen Flöhe springen weiter als die adulten Flöhe.
+
 ## Änderung Faktor (\>2 Level)
+
+Jetzt schauen wir uns mal die Ernährungsformen an. Wir wollen auch hier das mittlere Gewicht nehmen und entscheiden uns einmal für die juvenilen Flöhe. Dabei berechnen wir auch hier die Differenz zwischen den den Ernährungsarten. Hier vergleichen wir einmal zur Referenze oder Kontrolle. Das ist immer das erste Level in unserem Faktor.
 
 ```{r}
 comparisons(jump_fit, comparison = "difference",
-            variables = "feeding", 
+            variables = lst("feeding" = "reference"), 
             newdata = datagrid(weight = mean, stage = "juvenile"))
 ```
 
+Dann können wir das Ganze auch einmal für die adulten Flöhe durchführen. Hier machen wir dann einmal einen paarweisen Vergleich.
+
 ```{r}
 comparisons(jump_fit, comparison = "difference",
-            variables = "feeding", 
+            variables = lst("feeding" = "pairwise"), 
             newdata = datagrid(weight = mean, stage = "adult"))
 ```
 
+Das spannende ist eben hier, dass wir einstellen können auf welchen Subgruppen wir dann die Vergleiche rechnen wollen. Sonst rechnen wir sehr allgemein gesprochen immer über die Mittelwerte der Messwerte der entsprechenden Kovariaten oder Faktorkombinationen. Hier können wir dann auch andere statistische Maßzahlen nutzen.
+
 ## Änderung Kovariate
+
+Am Ende dann noch die Änderung in der Kovariaten. Hier müssen wir dann nochmal aufpassen, dass wir auch alle Interaktionen in dem Modell mit beachtet haben, sonst haben wir mal schnell das Problem, dass wir immer die gleichen Effekte in den Faktorkombinationen vorfinden.
+
+::: callout-warning
+## Achtung, bitte beachten!
+
+Wenn du in Faktorkombinationen immer den gleichen Schätzer `Estimate` für die Änderung in deiner Kovariate siehst, dann hat es damit zu tun, dass du nicht alle Interaktionen in deinem Modell spezifiziert hast. Daher musst du wirklich das volle Modell mit `f_A * f_B * c_1` bauen und schauen ob es dann funktioniert. Mich hat es einiges an Zeit gekostet das rauszufinden.
+:::
+
+Hier wollen wir einmal die Änderung der Sprungweite von dem minimalen `min` zu dem maximalen `max` Flohgewicht berechnen aufgeteilt nach den Faktorkombinationen für die Ernährungsform und dem Entwicklungsstand. Wir haben noch sehr viel andere Möglichkeiten die Änderung in der Kovariaten zu setzen. Mehr dazu dann in der Vignette unter [Change in numeric predictors](https://marginaleffects.com/chapters/comparisons.html#change-in-numeric-predictors). Hier also einmal ein Beispiel für die Veränderung des Flohgewichts.
 
 ```{r}
 comparisons(jump_fit, comparison = "difference",
             variables = list("weight" = "minmax"), 
-            newdata = datagrid(feeding = "sugar_water", stage = unique))
+            newdata = datagrid(feeding = unique, stage = unique))
 ```
-:::
+
+Was sehen wir hier, wenn wir von dem minimalen zu der maximalen Flohgewicht gehen, dann ändert sich die Sprungweite entsprechend der Effekte `Estimate` in den Faktorkombinationen. Wir könnten hier auch als Vergleich ein Verhältnis setzen, wenn wir uns dadurch mehr Informationen erhoffen.
+::::
+
+Jetzt haben wir uns einmal ein Beispiel angeschaut wo wir die Änderung in einem normalverteilten Messwert wie die Sprungweite modellieren. Wir können aber auch andere Messwerte wie den Infektionsstatus mit den kontrafaktischen Vergleichen analysieren. Hier haben wir dann noch mehr Vorteile, da die Ausgaben eines generalisierten linearen Modells (abk. *glm*) meistens noch schwerer zu interpretieren sind.
 
 ### Binärer Messwert
 
@@ -2426,10 +2458,10 @@ infected_tbl <- flea_model_tbl |>
   select(feeding, stage, weight, infected)
 ```
 
-Wir entfernen hier einmal die Interaktion um das Modell etwas einfacher zu machen.
+Bei der logistischen Regression nutzen wir einmal ein etwas simpleres Modell.
 
 ```{r}
-infected_fit <- glm(infected ~ feeding + stage + weight, 
+infected_fit <- glm(infected ~ stage * (feeding + weight), 
                     data = infected_tbl, family = binomial)
 ```
 
@@ -2480,7 +2512,7 @@ Mit `transform = "exp"` erhalten wir den Faktor der Änderung
 
 ```{r}
 comparisons(infected_fit, transform = "exp",
-            variables = list("weight" = 2), 
+            variables = list("weight" = "minmax"), 
             newdata = datagrid(feeding = unique, stage = unique))
 ```
 
@@ -2488,8 +2520,8 @@ Ohne die Transformation erhalten wir dann die Änderung in der Wahrscheinlichkei
 
 ```{r}
 comparisons(infected_fit, 
-            variables = list("weight" = 2), 
-            newdata = datagrid(feeding = unique, stage = unique))
+            variables = list("weight" = "minmax"), 
+            newdata = datagrid(feeding = unique, stage = unique)) 
 ```
 :::
 
