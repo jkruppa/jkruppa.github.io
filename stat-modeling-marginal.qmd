@@ -2703,11 +2703,11 @@ Das einzige was hier hier wissen müssen ist dann wofür dann die jeweiligen `b`
 hypotheses(feeding_stage_weight_fit, hypothesis = "b2 - b3 = 2")
 ```
 
-Das sieht doch sehr gut aus und erlaubt shcon einiges mehr an Möglichkeiten, wenn wir nicht nur die Nullhypothese mit einem fixen Wert testen können. Wir müssen zwar aufpassen was wir hier tun, aber das ist ja immer der Fall.
+Das sieht doch sehr gut aus und erlaubt schon einiges mehr an Möglichkeiten, wenn wir nicht nur die Nullhypothese mit einem fixen Wert testen können. Wir müssen zwar aufpassen was wir hier tun, aber das ist ja immer der Fall.
 
 ## `b2 / b1 = 1`
 
-Dann können wir auch einfach mal den Anteil der Koeffizienten von `feedingketchup` zu `feedingblood` ausrechnen und testen. Hier schauen wir dann, wie der Anteil ist und ob sich der Anteil signifikant von Eins unterscheidet. Dann rechnen wir auch einmal nach $26.995/20.282 - 1 = 0.331$ damit wir die Zahlen richtig haben.
+Dann können wir auch einfach mal den Anteil der Koeffizienten von `feedingketchup` zu `feedingblood` ausrechnen und testen. Hier schauen wir dann, wie der Anteil ist und ob sich der Anteil signifikant von Eins unterscheidet. Dann rechnen wir auch einmal nach $26.995/20.282 - 1 = 0.331$ damit wir die Zahlen richtig haben. Hier ist es immer wichtig, sich nochmal klar zu machen, dass wir den Wert der Nullhypothese abziehen.
 
 ```{r}
 #| message: false
@@ -2719,13 +2719,19 @@ Wenn wir mit Anteilen rechnen, dann müssen wir immer einmal schauen, was wir ei
 
 ## `b* - b1 = 0`
 
+Mit dem Stern `*` können wir dann die gesamten Koeffizienten auswählen und dann mit einem anderen Koeffizienten vergleichen. Statt mit einem Minus den Vergleich zu schreiben, können wir die Different auch so modellieren, dass wir das Gleichheitszeichen nutzen. Ich persönlich würde aber immer vorziehen dann doch die Nullhypothese einmal sauber mit einem Delta und damit dem Wert zu dem wir vergleichen wollen darzustellen.
+
 ```{r}
 #| message: false
 #| warning: false
-hypotheses(feeding_stage_weight_fit, hypothesis = "b* - b1 = 0")
+hypotheses(feeding_stage_weight_fit, hypothesis = "b* = b1")
 ```
 
+Die erste Zeile ist hier natürlich mit `NA` besetzt, da wir hier ja den ersten Koeffizienten als Intercept mit sich selbst vergleichen. Die Zeile können wir dann später aus der Modellwiedergabe löschen oder eben einfach ignorieren.
+
 ## "(b2 - b1) / (b3 - b2) = 0"
+
+Abschließend können wir auch ganz wilde Gebilde mit der `b`-Schreibweise bauen. Hier einmal ein Beispiel wo wir von dem zweiten Koeffizienten den Intercept abziehen und dann durch die Differenz des dritten und zweiten Koeffizienten teilen. Das geht nur so in dem Paket `{marginaleffects}`. Ob das eine gute Idee ist sei dahingestellt, aber immerhin können wir hier komplexe Vergleiche der Koeffizienten darstellen.
 
 ```{r}
 #| message: false
@@ -2734,24 +2740,38 @@ hypotheses(feeding_stage_weight_fit, hypothesis = "(b2 - b1) / (b3 - b2) = 0")
 ```
 :::
 
+Die `b`-Schreibweise hat ihre Vor- und Nachteile. Dabei ist sie aber auf jeden Fall eine Bereicherung in unserem Methoden. Wir können hier recht einfach komplexe Hypothesen oder Vergleiche für unsere Koeffizienten aus sehr vielen Modellen rechnen. Wir sind nicht an die Nullhypothese als Standard gebunden und können uns selber eine ausdenken. Das ist auf jeden Fall den Aufwand des Rückübersetzen der `b`-Schreibweise in die Namen der Koeffizienten Wert.
+
 #### Adjustierung für multiple Vergleiche {.unnumbered .unlisted}
+
+Auch ist es möglich in `{marginaleffects}` die Vergleiche zu adjustieren. Wir haben hier aber nur die Möglichkeit die Adjustierung für multiple Vergleiche in der Funktion `hypotheses` durchzuführen. In der Option `hypothesis` ist es leider nicht möglich. Das führt dann zu ein paar unangenehmen Eigenschaften was die Namen der Koeffizienten sowie Vergleiche angeht. Dazu mehr oben bei den faktoriellen Vorhersagen oder hier im Abschnitt weiter unten. Hier aber einmal die Adjustierung mit Bonferroni für die paarweisen Vergleiche.
 
 ```{r}
 hypotheses(feeding_fit, hypothesis = difference ~ pairwise,
            multcomp = "bonferroni")
 ```
 
+Leider sind auch hier die Namen der Koeffizienten sehr lang und der Variablenname wurde nicht weggekürzt. Wir sehen hier eigentlich sehr schön, dass `{marginaleffects}` nicht für diese Art der Vergleiche gebaut ist sondern wir eher `{emmeans}` nutzen sollten.
+
 #### Adjustierung für Varianzheterogenität {.unnumbered .unlisted}
+
+Auch können wir einfach für die Varianzheterogenität adjustieren in dem wir die folgende Option setzen. Auch wenn unser ursprüngliches Modell auf Varianzhomogenität geschätzt wurde können wir hier nachträglich nochmal adjustieren.
 
 ```{r}
 hypotheses(feeding_fit, hypothesis = 0, vcov = "HC3")
 ```
 
+Die Option ist sehr praktisch, wir sehen jetzt dass jeder Koeffizient seinen eigenen Fehler hat und wir nicht bei allen Koeffizienten den gleichen Wert in der Spalte des Standardfehlers vorliegen haben. Es gib noch andere Möglichkeiten für verschiedene Varianzschätzer außer `HC3` aber hier dann einfach einmal in die Hilfe der Funktion schauen oder `?sandwich::vcovHC` nutzen.
+
 ### Hypothesentest
 
+Kommen wir jetzt zum eigentlichen Hypothesentest und ein paar Beispielen dazu. Die Anwendung der Option `hypothesis` in den Funktionen des R Pakets `{marginaleffects}` haben wir ja schon weiter oben immer mal wieder genutzt. Hier jetzt einmal die Funktion `hypotheses()` für unser linearen Modell mit dem Standardtest auf eine Nullhypothese, dass die Koeffizienten den Wert 70 haben. Wir können auch auf andere Werte testen je nachdem was dir da besser in deine wissenschaftliche Fragestellung passt.
+
 ```{r}
-hypotheses(feeding_fit, hypothesis = 0)
+hypotheses(feeding_fit, hypothesis = 70)
 ```
+
+Wir können neben der `b`-Schreibweise auch die Koeffizienten beim Namen nennen und dann miteinander vergleichen. Hier müssen wir dann immer den vollen Namen der Koeffizienten nehmen, die wir auch in der `summary()` finden. Das wird dann manchmal echt lang.
 
 ```{r}
 #| message: false
@@ -2759,18 +2779,19 @@ hypotheses(feeding_fit, hypothesis = 0)
 hypotheses(feeding_fit, hypothesis = "feedingblood - feedingsugar_water = 0")
 ```
 
-```{r}
-hypotheses(feeding_fit, hypothesis = difference ~ pairwise)
-```
-
-```{r}
-hypotheses(feeding_fit, hypothesis = difference ~ pairwise,
-           multcomp = "bonferroni")
-```
+Dann geht natürlich auch der paarweise Vergleich, so wir dann alle Ernährungsformen miteinander vergleichen. Wir wählen hier einmal die Differenz der Koeffizienten.
 
 ```{r}
 hypotheses(feeding_fit, hypothesis = difference ~ pairwise)
 ```
+
+Wir können auch alle Vergleiche zu dem ersten Koeffizienten rechnen. Bitte bachte, dass wir unser Modell ohne den Intercept gebaut haben und somit hier nur die reinen Mittelwerte der Gruppen vorliegen haben.
+
+```{r}
+hypotheses(feeding_fit, hypothesis = difference ~ reference)
+```
+
+Natürlich geht noch viel mehr. Das soll hier aber erstmal als eine Auswahl reichen. Wenn ich entsprechende Anwendungen aus meiner statistischen Beratung vorliegen habe, dann werde ich diese hier noch ergänzen. Am Ende bleibt aber auch hier zu sagen, dass für reine Gruppenvergleiche die Verwendung von `{emmeans}` vorzuziehen ist. Wenn du dich aber mit den Koeffizienten von Modellen beschäftigst, dann ist `{marginaleffects}` besser geeignet.
 
 ::: callout-tip
 ## Es geht so viel mehr...
