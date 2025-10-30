@@ -7,7 +7,7 @@
 
 pacman::p_load(readxl, knitr, kableExtra, tidyverse, magrittr, conflicted, broom,
                simstudy, openxlsx, ggrepel, ggpmisc, patchwork, scales,
-               parameters, performance, gtsummary)
+               parameters, performance, gtsummary, see, scales)
 conflicts_prefer(dplyr::filter)
 conflicts_prefer(magrittr::set_names)
 ```
@@ -111,6 +111,75 @@ Wir nutzen den Datensatz in verschiedenen Kapiteln.
 
 Du findest die Datei `animal_olympics.xlsx` auf GitHub [jkruppa.github.io/data/](https://github.com/jkruppa/jkruppa.github.io/tree/master/data) als Excel Datei.
 :::
+
+## Von Fahrrädern in Osnabrück
+
+Neben den klassischen Daten aus dem Bereich der Agrawissenschaften sammle ich auch so den ein oder anderen Datensatz. Hier haben wir dann einmal den Datensatz zu den Fahrrädern in Osnabrück vorliegen. An einer Straße in Osnabrück werden die Fahrräder gezählt. Genau genommen sind es nicht nur Fahrräder sondern auch Autos oder andere Gefährte, die die Fahrradstraße entlangfahren. Aber das ist nur eine Kleinigkeit. Ich habe immer mal wieder in den Jahren 2024 und 2025 die Informationen von der Säule unregelmäßig erhoben. Dazu dann noch die Temperatur und auch ob es geregnet hat.
+
+```{r}
+bikes_tbl <- read_excel("data/bikes_count.xlsx") |> 
+  mutate(jahr = as_factor(jahr))
+```
+
+Dann können wir uns die Daten einmal in der folgenden Tabelle anschauen. Wir müssen dann vermutlich später nochmal ran und die Uhrzeiten und die Werte für das Datum richtig formatieren. Aber du siehst hier schonmal einen guten Überblick.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-example-bikes
+#| tbl-cap: "Auszug aus dem Daten zu den Fahrrädern in Osnabrück."
+
+bikes_raw_tbl <- read_excel("data/bikes_count.xlsx") |> 
+  mutate_all(as.character)
+
+options(knitr.kable.NA = '')
+
+rbind(head(bikes_raw_tbl, n = 4),
+      rep("...", times = ncol(bikes_raw_tbl)),
+      tail(bikes_raw_tbl, n = 4)) |> 
+  kable(align = "c", "pipe")
+```
+
+Dann können wir auch einmal schnell die Anzahl an Fahrrädern zum Ende des Jahres 2024 vorhersagen.
+
+```{r}
+lm(anzahl_cum ~ tag_im_Jahr, filter(bikes_tbl, jahr == 2024)) |> 
+  predict(tibble(tag_im_Jahr = 366))
+```
+
+Genauso machen wir das dann auch einmal für das Jahr 2025 und erkennen sogleich, dass es hier schon einiges an Unterschied gibt.
+
+```{r}
+lm(anzahl_cum ~ tag_im_Jahr, filter(bikes_tbl, jahr == 2025)) |> 
+  predict(tibble(tag_im_Jahr = 365))
+```
+
+In der folgenden Abbildung habe ich dir dann mal den Verlauf über den Herbst der Jahre dargestellt. Neben der unterschiedlichen Steigung sehen wir auch, dass wir wirklich im Jahr 2025 die eine Million Fahrräder locker erreicht haben. Das Ganze war dann im Jahr 2024 sehr viel knapper. Am Ende des Jahes fahren dann einfach keine Fahrräder mehr.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-timeseries-bikes
+#| fig-align: center
+#| fig-height: 4.5
+#| fig-width: 7
+#| fig-cap: "Zusammenhang zwischen dem zeitlichen Verlauf der beiden Jahre 2024 sowie 2025 und der gezählten Anzahlen an Fahhrädern in Osnabrück. *[Zum Vergrößern anklicken]*"
+
+ggplot(bikes_tbl, aes(tag_im_Jahr, anzahl_cum,
+                      color = jahr)) +
+  theme_minimal() +
+  geom_point() +
+  stat_smooth(method = "lm", fullrange=FALSE, se = FALSE, alpha = 0.5) +
+  scale_color_okabeito() +
+  scale_x_continuous(breaks = c(seq(230, 365, 10), 366)) +
+  labs(x = "Tag im Jahr", y = "Anzahl an Fährrädern", color = "Jahr",
+       title = "Anzahl an Fahrrädern in Osnabrück",
+       subtitle = "An welchem Tag im Jahr wird die 1 Million erreicht?") +
+  theme(panel.grid.minor = element_blank(),
+        legend.position = "top")  
+```
 
 ## Von hohen Bäumen
 
