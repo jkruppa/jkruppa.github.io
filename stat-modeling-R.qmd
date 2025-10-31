@@ -302,7 +302,94 @@ conflicts_prefer(ggplot2::annotate)
 
 An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du Zugang zum gesamten R-Code dieses Kapitels erhältst.
 
-## Praktisches Modellieren
+## Daten
+
+Wir brauchen auch hier nochmal Daten an denen wir uns die Prinzipien des Modellierens in R verstehen zu können. Als Datensatz habe ich nochmal die Modellierung von Flöhen mitgebracht. In dem Datensatz zu der Modellierung von Flöhen finden wir viele Kovariaten sowie Faktoren und verschiedene Messwerte, die von Interesse sind. Wir schauen uns hier die Sprungweiten von Katzenflöhen unter verschiedenen Fütterungebedingungen an. Dabei haben die Katzenflöhe einmal Zuckerwasser, Ketchup sowie Blut als Nahrung erhalten. Als zweiten Faktor betrachten wir dann noch juvenile und adulte Flöhe. Neben diesen beiden Faktoren, haben wir dann noch die Kovariate des Gewichts der Flöhe erhoben. Als weitere Messwerte kommen dann die Schlupfzeiten, die Bonitur der Flöhe, die Anzahl der Haare an einem Flohbein sowie der Infektionsstatus mit Flohschnupfen in Betracht. Teilweise können wir dann die kontinuierlichen Messwerte auch als Kovariaten in unseren Modellen verwenden. Da sind wir ja nicht festgelegt. Wir laden dann die Daten einmal in R und müssen noch etwas die Faktoren anpassen.
+
+```{r}
+flea_model_tbl <- read_excel("data/fleas_model_data.xlsx") |> 
+  mutate(feeding = as_factor(feeding),
+         stage = as_factor(stage),
+         bonitur = as.numeric(bonitur),
+         infected = factor(infected, labels = c("healthy", "infected"))) |> 
+  select(feeding, stage, jump_length, weight, hatched, count_leg,  bonitur, infected) 
+```
+
+Wir haben jetzt hier das Problem, dass die Schlupfzeit in Stunden gemessen wurde, was extrem ungünstig ist, da die Einheiten so große Werte einnimmt. Daher haben wir dann später das Problem, dass eine Stunde Änderung einen sehr kleinen Effekt auf die Sprungweiten hat. Daher habe ich hier einmal die Schlupfzeit auf Wochen umgerechnet, dass macht dann die Effekte auf die Sprungweite größer und besser zu interpretieren.
+
+```{r}
+flea_model_tbl <- flea_model_tbl |> 
+  mutate(hatched = hatched/24/7)
+```
+
+Dann können wir uns auch schon mal einen Auszug aus der Datentabelle zu den Sprungweiten der Katzenflöhe anschauen.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-fac1cov-table
+#| tbl-cap: "Daten für die Modellierung verschiedener Messwerte für Katzenflöhe unter drei Ernährungsformen sowie zwei Entwicklungsstadien. Zusaätzlich wurde noch das Flohgewicht erhoben. Teilweise können die Messwerte auch als Einflussvariablen im Modell genutzt werden."
+
+flea_model_raw_tbl <- read_excel("data/fleas_model_data.xlsx") |> 
+  mutate(bonitur = as.numeric(bonitur),
+         infected = as.character(factor(infected, labels = c("healthy", "infected")))) |> 
+  select(feeding, stage, jump_length, weight, count_leg, hatched, bonitur, infected) |> 
+  mutate_if(is.numeric, round, 2)
+
+rbind(head(flea_model_raw_tbl, n = 3),
+      rep("...", times = ncol(flea_model_raw_tbl)),
+      tail(flea_model_raw_tbl, n = 3)) |> 
+  kable(align = "c", "pipe")
+```
+
+Dann können wir uns einmal ausgewählte Boxplots und Dotplots für die Flohdaten anschauen. Wir sehen hier sehr schön, dass sich die Sprungweiten über die Ernährungsformen und den Entwicklungsständen anscheinend unterschieden. Auch haben wir Effekte in der Anzahl an Beinhaaren. Die Boniturnoten sehen eher etwas gleichmäßiger aus. Die eigentlichen Effekte oder statistischen Tests wollen wir dann auszugsweise in den folgenden Abschnitten einmal rechnen.
+
+```{r}
+#| message: false
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-height: 5
+#| fig-width: 10.5
+#| fig-cap: "Darstellung der Messwerte der Sprungweite, der Anzahl an Beinhaaren sowie der Boniturnoten der Katzenflöhe aufgeteilt nach den drei Ernährungsformen sowie dem Entwicklungsstand. **(A)** Boxplot der Sprungweiten nach Ernährungsform und Entwicklungssstand. **(B)** Boxplot der Anzahl an Beinhaaaren nach Ernährungsform und Entwicklungssstand.  **(C)** Dotplot der Boniturnoten nach Ernährungsform und Entwicklungssstand. *[Zum Vergrößern anklicken]*"
+#| label: fig-marginal-data-1
+
+p1_model_flea <- ggplot(flea_model_tbl, aes(x = feeding, y = jump_length, fill = stage)) +
+  theme_modeling() +
+  geom_boxplot() +
+  scale_fill_okabeito() +
+  theme(legend.position = "top") +
+  labs(x = "Ernährungsform", y = "Sprungweite in [cm]",
+       fill = "") +
+  scale_x_discrete(guide = guide_axis(n.dodge=2))
+
+p2_model_flea <- ggplot(flea_model_tbl, aes(x = feeding, y = log(count_leg), fill = stage)) +
+  theme_modeling() +
+  geom_boxplot() +
+  scale_fill_okabeito() +
+  theme(legend.position = c(0.5, 1)) +
+  labs(x = "Ernährungsform", y = "Anzahl Beinhaare [log]",
+       fill = "") +
+  scale_x_discrete(guide = guide_axis(n.dodge=2))
+
+p3_model_flea <- ggplot(flea_model_tbl, aes(x = feeding, y = bonitur, fill = stage)) +
+  theme_modeling() +
+  geom_dotplot(binaxis = "y", stackdir = "center") +
+  facet_wrap(~stage) +
+  scale_fill_okabeito() +
+  theme(legend.position = "none") +
+  labs(x = "Ernährungsform", y = "Boniturnoten",
+       fill = "") +
+  scale_x_discrete(guide = guide_axis(n.dodge=2))
+
+p1_model_flea + p2_model_flea + p3_model_flea +
+  plot_layout(ncol = 3, widths = c(1.25, 1.25, 2.5)) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+```
+
+## Die Formelschreibweise
 
 Wir gehen wir nun praktisch in R vor? Dafür brauchen wir nochmal kurz unsere Idee der linken sowie rechten Seite der Tilde. Zusammen bilden die beiden Seiten ja ein Modell in R. In der folgenden Abbildung siehst du nochmal das Konzept. Auf der linken Seite haben wir unseren Messwert und auf der rechten Seite dann mindestens eine, wenn nicht mehr, Einflussvariablen stehen. Daher unterscheiden wir gleich einmal die beiden Seiten und betrachten die Erstellung eines Modells getrennt.
 
@@ -375,7 +462,7 @@ reformulate(termlabels = "feeding * stage + weight",
 
 Es gibt noch die `update()` Funktion, die uns erlaubt dynamisch Modelle zu aktualisieren. Ich würde das aber überhaupt nicht empfehlen, da du dann schnell mal den Überblick verlieren kannst, was jetzt wie im Modell ist. Ich habe das nie richtig verstanden, was der Vorteil davon sein soll, dass Modell einfach zu kopieren und dann zu ändern. Am Ende musst du die Modelle sowieso miteinander vergleichen um zu sehen welches Modell das beste Modell ist.
 
-## Modellieren
+## Praktisches Modellieren
 
 [R Paket `{ggeffects}`](https://strengejacke.github.io/ggeffects/articles/ggeffects.html)
 
@@ -395,7 +482,42 @@ in diesem Kapitel wollen Fokus auf `{parsnip}` und dann als Kasten in allen ande
 
 [Tidymodels, interactions and anova - a short tutorial](https://www.thomasvanhoey.com/posts/2021-10-12-tidymodels-interactions/index.html)
 
-### ...mit `{purrr}`
+### ... mit `{parsnip}`
+
+Auch hier können wir die XX Regression in dem R Paket `{parsnip}` realisieren. Ein Vorteil von `{parsnip}` ist, dass wir die Funktionen sehr gut mit dem `|>`-Operator nutzen können. Das ist bei den Funktionen `glm()` und `lm()` in der ursprünglichen Implementierung ja leider nur etwas umständlicher möglich. Deshalb hier einmal die *bessere* Implementierung.
+
+::: panel-tabset
+## `{parsnip}`
+
+```{r}
+linreg_reg_fit <- linear_reg() |> 
+  set_engine("lm") |> 
+  fit(jump_length ~ grp, data = simple_tbl) 
+```
+
+Dann die ANOVA
+
+```{r}
+linreg_reg_fit|>  
+  extract_fit_engine() |> 
+  anova()
+```
+
+## `{base}`
+
+```{r}
+linreg_reg_fit <- lm(jump_length ~ grp, data = simple_tbl)
+```
+
+```{r}
+linreg_reg_fit|>  
+  anova()
+```
+:::
+
+Eine detailliertere Einführung mit mehr Beispielen für die Nutzung vom [R Paket `{parsnip}`](https://parsnip.tidymodels.org/articles/Examples.html)
+
+### ... mit `{purrr}`
 
 `map()` für mehrere Endpunkte wie bei den Spinatdaten in Application gezeigt.
 
@@ -481,42 +603,5 @@ emm_lst %>%
   select(outcome, trt, .group)  %>% 
   print(n = 28)
 ```
-
-:::: callout-note
-## XX Regression in `{parsnip}`
-
-Auch hier können wir die XX Regression in dem R Paket `{parsnip}` realisieren. Ein Vorteil von `{parsnip}` ist, dass wir die Funktionen sehr gut mit dem `|>`-Operator nutzen können. Das ist bei den Funktionen `glm()` und `lm()` in der ursprünglichen Implementierung ja leider nur etwas umständlicher möglich. Deshalb hier einmal die *bessere* Implementierung.
-
-::: panel-tabset
-## `{parsnip}`
-
-```{r}
-linreg_reg_fit <- linear_reg() |> 
-  set_engine("lm") |> 
-  fit(jump_length ~ grp, data = simple_tbl) 
-```
-
-Dann die ANOVA
-
-```{r}
-linreg_reg_fit|>  
-  extract_fit_engine() |> 
-  anova()
-```
-
-## `{base}`
-
-```{r}
-linreg_reg_fit <- lm(jump_length ~ grp, data = simple_tbl)
-```
-
-```{r}
-linreg_reg_fit|>  
-  anova()
-```
-:::
-
-Eine detailliertere Einführung mit mehr Beispielen für die Nutzung vom [R Paket `{parsnip}`](https://parsnip.tidymodels.org/articles/Examples.html) findest du im Kapitel [Modellieren in R](#sec-modeling-R). Hier soll es dann bei der kurzen Gegenüberstellung bleiben.
-::::
 
 ## Referenzen {.unnumbered}
