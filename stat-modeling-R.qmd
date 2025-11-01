@@ -304,7 +304,7 @@ An der Seite des Kapitels findest du den Link *Quellcode anzeigen*, über den du
 
 ## Daten
 
-Wir brauchen auch hier nochmal Daten an denen wir uns die Prinzipien des Modellierens in R verstehen zu können. Als Datensatz habe ich nochmal die Modellierung von Flöhen mitgebracht. In dem Datensatz zu der Modellierung von Flöhen finden wir viele Kovariaten sowie Faktoren und verschiedene Messwerte, die von Interesse sind. Wir schauen uns hier die Sprungweiten von Katzenflöhen unter verschiedenen Fütterungebedingungen an. Dabei haben die Katzenflöhe einmal Zuckerwasser, Ketchup sowie Blut als Nahrung erhalten. Als zweiten Faktor betrachten wir dann noch juvenile und adulte Flöhe. Neben diesen beiden Faktoren, haben wir dann noch die Kovariate des Gewichts der Flöhe erhoben. Als weitere Messwerte kommen dann die Schlupfzeiten, die Bonitur der Flöhe, die Anzahl der Haare an einem Flohbein sowie der Infektionsstatus mit Flohschnupfen in Betracht. Teilweise können wir dann die kontinuierlichen Messwerte auch als Kovariaten in unseren Modellen verwenden. Da sind wir ja nicht festgelegt. Wir laden dann die Daten einmal in R und müssen noch etwas die Faktoren anpassen.
+Wir brauchen auch hier nochmal Daten an denen wir uns die Prinzipien des Modellierens in R verstehen zu können. Als Datensatz habe ich nochmal die Modellierung von Flöhen mitgebracht. In dem Datensatz zu der Modellierung von Flöhen finden wir viele Kovariaten sowie Faktoren und verschiedene Messwerte, die von Interesse sind. Wir schauen uns hier die Sprungweiten von Katzenflöhen unter verschiedenen Fütterungebedingungen an. Dabei haben die Katzenflöhe einmal Zuckerwasser, Ketchup sowie Blut als Nahrung erhalten. Als zweiten Faktor betrachten wir dann noch juvenile und adulte Flöhe. Neben diesen beiden Faktoren, haben wir dann noch die Kovariate des Gewichts der Flöhe erhoben. Als weitere Messwerte kommen dann die Bonitur der Flöhe, die Anzahl der Haare an einem Flohbein sowie der Infektionsstatus mit Flohschnupfen in Betracht. Teilweise können wir dann die kontinuierlichen Messwerte auch als Kovariaten in unseren Modellen verwenden. Da sind wir ja nicht festgelegt. Wir laden dann die Daten einmal in R und müssen noch etwas die Faktoren anpassen.
 
 ```{r}
 flea_model_tbl <- read_excel("data/fleas_model_data.xlsx") |> 
@@ -312,14 +312,7 @@ flea_model_tbl <- read_excel("data/fleas_model_data.xlsx") |>
          stage = as_factor(stage),
          bonitur = as.numeric(bonitur),
          infected = factor(infected, labels = c("healthy", "infected"))) |> 
-  select(feeding, stage, jump_length, weight, hatched, count_leg,  bonitur, infected) 
-```
-
-Wir haben jetzt hier das Problem, dass die Schlupfzeit in Stunden gemessen wurde, was extrem ungünstig ist, da die Einheiten so große Werte einnimmt. Daher haben wir dann später das Problem, dass eine Stunde Änderung einen sehr kleinen Effekt auf die Sprungweiten hat. Daher habe ich hier einmal die Schlupfzeit auf Wochen umgerechnet, dass macht dann die Effekte auf die Sprungweite größer und besser zu interpretieren.
-
-```{r}
-flea_model_tbl <- flea_model_tbl |> 
-  mutate(hatched = hatched/24/7)
+  select(feeding, stage, jump_length, count_leg, bonitur, infected) 
 ```
 
 Dann können wir uns auch schon mal einen Auszug aus der Datentabelle zu den Sprungweiten der Katzenflöhe anschauen.
@@ -329,12 +322,12 @@ Dann können wir uns auch schon mal einen Auszug aus der Datentabelle zu den Spr
 #| message: false
 #| warning: false
 #| label: tbl-fac1cov-table
-#| tbl-cap: "Daten für die Modellierung verschiedener Messwerte für Katzenflöhe unter drei Ernährungsformen sowie zwei Entwicklungsstadien. Zusaätzlich wurde noch das Flohgewicht erhoben. Teilweise können die Messwerte auch als Einflussvariablen im Modell genutzt werden."
+#| tbl-cap: "Daten für die Modellierung verschiedener Messwerte für Katzenflöhe unter drei Ernährungsformen sowie zwei Entwicklungsstadien."
 
 flea_model_raw_tbl <- read_excel("data/fleas_model_data.xlsx") |> 
   mutate(bonitur = as.numeric(bonitur),
          infected = as.character(factor(infected, labels = c("healthy", "infected")))) |> 
-  select(feeding, stage, jump_length, weight, count_leg, hatched, bonitur, infected) |> 
+  select(feeding, stage, jump_length, count_leg, bonitur, infected) |> 
   mutate_if(is.numeric, round, 2)
 
 rbind(head(flea_model_raw_tbl, n = 3),
@@ -522,6 +515,73 @@ Eine detailliertere Einführung mit mehr Beispielen für die Nutzung vom [R Pake
 `map()` für mehrere Endpunkte wie bei den Spinatdaten in Application gezeigt.
 
 `map2()` mit Familie für `glm` zeigen, wenn wir unterschiedliche Outcomes haben.
+
+Das Ganze dann einmal auf die Flohdaten umbauen. Sortierung beachten!
+
+```{r}
+family_lst <- lst(count_leg = quasipoisson(),
+                  infected = binomial(),
+                  jump_length = gaussian())
+```
+
+Ordinal ist schwierig und die Infektionszeit muss numerisch sein. Und ein Faktor wird dann zu `1/2` anstatt von `0/1`
+
+```{r}
+flea_long_tbl <- flea_model_tbl |>
+  mutate(infected = as.numeric(infected)-1) |> 
+  select(-bonitur) |> 
+  pivot_longer(cols = jump_length:last_col(),
+               names_to = "outcome",
+               values_to = "rsp") |>
+  arrange(outcome, feeding, stage)
+```
+
+```{r}
+flea_lst <- flea_long_tbl |>
+  split(~ outcome)
+```
+
+```{r}
+#| message: false
+#| warning: false
+glm_lst <- flea_lst %>% 
+  map2(family_lst, 
+       ~glm(rsp ~ feeding + stage + feeding:stage, 
+            data = .x, family = .y))
+```
+
+```{r}
+glm_lst %>% 
+  map(pluck, "family")
+```
+
+```{r}
+glm_lst %>% 
+  map(car::Anova)
+```
+
+```{r}
+emm_lst <- glm_lst %>% 
+  map(~emmeans(.x, specs = ~ feeding, type = "response"))
+```
+
+```{r}
+emm_lst %>% 
+  map(~contrast(.x, method = "pairwise", adjust = "bonferroni")) %>% 
+  map(as_tibble) %>% 
+  bind_rows(.id = "outcome")
+```
+
+```{r}
+emm_lst %>% 
+  map(~cld(.x, Letters = letters, adjust = "bonferroni")) %>% 
+  map(as_tibble) %>% 
+  bind_rows(.id = "outcome") %>% 
+  select(outcome, feeding, .group)  %>% 
+  print(n = 28)
+```
+
+## old
 
 ```{r}
 #| warning: false
