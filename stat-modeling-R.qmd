@@ -295,7 +295,8 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 
 ```{r echo = TRUE}
 #| message: false
-pacman::p_load(tidyverse, emmeans, multcomp, ggpmisc, conflicted)
+pacman::p_load(tidyverse, emmeans, multcomp, ggpmisc, gtsummary, 
+               tidymodels, conflicted)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(ggplot2::annotate)
 ```
@@ -312,7 +313,7 @@ flea_model_tbl <- read_excel("data/fleas_model_data.xlsx") |>
          stage = as_factor(stage),
          bonitur = as.numeric(bonitur),
          infected = factor(infected, labels = c("healthy", "infected"))) |> 
-  select(feeding, stage, jump_length, count_leg, bonitur, infected) 
+  select(feeding, stage, weight, jump_length, count_leg, bonitur, infected) 
 ```
 
 Dann können wir uns auch schon mal einen Auszug aus der Datentabelle zu den Sprungweiten der Katzenflöhe anschauen.
@@ -327,7 +328,7 @@ Dann können wir uns auch schon mal einen Auszug aus der Datentabelle zu den Spr
 flea_model_raw_tbl <- read_excel("data/fleas_model_data.xlsx") |> 
   mutate(bonitur = as.numeric(bonitur),
          infected = as.character(factor(infected, labels = c("healthy", "infected")))) |> 
-  select(feeding, stage, jump_length, count_leg, bonitur, infected) |> 
+  select(feeding, stage, weight, jump_length, count_leg, bonitur, infected) |> 
   mutate_if(is.numeric, round, 2)
 
 rbind(head(flea_model_raw_tbl, n = 3),
@@ -382,7 +383,7 @@ p1_model_flea + p2_model_flea + p3_model_flea +
   theme(plot.tag = element_text(size = 16, face = "bold"))
 ```
 
-## Die Formelschreibweise
+## Formelschreibweise in R
 
 Wir gehen wir nun praktisch in R vor? Dafür brauchen wir nochmal kurz unsere Idee der linken sowie rechten Seite der Tilde. Zusammen bilden die beiden Seiten ja ein Modell in R. In der folgenden Abbildung siehst du nochmal das Konzept. Auf der linken Seite haben wir unseren Messwert und auf der rechten Seite dann mindestens eine, wenn nicht mehr, Einflussvariablen stehen. Daher unterscheiden wir gleich einmal die beiden Seiten und betrachten die Erstellung eines Modells getrennt.
 
@@ -457,11 +458,7 @@ Es gibt noch die `update()` Funktion, die uns erlaubt dynamisch Modelle zu aktua
 
 ## Praktisches Modellieren
 
-[R Paket `{ggeffects}`](https://strengejacke.github.io/ggeffects/articles/ggeffects.html)
-
-[R Paket `{gtsummary}`](https://www.danieldsjoberg.com/gtsummary/index.html)
-
-[Display univariate regression model results in table](https://www.danieldsjoberg.com/gtsummary/reference/tbl_uvregression.html)
+Wenn wir von dem praktischen Modellieren in R sprechen, dann können wir grob zwischen dem Standard `{base}` in R und neueren Paketen unterscheiden. Dabei sind die neueren Pakete vorallem darauf optimiert, dass wir auf Listen oder aber mit dem Pipe-Operator arbeiten können. Nichts spricht dagegen mit den klassischen Funktionen zu arbeiten. In den folgenden Kapiteln nutze ich auch die Implemntierungen in `{base}` und `{stats}`, die schon sehr alt sind. Die Funktionen `lm()`, `glm()` und Weitere finktionieren aber super und sind für den alltäglichen Gebrauch auch sehr gut geeignet. Manchmal werden aber die Daten größer, da wir mehr Messwerte vorliegen haben oder aber einfach mehr Einflussvariablen. Dann gibt es bessere Lösungen. Davon möchte ich hier dann einige vorstellen.
 
 [Das R Paket `{tidymodels}`](https://www.tidymodels.org/)
 
@@ -475,17 +472,50 @@ in diesem Kapitel wollen Fokus auf `{parsnip}` und dann als Kasten in allen ande
 
 [Tidymodels, interactions and anova - a short tutorial](https://www.thomasvanhoey.com/posts/2021-10-12-tidymodels-interactions/index.html)
 
+### ... mit `{gtsummary}`
+
+[R Paket `{gtsummary}`](https://www.danieldsjoberg.com/gtsummary/index.html)
+
+[`tbl_summary()` tutorial](https://www.danieldsjoberg.com/gtsummary/articles/tbl_summary.html)
+
+```{r}
+#| message: false
+#| warning: false
+flea_model_tbl |> 
+  select(-bonitur) |> 
+  tbl_summary(by = stage) |>
+  add_p()
+```
+
+[`tbl_regression()` tutorial](https://www.danieldsjoberg.com/gtsummary/articles/tbl_regression.html)
+
+```{r}
+glm(infected ~ weight + stage + feeding, data = flea_model_tbl,
+    family = binomial) |> 
+  tbl_regression(exponentiate = TRUE)
+```
+
+[`tbl_uvregression` tutorial](https://www.danieldsjoberg.com/gtsummary/articles/tbl_regression.html#tbl_uvregression)
+
+```{r}
+tbl_uvregression(
+  flea_model_tbl,
+  method = glm,
+  y = infected,
+  method.args = list(family = binomial),
+  exponentiate = TRUE,
+  include = c("weight", "stage", "feeding")
+)
+```
+
 ### ... mit `{parsnip}`
 
 Auch hier können wir die XX Regression in dem R Paket `{parsnip}` realisieren. Ein Vorteil von `{parsnip}` ist, dass wir die Funktionen sehr gut mit dem `|>`-Operator nutzen können. Das ist bei den Funktionen `glm()` und `lm()` in der ursprünglichen Implementierung ja leider nur etwas umständlicher möglich. Deshalb hier einmal die *bessere* Implementierung.
 
-::: panel-tabset
-## `{parsnip}`
-
 ```{r}
 linreg_reg_fit <- linear_reg() |> 
   set_engine("lm") |> 
-  fit(jump_length ~ grp, data = simple_tbl) 
+  fit(jump_length ~ feeding, data = flea_model_tbl) 
 ```
 
 Dann die ANOVA
@@ -496,17 +526,13 @@ linreg_reg_fit|>
   anova()
 ```
 
-## `{base}`
-
-```{r}
-linreg_reg_fit <- lm(jump_length ~ grp, data = simple_tbl)
-```
+Oder eben auch mit `{emmeans}`
 
 ```{r}
 linreg_reg_fit|>  
-  anova()
+  extract_fit_engine() |> 
+  emmeans(~ feeding)
 ```
-:::
 
 Eine detailliertere Einführung mit mehr Beispielen für die Nutzung vom [R Paket `{parsnip}`](https://parsnip.tidymodels.org/articles/Examples.html)
 
@@ -581,87 +607,12 @@ emm_lst %>%
   print(n = 28)
 ```
 
-## old
+## Interpretation und Zusammenfassungen
 
-```{r}
-#| warning: false
-#| message: false
-cutting_tbl <- read_excel("data/multiple_outcomes.xlsx") |> 
-  mutate(trt = as_factor(trt),
-         block = as_factor(block)) |> 
-  mutate_if(is.numeric, round, 2)
-```
+[R Paket `{ggeffects}`](https://strengejacke.github.io/ggeffects/articles/ggeffects.html)
 
-```{r}
-#| echo: false
-#| message: false
-#| warning: false
-#| label: tbl-model-r-multiple-out
-#| tbl-cap: "Auszug aus den Daten ."
+[R Paket `{gtsummary}`](https://www.danieldsjoberg.com/gtsummary/index.html)
 
-cutting_raw_tbl <- cutting_tbl |>
-  mutate_all(as.character)
-  
-
-rbind(head(cutting_raw_tbl, 4),
-      rep("...", times = ncol(cutting_raw_tbl)),
-      tail(cutting_raw_tbl, 4)) |>
-  kable(align = "c", "pipe")
-
-```
-
-```{r}
-family_lst <- lst(shoot = binomial(),
-                  leaf = quasipoisson(),
-                  flower = quasipoisson(),
-                  fruit = quasipoisson(),
-                  ca = gaussian(), 
-                  drymatter = gaussian(), 
-                  freshweight = gaussian(), 
-                  height = gaussian())
-```
-
-```{r}
-cutting_long_tbl <- cutting_tbl |>
-  pivot_longer(cols = shoot:last_col(),
-               names_to = "outcome",
-               values_to = "rsp") |>
-  arrange(outcome, trt, block)
-```
-
-```{r}
-cutting_lst <- cutting_long_tbl |>
-  split(~outcome)
-```
-
-```{r}
-#| message: false
-#| warning: false
-glm_lst <- cutting_lst %>% 
-  map2(family_lst, 
-       ~glm(rsp ~ trt + block + trt:block, 
-            data = .x, family = .y))  
-  
-glm_lst %>% 
-  map(pluck, "family")
-
-glm_lst %>% 
-  map(car::Anova)
-
-emm_lst <- glm_lst %>% 
-  map(~emmeans(.x, specs = ~ trt, type = "response")) 
-
-emm_lst %>% 
-  map(~contrast(.x, method = "pairwise", adjust = "bonferroni")) %>% 
-  map(as_tibble) %>% 
-  bind_rows(.id = "outcome")
-
-emm_lst %>% 
-  map(~cld(.x, Letters = letters, adjust = "bonferroni")) %>% 
-  map(as_tibble) %>% 
-  bind_rows(.id = "outcome") %>% 
-  select(outcome, trt, .group)  %>% 
-  print(n = 28)
-```
+[R Paket `{modelsummary}`](https://modelsummary.com/)
 
 ## Referenzen {.unnumbered}
