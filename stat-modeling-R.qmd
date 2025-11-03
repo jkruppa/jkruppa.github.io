@@ -296,7 +296,7 @@ Wir wollen folgende R Pakete in diesem Kapitel nutzen.
 ```{r echo = TRUE}
 #| message: false
 pacman::p_load(tidyverse, emmeans, multcomp, ggpmisc, gtsummary, 
-               tidymodels, conflicted)
+               tidymodels, modelsummary, conflicted)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(ggplot2::annotate)
 ```
@@ -493,7 +493,7 @@ glm(infected ~ weight + stage + feeding, data = flea_model_tbl,
   tbl_regression(exponentiate = TRUE)
 ```
 
-Manchmal wollen wir aber nicht ein multiples Modell mit alles Einflussvariablen rechnen, sondern für jede Einflussvariable ein simples Modell. Das ist dann meistens sehr aufwendig, da wir dann ja für jede Einflussvariable ein Modell hinschreiben und das dann rechnen müssen. Hier hilft die Funktion [`tbl_uvregression()`](https://www.danieldsjoberg.com/gtsummary/articles/tbl_regression.html#tbl_uvregression), dir eben jedesmal ein simples Modell rechnet und uns dann eine Tabelle wiedergibt. Das ist natürlich super einfach und wir können auch noch die Modelle anpassen.
+Manchmal wollen wir aber nicht ein multiples Modell mit alles Einflussvariablen rechnen, sondern für jede Einflussvariable ein simples Modell. Das ist dann meistens sehr aufwendig, da wir dann ja für jede Einflussvariable ein Modell hinschreiben und das dann rechnen müssen. Hier hilft die Funktion [`tbl_uvregression()`](https://www.danieldsjoberg.com/gtsummary/articles/tbl_regression.html#tbl_uvregression), dir eben jedesmal ein simples Modell rechnet und uns dann eine Tabelle wiedergibt. Das ist natürlich super einfach und wir können auch noch die Modelle anpassen. Je nach Modell müssen wir dann eine andere Familie wählen und natürlich schauen, welche Einflussvariablen alle einmal in einem simplen Modell gerechnet werden sollen.
 
 ```{r}
 tbl_uvregression(
@@ -507,6 +507,43 @@ tbl_uvregression(
 ```
 
 Ich nutze gerne das R Paket `{gtsummary}`, wenn ich erste Übersichten über Daten und Variablen erstellen möchte. Wie sehen die Zusammenhänge aus? Welche Variablen gibt es in welcher Häufigkeit für die einzelnen Messwerte? All das ist ja im Prozess der Datenanalyse sehr wertvoll. Auch hilft es Dritten, die sich die Daten einmal anschauen wollen um eine Diskussionsgrundlage zu haben.
+
+### ... mit `{modelsummary}`
+
+Das [R Paket `{modelsummary}`](https://modelsummary.com/) ist wunderbar, wenn wir Daten oder Modelle zusammenfassen und einmal über die Variablen schauen wollen. Einmal ist es hier die Übersicht, die wir uns mit der Funktion `datasummary_skim()` geben können. Wir erhalten wirklich eine Menge Informationen sowie ein Histogramm der Verteilung. Manchmal ist es hilfreich, manchmal dann eben nicht.
+
+```{r}
+flea_model_tbl |> 
+  datasummary_skim()
+```
+
+Die Funktion `datasummary_crosstab()` ist dafür da uns einmal für verschiedene Faktoren und einem kategorialen Messwert die ganzen Anzahlen der Faktorkombinationen wiedergeben zu lassen. Das ist für eine Übersicht super, als Bericht manchmal dann zu viel. Auch hier nutze ich die Funktion im Rahmen meiner Datenanalyse als Übersicht und weniger als eine Tabelle, die ich Dritten wiedergebe.
+
+```{r}
+datasummary_crosstab(infected ~ feeding * stage, 
+                     data = flea_model_tbl)
+```
+
+Die größte Stärke des R Paketes ist die Funktion `modelsummary()`. Mit der Funktion können wir direkt als Tabelle nebeneinander verschiedene Modelle miteinander vergleichen. Das ist großartig, da wir dann direkt sehen, welche Variablen einen Einfluss hätten und wie sich der Einfluss ändert, wenn wir eine andere Einflussvariable mit ins Modell nehmen. Dafür nehmen wir alle Modelle einmal in eine Liste. Die Liste numeriere ich dan meistens einmal kurz durch, damit haben wir dann die Namen der Modelle. Dann können wir gleich die Liste der Modelle nebeneinanderstellen.
+
+```{r}
+model_lst <- list(
+  "I"     = lm(jump_length ~ feeding + stage, data = flea_model_tbl),
+"II" = lm(jump_length ~ feeding * stage, data = flea_model_tbl),
+  "III"     = lm(jump_length ~ feeding * stage + weight, data = flea_model_tbl)
+)
+```
+
+Jetzt nehmen wir die Liste der Modelle und dann dann können wir noch viele Optionen mitgeben. Da hilft dann die Hilfeseite der Funktion weiter. Hier will ich dann einmal auf eine Stelle runden, dann den Intercept aus den Koeffizienten nicht anzeigen und auch nur einen Teil der Gütekriterien der Modelle anzeigen lassen. Hier geht dann noch viel mehr, aber es ist super um Modelle aus einem multiplen Modell miteinander zu vergleichen. Auch kannst du die statistischen Tests rechnen lassen und dir verschiedene Statistiken anzeigen lassen, aber das ist dann hier zu viel.
+
+```{r}
+modelsummary(model_lst,
+             fmt = 1,
+             coef_omit = "Intercept",
+             gof_omit = 'Log.Lik.|F|RMSE')
+```
+
+Wenn es um Modellvergleiche geht, dann komme ich nicht um `{modellsummary}` vorbei. Es ist super praktisch die Modelle nebeneinander zu stellen. Hier gibt es dann aber so viele Optionen, dass du dann immer schauen musst, was du denn brauchst. Du kannst dir p-Werte oder Konfidenzintervalle anzeigen lassen. Oder aber den Standardfehler zusammen mit den Koeffizienten. Hier gibt es dann wirklich viele Optionen. Schaue dir einmal die [Hilfeseite von `modelsummary()`](https://modelsummary.com/vignettes/modelsummary.html) an.
 
 ### ... mit `{parsnip}`
 
@@ -612,9 +649,5 @@ emm_lst %>%
 ### ... mit `{ggeffects}`
 
 [R Paket `{ggeffects}`](https://strengejacke.github.io/ggeffects/articles/ggeffects.html)
-
-### ... mit `{modelsummary}`
-
-[R Paket `{modelsummary}`](https://modelsummary.com/)
 
 ## Referenzen {.unnumbered}
