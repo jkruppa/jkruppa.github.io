@@ -687,49 +687,79 @@ flea_long_tbl <- flea_model_tbl |>
   arrange(outcome, feeding, stage)
 ```
 
+Die zentrale Idee ist, dass wir unseren Datensatz nach den Messwerten in der Spalte `outcome` aufteilen. Durch die Funktion `split()` erhalten wir eine Liste mit den jeweiligen Messwerten in einem Listeneintrag. Aber Achtung, die Liste ist immer alphanumerisch sortiert. Egal wie du die Messwerte sortiert hast. Daher immer auch die Familienliste oben alphanumerisch sortieren.
+
 ```{r}
 flea_lst <- flea_long_tbl |>
   split(~ outcome)
 ```
 
+Dann können wir uns auch schon zu der Regression begeben. Hier haben wir die Liste der Messwerte die wir in die Funktion `map2()` pipen. Dann brauchen wir noch die Familienliste und den Aufruf der Funktion `glm()` für die Regression. Die Werte aus der ersten Liste sprechen wir mit `.x` und die Werte aus der zweiten Liste mit `.y` an. Dann haben wir einmal alle Modelle gerechnet und können die Ergebnisse anschauen.
+
 ```{r}
 #| message: false
 #| warning: false
-glm_lst <- flea_lst %>% 
+glm_lst <- flea_lst |> 
   map2(family_lst, 
        ~glm(rsp ~ feeding + stage + feeding:stage, 
             data = .x, family = .y))
 ```
 
+Am besten dann nochmal nachschauen ob wir auch wirklich die richtigen Verteilungsfamilien zu den Messwerten zugeordnet haben. Hier sehen wir dann auch, dass es gut geklappt hat. Dann rechnen wir auf allen Modellen einmal eine ANOVA aus dem R Paket `{car}`. Im letzten Tab schauen wir uns dann einmal die Anwendung in `{emmeans}` an. Am Ende ist es dann immer die Frage, ob wir dass alles so über alle Listeneinträge wollen oder nicht doch besser die Listeneinträge einzeln bearbeiten. Aber das soll ja hier nicht die Frage sein.
+
+::: panel-tabset
+## `family()`
+
+Als erstes prüfen wir einmal ob wir dann alle Messwerte mit den richtigen Verteilungsfamilien angepasst haben. Zwar gibt es auch Fehlermeldungen, wenn es überhaupt nicht passt, aber häufig gehen viele Verteilungen algorithmisch auch auf Messwerte, die nicht dieser Verteilung folgen.
+
 ```{r}
-glm_lst %>% 
+glm_lst |> 
   map(pluck, "family")
 ```
 
+Das sieht doch super aus. Jeder Messwert hat die Verteilung, die wir auch dann am Anfang ausgewählt haben. Es ist immer gut nochmal alles zu überprüfen.
+
+## `Anova()`
+
+Dann können wir auch einmal eine ANOVA auf allen Messwerten rechnen. Ob das jetzt so eine gute Idee ist auch Messwerte mit einer ANOVA zu testen, die eben dann keiner Normalverteilung folgen, ist eine andere Frage. Es geht dann aber. Und auch hier können wir die ANOVA Funktion austauschen. Dazu dann mehr in den Kapiteln zu der ANOVA und deren Varianten. Hier geht es mehr darum, dass es so geht.
+
 ```{r}
-glm_lst %>% 
+glm_lst |> 
   map(car::Anova)
 ```
 
+## `emmeans()`
+
+Hier kommen wir dann nochmal zu komplexeren Beispielen in dem wir dann einmal das R Paket `{emmeans}` für die paarweisen Vergleiche anwenden. Dafür brauchen wir dann einmal eine Liste mit `{emmeans}`-Objekten in denen wir dann die Vergleiche definieren. Ich mache hier einmal alles nur einfaktoriell sonst wird die Ausgabe noch länger.
+
 ```{r}
-emm_lst <- glm_lst %>% 
+#| warning: false
+#| message: false
+
+emm_lst <- glm_lst |> 
   map(~emmeans(.x, specs = ~ feeding, type = "response"))
 ```
 
+Dann können wir auch alle paarweisen Vergleiche rechnen. Dann wollen wir noch alles als ein `tibble`-Objekt vorliegen haben. Am Ende machen wir dann ein Datensatz aus der Liste und ergänzen noch eine Spalte mit den Messwerten. Schon an der Grenze zu kaum lesbar, aber schon schick, dass es so geht. Ich würde am Ende noch mit `select()` etwas in den Spalten aufräumen und nur die nehmenm die mich dann auch interessieren.
+
 ```{r}
-emm_lst %>% 
-  map(~contrast(.x, method = "pairwise", adjust = "bonferroni")) %>% 
-  map(as_tibble) %>% 
+emm_lst |> 
+  map(~contrast(.x, method = "pairwise", adjust = "bonferroni")) |> 
+  map(as_tibble) |> 
   bind_rows(.id = "outcome")
 ```
 
+Wir können auch das *Compact letter display* uns erstellen lassen. Das ist gar nicht mehr so viel komplizierter. Am Ende kann die Liste sehr lang werden, hier haben wir dann mit den wenigen Messwerten und dem einfaktoriellen Design eben noch Glück.
+
 ```{r}
-emm_lst %>% 
-  map(~cld(.x, Letters = letters, adjust = "bonferroni")) %>% 
-  map(as_tibble) %>% 
-  bind_rows(.id = "outcome") %>% 
-  select(outcome, feeding, .group)  %>% 
-  print(n = 28)
+emm_lst |> 
+  map(~cld(.x, Letters = letters, adjust = "bonferroni")) |> 
+  map(as_tibble) |> 
+  bind_rows(.id = "outcome") |> 
+  select(outcome, feeding, .group)
 ```
+:::
+
+Braucht man `{purrr}` um so viele Modelle nacheinander durchzurechnen? Sicherlich nicht. Du kannst dir auch über Copy&Paste alles zusammenbauen und dann nacheinander rechnen. Häufig macht das auch mehr Sinn, da sich die Messwerte meist auch von der Darstellung unterscheiden. Dann hast du einen Abschnitt oder aber eine Datei für einen Messwert und alles hat seine Ordnung. Ich habe dieses Verfahren gerne genutzt, wenn es wirklich viele Messwerte waren udn wir rausfinden wollten, ob überhaupt was interessantes in den Daten vorlag.
 
 ## Referenzen {.unnumbered}
