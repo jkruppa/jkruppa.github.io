@@ -608,30 +608,66 @@ Das [R Paket `{ggeffects}`](https://strengejacke.github.io/ggeffects/articles/gg
 > *"Warum habe ich hier nochmal `{ggeffects}` vorgestellt, wenn es doch mit `{modelbased}` ein neueres Paket gibt? Zum einen da ich die Visualisierungen sehr schön finde und zum anderen da die Hilfeseite nochmal für mich etwas leichter zu lesen war. Oder andersherum, nachdem ich mich mit der Seite von `{ggeffects}` beschäftigt hatte, war `{modelbased}` einfacher für mich." --- Jochen Kruppa-Scheetz, meiner bescheidener Meinung nach.*
 :::
 
-```{r}
-fit <- lm(jump_length ~ stage + weight, data = flea_model_tbl)
-```
+Wie immer brauchen wir erstmal ein Modell auf das wir dann die Funktionen anwenden können. Ich habe hier einmal das Modell genommen in dem wir den Entwicklungsstand und das Gewicht der Flöhe vorliegen haben. Dann rechnen wir einmal das multiple Modell.
 
 ```{r}
-predict_response(fit, terms = "weight")
+fit <- lm(jump_length ~ stage * weight, data = flea_model_tbl)
 ```
 
+Jetzt können wir uns einmal die Sprungweiten für die adulten Flöhe wiedergeben lassen. Das ist selten dass was wir wollen wir haben ja noch die juvenilen Flöhe mit in dem Modell. Auch hier ist immer die Frage, für was möchtest du adjustieren und was soll schlussendlich mit ins Modell und gezeigt werden.
+
 ```{r}
-pr <- predict_response(fit, terms = c("weight", "stage"))
+#| message: false
+#| warning: false
+predict_response(fit, term = "weight")
 ```
+
+Um beide Entwicklungsstände einmal zu sehen, können wir dann noch den Entwicklungsstand in der Vorhersage der Sprungweiten ergänzen. Dann erhalten wir auch getrennt für die beiden Gruppen die Sprungweiten wiedergegeben. Mit der Option `"weight [mean]"` könnten wir uns auch nur die Sprungweiten der beiden Entwicklungsstände für das mittlere Gewicht wiedergeben lassen.
+
+```{r}
+#| message: false
+#| warning: false
+predict_response(fit, term = c("weight", "stage"))
+```
+
+Dann können wir auch den paarweisen Vergleich der beiden Entwicklungsstände adjustiert für das mittlere Gewicht rechnen. Auch hier musst du darauf achten, dass du das volle Modell anpasst. Also auch mit allen Interaktionstermen. Sonst kommt hier nichts sinnvolles raus oder eben eine Mittelwertsdifferenz von Null.
+
+```{r}
+#| message: false
+#| warning: false
+predict_response(fit, term = c("weight", "stage")) |> 
+  test_predictions()
+```
+
+Mit der Option `by = stage` können wir uns dann auch die Steigungen der Sprungweiten an den mittleren Gewichten für die beiden Entwicklungsstände anschauen. Dann kriegen wir aber keinen paarweisen Vergleich mehr wiedergeben sondern eben die Steigung über die Flohgewichte getrennt für die Entwicklungsstände. Wenn du oben die Interaktion im Modell vergisst, dann ist die Steigung in den beiden Entwicklungsständen gleich.
+
+```{r}
+#| message: false
+#| warning: false
+predict_response(fit, term = c("weight", "stage")) |> 
+  test_predictions(by = "stage")
+```
+
+Dann ist auch häufig die Frage, was diese Steigungen sein sollen. Das können wir uns dann einmal leicht in der folgenden Abbildung anschauen. Wir haben dann einmal die Steigung der Sprungweiten über die Flohgewichte getrennt für die beiden Entwicklungsstände dargestellt. Wir sehen hier sehr schön, dass Steigung für die juvenilen Flöhe viel größer ist als für die adulten Flöhe. Ich habe dann noch Optionen aus `{ggplot}` ergänzt.
 
 ```{r}
 #| message: false
 #| echo: true
 #| warning: false
 #| fig-align: center
-#| fig-height: 3.5
+#| fig-height: 4
 #| fig-width: 7
-#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Darstellung des Zusammenhangs zwischen dem Flohgewicht und der Sprungweite aufgetrennt für die beiden Entwicklungsstände. *[Zum Vergrößern anklicken]*"
 #| label: fig-model-r-ggeffect-1
 
-plot(pr, show_data = TRUE)
+predict_response(fit, term = c("weight", "stage")) |> 
+  plot(show_data = TRUE) +
+  labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]",
+       color = "Entwicklungsstand") +
+  theme(legend.position = "top")
 ```
+
+Manchmal Fragen wir uns auch, ob die lineare Modellierung wirklich das beste Modell ist. Daher können wir uns auch einmal die Residuen aus dem Modell anschauen und sehen wie sich die Residuen verteilen. Hier sehen wir, dass wir eine leichte Abweichung haben, aber die Residuen sich relativ gut um die Grade des Modells bewegen. Ich würde hier also keine quadratische Anpassung vornehmen. Mehr zu der Problematik kannst du in der Vignette [Introduction: Adding Partial Residuals to Adjusted Predictions Plots](https://strengejacke.github.io/ggeffects/articles/introduction_partial_residuals.html) nachlesen.
 
 ```{r}
 #| message: false
@@ -640,15 +676,17 @@ plot(pr, show_data = TRUE)
 #| fig-align: center
 #| fig-height: 3.5
 #| fig-width: 7
-#| fig-cap: "foo *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Darstellung des Zusammenhangs zwischen dem Flohgewicht und der Sprungweite aufgetrennt für die beiden Entwicklungsstände zusammen mit den Residuen der Modellanpassung. Die Grade der Residuen sollte auf der Graden der Modellanpassung liegen. *[Zum Vergrößern anklicken]*"
 #| label: fig-model-r-ggeffect-2
 
-plot(pr, show_residuals = TRUE, show_residuals_line = TRUE)
+predict_response(fit, terms = c("weight", "stage")) |> 
+  plot(show_residuals = TRUE, show_residuals_line = TRUE) +
+  labs(x = "Gewicht in [mg]", y = "Sprungweite in [cm]",
+       color = "Entwicklungsstand") +
+  theme(legend.position = "top")
 ```
 
-### ... mit `{modelbased}`
-
-[R Paket `{modelbased}`](https://easystats.github.io/modelbased/)
+Am Ende ist es dann die Frage wie du hier weiter machen willst, dann empfehle ich dir nochmal in das R Paket [R Paket `{modelbased}`](https://easystats.github.io/modelbased/) oder eben in das [Kapitel zu den Marginal effects models](#sec-marginal) nachzuschauen.
 
 ### ... mit `{purrr}`
 
