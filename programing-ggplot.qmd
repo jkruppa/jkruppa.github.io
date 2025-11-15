@@ -1174,7 +1174,7 @@ ggplot(ggplot_tbl, aes(x = stage, y = jump_length)) +
 
 ### `{ggdist}`
 
-Das [R Paket `{ggdist}`](https://mjskay.github.io/ggdist/index.html) ist ein mächtiges Paket, wenn es darum geht Verteilungen darzustellen. Dafür brauchen wir dann aber auf der anderen Seite auch einiges an Beobachtungen pro Gruppe. Ichj würde mal sagen, dass wir hier schnell mal von mittleren zweistellligen Zahlen an Beobachtungen sprechen.
+Das [R Paket `{ggdist}`](https://mjskay.github.io/ggdist/index.html) ist ein mächtiges Paket, wenn es darum geht Verteilungen darzustellen. Dafür brauchen wir dann aber auf der anderen Seite auch einiges an Beobachtungen pro Gruppe. Ich würde mal sagen, dass wir hier schnell mal von mittleren zweistelligen Zahlen an Beobachtungen sprechen. Wir können hier aber trotzdem mal zeigen, was das R Paket so kann. Im Folgenden einmal die Verteilung der Sprungweiten auf der x-Achse und die Gruppen auf der y-Achse. Ich habe dann noch die einzlenen Beobachtungen nach dem Entwicklungsstand und der Ernährungsform aufgeteilt.
 
 ```{r}
 #| warning: false
@@ -1184,20 +1184,23 @@ Das [R Paket `{ggdist}`](https://mjskay.github.io/ggdist/index.html) ist ein mä
 #| fig-align: center
 #| fig-height: 3
 #| fig-width: 7
-#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Darstellung der Sprungweite in Abhängigkeit der Ernährungsform und dem Entwicklungsstand. Hier einmal gedereht für die x- und y-Achse um gleich die Verteilungen etwas besser zeigen zu können. *[Zum Vergrößern anklicken]*"
 
 ggplot_tbl |> 
   ggplot(aes(x = jump_length, y = feeding, color = stage)) +
   theme_minimal() +
-  geom_point() +
-  scale_color_okabeito()
+  geom_point(position = position_dodge(0.4)) +
+  scale_color_okabeito() +
+  theme(legend.position = "top")
 ```
+
+Dann können wir einmal ein lineares Modell schätzen um uns gleich mal die Koeffizienten mit den entsprechenden Fehlern als Verteilung anzuschauen.
 
 ```{r}
 jump_feeding_fit <- lm(jump_length ~ feeding * stage, data = ggplot_tbl)
 ```
 
-[R Paket `{distributional}`](https://pkg.mitchelloharawild.com/distributional/index.html)
+In der folgenden Abbildung siehst du dann einmal die Koeffizienten und deren Fehler als Verteilung einmal dargestellt. Hier siehst du sehr schön, dass die Koeffizienten als Punktschätzer eigentlich aus einer Verteilung stammen, die natürlich auch einen Fehler hat. Der Koeffizient ist eben dann doch nichts anders als der Wert wo die Verteilung ihren Schwerpunkt hat. Wir sehen hier im rinzip die Visualisierung der `summary()` Ausgabe eines linearen Modells.
 
 ```{r}
 #| warning: false
@@ -1207,7 +1210,7 @@ jump_feeding_fit <- lm(jump_length ~ feeding * stage, data = ggplot_tbl)
 #| fig-align: center
 #| fig-height: 3
 #| fig-width: 7
-#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Darstellung der Koeffizienten aus einer linearen Regression zusammen mit dem Fehler und der Verteilung aus der der Punktschätzer stammt.. *[Zum Vergrößern anklicken]*"
 
 jump_feeding_fit |> 
   tidy()  |> 
@@ -1217,6 +1220,8 @@ jump_feeding_fit |>
                                           mu = estimate, sigma = std.error)))
 ```
 
+Jetzt können wir nochmal richtig ausholen und dann nochmal alles zusammenbringen. Wir schauen uns die Punktschätzer aus der linearen Regression mit den Koeffizienten an. Dann bringen wir noch die einzelnen Beobachtungen mit ein. Damit haben wir dann die Daten mit den theoretischen Koeffizienten zusammen. Da sehen wir dann auch gleich die Effekte der Ernährungsformen auf die Sprungweite und das sich die Effekte bei einer Zuckerernährung und dem Entwicklungsstand umdrehen.
+
 ```{r}
 #| warning: false
 #| echo: true
@@ -1225,19 +1230,24 @@ jump_feeding_fit |>
 #| fig-align: center
 #| fig-height: 3
 #| fig-width: 7
-#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
+#| fig-cap: "Darstellung der Sprungweite in Abhängigkeit von der Ernährungsform der Flöhe und dem Entwicklungstand. Die Verteilung der Koeffizienten ist zusammen mit den beobachteten Daten dargestellt. *[Zum Vergrößern anklicken]*"
 
-ggplot_tbl |> 
-  expand(feeding, stage) %>%
-  augment(jump_feeding_fit, newdata = ., se_fit = TRUE) |> 
+expand(ggplot_tbl, feeding, stage) |> 
+  augment(jump_feeding_fit, newdata = _, se_fit = TRUE) |> 
   ggplot(aes(y = feeding, color = stage)) +
   theme_minimal() +
   stat_halfeye(aes(xdist = dist_student_t(df = df.residual(jump_feeding_fit), 
-                                          mu = .fitted, sigma = .se.fit)),
-               scale = .5) +
+                                          mu = .fitted, sigma = .se.fit),
+                   fill = stage),
+               scale = 0.5, alpha = 0.5) +
   geom_point(data = ggplot_tbl, aes(x = jump_length),
-             pch = "|", size = 2, position = position_nudge(y = -.15))
+             pch = "|", size = 3, position = position_nudge(y = -.15)) +
+  scale_color_okabeito() +
+  scale_fill_okabeito() +
+  theme(legend.position = "top")
 ```
+
+Am Ende möchte ich dann nochmal auf das [R Paket `{distributional}`](https://pkg.mitchelloharawild.com/distributional/index.html) verweisen, was erlaubt auch noch andere Verteilungen für die Koeffizienten zu wählen. Häufig reicht hier die t-Verteilung oder Normalverteilung aus, aber es gibt eben dann noch mehr Möglichkeiten. Das Paket ist jedenfalls klasse, wenn es um Verteilungen geht.
 
 ### `{ggpmisc}`
 
