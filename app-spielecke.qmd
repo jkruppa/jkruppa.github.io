@@ -3,7 +3,7 @@
 #| warning: false
 pacman::p_load(tidyverse, readxl, knitr, kableExtra, Hmisc, performance, parameters,
                latex2exp, see, patchwork, mfp, multcomp, emmeans, janitor, effectsize,
-               broom, ggmosaic, ggrepel,
+               broom, ggmosaic, ggrepel, 
                conflicted)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(dplyr::filter)
@@ -36,73 +36,9 @@ theme_modeling <- function() {
 
 Dieses Kapitel ist meine Spielecke, wo ich Ideen und sonst so Zeug sammele, was mir über den Weg läuft und ich noch nicht so richtig weiter im Skript eingeordnet habe. Deshalb hat das hier auch keine Struktur, da mir die Gedanken eben auch noch wirr durch den Kopf geistern.
 
-## Maximum Liklihood {.unnumbered}
-
--   [In Statistics, Probability is not Likelihood.](https://www.youtube.com/watch?v=pYxNSUDSFH4) - [Maximum Likelihood, clearly explained!!!](https://www.youtube.com/watch?v=XepXtl9YKwc)
--   [Likelihood!](https://kevintshoemaker.github.io/NRES-746/LECTURE4.html)
--   [Maximum likelihood estimation from scratch](https://alemorales.info/post/mle-nonlinear/)
-
-## Logistische Regression ergänzen {.unnumbered}
-
-@ramprasad2025smartphone [Smartphone use on the toilet and the risk of hemorrhoids](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0329983) @ely1941factors [Factors Involved in the Ejection of Milk](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0329983)
-
-## Fahrräder in Osnabrück {.unnumbered}
-
-```{r}
-bikes_tbl <- read_excel("data/bikes_count.xlsx") |> 
-  mutate(jahr = as_factor(jahr))
-```
-
-```{r}
-lm(anzahl_cum ~ tag_im_Jahr, filter(bikes_tbl, jahr == 2025)) |> 
-  predict(tibble(tag_im_Jahr = 365))
-```
-
-```{r}
-#| echo: true
-#| message: false
-#| warning: false
-#| label: fig-timeseries-bikes
-#| fig-align: center
-#| fig-height: 4.5
-#| fig-width: 8
-#| fig-cap: "foo. *[Zum Vergrößern anklicken]*"
-
-ggplot(bikes_tbl, aes(tag_im_Jahr, anzahl_cum,
-                      color = jahr)) +
-  theme_modeling() +
-  geom_point() +
-  stat_smooth(method = "lm", fullrange=FALSE, se = FALSE) +
-  scale_color_okabeito() +
-  scale_x_continuous(breaks = c(seq(230, 365, 10), 366)) +
-  labs(x = "Tag im Jahr", y = "Anzahl an Fährrädern", color = "Jahr",
-       title = "Anzahl an Fahrrädern in Osnabrück",
-       subtitle = "An welchem Tag im Jahr wird die 1 Million erreicht?") +
-  geom_line(data = tibble(tag_im_Jahr = c(275, 365), anzahl_cum = c(996765, 1388241),
-                           jahr = as_factor(c(2025, 2025))),
-            linetype = 11) +
-  geom_line(data = tibble(tag_im_Jahr = c(280, 365), anzahl_cum = c(1010267, 1381791),
-                           jahr = as_factor(c(2025, 2025))),
-            linetype = 12) +
-  theme(panel.grid.minor = element_blank(),
-        legend.position = "top")
-```
-
-## The Great Horse-Manure Crisis of 1894 {.unnumbered}
-
-[The Great Horse-Manure Crisis of 1894](https://fee.org/articles/the-great-horse-manure-crisis-of-1894/)
-
-[The Great Horse Manure Crisis of 1894 was never mentioned before 2004](https://www.gregorystrachta.com/18.html)
-
 ## Mixed data {.unnumbered}
 
-![](images/eda/zerforschen_correlation_01.jpg){fig-align="center" width="100%"}
-
-![](images/eda/zerforschen_mixed_anova.jpg){fig-align="center" width="100%"}
-
 ```{r}
-pacman::p_load(ggshadow)
-
 o2_tbl <- read_excel("data/sauerstoffmangel.xlsx") |> 
   pivot_longer(cols = t0_height:last_col(),
                values_to = "height",
@@ -121,144 +57,80 @@ o2_tbl <- read_excel("data/sauerstoffmangel.xlsx") |>
 #| warning: false
 #| label: fig-anwendung-o2-01
 #| fig-align: center
-#| fig-height: 5
-#| fig-width: 8
-#| fig-cap: "Boxplot des Fruchtwachstums von fünfzehn Tomatensorten über zehn Wochen unter Trockenstress."
+#| fig-height: 5.5
+#| fig-width: 11
+#| fig-cap: "Boxplot des Fruchtwachstums von fünfzehn Tomatensorten über zehn Wochen unter Trockenstress. **(A)** **(B)** *[Zum Vergrößern anklicken]*"
 
-ggplot(o2_tbl, aes(time_num, height, linetype = light, color = water_level)) +
-  theme_minimal() +
+p1 <- ggplot(o2_tbl, aes(time_num, height, linetype = light, color = water_level)) +
+  theme_modeling() +
+  stat_summary(func = "mean", geom = "line", linewidth = 1) +
+  scale_color_okabeito() +
+  theme(legend.position = "top") +
+  guides(color=guide_legend(nrow=2,byrow=TRUE),
+         linetype = guide_legend(nrow=2,byrow=TRUE)) +
+  labs(color = "Wasser", linetype = "Licht",
+       x = "Zeit der Messung [Woche]", y = "Höhe der Tomatenplanze [cm]",
+       title = "Mittelwerte der Faktorkombinationen")
+
+
+p2 <- ggplot(o2_tbl, aes(time_num, height, linetype = light, color = water_level)) +
+  theme_modeling() +
   stat_summary(aes(group = light), func = "mean", geom = "line",
-               size = 4, show.legend = FALSE, alpha = 0.2) +
+               size = 1, show.legend = TRUE) +
   stat_summary(aes(group = water_level), func = "mean", geom = "line",
-               size = 4, show.legend = FALSE, alpha = 0.2) +
-  stat_summary(func = "mean", geom = "line", linewidth = 2) 
-
-```
-
-```{r}
-tomato_tbl <- read_excel("data/repeated_tomato.xlsx") |> 
-  clean_names() |> 
-  mutate(variety = relevel(as_factor(variety), ref = "control"),
-         time_fct = as_factor(time))
-```
-
-```{r}
-#| echo: true
-#| message: false
-#| warning: false
-#| label: fig-anwendung-tomato-01
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 8
-#| fig-cap: "Boxplot des Fruchtwachstums von fünfzehn Tomatensorten über zehn Wochen unter Trockenstress."
-
-ggplot(tomato_tbl, 
-       aes(time_fct, diameter, fill = variety)) +
-  theme_minimal() +
-  geom_boxplot(outlier.size = 0.5) +
+               size = 1, show.legend = TRUE) +
+  scale_color_okabeito() +
   theme(legend.position = "top") +
-  scale_fill_metro() +
-  labs(x = "Zeitpunkte der Messung", y = "Mittleres Fruchtdurchmesser [cm]",
-       color = "Sorte")
+  guides(color=guide_legend(nrow=2,byrow=TRUE),
+         linetype = guide_legend(nrow=2,byrow=TRUE)) +
+  labs(color = "Wasser", linetype = "Licht",
+       x = "Zeit der Messung [Woche]", y = "Höhe der Tomatenplanze [cm]",
+       title = "Mittelwerte der Faktorlevel")
+
+p1 + p2 +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'A', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 16, face = "bold"))
+
 ```
 
-```{r}
-#| echo: true
-#| message: false
-#| warning: false
-#| label: fig-anwendung-tomato-02
-#| fig-align: center
-#| fig-height: 5
-#| fig-width: 8
-#| fig-cap: "Das Fruchtwachstum von fünfzehn Tomatensorten über zehn Wochen unter Trockenstress."
+## R Pakete {.unnumbered}
 
-ggrepel_tbl <- tomato_tbl |> 
-  group_by(time, variety) |> 
-  summarise(mean = mean(diameter, na.rm = TRUE)) |> 
-  filter(time %in% c(11))
+| Nr. | Link | Beschreibung |
+|----|----|----|
+| 1\. | [R Paket `{innsight}`](https://github.com/bips-hb/innsight) |  |
+| 2\. | [R Paket `{snakecase}`](https://tazinho.github.io/snakecase/) |  |
+| 3\. | [R Paket `{visdat}`](https://docs.ropensci.org/visdat/) |  |
+| 4\. | [R Paket `{vroom}`](https://vroom.r-lib.org/) |  |
+| 5\. | [R Paket `{gt}`](https://github.com/rstudio/gt) |  |
 
-ggplot(tomato_tbl, 
-       aes(time, diameter, color = variety, 
-           group = variety)) +
-  theme_minimal() +
-  ## geom_point2(position = position_dodge(0.5)) +
-  stat_summary(fun = "mean", geom = "line") +
-  stat_summary(fun = "mean", geom = "point", size = 1) +
-  ## stat_summary(fun = "median", geom = "line", linetype = 2) +
-  scale_color_metro() +
-  theme(legend.position = "top") +
-  scale_x_continuous(breaks = 2:11, expand = expansion(mult = c(0.1, .1))) +
-  labs(x = "Zeitpunkte der Messung", y = "Mittleres Fruchtdurchmesser [cm]",
-       color = "Sorte") +
-  geom_text_repel(data = ggrepel_tbl, aes(x = 11, y = mean, label = variety), show.legend = FALSE,
-                  nudge_x = 0.5, hjust = "left", size = 3, segment.color = "gray80")
-```
-
-## Concordance Correlation Coefficient (CCC) {.unnumbered}
-
-*Kann auch in technische Gleichheit mit rein*
-
-```{r}
-nirs_wide_tbl <- read_excel("data/nirs_qs_data.xlsx") |> 
-  clean_names()
-
-nirs_long_tbl <- nirs_wide_tbl |> 
-  pivot_longer(cols = jd_ts:last_col(),
-               values_to = "values",
-               names_to = c("method", "type"),
-               names_sep = "_") |> 
-  mutate(gulleart = as_factor(gulleart),
-         method = as_factor(method),
-         type = as_factor(type))
-```
-
-[Technical note: Validation and comparison of 2 commercially available activity loggers](https://www.sciencedirect.com/science/article/pii/S0022030218302418)
-
-[User's guide to correlation coefficients](https://pmc.ncbi.nlm.nih.gov/articles/PMC6107969/)
-
-[Concordance correlation coefficient calculation in R](https://medium.com/@amorimfranchi/concordance-correlation-coefficient-calculation-in-r-98d74ae5f0fc)
-
-## SQL als `{dbplyr}`?
-
-[Das R Paket `{dbplyr}`](https://dbplyr.tidyverse.org/) [Database Queries With R](https://solutions.posit.co/connections/db/getting-started/database-queries/)
-
-::: callout-tip
-## Anwendungsbeispiel: Klinische Studien und das weibliche Geschlecht
-
-In dem Buch [Eve: How the Female Body Drove 200 Million Years of Human Evolution](https://www.penguinrandomhouse.com/books/227568/eve-by-cat-bohannon/) von @miksanek2023eve
-:::
-
-## Tabset {.unnumbered}
-
-::: panel-tabset
-## Theoretisch
-
-## Händisch
-
-## R `{base}`
-
-## Excel
-:::
+: {tbl-colwidths="\[5,35,60\]"}
 
 ## Links {.unnumbered}
 
-AB Testuing
+[Math in R](https://cran.r-project.org/view=NumericalMathematics)
+
+[Large language models, explained with a minimum of math and jargon](https://www.understandingai.org/p/large-language-models-explained-with)
+
+[Mixed](https://stats.stackexchange.com/questions/95054/how-to-get-an-overall-p-value-and-effect-size-for-a-categorical-factor-in-a-mi)
+
+[Mixed II](https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html)
+
+[Marginal and conditional effects for GLMMs with {marginaleffects} \| Andrew Heiss – Andrew Heiss](https://www.andrewheiss.com/blog/2022/11/29/conditional-marginal-marginaleffects/)
+
+[Lists are my secret weapon for reporting stats with knitr - Higher Order Functions](https://tjmahr.github.io/lists-knitr-secret-weapon/)
+
+[Visualizing {dplyr}’s mutate(), summarize(), group_by(), and ungroup() with animations \| Andrew Heiss – Andrew Heiss](https://www.andrewheiss.com/blog/2024/04/04/group_by-summarize-ungroup-animations/)
+
+Real World Data @liu2022real
+
+Warum **Data** Science @hariri2019uncertainty
 
 [A Refresher on A/B Testing](https://hbr.org/2017/06/a-refresher-on-ab-testing) [A/B Testing Simplified: Steps to Data-Driven Decisions](https://www.statsig.com/blog/ab-testing-101)
 
 [Statistische Funktionen (Referenz) in Excel](https://support.microsoft.com/de-de/office/statistische-funktionen-referenz-624dac86-a375-4435-bc25-76d659719ffd)
 
-[Dyson Sphere](https://youtu.be/pP44EPBMb8A)
-
 [Cancer Paradox](https://youtu.be/1AElONvi9WQ)
-
-[R Library Contrast Coding Systems for categorical variables](https://stats.oarc.ucla.edu/r/library/r-library-contrast-coding-systems-for-categorical-variables/)
-
-```{r}
-#| warning: false
-#| message: false
-anage_tbl <- read_delim("data/anage_data.txt", delim = "\t")
-```
 
 ```{r}
 #| warning: false
@@ -290,15 +162,11 @@ Why We Die: And How We Live: The New Science of Ageing and Longevity
 
 [Stock assessment models overstate sustainability of the world’s fisheries](https://www.science.org/doi/10.1126/science.adl6282) and [Modelling seasonal data with GAMs](https://fromthebottomoftheheap.net/2014/05/09/modelling-seasonal-data-with-gam/)
 
-[Karnickelsterben nun auch in Bremen](https://taz.de/Das-Ende-der-Plage/!6027222/)
+[Ein Kind meiner Zeit](https://www.republik.ch/2024/06/19/ein-kind-meiner-zeit)
 
-[Jagd in Niedersachsen](https://www.ml.niedersachsen.de/startseite/themen/wald_holz_jagd/jagd_in_niedersachsen/jagd-in-niedersachsen-5138.html)
-
-[Ein Kind meiner Zeit](https://www.republik.ch/2024/06/19/ein-kind-meiner-zeit) [Galenus von Pergamon - Leben und Werk](https://robl.de/galen/galen.htm)
+[Galenus von Pergamon - Leben und Werk](https://robl.de/galen/galen.htm)
 
 [I Will Fucking Piledrive You If You Mention AI Again](https://ludic.mataroa.blog/blog/i-will-fucking-piledrive-you-if-you-mention-ai-again/)
-
-[Plötzlich sah ich den entscheidenden Graphen](https://www.zeit.de/2024/27/klimaforschung-ozean-klimawandel-umwelt-nachhaltigkeit)
 
 > Amoc sind riesige Wasserzirkulationen im Ozean, zu denen auch der Golfstrom gehört. Sie sorgen dafür, dass wir in Europa mildes Klima haben. Wenn dieses System zusammenbricht, würde es in den Niederlanden oder Deutschland etwa zehn bis zwanzig Grad kälter werden.
 
@@ -312,15 +180,7 @@ Why We Die: And How We Live: The New Science of Ageing and Longevity
 
 ## Paper Ideen {.unnumbered}
 
-Beide Paper dann mit den jeweiligen FAOSTAT Suchen verbinden.
-
-[Food and agriculture data](https://www.fao.org/faostat/en/#home)
-
-Mit dem [R Paket `{FAOSTAT}`](https://cran.r-hub.io/web/packages/FAOSTAT/) und der Vignette [FAOSTAT: Download Data from the FAOSTAT Database](https://cran.r-hub.io/web/packages/FAOSTAT/vignettes/FAOSTAT.pdf)
-
-[Esoteric beliefs and CAM impact SARS-CoV-2 immunization drivers, uptake and pediatric immunization views in Germany](https://www.nature.com/articles/s41541-024-00928-7)
-
-Tierpaper
+### Tierpaper {.unnumbered .unlisted}
 
 -   [Arginine Nutrition in Neonatal Pigs](https://www.sciencedirect.com/science/article/pii/S0022316623031279)
 -   [Fiber effects in nutrition and gut health in pigs](https://link.springer.com/article/10.1186/2049-1891-5-15)
@@ -328,8 +188,9 @@ Tierpaper
 -   [Implications of sorghum in broiler chicken nutrition](https://www.sciencedirect.com/science/article/pii/S0377840110000209)
 -   [Proposed bursa of fabricius weight to body weight ratio standard in commercial broilers](https://www.sciencedirect.com/science/article/pii/S0032579119322448)
 -   [Growth, efficiency, and yield of commercial broilers from 1957, 1978, and 2005](https://www.sciencedirect.com/science/article/pii/S0032579119385505)
+-   [Factors Involved in the Ejection of Milk](https://www.sciencedirect.com/science/article/pii/S0022030241954061) von @ely1941factors mit der Katze auf dem Rücken der Kuh
 
-Pflanzenpaper
+### Pflanzenpaper {.unnumbered .unlisted}
 
 -   [Hoverfly pollination enhances yield and fruit quality in mango under protected cultivation](https://www.sciencedirect.com/science/article/pii/S0304423822004411)
 -   [Plant Growth, Yield, and Fruit Size Improvements in ‘Alicia’ Papaya Multiplied by Grafting](https://www.mdpi.com/2223-7747/12/5/1189)
@@ -339,13 +200,13 @@ Pflanzenpaper
 
 ## Zitate {.unnumbered}
 
-Copycat
-
-> *"" ---*
-
 > *"" ---*
 
 ------------------------------------------------------------------------
+
+> *"The whole world is a very narrow bridge and the main thing is to have no fear at all." --- [Kol Ha'Olam Kulo](https://jwa.org/media/lyrics-to-kol-haolam-kulo)*
+
+> *"Am Ende wird alles gut. Und wenn es noch nicht gut ist, dann ist es noch nicht das Ende." --- Fernando Sabino*
 
 > *"Mein Bleistift und ich sind klüger als ich." --- Albert Einstein nach Karl Popper*
 
@@ -406,144 +267,5 @@ Copycat
 > *"\[Alice Munro\] habe sich, erzählte sie einmal, die Sätze ihrer Erzählungen jeweils beim Kartoffelschälen ausgedacht und diese, während die Kartoffeln kochten, zwischendurch im Wohnzimmer notiert." --- [Alice Munro & Die Kunst des Nebenbeischreibens](https://www.zeit.de/kultur/literatur/2024-05/alice-munro-schriftstellerin-nobelpreis-nachruf)*
 
 > *"Gott würfelt nicht!" --- Albert Einstein*
-
-## Korrelation {.unnumbered}
-
-[How does Polychoric Correlation Work? (aka Ordinal-to-Ordinal correlation)](https://www.r-bloggers.com/2021/02/how-does-polychoric-correlation-work-aka-ordinal-to-ordinal-correlation/)
-
-[An Alternative to the Correlation Coefficient That Works For Numeric and Categorical Variables](https://rviews.rstudio.com/2021/04/15/an-alternative-to-the-correlation-coefficient-that-works-for-numeric-and-categorical-variables/)
-
-## Pakete, die ich mal anschauen will... {.unnumbered}
-
-[R Paket `{collapse}`](https://sebkrantz.github.io/collapse/index.html)
-
-[R Paket `{ggdist}`](https://mjskay.github.io/ggdist/index.html)
-
-Das R Paket `{visibly}` auf [An Introduction to Visibly](https://m-clark.github.io/visibly/articles/intro.html)
-
-[R Paket `{innsight}`](https://github.com/bips-hb/innsight)
-
-[`{snakecase}`](https://tazinho.github.io/snakecase/)
-
-[`{visdat}`](https://docs.ropensci.org/visdat/)
-
-[Make an R Cheat Sheet](https://biol355.github.io/midterm/midterm.html)
-
-[`{vroom}`](https://vroom.r-lib.org/)
-
-[`{gt}`](https://github.com/rstudio/gt)
-
-## Learning text {.unnumbered}
-
-Wachsamkeit und Konzentration kann ein Mensch nur für 90 Minuten halten. Selbst dann ist Aufmerksamkeit ein Flackern von höherer und niedrigerer Intensität. Danach muss der Mensch 1-2 Stunden lang wirklich ruhen, bevor er wieder sehr hart arbeiten & lernen kann.
-
-Folgende Dinge, die innerhalb von 4 Stunden nach diesen 90-minütigen Lerneinheiten durchgeführt werden, beschleunigen das Lernen.
-
--   Kurzes Nickerchen
--   Nichtschlafende tiefe Ruhe (NSDR)
--   Yoga Nidra
--   Formen der Meditation, die nicht viel fokussierte Konzentration erfordern,
-
-Folgende Dinge helfen während der Lernphase das Lernen zu verstärken und zu festigen. Der Hippocampus wiederholt während dieser Zeit die Informationen mit 20-facher Geschwindigkeit und beschleunigt das Lernen und das Behalten der neu gelernten Informationen.
-
--   Mache ab und zu 10 Sekunden Pause vom Lernen, in denen du absolut nichts tust
--   Mache den Kopf frei (Lückeneffekt/Mikropausen),
--   Inkrementelles Lernen. Du kannst das Lernen in kleine, konzentrierte Einheiten aufteilen.
--   Stelle dir einen Timer für 3 Minuten ein, schalte das Telefon aus und verbringe die 3 Minuten damit, eine Sache intensiv zu lernen, auch wenn es sich anfühlt, als würde es aktuell nichts bringen.
--   Wenn du das wiederholt tust, können diese kleinen Schritte des Lernens zu einer übergroßen Menge des Lernens insgesamt führen.
-
-[How to Learn Anything You Want \| Andrew Huberman](https://youtu.be/8oyA-ctqq3g)
-
-## Weitere Datenquellen {.unnumbered}
-
-[Food and agriculture data](https://www.fao.org/faostat/en/#home)
-
-Mit dem [R Paket `{FAOSTAT}`](https://cran.r-hub.io/web/packages/FAOSTAT/) und der Vignette [FAOSTAT: Download Data from the FAOSTAT Database](https://cran.r-hub.io/web/packages/FAOSTAT/vignettes/FAOSTAT.pdf)
-
-```{r}
-#| eval: false
-
-
-```
-
-Mit dem [R Paket `{owidR}`](https://cran.r-project.org/web/packages/owidR/index.html) haben wir auch eine Möglichkeit direkt auf die Datenbank von [Our World in Data](https://ourworldindata.org/) zuzugreifen.
-
-```{r}
-#| eval: false
-
-library(owidR)
-foo <- owid_search("annual") 
-owid("annual-co2-emissions-by-region")
-owid(foo[3])
-```
-
-Eine wunderbare Sammlung von Datensätzen aus dem Bereich der Agarwissenschaften liefert das R Paket `{agridat}`. Über die Hilfeseite [agridat: Agricultural Datasets](https://cran.r-project.org/web/packages/agridat/index.html) findest du dann einmal einen gesamten Überblick und auch die Informationen über einige ausgewählte Datensätze aus Dutzenden von Datensätzen. Alle Datensätze der wichtigen Bücher zu dem experimentellen Designs sind dort eigentlich enthalten und einmal kuratiert.
-
-Hier noch der Link zu [agridat - Datensätze mit Abbildungen in `{desplot}`](https://kwstat.github.io/agridat/reference/index.html). Du musst dann auf die jeweiligen Datensätze in der Liste klicken und dann kommst du zu dem Datensatz mit mehr Details sowie meistens auch einer Abbildung in `desplot`.
-
-## Marginal effects {.unnumbered}
-
-[Marginal Effects Zoo](https://marginaleffects.com)
-
-[R Paket `{marginaleffects}`](https://marginaleffects.com)
-
-[Marginal and conditional effects for GLMMs with `{marginaleffects}`](https://www.andrewheiss.com/blog/2022/11/29/conditional-marginal-marginaleffects/)
-
-[Marginalia: A guide to figuring out what the heck marginal effects, marginal slopes, average marginal effects, marginal effects at the mean, and all these other marginal things are](https://www.andrewheiss.com/blog/2022/05/20/marginalia/#what-about-marginal-things-in-statistics)
-
-## Latent Class Analysis {.unnumbered}
-
-Wie immer gibt es eine Reihe von Tutorien auf denen dieser Abschnitt aufbaut. Zum einen wirf einfach mal einen Blick in das Tutorium [Latent Class Analysis Using R](https://pop.princeton.edu/events/2020/latent-class-analysis-using-r). Eine leider etwas veraltete Übersicht über mögliche R Pakete liefert [Ways to do Latent Class Analysis in R](https://maksimrudnev.com/2016/12/28/latent-class-analysis-in-r/). Ich habe da immer mal quer geschaut und mich dann für die Pakete hier entschieden. Es gibt sicherlich noch andere Möglichkeiten eine *latent class analysis* zu rechnen.
-
-Wenn du mehr über *latent class analysis* erfahren möchtest, dann kann ich dir nur das [LCA Frequently Asked Questions (FAQ)](https://www.john-uebersax.com/stat/faq.htm) empfehlen. Das FAQ ist sehr umfangreich und beschäftigt sich mit allen wichtigen Punkten. Wir wollen uns ja mit dem R Paket `poLCA` beschäftigen. Hier gibt es zwei Tutorien. Einmal gibt es das Tutorium [Example for a latent class analysis with the poLCA-package in R](https://statistics.ohlsen-web.de/latent-class-analysis-polca/) und das Tutroium [Latent Class Analysis](https://rpubs.com/eogawac/poLCA). Und natürlich die Litertur von @linzer2011polca mit der entsprechenden Veröffentlichung [poLCA: An R Package for Polytomous Variable Latent Class Analysis](https://www.sscnet.ucla.edu/polisci/faculty/lewis/pdf/poLCA-JSS-final.pdf)
-
-Grundsätzlich basiert die *latent class analysis* nicht auf Distanzen sondern versucht über eine Modellierung der Klassenzugehörigkeitswahrscheinlichkeit getrennte Gruppen zu bilden. Wir wollen also $k$ Klassen haben und im idealen Fall können wir durch unsere Variablen in dem Datensatz jeweils mit einer 100% Wahrscheinlichkeit einer der drei Klassen zuordnen. Was dann diese $k$ Klassen aussagen, müssen wir dann selber anhand der zugewiesenen Variablen aus unseren Daten interpretieren.
-
-```{r}
-#| eval: false
-pacman::p_load(tidyverse, magrittr, janitor, conflicted)
-
-animals_tbl <- read_excel("data/cluster_animal.xlsx", sheet = 1) |> 
-  clean_names() 
-```
-
-```{r}
-#| eval: false
-pacman::p_load(poLCA)
-
-poLCA(cbind(warm_blooded, fly, vertebrate, threatened, live_in_groups) ~ 1,
-      nclass = 3,
-      data = animals_tbl,
-      nrep = 1,
-      na.rm = FALSE,
-      graphs = TRUE,
-      maxiter = 100000
-)
-
-```
-
-Hier hängen wir dann an der Interpretation. Da müssen wir nochmal tiefer schauen.
-
-## Structural Equation Modeling {.unnumbered}
-
-@van2023best [tidySEM](https://cjvanlissa.github.io/tidySEM/index.html)
-
-[Structural Equation Modeling](https://bookdown.org/bean_jerry/using_r_for_social_work_research/structural-equation-modeling.html)
-
-[Introduction to structural equation modeling (sem) in r with lavaan](https://stats.oarc.ucla.edu/r/seminars/rsem/)
-
-[Intro to structural equation modeling](https://rpubs.com/Agrele/SEM)
-
-Schöne Diagramme [Structural Equation Models](https://advstats.psychstat.org/book/sem/index.php)
-
-## Links & Quellen {.unnumbered}
-
-[Large language models, explained with a minimum of math and jargon](https://www.understandingai.org/p/large-language-models-explained-with)
-
-Data Science
-
--   Real World Data @liu2022real
--   Warum **Data** Science @hariri2019uncertainty
--   Paradigmenwechsel?
 
 ## Referenzen {.unnumbered}

@@ -7,8 +7,9 @@
 
 pacman::p_load(readxl, knitr, kableExtra, tidyverse, magrittr, conflicted, broom,
                simstudy, openxlsx, ggrepel, ggpmisc, patchwork, scales,
-               parameters, performance, gtsummary)
+               parameters, performance, gtsummary, see, scales)
 conflicts_prefer(dplyr::filter)
+conflicts_prefer(magrittr::set_names)
 ```
 
 *Letzte Änderung am `r format(fs::file_info("example-complex.qmd")$modification_time, '%d. %B %Y um %H:%M:%S')`*
@@ -106,10 +107,217 @@ p1 + p2 +
 Wir nutzen den Datensatz in verschiedenen Kapiteln.
 
 ::: callout-tip
-## Datei von den Kichererbsen in Brandenburg
+## Datei von den olympischen Tieren
 
 Du findest die Datei `animal_olympics.xlsx` auf GitHub [jkruppa.github.io/data/](https://github.com/jkruppa/jkruppa.github.io/tree/master/data) als Excel Datei.
 :::
+
+## Von Fahrrädern in Osnabrück
+
+Neben den klassischen Daten aus dem Bereich der Agrawissenschaften sammle ich auch so den ein oder anderen Datensatz. Hier haben wir dann einmal den Datensatz zu den Fahrrädern in Osnabrück vorliegen. An einer Straße in Osnabrück werden die Fahrräder gezählt. Genau genommen sind es nicht nur Fahrräder sondern auch Autos oder andere Gefährte, die die Fahrradstraße entlangfahren. Aber das ist nur eine Kleinigkeit. Ich habe immer mal wieder in den Jahren 2024 und 2025 die Informationen von der Säule unregelmäßig erhoben. Dazu dann noch die Temperatur und auch ob es geregnet hat.
+
+```{r}
+bikes_tbl <- read_excel("data/bikes_count.xlsx") |> 
+  mutate(jahr = as_factor(jahr))
+```
+
+Dann können wir uns die Daten einmal in der folgenden Tabelle anschauen. Wir müssen dann vermutlich später nochmal ran und die Uhrzeiten und die Werte für das Datum richtig formatieren. Aber du siehst hier schonmal einen guten Überblick.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-example-bikes
+#| tbl-cap: "Auszug aus dem Daten zu den Fahrrädern in Osnabrück."
+
+bikes_raw_tbl <- read_excel("data/bikes_count.xlsx") |> 
+  mutate_all(as.character)
+
+options(knitr.kable.NA = '')
+
+rbind(head(bikes_raw_tbl, n = 4),
+      rep("...", times = ncol(bikes_raw_tbl)),
+      tail(bikes_raw_tbl, n = 4)) |> 
+  kable(align = "c", "pipe")
+```
+
+Dann können wir auch einmal schnell die Anzahl an Fahrrädern zum Ende des Jahres 2024 vorhersagen.
+
+```{r}
+lm(anzahl_cum ~ tag_im_Jahr, filter(bikes_tbl, jahr == 2024)) |> 
+  predict(tibble(tag_im_Jahr = 366))
+```
+
+Genauso machen wir das dann auch einmal für das Jahr 2025 und erkennen sogleich, dass es hier schon einiges an Unterschied gibt.
+
+```{r}
+lm(anzahl_cum ~ tag_im_Jahr, filter(bikes_tbl, jahr == 2025)) |> 
+  predict(tibble(tag_im_Jahr = 365))
+```
+
+In der folgenden Abbildung habe ich dir dann mal den Verlauf über den Herbst der Jahre dargestellt. Neben der unterschiedlichen Steigung sehen wir auch, dass wir wirklich im Jahr 2025 die eine Million Fahrräder locker erreicht haben. Das Ganze war dann im Jahr 2024 sehr viel knapper. Am Ende des Jahres fahren dann einfach keine Fahrräder mehr.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-timeseries-bikes
+#| fig-align: center
+#| fig-height: 4.5
+#| fig-width: 7
+#| fig-cap: "Zusammenhang zwischen dem zeitlichen Verlauf der beiden Jahre 2024 sowie 2025 und der gezählten Anzahlen an Fahhrädern in Osnabrück. *[Zum Vergrößern anklicken]*"
+
+ggplot(bikes_tbl, aes(tag_im_Jahr, anzahl_cum,
+                      color = jahr)) +
+  theme_minimal() +
+  geom_point() +
+  stat_smooth(method = "lm", fullrange=FALSE, se = FALSE, alpha = 0.5) +
+  scale_color_okabeito() +
+  scale_x_continuous(breaks = c(seq(230, 365, 10), 366)) +
+  labs(x = "Tag im Jahr", y = "Anzahl an Fährrädern", color = "Jahr",
+       title = "Anzahl an Fahrrädern in Osnabrück",
+       subtitle = "An welchem Tag im Jahr wird die 1 Million erreicht?") +
+  theme(panel.grid.minor = element_blank(),
+        legend.position = "top")  
+```
+
+## Von hohen Bäumen
+
+Dann schauen wir uns noch einen Datensatz von hohen Bäumen an. Wir haben hier einen sehr simplen Datensatz, aber wir können hier gut den Zusammenhang zwischen einem statistischen und mathematischen Modell diskutieren. Den es gibt ja einen Zusammenhang zwischen den Umfang und dem Volumen eines Objektes oder eben Baum. Wir finden den Datensatz im R Paket `{tidymodels}`.
+
+```{r}
+pacman::p_load(tidymodels)
+```
+
+Ein bisschen mehr kannst du auch [Von dem Umfang von Bäumen](https://r4ds.github.io/bookclub-tmwr/r-formula-syntax.html) woanders lesen. Wir konzentrieren uns hier einmal auf die Daten und nutzen diese Daten später in anderen Kapiteln. Der Baumumfang `circumfence` ist gemessen in Zoll, die Höhe `height` ist gemessen in Fuß und Volumen `volume` ist gemessen in Kubikfuß. Das ist grässlich und deshalb alles einmal in Zentimeter umgerechnet. Das ist dann auch sinnvoller. Wir laden also einmal die Daten und mutieren dann die Spalten entsprechend.
+
+```{r}
+data(trees)
+trees_tbl <- trees |>
+  as_tibble() |> 
+  set_names(c("circumfence", "height", "volume")) |> 
+  mutate(circumfence_cm = circumfence * 2.54,
+         height_cm = height * 30.48,
+         volume_cm3 = volume * 30.48^3) |> 
+  mutate_all(round, 2) |> 
+  select(circumfence_cm, height_cm, volume_cm3)
+```
+
+In der folgenden Tabelle ist dann nochmal ein Auszug aus den Daten zu sehen. Ich habe dann mal schnell auf zwei Kommastellen gerundet.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-example-trees
+#| tbl-cap: "Auszug aus dem Daten zu den hohen Bäumen."
+
+options(knitr.kable.NA = '')
+
+trees_raw_tbl <- trees_tbl |> 
+  mutate_if(is.factor, as.character)
+
+rbind(head(trees_raw_tbl),
+      rep("...", times = ncol(trees_raw_tbl)),
+      tail(trees_raw_tbl)) |> 
+  kable(align = "c", "pipe")
+```
+
+Dann bietet sich auch hier einmal eine Abbildung an. Ich habe dann einmal den Zusammenhang zwischen den Baumumfang und der Baumhöhe dargestellt und die Volumen einmal als größer werdende Kreise. Später dann mehr zu der Modellierung dieser Daten in den entsprechenden Kapiteln oder aber YouTube Videos.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-exp-trees-01
+#| fig-align: center
+#| fig-height: 4
+#| fig-width: 7
+#| fig-cap: "Scatterplot des Zusamenhangs zwischen den Baumumfang und der Baumhöhe. Das Baumvolumen ist in unterschiedlicher Größe der Punkte dargestellt. *[Zum Vergrößern anklicken]*"
+
+trees_tbl %>% 
+  ggplot(aes(x = circumfence_cm, y = height_cm)) + 
+  theme_minimal() +
+  geom_point(aes(size = volume_cm3)) +
+  labs(x = "Baumumfang in [cm]", y = "Baumhöhe in [cm]",
+       size = "Baumvolumen in [cm³]") +
+  theme(panel.grid.minor = element_blank(),
+        legend.position = "top") 
+```
+
+## Von fröhlichen Pinguinen
+
+![Darstellung der Schnabellänge (eng. *bill length*) und der Schnabelhöhe (eng. *bill depth*) für die Pinguindaten. Hier ist mit *bill* wirklich der Schnabel und nicht die. Rechnung gemeint.](images/penguins_culmen_depth.png){#fig-jumping-animal fig-align="center" width="100%"}
+
+Als ich über den Artikel [Stop using iris](https://www.meganstodel.com/posts/no-to-iris/) als Datensatz gestolpert bin, habe ich mich dann auch entschlossen einmal den Datensatz [`{palmerpenguins}`](https://allisonhorst.github.io/palmerpenguins/) aus dem gleichnamigen Paket zu nutzen und vorzustellen. Wir laden also einmal das R Paket und dann die Daten.
+
+```{r}
+pacman::p_load(palmerpenguins)
+```
+
+Da die Daten schon aufgearbeitet sind, brauchen wir hier nicht viel machen. Es gibt noch eine rohe Version der Daten, wo dann mehr gemacht werden muss, aber mir reicht hier die aufgearbeitete Version allemal.
+
+```{r}
+data("penguins")
+penguins_tbl <- penguins
+```
+
+Dann kommen wir auch schon zu dem Auszug aus den Daten. Wir haben hier zwei Faktoren mit jeweils drei Arten und zwei Inseln vorliegen sowie eben einiges an numerischen Messwerten für die Pinguine. Dazu kommt noch das Geschlecht und eben auch das Messjahr. Hier können wir dann einiges an Gruppenvergleichen entsprechend rechnen.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-example-penguins
+#| tbl-cap: "Auszug aus dem Daten zu den fröhlichen Pinguinen."
+
+options(knitr.kable.NA = '')
+
+penguins_raw_tbl <- penguins |> 
+  mutate_if(is.factor, as.character)
+
+rbind(head(penguins_raw_tbl),
+      rep("...", times = ncol(penguins_raw_tbl)),
+      tail(penguins_raw_tbl)) |> 
+  kable(align = "c", "pipe")
+```
+
+## Von fliegenden Adlern
+
+Adler sind großartige Tiere und deshalb wollen wir auch Adler bemessen. Dann haben wir einen Datensatz mit dem wir arbeiten und uns die Tiere genauer anschauen können. Wir laden wieder unser Paket und dann die entsprechenden Daten.
+
+```{r}
+pacman::p_load(Stat2Data)
+```
+
+Hier nutze ich die Daten wie sie eben vorliegen. Später können wir dann noch die Datenaufarbeiten und schöner machen. Hier eben einmal die rohen Daten zu den Adlern.
+
+```{r}
+data("Hawks")
+hawks_tbl <- Hawks |> 
+  as_tibble()
+```
+
+In der folgenden Tabelle siehst du einmal die Daten zu den Adlern. Wir haben hier eine ganze Reihe an Variablen von Zeitangaben bis hin dem Alter als Faktor in *adult* und *juvenile*. Dann haben wir noch einiges gemessen, wenn es möglich war. Wir haben hier also spannende Daten mit einiges an fehlenden Daten vorliegen.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-example-hawk
+#| tbl-cap: "Auszug aus dem Daten zu den fliegenden Adlern."
+
+options(knitr.kable.NA = '')
+
+hawks_raw_tbl <- Hawks |> 
+  as_tibble() |> 
+  mutate_if(is.factor, as.character)
+
+rbind(head(hawks_raw_tbl),
+      rep("...", times = ncol(hawks_raw_tbl)),
+      tail(hawks_raw_tbl)) |> 
+  kable(align = "c", "pipe")
+```
 
 ## Von infizierten Ferkeln {#sec-example-pigs}
 
