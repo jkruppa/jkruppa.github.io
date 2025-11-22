@@ -65,7 +65,7 @@ p3_intro_00_3 <- enzyme_tbl |>
   ggplot(aes(grp, activity)) +
   theme_marginal() +
   geom_point(color = "gray50", alpha = 0.5) +
-  stat_summary(fun.data=mean_sdl, mult=1, 
+  stat_summary(fun.data=mean_sdl, fun.args = list(mult = 1), 
                geom="pointrange", shape = 23, fill = "#CC79A7", size = 0.75) +
   stat_summary(fun = mean, geom = "label", aes(label = round(..y..,2)),
                size = 3, position = position_nudge(x = .26, y = -1),
@@ -79,7 +79,7 @@ p4_intro_00_4 <- enzyme_tbl |>
   theme_marginal() +
   geom_point(color = "gray50", alpha = 0.5,
              position = position_dodge(0.5)) +
-  stat_summary(fun.data=mean_sdl, mult=1, 
+  stat_summary(fun.data=mean_sdl, fun.args = list(mult = 1), 
                geom="pointrange", shape = 23, 
                aes(fill = type), size = 0.75,
                position = position_dodge(0.5)) +
