@@ -74,7 +74,7 @@ p <- bind_rows(truth_tbl,
   annotate("text", x = 93, y = 94, label = "Daten (D)", size = 5, fontface = 3) +
   geom_ellipse(aes(x0 = 91, y0 = 80, a = 12, b = 7, angle = 20), color = "black") +
   annotate("text", x = 110, y = 66, label = "Teststatistik", size = 5, fontface = 2) +
-  annotate("label", x = 110, y = 60, label = expression(T[D]), size = 7) +
+  annotate("label", x = 110, y = 60, label = expression(T[D]), size = 7, fill = "white") +
   annotate("text", x = 60, y = 77, label = "Rückschluß", size = 5, fontface = 2) +
   annotate("text", x = 60, y = 70, label = expression(Gilt~die~H[0]*"?"), 
            size = 5, fontface = 3) +
@@ -95,7 +95,7 @@ p <- bind_rows(truth_tbl,
              arrow = arrow(length = unit(0.01, "npc"), type = "closed"),
              curvature = 0.2, color = "gray", linewidth = 0.5) +
   annotate("label", x = 25, y = 42, label = expression(H[0]~wahr), 
-           size = 7) +
+           size = 7, fill = "white") +
   geom_line(data = dist_tbl, aes(x = (x_raw + 13)*7, y = y_raw*80+5),
             linewidth = 1, color = "gray") +
   geom_segment(x = 65, y = 5, xend = 115, yend = 5, color = "gray") +
@@ -109,10 +109,10 @@ p <- bind_rows(truth_tbl,
            fontface = 2) +
   annotate("text", x = 21.5, y = 12, label = "...", size = 12, fontface = 2,
            color = "gray") +
-  annotate("label", x = 81, y = 42, label = expression(T[1]), size = 7) +
-  annotate("label", x = 70, y = 18, label = expression(T[2]), size = 7) +
-  annotate("label", x = 46, y = 3, label = expression(T[3]), size = 7) +
-  annotate("label", x = 16.5, y = 3, label = expression(T[p]), size = 7) +
+  annotate("label", x = 81, y = 42, label = expression(T[1]), size = 7, fill = "white") +
+  annotate("label", x = 70, y = 18, label = expression(T[2]), size = 7, fill = "white") +
+  annotate("label", x = 46, y = 3, label = expression(T[3]), size = 7, fill = "white") +
+  annotate("label", x = 16.5, y = 3, label = expression(T[p]), size = 7, fill = "white") +
   scale_x_continuous(limits = c(-3, 115)) +
   scale_y_continuous(limits = c(-4, 105)) +
   scale_shape_manual(values = 21:24) +
